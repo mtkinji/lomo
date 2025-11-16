@@ -1,0 +1,17 @@
+import Constants from 'expo-constants';
+
+type ExtraStore = Record<string, any> | undefined;
+
+function getExtra(): ExtraStore {
+  const expoConfigExtra = Constants.expoConfig?.extra;
+  const manifestExtra = (Constants.manifest as any)?.extra;
+  const manifest2Extra = (Constants.manifest2 as any)?.extra;
+  return expoConfigExtra ?? manifestExtra ?? manifest2Extra ?? {};
+}
+
+export function getEnvVar<T = string>(key: string): T | undefined {
+  const extras = getExtra();
+  return extras ? (extras[key] as T | undefined) : undefined;
+}
+
+
