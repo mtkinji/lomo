@@ -14,12 +14,24 @@ export type GeneratedArc = Pick<
 > & { suggestedForces?: string[] };
 
 const OPENAI_API_KEY = getEnvVar<string>('openAiApiKey');
+const OPENAI_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_TIMEOUT_MS = 15000;
 
 export async function generateArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
   if (!OPENAI_API_KEY) {
+    console.warn('OPENAI_API_KEY missing – using mock arc suggestions.');
     return mockGenerateArcs(params);
   }
 
+  try {
+    return await requestOpenAiArcs(params);
+  } catch (err) {
+    console.warn('OpenAI request failed, falling back to mock arcs.', err);
+    return mockGenerateArcs(params);
+  }
+}
+
+async function requestOpenAiArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
   const systemPrompt =
     'You are LOMO, a life architecture coach helping users define identity Arcs (long-term directions). ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, northStar, narrative, status, and suggestedForces array.';
@@ -75,7 +87,7 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
     ],
   };
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -100,12 +112,27 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
     throw new Error('OpenAI response malformed');
   }
 
+  const parsed = JSON.parse(content);
+  return parsed.arcs as GeneratedArc[];
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = OPENAI_TIMEOUT_MS
+): Promise<Response> {
+  if (typeof AbortController === 'undefined') {
+    // Environment (like Expo Go) may not support AbortController yet.
+    return fetch(url, options);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
-    const parsed = JSON.parse(content);
-    return parsed.arcs as GeneratedArc[];
-  } catch (err) {
-    console.error('Failed to parse OpenAI response', err);
-    throw new Error('Unable to parse AI suggestions');
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

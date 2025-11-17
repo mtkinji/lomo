@@ -154,6 +154,7 @@ export function ArcsScreen() {
           setCurrentStep(0);
         }}
         insetTop={insets.top}
+        setSuggestions={setSuggestions}
       />
     </AppShell>
   );
@@ -290,6 +291,7 @@ type NewArcModalProps = {
   onGenerate: () => void;
   onAdopt: (suggestion: GeneratedArc) => void;
   insetTop: number;
+  setSuggestions: React.Dispatch<React.SetStateAction<GeneratedArc[]>>;
 };
 
 function NewArcModal({
@@ -309,6 +311,7 @@ function NewArcModal({
   onGenerate,
   onAdopt,
   insetTop,
+  setSuggestions,
 }: NewArcModalProps) {
   const QUESTIONS = [
     {
