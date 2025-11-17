@@ -3,6 +3,7 @@ export const fonts = {
   medium: 'Inter_500Medium',
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
+  logo: 'Poppins_700Bold',
 };
 
 export const typography = {
@@ -32,6 +33,12 @@ export const typography = {
     lineHeight: 16,
     letterSpacing: 0.5,
     textTransform: 'uppercase' as const,
+  },
+  brand: {
+    fontFamily: fonts.logo,
+    fontSize: 34,
+    lineHeight: 40,
+    letterSpacing: 1,
   },
 };
 

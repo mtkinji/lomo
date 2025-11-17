@@ -13,6 +13,7 @@ interface AppState {
   goalRecommendations: Record<string, GoalDraft[]>;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
+  removeArc: (arcId: string) => void;
   addGoal: (goal: Goal) => void;
   updateGoal: (goalId: string, updater: Updater<Goal>) => void;
   addActivity: (activity: Activity) => void;
@@ -192,6 +193,23 @@ export const useAppStore = create(
         set((state) => ({
           arcs: withUpdate(state.arcs, arcId, updater),
         })),
+      removeArc: (arcId) =>
+        set((state) => {
+          const removedGoalIds = new Set(
+            state.goals.filter((goal) => goal.arcId === arcId).map((goal) => goal.id)
+          );
+          const remainingGoals = state.goals.filter((goal) => goal.arcId !== arcId);
+          const remainingActivities = state.activities.filter(
+            (activity) => !removedGoalIds.has(activity.goalId ?? '')
+          );
+          const { [arcId]: _removed, ...restRecommendations } = state.goalRecommendations;
+          return {
+            arcs: state.arcs.filter((arc) => arc.id !== arcId),
+            goals: remainingGoals,
+            activities: remainingActivities,
+            goalRecommendations: restRecommendations,
+          };
+        }),
       addGoal: (goal) => set((state) => ({ goals: [...state.goals, goal] })),
       updateGoal: (goalId, updater) =>
         set((state) => ({

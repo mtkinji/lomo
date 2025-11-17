@@ -1,6 +1,6 @@
 import { Arc, GoalDraft } from '../domain/types';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
-import { resolveOpenAiApiKey } from './openAiKey';
+import { getEnvVar } from '../utils/getEnv';
 
 type GenerateArcParams = {
   prompt: string;
@@ -52,7 +52,7 @@ const devLog = (context: string, details?: Record<string, unknown>) => {
 };
 
 export async function generateArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
-  const apiKey = await resolveOpenAiApiKey();
+  const apiKey = resolveOpenAiApiKey();
   devLog('generateArcs:init', {
     promptPreview: previewText(params.prompt),
     timeHorizon: params.timeHorizon ?? 'unspecified',
@@ -191,7 +191,7 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
 }
 
 export async function generateGoals(params: GenerateGoalParams): Promise<GoalDraft[]> {
-  const apiKey = await resolveOpenAiApiKey();
+  const apiKey = resolveOpenAiApiKey();
   devLog('generateGoals:init', {
     arcName: params.arcName,
     promptPreview: previewText(params.prompt),
@@ -412,6 +412,10 @@ function logNetworkErrorDetails(context: 'arcs' | 'goals', err: unknown) {
     details.raw = err;
   }
   console.warn(`[debug:${context}] network error details`, details);
+}
+
+function resolveOpenAiApiKey(): string | undefined {
+  return getEnvVar<string>('openAiApiKey');
 }
 
 

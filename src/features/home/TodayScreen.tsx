@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, FlatList } from 'react-native';
-import { VStack, Heading, Text, HStack, Badge } from '@gluestack-ui/themed';
+import { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, FlatList, View } from 'react-native';
+import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
-import { colors, typography, spacing } from '../../theme';
+import { cardSurfaceStyle, colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '../../ui/Button';
+import { Badge } from '../../ui/Badge';
+import { Logo } from '../../ui/Logo';
 
 const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 
 export function TodayScreen() {
+  const insets = useSafeAreaInsets();
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const goalLookup = goals.reduce<Record<string, string>>((acc, goal) => {
@@ -15,6 +20,22 @@ export function TodayScreen() {
     return acc;
   }, {});
   const [networkCheck, setNetworkCheck] = useState<string>('pending');
+  const today = useMemo(() => new Date(), []);
+  const greeting = useMemo(
+    () =>
+      today.toLocaleDateString(undefined, {
+        weekday: 'long',
+      }),
+    [today]
+  );
+  const prettyDate = useMemo(
+    () =>
+      today.toLocaleDateString(undefined, {
+        month: 'long',
+        day: 'numeric',
+      }),
+    [today]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -71,71 +92,124 @@ export function TodayScreen() {
       cancelled = true;
     };
   }, []);
-  const isEmpty = activities.length === 0;
+  const renderActivity = ({ item, index }: { item: typeof activities[number]; index: number }) => {
+    const scheduledDate = item.scheduledDate ? new Date(item.scheduledDate) : null;
+    const timeLabel = scheduledDate
+      ? scheduledDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : 'Anytime';
+    const goalTitle = goalLookup[item.goalId ?? ''];
+    return (
+      <VStack style={styles.scheduleCard}>
+        <HStack justifyContent="space-between" alignItems="center">
+          <Text style={styles.scheduleTime}>{timeLabel}</Text>
+          {item.phase && <Badge variant="secondary">{item.phase}</Badge>}
+        </HStack>
+        <Text style={styles.scheduleTitle}>{item.title}</Text>
+        {goalTitle ? <Text style={styles.scheduleGoal}>{goalTitle}</Text> : null}
+        <HStack justifyContent="space-between">
+            <Text style={styles.scheduleMeta}>
+              Estimate {Math.round((item.estimateMinutes ?? 0) / 60)}h · {item.status.replace('_', ' ')}
+            </Text>
+          {item.forceActual && (
+            <Text style={styles.scheduleMeta}>Focus {item.forceActual['force-activity'] ?? 0}/3</Text>
+          )}
+        </HStack>
+      </VStack>
+    );
+  };
 
   return (
     <AppShell>
-      <VStack space="lg">
-        <VStack space="xs" style={styles.header}>
-          <Heading style={styles.title}>LOMO</Heading>
-          <Text style={styles.subtitle}>Today&apos;s Activities</Text>
-        {networkCheck !== 'success' && (
-          <Text style={styles.networkText}>
-            Network check: {networkCheck === 'pending' ? 'checking…' : networkCheck}
-          </Text>
-        )}
-        </VStack>
-        {isEmpty ? (
+      <FlatList
+        data={activities}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: spacing.lg + insets.bottom },
+        ]}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        renderItem={renderActivity}
+        ListHeaderComponent={
+          <VStack space="lg">
+            <HStack alignItems="center" space="sm">
+              <Logo size={32} />
+              <VStack space="xs">
+                <Heading style={styles.brand}>Lomo</Heading>
+                <Text style={styles.subtitle}>
+                  Planner · {greeting} · {prettyDate}
+                </Text>
+              </VStack>
+            </HStack>
+
+            <VStack space="md" style={styles.heroCard}>
+              <Text style={styles.heroTitle}>Today&apos;s focus</Text>
+              <Text style={styles.heroBody}>
+                Track your arcs, review goal drafts, and keep the day grounded in meaningful work.
+              </Text>
+              <Button style={styles.primaryAction}>
+                <Text style={styles.primaryActionText}>Create New Task</Text>
+              </Button>
+              {networkCheck !== 'success' && (
+                <Text style={styles.networkText}>
+                  Network check: {networkCheck === 'pending' ? 'checking…' : networkCheck}
+                </Text>
+              )}
+            </VStack>
+
+            <Text style={styles.sectionTitle}>Schedule</Text>
+          </VStack>
+        }
+        ListEmptyComponent={
           <VStack space="sm" style={styles.emptyState}>
             <Heading style={styles.emptyTitle}>No activities yet</Heading>
             <Text style={styles.emptyBody}>
-              Start by creating an Arc, then a Goal, then the Activities that will shape this chapter
-              of your life.
+              Start by creating an Arc, then a Goal, then the Activities that will shape this chapter of
+              your life.
             </Text>
           </VStack>
-        ) : (
-          <FlatList
-            data={activities}
-            keyExtractor={(item) => item.id}
-            ItemSeparatorComponent={() => <VStack style={styles.separator} />}
-            renderItem={({ item }) => (
-              <VStack space="sm" style={styles.activityCard}>
-                <HStack justifyContent="space-between" alignItems="center">
-                  <Heading style={styles.activityTitle}>{item.title}</Heading>
-                  <Badge variant="solid" action={item.status === 'done' ? 'success' : 'muted'}>
-                    <Text style={styles.badgeText}>{item.status.replace('_', ' ')}</Text>
-                  </Badge>
-                </HStack>
-                {goalLookup[item.goalId ?? ''] && (
-                  <Text style={styles.goalLabel}>{goalLookup[item.goalId ?? '']}</Text>
-                )}
-                <HStack justifyContent="space-between">
-                  <Text style={styles.metaText}>
-                    Estimate: {Math.round((item.estimateMinutes ?? 0) / 60)}h
-                  </Text>
-                  {item.phase && <Text style={styles.metaText}>{item.phase}</Text>}
-                </HStack>
-              </VStack>
-            )}
-          />
-        )}
-      </VStack>
+        }
+        showsVerticalScrollIndicator={false}
+      />
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    marginBottom: spacing.xl,
-  },
-  title: {
-    ...typography.titleLg,
-    color: colors.textPrimary,
+  listContent: {
+    flexGrow: 1,
   },
   subtitle: {
     marginTop: spacing.xs,
     ...typography.body,
     color: colors.textSecondary,
+  },
+  salutation: {
+    ...typography.bodySm,
+    color: colors.muted,
+  },
+  brand: {
+    ...typography.brand,
+    color: colors.textPrimary,
+  },
+  heroCard: {
+    ...cardSurfaceStyle,
+    padding: spacing.xl,
+  },
+  heroTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  heroBody: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+  primaryAction: {
+    marginTop: spacing.sm,
+  },
+  primaryActionText: {
+    ...typography.body,
+    color: '#FFFFFF',
+    fontFamily: typography.body.fontFamily,
   },
   networkText: {
     marginTop: spacing.xs,
@@ -154,28 +228,32 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  activityCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  activityTitle: {
+  sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
   },
-  badgeText: {
-    ...typography.bodySm,
-    color: '#0f172a',
+  scheduleCard: {
+    ...cardSurfaceStyle,
+    padding: spacing.lg,
   },
-  goalLabel: {
+  scheduleTime: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  metaText: {
+  scheduleTitle: {
+    marginTop: spacing.sm,
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  scheduleGoal: {
+    marginTop: spacing.xs / 2,
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  scheduleMeta: {
+    marginTop: spacing.md,
+    ...typography.bodySm,
+    color: colors.muted,
   },
   separator: {
     height: spacing.md,

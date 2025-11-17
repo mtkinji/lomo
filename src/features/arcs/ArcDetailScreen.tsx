@@ -9,16 +9,22 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  ActionSheetIOS,
+  Alert,
+  TouchableOpacity,
 } from 'react-native';
-import { VStack, Heading, Text, Badge, HStack, Button } from '@gluestack-ui/themed';
+import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
-import { colors, spacing, typography } from '../../theme';
+import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
 import { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { GoalDraft } from '../../domain/types';
 import { generateGoals } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
+import { Badge } from '../../ui/Badge';
 
 const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -53,6 +59,8 @@ export function ArcDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const addGoal = useAppStore((state) => state.addGoal);
+  const updateArc = useAppStore((state) => state.updateArc);
+  const removeArc = useAppStore((state) => state.removeArc);
   const goalRecommendationsMap = useAppStore((state) => state.goalRecommendations);
   const setGoalRecommendations = useAppStore((state) => state.setGoalRecommendations);
   const dismissGoalRecommendation = useAppStore((state) => state.dismissGoalRecommendation);
@@ -62,6 +70,10 @@ export function ArcDetailScreen() {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [recommendationsError, setRecommendationsError] = useState('');
   const [goalModalVisible, setGoalModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editNorthStar, setEditNorthStar] = useState('');
+  const [editNarrative, setEditNarrative] = useState('');
   const insets = useSafeAreaInsets();
 
   const fetchRecommendations = useCallback(async () => {
@@ -115,6 +127,74 @@ export function ArcDetailScreen() {
     );
   }
 
+  const openEditArcModal = useCallback(() => {
+    if (!arc) return;
+    setEditName(arc.name);
+    setEditNorthStar(arc.northStar ?? '');
+    setEditNarrative(arc.narrative ?? '');
+    setEditModalVisible(true);
+  }, [arc]);
+
+  const handleDeleteArc = useCallback(() => {
+    if (!arc) return;
+    removeArc(arc.id);
+    navigation.goBack();
+  }, [arc, removeArc, navigation]);
+
+  const confirmDeleteArc = useCallback(() => {
+    if (!arc) return;
+    Alert.alert(
+      'Delete arc?',
+      'This will remove the arc and related goals.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: handleDeleteArc },
+      ]
+    );
+  }, [arc, handleDeleteArc]);
+
+  const handleArcOptions = useCallback(() => {
+    if (!arc) return;
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Edit arc', 'Delete arc'],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 2,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openEditArcModal();
+          } else if (buttonIndex === 2) {
+            confirmDeleteArc();
+          }
+        }
+      );
+    } else {
+      Alert.alert('Arc options', undefined, [
+        { text: 'Edit arc', onPress: openEditArcModal },
+        { text: 'Delete arc', style: 'destructive', onPress: confirmDeleteArc },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }, [arc, openEditArcModal, confirmDeleteArc]);
+
+  const handleSaveArcDetails = useCallback(
+    (values: { name: string; northStar?: string; narrative?: string }) => {
+      if (!arc) return;
+      const timestamp = new Date().toISOString();
+      updateArc(arc.id, (prev) => ({
+        ...prev,
+        name: values.name.trim(),
+        northStar: values.northStar?.trim() || undefined,
+        narrative: values.narrative?.trim() || undefined,
+        updatedAt: timestamp,
+      }));
+      setEditModalVisible(false);
+    },
+    [arc, updateArc]
+  );
+
   const handleAdoptGoal = (draft: GoalDraft) => {
     if (!arc) {
       logArcDetailDebug('goal:adopt:skipped-no-arc');
@@ -159,22 +239,41 @@ export function ArcDetailScreen() {
   return (
     <AppShell>
       <VStack space="lg">
-        <Button variant="link" alignSelf="flex-start" onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>Back to Arcs</Text>
-        </Button>
-        <VStack space="sm">
-          <Heading style={styles.arcTitle}>{arc.name}</Heading>
-          {arc.northStar && <Text style={styles.northStar}>{arc.northStar}</Text>}
-          {arc.narrative && <Text style={styles.arcNarrative}>{arc.narrative}</Text>}
-          <Badge variant="outline" action="info" alignSelf="flex-start">
-            <Text style={styles.badgeText}>{arc.status}</Text>
-          </Badge>
-        </VStack>
+        <HStack justifyContent="space-between" alignItems="center">
+          <Button
+            variant="secondary"
+            size="icon"
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Back to Arcs"
+          >
+            <Icon name="arrowLeft" size={20} color={colors.textPrimary} strokeWidth={2.5} />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon"
+            style={styles.optionsButton}
+            accessibilityLabel="Arc options"
+            onPress={handleArcOptions}
+          >
+            <Icon name="more" size={18} color={colors.textPrimary} />
+          </Button>
+        </HStack>
+        <HStack justifyContent="space-between" alignItems="flex-start" space="md">
+          <VStack space="sm" flex={1}>
+            <Heading style={styles.arcTitle}>{arc.name}</Heading>
+            {arc.northStar && <Text style={styles.northStar}>{arc.northStar}</Text>}
+            {arc.narrative && <Text style={styles.arcNarrative}>{arc.narrative}</Text>}
+            <Badge variant="secondary" style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>{arc.status}</Text>
+            </Badge>
+          </VStack>
+        </HStack>
 
         <VStack space="md">
           <HStack justifyContent="space-between" alignItems="center">
             <Heading style={styles.sectionTitle}>Recommended Goals</Heading>
-            <Button variant="link" isDisabled={loadingRecommendations} onPress={fetchRecommendations}>
+            <Button variant="link" disabled={loadingRecommendations} onPress={fetchRecommendations}>
               <Text style={styles.linkText}>
                 {loadingRecommendations ? 'Fetching…' : 'Refresh suggestions'}
               </Text>
@@ -222,12 +321,12 @@ export function ArcDetailScreen() {
                   <HStack space="sm">
                     <Button
                       variant="outline"
-                      flex={1}
+                      style={{ flex: 1 }}
                       onPress={() => dismissGoalRecommendation(arc.id, goal.title)}
                     >
                       <Text style={styles.linkText}>Dismiss</Text>
                     </Button>
-                    <Button flex={1} onPress={() => handleAdoptRecommendation(goal)}>
+                    <Button style={{ flex: 1 }} onPress={() => handleAdoptRecommendation(goal)}>
                       <Text style={styles.buttonText}>Adopt Goal</Text>
                     </Button>
                   </HStack>
@@ -280,6 +379,15 @@ export function ArcDetailScreen() {
         onAdopt={handleAdoptGoal}
         insetTop={insets.top}
       />
+      <EditArcModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        initialName={arc.name}
+        initialNorthStar={arc.northStar}
+        initialNarrative={arc.narrative}
+        onSubmit={handleSaveArcDetails}
+        insetTop={insets.top}
+      />
     </AppShell>
   );
 }
@@ -291,6 +399,16 @@ type NewGoalModalProps = {
   arcNarrative?: string;
   arcNorthStar?: string;
   onAdopt: (goal: GoalDraft) => void;
+  insetTop: number;
+};
+
+type EditArcModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  initialName: string;
+  initialNorthStar?: string;
+  initialNarrative?: string;
+  onSubmit: (values: { name: string; northStar?: string; narrative?: string }) => void;
   insetTop: number;
 };
 
@@ -432,14 +550,13 @@ function NewGoalModal({
               <HStack justifyContent="space-between" marginTop={spacing.lg}>
                 <Button
                   variant="outline"
-                  isDisabled={currentStep === 0}
+                  disabled={currentStep === 0}
                   onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-                  flex={1}
-                  marginRight={spacing.sm}
+                  style={{ flex: 1, marginRight: spacing.sm }}
                 >
                   <Text style={styles.linkText}>Back</Text>
                 </Button>
-                <Button flex={1} isDisabled={nextDisabled} onPress={handleSubmit}>
+                <Button style={{ flex: 1 }} disabled={nextDisabled} onPress={handleSubmit}>
                   <Text style={styles.buttonText}>{isFinalStep ? 'Ask LOMO' : 'Next'}</Text>
                 </Button>
               </HStack>
@@ -501,10 +618,90 @@ function NewGoalModal({
   );
 }
 
+function EditArcModal({
+  visible,
+  onClose,
+  initialName,
+  initialNorthStar,
+  initialNarrative,
+  onSubmit,
+  insetTop,
+}: EditArcModalProps) {
+  const [name, setName] = useState(initialName);
+  const [northStar, setNorthStar] = useState(initialNorthStar ?? '');
+  const [narrative, setNarrative] = useState(initialNarrative ?? '');
+
+  useEffect(() => {
+    if (visible) {
+      setName(initialName);
+      setNorthStar(initialNorthStar ?? '');
+      setNarrative(initialNarrative ?? '');
+    }
+  }, [visible, initialName, initialNorthStar, initialNarrative]);
+
+  const disabled = name.trim().length === 0;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalOverlay}
+      >
+        <View style={[styles.modalContent, { paddingTop: spacing.xl + insetTop }]}>
+          <Heading style={styles.modalTitle}>Edit Arc</Heading>
+          <Text style={styles.modalBody}>
+            Update the arc details to keep this direction aligned with your season.
+          </Text>
+          <Text style={styles.modalLabel}>Name</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Arc name"
+            placeholderTextColor="#6B7280"
+          />
+          <Text style={styles.modalLabel}>North star</Text>
+          <TextInput
+            style={styles.input}
+            value={northStar}
+            onChangeText={setNorthStar}
+            placeholder="North star"
+            placeholderTextColor="#6B7280"
+          />
+          <Text style={styles.modalLabel}>Narrative</Text>
+          <TextInput
+            style={[styles.input, { minHeight: 120, textAlignVertical: 'top' }]}
+            multiline
+            value={narrative}
+            onChangeText={setNarrative}
+            placeholder="Narrative"
+            placeholderTextColor="#6B7280"
+          />
+          <HStack space="sm" marginTop={spacing.lg}>
+            <Button variant="outline" style={{ flex: 1 }} onPress={onClose}>
+              <Text style={styles.linkText}>Cancel</Text>
+            </Button>
+            <Button
+              style={{ flex: 1 }}
+              disabled={disabled}
+              onPress={() => onSubmit({ name, northStar, narrative })}
+            >
+              <Text style={styles.buttonText}>Save</Text>
+            </Button>
+          </HStack>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
-  backText: {
-    ...typography.body,
-    color: colors.textSecondary,
+  backButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+  },
+  optionsButton: {
+    borderRadius: 999,
   },
   goalCount: {
     ...typography.bodySm,
@@ -522,9 +719,11 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  badgeText: {
+  statusBadge: {
+    marginTop: spacing.xs,
+  },
+  statusBadgeText: {
     ...typography.bodySm,
-    color: colors.textPrimary,
   },
   sectionTitle: {
     ...typography.titleSm,
@@ -539,11 +738,8 @@ const styles = StyleSheet.create({
     color: colors.canvas,
   },
   goalCard: {
-    backgroundColor: '#0f172a',
+    ...cardSurfaceStyle,
     padding: spacing.lg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   goalTitle: {
     ...typography.titleSm,
@@ -571,11 +767,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   recommendationCard: {
-    backgroundColor: '#0f172a',
+    ...cardSurfaceStyle,
     padding: spacing.lg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   forceIntentRow: {
     flexWrap: 'wrap',
@@ -584,7 +777,7 @@ const styles = StyleSheet.create({
   intentChip: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    backgroundColor: '#1f2937',
+    backgroundColor: colors.cardMuted,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
     borderRadius: 999,

@@ -9,6 +9,7 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
+import { Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    Poppins_700Bold,
   });
 
   if (!fontsLoaded) {
@@ -26,7 +28,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <GluestackUIProvider config={config}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <RootNavigator />
       </GluestackUIProvider>
     </SafeAreaProvider>

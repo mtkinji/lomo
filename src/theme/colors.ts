@@ -1,13 +1,21 @@
 export const colors = {
-  shell: '#0B1120',
-  canvas: '#020617',
-  border: '#111827',
-  textPrimary: '#F9FAFB',
-  textSecondary: '#9CA3AF',
-  accent: '#38BDF8',
-  accentMuted: '#0EA5E9',
+  shell: '#F5F5F4', // shadcn neutral-100
+  shellAlt: '#E7E5E4', // neutral-200
+  canvas: '#FFFFFF',
+  card: '#FFFFFF',
+  cardMuted: '#F5F5F4',
+  border: '#E4E4E7',
+  textPrimary: '#1B3020',
+  textSecondary: '#5D6B54',
+  muted: '#8E9B83',
+  accent: '#1F5226',
+  accentMuted: '#4F5D4A',
   warning: '#F97316',
-  success: '#34D399',
+  success: '#65A30D',
+  infoSurface: '#F4F1FF',
+  schedulePink: '#FBE7F1',
+  scheduleYellow: '#FEF3C7',
+  scheduleBlue: '#E0F2FE',
 };
 
 

@@ -5,12 +5,16 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
+import { AiChatScreen } from '../features/ai/AiChatScreen';
+import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { colors } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 
 export type RootTabParamList = {
-  Today: undefined;
   ArcsStack: undefined;
+  Today: undefined;
+  AiGuide: undefined;
+  Activities: undefined;
   Chapters: undefined;
 };
 
@@ -52,11 +56,21 @@ export function RootNavigator() {
           },
         })}
       >
-        <Tab.Screen name="Today" component={TodayScreen} />
         <Tab.Screen
           name="ArcsStack"
           component={ArcsStackNavigator}
           options={{ title: 'Arcs' }}
+        />
+        <Tab.Screen name="Activities" component={ActivitiesScreen} />
+        <Tab.Screen
+          name="Today"
+          component={TodayScreen}
+          options={{ title: 'Home' }}
+        />
+        <Tab.Screen
+          name="AiGuide"
+          component={AiChatScreen}
+          options={{ title: 'Chat' }}
         />
         <Tab.Screen name="Chapters" component={ChaptersScreen} />
       </Tab.Navigator>
@@ -75,10 +89,14 @@ function ArcsStackNavigator() {
 
 function getTabIcon(routeName: keyof RootTabParamList): IconName {
   switch (routeName) {
-    case 'Today':
-      return 'today';
     case 'ArcsStack':
       return 'arcs';
+    case 'Today':
+      return 'home';
+    case 'AiGuide':
+      return 'aiGuide';
+    case 'Activities':
+      return 'activities';
     case 'Chapters':
       return 'chapters';
     default:

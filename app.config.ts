@@ -6,6 +6,11 @@ import path from 'path';
 const NODE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
 const projectRoot = __dirname;
 
+// Silence noisy dotenv tips when loading multiple files.
+if (!process.env.DOTENV_CONFIG_QUIET) {
+  process.env.DOTENV_CONFIG_QUIET = 'true';
+}
+
 const envFiles = [
   '.env',
   `.env.${NODE_ENV}`,

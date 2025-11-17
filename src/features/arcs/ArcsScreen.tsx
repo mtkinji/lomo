@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import {
   StyleSheet,
   FlatList,
@@ -10,18 +11,9 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
-import {
-  VStack,
-  Heading,
-  Text,
-  Button,
-  Icon as GluestackIcon,
-  HStack,
-  Badge,
-  Pressable,
-} from '@gluestack-ui/themed';
+import { VStack, Heading, Text, Icon as GluestackIcon, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
-import { colors, spacing, typography } from '../../theme';
+import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { Icon } from '../../ui/Icon';
 import { useNavigation } from '@react-navigation/native';
@@ -29,11 +21,8 @@ import { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  getCachedOpenAiApiKey,
-  injectOpenAiApiKey,
-  resolveOpenAiApiKey,
-} from '../../services/openAiKey';
+import { Button } from '../../ui/Button';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -47,10 +36,13 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
 
 export function ArcsScreen() {
   const arcs = useAppStore((state) => state.arcs);
+  const goals = useAppStore((state) => state.goals);
+  const activities = useAppStore((state) => state.activities);
   const addArc = useAppStore((state) => state.addArc);
   const navigation = useNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
   const insets = useSafeAreaInsets();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [infoVisible, setInfoVisible] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [timeHorizon, setTimeHorizon] = useState('');
   const [additionalContext, setAdditionalContext] = useState('');
@@ -58,79 +50,132 @@ export function ArcsScreen() {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<GeneratedArc[]>([]);
   const [error, setError] = useState('');
-  const [devModalVisible, setDevModalVisible] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(() => !!getCachedOpenAiApiKey());
-
+  const [headerHeight, setHeaderHeight] = useState(0);
   useEffect(() => {
-    resolveOpenAiApiKey().then((key) => setHasApiKey(Boolean(key)));
     if (__DEV__) {
-      resolveOpenAiApiKey().then((key) =>
-        console.log('ArcsScreen OpenAI key available?', key ? 'yes' : 'no')
-      );
+      console.log('ArcsScreen rendered');
     }
   }, []);
 
   const empty = arcs.length === 0;
 
+  const goalCountByArc = useMemo(() => {
+    return goals.reduce<Record<string, number>>((acc, goal) => {
+      acc[goal.arcId] = (acc[goal.arcId] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [goals]);
+
+  const activityCountByArc = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const goalArcLookup = goals.reduce<Record<string, string>>((acc, goal) => {
+      acc[goal.id] = goal.arcId;
+      return acc;
+    }, {});
+    activities.forEach((activity) => {
+      const arcId = activity.goalId ? goalArcLookup[activity.goalId] : undefined;
+      if (!arcId) return;
+      counts[arcId] = (counts[arcId] ?? 0) + 1;
+    });
+    return counts;
+  }, [activities, goals]);
+  const listTopPadding = headerHeight ? headerHeight + spacing.md : spacing['2xl'];
+  const hideScrollIndicator = arcs.length <= 5;
+
   return (
     <AppShell>
-      <VStack space="lg">
-        <VStack space="xs" style={styles.header}>
-          <Heading style={styles.title}>Arcs</Heading>
-          <Text style={styles.subtitle}>Who you&apos;re becoming</Text>
-        </VStack>
-        {__DEV__ && (
-          <Button variant="link" alignSelf="flex-start" onPress={() => setDevModalVisible(true)}>
-            <Text style={styles.devLinkText}>
-              {hasApiKey ? 'Update local OpenAI key' : 'Inject OpenAI key'}
-            </Text>
-          </Button>
-        )}
-        <Button
-          variant="solid"
-          action="primary"
-          borderRadius="$full"
-          alignSelf="flex-start"
-          onPress={() => setIsModalVisible(true)}
+      <View style={styles.screen}>
+        <View
+          style={styles.fixedHeader}
+          onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
         >
-          <HStack space="sm" alignItems="center">
-            <GluestackIcon as={() => <Icon name="today" size={18} color="#020617" />} />
-            <Text style={styles.buttonText}>New Arc</Text>
-          </HStack>
-        </Button>
-
-        {empty ? (
-          <VStack space="sm" style={styles.emptyState}>
-            <Heading style={styles.emptyTitle}>No arcs yet</Heading>
-            <Text style={styles.emptyBody}>
-              Arcs are long-horizon identity directions like Discipleship, Family Stewardship, or
-              Making &amp; Embodied Creativity. We&apos;ll use AI to help you define them.
-            </Text>
-          </VStack>
-        ) : (
-          <FlatList
-            data={arcs}
-            keyExtractor={(arc) => arc.id}
-            ItemSeparatorComponent={() => <VStack style={styles.separator} />}
-            renderItem={({ item }) => (
+          <HStack
+            space="lg"
+            justifyContent="space-between"
+            alignItems="flex-start"
+            style={styles.header}
+          >
+            <VStack space="xs" style={styles.headerText}>
+              <HStack alignItems="center" space="xs">
+                <Heading style={styles.title}>Arcs</Heading>
                 <Pressable
-                  style={styles.arcCard}
-                  onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}
+                  accessibilityRole="button"
+                  accessibilityLabel="Learn about arcs"
+                  hitSlop={8}
+                  onPress={() => setInfoVisible(true)}
                 >
+                  <Icon name="info" size={18} color={colors.textSecondary} />
+                </Pressable>
+              </HStack>
+            </VStack>
+            <Button
+              size="icon"
+              accessibilityRole="button"
+              accessibilityLabel="Create new arc"
+              style={styles.newArcButton}
+              onPress={() => setIsModalVisible(true)}
+            >
+              <GluestackIcon as={() => <Icon name="plus" size={16} color="#FFFFFF" />} />
+            </Button>
+          </HStack>
+        </View>
+        <FlatList
+          style={styles.list}
+          data={arcs}
+          keyExtractor={(arc) => arc.id}
+          ItemSeparatorComponent={() => <VStack style={styles.separator} />}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingBottom: spacing['2xl'] + insets.bottom,
+              paddingTop: listTopPadding,
+            },
+            empty && styles.listEmptyContent,
+          ]}
+          ListEmptyComponent={
+            <VStack space="sm" style={styles.emptyState}>
+              <Heading style={styles.emptyTitle}>No arcs yet</Heading>
+              <Text style={styles.emptyBody}>
+                Arcs are long-horizon identity directions like Discipleship, Family Stewardship, or
+                Making &amp; Embodied Creativity. We&apos;ll use AI to help you define them.
+              </Text>
+            </VStack>
+          }
+          renderItem={({ item }) => {
+            const goalCount = goalCountByArc[item.id] ?? 0;
+            const activityCount = activityCountByArc[item.id] ?? 0;
+            return (
+              <Pressable
+                style={styles.arcCard}
+                onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}
+              >
                 <VStack space="sm">
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <Heading style={styles.arcTitle}>{item.name}</Heading>
-                    <Badge variant="outline" action="info">
-                      <Text style={styles.badgeText}>{item.status}</Text>
-                    </Badge>
-                  </HStack>
+                  <Heading style={styles.arcTitle}>{item.name}</Heading>
                   {item.narrative && <Text style={styles.arcNarrative}>{item.narrative}</Text>}
+                <HStack space="lg" style={styles.arcMetaRow} alignItems="center">
+                  <HStack space="xs" alignItems="center">
+                    <Icon name="goals" size={14} color={colors.textSecondary} />
+                    <Text style={styles.arcStatValue}>{goalCount}</Text>
+                    <Text style={styles.arcStatLabel}>
+                      {goalCount === 1 ? 'Goal' : 'Goals'}
+                    </Text>
+                  </HStack>
+                  <HStack space="xs" alignItems="center">
+                    <Icon name="activities" size={14} color={colors.textSecondary} />
+                    <Text style={styles.arcStatValue}>{activityCount}</Text>
+                    <Text style={styles.arcStatLabel}>
+                      {activityCount === 1 ? 'Activity' : 'Activities'}
+                    </Text>
+                  </HStack>
+                  </HStack>
                 </VStack>
               </Pressable>
-            )}
-          />
-        )}
-      </VStack>
+            );
+          }}
+          showsVerticalScrollIndicator={!hideScrollIndicator}
+        />
+      </View>
+      <ArcInfoModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
       <NewArcModal
         visible={isModalVisible}
         onClose={() => {
@@ -207,43 +252,43 @@ export function ArcsScreen() {
         insetTop={insets.top}
         setSuggestions={setSuggestions}
       />
-      {__DEV__ && (
-        <DevApiKeyModal
-          visible={devModalVisible}
-          onClose={() => setDevModalVisible(false)}
-        onSave={async (key) => {
-          logArcsDebug('devModal:save:start');
-          await injectOpenAiApiKey(key);
-          setHasApiKey(true);
-          logArcsDebug('devModal:save:complete');
-        }}
-        />
-      )}
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+    backgroundColor: colors.shell,
+  },
+  listContent: {
+    paddingBottom: spacing.xl,
+    paddingHorizontal: 0,
+  },
+  listEmptyContent: {
+    flexGrow: 1,
+  },
+  fixedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    backgroundColor: colors.shell,
+  },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  headerText: {
+    flex: 1,
+    paddingRight: spacing.lg,
   },
   title: {
     ...typography.titleLg,
     color: colors.textPrimary,
-  },
-  subtitle: {
-    marginTop: spacing.xs,
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  devLinkText: {
-    ...typography.bodySm,
-    color: colors.accent,
-  },
-  devHelperText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
   },
   emptyState: {
     marginTop: spacing['2xl'],
@@ -260,13 +305,18 @@ const styles = StyleSheet.create({
   buttonText: {
     ...typography.body,
     color: colors.canvas,
+    fontWeight: '600',
+  },
+  newArcButton: {
+    alignSelf: 'flex-start',
+    marginTop: 0,
+    width: 36,
+    height: 36,
   },
   arcCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.xl,
+    ...cardSurfaceStyle,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
   },
   arcTitle: {
     ...typography.titleSm,
@@ -276,9 +326,21 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  badgeText: {
+  arcMetaRow: {
+    marginTop: spacing.xs,
+  },
+  arcStatValue: {
     ...typography.bodySm,
     color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  arcStatLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  goalDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   separator: {
     height: spacing.md,
@@ -296,6 +358,27 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     marginBottom: spacing.lg,
   },
+  sheetHandle: {
+    backgroundColor: colors.border,
+    width: 64,
+    height: 5,
+    borderRadius: 999,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+  },
+  infoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.sm,
+  },
+  infoSheet: {
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+  },
   modalTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
@@ -305,6 +388,16 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     marginBottom: spacing.lg,
+  },
+  infoTitle: {
+    ...typography.titleLg,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  infoBody: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
   },
   progressText: {
     ...typography.label,
@@ -338,11 +431,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   suggestionCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: spacing.lg,
-    backgroundColor: '#0f172a',
+    ...cardSurfaceStyle,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  linkText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontWeight: '600',
   },
 });
 
@@ -350,21 +446,41 @@ type NewArcModalProps = {
   visible: boolean;
   onClose: () => void;
   prompt: string;
-  setPrompt: (value: string) => void;
+  setPrompt: Dispatch<SetStateAction<string>>;
   timeHorizon: string;
-  setTimeHorizon: (value: string) => void;
+  setTimeHorizon: Dispatch<SetStateAction<string>>;
   additionalContext: string;
-  setAdditionalContext: (value: string) => void;
+  setAdditionalContext: Dispatch<SetStateAction<string>>;
   currentStep: number;
-  setCurrentStep: (value: number) => void;
+  setCurrentStep: Dispatch<SetStateAction<number>>;
   loading: boolean;
   suggestions: GeneratedArc[];
   error: string;
   onGenerate: () => void;
   onAdopt: (suggestion: GeneratedArc) => void;
   insetTop: number;
-  setSuggestions: React.Dispatch<React.SetStateAction<GeneratedArc[]>>;
+  setSuggestions: Dispatch<SetStateAction<GeneratedArc[]>>;
 };
+
+function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  return (
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.85}>
+      <Heading style={styles.infoTitle}>What is an Arc?</Heading>
+      <Text style={styles.infoBody}>
+        An Arc is a long-horizon identity direction—like Discipleship, Craft, or Family Stewardship.
+        Each Arc anchors the season you&apos;re in, guides your goals, and keeps your activities
+        accountable to who you&apos;re becoming.
+      </Text>
+      <Text style={styles.infoBody}>
+        Capture a few Arcs to frame the next few months. You can add or archive them as your story
+        shifts.
+      </Text>
+      <Button style={{ marginTop: spacing.lg }} onPress={onClose}>
+        <Text style={styles.buttonText}>Got it</Text>
+      </Button>
+    </BottomDrawer>
+  );
+}
 
 function NewArcModal({
   visible,
@@ -453,16 +569,15 @@ function NewArcModal({
               <HStack justifyContent="space-between" marginTop={spacing.lg}>
                 <Button
                   variant="outline"
-                  isDisabled={currentStep === 0}
+                  disabled={currentStep === 0}
                   onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-                  flex={1}
-                  marginRight={spacing.sm}
+                  style={{ flex: 1, marginRight: spacing.sm }}
                 >
                   <Text style={styles.linkText}>Back</Text>
                 </Button>
                 <Button
-                  flex={1}
-                  isDisabled={nextDisabled}
+                  style={{ flex: 1 }}
+                  disabled={nextDisabled}
                   onPress={() => {
                     if (isFinalStep) {
                       onGenerate();
@@ -520,95 +635,6 @@ function NewArcModal({
           <Button variant="link" onPress={onClose} style={{ marginTop: spacing.lg }}>
             <Text style={styles.linkText}>Close</Text>
           </Button>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
-
-type DevApiKeyModalProps = {
-  visible: boolean;
-  onClose: () => void;
-  onSave: (key: string) => Promise<void>;
-};
-
-type DevFeedback = { text: string; tone: 'error' | 'info' };
-
-function DevApiKeyModal({ visible, onClose, onSave }: DevApiKeyModalProps) {
-  const [keyValue, setKeyValue] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<DevFeedback | null>(null);
-
-  useEffect(() => {
-    if (!visible) {
-      setKeyValue('');
-      setFeedback(null);
-      setSaving(false);
-    }
-  }, [visible]);
-
-  const handleSave = async () => {
-    const trimmed = keyValue.trim();
-    if (!trimmed) {
-      setFeedback({ text: 'Enter a valid key first.', tone: 'error' });
-      return;
-    }
-    setSaving(true);
-    setFeedback(null);
-    try {
-      await onSave(trimmed);
-      setFeedback({
-        text: 'Stored locally for this device. Reload AI flows to use it.',
-        tone: 'info',
-      });
-      setKeyValue('');
-      onClose();
-    } catch (err) {
-      console.error('Failed to store OpenAI key', err);
-      setFeedback({ text: 'Unable to store key. Check console for details.', tone: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
-        <View style={[styles.modalContent, { paddingTop: spacing['2xl'] }]}>
-          <Heading style={styles.modalTitle}>Inject OpenAI API key</Heading>
-          <Text style={styles.modalBody}>
-            This is a developer-only helper. The key is saved locally in AsyncStorage so you don’t
-            have to pass it via terminal for every Expo restart.
-          </Text>
-          <TextInput
-            style={[styles.input, { minHeight: 48 }]}
-            placeholder="sk-..."
-            placeholderTextColor="#6B7280"
-            value={keyValue}
-            onChangeText={setKeyValue}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {feedback ? (
-            <Text
-              style={feedback.tone === 'error' ? styles.errorText : styles.devHelperText}
-            >
-              {feedback.text}
-            </Text>
-          ) : null}
-          <Text style={styles.devHelperText}>Only use development keys. Do not ship this in prod.</Text>
-          <HStack space="sm" marginTop={spacing.lg}>
-            <Button variant="outline" flex={1} onPress={onClose} isDisabled={saving}>
-              <Text style={styles.linkText}>Close</Text>
-            </Button>
-            <Button flex={1} onPress={handleSave} isDisabled={saving}>
-              <Text style={styles.buttonText}>{saving ? 'Saving…' : 'Save key'}</Text>
-            </Button>
-          </HStack>
         </View>
       </KeyboardAvoidingView>
     </Modal>
