@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Activity, Arc, Force, ForceLevel, Goal } from '../domain/types';
+import { Activity, Arc, Force, ForceLevel, Goal, GoalDraft } from '../domain/types';
 
 type Updater<T> = (item: T) => T;
 
@@ -10,12 +10,16 @@ interface AppState {
   arcs: Arc[];
   goals: Goal[];
   activities: Activity[];
+  goalRecommendations: Record<string, GoalDraft[]>;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   addGoal: (goal: Goal) => void;
   updateGoal: (goalId: string, updater: Updater<Goal>) => void;
   addActivity: (activity: Activity) => void;
   updateActivity: (activityId: string, updater: Updater<Activity>) => void;
+  setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
+  dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
+  clearGoalRecommendations: (arcId: string) => void;
   resetStore: () => void;
 }
 
@@ -182,6 +186,7 @@ export const useAppStore = create(
       arcs: [initialDemoArc],
       goals: [initialDemoGoal],
       activities: initialDemoActivities,
+      goalRecommendations: {},
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -197,12 +202,36 @@ export const useAppStore = create(
         set((state) => ({
           activities: withUpdate(state.activities, activityId, updater),
         })),
+      setGoalRecommendations: (arcId, goals) =>
+        set((state) => ({
+          goalRecommendations: {
+            ...state.goalRecommendations,
+            [arcId]: goals,
+          },
+        })),
+      dismissGoalRecommendation: (arcId, goalTitle) =>
+        set((state) => {
+          const current = state.goalRecommendations[arcId] ?? [];
+          return {
+            goalRecommendations: {
+              ...state.goalRecommendations,
+              [arcId]: current.filter((goal) => goal.title !== goalTitle),
+            },
+          };
+        }),
+      clearGoalRecommendations: (arcId) =>
+        set((state) => {
+          const updated = { ...state.goalRecommendations };
+          delete updated[arcId];
+          return { goalRecommendations: updated };
+        }),
       resetStore: () =>
         set({
           forces: canonicalForces,
           arcs: [],
           goals: [],
           activities: [],
+          goalRecommendations: {},
         }),
     }),
     {
@@ -213,6 +242,7 @@ export const useAppStore = create(
         arcs: state.arcs,
         goals: state.goals,
         activities: state.activities,
+        goalRecommendations: state.goalRecommendations,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;

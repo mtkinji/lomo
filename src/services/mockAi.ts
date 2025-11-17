@@ -1,4 +1,4 @@
-import { Arc } from '../domain/types';
+import { Arc, GoalDraft } from '../domain/types';
 
 type GenerateArcParams = {
   prompt: string;
@@ -60,6 +60,84 @@ export async function mockGenerateArcs(
   );
 
   return (filtered.length ? filtered : arcTemplates).slice(0, 3);
+}
+
+type GenerateGoalParams = {
+  arcName: string;
+  arcNarrative?: string;
+  arcNorthStar?: string;
+  prompt?: string;
+  timeHorizon?: string;
+  constraints?: string;
+};
+
+const goalTemplates: GoalDraft[] = [
+  {
+    title: 'Weekly Hospitality Night',
+    description: 'Host a simple meal or tea with one family or neighbor every week to practice generosity.',
+    status: 'planned',
+    forceIntent: {
+      'force-activity': 1,
+      'force-connection': 3,
+      'force-mastery': 0,
+      'force-spirituality': 2,
+    },
+    suggestedActivities: [
+      'Plan guest list and reach out on Sundays',
+      'Prep a simple repeatable menu',
+      'Reflect afterward with quick gratitude notes',
+    ],
+  },
+  {
+    title: 'Craft of Encouragement Letters',
+    description:
+      'Write and mail three intentional letters each month to encourage teammates or family members.',
+    status: 'planned',
+    forceIntent: {
+      'force-activity': 0,
+      'force-connection': 2,
+      'force-mastery': 1,
+      'force-spirituality': 2,
+    },
+    suggestedActivities: [
+      'Collect stories or highlights in a running note',
+      'Schedule a 30-minute writing block each week',
+    ],
+  },
+  {
+    title: 'Strengthen Morning Rule of Life',
+    description: 'Design and keep a 45-minute morning rhythm anchoring prayer, scripture, and silence.',
+    status: 'planned',
+    forceIntent: {
+      'force-activity': 1,
+      'force-connection': 0,
+      'force-mastery': 1,
+      'force-spirituality': 3,
+    },
+    suggestedActivities: [
+      'Define the sequence and write it as a card',
+      'Prep physical space the night before',
+      'Track completion in a simple log',
+    ],
+  },
+];
+
+export async function mockGenerateGoals(
+  params: GenerateGoalParams
+): Promise<GoalDraft[]> {
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  const emphasis = `${params.prompt ?? ''} ${params.arcNarrative ?? ''}`.toLowerCase();
+  const filtered = goalTemplates.filter((template) => {
+    if (template.title.toLowerCase().includes('morning')) {
+      return emphasis.includes('morning') || emphasis.includes('discipline');
+    }
+    if (template.title.toLowerCase().includes('hospitality')) {
+      return emphasis.includes('family') || emphasis.includes('community');
+    }
+    return true;
+  });
+
+  return (filtered.length ? filtered : goalTemplates).slice(0, 3);
 }
 
 

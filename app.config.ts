@@ -1,5 +1,24 @@
 import type { ExpoConfig } from 'expo/config';
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
+import { existsSync } from 'fs';
+import path from 'path';
+
+const NODE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
+const projectRoot = __dirname;
+
+const envFiles = [
+  '.env',
+  `.env.${NODE_ENV}`,
+  '.env.local',
+  `.env.${NODE_ENV}.local`,
+];
+
+envFiles.forEach((file) => {
+  const fullPath = path.resolve(projectRoot, file);
+  if (existsSync(fullPath)) {
+    loadEnv({ path: fullPath, override: true });
+  }
+});
 
 const config: ExpoConfig = {
   name: 'LOMO',

@@ -5,6 +5,8 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 
+const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
+
 export function TodayScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
@@ -15,17 +17,59 @@ export function TodayScreen() {
   const [networkCheck, setNetworkCheck] = useState<string>('pending');
 
   useEffect(() => {
-    console.log('running network check');
-    fetch('https://jsonplaceholder.typicode.com/todos/1')
-      .then((res) => res.json())
-      .then(() => {
-        console.log('network check success');
+    let cancelled = false;
+    const runNetworkCheck = async () => {
+      const start = Date.now();
+      if (__DEV__) {
+        console.log('[today][network-check] starting', {
+          url: NETWORK_CHECK_URL,
+          timestamp: new Date(start).toISOString(),
+        });
+      }
+      try {
+        const response = await fetch(NETWORK_CHECK_URL);
+        const duration = Date.now() - start;
+        if (__DEV__) {
+          console.log('[today][network-check] response', {
+            status: response.status,
+            ok: response.ok,
+            durationMs: duration,
+          });
+        }
+        const text = await response.text();
+        if (__DEV__) {
+          console.log('[today][network-check] payload', {
+            preview: text.slice(0, 120),
+          });
+        }
+        if (cancelled) {
+          if (__DEV__) {
+            console.log('[today][network-check] cancelled before completion');
+          }
+          return;
+        }
         setNetworkCheck('success');
-      })
-      .catch((err) => {
+      } catch (err) {
+        const duration = Date.now() - start;
         console.error('network check failed', err);
-        setNetworkCheck(`failed: ${err?.message ?? 'unknown'}`);
-      });
+        if (__DEV__) {
+          console.warn('[today][network-check] failure details', {
+            durationMs: duration,
+            message: err instanceof Error ? err.message : String(err),
+            name: err instanceof Error ? err.name : undefined,
+          });
+        }
+        if (!cancelled) {
+          setNetworkCheck(`failed: ${err instanceof Error ? err.message : 'unknown'}`);
+        }
+      }
+    };
+
+    runNetworkCheck();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const isEmpty = activities.length === 0;
 

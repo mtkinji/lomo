@@ -51,6 +51,14 @@ export interface Goal {
   updatedAt: string;
 }
 
+export interface GoalDraft {
+  title: string;
+  description?: string;
+  status: Goal['status'];
+  forceIntent: GoalForceIntent;
+  suggestedActivities?: string[];
+}
+
 export type ActivityStatus = 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled';
 
 export interface ActivityForceActual {

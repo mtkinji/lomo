@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   FlatList,
@@ -29,6 +29,21 @@ import { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  getCachedOpenAiApiKey,
+  injectOpenAiApiKey,
+  resolveOpenAiApiKey,
+} from '../../services/openAiKey';
+
+const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
+  if (__DEV__) {
+    if (payload) {
+      console.log(`[arcs] ${event}`, payload);
+    } else {
+      console.log(`[arcs] ${event}`);
+    }
+  }
+};
 
 export function ArcsScreen() {
   const arcs = useAppStore((state) => state.arcs);
@@ -43,6 +58,17 @@ export function ArcsScreen() {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<GeneratedArc[]>([]);
   const [error, setError] = useState('');
+  const [devModalVisible, setDevModalVisible] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(() => !!getCachedOpenAiApiKey());
+
+  useEffect(() => {
+    resolveOpenAiApiKey().then((key) => setHasApiKey(Boolean(key)));
+    if (__DEV__) {
+      resolveOpenAiApiKey().then((key) =>
+        console.log('ArcsScreen OpenAI key available?', key ? 'yes' : 'no')
+      );
+    }
+  }, []);
 
   const empty = arcs.length === 0;
 
@@ -53,6 +79,13 @@ export function ArcsScreen() {
           <Heading style={styles.title}>Arcs</Heading>
           <Text style={styles.subtitle}>Who you&apos;re becoming</Text>
         </VStack>
+        {__DEV__ && (
+          <Button variant="link" alignSelf="flex-start" onPress={() => setDevModalVisible(true)}>
+            <Text style={styles.devLinkText}>
+              {hasApiKey ? 'Update local OpenAI key' : 'Inject OpenAI key'}
+            </Text>
+          </Button>
+        )}
         <Button
           variant="solid"
           action="primary"
@@ -121,19 +154,37 @@ export function ArcsScreen() {
         suggestions={suggestions}
         error={error}
         onGenerate={async () => {
+          const startedAt = Date.now();
+          logArcsDebug('newArc:generate:start', {
+            promptLength: prompt.length,
+            timeHorizon: timeHorizon || null,
+            additionalContextLength: additionalContext.length,
+          });
           setLoading(true);
           setError('');
           try {
             const result = await generateArcs({ prompt, timeHorizon, additionalContext });
+            logArcsDebug('newArc:generate:success', {
+              durationMs: Date.now() - startedAt,
+              suggestionNames: result.map((suggestion) => suggestion.name),
+            });
             setSuggestions(result);
           } catch (err) {
             console.error('generateArcs failed', err);
+            logArcsDebug('newArc:generate:error', {
+              durationMs: Date.now() - startedAt,
+              message: err instanceof Error ? err.message : String(err),
+            });
             setError('Something went wrong asking LOMO. Try again.');
           } finally {
             setLoading(false);
           }
         }}
         onAdopt={(suggestion) => {
+          logArcsDebug('newArc:adopt', {
+            name: suggestion.name,
+            status: suggestion.status,
+          });
           const now = new Date().toISOString();
           addArc({
             id: `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -156,6 +207,18 @@ export function ArcsScreen() {
         insetTop={insets.top}
         setSuggestions={setSuggestions}
       />
+      {__DEV__ && (
+        <DevApiKeyModal
+          visible={devModalVisible}
+          onClose={() => setDevModalVisible(false)}
+        onSave={async (key) => {
+          logArcsDebug('devModal:save:start');
+          await injectOpenAiApiKey(key);
+          setHasApiKey(true);
+          logArcsDebug('devModal:save:complete');
+        }}
+        />
+      )}
     </AppShell>
   );
 }
@@ -172,6 +235,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     ...typography.body,
     color: colors.textSecondary,
+  },
+  devLinkText: {
+    ...typography.bodySm,
+    color: colors.accent,
+  },
+  devHelperText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   emptyState: {
     marginTop: spacing['2xl'],
@@ -448,6 +520,95 @@ function NewArcModal({
           <Button variant="link" onPress={onClose} style={{ marginTop: spacing.lg }}>
             <Text style={styles.linkText}>Close</Text>
           </Button>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+
+type DevApiKeyModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  onSave: (key: string) => Promise<void>;
+};
+
+type DevFeedback = { text: string; tone: 'error' | 'info' };
+
+function DevApiKeyModal({ visible, onClose, onSave }: DevApiKeyModalProps) {
+  const [keyValue, setKeyValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState<DevFeedback | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyValue('');
+      setFeedback(null);
+      setSaving(false);
+    }
+  }, [visible]);
+
+  const handleSave = async () => {
+    const trimmed = keyValue.trim();
+    if (!trimmed) {
+      setFeedback({ text: 'Enter a valid key first.', tone: 'error' });
+      return;
+    }
+    setSaving(true);
+    setFeedback(null);
+    try {
+      await onSave(trimmed);
+      setFeedback({
+        text: 'Stored locally for this device. Reload AI flows to use it.',
+        tone: 'info',
+      });
+      setKeyValue('');
+      onClose();
+    } catch (err) {
+      console.error('Failed to store OpenAI key', err);
+      setFeedback({ text: 'Unable to store key. Check console for details.', tone: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalOverlay}
+      >
+        <View style={[styles.modalContent, { paddingTop: spacing['2xl'] }]}>
+          <Heading style={styles.modalTitle}>Inject OpenAI API key</Heading>
+          <Text style={styles.modalBody}>
+            This is a developer-only helper. The key is saved locally in AsyncStorage so you don’t
+            have to pass it via terminal for every Expo restart.
+          </Text>
+          <TextInput
+            style={[styles.input, { minHeight: 48 }]}
+            placeholder="sk-..."
+            placeholderTextColor="#6B7280"
+            value={keyValue}
+            onChangeText={setKeyValue}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {feedback ? (
+            <Text
+              style={feedback.tone === 'error' ? styles.errorText : styles.devHelperText}
+            >
+              {feedback.text}
+            </Text>
+          ) : null}
+          <Text style={styles.devHelperText}>Only use development keys. Do not ship this in prod.</Text>
+          <HStack space="sm" marginTop={spacing.lg}>
+            <Button variant="outline" flex={1} onPress={onClose} isDisabled={saving}>
+              <Text style={styles.linkText}>Close</Text>
+            </Button>
+            <Button flex={1} onPress={handleSave} isDisabled={saving}>
+              <Text style={styles.buttonText}>{saving ? 'Saving…' : 'Save key'}</Text>
+            </Button>
+          </HStack>
         </View>
       </KeyboardAvoidingView>
     </Modal>
