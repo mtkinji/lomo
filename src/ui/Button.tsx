@@ -6,9 +6,10 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing } from '../theme';
 
-type ButtonVariant = 'default' | 'outline' | 'secondary' | 'ghost' | 'link';
+type ButtonVariant = 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'accent' | 'ai';
 type ButtonSize = 'default' | 'small' | 'icon';
 
 type Props = {
@@ -46,6 +47,15 @@ export function Button({
         variant === 'link' && styles.linkBase,
       ]}
     >
+      {variant === 'ai' && (
+        <LinearGradient
+          pointerEvents="none"
+          colors={['#166534', '#22C55E']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.aiGradientOverlay}
+        />
+      )}
       {children}
     </TouchableOpacity>
   );
@@ -58,6 +68,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
+    position: 'relative',
+    overflow: 'hidden',
   },
   defaultSize: {
     paddingVertical: spacing.md,
@@ -65,9 +77,10 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   smallSize: {
-    paddingVertical: spacing.sm,
+    // Match the visual thickness of the 36x36 "+" icon button on Arcs
+    paddingVertical: spacing.sm - 2,
     paddingHorizontal: spacing.lg,
-    minHeight: 38,
+    minHeight: 36,
   },
   iconSize: {
     width: 44,
@@ -81,6 +94,13 @@ const styles = StyleSheet.create({
   linkBase: {
     paddingVertical: 0,
     paddingHorizontal: 0,
+  },
+  aiGradientOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
 });
 
@@ -103,6 +123,16 @@ const stylesByVariant: Record<ButtonVariant, ViewStyle> = {
   },
   link: {
     backgroundColor: 'transparent',
+  },
+  // Accent: Pine brand color, available but opt-in
+  accent: {
+    backgroundColor: colors.accent,
+  },
+  // AI: lighter Pine-tinted surface for AI / guidance flows
+  ai: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
   },
 };
 

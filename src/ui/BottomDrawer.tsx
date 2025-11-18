@@ -130,7 +130,8 @@ export function BottomDrawer({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    // Dim with a Pine-tinted veil to keep brand color present
+    backgroundColor: 'rgba(31,82,38,0.45)',
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.sm,
   },

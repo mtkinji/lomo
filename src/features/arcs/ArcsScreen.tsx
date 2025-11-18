@@ -17,12 +17,13 @@ import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { Icon } from '../../ui/Icon';
 import { useNavigation } from '@react-navigation/native';
-import { ArcsStackParamList } from '../../navigation/RootNavigator';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
 import { BottomDrawer } from '../../ui/BottomDrawer';
+import { Card } from '../../ui/Card';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -96,7 +97,10 @@ export function ArcsScreen() {
             style={styles.header}
           >
             <VStack space="xs" style={styles.headerText}>
-              <HStack alignItems="center" space="xs">
+              <HStack alignItems="center" space="sm">
+                <View style={styles.screenIconContainer}>
+                  <Icon name="arcs" size={18} color={colors.canvas} />
+                </View>
                 <Heading style={styles.title}>Arcs</Heading>
                 <Pressable
                   accessibilityRole="button"
@@ -127,7 +131,7 @@ export function ArcsScreen() {
           contentContainerStyle={[
             styles.listContent,
             {
-              paddingBottom: spacing['2xl'] + insets.bottom,
+              paddingBottom: spacing.md,
               paddingTop: listTopPadding,
             },
             empty && styles.listEmptyContent,
@@ -145,30 +149,29 @@ export function ArcsScreen() {
             const goalCount = goalCountByArc[item.id] ?? 0;
             const activityCount = activityCountByArc[item.id] ?? 0;
             return (
-              <Pressable
-                style={styles.arcCard}
-                onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}
-              >
-                <VStack space="sm">
-                  <Heading style={styles.arcTitle}>{item.name}</Heading>
-                  {item.narrative && <Text style={styles.arcNarrative}>{item.narrative}</Text>}
-                <HStack space="lg" style={styles.arcMetaRow} alignItems="center">
-                  <HStack space="xs" alignItems="center">
-                    <Icon name="goals" size={14} color={colors.textSecondary} />
-                    <Text style={styles.arcStatValue}>{goalCount}</Text>
-                    <Text style={styles.arcStatLabel}>
-                      {goalCount === 1 ? 'Goal' : 'Goals'}
-                    </Text>
-                  </HStack>
-                  <HStack space="xs" alignItems="center">
-                    <Icon name="activities" size={14} color={colors.textSecondary} />
-                    <Text style={styles.arcStatValue}>{activityCount}</Text>
-                    <Text style={styles.arcStatLabel}>
-                      {activityCount === 1 ? 'Activity' : 'Activities'}
-                    </Text>
-                  </HStack>
-                  </HStack>
-                </VStack>
+              <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
+                <Card style={styles.arcCard}>
+                  <VStack space="sm">
+                    <Heading style={styles.arcTitle}>{item.name}</Heading>
+                    {item.narrative && <Text style={styles.arcNarrative}>{item.narrative}</Text>}
+                    <HStack space="lg" style={styles.arcMetaRow} alignItems="center">
+                      <HStack space="xs" alignItems="center">
+                        <Icon name="goals" size={14} color={colors.textSecondary} />
+                        <Text style={styles.arcStatValue}>{goalCount}</Text>
+                        <Text style={styles.arcStatLabel}>
+                          {goalCount === 1 ? 'Goal' : 'Goals'}
+                        </Text>
+                      </HStack>
+                      <HStack space="xs" alignItems="center">
+                        <Icon name="activities" size={14} color={colors.textSecondary} />
+                        <Text style={styles.arcStatValue}>{activityCount}</Text>
+                        <Text style={styles.arcStatLabel}>
+                          {activityCount === 1 ? 'Activity' : 'Activities'}
+                        </Text>
+                      </HStack>
+                    </HStack>
+                  </VStack>
+                </Card>
               </Pressable>
             );
           }}
@@ -259,10 +262,14 @@ export function ArcsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    // Prevent cards from peeking above the fixed header into the safe area
+    overflow: 'hidden',
   },
   list: {
     flex: 1,
-    backgroundColor: colors.shell,
+    // Let the list inherit the app shell / canvas background so it doesn’t look like a separate panel
+    backgroundColor: 'transparent',
+    overflow: 'visible',
   },
   listContent: {
     paddingBottom: spacing.xl,
@@ -277,6 +284,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1,
+    // Header floats above the Light Canvas with a subtle tint
     backgroundColor: colors.shell,
   },
   header: {
@@ -314,13 +322,18 @@ const styles = StyleSheet.create({
     height: 36,
   },
   arcCard: {
-    ...cardSurfaceStyle,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.xl,
+    // Let the app shell define horizontal gutters so cards align with the header
+    marginHorizontal: 0,
+    // Use the base card vertical spacing so lists stay consistent across screens
+    marginVertical: 0,
   },
   arcTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
+    // Use heavy weight while keeping the more compact titleSm size
+    fontFamily: 'Inter_800ExtraBold',
   },
   arcNarrative: {
     ...typography.bodySm,
@@ -337,6 +350,15 @@ const styles = StyleSheet.create({
   arcStatLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  screenIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    // Use a high-saturation complementary rose tone to the pine green accent
+    backgroundColor: colors.accentRoseStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goalDescription: {
     ...typography.bodySm,

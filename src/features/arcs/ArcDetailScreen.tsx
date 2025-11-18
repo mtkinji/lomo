@@ -1,7 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
   StyleSheet,
-  FlatList,
   Modal,
   View,
   TextInput,
@@ -9,7 +8,6 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  ActionSheetIOS,
   Alert,
   TouchableOpacity,
 } from 'react-native';
@@ -18,13 +16,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
-import { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { GoalDraft } from '../../domain/types';
 import { generateGoals } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Badge } from '../../ui/Badge';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
 const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -37,6 +35,7 @@ const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => 
 };
 
 type ArcDetailRouteProp = RouteProp<ArcsStackParamList, 'ArcDetail'>;
+type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'ArcDetail'>;
 
 const FORCE_LABELS: Record<string, string> = {
   'force-activity': 'Activity',
@@ -54,7 +53,7 @@ const FORCE_ORDER: Array<keyof typeof FORCE_LABELS> = [
 
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<ArcDetailNavigationProp>();
   const { arcId } = route.params;
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -71,6 +70,11 @@ export function ArcDetailScreen() {
   const [recommendationsError, setRecommendationsError] = useState('');
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [recommendationsModalVisible, setRecommendationsModalVisible] = useState(false);
+  const [editingField, setEditingField] = useState<'name' | 'northStar' | 'narrative' | null>(
+    null
+  );
+  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
   const [editName, setEditName] = useState('');
   const [editNorthStar, setEditNorthStar] = useState('');
   const [editNarrative, setEditNarrative] = useState('');
@@ -153,32 +157,6 @@ export function ArcDetailScreen() {
     );
   }, [arc, handleDeleteArc]);
 
-  const handleArcOptions = useCallback(() => {
-    if (!arc) return;
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancel', 'Edit arc', 'Delete arc'],
-          cancelButtonIndex: 0,
-          destructiveButtonIndex: 2,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
-            openEditArcModal();
-          } else if (buttonIndex === 2) {
-            confirmDeleteArc();
-          }
-        }
-      );
-    } else {
-      Alert.alert('Arc options', undefined, [
-        { text: 'Edit arc', onPress: openEditArcModal },
-        { text: 'Delete arc', style: 'destructive', onPress: confirmDeleteArc },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
-  }, [arc, openEditArcModal, confirmDeleteArc]);
-
   const handleSaveArcDetails = useCallback(
     (values: { name: string; northStar?: string; narrative?: string }) => {
       if (!arc) return;
@@ -194,6 +172,73 @@ export function ArcDetailScreen() {
     },
     [arc, updateArc]
   );
+
+  const beginInlineEdit = useCallback(
+    (field: 'name' | 'northStar' | 'narrative') => {
+      if (!arc) return;
+      // If another field is currently editing, first commit that change.
+      if (editingField && editingField !== field) {
+        commitInlineEdit();
+        return;
+      }
+
+      setEditingField(field);
+      if (field === 'name') {
+        setEditName(arc.name);
+      } else if (field === 'northStar') {
+        setEditNorthStar(arc.northStar ?? '');
+      } else if (field === 'narrative') {
+        setEditNarrative(arc.narrative ?? '');
+      }
+    },
+    [arc, editingField, commitInlineEdit]
+  );
+
+  const commitInlineEdit = useCallback(() => {
+    if (!arc || !editingField) {
+      setEditingField(null);
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+
+    if (editingField === 'name') {
+      const nextName = editName.trim();
+      if (!nextName || nextName === arc.name) {
+        setEditingField(null);
+        return;
+      }
+      updateArc(arc.id, (prev) => ({
+        ...prev,
+        name: nextName,
+        updatedAt: timestamp,
+      }));
+    } else if (editingField === 'northStar') {
+      const nextNorthStar = editNorthStar.trim();
+      if (nextNorthStar === (arc.northStar ?? '')) {
+        setEditingField(null);
+        return;
+      }
+      updateArc(arc.id, (prev) => ({
+        ...prev,
+        northStar: nextNorthStar || undefined,
+        updatedAt: timestamp,
+      }));
+    } else if (editingField === 'narrative') {
+      const nextNarrative = editNarrative.trim();
+      if (nextNarrative === (arc.narrative ?? '')) {
+        setEditingField(null);
+        return;
+      }
+      updateArc(arc.id, (prev) => ({
+        ...prev,
+        narrative: nextNarrative || undefined,
+        updatedAt: timestamp,
+      }));
+    }
+
+    setEditingField(null);
+  }, [arc, editingField, editName, editNorthStar, editNarrative, updateArc]);
 
   const handleAdoptGoal = (draft: GoalDraft) => {
     if (!arc) {
@@ -238,138 +283,182 @@ export function ArcDetailScreen() {
 
   return (
     <AppShell>
-      <VStack space="lg">
-        <HStack justifyContent="space-between" alignItems="center">
-          <Button
-            variant="secondary"
-            size="icon"
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            accessibilityLabel="Back to Arcs"
-          >
-            <Icon name="arrowLeft" size={20} color={colors.textPrimary} strokeWidth={2.5} />
-          </Button>
-          <Button
-            variant="secondary"
-            size="icon"
-            style={styles.optionsButton}
-            accessibilityLabel="Arc options"
-            onPress={handleArcOptions}
-          >
-            <Icon name="more" size={18} color={colors.textPrimary} />
-          </Button>
-        </HStack>
-        <HStack justifyContent="space-between" alignItems="flex-start" space="md">
-          <VStack space="sm" flex={1}>
-            <Heading style={styles.arcTitle}>{arc.name}</Heading>
-            {arc.northStar && <Text style={styles.northStar}>{arc.northStar}</Text>}
-            {arc.narrative && <Text style={styles.arcNarrative}>{arc.narrative}</Text>}
-            <Badge variant="secondary" style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>{arc.status}</Text>
-            </Badge>
-          </VStack>
-        </HStack>
-
-        <VStack space="md">
+      {editingField && (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.inlineEditOverlay}
+          onPress={commitInlineEdit}
+        />
+      )}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <VStack space="lg">
           <HStack justifyContent="space-between" alignItems="center">
-            <Heading style={styles.sectionTitle}>Recommended Goals</Heading>
-            <Button variant="link" disabled={loadingRecommendations} onPress={fetchRecommendations}>
-              <Text style={styles.linkText}>
-                {loadingRecommendations ? 'Fetching…' : 'Refresh suggestions'}
-              </Text>
+            <Button
+              size="icon"
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              accessibilityLabel="Back to Arcs"
+            >
+              <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+            </Button>
+            <Button
+              size="icon"
+              style={styles.optionsButton}
+              accessibilityLabel="Arc options"
+              onPress={() => setOptionsMenuVisible((prev) => !prev)}
+            >
+              <Icon name="more" size={18} color={colors.canvas} />
             </Button>
           </HStack>
+          <HStack justifyContent="space-between" alignItems="flex-start" space="md">
+            <VStack space="sm" flex={1}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => beginInlineEdit('name')}
+                accessibilityRole="button"
+                accessibilityLabel="Edit arc title"
+              >
+                <View
+                  style={[
+                    styles.editableField,
+                    editingField === 'name' && styles.editableFieldActive,
+                  ]}
+                >
+                  {editingField === 'name' ? (
+                    <TextInput
+                      style={styles.arcTitleInput}
+                      value={editName}
+                      onChangeText={setEditName}
+                      autoFocus
+                      multiline
+                      scrollEnabled={false}
+                      onBlur={commitInlineEdit}
+                    />
+                  ) : (
+                    <Heading style={styles.arcTitle}>{arc.name}</Heading>
+                  )}
+                </View>
+              </TouchableOpacity>
 
-          {recommendationsError ? <Text style={styles.errorText}>{recommendationsError}</Text> : null}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => beginInlineEdit('northStar')}
+                accessibilityRole="button"
+                accessibilityLabel="Edit north star"
+              >
+                <View
+                  style={[
+                    styles.editableField,
+                    editingField === 'northStar' && styles.editableFieldActive,
+                  ]}
+                >
+                  {editingField === 'northStar' ? (
+                    <TextInput
+                      style={styles.northStarInput}
+                      value={editNorthStar}
+                      onChangeText={setEditNorthStar}
+                      placeholder="Add a north star"
+                      placeholderTextColor="#6B7280"
+                      autoFocus
+                      multiline
+                      scrollEnabled={false}
+                      onBlur={commitInlineEdit}
+                    />
+                  ) : (
+                    arc.northStar && <Text style={styles.northStar}>{arc.northStar}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
 
-          {loadingRecommendations && (
-            <HStack alignItems="center" space="sm">
-              <ActivityIndicator color="#38BDF8" />
-              <Text style={styles.emptyBody}>Lomo is considering this arc…</Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => beginInlineEdit('narrative')}
+                accessibilityRole="button"
+                accessibilityLabel="Edit narrative"
+              >
+                <View
+                  style={[
+                    styles.editableField,
+                    editingField === 'narrative' && styles.editableFieldActive,
+                  ]}
+                >
+                  {editingField === 'narrative' ? (
+                    <TextInput
+                      style={[styles.arcNarrativeInput, { textAlignVertical: 'top' }]}
+                      value={editNarrative}
+                      onChangeText={setEditNarrative}
+                      placeholder="Add a narrative for this arc"
+                      placeholderTextColor="#6B7280"
+                      multiline
+                      scrollEnabled={false}
+                      autoFocus
+                      onBlur={commitInlineEdit}
+                    />
+                  ) : (
+                    arc.narrative && <Text style={styles.arcNarrative}>{arc.narrative}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </VStack>
+          </HStack>
+
+          <VStack space="md">
+            <HStack justifyContent="space-between" alignItems="center">
+              <Heading style={styles.sectionTitle}>
+                Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+              </Heading>
+              <Button variant="link" onPress={() => setGoalModalVisible(true)}>
+                <Text style={styles.linkText}>New Goal</Text>
+              </Button>
             </HStack>
-          )}
-
-          {!loadingRecommendations && !recommendationsError && recommendations.length === 0 ? (
-            <Text style={styles.emptyBody}>
-              LOMO will offer goal drafts once it has more context. Tap refresh to nudge it.
-            </Text>
-          ) : null}
 
           {recommendations.length > 0 && (
-            <VStack space="md">
-              {recommendations.map((goal) => (
-                <VStack key={goal.title} style={styles.recommendationCard} space="sm">
-                  <Heading style={styles.goalTitle}>{goal.title}</Heading>
-                  {goal.description && <Text style={styles.goalDescription}>{goal.description}</Text>}
-                  <Text style={styles.metaText}>Force intent</Text>
-                  <HStack style={styles.forceIntentRow}>
-                    {FORCE_ORDER.map((force) => (
-                      <Text key={force} style={styles.intentChip}>
-                        {FORCE_LABELS[force]} · {goal.forceIntent[force] ?? 0}/3
-                      </Text>
-                    ))}
-                  </HStack>
-                  {goal.suggestedActivities && goal.suggestedActivities.length > 0 && (
-                    <VStack space="xs">
-                      {goal.suggestedActivities.map((activity) => (
-                        <Text key={activity} style={styles.metaText}>
-                          • {activity}
-                        </Text>
-                      ))}
-                    </VStack>
-                  )}
-                  <HStack space="sm">
-                    <Button
-                      variant="outline"
-                      style={{ flex: 1 }}
-                      onPress={() => dismissGoalRecommendation(arc.id, goal.title)}
-                    >
-                      <Text style={styles.linkText}>Dismiss</Text>
-                    </Button>
-                    <Button style={{ flex: 1 }} onPress={() => handleAdoptRecommendation(goal)}>
-                      <Text style={styles.buttonText}>Adopt Goal</Text>
-                    </Button>
-                  </HStack>
-                </VStack>
-              ))}
-            </VStack>
-          )}
-        </VStack>
-
-        <VStack space="md">
-          <HStack justifyContent="space-between" alignItems="center">
-            <Heading style={styles.sectionTitle}>
-              Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-            </Heading>
-            <Button variant="link" onPress={() => setGoalModalVisible(true)}>
-              <Text style={styles.linkText}>New Goal</Text>
+            <Button
+              variant="ai"
+              style={styles.recommendationsEntryButton}
+              onPress={() => setRecommendationsModalVisible(true)}
+            >
+              <Icon name="arcs" size={18} color={colors.canvas} />
+              <Text style={styles.recommendationsEntryText}>
+                View {recommendations.length} recommendation
+                {recommendations.length > 1 ? 's' : ''}
+              </Text>
             </Button>
-          </HStack>
-
-          {arcGoals.length === 0 ? (
-            <Text style={styles.emptyBody}>No goals yet for this Arc.</Text>
-          ) : (
-            <FlatList
-              data={arcGoals}
-              keyExtractor={(goal) => goal.id}
-              ItemSeparatorComponent={() => <VStack style={styles.separator} />}
-              renderItem={({ item }) => (
-                <VStack style={styles.goalCard}>
-                  <Heading style={styles.goalTitle}>{item.title}</Heading>
-                  {item.description && <Text style={styles.goalDescription}>{item.description}</Text>}
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <Text style={styles.metaText}>{item.status}</Text>
-                    <Text style={styles.metaText}>
-                      Activity {item.forceIntent['force-activity'] ?? 0}/3 · Mastery{' '}
-                      {item.forceIntent['force-mastery'] ?? 0}/3
-                    </Text>
-                  </HStack>
-                </VStack>
-              )}
-            />
           )}
+
+            {arcGoals.length === 0 ? (
+              <Text style={styles.emptyBody}>No goals yet for this Arc.</Text>
+            ) : (
+              <VStack space="md">
+                {arcGoals.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('GoalDetail', { goalId: item.id })}
+                  >
+                    <VStack style={styles.goalCard}>
+                      <Heading style={styles.goalTitle}>{item.title}</Heading>
+                      {item.description && (
+                        <Text style={styles.goalDescription}>{item.description}</Text>
+                      )}
+                      <HStack justifyContent="space-between" alignItems="center">
+                        <Text style={styles.metaText}>{item.status}</Text>
+                        <Text style={styles.metaText}>
+                          Activity {item.forceIntent['force-activity'] ?? 0}/3 · Mastery{' '}
+                          {item.forceIntent['force-mastery'] ?? 0}/3
+                        </Text>
+                      </HStack>
+                    </VStack>
+                  </TouchableOpacity>
+                ))}
+              </VStack>
+            )}
+          </VStack>
         </VStack>
-      </VStack>
+      </ScrollView>
       <NewGoalModal
         visible={goalModalVisible}
         onClose={() => setGoalModalVisible(false)}
@@ -388,6 +477,150 @@ export function ArcDetailScreen() {
         onSubmit={handleSaveArcDetails}
         insetTop={insets.top}
       />
+      {optionsMenuVisible && (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.optionsMenuOverlay}
+          onPress={() => setOptionsMenuVisible(false)}
+        >
+          <View style={styles.optionsMenuContainer}>
+            <View style={styles.optionsMenu}>
+              <Text style={styles.optionsMenuLabel}>Arc actions</Text>
+              <View style={styles.optionsMenuSeparator} />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.optionsMenuItem}
+                onPress={() => {
+                  setOptionsMenuVisible(false);
+                  confirmDeleteArc();
+                }}
+              >
+                <Text style={styles.optionsMenuItemDestructiveText}>Delete arc</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+      <Modal
+        visible={recommendationsModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setRecommendationsModalVisible(false)}
+      >
+        <View
+          style={[
+            styles.modalOverlay,
+            styles.recommendationsOverlay,
+            { paddingTop: insets.top },
+          ]}
+        >
+          <View style={[styles.recommendationsModalContent, { paddingTop: spacing.xl }]}>
+            <VStack space="md">
+              <HStack justifyContent="space-between" alignItems="center">
+                <Heading style={styles.sectionTitle}>Recommended Goals</Heading>
+                <HStack alignItems="center" space="sm">
+                  <Button
+                    variant="link"
+                    disabled={loadingRecommendations}
+                    onPress={fetchRecommendations}
+                  >
+                    <Text style={styles.linkText}>
+                      {loadingRecommendations ? 'Fetching…' : 'Refresh suggestions'}
+                    </Text>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    style={styles.recommendationsCloseButton}
+                    onPress={() => setRecommendationsModalVisible(false)}
+                    accessibilityLabel="Close recommended goals"
+                  >
+                    <Icon name="more" size={18} color={colors.textPrimary} />
+                  </Button>
+                </HStack>
+              </HStack>
+
+              {recommendationsError ? (
+                <Text style={styles.errorText}>{recommendationsError}</Text>
+              ) : null}
+
+              {loadingRecommendations && (
+                <HStack alignItems="center" space="sm">
+                  <ActivityIndicator color="#38BDF8" />
+                  <Text style={styles.emptyBody}>Lomo is considering this arc…</Text>
+                </HStack>
+              )}
+
+              {!loadingRecommendations &&
+              !recommendationsError &&
+              recommendations.length === 0 ? (
+                <Text style={styles.emptyBody}>
+                  LOMO will offer goal drafts once it has more context. Tap refresh to nudge it.
+                </Text>
+              ) : null}
+
+              {recommendations.length > 0 && (
+                <ScrollView
+                  style={{ marginTop: spacing.sm }}
+                  contentContainerStyle={{ paddingBottom: spacing.lg }}
+                >
+                  <VStack space="md">
+                    {recommendations.map((goal) => (
+                      <VStack key={goal.title} style={styles.recommendationCard} space="sm">
+                        <Heading style={styles.goalTitle}>{goal.title}</Heading>
+                        {goal.description && (
+                          <Text style={styles.goalDescription}>{goal.description}</Text>
+                        )}
+                        <Text style={styles.metaText}>Force intent</Text>
+                        <HStack style={styles.forceIntentRow}>
+                          {FORCE_ORDER.map((force) => (
+                            <Text key={force} style={styles.intentChip}>
+                              {FORCE_LABELS[force]} · {goal.forceIntent[force] ?? 0}/3
+                            </Text>
+                          ))}
+                        </HStack>
+                        {goal.suggestedActivities && goal.suggestedActivities.length > 0 && (
+                          <VStack space="xs">
+                            {goal.suggestedActivities.map((activity) => (
+                              <Text key={activity} style={styles.metaText}>
+                                • {activity}
+                              </Text>
+                            ))}
+                          </VStack>
+                        )}
+                        <HStack space="sm">
+                          <Button
+                            variant="outline"
+                            style={{ flex: 1 }}
+                            onPress={() => dismissGoalRecommendation(arc.id, goal.title)}
+                          >
+                            <Text style={styles.linkText}>Dismiss</Text>
+                          </Button>
+                          <Button
+                            variant="accent"
+                            style={{ flex: 1 }}
+                            onPress={() => handleAdoptRecommendation(goal)}
+                          >
+                            <Text style={styles.buttonText}>Adopt Goal</Text>
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    ))}
+                  </VStack>
+                </ScrollView>
+              )}
+
+              <Button
+                variant="link"
+                onPress={() => setRecommendationsModalVisible(false)}
+                style={{ marginTop: spacing.sm }}
+              >
+                <Text style={styles.linkText}>Close</Text>
+              </Button>
+            </VStack>
+          </View>
+        </View>
+      </Modal>
     </AppShell>
   );
 }
@@ -556,7 +789,13 @@ function NewGoalModal({
                 >
                   <Text style={styles.linkText}>Back</Text>
                 </Button>
-                <Button style={{ flex: 1 }} disabled={nextDisabled} onPress={handleSubmit}>
+                <Button
+                  variant={isFinalStep ? 'ai' : 'default'}
+                  style={{ flex: 1 }}
+                  disabled={nextDisabled}
+                  onPress={handleSubmit}
+                >
+                  {isFinalStep && <Icon name="arcs" size={18} color={colors.canvas} />}
                   <Text style={styles.buttonText}>{isFinalStep ? 'Ask LOMO' : 'Next'}</Text>
                 </Button>
               </HStack>
@@ -590,8 +829,8 @@ function NewGoalModal({
                         </Text>
                       ))}
                     </HStack>
-                    <Button variant="outline" onPress={() => onAdopt(suggestion)}>
-                      <Text style={styles.linkText}>Adopt Goal</Text>
+                    <Button variant="accent" onPress={() => onAdopt(suggestion)}>
+                      <Text style={styles.buttonText}>Adopt Goal</Text>
                     </Button>
                   </VStack>
                 ))}
@@ -696,34 +935,110 @@ function EditArcModal({
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.lg,
+  },
   backButton: {
     alignSelf: 'flex-start',
     borderRadius: 999,
+    width: 36,
+    height: 36,
   },
   optionsButton: {
     borderRadius: 999,
+    width: 36,
+    height: 36,
   },
   goalCount: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
   arcTitle: {
-    ...typography.titleLg,
+    ...typography.titleXl,
     color: colors.textPrimary,
+  },
+  arcTitleInput: {
+    ...typography.titleXl,
+    color: colors.textPrimary,
+    padding: 0,
+    margin: 0,
   },
   northStar: {
     ...typography.body,
     color: colors.textPrimary,
   },
+  northStarInput: {
+    ...typography.body,
+    color: colors.textPrimary,
+    padding: 0,
+    margin: 0,
+  },
   arcNarrative: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  statusBadge: {
-    marginTop: spacing.xs,
-  },
-  statusBadgeText: {
+  arcNarrativeInput: {
     ...typography.bodySm,
+    color: colors.textSecondary,
+    padding: 0,
+    margin: 0,
+  },
+  editableField: {
+    borderWidth: 1,
+    borderRadius: 12,
+    borderColor: 'transparent',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  editableFieldActive: {
+    borderColor: colors.accent,
+  },
+  inlineEditOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  optionsMenuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-start',
+    backgroundColor: 'transparent',
+  },
+  optionsMenuContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    paddingTop: spacing['2xl'],
+    paddingRight: spacing.lg,
+  },
+  optionsMenu: {
+    backgroundColor: colors.canvas,
+    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    minWidth: 160,
+    // soft shadow similar to shadcn popover / dropdown
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  optionsMenuItem: {
+    paddingVertical: spacing.sm,
+  },
+  optionsMenuItemDestructiveText: {
+    ...typography.bodySm,
+    color: colors.warning,
+  },
+  optionsMenuLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+    marginBottom: spacing.xs,
+  },
+  optionsMenuSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginBottom: spacing.xs,
   },
   sectionTitle: {
     ...typography.titleSm,
@@ -830,6 +1145,29 @@ const styles = StyleSheet.create({
   modalLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  recommendationsEntryButton: {
+    marginTop: spacing.sm,
+  },
+  recommendationsEntryText: {
+    ...typography.body,
+    color: colors.canvas,
+    textAlign: 'center',
+  },
+  recommendationsModalContent: {
+    backgroundColor: colors.canvas,
+    borderRadius: 32,
+    padding: spacing.xl,
+    height: '95%',
+  },
+  recommendationsOverlay: {
+    justifyContent: 'flex-start',
+    paddingHorizontal: 8,
+  },
+  recommendationsCloseButton: {
+    borderRadius: 999,
+    width: 32,
+    height: 32,
   },
 });
 

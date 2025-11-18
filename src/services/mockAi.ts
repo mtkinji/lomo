@@ -53,11 +53,10 @@ export async function mockGenerateArcs(
   await new Promise((resolve) => setTimeout(resolve, 700));
 
   const emphasis = params.prompt.toLowerCase();
-  const filtered = arcTemplates.filter((template) =>
-    template.narrative.toLowerCase().includes('family')
-      ? emphasis.includes('family')
-      : true
-  );
+  const filtered = arcTemplates.filter((template) => {
+    const narrative = template.narrative ?? '';
+    return narrative.toLowerCase().includes('family') ? emphasis.includes('family') : true;
+  });
 
   return (filtered.length ? filtered : arcTemplates).slice(0, 3);
 }

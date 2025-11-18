@@ -16,6 +16,7 @@ import Plus from 'lucide-react-native/dist/esm/icons/plus';
 import Ellipsis from 'lucide-react-native/dist/esm/icons/ellipsis';
 import Target from 'lucide-react-native/dist/esm/icons/target';
 import Info from 'lucide-react-native/dist/esm/icons/info';
+import Pencil from 'lucide-react-native/dist/esm/icons/pencil';
 import House from 'lucide-react-native/dist/esm/icons/house';
 
 const icons = {
@@ -36,6 +37,7 @@ const icons = {
   more: Ellipsis,
   goals: Target,
   info: Info,
+  edit: Pencil,
 };
 
 export type IconName = keyof typeof icons;

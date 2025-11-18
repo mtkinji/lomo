@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
-import { spacing, typography } from '../theme';
+import { colors, spacing, typography } from '../theme';
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'info';
 
@@ -12,23 +12,25 @@ type BadgeProps = {
 };
 
 const BACKGROUND_BY_VARIANT: Record<BadgeVariant, string> = {
-  default: '#18181B',
-  secondary: '#F4F4F5',
+  // Primary / status badges: filled Pine
+  default: colors.accent,
+  // Neutral metadata: Light Canvas / shell tint
+  secondary: colors.shellAlt,
   destructive: '#DC2626',
-  outline: '#FFFFFF',
-  info: '#2563EB',
+  outline: colors.canvas,
+  info: colors.accentMuted,
 };
 
 const BORDER_BY_VARIANT: Partial<Record<BadgeVariant, string>> = {
-  outline: '#E4E4E7',
+  outline: colors.border,
 };
 
 const TEXT_BY_VARIANT: Record<BadgeVariant, string> = {
-  default: '#FFFFFF',
-  secondary: '#18181B',
-  destructive: '#FFFFFF',
-  outline: '#18181B',
-  info: '#FFFFFF',
+  default: colors.canvas,
+  secondary: colors.textSecondary,
+  destructive: colors.canvas,
+  outline: colors.textPrimary,
+  info: colors.canvas,
 };
 
 export function Badge({ variant = 'default', children, style, textStyle }: BadgeProps) {

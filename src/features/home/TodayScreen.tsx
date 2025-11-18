@@ -4,15 +4,14 @@ import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
 import { Logo } from '../../ui/Logo';
+import { Card } from '../../ui/Card';
 
 const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 
 export function TodayScreen() {
-  const insets = useSafeAreaInsets();
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const goalLookup = goals.reduce<Record<string, string>>((acc, goal) => {
@@ -99,22 +98,24 @@ export function TodayScreen() {
       : 'Anytime';
     const goalTitle = goalLookup[item.goalId ?? ''];
     return (
-      <VStack style={styles.scheduleCard}>
-        <HStack justifyContent="space-between" alignItems="center">
-          <Text style={styles.scheduleTime}>{timeLabel}</Text>
-          {item.phase && <Badge variant="secondary">{item.phase}</Badge>}
-        </HStack>
-        <Text style={styles.scheduleTitle}>{item.title}</Text>
-        {goalTitle ? <Text style={styles.scheduleGoal}>{goalTitle}</Text> : null}
-        <HStack justifyContent="space-between">
-            <Text style={styles.scheduleMeta}>
-              Estimate {Math.round((item.estimateMinutes ?? 0) / 60)}h · {item.status.replace('_', ' ')}
-            </Text>
-          {item.forceActual && (
-            <Text style={styles.scheduleMeta}>Focus {item.forceActual['force-activity'] ?? 0}/3</Text>
-          )}
-        </HStack>
-      </VStack>
+      <Card style={styles.scheduleCard}>
+        <VStack>
+          <HStack justifyContent="space-between" alignItems="center">
+            <Text style={styles.scheduleTime}>{timeLabel}</Text>
+            {item.phase && <Badge variant="secondary">{item.phase}</Badge>}
+          </HStack>
+          <Text style={styles.scheduleTitle}>{item.title}</Text>
+          {goalTitle ? <Text style={styles.scheduleGoal}>{goalTitle}</Text> : null}
+          <HStack justifyContent="space-between">
+              <Text style={styles.scheduleMeta}>
+                Estimate {Math.round((item.estimateMinutes ?? 0) / 60)}h · {item.status.replace('_', ' ')}
+              </Text>
+            {item.forceActual && (
+              <Text style={styles.scheduleMeta}>Focus {item.forceActual['force-activity'] ?? 0}/3</Text>
+            )}
+          </HStack>
+        </VStack>
+      </Card>
     );
   };
 
@@ -123,40 +124,39 @@ export function TodayScreen() {
       <FlatList
         data={activities}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: spacing.lg + insets.bottom },
-        ]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: spacing.lg }]}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={renderActivity}
         ListHeaderComponent={
           <VStack space="lg">
-            <HStack alignItems="center" space="sm">
-              <Logo size={32} />
-              <VStack space="xs">
+            <VStack space="xs" alignItems="center">
+              <HStack alignItems="center" space="sm">
+                <Logo size={32} />
                 <Heading style={styles.brand}>Lomo</Heading>
-                <Text style={styles.subtitle}>
-                  Planner · {greeting} · {prettyDate}
-                </Text>
-              </VStack>
-            </HStack>
-
-            <VStack space="md" style={styles.heroCard}>
-              <Text style={styles.heroTitle}>Today&apos;s focus</Text>
-              <Text style={styles.heroBody}>
-                Track your arcs, review goal drafts, and keep the day grounded in meaningful work.
+              </HStack>
+              <Text style={styles.subtitle}>
+                Planner · {greeting} · {prettyDate}
               </Text>
-              <Button style={styles.primaryAction}>
-                <Text style={styles.primaryActionText}>Create New Task</Text>
-              </Button>
-              {networkCheck !== 'success' && (
-                <Text style={styles.networkText}>
-                  Network check: {networkCheck === 'pending' ? 'checking…' : networkCheck}
-                </Text>
-              )}
             </VStack>
 
-            <Text style={styles.sectionTitle}>Schedule</Text>
+            <Card style={styles.heroCard}>
+              <VStack space="md">
+                <Text style={styles.heroTitle}>Today&apos;s focus</Text>
+                <Text style={styles.heroBody}>
+                  Track your arcs, review goal drafts, and keep the day grounded in meaningful work.
+                </Text>
+                <Button size="small" style={styles.primaryAction}>
+                  <Text style={styles.primaryActionText}>Create New Task</Text>
+                </Button>
+                {networkCheck !== 'success' && (
+                  <Text style={styles.networkText}>
+                    Network check: {networkCheck === 'pending' ? 'checking…' : networkCheck}
+                  </Text>
+                )}
+              </VStack>
+            </Card>
+
+            <Text style={styles.sectionTitle}>Priorities</Text>
           </VStack>
         }
         ListEmptyComponent={
@@ -178,6 +178,9 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
   },
+  screenBackground: {
+    backgroundColor: colors.shell,
+  },
   subtitle: {
     marginTop: spacing.xs,
     ...typography.body,
@@ -192,7 +195,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   heroCard: {
-    ...cardSurfaceStyle,
     padding: spacing.xl,
   },
   heroTitle: {
@@ -231,9 +233,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
+    marginBottom: spacing.sm,
   },
   scheduleCard: {
-    ...cardSurfaceStyle,
     padding: spacing.lg,
   },
   scheduleTime: {

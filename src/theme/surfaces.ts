@@ -2,14 +2,16 @@ import { colors } from './colors';
 
 export const cardSurfaceStyle = {
   backgroundColor: colors.card,
+  // Slightly tighter radius so cards feel lighter in dense lists
   borderRadius: 20,
   borderWidth: 1,
   borderColor: colors.border,
-  shadowColor: '#0F172A',
-  shadowOpacity: 0.05,
-  shadowOffset: { width: 0, height: 8 },
-  shadowRadius: 24,
-  elevation: 5,
+  // Very soft, tight shadow so stacked lists don’t create a darker central “column”
+  shadowColor: colors.accent,
+  shadowOpacity: 0.025,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 6,
+  elevation: 1,
 } as const;
 
 

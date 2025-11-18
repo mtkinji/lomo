@@ -255,13 +255,7 @@ export const useAppStore = create(
     {
       name: 'lomo-store',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        forces: state.forces,
-        arcs: state.arcs,
-        goals: state.goals,
-        activities: state.activities,
-        goalRecommendations: state.goalRecommendations,
-      }),
+      partialize: (state) => state,
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         if (state.forces.length === 0) {

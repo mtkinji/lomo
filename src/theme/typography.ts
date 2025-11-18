@@ -3,10 +3,18 @@ export const fonts = {
   medium: 'Inter_500Medium',
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
+  extrabold: 'Inter_800ExtraBold',
+  black: 'Inter_900Black',
   logo: 'Poppins_700Bold',
 };
 
 export const typography = {
+  titleXl: {
+    // Largest Arc heading: keep size but move to 800 weight for a slightly softer top level
+    fontFamily: fonts.extrabold,
+    fontSize: 32,
+    lineHeight: 38,
+  },
   titleLg: {
     fontFamily: fonts.bold,
     fontSize: 28,
