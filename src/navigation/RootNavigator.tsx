@@ -1,18 +1,33 @@
-import { useWindowDimensions } from 'react-native';
-import { NavigationContainer, DefaultTheme, Theme } from '@react-navigation/native';
+import { useState } from 'react';
+import { useWindowDimensions, View, StyleSheet } from 'react-native';
+import {
+  NavigationContainer,
+  DefaultTheme,
+  Theme,
+  DrawerActions,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createDrawerNavigator } from '@react-navigation/drawer';
+import {
+  createDrawerNavigator,
+  DrawerContentScrollView,
+  DrawerItemList,
+} from '@react-navigation/drawer';
+import { Text, Pressable } from '@gluestack-ui/themed';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';
 import { GoalDetailScreen } from '../features/arcs/GoalDetailScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
+import { GoalsScreen } from '../features/goals/GoalsScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
+import { Input } from '../ui/Input';
 
 export type RootDrawerParamList = {
-  Activities: undefined;
   ArcsStack: undefined;
+  Goals: undefined;
+  Activities: undefined;
   Chapters: undefined;
 };
 
@@ -24,6 +39,7 @@ export type ArcsStackParamList = {
 
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
+const NAV_DRAWER_TOP_OFFSET = 13; // px offset between the status bar and drawer content
 
 const navTheme: Theme = {
   ...DefaultTheme,
@@ -44,6 +60,7 @@ export function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Drawer.Navigator
+        drawerContent={(props) => <LomoDrawerContent {...props} />}
         screenOptions={({ route }) => ({
           headerShown: false,
           // Use "slide" so the entire app canvas shifts right while the drawer stays pinned,
@@ -60,11 +77,13 @@ export function RootNavigator() {
           drawerActiveTintColor: colors.accent,
           drawerInactiveTintColor: colors.textSecondary,
           drawerLabelStyle: {
-            ...typography.body,
+            ...typography.bodySm,
           },
           drawerItemStyle: {
             borderRadius: 12,
-            marginVertical: 4,
+            marginVertical: spacing.xs / 4,
+            paddingVertical: spacing.xs / 8,
+            minHeight: 32,
           },
           drawerIcon: ({ color, size }) => {
             const iconName = getDrawerIcon(route.name as keyof RootDrawerParamList);
@@ -74,14 +93,19 @@ export function RootNavigator() {
         initialRouteName="Activities"
       >
         <Drawer.Screen
+          name="ArcsStack"
+          component={ArcsStackNavigator}
+          options={{ title: 'Arcs' }}
+        />
+        <Drawer.Screen
+          name="Goals"
+          component={GoalsScreen}
+          options={{ title: 'Goals' }}
+        />
+        <Drawer.Screen
           name="Activities"
           component={ActivitiesScreen}
           options={{ title: 'Activities' }}
-        />
-        <Drawer.Screen
-          name="ArcsStack"
-          component={ArcsStackNavigator}
-          options={{ title: 'Arcs & Goals' }}
         />
         <Drawer.Screen
           name="Chapters"
@@ -105,16 +129,103 @@ function ArcsStackNavigator() {
 
 function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
   switch (routeName) {
-    case 'Activities':
-      return 'activities';
     case 'ArcsStack':
       return 'arcs';
+    case 'Goals':
+      return 'goals';
+    case 'Activities':
+      return 'activities';
     case 'Chapters':
       return 'chapters';
     default:
       return 'dot';
   }
 }
+
+function LomoDrawerContent(props: any) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const insets = useSafeAreaInsets();
+
+  return (
+    <DrawerContentScrollView
+      {...props}
+      contentContainerStyle={[
+        styles.drawerContentContainer,
+        { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET },
+      ]}
+    >
+      <View style={styles.drawerHeader}>
+        <Input
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search arcs, goals, activities"
+          accessibilityLabel="Search navigation"
+          leadingIcon="search"
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+          containerStyle={styles.searchContainer}
+        />
+      </View>
+      <View style={styles.drawerMain}>
+        <DrawerItemList {...props} />
+      </View>
+      <View style={styles.drawerFooter}>
+        <View style={styles.profileRow}>
+          <View style={styles.avatarPlaceholder} />
+          <View>
+            <Text style={styles.profileName}>Andrew Watanabe</Text>
+            <Text style={styles.profileSubtitle}>View profile & settings</Text>
+          </View>
+        </View>
+      </View>
+    </DrawerContentScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  drawerContentContainer: {
+    flex: 1,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.xl,
+  },
+  drawerHeader: {
+    marginBottom: spacing.lg,
+  },
+  searchContainer: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  drawerMain: {
+    flex: 1,
+    paddingBottom: spacing.lg,
+  },
+  drawerFooter: {
+    paddingTop: spacing.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  avatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.shell,
+  },
+  profileName: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  profileSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+});
 
 
 

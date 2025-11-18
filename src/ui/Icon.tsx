@@ -1,7 +1,7 @@
 import { ComponentType } from 'react';
 import { LucideProps } from 'lucide-react-native';
 import CalendarCheck from 'lucide-react-native/dist/esm/icons/calendar-check';
-import Sparkles from 'lucide-react-native/dist/esm/icons/sparkles';
+import Orbit from 'lucide-react-native/dist/esm/icons/orbit';
 import BookOpen from 'lucide-react-native/dist/esm/icons/book-open';
 import Activity from 'lucide-react-native/dist/esm/icons/activity';
 import MessagesSquare from 'lucide-react-native/dist/esm/icons/messages-square';
@@ -19,11 +19,12 @@ import Info from 'lucide-react-native/dist/esm/icons/info';
 import Pencil from 'lucide-react-native/dist/esm/icons/pencil';
 import House from 'lucide-react-native/dist/esm/icons/house';
 import PanelLeft from 'lucide-react-native/dist/esm/icons/panel-left';
+import Search from 'lucide-react-native/dist/esm/icons/search';
 
 const icons = {
   today: CalendarCheck,
   home: House,
-  arcs: Sparkles,
+  arcs: Orbit,
   chapters: BookOpen,
   aiGuide: MessagesSquare,
   activities: ListChecks,
@@ -40,6 +41,7 @@ const icons = {
   goals: Target,
   info: Info,
   edit: Pencil,
+  search: Search,
 };
 
 export type IconName = keyof typeof icons;
