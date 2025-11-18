@@ -59,6 +59,7 @@ function TabsNavigator() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
+          // Keep the tab bar as a distinct control rail on a white surface
           backgroundColor: colors.canvas,
           borderTopColor: colors.border,
           // Small lift above the iOS home indicator + extra 8px above icons

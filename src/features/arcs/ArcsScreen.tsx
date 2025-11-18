@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { VStack, Heading, Text, Icon as GluestackIcon, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
+import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { Icon } from '../../ui/Icon';
@@ -90,38 +91,21 @@ export function ArcsScreen() {
           style={styles.fixedHeader}
           onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
         >
-          <HStack
-            space="lg"
-            justifyContent="space-between"
-            alignItems="flex-start"
-            style={styles.header}
-          >
-            <VStack space="xs" style={styles.headerText}>
-              <HStack alignItems="center" space="sm">
-                <View style={styles.screenIconContainer}>
-                  <Icon name="arcs" size={18} color={colors.canvas} />
-                </View>
-                <Heading style={styles.title}>Arcs</Heading>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Learn about arcs"
-                  hitSlop={8}
-                  onPress={() => setInfoVisible(true)}
-                >
-                  <Icon name="info" size={18} color={colors.textSecondary} />
-                </Pressable>
-              </HStack>
-            </VStack>
-            <Button
-              size="icon"
-              accessibilityRole="button"
-              accessibilityLabel="Create new arc"
-              style={styles.newArcButton}
-              onPress={() => setIsModalVisible(true)}
-            >
-              <GluestackIcon as={() => <Icon name="plus" size={16} color="#FFFFFF" />} />
-            </Button>
-          </HStack>
+          <PageHeader
+            title="Arcs"
+            onPressInfo={() => setInfoVisible(true)}
+            rightElement={
+              <Button
+                size="icon"
+                accessibilityRole="button"
+                accessibilityLabel="Create new arc"
+                style={styles.newArcButton}
+                onPress={() => setIsModalVisible(true)}
+              >
+                <GluestackIcon as={() => <Icon name="plus" size={16} color="#FFFFFF" />} />
+              </Button>
+            }
+          />
         </View>
         <FlatList
           style={styles.list}
@@ -287,17 +271,6 @@ const styles = StyleSheet.create({
     // Header floats above the Light Canvas with a subtle tint
     backgroundColor: colors.shell,
   },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  headerText: {
-    flex: 1,
-    paddingRight: spacing.lg,
-  },
-  title: {
-    ...typography.titleLg,
-    color: colors.textPrimary,
-  },
   emptyState: {
     marginTop: spacing['2xl'],
   },
@@ -350,15 +323,6 @@ const styles = StyleSheet.create({
   arcStatLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
-  },
-  screenIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    // Use a high-saturation complementary rose tone to the pine green accent
-    backgroundColor: colors.accentRoseStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   goalDescription: {
     ...typography.bodySm,

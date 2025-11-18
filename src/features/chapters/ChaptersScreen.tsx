@@ -1,16 +1,14 @@
 import { StyleSheet } from 'react-native';
 import { VStack, Heading, Text } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
+import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
 
 export function ChaptersScreen() {
   return (
     <AppShell>
+      <PageHeader title="Chapters" subtitle="AI-generated lookbacks" />
       <VStack space="lg">
-        <VStack space="xs" style={styles.header}>
-          <Heading style={styles.title}>Chapters</Heading>
-          <Text style={styles.subtitle}>AI-generated lookbacks</Text>
-        </VStack>
         <VStack space="sm" style={styles.emptyState}>
           <Heading style={styles.emptyTitle}>No chapters yet</Heading>
           <Text style={styles.emptyBody}>
