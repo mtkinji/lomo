@@ -1,3 +1,4 @@
+import { useWindowDimensions } from 'react-native';
 import { NavigationContainer, DefaultTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
@@ -37,15 +38,20 @@ const navTheme: Theme = {
 };
 
 export function RootNavigator() {
+  const { width } = useWindowDimensions();
+  const drawerWidth = width * 0.8;
+
   return (
     <NavigationContainer theme={navTheme}>
       <Drawer.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          drawerType: 'front',
+          // Use "slide" so the entire app canvas shifts right while the drawer stays pinned,
+          // similar to the ChatGPT mobile app behavior.
+          drawerType: 'slide',
           drawerStyle: {
             backgroundColor: colors.canvas,
-            width: 280,
+            width: drawerWidth,
           },
           overlayColor: 'rgba(15,23,42,0.35)',
           sceneContainerStyle: {
