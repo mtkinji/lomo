@@ -135,16 +135,29 @@ Result: The Goal becomes a concrete plan ready to surface in Today.
 #### 4.1 Today’s Activities Canvas
 
 - **Default state**
-  - List of Activities scheduled for today (and optionally overdue), grouped by Arc.
-  - Each Activity shows:
-    - Title.
-    - Parent Goal.
-    - Estimate badge.
+  - Today’s canvas shows two related sections that share the same basic interactions:
+    - **Aligned for Today** – Activities that are tied to a Goal (and thus an Arc), typically drawn from each Goal’s plan.
+    - **Loose Tasks** – quick-captured Activities with no Goal/Arc yet (e.g., life admin, maintenance).
+  - Within **Aligned for Today**:
+    - Activities scheduled for today (and optionally overdue), grouped by Arc and Goal.
+    - Each Activity shows:
+      - Title.
+      - Parent Goal.
+      - Estimate badge.
+  - Within **Loose Tasks**:
+    - Activities are shown as a simple list of “inbox” items for the day.
+    - They can still be started, completed, skipped, or logged like any other Activity.
 
 - **Primary interactions**
   - Tap an Activity to change status:
     - “Start” → “Done” or “Skip”.
   - When marking “Done”, show a compact logging sheet.
+  - Periodically, surface a gentle nudge such as:
+    - “You have several loose tasks. Want to group any of these under a Goal or Arc?”
+  - Alignment flows (often AI-assisted) let the user:
+    - Attach loose tasks to an existing Goal / Arc.
+    - Group related loose tasks into a new Goal / Arc.
+    - Mark certain patterns as ongoing **Maintenance / overhead**, so Chapters treat them differently.
 
 #### 4.2 Logging Sheet (Force Actual + Time)
 

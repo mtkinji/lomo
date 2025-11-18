@@ -1,22 +1,18 @@
-import { Text } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme, Theme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { TodayScreen } from '../features/home/TodayScreen';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';
 import { GoalDetailScreen } from '../features/arcs/GoalDetailScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
-import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 
 export type RootTabParamList = {
-  ArcsStack: undefined;
-  Today: undefined;
-  AiGuide: undefined;
   Activities: undefined;
+  ArcsStack: undefined;
   Chapters: undefined;
 };
 
@@ -68,15 +64,22 @@ function TabsNavigator() {
         // Active item: pine icon + label, inactive: secondary
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color, size, focused }) => {
           const iconName = getTabIcon(route.name);
-          return <Icon name={iconName} color={color} size={size} />;
+          const pillIconColor = focused ? colors.shell : color;
+
+          return (
+            <View style={focused ? styles.activeIconPill : styles.iconPill}>
+              <Icon name={iconName} color={pillIconColor} size={size - 4} />
+            </View>
+          );
         },
         tabBarLabel: ({ focused, color }) => (
           <Text
             style={[
               typography.bodySm,
               {
+                marginTop: spacing.xs,
                 color,
                 fontFamily: focused
                   ? typography.titleSm.fontFamily // bolder for active
@@ -90,36 +93,40 @@ function TabsNavigator() {
       })}
     >
       <Tab.Screen
+        name="Activities"
+        component={ActivitiesScreen}
+        options={{ title: 'Activities' }}
+      />
+      <Tab.Screen
         name="ArcsStack"
         component={ArcsScreen}
         options={{ title: 'Arcs' }}
-      />
-      <Tab.Screen name="Activities" component={ActivitiesScreen} />
-      <Tab.Screen
-        name="Today"
-        component={TodayScreen}
-        options={{ title: 'Home' }}
-      />
-      <Tab.Screen
-        name="AiGuide"
-        component={AiChatScreen}
-        options={{ title: 'Chat' }}
       />
       <Tab.Screen name="Chapters" component={ChaptersScreen} />
     </Tab.Navigator>
   );
 }
 
+const styles = StyleSheet.create({
+  iconPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+  },
+  activeIconPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+  },
+});
+
 function getTabIcon(routeName: keyof RootTabParamList): IconName {
   switch (routeName) {
-    case 'ArcsStack':
-      return 'arcs';
-    case 'Today':
-      return 'home';
-    case 'AiGuide':
-      return 'aiGuide';
     case 'Activities':
       return 'activities';
+    case 'ArcsStack':
+      return 'arcs';
     case 'Chapters':
       return 'chapters';
     default:
@@ -129,14 +136,10 @@ function getTabIcon(routeName: keyof RootTabParamList): IconName {
 
 function getTabLabel(routeName: keyof RootTabParamList): string {
   switch (routeName) {
-    case 'ArcsStack':
-      return 'Arcs';
-    case 'Today':
-      return 'Home';
-    case 'AiGuide':
-      return 'Chat';
     case 'Activities':
       return 'Activities';
+    case 'ArcsStack':
+      return 'Arcs';
     case 'Chapters':
       return 'Chapters';
     default:
