@@ -40,8 +40,10 @@ const config: ExpoConfig = {
   },
   ios: {
     supportsTablet: true,
+    bundleIdentifier: 'com.anonymous.LOMO',
   },
   android: {
+    package: 'com.anonymous.LOMO',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',

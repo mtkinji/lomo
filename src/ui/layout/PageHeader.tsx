@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ReactNode, useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { HStack, VStack, Heading, Text, Pressable } from '@gluestack-ui/themed';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography } from '../../theme';
@@ -13,6 +13,16 @@ type PageHeaderProps = {
    * with the bottom navigation icon.
    */
   iconName?: IconName;
+  /**
+   * Optional menu handler; when provided, a hamburger icon appears to the left
+   * of the title. Intended for global navigation drawers.
+   */
+  onPressMenu?: () => void;
+  /**
+   * When true, the menu icon is visually treated as "open" (rotated 180deg).
+   * Typically wired to the drawer's open/closed state.
+   */
+  menuOpen?: boolean;
   /**
    * When provided, shows an info icon button to the right of the title.
    */
@@ -32,10 +42,33 @@ export function PageHeader({
   title,
   subtitle,
   iconName,
+  onPressMenu,
+  menuOpen = false,
   onPressInfo,
   rightElement,
   children,
 }: PageHeaderProps) {
+  const rotation = useRef(new Animated.Value(menuOpen ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(rotation, {
+      toValue: menuOpen ? 1 : 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [menuOpen, rotation]);
+
+  const rotateStyle = {
+    transform: [
+      {
+        rotate: rotation.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['0deg', '180deg'],
+        }),
+      },
+    ],
+  } as const;
+
   return (
     <VStack space="md" style={styles.container}>
       <HStack
@@ -46,6 +79,18 @@ export function PageHeader({
       >
         <VStack space="xs" style={styles.leftColumn}>
           <HStack alignItems="center" space="sm">
+            {onPressMenu ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open navigation menu"
+                hitSlop={8}
+                onPress={onPressMenu}
+              >
+                <Animated.View style={rotateStyle}>
+                  <Icon name="panelLeft" size={20} color={colors.textPrimary} />
+                </Animated.View>
+              </Pressable>
+            ) : null}
             {iconName ? (
               <View style={styles.iconContainer}>
                 <Icon name={iconName} size={18} color={colors.canvas} />

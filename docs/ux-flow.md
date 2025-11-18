@@ -140,10 +140,10 @@ Result: The Goal becomes a concrete plan ready to surface in Today.
     - **Loose Tasks** – quick-captured Activities with no Goal/Arc yet (e.g., life admin, maintenance).
   - Within **Aligned for Today**:
     - Activities scheduled for today (and optionally overdue), grouped by Arc and Goal.
-    - Each Activity shows:
-      - Title.
-      - Parent Goal.
-      - Estimate badge.
+  - Each Activity shows:
+    - Title.
+    - Parent Goal.
+    - Estimate badge.
   - Within **Loose Tasks**:
     - Activities are shown as a simple list of “inbox” items for the day.
     - They can still be started, completed, skipped, or logged like any other Activity.

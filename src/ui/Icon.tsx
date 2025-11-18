@@ -18,6 +18,7 @@ import Target from 'lucide-react-native/dist/esm/icons/target';
 import Info from 'lucide-react-native/dist/esm/icons/info';
 import Pencil from 'lucide-react-native/dist/esm/icons/pencil';
 import House from 'lucide-react-native/dist/esm/icons/house';
+import PanelLeft from 'lucide-react-native/dist/esm/icons/panel-left';
 
 const icons = {
   today: CalendarCheck,
@@ -27,6 +28,7 @@ const icons = {
   aiGuide: MessagesSquare,
   activities: ListChecks,
   activity: Activity,
+  panelLeft: PanelLeft,
   paperclip: Paperclip,
   image: ImageIcon,
   mic: Mic,

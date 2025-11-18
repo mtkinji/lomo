@@ -1,7 +1,6 @@
-import { Text, View, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme, Theme } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';
 import { GoalDetailScreen } from '../features/arcs/GoalDetailScreen';
@@ -10,7 +9,7 @@ import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 
-export type RootTabParamList = {
+export type RootDrawerParamList = {
   Activities: undefined;
   ArcsStack: undefined;
   Chapters: undefined;
@@ -22,8 +21,8 @@ export type ArcsStackParamList = {
   GoalDetail: { goalId: string };
 };
 
-const Tab = createBottomTabNavigator<RootTabParamList>();
-const RootStack = createNativeStackNavigator<ArcsStackParamList>();
+const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
+const Drawer = createDrawerNavigator<RootDrawerParamList>();
 
 const navTheme: Theme = {
   ...DefaultTheme,
@@ -40,88 +39,65 @@ const navTheme: Theme = {
 export function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="ArcsList" component={TabsNavigator} />
-        <RootStack.Screen name="ArcDetail" component={ArcDetailScreen} />
-        <RootStack.Screen name="GoalDetail" component={GoalDetailScreen} />
-      </RootStack.Navigator>
+      <Drawer.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          drawerType: 'front',
+          drawerStyle: {
+            backgroundColor: colors.canvas,
+            width: 280,
+          },
+          overlayColor: 'rgba(15,23,42,0.35)',
+          sceneContainerStyle: {
+            backgroundColor: colors.shell,
+          },
+          drawerActiveTintColor: colors.accent,
+          drawerInactiveTintColor: colors.textSecondary,
+          drawerLabelStyle: {
+            ...typography.body,
+          },
+          drawerItemStyle: {
+            borderRadius: 12,
+            marginVertical: 4,
+          },
+          drawerIcon: ({ color, size }) => {
+            const iconName = getDrawerIcon(route.name as keyof RootDrawerParamList);
+            return <Icon name={iconName} color={color} size={size ?? 20} />;
+          },
+        })}
+        initialRouteName="Activities"
+      >
+        <Drawer.Screen
+          name="Activities"
+          component={ActivitiesScreen}
+          options={{ title: 'Activities' }}
+        />
+        <Drawer.Screen
+          name="ArcsStack"
+          component={ArcsStackNavigator}
+          options={{ title: 'Arcs & Goals' }}
+        />
+        <Drawer.Screen
+          name="Chapters"
+          component={ChaptersScreen}
+          options={{ title: 'Chapters' }}
+        />
+      </Drawer.Navigator>
     </NavigationContainer>
   );
 }
 
-function TabsNavigator() {
+function ArcsStackNavigator() {
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: {
-          // Keep the tab bar as a distinct control rail on a white surface
-          backgroundColor: colors.canvas,
-          borderTopColor: colors.border,
-          // Small lift above the iOS home indicator + extra 8px above icons
-          paddingTop: spacing.sm,
-        },
-        // Active item: pine icon + label, inactive: secondary
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarIcon: ({ color, size, focused }) => {
-          const iconName = getTabIcon(route.name);
-          const pillIconColor = focused ? colors.shell : color;
-
-          return (
-            <View style={focused ? styles.activeIconPill : styles.iconPill}>
-              <Icon name={iconName} color={pillIconColor} size={size - 4} />
-            </View>
-          );
-        },
-        tabBarLabel: ({ focused, color }) => (
-          <Text
-            style={[
-              typography.bodySm,
-              {
-                marginTop: spacing.xs,
-                color,
-                fontFamily: focused
-                  ? typography.titleSm.fontFamily // bolder for active
-                  : typography.bodySm.fontFamily,
-              },
-            ]}
-          >
-            {getTabLabel(route.name)}
-          </Text>
-        ),
-      })}
-    >
-      <Tab.Screen
-        name="Activities"
-        component={ActivitiesScreen}
-        options={{ title: 'Activities' }}
-      />
-      <Tab.Screen
-        name="ArcsStack"
-        component={ArcsScreen}
-        options={{ title: 'Arcs' }}
-      />
-      <Tab.Screen name="Chapters" component={ChaptersScreen} />
-    </Tab.Navigator>
+    <ArcsStack.Navigator screenOptions={{ headerShown: false }}>
+      <ArcsStack.Screen name="ArcsList" component={ArcsScreen} />
+      <ArcsStack.Screen name="ArcDetail" component={ArcDetailScreen} />
+      <ArcsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
+    </ArcsStack.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  iconPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-  },
-  activeIconPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.accent,
-  },
-});
-
-function getTabIcon(routeName: keyof RootTabParamList): IconName {
+function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
   switch (routeName) {
     case 'Activities':
       return 'activities';
@@ -131,19 +107,6 @@ function getTabIcon(routeName: keyof RootTabParamList): IconName {
       return 'chapters';
     default:
       return 'dot';
-  }
-}
-
-function getTabLabel(routeName: keyof RootTabParamList): string {
-  switch (routeName) {
-    case 'Activities':
-      return 'Activities';
-    case 'ArcsStack':
-      return 'Arcs';
-    case 'Chapters':
-      return 'Chapters';
-    default:
-      return '';
   }
 }
 

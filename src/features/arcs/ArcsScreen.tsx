@@ -11,15 +11,17 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
+import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { VStack, Heading, Text, Icon as GluestackIcon, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { Icon } from '../../ui/Icon';
-import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { ArcsStackParamList } from '../../navigation/RootNavigator';
+import { useDrawerStatus } from '@react-navigation/drawer';
+import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
@@ -41,7 +43,10 @@ export function ArcsScreen() {
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
   const addArc = useAppStore((state) => state.addArc);
-  const navigation = useNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
+  const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
+  const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
+  const drawerStatus = useDrawerStatus();
+  const menuOpen = drawerStatus === 'open';
   const insets = useSafeAreaInsets();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
@@ -93,6 +98,8 @@ export function ArcsScreen() {
         >
           <PageHeader
             title="Arcs"
+            menuOpen={menuOpen}
+            onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
             onPressInfo={() => setInfoVisible(true)}
             rightElement={
               <Button
