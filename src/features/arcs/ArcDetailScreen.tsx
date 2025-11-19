@@ -9,14 +9,18 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  Image,
+  Share,
 } from 'react-native';
 import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
-import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
+import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
 import { GoalDraft } from '../../domain/types';
-import { generateGoals } from '../../services/ai';
+import { generateGoals, generateArcHeroImage } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -51,6 +55,26 @@ const FORCE_ORDER: Array<keyof typeof FORCE_LABELS> = [
   'force-spirituality',
 ];
 
+// Slightly richer, higher-chroma palettes for Arc thumbnails and heroes.
+// Still stay in the brand's soft, spiritual range but feel more "alive".
+const ARC_HERO_PALETTES: [string, string][] = [
+  ['#DCFCE7', '#86EFAC'], // fresh pine → mint
+  ['#E0F2FE', '#7DD3FC'], // sky → bright sky
+  ['#FEF3C7', '#FACC15'], // warm amber
+  ['#FCE7F3', '#F472B6'], // rosy
+  ['#EDE9FE', '#A855F7'], // violet
+  ['#F1F5F9', '#CBD5F5'], // soft neutral with a cool lift
+];
+
+const hashStringToIndex = (value: string, modulo: number): number => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  const normalized = Math.abs(hash);
+  return modulo === 0 ? 0 : normalized % modulo;
+};
+
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
@@ -69,16 +93,42 @@ export function ArcDetailScreen() {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [recommendationsError, setRecommendationsError] = useState('');
   const [goalModalVisible, setGoalModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const [recommendationsModalVisible, setRecommendationsModalVisible] = useState(false);
-  const [editingField, setEditingField] = useState<'name' | 'northStar' | 'narrative' | null>(
-    null
-  );
+  const [editingField, setEditingField] = useState<'name' | 'narrative' | null>(null);
   const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
   const [editName, setEditName] = useState('');
-  const [editNorthStar, setEditNorthStar] = useState('');
   const [editNarrative, setEditNarrative] = useState('');
+  const [heroEditorVisible, setHeroEditorVisible] = useState(false);
+  const [heroLoading, setHeroLoading] = useState(false);
+  const [heroError, setHeroError] = useState('');
   const insets = useSafeAreaInsets();
+
+  const handleShareArc = useCallback(async () => {
+    if (!arc) return;
+
+    const sections: string[] = [];
+    sections.push(arc.name);
+    if (arc.narrative) {
+      sections.push(`Narrative: ${arc.narrative}`);
+    }
+
+    const message = sections.join('\n\n');
+
+    try {
+      logArcDetailDebug('share:open', { arcId: arc.id, arcName: arc.name });
+      await Share.share({
+        title: arc.name,
+        message,
+      });
+      logArcDetailDebug('share:completed', { arcId: arc.id, arcName: arc.name });
+    } catch (err) {
+      logArcDetailDebug('share:error', {
+        arcId: arc.id,
+        arcName: arc.name,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }, [arc]);
 
   const fetchRecommendations = useCallback(async () => {
     if (!arc) return;
@@ -90,7 +140,6 @@ export function ArcDetailScreen() {
       const recs = await generateGoals({
         arcName: arc.name,
         arcNarrative: arc.narrative,
-        arcNorthStar: arc.northStar,
       });
       logArcDetailDebug('recommendations:fetch:success', {
         durationMs: Date.now() - startedAt,
@@ -131,67 +180,12 @@ export function ArcDetailScreen() {
     );
   }
 
-  const openEditArcModal = useCallback(() => {
-    if (!arc) return;
-    setEditName(arc.name);
-    setEditNorthStar(arc.northStar ?? '');
-    setEditNarrative(arc.narrative ?? '');
-    setEditModalVisible(true);
-  }, [arc]);
-
-  const handleDeleteArc = useCallback(() => {
-    if (!arc) return;
-    removeArc(arc.id);
-    navigation.goBack();
-  }, [arc, removeArc, navigation]);
-
-  const confirmDeleteArc = useCallback(() => {
-    if (!arc) return;
-    Alert.alert(
-      'Delete arc?',
-      'This will remove the arc and related goals.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: handleDeleteArc },
-      ]
-    );
-  }, [arc, handleDeleteArc]);
-
-  const handleSaveArcDetails = useCallback(
-    (values: { name: string; northStar?: string; narrative?: string }) => {
-      if (!arc) return;
-      const timestamp = new Date().toISOString();
-      updateArc(arc.id, (prev) => ({
-        ...prev,
-        name: values.name.trim(),
-        northStar: values.northStar?.trim() || undefined,
-        narrative: values.narrative?.trim() || undefined,
-        updatedAt: timestamp,
-      }));
-      setEditModalVisible(false);
-    },
-    [arc, updateArc]
-  );
-
-  const beginInlineEdit = useCallback(
-    (field: 'name' | 'northStar' | 'narrative') => {
-      if (!arc) return;
-      // If another field is currently editing, first commit that change.
-      if (editingField && editingField !== field) {
-        commitInlineEdit();
-        return;
-      }
-
-      setEditingField(field);
-      if (field === 'name') {
-        setEditName(arc.name);
-      } else if (field === 'northStar') {
-        setEditNorthStar(arc.northStar ?? '');
-      } else if (field === 'narrative') {
-        setEditNarrative(arc.narrative ?? '');
-      }
-    },
-    [arc, editingField, commitInlineEdit]
+  const [heroStartColor, heroEndColor] = useMemo(
+    () =>
+      ARC_HERO_PALETTES[
+        hashStringToIndex(arc.id || arc.name, ARC_HERO_PALETTES.length)
+      ],
+    [arc.id, arc.name]
   );
 
   const commitInlineEdit = useCallback(() => {
@@ -213,17 +207,6 @@ export function ArcDetailScreen() {
         name: nextName,
         updatedAt: timestamp,
       }));
-    } else if (editingField === 'northStar') {
-      const nextNorthStar = editNorthStar.trim();
-      if (nextNorthStar === (arc.northStar ?? '')) {
-        setEditingField(null);
-        return;
-      }
-      updateArc(arc.id, (prev) => ({
-        ...prev,
-        northStar: nextNorthStar || undefined,
-        updatedAt: timestamp,
-      }));
     } else if (editingField === 'narrative') {
       const nextNarrative = editNarrative.trim();
       if (nextNarrative === (arc.narrative ?? '')) {
@@ -238,7 +221,129 @@ export function ArcDetailScreen() {
     }
 
     setEditingField(null);
-  }, [arc, editingField, editName, editNorthStar, editNarrative, updateArc]);
+  }, [arc, editingField, editName, editNarrative, updateArc]);
+
+  const handleDeleteArc = useCallback(() => {
+    if (!arc) return;
+    removeArc(arc.id);
+    navigation.goBack();
+  }, [arc, removeArc, navigation]);
+
+  const confirmDeleteArc = useCallback(() => {
+    if (!arc) return;
+    Alert.alert(
+      'Delete arc?',
+      'This will remove the arc and related goals.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: handleDeleteArc },
+      ]
+    );
+  }, [arc, handleDeleteArc]);
+
+  const beginInlineEdit = useCallback(
+    (field: 'name' | 'narrative') => {
+      if (!arc) return;
+      // If another field is currently editing, first commit that change.
+      if (editingField && editingField !== field) {
+        commitInlineEdit();
+        return;
+      }
+
+      setEditingField(field);
+      if (field === 'name') {
+        setEditName(arc.name);
+      } else if (field === 'narrative') {
+        setEditNarrative(arc.narrative ?? '');
+      }
+    },
+    [arc, editingField, commitInlineEdit]
+  );
+
+  const handleGenerateHeroImage = useCallback(async () => {
+    if (!arc) return;
+    const startedAt = Date.now();
+    logArcDetailDebug('hero:generate:start', { arcId: arc.id, arcName: arc.name });
+    setHeroLoading(true);
+    setHeroError('');
+    try {
+      const url = await generateArcHeroImage({
+        arcName: arc.name,
+        arcNarrative: arc.narrative,
+      });
+      const timestamp = new Date().toISOString();
+      const promptSummary = [arc.name, arc.narrative].filter(Boolean).join(' – ');
+      updateArc(arc.id, (prev) => ({
+        ...prev,
+        thumbnailUrl: url,
+        heroImageMeta: {
+          source: 'ai',
+          prompt: promptSummary,
+          createdAt: timestamp,
+        },
+        updatedAt: timestamp,
+      }));
+      logArcDetailDebug('hero:generate:success', {
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (err) {
+      console.error('Hero image generation failed', err);
+      logArcDetailDebug('hero:generate:error', {
+        durationMs: Date.now() - startedAt,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      setHeroError('Something went wrong asking LOMO for an image. Try again.');
+    } finally {
+      setHeroLoading(false);
+    }
+  }, [arc, updateArc]);
+
+  const handlePickHeroImage = useCallback(async () => {
+    if (!arc) return;
+    try {
+      setHeroError('');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.9,
+      });
+      if (result.canceled) {
+        return;
+      }
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        return;
+      }
+      const timestamp = new Date().toISOString();
+      updateArc(arc.id, (prev) => ({
+        ...prev,
+        thumbnailUrl: asset.uri,
+        heroImageMeta: {
+          source: 'upload',
+          createdAt: timestamp,
+        },
+        updatedAt: timestamp,
+      }));
+    } catch (err) {
+      console.error('Hero image picker failed', err);
+      setHeroError('Unable to pick an image right now.');
+    }
+  }, [arc, updateArc]);
+
+  const handleRemoveHeroImage = useCallback(() => {
+    if (!arc) return;
+    const timestamp = new Date().toISOString();
+    updateArc(arc.id, (prev) => {
+      const { heroImageMeta: _hero, ...rest } = prev;
+      return {
+        ...rest,
+        thumbnailUrl: undefined,
+        updatedAt: timestamp,
+      };
+    });
+    setHeroError('');
+  }, [arc, updateArc]);
 
   const handleAdoptGoal = (draft: GoalDraft) => {
     if (!arc) {
@@ -281,6 +386,9 @@ export function ArcDetailScreen() {
     dismissGoalRecommendation(arc.id, draft.title);
   };
 
+  const hasGoals = arcGoals.length > 0;
+  const hasRecommendations = recommendations.length > 0;
+
   return (
     <AppShell>
       {editingField && (
@@ -290,11 +398,8 @@ export function ArcDetailScreen() {
           onPress={commitInlineEdit}
         />
       )}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <VStack space="lg">
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.paddedSection}>
           <HStack justifyContent="space-between" alignItems="center">
             <Button
               size="icon"
@@ -313,125 +418,140 @@ export function ArcDetailScreen() {
               <Icon name="more" size={18} color={colors.canvas} />
             </Button>
           </HStack>
-          <HStack justifyContent="space-between" alignItems="flex-start" space="md">
-            <VStack space="sm" flex={1}>
+        </View>
+        <View style={[styles.paddedSection, styles.arcHeaderSection]}>
+          <HStack alignItems="flex-start" space="md">
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setHeroEditorVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Edit arc image"
+            >
+              <View style={styles.arcThumbnailWrapper}>
+                {arc.thumbnailUrl ? (
+                  <Image
+                    source={{ uri: arc.thumbnailUrl }}
+                    style={styles.arcThumbnail}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={[heroStartColor, heroEndColor]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.arcThumbnail}
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+            <VStack space="xs" flex={1}>
               <TouchableOpacity
-                activeOpacity={0.8}
+                activeOpacity={0.9}
                 onPress={() => beginInlineEdit('name')}
-                accessibilityRole="button"
-                accessibilityLabel="Edit arc title"
+                style={[
+                  styles.editableField,
+                  styles.arcNameEditableField,
+                  editingField === 'name' && styles.editableFieldActive,
+                ]}
               >
-                <View
-                  style={[
-                    styles.editableField,
-                    editingField === 'name' && styles.editableFieldActive,
-                  ]}
-                >
-                  {editingField === 'name' ? (
-                    <TextInput
-                      style={styles.arcTitleInput}
-                      value={editName}
-                      onChangeText={setEditName}
-                      autoFocus
-                      multiline
-                      scrollEnabled={false}
-                      onBlur={commitInlineEdit}
-                    />
-                  ) : (
-                    <Heading style={styles.arcTitle}>{arc.name}</Heading>
-                  )}
-                </View>
+                {editingField === 'name' ? (
+                  <TextInput
+                    style={styles.arcTitleInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="Arc name"
+                    placeholderTextColor={colors.textSecondary}
+                    returnKeyType="done"
+                    onSubmitEditing={commitInlineEdit}
+                    autoFocus
+                  />
+                ) : (
+                  <Heading style={styles.arcTitle}>{arc.name}</Heading>
+                )}
               </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => beginInlineEdit('northStar')}
-                accessibilityRole="button"
-                accessibilityLabel="Edit north star"
-              >
-                <View
-                  style={[
-                    styles.editableField,
-                    editingField === 'northStar' && styles.editableFieldActive,
-                  ]}
-                >
-                  {editingField === 'northStar' ? (
-                    <TextInput
-                      style={styles.northStarInput}
-                      value={editNorthStar}
-                      onChangeText={setEditNorthStar}
-                      placeholder="Add a north star"
-                      placeholderTextColor="#6B7280"
-                      autoFocus
-                      multiline
-                      scrollEnabled={false}
-                      onBlur={commitInlineEdit}
-                    />
-                  ) : (
-                    arc.northStar && <Text style={styles.northStar}>{arc.northStar}</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => beginInlineEdit('narrative')}
-                accessibilityRole="button"
-                accessibilityLabel="Edit narrative"
-              >
-                <View
-                  style={[
-                    styles.editableField,
-                    editingField === 'narrative' && styles.editableFieldActive,
-                  ]}
-                >
-                  {editingField === 'narrative' ? (
-                    <TextInput
-                      style={[styles.arcNarrativeInput, { textAlignVertical: 'top' }]}
-                      value={editNarrative}
-                      onChangeText={setEditNarrative}
-                      placeholder="Add a narrative for this arc"
-                      placeholderTextColor="#6B7280"
-                      multiline
-                      scrollEnabled={false}
-                      autoFocus
-                      onBlur={commitInlineEdit}
-                    />
-                  ) : (
-                    arc.narrative && <Text style={styles.arcNarrative}>{arc.narrative}</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
+              {arc.heroImageMeta && (
+                <Text style={styles.heroMetaText}>
+                  {arc.heroImageMeta.source === 'ai' ? 'Generated by LOMO' : 'Uploaded image'}
+                </Text>
+              )}
             </VStack>
           </HStack>
-
+        </View>
+        <View style={styles.paddedSection}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => beginInlineEdit('narrative')}
+            style={[
+              styles.editableField,
+              editingField === 'narrative' && styles.editableFieldActive,
+            ]}
+          >
+            {editingField === 'narrative' ? (
+              <TextInput
+                style={styles.arcNarrativeInput}
+                value={editNarrative}
+                onChangeText={setEditNarrative}
+                placeholder="Tap to add a narrative for this Arc"
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                onBlur={commitInlineEdit}
+              />
+            ) : (
+              <Text style={styles.arcNarrative}>
+                {arc.narrative || 'Tap to add a narrative for this Arc.'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.paddedSection, styles.goalsSection]}>
           <VStack space="md">
             <HStack justifyContent="space-between" alignItems="center">
               <Heading style={styles.sectionTitle}>
                 Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
               </Heading>
-              <Button variant="link" onPress={() => setGoalModalVisible(true)}>
-                <Text style={styles.linkText}>New Goal</Text>
+              <Button
+                variant="secondary"
+                size="small"
+                style={styles.sectionActionButton}
+                onPress={() => setGoalModalVisible(true)}
+              >
+                <Text style={styles.sectionActionText}>New Goal</Text>
               </Button>
             </HStack>
 
-          {recommendations.length > 0 && (
-            <Button
-              variant="ai"
-              style={styles.recommendationsEntryButton}
-              onPress={() => setRecommendationsModalVisible(true)}
-            >
-              <Icon name="arcs" size={18} color={colors.canvas} />
-              <Text style={styles.recommendationsEntryText}>
-                View {recommendations.length} recommendation
-                {recommendations.length > 1 ? 's' : ''}
-              </Text>
-            </Button>
-          )}
+            {!hasGoals && (
+              <VStack space="md" style={styles.goalsEmptyState}>
+                <View style={styles.goalsEmptyImageWrapper}>
+                  <LinearGradient
+                    colors={['#E0F2FE', '#F5F3FF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.goalsEmptyImage}
+                  />
+                  <Icon name="goals" size={32} color={colors.textSecondary} />
+                </View>
+                <Heading style={styles.sectionTitle}>No goals yet for this Arc</Heading>
+                <Text style={styles.emptyBody}>
+                  Start with a few gentle recommendations from LOMO. You can adopt them as-is or
+                  tweak them to fit your season.
+                </Text>
+                {hasRecommendations && (
+                  <Button
+                    variant="ai"
+                    style={styles.recommendationsEntryButton}
+                    onPress={() => setRecommendationsModalVisible(true)}
+                  >
+                    <Icon name="arcs" size={16} color={colors.canvas} />
+                    <Text style={styles.recommendationsEntryText}>
+                      View {recommendations.length} recommended goal
+                      {recommendations.length > 1 ? 's' : ''}
+                    </Text>
+                  </Button>
+                )}
+              </VStack>
+            )}
 
-            {arcGoals.length === 0 ? (
-              <Text style={styles.emptyBody}>No goals yet for this Arc.</Text>
-            ) : (
+            {hasGoals && (
               <VStack space="md">
                 {arcGoals.map((item) => (
                   <TouchableOpacity
@@ -457,25 +577,26 @@ export function ArcDetailScreen() {
               </VStack>
             )}
           </VStack>
-        </VStack>
+        </View>
       </ScrollView>
       <NewGoalModal
         visible={goalModalVisible}
         onClose={() => setGoalModalVisible(false)}
         arcName={arc.name}
         arcNarrative={arc.narrative}
-        arcNorthStar={arc.northStar}
         onAdopt={handleAdoptGoal}
         insetTop={insets.top}
       />
-      <EditArcModal
-        visible={editModalVisible}
-        onClose={() => setEditModalVisible(false)}
-        initialName={arc.name}
-        initialNorthStar={arc.northStar}
-        initialNarrative={arc.narrative}
-        onSubmit={handleSaveArcDetails}
-        insetTop={insets.top}
+      <HeroImageModal
+        visible={heroEditorVisible}
+        onClose={() => setHeroEditorVisible(false)}
+        arcName={arc.name}
+        hasHero={Boolean(arc.thumbnailUrl)}
+        loading={heroLoading}
+        error={heroError}
+        onGenerate={handleGenerateHeroImage}
+        onUpload={handlePickHeroImage}
+        onRemove={handleRemoveHeroImage}
       />
       {optionsMenuVisible && (
         <TouchableOpacity
@@ -487,6 +608,16 @@ export function ArcDetailScreen() {
             <View style={styles.optionsMenu}>
               <Text style={styles.optionsMenuLabel}>Arc actions</Text>
               <View style={styles.optionsMenuSeparator} />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.optionsMenuItem}
+                onPress={() => {
+                  setOptionsMenuVisible(false);
+                  handleShareArc();
+                }}
+              >
+                <Text style={styles.optionsMenuItemText}>Share arc</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.8}
                 style={styles.optionsMenuItem}
@@ -621,19 +752,20 @@ type NewGoalModalProps = {
   onClose: () => void;
   arcName: string;
   arcNarrative?: string;
-  arcNorthStar?: string;
   onAdopt: (goal: GoalDraft) => void;
   insetTop: number;
 };
 
-type EditArcModalProps = {
+type HeroImageModalProps = {
   visible: boolean;
   onClose: () => void;
-  initialName: string;
-  initialNorthStar?: string;
-  initialNarrative?: string;
-  onSubmit: (values: { name: string; northStar?: string; narrative?: string }) => void;
-  insetTop: number;
+  arcName: string;
+  hasHero: boolean;
+  loading: boolean;
+  error: string;
+  onGenerate: () => void;
+  onUpload: () => void;
+  onRemove: () => void;
 };
 
 function NewGoalModal({
@@ -641,7 +773,6 @@ function NewGoalModal({
   onClose,
   arcName,
   arcNarrative,
-  arcNorthStar,
   onAdopt,
   insetTop,
 }: NewGoalModalProps) {
@@ -719,7 +850,6 @@ function NewGoalModal({
       const results = await generateGoals({
         arcName,
         arcNarrative,
-        arcNorthStar,
         prompt,
         timeHorizon,
         constraints,
@@ -848,79 +978,58 @@ function NewGoalModal({
   );
 }
 
-function EditArcModal({
+function HeroImageModal({
   visible,
   onClose,
-  initialName,
-  initialNorthStar,
-  initialNarrative,
-  onSubmit,
-  insetTop,
-}: EditArcModalProps) {
-  const [name, setName] = useState(initialName);
-  const [northStar, setNorthStar] = useState(initialNorthStar ?? '');
-  const [narrative, setNarrative] = useState(initialNarrative ?? '');
-
-  useEffect(() => {
-    if (visible) {
-      setName(initialName);
-      setNorthStar(initialNorthStar ?? '');
-      setNarrative(initialNarrative ?? '');
-    }
-  }, [visible, initialName, initialNorthStar, initialNarrative]);
-
-  const disabled = name.trim().length === 0;
-
+  arcName,
+  hasHero,
+  loading,
+  error,
+  onGenerate,
+  onUpload,
+  onRemove,
+}: HeroImageModalProps) {
   return (
-    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
-        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
-          <Heading style={styles.modalTitle}>Edit Arc</Heading>
-          <Text style={styles.modalBody}>
-            Update the arc details to keep this direction aligned with your season.
-          </Text>
-          <Text style={styles.modalLabel}>Name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Arc name"
-            placeholderTextColor="#6B7280"
-          />
-          <Text style={styles.modalLabel}>North star</Text>
-          <TextInput
-            style={styles.input}
-            value={northStar}
-            onChangeText={setNorthStar}
-            placeholder="North star"
-            placeholderTextColor="#6B7280"
-          />
-          <Text style={styles.modalLabel}>Narrative</Text>
-          <TextInput
-            style={[styles.input, { minHeight: 120, textAlignVertical: 'top' }]}
-            multiline
-            value={narrative}
-            onChangeText={setNarrative}
-            placeholder="Narrative"
-            placeholderTextColor="#6B7280"
-          />
-          <HStack space="sm" marginTop={spacing.lg}>
-            <Button variant="outline" style={{ flex: 1 }} onPress={onClose}>
-              <Text style={styles.linkText}>Cancel</Text>
-            </Button>
+    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['45%']}>
+      <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
+        <Heading style={styles.modalTitle}>Arc image</Heading>
+        <Text style={styles.modalBody}>
+          Give this Arc a hero image that captures its feel. You can ask LOMO to generate one or
+          upload your own.
+        </Text>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <VStack space="sm" style={{ marginTop: spacing.sm }}>
+          <Button variant="ai" disabled={loading} onPress={onGenerate}>
+            {loading ? (
+              <HStack alignItems="center" space="sm">
+                <ActivityIndicator color="#38BDF8" />
+                <Text style={styles.buttonText}>Asking LOMO…</Text>
+              </HStack>
+            ) : (
+              <>
+                <Icon name="arcs" size={18} color={colors.canvas} />
+                <Text style={styles.buttonText}>Ask LOMO for an image</Text>
+              </>
+            )}
+          </Button>
+          <Button variant="secondary" disabled={loading} onPress={onUpload}>
+            <Text style={styles.linkText}>Upload from library</Text>
+          </Button>
+          {hasHero && (
             <Button
-              style={{ flex: 1 }}
-              disabled={disabled}
-              onPress={() => onSubmit({ name, northStar, narrative })}
+              variant="outline"
+              disabled={loading}
+              onPress={onRemove}
+              style={{ marginTop: spacing.xs }}
             >
-              <Text style={styles.buttonText}>Save</Text>
+              <Text style={styles.optionsMenuItemDestructiveText}>Remove image</Text>
             </Button>
-          </HStack>
-        </View>
-      </KeyboardAvoidingView>
+          )}
+        </VStack>
+        <Button variant="link" onPress={onClose} style={{ marginTop: spacing.lg }}>
+          <Text style={styles.linkText}>Close</Text>
+        </Button>
+      </View>
     </LomoBottomSheet>
   );
 }
@@ -928,6 +1037,53 @@ function EditArcModal({
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.lg,
+  },
+  paddedSection: {
+    // Let the AppShell define the primary horizontal gutters so this screen
+    // matches other canvases. We only add vertical spacing here.
+    paddingHorizontal: 0,
+  },
+  arcHeaderSection: {
+    marginTop: spacing.lg,
+  },
+  heroContainer: {
+    marginTop: spacing.md,
+  },
+  heroImageWrapper: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  heroImage: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+  },
+  heroEditButton: {
+    position: 'absolute',
+    right: spacing.sm,
+    top: spacing.sm,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  heroMetaText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginHorizontal: spacing.xl,
+  },
+  // Thumbnail used in the header row – smaller, card-like image.
+  arcThumbnailWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  arcThumbnail: {
+    width: '100%',
+    height: '100%',
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -945,22 +1101,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   arcTitle: {
-    ...typography.titleXl,
+    ...typography.titleSm,
+    fontFamily: fonts.bold,
     color: colors.textPrimary,
+    fontSize: 22,
+    lineHeight: 28,
   },
   arcTitleInput: {
-    ...typography.titleXl,
+    ...typography.titleSm,
+    fontFamily: fonts.bold,
     color: colors.textPrimary,
-    padding: 0,
-    margin: 0,
-  },
-  northStar: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  northStarInput: {
-    ...typography.body,
-    color: colors.textPrimary,
+    fontSize: 22,
+    lineHeight: 28,
     padding: 0,
     margin: 0,
   },
@@ -980,6 +1132,14 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  // Remove top padding from the Arc name wrapper so the text baseline
+  // aligns more closely with the top edge of the thumbnail.
+  arcNameEditableField: {
+    paddingTop: 0,
+    // Hug the thumbnail closely on the left while preserving the
+    // general editable field padding on the right.
+    paddingLeft: 0,
   },
   editableFieldActive: {
     borderColor: colors.accent,
@@ -1016,6 +1176,10 @@ const styles = StyleSheet.create({
   optionsMenuItem: {
     paddingVertical: spacing.sm,
   },
+  optionsMenuItemText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
   optionsMenuItemDestructiveText: {
     ...typography.bodySm,
     color: colors.warning,
@@ -1034,6 +1198,29 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
+  },
+  goalsSection: {
+    // Give the Arc narrative more breathing room before the Goals section
+    marginTop: spacing['2xl'],
+  },
+  sectionActionButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    minHeight: 32,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    // Slightly stronger shadow so the chip reads clearly on shell background, similar to shadcn
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.09,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  sectionActionText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
   },
   linkText: {
     ...typography.body,
@@ -1066,6 +1253,22 @@ const styles = StyleSheet.create({
   emptyBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  goalsEmptyState: {
+    marginTop: spacing.lg,
+  },
+  goalsEmptyImageWrapper: {
+    alignSelf: 'center',
+    width: 120,
+    height: 120,
+    borderRadius: 32,
+    backgroundColor: colors.shellAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  goalsEmptyImage: {
+    ...StyleSheet.absoluteFillObject,
   },
   errorText: {
     ...typography.bodySm,
@@ -1139,11 +1342,13 @@ const styles = StyleSheet.create({
   },
   recommendationsEntryButton: {
     marginTop: spacing.sm,
+    alignSelf: 'stretch',
   },
   recommendationsEntryText: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.canvas,
     textAlign: 'center',
+    fontFamily: typography.titleSm.fontFamily,
   },
   recommendationsModalContent: {
     backgroundColor: colors.canvas,

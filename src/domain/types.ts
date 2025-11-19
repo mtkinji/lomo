@@ -17,12 +17,24 @@ export interface Arc {
   id: string;
   name: string;
   narrative?: string;
-  northStar?: string;
   /**
    * Optional thumbnail image for visually distinguishing this Arc in lists.
    * Can be a remote URL or a local asset URI.
    */
   thumbnailUrl?: string;
+  /**
+   * Optional metadata about the Arc hero / thumbnail image.
+   * The thumbnailUrl is still the canonical image URL used both for
+   * the hero on the detail page and the thumbnail in lists.
+   */
+  heroImageMeta?: {
+    source: 'ai' | 'upload';
+    /**
+     * Free-form description or prompt used when generating the image.
+     */
+    prompt?: string;
+    createdAt: string;
+  };
   status: 'active' | 'paused' | 'archived';
   startDate?: string;
   endDate?: string | null;

@@ -95,7 +95,6 @@ const initialDemoArc: Arc = {
   name: '🪚 Making & Embodied Creativity',
   narrative:
     'Stay connected to the physical world through projects that build skill, presence, and grounding.',
-  northStar: 'Cultivate the hands and habits of a craftsman.',
   status: 'active',
   startDate: now(),
   endDate: null,

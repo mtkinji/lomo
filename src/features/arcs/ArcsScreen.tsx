@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { VStack, Heading, Text, Icon as GluestackIcon, HStack, Pressable } from '@gluestack-ui/themed';
@@ -47,6 +48,27 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
       console.log(`[arcs] ${event}`);
     }
   }
+};
+
+// Palette + hashing helpers for rich, pseudo-random Arc thumbnails.
+// These mirror the hero palettes in ArcDetail so the list and detail views
+// feel like the same visual system.
+const ARC_THUMBNAIL_PALETTES: [string, string][] = [
+  ['#DCFCE7', '#86EFAC'],
+  ['#E0F2FE', '#7DD3FC'],
+  ['#FEF3C7', '#FACC15'],
+  ['#FCE7F3', '#F472B6'],
+  ['#EDE9FE', '#A855F7'],
+  ['#F1F5F9', '#CBD5F5'],
+];
+
+const hashStringToIndex = (value: string, modulo: number): number => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  const normalized = Math.abs(hash);
+  return modulo === 0 ? 0 : normalized % modulo;
 };
 
 const formatRelativeDate = (iso: string | undefined): string => {
@@ -247,6 +269,12 @@ export function ArcsScreen() {
           renderItem={({ item }) => {
             const goalCount = goalCountByArc[item.id] ?? 0;
             const activityCount = activityCountByArc[item.id] ?? 0;
+            const paletteIndex = hashStringToIndex(
+              item.id || item.name,
+              ARC_THUMBNAIL_PALETTES.length
+            );
+            const [startColor, endColor] = ARC_THUMBNAIL_PALETTES[paletteIndex];
+
             return (
               <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
                 <Card style={styles.arcCard}>
@@ -259,9 +287,12 @@ export function ArcsScreen() {
                           resizeMode="cover"
                         />
                       ) : (
-                        <View style={styles.arcThumbnailPlaceholder}>
-                          <Icon name="arcs" size={20} color={colors.textSecondary} />
-                        </View>
+                        <LinearGradient
+                          colors={[startColor, endColor]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.arcThumbnail}
+                        />
                       )}
                     </View>
                     <VStack space="xs" style={styles.arcTextContainer}>
@@ -386,16 +417,14 @@ const styles = StyleSheet.create({
   },
   arcCardContent: {
     flexDirection: 'row',
-    // Stretch children vertically so the thumbnail can fill the available height.
-    alignItems: 'stretch',
+    // Top-align the thumbnail and text so their top edges line up.
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   arcThumbnailWrapper: {
-    // Square thumbnail that fills the card’s vertical space while maintaining
-    // its aspect ratio.
-    minWidth: 64,
-    aspectRatio: 1,
-    alignSelf: 'stretch',
+    // Compact square thumbnail anchored to the top of the card.
+    width: 56,
+    height: 56,
     borderRadius: 12,
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
@@ -410,9 +439,40 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  arcThumbnailGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  arcPatternGrid: {
+    ...StyleSheet.absoluteFillObject,
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+    opacity: 0.35,
+  },
+  arcPatternRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  arcPatternCell: {
+    width: 6,
+    height: 6,
+    borderRadius: 2,
+    backgroundColor: 'transparent',
+  },
+  arcPatternCellActive: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  arcThumbnailInitial: {
+    ...typography.titleSm,
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 22,
   },
   arcTextContainer: {
     flex: 1,
+    // Let the title sit at the top of the text column and the meta row hug
+    // the bottom edge so counts visually anchor to the card baseline.
+    justifyContent: 'space-between',
   },
   arcTitle: {
     ...typography.body, // Use slightly smaller size but preserve title styles below
@@ -849,9 +909,6 @@ function buildArcCoachLaunchContext(arcs: Arc[], goals: Goal[]): string | undefi
     const arcGoals = goals.filter((goal) => goal.arcId === arc.id);
 
     lines.push(`Arc: ${arc.name} (status: ${arc.status}).`);
-    if (arc.northStar) {
-      lines.push(`North star: ${arc.northStar}`);
-    }
     if (arc.narrative) {
       lines.push(`Narrative: ${arc.narrative}`);
     }

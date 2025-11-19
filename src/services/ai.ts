@@ -10,21 +10,25 @@ type GenerateArcParams = {
   additionalContext?: string;
 };
 
-export type GeneratedArc = Pick<
-  Arc,
-  'name' | 'narrative' | 'northStar' | 'status'
-> & { suggestedForces?: string[] };
+export type GeneratedArc = Pick<Arc, 'name' | 'narrative' | 'status'> & {
+  suggestedForces?: string[];
+};
 
 type GenerateGoalParams = {
   arcName: string;
   arcNarrative?: string;
-  arcNorthStar?: string;
   prompt?: string;
   timeHorizon?: string;
   constraints?: string;
 };
 
+export type GenerateArcHeroImageParams = {
+  arcName: string;
+  arcNarrative?: string;
+};
+
 const OPENAI_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
 const OPENAI_TIMEOUT_MS = 15000;
 const LOG_PREFIX = '[ai]';
 
@@ -297,13 +301,48 @@ export async function generateArcs(params: GenerateArcParams): Promise<Generated
   }
 }
 
+export async function generateArcHeroImage(
+  params: GenerateArcHeroImageParams
+): Promise<string> {
+  const apiKey = resolveOpenAiApiKey();
+  devLog('heroImage:init', {
+    arcName: params.arcName,
+    narrativePreview: previewText(params.arcNarrative),
+  });
+  devLog('heroImage:apiKey', describeKey(apiKey));
+
+  const fallbackUrl = `https://picsum.photos/seed/${encodeURIComponent(
+    params.arcName || 'arc'
+  )}/1200/800`;
+
+  if (!apiKey) {
+    console.warn('OPENAI_API_KEY missing – using placeholder hero image.');
+    devLog('heroImage:fallback-no-key', { reason: 'missing_api_key' });
+    return fallbackUrl;
+  }
+
+  try {
+    const url = await requestOpenAiArcHeroImage(params, apiKey);
+    devLog('heroImage:success', { urlPreview: previewText(url) });
+    return url;
+  } catch (err) {
+    console.warn('OpenAI hero image request failed, using placeholder.', err);
+    logNetworkErrorDetails('images', err);
+    devLog('heroImage:error', {
+      message: err instanceof Error ? err.message : String(err),
+      name: err instanceof Error ? err.name : undefined,
+    });
+    return fallbackUrl;
+  }
+}
+
 async function requestOpenAiArcs(
   params: GenerateArcParams,
   apiKey: string
 ): Promise<GeneratedArc[]> {
   const baseSystemPrompt =
     'You are LOMO, a life architecture coach helping users define identity Arcs (long-term directions). ' +
-    'Always respond in JSON matching the provided schema. Each Arc must include name, northStar, narrative, status, and suggestedForces array.';
+    'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
 
   const userProfileSummary = buildUserProfileSummary();
   const systemPrompt = userProfileSummary
@@ -335,7 +374,6 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
                 type: 'object',
                 properties: {
                   name: { type: 'string' },
-                  northStar: { type: 'string' },
                   narrative: { type: 'string' },
                   status: { type: 'string', enum: ['active', 'paused', 'archived'] },
                   suggestedForces: {
@@ -345,7 +383,7 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
                     maxItems: 4,
                   },
                 },
-                required: ['name', 'northStar', 'narrative', 'status'],
+                required: ['name', 'narrative', 'status'],
                 additionalProperties: false,
               },
             },
@@ -454,7 +492,6 @@ async function requestOpenAiGoals(
 
   const userPrompt = `
 Arc name: ${params.arcName}
-Arc north star: ${params.arcNorthStar ?? 'not specified'}
 Arc narrative: ${params.arcNarrative ?? 'not provided'}
 User focus: ${params.prompt ?? 'not provided'}
 Time horizon: ${params.timeHorizon ?? 'not specified'}
@@ -567,6 +604,82 @@ Return 2-3 distinctive goal drafts that respect the arc's heart.
   const parsed = JSON.parse(content);
   devLog('goals:parsed', { goalsReturned: parsed.goals?.length ?? 0 });
   return parsed.goals as GoalDraft[];
+}
+
+async function requestOpenAiArcHeroImage(
+  params: GenerateArcHeroImageParams,
+  apiKey: string
+): Promise<string> {
+  const userProfileSummary = buildUserProfileSummary();
+  const visualGuidanceParts: string[] = [];
+
+  if (userProfileSummary) {
+    visualGuidanceParts.push(`User profile hints: ${userProfileSummary}`);
+  }
+
+  visualGuidanceParts.push(
+    'The image should be a tasteful, text-free hero image that could sit behind a title.',
+    'Avoid faces or identifiable people; lean toward environments, objects, or abstractions that fit the arc.',
+    'Keep the palette calm and readable behind dark text.'
+  );
+
+  const prompt = [
+    `Arc name: ${params.arcName}`,
+    `Narrative: ${params.arcNarrative ?? 'not provided'}`,
+    '',
+    visualGuidanceParts.join(' '),
+  ].join('\n');
+
+  const body = {
+    model: 'gpt-image-1',
+    prompt,
+    n: 1,
+    size: '1024x768',
+    style: 'natural',
+  };
+
+  devLog('heroImage:request:prepared', {
+    model: body.model,
+    size: body.size,
+    promptPreview: previewText(prompt),
+  });
+
+  const requestStartedAt = Date.now();
+
+  const response = await fetchWithTimeout(OPENAI_IMAGES_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  devLog('heroImage:response:ok', {
+    status: response.status,
+    ok: response.ok,
+    durationMs: Date.now() - requestStartedAt,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI hero image error', errorText);
+    devLog('heroImage:response:error', {
+      status: response.status,
+      statusText: response.statusText,
+      payloadPreview: previewText(errorText),
+    });
+    throw new Error('Unable to generate hero image');
+  }
+
+  const data = await response.json();
+  const url = data?.data?.[0]?.url;
+
+  if (!url || typeof url !== 'string') {
+    throw new Error('OpenAI hero image response malformed');
+  }
+
+  return url;
 }
 
 /**
@@ -782,7 +895,7 @@ async function fetchWithTimeout(
   }
 }
 
-function logNetworkErrorDetails(context: 'arcs' | 'goals', err: unknown) {
+function logNetworkErrorDetails(context: 'arcs' | 'goals' | 'images', err: unknown) {
   if (!__DEV__) {
     return;
   }

@@ -54,7 +54,7 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-font'],
+  plugins: ['expo-font', 'expo-image-picker'],
   extra: {
     openAiApiKey: process.env.OPENAI_API_KEY,
   },
