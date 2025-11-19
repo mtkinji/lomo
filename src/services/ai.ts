@@ -51,6 +51,11 @@ const devLog = (context: string, details?: Record<string, unknown>) => {
   }
 };
 
+export type CoachChatTurn = {
+  role: 'assistant' | 'user' | 'system';
+  content: string;
+};
+
 export async function generateArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
   const apiKey = resolveOpenAiApiKey();
   devLog('generateArcs:init', {
@@ -346,6 +351,97 @@ Return 2-3 distinctive goal drafts that respect the arc's heart.
   const parsed = JSON.parse(content);
   devLog('goals:parsed', { goalsReturned: parsed.goals?.length ?? 0 });
   return parsed.goals as GoalDraft[];
+}
+
+/**
+ * Generic LOMO coach chat endpoint backed by OpenAI's Chat Completions API.
+ * This powers the free-form Lomo Coach conversation in the bottom sheet.
+ */
+export async function sendCoachChat(messages: CoachChatTurn[]): Promise<string> {
+  const apiKey = resolveOpenAiApiKey();
+  devLog('coachChat:init', {
+    messageCount: messages.length,
+    lastUserPreview: previewText(
+      [...messages].reverse().find((m) => m.role === 'user')?.content,
+    ),
+  });
+  devLog('coachChat:apiKey', describeKey(apiKey));
+
+  if (!apiKey) {
+    console.warn('OPENAI_API_KEY missing – unable to call coach chat.');
+    throw new Error('Missing OpenAI API key');
+  }
+
+  const systemPrompt =
+    'You are Lomo Coach, a calm, practical life architecture coach. ' +
+    'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
+    'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
+
+  const openAiMessages = [
+    { role: 'system' as const, content: systemPrompt },
+    ...messages.map((m) => ({
+      role: m.role === 'system' ? 'system' : m.role,
+      content: m.content,
+    })),
+  ];
+
+  const body = {
+    model: 'gpt-4o-mini',
+    temperature: 0.55,
+    messages: openAiMessages,
+  };
+
+  devLog('coachChat:request:prepared', {
+    model: body.model,
+    temperature: body.temperature,
+    totalMessages: openAiMessages.length,
+  });
+  const requestStartedAt = Date.now();
+
+  const response = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const responseRequestId =
+    typeof response.headers?.get === 'function'
+      ? response.headers.get('x-request-id')
+      : undefined;
+
+  devLog('coachChat:response:ok', {
+    status: response.status,
+    ok: response.ok,
+    durationMs: Date.now() - requestStartedAt,
+    requestId: responseRequestId ?? undefined,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI coach chat error', errorText);
+    devLog('coachChat:response:error', {
+      status: response.status,
+      statusText: response.statusText,
+      payloadPreview: previewText(errorText),
+    });
+    throw new Error('Unable to reach Lomo Coach');
+  }
+
+  const data = await response.json();
+  if (__DEV__) {
+    console.log('OpenAI coach chat raw response', JSON.stringify(data, null, 2));
+  }
+
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('OpenAI coach chat response malformed');
+  }
+
+  devLog('coachChat:parsed', { contentPreview: previewText(content) });
+  return content as string;
 }
 
 async function fetchWithTimeout(

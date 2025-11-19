@@ -28,12 +28,19 @@ export function LomoBottomSheet({
   );
 
   useEffect(() => {
+    if (__DEV__) {
+      console.log('[bottomSheet] effect', {
+        visible,
+        hasRef: Boolean(sheetRef.current),
+        snapPoints: points,
+      });
+    }
     if (visible) {
       sheetRef.current?.present();
     } else {
       sheetRef.current?.dismiss();
     }
-  }, [visible]);
+  }, [visible, points]);
 
   const renderBackdrop: BottomSheetModalProps['backdropComponent'] = (backdropProps) => (
     <BottomSheetBackdrop
@@ -48,7 +55,7 @@ export function LomoBottomSheet({
   return (
     <BottomSheetModal
       ref={sheetRef}
-      index={0}
+      // Let `present()` / `dismiss()` control visibility; don't set `index` explicitly.
       snapPoints={points}
       enableDismissOnClose
       onDismiss={onClose}

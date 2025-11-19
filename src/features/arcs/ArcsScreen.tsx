@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import {
-  StyleSheet,
-  FlatList,
-  View,
-  TextInput,
-  Platform,
-  ScrollView,
-  KeyboardAvoidingView,
-  ActivityIndicator,
-} from 'react-native';
+import { StyleSheet, FlatList, View, TextInput, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { VStack, Heading, Text, Icon as GluestackIcon, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -22,12 +13,14 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
 import { LomoBottomSheet } from '../../ui/BottomSheet';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Card } from '../../ui/Card';
 import { Logo } from '../../ui/Logo';
+import type { Arc, Goal } from '../../domain/types';
 import { CHAT_MODE_REGISTRY } from '../ai/chatRegistry';
+import { AiChatPane } from '../ai/AiChatScreen';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -48,22 +41,8 @@ export function ArcsScreen() {
   const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
-  const insets = useSafeAreaInsets();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
-  const [prompt, setPrompt] = useState('');
-  const [timeHorizon, setTimeHorizon] = useState('');
-  const [additionalContext, setAdditionalContext] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<GeneratedArc[]>([]);
-  const [error, setError] = useState('');
-  const resetArcConversation = () => {
-    setPrompt('');
-    setTimeHorizon('');
-    setAdditionalContext('');
-    setSuggestions([]);
-    setError('');
-  };
   const [headerHeight, setHeaderHeight] = useState(0);
   useEffect(() => {
     if (__DEV__) {
@@ -72,6 +51,11 @@ export function ArcsScreen() {
   }, []);
 
   const empty = arcs.length === 0;
+
+  const arcCoachLaunchContext = useMemo(
+    () => buildArcCoachLaunchContext(arcs, goals),
+    [arcs, goals]
+  );
 
   const goalCountByArc = useMemo(() => {
     return goals.reduce<Record<string, number>>((acc, goal) => {
@@ -96,27 +80,6 @@ export function ArcsScreen() {
   const listTopPadding = headerHeight ? headerHeight + spacing.md : spacing['2xl'];
   const hideScrollIndicator = arcs.length <= 5;
 
-  const arcWorkspaceContextSummary = () => {
-    const arcCount = arcs.length;
-    const goalCount = goals.length;
-    const activityCount = activities.length;
-
-    const arcNamesPreview =
-      arcCount === 0
-        ? 'none yet'
-        : arcs
-            .slice(0, 5)
-            .map((arc) => arc.name)
-            .join(', ');
-
-    return [
-      'Current arcs workspace snapshot:',
-      `- Existing Arcs (${arcCount}): ${arcNamesPreview}`,
-      `- Total Goals: ${goalCount}`,
-      `- Total Activities: ${activityCount}`,
-    ].join('\n');
-  };
-
   return (
     <AppShell>
       <View style={styles.screen}>
@@ -135,7 +98,10 @@ export function ArcsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Ask LOMO to create a new Arc"
                 style={styles.newArcButton}
-                onPress={() => setIsModalVisible(true)}
+                onPress={() => {
+                  logArcsDebug('newArc:open-pressed');
+                  setIsModalVisible(true);
+                }}
               >
                 <GluestackIcon as={() => <Icon name="plus" size={16} color="#FFFFFF" />} />
               </Button>
@@ -202,78 +168,8 @@ export function ArcsScreen() {
         visible={isModalVisible}
         onClose={() => {
           setIsModalVisible(false);
-          resetArcConversation();
         }}
-        setPrompt={setPrompt}
-        setTimeHorizon={setTimeHorizon}
-        setAdditionalContext={setAdditionalContext}
-        loading={loading}
-        suggestions={suggestions}
-        error={error}
-        onGenerate={async () => {
-          const startedAt = Date.now();
-          logArcsDebug('newArc:generate:start', {
-            promptLength: prompt.length,
-            timeHorizon: timeHorizon || null,
-            additionalContextLength: additionalContext.length,
-          });
-          setLoading(true);
-          setError('');
-          try {
-            const registryEntry = CHAT_MODE_REGISTRY.arcCreation;
-            const combinedAdditionalContext = [
-              additionalContext.trim().length > 0
-                ? `User-provided constraints / non-negotiables:\n${additionalContext.trim()}`
-                : '',
-              arcWorkspaceContextSummary(),
-              `Mode: ${registryEntry.label} (${registryEntry.mode})`,
-            ]
-              .filter(Boolean)
-              .join('\n\n');
-
-            const result = await generateArcs({
-              prompt,
-              timeHorizon,
-              additionalContext: combinedAdditionalContext,
-            });
-            logArcsDebug('newArc:generate:success', {
-              durationMs: Date.now() - startedAt,
-              suggestionNames: result.map((suggestion) => suggestion.name),
-            });
-            setSuggestions(result);
-          } catch (err) {
-            console.error('generateArcs failed', err);
-            logArcsDebug('newArc:generate:error', {
-              durationMs: Date.now() - startedAt,
-              message: err instanceof Error ? err.message : String(err),
-            });
-            setError('Something went wrong asking LOMO. Try again.');
-          } finally {
-            setLoading(false);
-          }
-        }}
-        onAdopt={(suggestion) => {
-          logArcsDebug('newArc:adopt', {
-            name: suggestion.name,
-            status: suggestion.status,
-          });
-          const now = new Date().toISOString();
-          addArc({
-            id: `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name: suggestion.name,
-            narrative: suggestion.narrative,
-            northStar: suggestion.northStar,
-            status: suggestion.status,
-            startDate: now,
-            endDate: null,
-            createdAt: now,
-            updatedAt: now,
-          });
-          setIsModalVisible(false);
-          resetArcConversation();
-        }}
-        insetTop={insets.top}
-        onResetConversation={resetArcConversation}
+        launchContext={arcCoachLaunchContext}
       />
     </AppShell>
   );
@@ -587,85 +483,17 @@ const styles = StyleSheet.create({
 type NewArcModalProps = {
   visible: boolean;
   onClose: () => void;
-  setPrompt: Dispatch<SetStateAction<string>>;
-  setTimeHorizon: Dispatch<SetStateAction<string>>;
-  setAdditionalContext: Dispatch<SetStateAction<string>>;
-  loading: boolean;
-  suggestions: GeneratedArc[];
-  error: string;
-  onGenerate: () => void;
-  onAdopt: (suggestion: GeneratedArc) => void;
-  insetTop: number;
-  onResetConversation: () => void;
+  /**
+   * Optional workspace snapshot passed down to Lomo Coach when launched
+   * from the Arcs screen. This gives the coach full context on existing
+   * arcs and goals so it can suggest complementary Arcs.
+   */
+  launchContext?: string;
 };
-
-type ArcConversationField = 'prompt' | 'timeHorizon' | 'additionalContext';
-
-type ConversationStep = {
-  id: ArcConversationField;
-  title: string;
-  helper: string;
-  placeholder: string;
-  suggestions?: string[];
-  required?: boolean;
-};
-
-type ConversationMessage =
-  | {
-      id: string;
-      role: 'assistant' | 'user';
-      type: 'text' | 'status';
-      content: string;
-      helper?: string;
-    }
-  | {
-      id: string;
-      role: 'assistant';
-      type: 'error';
-      content: string;
-    }
-  | {
-      id: string;
-      role: 'assistant';
-      type: 'suggestions';
-      arcs: GeneratedArc[];
-    };
-
-const ARC_CONVERSATION_STEPS: ConversationStep[] = [
-  {
-    id: 'prompt',
-    title: 'Where are you feeling the strongest hunger for growth?',
-    helper: 'Name the tension tugging at you—identity, craft, relationship, or stewardship.',
-    placeholder: 'e.g. Leading a team but losing my maker instincts',
-    suggestions: [
-      'Balancing leadership pace with health',
-      'Reclaiming creative confidence',
-      'Rooting family rhythms while scaling work',
-    ],
-    required: true,
-  },
-  {
-    id: 'timeHorizon',
-    title: 'What time horizon should we shape this Arc around?',
-    helper: 'Give your Arc edges: a quarter, season, sabbatical window, or ritual cycle.',
-    placeholder: 'Next 90 days',
-    suggestions: ['Next 90 days', 'This year', 'Summer sabbatical'],
-  },
-  {
-    id: 'additionalContext',
-    title: 'Any non-negotiables or anchors I should honor?',
-    helper: 'Think faith rhythms, family commitments, health guardrails, or values.',
-    placeholder: 'Weekly sabbath + family dinners two nights/week',
-    suggestions: ['Keep sabbath & strength training', 'Prioritize family dinners', 'Protect deep work mornings'],
-  },
-];
-
-const createMessageId = (prefix: string) =>
-  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   return (
-    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['55%']}>
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.55}>
       <Heading style={styles.infoTitle}>What is an Arc?</Heading>
       <Text style={styles.infoBody}>
         An Arc is a long-horizon identity direction—like Discipleship, Craft, or Family Stewardship.
@@ -679,375 +507,63 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
       <Button style={{ marginTop: spacing.lg }} onPress={onClose}>
         <Text style={styles.buttonText}>Got it</Text>
       </Button>
-    </LomoBottomSheet>
+    </BottomDrawer>
   );
 }
 
-function NewArcModal({
-  visible,
-  onClose,
-  setPrompt,
-  setTimeHorizon,
-  setAdditionalContext,
-  loading,
-  suggestions,
-  error,
-  onGenerate,
-  onAdopt,
-  insetTop,
-  onResetConversation,
-}: NewArcModalProps) {
-  const scrollRef = useRef<ScrollView | null>(null);
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
-  const [composerValue, setComposerValue] = useState('');
-  const [sessionId, setSessionId] = useState(0);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const errorRef = useRef('');
-  const suggestionsShownRef = useRef(false);
-
-  const totalSteps = ARC_CONVERSATION_STEPS.length;
-  const currentQuestion = ARC_CONVERSATION_STEPS[questionIndex];
-  const setterMap: Record<ArcConversationField, Dispatch<SetStateAction<string>>> = {
-    prompt: setPrompt,
-    timeHorizon: setTimeHorizon,
-    additionalContext: setAdditionalContext,
-  };
-
-  const initializeConversation = () => {
-    if (!visible) {
-      return;
-    }
-    const firstQuestion = ARC_CONVERSATION_STEPS[0];
-    const introMessage: ConversationMessage = {
-      id: createMessageId('intro'),
-      role: 'assistant',
-      type: 'text',
-      content: "Let's co-author your next Arc. I'll ask a few prompts—answer like we're in session.",
-    };
-    const questionMessage: ConversationMessage = {
-      id: createMessageId('question'),
-      role: 'assistant',
-      type: 'text',
-      content: firstQuestion.title,
-      helper: firstQuestion.helper,
-    };
-    setMessages([introMessage, questionMessage]);
-    setComposerValue('');
-    setQuestionIndex(0);
-    errorRef.current = '';
-    suggestionsShownRef.current = false;
-  };
-
-  useEffect(() => {
-    if (visible) {
-      initializeConversation();
-    } else {
-      setMessages([]);
-      setComposerValue('');
-      setQuestionIndex(0);
-    }
-  }, [visible, sessionId]);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [messages, loading, suggestions, visible]);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    if (error && error !== errorRef.current) {
-      errorRef.current = error;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMessageId('error'),
-          role: 'assistant',
-          type: 'error',
-          content: error,
-        },
-      ]);
-    }
-    if (!error) {
-      errorRef.current = '';
-    }
-  }, [error, visible]);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-    if (suggestions.length > 0 && !suggestionsShownRef.current) {
-      suggestionsShownRef.current = true;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMessageId('suggestions'),
-          role: 'assistant',
-          type: 'suggestions',
-          arcs: suggestions,
-        },
-      ]);
-    }
-    if (suggestions.length === 0) {
-      suggestionsShownRef.current = false;
-    }
-  }, [suggestions, visible]);
-
-  const submitAnswer = async (value: string, displayValue?: string) => {
-    if (!currentQuestion || loading) {
-      return;
-    }
-    const trimmed = value.trim();
-    if (currentQuestion.required && trimmed.length === 0) {
-      return;
-    }
-
-    setterMap[currentQuestion.id](trimmed);
-    const shownContent =
-      (displayValue ?? trimmed).trim().length > 0 ? (displayValue ?? trimmed) : 'Skip for now';
-    const isLastQuestion = questionIndex === totalSteps - 1;
-
-    setMessages((prev) => {
-      const updated: ConversationMessage[] = [
-        ...prev,
-        {
-          id: createMessageId('user'),
-          role: 'user',
-          type: 'text',
-          content: shownContent,
-        },
-      ];
-      if (isLastQuestion) {
-        updated.push({
-          id: createMessageId('status'),
-          role: 'assistant',
-          type: 'status',
-          content: "Got it—give me a beat to translate that into Arcs.",
-        });
-      } else {
-        const nextQuestion = ARC_CONVERSATION_STEPS[questionIndex + 1];
-        updated.push({
-          id: createMessageId('question'),
-          role: 'assistant',
-          type: 'text',
-          content: nextQuestion.title,
-          helper: nextQuestion.helper,
-        });
-      }
-      return updated;
-    });
-
-    setComposerValue('');
-    if (isLastQuestion) {
-      setQuestionIndex(totalSteps);
-      await onGenerate();
-    } else {
-      setQuestionIndex((prev) => prev + 1);
-    }
-  };
-
-  const handleSend = () => {
-    if (!currentQuestion) {
-      return;
-    }
-    void submitAnswer(composerValue);
-  };
-
-  const handleSkip = () => {
-    if (!currentQuestion || currentQuestion.required) {
-      return;
-    }
-    void submitAnswer('', 'Skip for now');
-  };
-
-  const restartConversation = () => {
-    onResetConversation();
-    setSessionId((prev) => prev + 1);
-  };
-
-  const handleRetryGenerate = () => {
-    if (loading) {
-      return;
-    }
-    void onGenerate();
-  };
-
-  const canSend = composerValue.trim().length > 0 && Boolean(currentQuestion) && !loading;
-  const showComposer = Boolean(currentQuestion) && suggestions.length === 0;
-  const composerPlaceholder = currentQuestion?.placeholder ?? 'Add anything else for LOMO';
-
-  const renderMessage = (message: ConversationMessage) => {
-    if (message.type === 'suggestions') {
-      return (
-        <View key={message.id} style={[styles.messageBubble, styles.assistantBubble]}>
-          <Text style={styles.messageMeta}>LOMO</Text>
-          <Text style={[styles.messageText, { marginBottom: spacing.sm }]}>
-            Here are Arcs that match what you shared.
-          </Text>
-          <VStack space="md">
-            {message.arcs.map((suggestion) => (
-              <VStack
-                key={`${suggestion.name}-${suggestion.status}`}
-                style={[styles.suggestionCard, styles.chatSuggestionCard]}
-                space="sm"
-              >
-                <Heading style={styles.arcTitle}>{suggestion.name}</Heading>
-                <Text style={styles.goalDescription}>{suggestion.northStar}</Text>
-                <Text style={styles.arcNarrative}>{suggestion.narrative}</Text>
-                <Button variant="outline" onPress={() => onAdopt(suggestion)}>
-                  <Text style={styles.linkText}>Adopt Arc</Text>
-                </Button>
-              </VStack>
-            ))}
-          </VStack>
-          <Button variant="link" onPress={restartConversation} style={{ alignSelf: 'flex-start' }}>
-            <Text style={styles.linkText}>Ask for another take</Text>
-          </Button>
-        </View>
-      );
-    }
-
-    if (message.type === 'error') {
-      return (
-        <View key={message.id} style={[styles.messageBubble, styles.errorBubble]}>
-          <Text style={[styles.messageMeta, styles.errorLabel]}>LOMO</Text>
-          <Text style={[styles.messageText, styles.errorTextColor]}>{message.content}</Text>
-          <Button variant="outline" onPress={handleRetryGenerate} style={styles.retryButton}>
-            <Text style={styles.linkText}>Try again</Text>
-          </Button>
-        </View>
-      );
-    }
-
-    const bubbleStyle = [
-      styles.messageBubble,
-      message.role === 'user' ? styles.userBubble : styles.assistantBubble,
-      message.type === 'status' && styles.statusBubble,
-    ];
-
-    return (
-      <View key={message.id} style={bubbleStyle}>
-        <Text style={styles.messageMeta}>{message.role === 'user' ? 'You' : 'LOMO'}</Text>
-        <Text style={styles.messageText}>{message.content}</Text>
-        {message.helper ? <Text style={styles.helperText}>{message.helper}</Text> : null}
-      </View>
-    );
-  };
-
+function NewArcModal({ visible, onClose, launchContext }: NewArcModalProps) {
   return (
-    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['90%']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.xl : 0}
-        style={styles.drawerKeyboardContainer}
-      >
-        <View style={[styles.drawerContent, { paddingTop: spacing.lg }]}>
-          <View style={styles.sheetHeaderRow}>
-            <View style={styles.brandLockup}>
-              <Logo size={28} />
-              <View style={styles.brandTextBlock}>
-                <Text style={styles.brandWordmark}>LOMO</Text>
-                <Text style={styles.brandSubLabel}>Season coach</Text>
-              </View>
-            </View>
-          </View>
-
-          <Heading style={styles.modalTitle}>Ask LOMO to draft Arcs</Heading>
-          <Text style={styles.modalBody}>
-            Treat this like a coaching chat. LOMO will listen, ask follow-ups, and draft Arcs that
-            match your season.
-          </Text>
-
-          <View style={styles.conversationContainer}>
-            <ScrollView
-              ref={scrollRef}
-              style={styles.conversationScroll}
-              contentContainerStyle={styles.conversationContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {messages.map((message) => renderMessage(message))}
-              {loading ? (
-                <View style={[styles.messageBubble, styles.assistantBubble]}>
-                  <Text style={styles.messageMeta}>LOMO</Text>
-                  <View style={styles.loadingRow}>
-                    <ActivityIndicator color={colors.accent} />
-                    <Text style={[styles.messageText, styles.loadingText]}>
-                      Drafting Arcs for this season…
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
-            </ScrollView>
-          </View>
-
-          {showComposer && currentQuestion ? (
-            <View style={styles.composerSection}>
-              <Text style={styles.progressText}>
-                Step {Math.min(questionIndex + 1, totalSteps)} / {totalSteps}
-              </Text>
-              {currentQuestion.suggestions && currentQuestion.suggestions.length > 0 ? (
-                <View style={styles.quickReplies}>
-                  {currentQuestion.suggestions.map((option) => (
-                    <Button
-                      key={option}
-                      variant="ghost"
-                      style={styles.quickReplyButton}
-                      onPress={() => void submitAnswer(option)}
-                      disabled={loading}
-                    >
-                      <Text style={styles.quickReplyText}>{option}</Text>
-                    </Button>
-                  ))}
-                </View>
-              ) : null}
-              <View style={styles.composerRow}>
-                <TextInput
-                  style={styles.composerInput}
-                  multiline
-                  placeholder={composerPlaceholder}
-                  placeholderTextColor={colors.textSecondary}
-                  value={composerValue}
-                  onChangeText={setComposerValue}
-                  textAlignVertical="top"
-                  accessibilityLabel='Respond to LOMO'
-                />
-                <Button
-                  style={styles.composerSendButton}
-                  disabled={!canSend}
-                  onPress={handleSend}
-                >
-                  <Text style={styles.buttonText}>Send</Text>
-                </Button>
-              </View>
-              {!currentQuestion.required ? (
-                <Button variant="link" onPress={handleSkip} style={styles.skipButton}>
-                  <Text style={styles.linkText}>Skip this</Text>
-                </Button>
-              ) : null}
-            </View>
-          ) : null}
-
-          {suggestions.length > 0 ? (
-            <Button variant="link" onPress={restartConversation} style={{ marginTop: spacing.md }}>
-              <Text style={styles.linkText}>Start another Arc conversation</Text>
-            </Button>
-          ) : null}
-
-          <Button variant="link" onPress={onClose} style={{ marginTop: spacing.lg }}>
-            <Text style={styles.linkText}>Close</Text>
-          </Button>
-        </View>
-      </KeyboardAvoidingView>
-    </LomoBottomSheet>
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+      <AiChatPane mode="arcCreation" launchContext={launchContext} />
+    </BottomDrawer>
   );
+}
+
+function buildArcCoachLaunchContext(arcs: Arc[], goals: Goal[]): string | undefined {
+  if (arcs.length === 0 && goals.length === 0) {
+    return undefined;
+  }
+
+  const lines: string[] = [];
+
+  lines.push(
+    'Existing workspace snapshot: the user already has the following arcs and goals. Use this to keep new Arc suggestions distinctive and complementary.'
+  );
+  lines.push(`Total arcs: ${arcs.length}. Total goals: ${goals.length}.`);
+  lines.push('');
+
+  arcs.forEach((arc) => {
+    const arcGoals = goals.filter((goal) => goal.arcId === arc.id);
+
+    lines.push(`Arc: ${arc.name} (status: ${arc.status}).`);
+    if (arc.northStar) {
+      lines.push(`North star: ${arc.northStar}`);
+    }
+    if (arc.narrative) {
+      lines.push(`Narrative: ${arc.narrative}`);
+    }
+
+    if (arcGoals.length > 0) {
+      lines.push('Goals in this arc:');
+      arcGoals.forEach((goal) => {
+        const trimmedDescription =
+          goal.description && goal.description.length > 200
+            ? `${goal.description.slice(0, 197)}…`
+            : goal.description;
+
+        const base = `- ${goal.title} (status: ${goal.status})`;
+        lines.push(
+          trimmedDescription ? `${base} – ${trimmedDescription}` : base
+        );
+      });
+    } else {
+      lines.push('No goals are currently attached to this arc.');
+    }
+
+    lines.push(''); // spacer between arcs
+  });
+
+  return lines.join('\n');
 }
 
 

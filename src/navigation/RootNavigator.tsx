@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { useWindowDimensions, View, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { useWindowDimensions, View, StyleSheet, Platform } from 'react-native';
 import {
   NavigationContainer,
   DefaultTheme,
   Theme,
   DrawerActions,
+  type NavigationState,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
@@ -12,6 +13,7 @@ import {
   DrawerContentScrollView,
   DrawerItemList,
 } from '@react-navigation/drawer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, Pressable } from '@gluestack-ui/themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
@@ -40,6 +42,7 @@ export type ArcsStackParamList = {
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 const NAV_DRAWER_TOP_OFFSET = 13; // px offset between the status bar and drawer content
+const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v1';
 
 const navTheme: Theme = {
   ...DefaultTheme,
@@ -57,8 +60,58 @@ export function RootNavigator() {
   const { width } = useWindowDimensions();
   const drawerWidth = width * 0.8;
 
+  const [isNavReady, setIsNavReady] = useState(false);
+  const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreState = async () => {
+      try {
+        // On web, let the URL drive navigation instead of persisted state.
+        if (Platform.OS === 'web') {
+          return;
+        }
+
+        const savedStateString = await AsyncStorage.getItem(NAV_PERSISTENCE_KEY);
+        if (savedStateString) {
+          const state = JSON.parse(savedStateString) as NavigationState;
+          if (isMounted) {
+            setInitialState(state);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load navigation state', e);
+      } finally {
+        if (isMounted) {
+          setIsNavReady(true);
+        }
+      }
+    };
+
+    restoreState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (!isNavReady) {
+    // Let the app shell/font loading in App.tsx handle the visible loading state.
+    return null;
+  }
+
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer
+      theme={navTheme}
+      initialState={initialState}
+      onStateChange={(state) => {
+        if (!state) return;
+        AsyncStorage.setItem(NAV_PERSISTENCE_KEY, JSON.stringify(state)).catch((e) => {
+          console.warn('Failed to persist navigation state', e);
+        });
+      }}
+    >
       <Drawer.Navigator
         drawerContent={(props) => <LomoDrawerContent {...props} />}
         screenOptions={({ route }) => ({
