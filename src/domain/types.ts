@@ -18,6 +18,11 @@ export interface Arc {
   name: string;
   narrative?: string;
   northStar?: string;
+  /**
+   * Optional thumbnail image for visually distinguishing this Arc in lists.
+   * Can be a remote URL or a local asset URI.
+   */
+  thumbnailUrl?: string;
   status: 'active' | 'paused' | 'archived';
   startDate?: string;
   endDate?: string | null;
@@ -139,4 +144,53 @@ export interface Chapter {
   createdAt: string;
 }
 
+export type AgeRange =
+  | 'under-18'
+  | '18-24'
+  | '25-34'
+  | '35-44'
+  | '45-54'
+  | '55-64'
+  | '65-plus'
+  | 'prefer-not-to-say';
+
+export type CommunicationTone = 'gentle' | 'direct' | 'playful' | 'neutral';
+
+export type DetailLevel = 'short' | 'medium' | 'deep';
+
+export type SpiritualLanguagePreference = 'explicit' | 'subtle' | 'secular' | 'no-preference';
+
+export type VisualStyle = 'minimal' | 'vibrant' | 'photographic' | 'illustrated';
+
+export type ThumbnailPalette = 'warm' | 'cool' | 'neutral' | 'high-contrast';
+
+export interface UserProfile {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  ageRange?: AgeRange;
+  timezone?: string;
+  communication: {
+    tone?: CommunicationTone;
+    detailLevel?: DetailLevel;
+    askBeforePushing?: boolean;
+    emojiAllowed?: boolean;
+    spiritualLanguage?: SpiritualLanguagePreference;
+  };
+  visuals: {
+    style?: VisualStyle;
+    palette?: ThumbnailPalette;
+    prefersPhotography?: boolean;
+    prefersIcons?: boolean;
+  };
+  accessibility?: {
+    prefersLargeText?: boolean;
+    highContrastMode?: boolean;
+    reduceMotion?: boolean;
+  };
+  consent?: {
+    personalizedSuggestionsEnabled?: boolean;
+    useHistoryForCoaching?: boolean;
+  };
+}
 

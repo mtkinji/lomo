@@ -78,7 +78,7 @@ export function PageHeader({
         style={styles.topRow}
       >
         <VStack space="xs" style={styles.leftColumn}>
-          <HStack alignItems="center" space="sm">
+          <HStack alignItems="center" space="md">
             {onPressMenu ? (
               <Pressable
                 accessibilityRole="button"
@@ -87,26 +87,29 @@ export function PageHeader({
                 onPress={onPressMenu}
               >
                 <Animated.View style={rotateStyle}>
-                  <Icon name="panelLeft" size={20} color={colors.textPrimary} />
+                  <Icon name="menu" size={20} color={colors.textPrimary} />
                 </Animated.View>
               </Pressable>
             ) : null}
-            {iconName ? (
-              <View style={styles.iconContainer}>
-                <Icon name={iconName} size={18} color={colors.canvas} />
-              </View>
-            ) : null}
-            <Heading style={styles.title}>{title}</Heading>
-            {onPressInfo ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Learn about ${title.toLowerCase()}`}
-                hitSlop={8}
-                onPress={onPressInfo}
-              >
-                <Icon name="info" size={18} color={colors.textSecondary} />
-              </Pressable>
-            ) : null}
+
+            <HStack alignItems="center" space="xs">
+              {iconName ? (
+                <View style={styles.iconContainer}>
+                  <Icon name={iconName} size={18} color={colors.canvas} />
+                </View>
+              ) : null}
+              <Heading style={styles.title}>{title}</Heading>
+              {onPressInfo ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Learn about ${title.toLowerCase()}`}
+                  hitSlop={8}
+                  onPress={onPressInfo}
+                >
+                  <Icon name="info" size={18} color={colors.textSecondary} />
+                </Pressable>
+              ) : null}
+            </HStack>
           </HStack>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </VStack>

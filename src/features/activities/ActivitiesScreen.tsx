@@ -17,6 +17,7 @@ export function ActivitiesScreen() {
     <AppShell>
       <PageHeader
         title="Activities"
+        iconName="activities"
         subtitle="Capture, prioritize, and schedule the moves that bring your arcs to life."
         menuOpen={menuOpen}
         onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}

@@ -17,6 +17,7 @@ export function ChaptersScreen() {
     <AppShell>
       <PageHeader
         title="Chapters"
+        iconName="chapters"
         subtitle="AI-generated lookbacks"
         menuOpen={menuOpen}
         onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}

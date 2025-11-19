@@ -61,6 +61,28 @@ Planned tool IDs already sketched into the registry include:
 
 These are not yet implemented, but the registry reserves their shape so that UI and agent code can be written against stable tool identities.
 
+### Toolable app surface & user profile tools
+
+Over time we want **everything the user can do in the app** (at least everything that touches domain data) to be **expressible as a tool** the coach can call on their behalf.
+
+- **Design principle**
+  - Every user-facing capability should have a clear, documented tool:
+    - **Good**: `setUserProfile`, `setUserAgeRange`, `createArcFromSuggestion`, `updateGoalStatus`.
+    - **Risky**: low-level primitives like “arbitrary SQL” or “raw AsyncStorage writes”.
+  - Tools should be **domain-level** (Arcs, Goals, Activities, Profile), not implementation-level.
+  - The tool registry is the single source of truth for:
+    - what the coach is *allowed* to do in a mode,
+    - and where those capabilities live (client vs server vs third party).
+
+- **Profile as a first tool surface**
+  - The `UserProfile` (age range, communication preferences, visual style, accessibility, consent) is the first domain object exposed to the coach via tools.
+  - The coach should be able to:
+    - **Read** profile fields (e.g., age range, tone preference) to adapt its responses.
+    - **Propose updates** (e.g., “set your age range to 35–44 based on what you told me”) via explicit tools rather than hidden state changes.
+  - Client UI can still set profile fields directly (e.g., an age range picker), but any state that matters for coaching should also be reachable through tools so future agents/orchestrators can act without bespoke wiring.
+
+In practice this means that as we implement new features (Arc creation, Goal design, scheduling, Chapters, settings), we **start by designing the tools** for that capability, then wire both the chat experience and the rest of the app against those tools.
+
 #### Context at launch
 
 When a chat helper opens, the screen passes **context** describing the part of the workspace the user is working in. That context is combined with user answers in the conversation and fed into AI tools.

@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { StyleSheet, FlatList, View, TextInput, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  TextInput,
+  Platform,
+  ScrollView,
+  KeyboardAvoidingView,
+  Image,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { VStack, Heading, Text, Icon as GluestackIcon, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -19,8 +29,15 @@ import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Card } from '../../ui/Card';
 import { Logo } from '../../ui/Logo';
 import type { Arc, Goal } from '../../domain/types';
-import { CHAT_MODE_REGISTRY } from '../ai/chatRegistry';
 import { AiChatPane } from '../ai/AiChatScreen';
+
+const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
+
+type ArcCoachDraftMeta = {
+  id: string;
+  lastUpdatedAt: string;
+  preview: string | null;
+};
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -31,6 +48,81 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
     }
   }
 };
+
+const formatRelativeDate = (iso: string | undefined): string => {
+  if (!iso) return 'just now';
+  try {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return 'just now';
+
+    const diffMs = Date.now() - date.getTime();
+    if (diffMs <= 0) return 'just now';
+
+    const minutes = Math.floor(diffMs / (60 * 1000));
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) {
+      return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return `${hours} h${hours === 1 ? '' : 's'} ago`;
+    }
+
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+  } catch {
+    return 'just now';
+  }
+};
+
+async function readArcCreationDraftMeta(): Promise<ArcCoachDraftMeta | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ARC_CREATION_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      messages?: { role?: string; content?: string }[];
+      input?: string;
+      updatedAt?: string;
+    };
+    if (!parsed || !Array.isArray(parsed.messages)) {
+      return null;
+    }
+
+    const updatedAt =
+      typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString();
+
+    let preview: string | null = null;
+    const userMessages = parsed.messages.filter(
+      (m) => m && m.role === 'user' && typeof m.content === 'string',
+    );
+    const lastUser = userMessages[userMessages.length - 1];
+    if (lastUser && lastUser.content) {
+      const trimmed = lastUser.content.trim();
+      if (trimmed.length > 0) {
+        preview = trimmed.length > 140 ? `${trimmed.slice(0, 137)}…` : trimmed;
+      }
+    }
+
+    if (!preview && typeof parsed.input === 'string') {
+      const trimmed = parsed.input.trim();
+      if (trimmed.length > 0) {
+        preview = trimmed.length > 140 ? `${trimmed.slice(0, 137)}…` : trimmed;
+      }
+    }
+
+    return {
+      id: 'arc-creation',
+      lastUpdatedAt: updatedAt,
+      preview,
+    };
+  } catch (err) {
+    if (__DEV__) {
+      console.warn('[arcs] Failed to read arc coach draft meta', err);
+    }
+    return null;
+  }
+}
 
 export function ArcsScreen() {
   const arcs = useAppStore((state) => state.arcs);
@@ -44,11 +136,32 @@ export function ArcsScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [arcCoachDraft, setArcCoachDraft] = useState<ArcCoachDraftMeta | null>(null);
   useEffect(() => {
     if (__DEV__) {
       console.log('ArcsScreen rendered');
     }
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      const meta = await readArcCreationDraftMeta();
+      setArcCoachDraft(meta);
+    })();
+  }, []);
+
+  // When the Arc Creation coach drawer is dismissed after a conversation,
+  // re-read any saved draft so it appears in the "In-progress Arc drafts" section
+  // without requiring a full navigation away and back to this screen.
+  useEffect(() => {
+    if (isModalVisible) {
+      return;
+    }
+    (async () => {
+      const meta = await readArcCreationDraftMeta();
+      setArcCoachDraft(meta);
+    })();
+  }, [isModalVisible]);
 
   const empty = arcs.length === 0;
 
@@ -89,6 +202,7 @@ export function ArcsScreen() {
         >
           <PageHeader
             title="Arcs"
+            iconName="arcs"
             menuOpen={menuOpen}
             onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
             onPressInfo={() => setInfoVisible(true)}
@@ -136,31 +250,65 @@ export function ArcsScreen() {
             return (
               <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
                 <Card style={styles.arcCard}>
-                  <VStack space="sm">
-                    <Heading style={styles.arcTitle}>{item.name}</Heading>
-                    {item.narrative && <Text style={styles.arcNarrative}>{item.narrative}</Text>}
-                    <HStack space="lg" style={styles.arcMetaRow} alignItems="center">
-                      <HStack space="xs" alignItems="center">
-                        <Icon name="goals" size={14} color={colors.textSecondary} />
-                        <Text style={styles.arcStatValue}>{goalCount}</Text>
-                        <Text style={styles.arcStatLabel}>
-                          {goalCount === 1 ? 'Goal' : 'Goals'}
-                        </Text>
+                  <View style={styles.arcCardContent}>
+                    <View style={styles.arcThumbnailWrapper}>
+                      {item.thumbnailUrl ? (
+                        <Image
+                          source={{ uri: item.thumbnailUrl }}
+                          style={styles.arcThumbnail}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.arcThumbnailPlaceholder}>
+                          <Icon name="arcs" size={20} color={colors.textSecondary} />
+                        </View>
+                      )}
+                    </View>
+                    <VStack space="xs" style={styles.arcTextContainer}>
+                      <Heading
+                        style={styles.arcTitle}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                      >
+                        {item.name}
+                      </Heading>
+                      <HStack space="lg" style={styles.arcMetaRow} alignItems="center">
+                        <HStack space="xs" alignItems="center">
+                          <Icon name="goals" size={14} color={colors.textSecondary} />
+                          <Text style={styles.arcStatValue}>{goalCount}</Text>
+                          <Text style={styles.arcStatLabel}>
+                            {goalCount === 1 ? 'Goal' : 'Goals'}
+                          </Text>
+                        </HStack>
+                        <HStack space="xs" alignItems="center">
+                          <Icon name="activities" size={14} color={colors.textSecondary} />
+                          <Text style={styles.arcStatValue}>{activityCount}</Text>
+                          <Text style={styles.arcStatLabel}>
+                            {activityCount === 1 ? 'Activity' : 'Activities'}
+                          </Text>
+                        </HStack>
                       </HStack>
-                      <HStack space="xs" alignItems="center">
-                        <Icon name="activities" size={14} color={colors.textSecondary} />
-                        <Text style={styles.arcStatValue}>{activityCount}</Text>
-                        <Text style={styles.arcStatLabel}>
-                          {activityCount === 1 ? 'Activity' : 'Activities'}
-                        </Text>
-                      </HStack>
-                    </HStack>
-                  </VStack>
+                    </VStack>
+                  </View>
                 </Card>
               </Pressable>
             );
           }}
           showsVerticalScrollIndicator={!hideScrollIndicator}
+          ListFooterComponent={
+            <ArcDraftSection
+              draft={arcCoachDraft}
+              onResume={() => {
+                logArcsDebug('draft:resume-pressed');
+                setIsModalVisible(true);
+              }}
+              onDiscard={async () => {
+                logArcsDebug('draft:discard-pressed');
+                await AsyncStorage.removeItem(ARC_CREATION_DRAFT_STORAGE_KEY);
+                setArcCoachDraft(null);
+              }}
+            />
+          }
         />
       </View>
       <ArcInfoModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
@@ -227,18 +375,50 @@ const styles = StyleSheet.create({
     height: 36,
   },
   arcCard: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
+    // Symmetric padding; let the content determine height so the card can
+    // grow naturally with longer titles while preserving padding.
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     // Let the app shell define horizontal gutters so cards align with the header
     marginHorizontal: 0,
     // Use the base card vertical spacing so lists stay consistent across screens
     marginVertical: 0,
   },
+  arcCardContent: {
+    flexDirection: 'row',
+    // Stretch children vertically so the thumbnail can fill the available height.
+    alignItems: 'stretch',
+    gap: spacing.md,
+  },
+  arcThumbnailWrapper: {
+    // Square thumbnail that fills the card’s vertical space while maintaining
+    // its aspect ratio.
+    minWidth: 64,
+    aspectRatio: 1,
+    alignSelf: 'stretch',
+    borderRadius: 12,
+    backgroundColor: colors.shellAlt,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arcThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  arcThumbnailPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arcTextContainer: {
+    flex: 1,
+  },
   arcTitle: {
-    ...typography.titleSm,
+    ...typography.body, // Use slightly smaller size but preserve title styles below
+    fontFamily: typography.titleSm.fontFamily,
     color: colors.textPrimary,
-    // Use heavy weight while keeping the more compact titleSm size
-    fontFamily: 'Inter_800ExtraBold',
+    lineHeight: 21,
   },
   arcNarrative: {
     ...typography.bodySm,
@@ -478,6 +658,82 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
+  draftSection: {
+    marginTop: spacing.xl,
+    paddingHorizontal: 0,
+    paddingBottom: spacing.lg,
+    gap: spacing.xs,
+  },
+  draftSectionTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  draftSectionBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  draftToggle: {
+    alignSelf: 'stretch',
+    paddingVertical: spacing.xs,
+  },
+  draftToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  draftToggleText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  draftList: {
+    marginTop: spacing.xs,
+  },
+  draftCard: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+  },
+  draftTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  draftTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  draftBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+  },
+  draftBadgeText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  draftPreview: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  draftMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+  draftMetaText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  draftDiscardText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontWeight: '600',
+  },
 });
 
 type NewArcModalProps = {
@@ -516,6 +772,63 @@ function NewArcModal({ visible, onClose, launchContext }: NewArcModalProps) {
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
       <AiChatPane mode="arcCreation" launchContext={launchContext} />
     </BottomDrawer>
+  );
+}
+
+type ArcDraftSectionProps = {
+  draft: ArcCoachDraftMeta | null;
+  onResume: () => void;
+  onDiscard: () => void;
+};
+
+function ArcDraftSection({ draft, onResume, onDiscard }: ArcDraftSectionProps) {
+  if (!draft) {
+    return null;
+  }
+
+  const [expanded, setExpanded] = useState(false);
+  const lastUpdatedLabel = formatRelativeDate(draft.lastUpdatedAt);
+
+  return (
+    <View style={styles.draftSection}>
+      <Pressable
+        onPress={() => setExpanded((current) => !current)}
+        style={styles.draftToggle}
+        accessibilityRole="button"
+        accessibilityLabel={expanded ? 'Hide Arc drafts' : 'Show Arc drafts'}
+      >
+        <View style={styles.draftToggleContent}>
+          <Text style={styles.draftToggleText}>Drafts</Text>
+          <Icon
+            name={expanded ? 'chevronDown' : 'chevronRight'}
+            size={14}
+            color={colors.textSecondary}
+          />
+        </View>
+      </Pressable>
+      {expanded && (
+        <View style={styles.draftList}>
+          <Pressable onPress={onResume}>
+            <Card style={styles.draftCard}>
+              <Text style={styles.draftPreview}>
+                {draft.preview ?? 'Arc draft with Lomo Coach'}
+              </Text>
+              <View style={styles.draftMetaRow}>
+                <Text style={styles.draftMetaText}>{lastUpdatedLabel}</Text>
+                <Pressable
+                  onPress={onDiscard}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Discard Arc draft"
+                >
+                  <Icon name="trash" size={14} color={colors.accent} />
+                </Pressable>
+              </View>
+            </Card>
+          </Pressable>
+        </View>
+      )}
+    </View>
   );
 }
 

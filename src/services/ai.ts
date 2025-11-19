@@ -1,6 +1,8 @@
-import { Arc, GoalDraft } from '../domain/types';
+import { Arc, GoalDraft, type AgeRange } from '../domain/types';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
+import { useAppStore } from '../store/useAppStore';
+import type { ChatMode } from '../features/ai/chatRegistry';
 
 type GenerateArcParams = {
   prompt: string;
@@ -51,9 +53,219 @@ const devLog = (context: string, details?: Record<string, unknown>) => {
   }
 };
 
+const buildUserProfileSummary = (): string | undefined => {
+  // Zustand store hook has a getState method we can use outside React components.
+  const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
+  const profile = state?.userProfile;
+
+  if (!profile) {
+    return undefined;
+  }
+
+  const parts: string[] = [];
+
+  if (profile.ageRange) {
+    parts.push(`Age range: ${profile.ageRange}.`);
+  }
+  if (profile.timezone) {
+    parts.push(`Timezone: ${profile.timezone}.`);
+  }
+
+  const communication = profile.communication ?? {};
+  if (communication.tone) {
+    parts.push(`Prefers ${communication.tone} tone.`);
+  }
+  if (communication.detailLevel) {
+    parts.push(`Prefers ${communication.detailLevel} level of detail.`);
+  }
+  if (typeof communication.askBeforePushing === 'boolean') {
+    parts.push(
+      communication.askBeforePushing
+        ? 'Ask permission before offering strong challenges.'
+        : 'Can handle direct challenges without much preface.'
+    );
+  }
+  if (typeof communication.emojiAllowed === 'boolean') {
+    parts.push(
+      communication.emojiAllowed
+        ? 'Emoji are welcome if they help.'
+        : 'Avoid using emoji unless the user uses them first.'
+    );
+  }
+  if (communication.spiritualLanguage) {
+    parts.push(`Spiritual language preference: ${communication.spiritualLanguage}.`);
+  }
+
+  const visuals = profile.visuals ?? {};
+  if (visuals.style) {
+    parts.push(`Visual style preference: ${visuals.style}.`);
+  }
+  if (visuals.palette) {
+    parts.push(`Color palette preference: ${visuals.palette}.`);
+  }
+  if (typeof visuals.prefersPhotography === 'boolean') {
+    parts.push(
+      visuals.prefersPhotography
+        ? 'Prefers photographic imagery when possible.'
+        : 'Prefers non-photographic or illustrative imagery.'
+    );
+  }
+  if (typeof visuals.prefersIcons === 'boolean') {
+    parts.push('Likes clear, simple iconography in visuals.');
+  }
+
+  const accessibility = profile.accessibility ?? {};
+  if (typeof accessibility.prefersLargeText === 'boolean' && accessibility.prefersLargeText) {
+    parts.push('Prefers larger text and higher readability.');
+  }
+  if (typeof accessibility.highContrastMode === 'boolean' && accessibility.highContrastMode) {
+    parts.push('Prefers high-contrast visuals.');
+  }
+  if (typeof accessibility.reduceMotion === 'boolean' && accessibility.reduceMotion) {
+    parts.push('Prefers reduced motion / fewer animations.');
+  }
+
+  const consent = profile.consent ?? {};
+  if (typeof consent.personalizedSuggestionsEnabled === 'boolean') {
+    parts.push(
+      consent.personalizedSuggestionsEnabled
+        ? 'User has enabled personalized suggestions.'
+        : 'User prefers less personalized, more generic suggestions.'
+    );
+  }
+  if (typeof consent.useHistoryForCoaching === 'boolean') {
+    parts.push(
+      consent.useHistoryForCoaching
+        ? 'You may use past arcs, goals, and activities to tailor guidance.'
+        : 'Avoid making inferences from detailed historical behavior.'
+    );
+  }
+
+  if (parts.length === 0) {
+    return undefined;
+  }
+
+  return parts.join(' ');
+};
+
 export type CoachChatTurn = {
   role: 'assistant' | 'user' | 'system';
   content: string;
+};
+
+type CoachToolName = 'get_user_profile' | 'set_user_profile';
+
+type CoachToolCall = {
+  id: string;
+  function: {
+    name: CoachToolName;
+    arguments: string;
+  };
+};
+
+type OpenAiToolMessage = {
+  role: 'assistant';
+  tool_calls?: CoachToolCall[];
+  content?: string | null;
+};
+
+const buildCoachToolsForMode = (mode?: ChatMode) => {
+  if (mode !== 'arcCreation') {
+    return undefined;
+  }
+
+  const ageRangeEnum: AgeRange[] = [
+    'under-18',
+    '18-24',
+    '25-34',
+    '35-44',
+    '45-54',
+    '55-64',
+    '65-plus',
+    'prefer-not-to-say',
+  ];
+
+  return [
+    {
+      type: 'function',
+      function: {
+        name: 'get_user_profile' as CoachToolName,
+        description:
+          'Read the user profile fields that are relevant for coaching tone and examples, such as age range.',
+        parameters: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'set_user_profile' as CoachToolName,
+        description:
+          'Update parts of the user profile such as age range. Use this only when the user has clearly provided or confirmed the information.',
+        parameters: {
+          type: 'object',
+          properties: {
+            ageRange: {
+              type: 'string',
+              enum: ageRangeEnum,
+              description:
+                'User age range bucket, used only to tune tone and examples, not to make assumptions.',
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+  ];
+};
+
+const runCoachTool = (tool: CoachToolCall) => {
+  const name = tool.function.name;
+  let args: unknown;
+  try {
+    args = tool.function.arguments ? JSON.parse(tool.function.arguments) : {};
+  } catch (err) {
+    devLog('coachTool:args-parse-error', {
+      name,
+      raw: tool.function.arguments,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    args = {};
+  }
+
+  const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
+
+  if (!state) {
+    return { ok: false, error: 'Store unavailable' };
+  }
+
+  if (name === 'get_user_profile') {
+    const profile = state.userProfile ?? null;
+    return {
+      ok: true,
+      profile,
+    };
+  }
+
+  if (name === 'set_user_profile') {
+    const payload = (args as { ageRange?: AgeRange | null }) ?? {};
+    if (typeof payload.ageRange === 'string') {
+      state.updateUserProfile((current) => ({
+        ...current,
+        ageRange: payload.ageRange as AgeRange,
+      }));
+    }
+    const updated = typeof useAppStore.getState === 'function' ? useAppStore.getState() : state;
+    return {
+      ok: true,
+      profile: updated.userProfile ?? null,
+    };
+  }
+
+  return { ok: false, error: `Unknown tool: ${name}` };
 };
 
 export async function generateArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
@@ -89,9 +301,14 @@ async function requestOpenAiArcs(
   params: GenerateArcParams,
   apiKey: string
 ): Promise<GeneratedArc[]> {
-  const systemPrompt =
+  const baseSystemPrompt =
     'You are LOMO, a life architecture coach helping users define identity Arcs (long-term directions). ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, northStar, narrative, status, and suggestedForces array.';
+
+  const userProfileSummary = buildUserProfileSummary();
+  const systemPrompt = userProfileSummary
+    ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
+    : baseSystemPrompt;
 
   const userPrompt = `
 User hunger for growth: ${params.prompt}
@@ -226,9 +443,14 @@ async function requestOpenAiGoals(
   params: GenerateGoalParams,
   apiKey: string
 ): Promise<GoalDraft[]> {
-  const systemPrompt =
+  const baseSystemPrompt =
     'You are LOMO, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
     'Return thoughtful goal drafts with title, description, status, forceIntent (values 0-3 for each canonical force), and optional suggestedActivities.';
+
+  const userProfileSummary = buildUserProfileSummary();
+  const systemPrompt = userProfileSummary
+    ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
+    : baseSystemPrompt;
 
   const userPrompt = `
 Arc name: ${params.arcName}
@@ -351,7 +573,10 @@ Return 2-3 distinctive goal drafts that respect the arc's heart.
  * Generic LOMO coach chat endpoint backed by OpenAI's Chat Completions API.
  * This powers the free-form Lomo Coach conversation in the bottom sheet.
  */
-export async function sendCoachChat(messages: CoachChatTurn[]): Promise<string> {
+export async function sendCoachChat(
+  messages: CoachChatTurn[],
+  options?: { mode?: ChatMode }
+): Promise<string> {
   const apiKey = resolveOpenAiApiKey();
   devLog('coachChat:init', {
     messageCount: messages.length,
@@ -366,10 +591,15 @@ export async function sendCoachChat(messages: CoachChatTurn[]): Promise<string> 
     throw new Error('Missing OpenAI API key');
   }
 
-  const systemPrompt =
+  const baseSystemPrompt =
     'You are Lomo Coach, a calm, practical life architecture coach. ' +
     'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
     'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
+
+  const userProfileSummary = buildUserProfileSummary();
+  const systemPrompt = userProfileSummary
+    ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
+    : baseSystemPrompt;
 
   const openAiMessages = [
     { role: 'system' as const, content: systemPrompt },
@@ -378,12 +608,18 @@ export async function sendCoachChat(messages: CoachChatTurn[]): Promise<string> 
       content: m.content,
     })),
   ];
+  const tools = buildCoachToolsForMode(options?.mode);
 
-  const body = {
+  const body: Record<string, unknown> = {
     model: 'gpt-4o-mini',
     temperature: 0.55,
     messages: openAiMessages,
   };
+
+  if (tools && tools.length > 0) {
+    body.tools = tools;
+    body.tool_choice = 'auto';
+  }
 
   devLog('coachChat:request:prepared', {
     model: body.model,
@@ -426,13 +662,86 @@ export async function sendCoachChat(messages: CoachChatTurn[]): Promise<string> 
 
   const data = await response.json();
 
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
+  const firstChoice = data.choices?.[0]?.message as OpenAiToolMessage | undefined;
+  if (!firstChoice) {
     throw new Error('OpenAI coach chat response malformed');
   }
 
-  devLog('coachChat:parsed', { contentPreview: previewText(content) });
-  return content as string;
+  // If the model did not request any tools, return the content as before.
+  if (!firstChoice.tool_calls || firstChoice.tool_calls.length === 0) {
+    const content = firstChoice.content;
+    if (!content) {
+      throw new Error('OpenAI coach chat response missing content');
+    }
+    devLog('coachChat:parsed', { contentPreview: previewText(content) });
+    return content as string;
+  }
+
+  // Execute requested tools locally, then send a follow-up request so the model
+  // can incorporate tool results into a final assistant message.
+  const toolCalls = firstChoice.tool_calls;
+  devLog('coachChat:tool-calls', {
+    count: toolCalls.length,
+    names: toolCalls.map((t) => t.function.name),
+  });
+
+  const toolMessages = toolCalls.map((toolCall) => {
+    const result = runCoachTool(toolCall);
+    return {
+      role: 'tool' as const,
+      tool_call_id: toolCall.id,
+      name: toolCall.function.name,
+      content: JSON.stringify(result),
+    };
+  });
+
+  const followupBody: Record<string, unknown> = {
+    model: 'gpt-4o-mini',
+    temperature: 0.55,
+    messages: [
+      ...openAiMessages,
+      {
+        role: 'assistant',
+        tool_calls: toolCalls,
+      },
+      ...toolMessages,
+    ],
+  };
+
+  if (tools && tools.length > 0) {
+    followupBody.tools = tools;
+  }
+
+  const followupStartedAt = Date.now();
+  const followupResponse = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(followupBody),
+  });
+
+  devLog('coachChat:followup:response', {
+    status: followupResponse.status,
+    ok: followupResponse.ok,
+    durationMs: Date.now() - followupStartedAt,
+  });
+
+  if (!followupResponse.ok) {
+    const errorText = await followupResponse.text();
+    console.error('OpenAI coach follow-up error', errorText);
+    throw new Error('Unable to reach Lomo Coach (follow-up)');
+  }
+
+  const followupData = await followupResponse.json();
+  const finalContent = followupData.choices?.[0]?.message?.content;
+  if (!finalContent) {
+    throw new Error('OpenAI coach chat follow-up response malformed');
+  }
+
+  devLog('coachChat:parsed:final', { contentPreview: previewText(finalContent) });
+  return finalContent as string;
 }
 
 async function fetchWithTimeout(

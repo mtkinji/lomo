@@ -5,6 +5,7 @@ import {
   Easing,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '@gluestack-ui/themed';
 import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -20,6 +22,8 @@ import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
 import { CoachChatTurn, sendCoachChat } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
+import { useAppStore } from '../../store/useAppStore';
+import type { AgeRange } from '../../domain/types';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 
@@ -27,6 +31,48 @@ type ChatMessage = {
   id: string;
   role: ChatMessageRole;
   content: string;
+};
+
+type ChatDraft = {
+  messages: ChatMessage[];
+  input: string;
+  updatedAt: string;
+};
+
+const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
+
+async function loadArcCreationDraft(): Promise<ChatDraft | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ARC_CREATION_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ChatDraft;
+    if (!parsed || !Array.isArray(parsed.messages)) {
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.warn('Failed to load Lomo Coach arc draft', err);
+    return null;
+  }
+}
+
+async function saveArcCreationDraft(draft: ChatDraft | null): Promise<void> {
+  try {
+    if (!draft || draft.messages.length === 0) {
+      await AsyncStorage.removeItem(ARC_CREATION_DRAFT_STORAGE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(ARC_CREATION_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch (err) {
+    console.warn('Failed to save Lomo Coach arc draft', err);
+  }
+}
+
+type ArcContextSummary = {
+  totalArcs?: number;
+  totalGoals?: number;
+  arcs: { name: string }[];
+  goals: { title: string; arcName?: string }[];
 };
 
 // Default visual state: the user has not said anything yet, but the coach can
@@ -54,7 +100,8 @@ const CHAT_COLORS = {
   background: colors.canvas,
   surface: colors.canvas,
   assistantBubble: colors.card,
-  userBubble: colors.shellAlt,
+  userBubble: colors.accent,
+  userBubbleText: colors.canvas,
   accent: colors.accent,
   textPrimary: colors.textPrimary,
   textSecondary: colors.textSecondary,
@@ -63,8 +110,87 @@ const CHAT_COLORS = {
   chip: colors.card,
 } as const;
 
-const INPUT_MIN_HEIGHT = typography.bodySm.lineHeight * 3;
+const INPUT_MIN_HEIGHT = typography.bodySm.lineHeight * 4;
 const INPUT_MAX_HEIGHT = typography.bodySm.lineHeight * 8;
+
+const AGE_RANGE_OPTIONS: { value: AgeRange; label: string }[] = [
+  { value: 'under-18', label: 'Under 18' },
+  { value: '18-24', label: '18–24' },
+  { value: '25-34', label: '25–34' },
+  { value: '35-44', label: '35–44' },
+  { value: '45-54', label: '45–54' },
+  { value: '55-64', label: '55–64' },
+  { value: '65-plus', label: '65+' },
+  { value: 'prefer-not-to-say', label: 'Prefer not to say' },
+];
+
+function parseArcContextFromLaunchContext(raw: string): ArcContextSummary | undefined {
+  const lines = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return undefined;
+  }
+
+  let totalArcs: number | undefined;
+  let totalGoals: number | undefined;
+  const arcs: { name: string }[] = [];
+  const goals: { title: string; arcName?: string }[] = [];
+
+  let currentArcName: string | undefined;
+  let inGoalsForCurrentArc = false;
+
+  lines.forEach((line) => {
+    if (line.startsWith('Total arcs:')) {
+      const match = line.match(/^Total arcs:\s*(\d+)\.\s*Total goals:\s*(\d+)\./);
+      if (match) {
+        totalArcs = Number(match[1]);
+        totalGoals = Number(match[2]);
+      }
+      return;
+    }
+
+    if (line.startsWith('Arc:')) {
+      const match = line.match(/^Arc:\s*(.+?)\s*\(status:\s*([^)]+)\)\./);
+      currentArcName = match ? match[1] : line.replace(/^Arc:\s*/, '');
+      arcs.push({ name: currentArcName });
+      inGoalsForCurrentArc = false;
+      return;
+    }
+
+    if (line === 'Goals in this arc:') {
+      inGoalsForCurrentArc = true;
+      return;
+    }
+
+    if (inGoalsForCurrentArc && line.startsWith('- ')) {
+      const match = line.match(/^- (.+?)\s*\(status:\s*([^)]+)\)/);
+      const title = match ? match[1] : line.replace(/^- /, '');
+      goals.push({
+        title,
+        arcName: currentArcName,
+      });
+      return;
+    }
+
+    if (line === '') {
+      inGoalsForCurrentArc = false;
+    }
+  });
+
+  if (
+    typeof totalArcs === 'undefined' &&
+    typeof totalGoals === 'undefined' &&
+    arcs.length === 0 &&
+    goals.length === 0
+  ) {
+    return undefined;
+  }
+
+  return { totalArcs, totalGoals, arcs, goals };
+}
 
 export type AiChatPaneProps = {
   /**
@@ -88,11 +214,17 @@ export type AiChatPaneProps = {
  */
 export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
   const isArcCreationMode = mode === 'arcCreation';
+  const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
+  const modeSystemPrompt = modeConfig?.systemPrompt;
+  const [isArcInfoVisible, setIsArcInfoVisible] = useState(false);
+  const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const userProfile = useAppStore((state) => state.userProfile);
+  const updateUserProfile = useAppStore((state) => state.updateUserProfile);
+  const hasAgeRange = Boolean(userProfile?.ageRange);
+  const shouldShowAgeQuestion = isArcCreationMode && !hasAgeRange;
 
   const buildInitialMessages = (): ChatMessage[] => {
-    const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
-    const modeSystemPrompt = modeConfig?.systemPrompt;
-
     if (!launchContext && !modeSystemPrompt && !isArcCreationMode) {
       return INITIAL_MESSAGES;
     }
@@ -145,12 +277,53 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
   const hasInput = input.trim().length > 0;
   const canSend = hasInput && !sending;
   const hasUserMessages = messages.some((m) => m.role === 'user');
+  const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
+
+  const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
+    if (!isArcCreationMode) return;
+    if (draftSaveTimeoutRef.current) {
+      clearTimeout(draftSaveTimeoutRef.current);
+    }
+    draftSaveTimeoutRef.current = setTimeout(() => {
+      void saveArcCreationDraft({
+        messages: nextMessages,
+        input: nextInput,
+        updatedAt: new Date().toISOString(),
+      });
+    }, 750);
+  };
+  const parsedContext = launchContext
+    ? parseArcContextFromLaunchContext(launchContext)
+    : undefined;
 
   const handleStartDictation = () => {
     // Today we lean on the system keyboard’s built-in dictation controls.
     // Focusing the input reliably shows the keyboard; users can tap the mic
     // there, which uses Apple’s on-device transcription.
     inputRef.current?.focus();
+  };
+
+  const handleSelectAgeRange = (range: AgeRange) => {
+    const option = AGE_RANGE_OPTIONS.find((entry) => entry.value === range);
+    const humanLabel = option?.label ?? range;
+
+    const ageMessage: ChatMessage = {
+      id: `user-age-${Date.now()}`,
+      role: 'user',
+      content: `I'm ${humanLabel}`,
+    };
+
+    setMessages((prev) => {
+      const next = [...prev, ageMessage];
+      messagesRef.current = next;
+      scheduleDraftSave(next, input);
+      return next;
+    });
+
+    updateUserProfile((current) => ({
+      ...current,
+      ageRange: range,
+    }));
   };
 
   const streamAssistantReply = (
@@ -172,6 +345,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
         },
       ];
       messagesRef.current = next;
+      scheduleDraftSave(next, input);
       return next;
     });
 
@@ -191,6 +365,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
           message.id === messageId ? { ...message, content: nextContent } : message
         );
         messagesRef.current = next;
+        scheduleDraftSave(next, input);
         return next;
       });
 
@@ -223,7 +398,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
           role: m.role,
           content: m.content,
         }));
-        const reply = await sendCoachChat(history);
+        const reply = await sendCoachChat(history, { mode });
         if (cancelled) return;
         streamAssistantReply(reply, 'assistant-bootstrap', {
           onDone: () => {
@@ -251,6 +426,32 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
     };
   }, [mode, bootstrapped]);
 
+  // When the user re-opens Arc Creation coach, restore any saved draft so they
+  // can pick up where they left off instead of starting a fresh thread.
+  useEffect(() => {
+    if (!isArcCreationMode) return;
+
+    let cancelled = false;
+    const hydrateDraft = async () => {
+      const draft = await loadArcCreationDraft();
+      if (cancelled || !draft) return;
+
+      setMessages(draft.messages);
+      messagesRef.current = draft.messages;
+      setInput(draft.input ?? '');
+      // Mark as bootstrapped so we don't trigger the automatic "first reply"
+      // bootstrap when restoring an in-progress Arc conversation.
+      setBootstrapped(true);
+      setThinking(false);
+    };
+
+    void hydrateDraft();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isArcCreationMode]);
+
   const handleSend = async () => {
     if (!canSend) {
       return;
@@ -268,6 +469,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
     setMessages((prev) => {
       const next = [...prev, userMessage];
       messagesRef.current = next;
+      scheduleDraftSave(next, '');
       return next;
     });
     setInput('');
@@ -277,7 +479,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
         role: m.role,
         content: m.content,
       }));
-      const reply = await sendCoachChat(history);
+      const reply = await sendCoachChat(history, { mode });
       streamAssistantReply(reply, 'assistant', {
         onDone: () => {
           setSending(false);
@@ -317,6 +519,13 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Persist any in-progress input so a user can be interrupted mid-sentence and
+  // still have their draft waiting when they return to Arc creation.
+  useEffect(() => {
+    if (!isArcCreationMode) return;
+    scheduleDraftSave(messagesRef.current, input);
+  }, [input, isArcCreationMode]);
+
   // Keep the composer and submit button fully visible by lifting them above
   // the software keyboard. Because the chat lives inside a custom bottom sheet
   // (with its own transforms), the standard KeyboardAvoidingView behavior
@@ -338,63 +547,97 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
     return () => {
       showSub.remove();
       hideSub.remove();
+      if (draftSaveTimeoutRef.current) {
+        clearTimeout(draftSaveTimeoutRef.current);
+      }
     };
   }, []);
 
   return (
-    <KeyboardAvoidingView style={styles.flex}>
-      <View style={styles.body}>
-        <ScrollView
-          ref={scrollRef}
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={scrollToLatest}
-        >
-          <View style={styles.timeline}>
-            <View style={styles.brandHeaderRow}>
-              <View style={styles.brandLockup}>
-                <Logo size={24} />
-                <View style={styles.brandTextBlock}>
-                  <Text style={styles.brandWordmark}>Lomo Coach</Text>
+    <>
+      <KeyboardAvoidingView style={styles.flex}>
+        <View style={styles.body}>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={scrollToLatest}
+          >
+            <View style={styles.timeline}>
+              <View style={styles.brandHeaderRow}>
+                <View style={styles.brandLockup}>
+                  <Logo size={24} />
+                  <View style={styles.brandTextBlock}>
+                    <Text style={styles.brandWordmark}>Lomo Coach</Text>
+                  </View>
                 </View>
-              </View>
-              {isArcCreationMode && (
-                <View style={styles.modePill}>
-                  <Icon
-                    name="arcs"
-                    size={14}
-                    color={CHAT_COLORS.textSecondary}
-                    style={styles.modePillIcon}
-                  />
-                  <Text style={styles.modePillText}>Arc creation</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.messagesStack}>
-              {messages
-                .filter((message) => message.role !== 'system')
-                .map((message) =>
-                  message.role === 'assistant' ? (
-                    <View key={message.id} style={styles.assistantMessage}>
-                      <Text style={styles.assistantText}>{message.content}</Text>
+                {isArcCreationMode && (
+                  <Pressable
+                    style={styles.modePill}
+                    onPress={() => setIsArcInfoVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Learn about Arc creation and see context"
+                  >
+                    <View style={styles.modePillLeft}>
+                      <Icon
+                        name="arcs"
+                        size={14}
+                        color={CHAT_COLORS.textSecondary}
+                        style={styles.modePillIcon}
+                      />
+                      <Text style={styles.modePillText}>Arc creation</Text>
                     </View>
-                  ) : (
-                    <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
-                      <Text style={styles.userText}>{message.content}</Text>
-                    </View>
-                  ),
+                    <Icon
+                      name="info"
+                      size={16}
+                      color={CHAT_COLORS.textSecondary}
+                      style={styles.modePillInfoIcon}
+                    />
+                  </Pressable>
                 )}
-              {thinking && (
-                <View style={styles.assistantMessage}>
-                  <ThinkingBubble />
+              </View>
+              <View style={styles.messagesStack}>
+                {messages
+                  .filter((message) => message.role !== 'system')
+                  .map((message) =>
+                    message.role === 'assistant' ? (
+                      <View key={message.id} style={styles.assistantMessage}>
+                        <Text style={styles.assistantText}>{message.content}</Text>
+                      </View>
+                    ) : (
+                      <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
+                        <Text style={styles.userText}>{message.content}</Text>
+                      </View>
+                    ),
+                  )}
+                {thinking && (
+                  <View style={styles.assistantMessage}>
+                    <ThinkingBubble />
+                  </View>
+                )}
+              </View>
+
+              {shouldShowAgeQuestion && (
+                <View style={styles.ageQuestionCard}>
+                  <Text style={styles.ageQuestionTitle}>What’s your age range?</Text>
+                  <View style={styles.ageChipsRow}>
+                    {AGE_RANGE_OPTIONS.map((option) => (
+                      <Button
+                        key={option.value}
+                        variant="outline"
+                        style={styles.ageChip}
+                        onPress={() => handleSelectAgeRange(option.value)}
+                      >
+                        <Text style={styles.ageChipLabel}>{option.label}</Text>
+                      </Button>
+                    ))}
+                  </View>
                 </View>
               )}
             </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
 
         <View
           style={[
@@ -491,6 +734,95 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
         </View>
       </View>
     </KeyboardAvoidingView>
+
+    {isArcCreationMode && (
+      <Modal
+        visible={isArcInfoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsArcInfoVisible(false)}
+      >
+        <View style={styles.arcInfoOverlay}>
+          <View style={styles.arcInfoCard}>
+            <View style={styles.arcInfoHeaderRow}>
+              <Text style={styles.arcInfoTitle}>Arc creation coach</Text>
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => setIsArcInfoVisible(false)}
+                accessibilityLabel="Close Arc creation info"
+                style={styles.arcInfoCloseButton}
+              >
+                <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
+              </Button>
+            </View>
+
+            <ScrollView
+              style={styles.arcInfoScroll}
+              contentContainerStyle={styles.arcInfoContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.arcInfoHeader}>
+                <Text style={styles.arcInfoSubtitle}>
+                  This coach helps you design one long‑term Arc for your life — not manage tasks or
+                  habits.
+                </Text>
+              </View>
+
+              <View style={styles.arcInfoSection}>
+                <Text style={styles.arcInfoSectionLabel}>What’s an Arc?</Text>
+                <Text style={styles.arcInfoBody}>
+                  An Arc is a long‑term identity direction in a part of your life — a stable
+                  storyline you can hang future goals and activities on.
+                </Text>
+              </View>
+
+              {hasContextMeta && launchContext && parsedContext && (
+                <View style={styles.arcInfoSection}>
+                  <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
+
+                  {parsedContext.arcs.length > 0 && (
+                    <View style={styles.arcInfoSubSection}>
+                      {parsedContext.arcs.map((arc) => {
+                        const arcGoals = parsedContext.goals.filter(
+                          (goal) => goal.arcName === arc.name,
+                        );
+                        return (
+                          <View key={arc.name} style={styles.arcInfoContextCard}>
+                            <Text style={styles.arcInfoContextTitle}>{arc.name}</Text>
+                            {arcGoals.length > 0 && (
+                              <View style={styles.arcInfoGoalList}>
+                                <Text style={styles.arcInfoGoalsLabel}>Goals in this Arc</Text>
+                                {arcGoals.map((goal) => (
+                                  <Text key={goal.title} style={styles.arcInfoGoalText}>
+                                    • {goal.title}
+                                  </Text>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.arcInfoFooter}>
+              <Button
+                variant="ghost"
+                onPress={() => setIsArcInfoVisible(false)}
+                accessibilityLabel="Close Arc creation info"
+              >
+                <Text style={styles.arcInfoCloseLabel}>Got it</Text>
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    )}
+  </>
   );
 }
 
@@ -635,6 +967,7 @@ const styles = StyleSheet.create({
   modePill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     borderRadius: 999,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
@@ -644,8 +977,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     alignSelf: 'center',
   },
+  modePillLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   modePillIcon: {
     marginRight: spacing.xs,
+  },
+  modePillInfoIcon: {
+    marginLeft: spacing.sm,
   },
   modePillText: {
     ...typography.bodySm,
@@ -693,7 +1034,7 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     ...typography.body,
-    color: CHAT_COLORS.textPrimary,
+    color: CHAT_COLORS.accent,
   },
   thinkingBubble: {
     paddingHorizontal: spacing.md,
@@ -732,7 +1073,7 @@ const styles = StyleSheet.create({
   },
   userText: {
     ...typography.body,
-    color: CHAT_COLORS.textPrimary,
+    color: CHAT_COLORS.userBubbleText,
   },
   suggestionsFence: {
     paddingBottom: spacing.sm,
@@ -823,6 +1164,173 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
     textAlign: 'center',
+  },
+  arcInfoOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    // Match the pine-tinted scrim used by the primary bottom sheet so
+    // modals feel part of the same system.
+    backgroundColor: 'rgba(6,24,13,0.85)',
+  },
+  arcInfoCard: {
+    width: '100%',
+    maxHeight: '75%',
+    borderRadius: 24,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6,
+  },
+  arcInfoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: CHAT_COLORS.border,
+  },
+  arcInfoHeader: {
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  arcInfoTitle: {
+    ...typography.titleSm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  arcInfoSubtitle: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  arcInfoSection: {
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  arcInfoSectionLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  arcInfoBody: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  arcInfoBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  arcInfoBulletGlyph: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+    marginTop: 1,
+  },
+  arcInfoScroll: {
+    flexGrow: 0,
+  },
+  arcInfoContent: {
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  arcInfoContextCard: {
+    marginTop: spacing.sm,
+    borderRadius: spacing.lg,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
+  },
+  arcInfoMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  arcInfoMetric: {
+    flex: 1,
+  },
+  arcInfoMetricValue: {
+    ...typography.titleLg,
+    color: CHAT_COLORS.textPrimary,
+  },
+  arcInfoMetricLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  arcInfoSubSection: {
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  arcInfoGoalList: {
+    marginTop: spacing.xs,
+    gap: spacing.xs / 2,
+  },
+  arcInfoGoalsLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  arcInfoGoalText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  arcInfoContextTitle: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  arcInfoFooter: {
+    marginTop: spacing.lg,
+    alignItems: 'flex-end',
+  },
+  arcInfoCloseButton: {
+    marginLeft: spacing.sm,
+  },
+  arcInfoCloseLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  ageQuestionCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  ageQuestionTitle: {
+    ...typography.body,
+    color: CHAT_COLORS.textPrimary,
+  },
+  ageQuestionBody: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  ageChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  ageChip: {
+    borderRadius: 999,
+    borderColor: CHAT_COLORS.chipBorder,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    minHeight: 0,
+  },
+  ageChipLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
   },
 });
 

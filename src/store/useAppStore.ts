@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Activity, Arc, Force, ForceLevel, Goal, GoalDraft } from '../domain/types';
+import {
+  Activity,
+  Arc,
+  Force,
+  ForceLevel,
+  Goal,
+  GoalDraft,
+  UserProfile,
+} from '../domain/types';
 
 type Updater<T> = (item: T) => T;
 
@@ -11,6 +19,7 @@ interface AppState {
   goals: Goal[];
   activities: Activity[];
   goalRecommendations: Record<string, GoalDraft[]>;
+  userProfile: UserProfile | null;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -21,6 +30,9 @@ interface AppState {
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
+  setUserProfile: (profile: UserProfile) => void;
+  updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
+  clearUserProfile: () => void;
   resetStore: () => void;
 }
 
@@ -188,6 +200,7 @@ export const useAppStore = create(
       goals: [initialDemoGoal],
       activities: initialDemoActivities,
       goalRecommendations: {},
+      userProfile: null,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -243,6 +256,31 @@ export const useAppStore = create(
           delete updated[arcId];
           return { goalRecommendations: updated };
         }),
+      setUserProfile: (profile) =>
+        set(() => ({
+          userProfile: {
+            ...profile,
+            updatedAt: now(),
+          },
+        })),
+      updateUserProfile: (updater) =>
+        set((state) => {
+          const base: UserProfile = state.userProfile ?? {
+            id: 'local-user',
+            createdAt: now(),
+            updatedAt: now(),
+            communication: {},
+            visuals: {},
+          };
+          const next = updater(base);
+          return {
+            userProfile: {
+              ...next,
+              updatedAt: now(),
+            },
+          };
+        }),
+      clearUserProfile: () => set({ userProfile: null }),
       resetStore: () =>
         set({
           forces: canonicalForces,

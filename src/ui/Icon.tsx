@@ -20,6 +20,11 @@ import Pencil from 'lucide-react-native/dist/esm/icons/pencil';
 import House from 'lucide-react-native/dist/esm/icons/house';
 import PanelLeft from 'lucide-react-native/dist/esm/icons/panel-left';
 import Search from 'lucide-react-native/dist/esm/icons/search';
+import Menu from 'lucide-react-native/dist/esm/icons/menu';
+import CloseIcon from 'lucide-react-native/dist/esm/icons/x';
+import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right';
+import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down';
+import Trash from 'lucide-react-native/dist/esm/icons/trash-2';
 
 const icons = {
   today: CalendarCheck,
@@ -30,6 +35,7 @@ const icons = {
   activities: ListChecks,
   activity: Activity,
   panelLeft: PanelLeft,
+  menu: Menu,
   paperclip: Paperclip,
   image: ImageIcon,
   mic: Mic,
@@ -42,6 +48,10 @@ const icons = {
   info: Info,
   edit: Pencil,
   search: Search,
+  close: CloseIcon,
+  chevronRight: ChevronRight,
+  chevronDown: ChevronDown,
+  trash: Trash,
 };
 
 export type IconName = keyof typeof icons;

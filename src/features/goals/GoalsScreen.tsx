@@ -29,6 +29,7 @@ export function GoalsScreen() {
     <AppShell>
       <PageHeader
         title="Goals"
+        iconName="goals"
         subtitle="Concrete outcomes inside your arcs."
         menuOpen={menuOpen}
         onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
