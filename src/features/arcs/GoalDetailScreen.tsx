@@ -3,7 +3,6 @@ import {
   StyleSheet,
   FlatList,
   View,
-  Modal,
   KeyboardAvoidingView,
   Platform,
   TextInput,
@@ -20,6 +19,7 @@ import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ForceLevel } from '../../domain/types';
+import { LomoBottomSheet } from '../../ui/BottomSheet';
 
 type GoalDetailRouteProp = RouteProp<ArcsStackParamList, 'GoalDetail'>;
 
@@ -479,12 +479,12 @@ function EditGoalModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
-        <View style={[styles.modalContent, { paddingTop: spacing.xl + insetTop }]}>
+        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
           <Heading style={styles.modalTitle}>Edit Goal</Heading>
           <Text style={styles.modalBody}>
             Update the goal details and rebalance the forces to better match this season.
@@ -567,7 +567,7 @@ function EditGoalModal({
           </HStack>
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </LomoBottomSheet>
   );
 }
 

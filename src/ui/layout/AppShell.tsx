@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 import { Box } from '@gluestack-ui/themed';
 import { colors, spacing } from '../../theme';
 
@@ -10,14 +9,14 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={styles.shell}>
       <Box style={styles.container}>{children}</Box>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  shell: {
     flex: 1,
     // Shell: match light canvas so the whole background feels continuous
     backgroundColor: colors.shell,

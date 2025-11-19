@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { HStack, VStack, Heading, Text, Pressable } from '@gluestack-ui/themed';
 import { Icon, IconName } from '../Icon';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing, typography, fonts } from '../../theme';
 
 type PageHeaderProps = {
   title: string;
@@ -132,6 +132,7 @@ const styles = StyleSheet.create({
   title: {
     ...typography.titleLg,
     color: colors.textPrimary,
+    fontFamily: fonts.black,
   },
   subtitle: {
     ...typography.body,

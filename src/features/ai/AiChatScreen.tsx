@@ -14,6 +14,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { spacing, typography, colors } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { Logo } from '../../ui/Logo';
 
 type ChatMessage = {
   id: string;
@@ -112,6 +113,16 @@ export function AiChatScreen() {
             onContentSizeChange={scrollToLatest}
           >
             <View style={styles.timeline}>
+              <View style={styles.brandHeaderRow}>
+                <View style={styles.brandLockup}>
+                  <Logo size={28} />
+                  <View style={styles.brandTextBlock}>
+                    <Text style={styles.brandWordmark}>LOMO</Text>
+                    <Text style={styles.brandSubLabel}>Season coach</Text>
+                  </View>
+                </View>
+              </View>
+
               <View style={styles.headerRow}>
                 <Text style={styles.modelLabel}>ChatGPT 5.1</Text>
                 <View style={styles.modePill}>
@@ -230,6 +241,27 @@ const styles = StyleSheet.create({
   },
   timeline: {
     gap: spacing.lg,
+  },
+  brandHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brandTextBlock: {
+    flexDirection: 'column',
+  },
+  brandWordmark: {
+    ...typography.brand,
+    color: CHAT_COLORS.textPrimary,
+  },
+  brandSubLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
   },
   headerRow: {
     flexDirection: 'row',

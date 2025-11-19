@@ -1,7 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
   StyleSheet,
-  Modal,
   View,
   TextInput,
   KeyboardAvoidingView,
@@ -21,6 +20,7 @@ import { generateGoals } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { LomoBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -501,20 +501,12 @@ export function ArcDetailScreen() {
           </View>
         </TouchableOpacity>
       )}
-      <Modal
+      <LomoBottomSheet
         visible={recommendationsModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setRecommendationsModalVisible(false)}
+        onClose={() => setRecommendationsModalVisible(false)}
+        snapPoints={['80%']}
       >
-        <View
-          style={[
-            styles.modalOverlay,
-            styles.recommendationsOverlay,
-            { paddingTop: insets.top },
-          ]}
-        >
-          <View style={[styles.recommendationsModalContent, { paddingTop: spacing.xl }]}>
+        <View style={[styles.recommendationsModalContent, { paddingTop: spacing.lg }]}>
             <VStack space="md">
               <HStack justifyContent="space-between" alignItems="center">
                 <Heading style={styles.sectionTitle}>Recommended Goals</Heading>
@@ -619,8 +611,7 @@ export function ArcDetailScreen() {
               </Button>
             </VStack>
           </View>
-        </View>
-      </Modal>
+      </LomoBottomSheet>
     </AppShell>
   );
 }
@@ -751,12 +742,12 @@ function NewGoalModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['80%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
-        <View style={[styles.modalContent, { paddingTop: spacing.xl + insetTop }]}>
+        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
           <Heading style={styles.modalTitle}>Ask LOMO for Goal drafts</Heading>
           <Text style={styles.modalBody}>
             Share a bit about the season inside {arcName}. LOMO will suggest concrete goals you can adopt or tweak.
@@ -853,7 +844,7 @@ function NewGoalModal({
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </LomoBottomSheet>
   );
 }
 
@@ -881,12 +872,12 @@ function EditArcModal({
   const disabled = name.trim().length === 0;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
-        <View style={[styles.modalContent, { paddingTop: spacing.xl + insetTop }]}>
+        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
           <Heading style={styles.modalTitle}>Edit Arc</Heading>
           <Text style={styles.modalBody}>
             Update the arc details to keep this direction aligned with your season.
@@ -930,7 +921,7 @@ function EditArcModal({
           </HStack>
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </LomoBottomSheet>
   );
 }
 
