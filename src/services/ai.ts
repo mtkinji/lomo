@@ -181,9 +181,6 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
   }
 
   const data = await response.json();
-  if (__DEV__) {
-    console.log('OpenAI raw response', JSON.stringify(data, null, 2));
-  }
   const content = data.choices?.[0]?.message?.content;
 
   if (!content) {
@@ -339,9 +336,6 @@ Return 2-3 distinctive goal drafts that respect the arc's heart.
   }
 
   const data = await response.json();
-  if (__DEV__) {
-    console.log('OpenAI goal raw response', JSON.stringify(data, null, 2));
-  }
 
   const content = data.choices?.[0]?.message?.content;
   if (!content) {
@@ -431,9 +425,6 @@ export async function sendCoachChat(messages: CoachChatTurn[]): Promise<string> 
   }
 
   const data = await response.json();
-  if (__DEV__) {
-    console.log('OpenAI coach chat raw response', JSON.stringify(data, null, 2));
-  }
 
   const content = data.choices?.[0]?.message?.content;
   if (!content) {

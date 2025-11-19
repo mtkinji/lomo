@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { Text } from '@gluestack-ui/themed';
@@ -60,6 +63,9 @@ const CHAT_COLORS = {
   chip: colors.card,
 } as const;
 
+const INPUT_MIN_HEIGHT = typography.bodySm.lineHeight * 3;
+const INPUT_MAX_HEIGHT = typography.bodySm.lineHeight * 8;
+
 export type AiChatPaneProps = {
   /**
    * Optional high-level mode describing what job the coach is doing.
@@ -81,10 +87,11 @@ export type AiChatPaneProps = {
  * chrome – the sheet + AppShell handle those layers.
  */
 export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
+  const isArcCreationMode = mode === 'arcCreation';
+
   const buildInitialMessages = (): ChatMessage[] => {
     const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
     const modeSystemPrompt = modeConfig?.systemPrompt;
-    const isArcCreationMode = mode === 'arcCreation';
 
     if (!launchContext && !modeSystemPrompt && !isArcCreationMode) {
       return INITIAL_MESSAGES;
@@ -127,6 +134,9 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
@@ -208,6 +218,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
 
     const bootstrapConversation = async () => {
       try {
+        setThinking(true);
         const history: CoachChatTurn[] = messagesRef.current.map((m) => ({
           role: m.role,
           content: m.content,
@@ -218,6 +229,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
           onDone: () => {
             if (!cancelled) {
               setBootstrapped(true);
+              setThinking(false);
             }
           },
         });
@@ -227,6 +239,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
         if (!cancelled) {
           // In error cases we still mark as bootstrapped so we don’t loop.
           setBootstrapped(true);
+          setThinking(false);
         }
       }
     };
@@ -239,7 +252,10 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
   }, [mode, bootstrapped]);
 
   const handleSend = async () => {
-    if (!canSend) return;
+    if (!canSend) {
+      return;
+    }
+
     const trimmed = input.trim();
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -248,6 +264,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
     };
 
     setSending(true);
+    setThinking(true);
     setMessages((prev) => {
       const next = [...prev, userMessage];
       messagesRef.current = next;
@@ -264,6 +281,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
       streamAssistantReply(reply, 'assistant', {
         onDone: () => {
           setSending(false);
+          setThinking(false);
         },
       });
     } catch (err) {
@@ -283,6 +301,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
       // If the happy-path streaming already cleared `sending`, don’t
       // override it here; this mainly protects the error path.
       setSending((current) => (current ? false : current));
+      setThinking(false);
     }
   };
 
@@ -298,12 +317,32 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Keep the composer and submit button fully visible by lifting them above
+  // the software keyboard. Because the chat lives inside a custom bottom sheet
+  // (with its own transforms), the standard KeyboardAvoidingView behavior
+  // isn’t enough, so we adjust the bottom margin manually.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (e: any) => {
+      setKeyboardHeight(e?.endCoordinates?.height ?? 0);
+    };
+    const onHide = () => {
+      setKeyboardHeight(0);
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.xl : 0}
-    >
+    <KeyboardAvoidingView style={styles.flex}>
       <View style={styles.body}>
         <ScrollView
           ref={scrollRef}
@@ -321,6 +360,17 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
                   <Text style={styles.brandWordmark}>Lomo Coach</Text>
                 </View>
               </View>
+              {isArcCreationMode && (
+                <View style={styles.modePill}>
+                  <Icon
+                    name="arcs"
+                    size={14}
+                    color={CHAT_COLORS.textSecondary}
+                    style={styles.modePillIcon}
+                  />
+                  <Text style={styles.modePillText}>Arc creation</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.messagesStack}>
@@ -333,16 +383,25 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
                     </View>
                   ) : (
                     <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
-                      <Text style={styles.userMeta}>You</Text>
                       <Text style={styles.userText}>{message.content}</Text>
                     </View>
                   ),
                 )}
+              {thinking && (
+                <View style={styles.assistantMessage}>
+                  <ThinkingBubble />
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
 
-        <View style={styles.composerFence}>
+        <View
+          style={[
+            styles.composerFence,
+            keyboardHeight > 0 && { marginBottom: keyboardHeight - spacing.lg },
+          ]}
+        >
           {!hasUserMessages && (
             <View style={styles.suggestionsFence}>
               <ScrollView
@@ -365,57 +424,145 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
           )}
           <View style={styles.composerSection}>
             <View style={styles.composerRow}>
-              <TouchableWithoutFeedback onPress={() => inputRef.current?.focus()}>
-                <View style={styles.inputShell}>
-                  <View style={styles.inputField}>
-                    <TextInput
-                      ref={inputRef}
-                      style={styles.input}
-                      placeholder="Ask anything"
-                      placeholderTextColor={CHAT_COLORS.textSecondary}
-                      value={input}
-                      onChangeText={setInput}
-                      multiline
-                      scrollEnabled={false}
-                      textAlignVertical="top"
-                    />
-                  </View>
-                  <View style={styles.inputFooterRow}>
-                    {hasInput ? (
-                      <Button
-                        variant="default"
-                        size="icon"
-                        style={[
-                          styles.sendButton,
-                          (sending || !canSend) && styles.sendButtonInactive,
-                        ]}
-                        onPress={handleSend}
-                        accessibilityLabel="Send message"
-                      >
-                        {sending ? (
-                          <ActivityIndicator color={colors.canvas} />
-                        ) : (
-                          <Icon name="arrowUp" color={colors.canvas} size={18} />
-                        )}
-                      </Button>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.voiceButton}
-                        onPress={handleStartDictation}
-                        accessibilityLabel="Start voice input"
-                        activeOpacity={0.85}
-                      >
-                        <Icon name="mic" color={colors.canvas} size={18} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
+              <Pressable
+                style={[
+                  styles.inputShell,
+                  keyboardHeight > 0 && styles.inputShellRaised,
+                ]}
+                onPress={() => inputRef.current?.focus()}
+              >
+                <View style={styles.inputField}>
+                  <TextInput
+                    ref={inputRef}
+                    style={[styles.input, { height: inputHeight }]}
+                    placeholder="Ask anything"
+                    placeholderTextColor={CHAT_COLORS.textSecondary}
+                    value={input}
+                    onChangeText={setInput}
+                    multiline
+                    textAlignVertical="top"
+                    scrollEnabled={inputHeight >= INPUT_MAX_HEIGHT}
+                    returnKeyType="send"
+                    onSubmitEditing={handleSend}
+                    onContentSizeChange={(event) => {
+                      const nextHeight = event.nativeEvent.contentSize.height;
+                      setInputHeight((current) => {
+                        const clamped = Math.min(
+                          INPUT_MAX_HEIGHT,
+                          Math.max(INPUT_MIN_HEIGHT, nextHeight),
+                        );
+                        return clamped === current ? current : clamped;
+                      });
+                    }}
+                  />
                 </View>
-              </TouchableWithoutFeedback>
+                <View style={styles.inputFooterRow}>
+                  {hasInput ? (
+                    <Button
+                      variant="default"
+                      size="icon"
+                      style={[
+                        styles.sendButton,
+                        (sending || !canSend) && styles.sendButtonInactive,
+                      ]}
+                      onPress={handleSend}
+                      accessibilityLabel="Send message"
+                    >
+                      {sending ? (
+                        <ActivityIndicator color={colors.canvas} />
+                      ) : (
+                        <Icon name="arrowUp" color={colors.canvas} size={16} />
+                      )}
+                    </Button>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.voiceButton}
+                      onPress={handleStartDictation}
+                      accessibilityLabel="Start voice input"
+                      activeOpacity={0.85}
+                    >
+                      <Icon name="mic" color={colors.canvas} size={16} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </Pressable>
             </View>
           </View>
         </View>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+function ThinkingBubble() {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createLoop = (value: Animated.Value, delay: number) => {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(value, {
+            toValue: 1,
+            duration: 300,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(value, {
+            toValue: 0,
+            duration: 300,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      animation.start();
+      return animation;
+    };
+
+    const anim1 = createLoop(dot1, 0);
+    const anim2 = createLoop(dot2, 120);
+    const anim3 = createLoop(dot3, 240);
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+    };
+  }, [dot1, dot2, dot3]);
+
+  const renderDot = (value: Animated.Value, index: number) => {
+    const translateY = value.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -2],
+    });
+    const opacity = value.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 1],
+    });
+
+    return (
+      <Animated.View
+        key={index}
+        style={[
+          styles.thinkingDot,
+          {
+            transform: [{ translateY }],
+            opacity,
+          },
+        ]}
+      />
+    );
+  };
+
+  return (
+    <View style={styles.thinkingDotsRow}>
+      {renderDot(dot1, 1)}
+      {renderDot(dot2, 2)}
+      {renderDot(dot3, 3)}
+    </View>
   );
 }
 
@@ -456,7 +603,10 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   brandHeaderRow: {
-    flexDirection: 'row',
+    // Treat the logo + wordmark as a single lockup, with any mode pill
+    // sitting directly underneath as a second row so the whole unit reads
+    // as one cohesive header.
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -483,12 +633,19 @@ const styles = StyleSheet.create({
     color: CHAT_COLORS.textPrimary,
   },
   modePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 999,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: CHAT_COLORS.surface,
+    marginTop: spacing.lg,
+    alignSelf: 'center',
+  },
+  modePillIcon: {
+    marginRight: spacing.xs,
   },
   modePillText: {
     ...typography.bodySm,
@@ -538,6 +695,26 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: CHAT_COLORS.textPrimary,
   },
+  thinkingBubble: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    alignSelf: 'flex-start',
+  },
+  thinkingDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  thinkingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: CHAT_COLORS.textSecondary,
+  },
   messageBubble: {
     borderRadius: 18,
     paddingHorizontal: spacing.lg,
@@ -583,25 +760,29 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    // Ensure the composer feels like a tall, roomy textarea even before the
-    // user starts typing.
-    minHeight: spacing['2xl'] * 2, // 64 * 2 = 128
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
+  },
+  inputShellRaised: {
+    // When the keyboard is visible we tuck the composer closer to it and
+    // reduce the exaggerated bottom radius so it visually docks to the top
+    // of the keyboard, similar to ChatGPT.
+    borderBottomLeftRadius: spacing.lg,
+    borderBottomRightRadius: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   inputField: {
     flex: 1,
     justifyContent: 'flex-start',
   },
   input: {
-    flex: 1,
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
     lineHeight: typography.bodySm.lineHeight,
-    minHeight: typography.bodySm.lineHeight * 6,
-    maxHeight: typography.bodySm.lineHeight * 12,
     paddingTop: 0,
     paddingBottom: spacing.xs,
     textAlignVertical: 'top',
@@ -621,14 +802,14 @@ const styles = StyleSheet.create({
   sendButton: {
     backgroundColor: '#18181B',
     borderColor: '#18181B',
-    width: 36,
-    height: 36,
+    width: 28,
+    height: 28,
   },
   voiceButton: {
     backgroundColor: '#18181B',
     borderRadius: 999,
-    width: 36,
-    height: 36,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },

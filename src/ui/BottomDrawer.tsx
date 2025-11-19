@@ -77,41 +77,14 @@ export function BottomDrawer({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        // If the user starts their touch near the top of the sheet (handle area),
-        // treat it as a potential drag gesture immediately. This matches native
-        // bottom sheets where you "grab" the handle to pull down.
-        onStartShouldSetPanResponder: evt => {
-          const shouldSet = evt.nativeEvent.locationY <= 56;
-          if (__DEV__ && shouldSet) {
-            console.log('[bottomDrawer] start pan at top region');
-          }
-          return shouldSet;
-        },
-        onStartShouldSetPanResponderCapture: evt => {
-          const shouldSet = evt.nativeEvent.locationY <= 56;
-          if (__DEV__ && shouldSet) {
-            console.log('[bottomDrawer] capture start pan at top region');
-          }
-          return shouldSet;
-        },
-        // While moving, if the gesture becomes a clear downward drag, capture it
-        // even if a child (e.g. ScrollView) started handling touches.
-        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-          const shouldSet = gestureState.dy > 8;
-          if (__DEV__ && shouldSet) {
-            console.log('[bottomDrawer] capture move pan', {
-              dy: gestureState.dy,
-              vy: gestureState.vy,
-            });
-          }
-          return shouldSet;
-        },
-        // We don't rely on the non-capture move hook anymore.
+        // This responder is attached only to the top "handle" grab region, so
+        // it's safe to eagerly claim the gesture there.
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        // We don't rely on the non-capture move hook.
         onMoveShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponderCapture: () => false,
         onPanResponderGrant: () => {
-          if (__DEV__) {
-            console.log('[bottomDrawer] grant');
-          }
           // Stop any running open/close animation so the gesture can take over.
           progress.stopAnimation();
         },
@@ -122,12 +95,6 @@ export function BottomDrawer({
           }
         },
         onPanResponderRelease: (_, gestureState) => {
-          if (__DEV__) {
-            console.log('[bottomDrawer] release', {
-              dy: gestureState.dy,
-              vy: gestureState.vy,
-            });
-          }
           const shouldDismiss =
             gestureState.dy > dismissDistance * 0.35 || gestureState.vy > 0.9;
 
@@ -174,29 +141,33 @@ export function BottomDrawer({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={dismissOnBackdropPress ? onClose : undefined}>
-        <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
-          <Animated.View
-            {...panResponder.panHandlers}
-            style={[
-              styles.sheet,
-              {
-                // Only respect the device safe area at the bottom so the chat
-                // input can sit as low as possible on screen.
-                paddingBottom: insets.bottom,
-                // Size the drawer relative to the viewport minus the top safe
-                // area so a heightRatio of 1.0 brings the sheet up to the
-                // bottom of the safe area (just under the status bar / notch).
-                minHeight: heightRatio * Math.max(windowHeight - insets.top, 0),
-                transform: [{ translateY }],
-              },
-            ]}
-          >
+      <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
+        {dismissOnBackdropPress && (
+          <TouchableWithoutFeedback onPress={onClose}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
+        )}
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              // Only respect the device safe area at the bottom so the chat
+              // input can sit as low as possible on screen.
+              paddingBottom: insets.bottom,
+              // Size the drawer relative to the viewport minus the top safe
+              // area so a heightRatio of 1.0 brings the sheet up to the
+              // bottom of the safe area (just under the status bar / notch).
+              minHeight: heightRatio * Math.max(windowHeight - insets.top, 0),
+              transform: [{ translateY }],
+            },
+          ]}
+        >
+          <View {...panResponder.panHandlers} style={styles.handleGrabRegion}>
             <View style={styles.handle} />
-            {children}
-          </Animated.View>
+          </View>
+          {children}
         </Animated.View>
-      </TouchableWithoutFeedback>
+      </Animated.View>
     </Modal>
   );
 }
@@ -219,13 +190,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  handleGrabRegion: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
   handle: {
     backgroundColor: colors.border,
     width: 64,
     height: 5,
     borderRadius: 999,
     alignSelf: 'center',
-    marginBottom: spacing.lg,
   },
 });
 
