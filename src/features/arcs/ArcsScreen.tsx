@@ -9,6 +9,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Image,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -428,7 +430,7 @@ export function ArcsScreen() {
                                     );
                                   }
 
-                                  let shapeStyle = styles.arcMosaicCircle;
+                                  let shapeStyle: StyleProp<ViewStyle> = styles.arcMosaicCircle;
                                   if (cell.shape === 2) {
                                     shapeStyle = styles.arcMosaicPillVertical;
                                   } else if (cell.shape === 3) {

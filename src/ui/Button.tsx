@@ -5,6 +5,7 @@ import {
   StyleSheet,
   StyleProp,
   ViewStyle,
+  View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing } from '../theme';
@@ -48,13 +49,14 @@ export function Button({
       ]}
     >
       {variant === 'ai' && (
-        <LinearGradient
-          pointerEvents="none"
-          colors={['#166534', '#22C55E']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.aiGradientOverlay}
-        />
+        <View pointerEvents="none" style={styles.aiGradientOverlay}>
+          <LinearGradient
+            colors={['#166534', '#22C55E']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
       )}
       {children}
     </TouchableOpacity>

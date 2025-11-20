@@ -304,12 +304,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.titleSm.fontFamily,
   },
   optionCard: {
+    ...cardSurfaceStyle,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    ...cardSurfaceStyle,
     position: 'relative',
   },
   optionCardSelected: {

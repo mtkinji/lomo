@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   Image,
   Share,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -558,7 +560,7 @@ export function ArcDetailScreen() {
                               );
                             }
 
-                            let shapeStyle = styles.arcHeroMosaicCircle;
+                            let shapeStyle: StyleProp<ViewStyle> = styles.arcHeroMosaicCircle;
                             if (cell.shape === 2) {
                               shapeStyle = styles.arcHeroMosaicPillVertical;
                             } else if (cell.shape === 3) {

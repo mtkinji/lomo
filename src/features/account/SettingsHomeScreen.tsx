@@ -7,10 +7,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  GestureResponderEvent,
 } from 'react-native';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
+import { useNavigation } from '@react-navigation/native';
 import { HStack, Heading, Pressable, Text, VStack } from '@gluestack-ui/themed';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -106,8 +104,6 @@ export function SettingsHomeScreen() {
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const navigation = useNavigation<SettingsNavigationProp>();
   const drawerNavigation = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
-  const drawerStatus = useDrawerStatus();
-  const menuOpen = drawerStatus === 'open';
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
 
@@ -124,6 +120,18 @@ export function SettingsHomeScreen() {
       return;
     }
     navigation.navigate(item.route);
+  };
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    if (drawerNavigation?.canGoBack?.()) {
+      drawerNavigation.goBack();
+      return;
+    }
+    drawerNavigation?.navigate('Activities');
   };
 
   const displayName = userProfile?.fullName?.trim() || 'Your profile';
@@ -206,26 +214,24 @@ export function SettingsHomeScreen() {
       <View style={styles.screen}>
         <PageHeader
           title="Settings"
-          menuOpen={menuOpen}
-          onPressMenu={() => drawerNavigation?.dispatch(DrawerActions.openDrawer())}
+          onPressBack={handleBack}
         />
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity
-            style={styles.profileRow}
-            accessibilityRole="button"
-            accessibilityLabel="Edit your profile information"
-            onPress={() => navigation.navigate('SettingsProfile')}
-            activeOpacity={0.9}
-          >
+          <View style={styles.profileRow}>
             <RNPressable
               style={styles.profileAvatarButton}
               accessibilityRole="button"
               accessibilityLabel="Change profile photo"
-              onPress={(event: GestureResponderEvent) => {
-                event.stopPropagation();
+              accessibilityState={{ busy: isUpdatingAvatar }}
+              hitSlop={8}
+              disabled={isUpdatingAvatar}
+              onPress={() => {
+                if (isUpdatingAvatar) {
+                  return;
+                }
                 setAvatarSheetVisible(true);
               }}
             >
@@ -237,19 +243,26 @@ export function SettingsHomeScreen() {
                 )}
               </View>
             </RNPressable>
-            <VStack flex={1} space="xs" style={styles.profileInfo}>
-              <Text style={styles.profileTitle}>{displayName}</Text>
-              {profileSubtitle ? (
-                <Text style={styles.profileSubtitle}>{profileSubtitle}</Text>
-              ) : null}
-            </VStack>
-            <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.profileInfoButton}
+              accessibilityRole="button"
+              accessibilityLabel="Edit your profile information"
+              onPress={() => navigation.navigate('SettingsProfile')}
+              activeOpacity={0.9}
+            >
+              <VStack flex={1} space="xs" style={styles.profileInfo}>
+                <Text style={styles.profileTitle}>{displayName}</Text>
+                {profileSubtitle ? (
+                  <Text style={styles.profileSubtitle}>{profileSubtitle}</Text>
+                ) : null}
+              </VStack>
+              <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
           {filteredGroups.map((group) => (
             <View key={group.id} style={styles.groupSection}>
-              <VStack space="xs" style={styles.groupHeader}>
+              <VStack style={styles.groupHeader}>
                 <Heading style={styles.groupTitle}>{group.title}</Heading>
-                <Text style={styles.groupDescription}>{group.description}</Text>
               </VStack>
               <VStack space="sm">
                 {group.items.map((item) => {
@@ -270,9 +283,8 @@ export function SettingsHomeScreen() {
                             color={disabled ? colors.textSecondary : colors.accent}
                           />
                         </View>
-                        <VStack flex={1} space="xs">
+                        <VStack flex={1}>
                           <Text style={styles.itemTitle}>{item.title}</Text>
-                          <Text style={styles.itemDescription}>{item.description}</Text>
                         </VStack>
                         <HStack alignItems="center" space="xs">
                           {item.status === 'soon' && (
@@ -392,6 +404,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  profileInfoButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
   profileAvatarImage: {
     width: '100%',
     height: '100%',
@@ -413,25 +432,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   groupSection: {
+    marginTop: spacing.lg,
     gap: spacing.md,
   },
   groupHeader: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs / 2,
   },
   groupTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
-  },
-  groupDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   itemRow: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.canvas,
   },
   itemIcon: {
@@ -446,10 +462,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontFamily: typography.titleSm.fontFamily,
-  },
-  itemDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   badge: {
     borderRadius: 999,

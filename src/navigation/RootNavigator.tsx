@@ -5,6 +5,7 @@ import {
   DefaultTheme,
   Theme,
   DrawerActions,
+  NavigatorScreenParams,
   type NavigationState,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -30,7 +31,7 @@ import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
 
 export type RootDrawerParamList = {
-  ArcsStack: undefined;
+  ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Goals: undefined;
   Activities: undefined;
   Chapters: undefined;

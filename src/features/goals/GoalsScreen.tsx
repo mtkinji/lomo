@@ -44,8 +44,7 @@ export function GoalsScreen() {
                 // For now we only show the list; we'll wire this into the Arc/Goal stack shortly.
                 onPress={() =>
                   drawerNavigation.navigate('ArcsStack', {
-                    // @ts-expect-error nested navigator params
-                    screen: 'GoalDetail' satisfies keyof ArcsStackParamList,
+                    screen: 'GoalDetail',
                     params: { goalId: goal.id },
                   })
                 }

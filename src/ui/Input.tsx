@@ -12,8 +12,6 @@ import {
   StyleProp,
   ViewStyle,
   TextStyle,
-  NativeSyntheticEvent,
-  TextInputFocusEventData,
 } from 'react-native';
 import { Pressable } from '@gluestack-ui/themed';
 import { colors, spacing, typography } from '../theme';
@@ -21,6 +19,9 @@ import { Icon, IconName } from './Icon';
 
 type InputVariant = 'surface' | 'outline' | 'ghost';
 type InputSize = 'md' | 'sm';
+
+type FocusEventParam = Parameters<NonNullable<TextInputProps['onFocus']>>[0];
+type BlurEventParam = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
 
 type Props = TextInputProps & {
   label?: string;
@@ -61,12 +62,12 @@ export const Input = forwardRef<TextInput, Props>(
     const [focused, setFocused] = useState(false);
     const hasError = Boolean(errorText);
 
-    const handleFocus = (event: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    const handleFocus = (event: FocusEventParam) => {
       setFocused(true);
       onFocus?.(event);
     };
 
-    const handleBlur = (event: NativeSyntheticEvent<TextInputFocusEventData>) => {
+    const handleBlur = (event: BlurEventParam) => {
       setFocused(false);
       onBlur?.(event);
     };
