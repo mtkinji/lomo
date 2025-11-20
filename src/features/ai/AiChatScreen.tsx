@@ -20,10 +20,14 @@ import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
-import { CoachChatTurn, sendCoachChat } from '../../services/ai';
+import { CoachChatTurn, GeneratedArc, sendCoachChat } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
-import type { AgeRange } from '../../domain/types';
+import type {
+  AgeRange,
+  ArcProposalFeedback,
+  ArcProposalFeedbackReason,
+} from '../../domain/types';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 
@@ -40,6 +44,14 @@ type ChatDraft = {
 };
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
+
+const ARC_FEEDBACK_REASONS: { value: ArcProposalFeedbackReason; label: string }[] = [
+  { value: 'too_generic', label: 'Too generic or vague' },
+  { value: 'project_not_identity', label: 'Feels like a project, not an identity' },
+  { value: 'wrong_domain', label: 'Wrong domain of life' },
+  { value: 'tone_off', label: 'Tone feels off for my season' },
+  { value: 'does_not_feel_like_me', label: 'Does not feel like me' },
+];
 
 async function loadArcCreationDraft(): Promise<ChatDraft | null> {
   try {
@@ -66,6 +78,109 @@ async function saveArcCreationDraft(draft: ChatDraft | null): Promise<void> {
   } catch (err) {
     console.warn('Failed to save Lomo Coach arc draft', err);
   }
+}
+
+type ParsedAssistantReply = {
+  /**
+   * Content that should be rendered in the visible transcript.
+   */
+  displayContent: string;
+  /**
+   * Optional Arc proposal parsed from a hidden JSON handoff block.
+   */
+  arcProposal: GeneratedArc | null;
+};
+
+const ARC_PROPOSAL_MARKER = 'ARC_PROPOSAL_JSON:';
+
+function extractArcProposalFromAssistantMessage(content: string): ParsedAssistantReply {
+  const markerIndex = content.indexOf(ARC_PROPOSAL_MARKER);
+  if (markerIndex === -1) {
+    return {
+      displayContent: content,
+      arcProposal: null,
+    };
+  }
+
+  const visiblePart = content.slice(0, markerIndex).trimEnd();
+  const afterMarker = content.slice(markerIndex + ARC_PROPOSAL_MARKER.length).trim();
+
+  if (!afterMarker) {
+    return {
+      displayContent: content,
+      arcProposal: null,
+    };
+  }
+
+  // Instructed format is a single JSON object on the next line. We still
+  // defensively stop at the first blank line or EOF.
+  const [firstLine] = afterMarker.split(/\n\s*\n/);
+  const jsonText = firstLine.trim();
+
+  try {
+    const parsed = JSON.parse(jsonText) as GeneratedArc;
+    return {
+      displayContent: visiblePart || content,
+      arcProposal: parsed,
+    };
+  } catch (err) {
+    console.warn('Failed to parse Arc proposal from assistant message', err);
+    return {
+      displayContent: content,
+      arcProposal: null,
+    };
+  }
+}
+
+function buildArcFeedbackAddendum(
+  entries: ArcProposalFeedback[] | undefined
+): string | undefined {
+  if (!entries || entries.length === 0) {
+    return undefined;
+  }
+
+  const recent = entries.slice(-6); // up to the last 6 signals
+  const recentDown = recent.filter((entry) => entry.decision === 'down');
+  const recentUp = recent.filter((entry) => entry.decision === 'up');
+
+  const lines: string[] = [];
+
+  if (recentDown.length > 0) {
+    lines.push(
+      'Recent Arc proposals the user rejected and why. Do NOT repeat these patterns or names unless the user explicitly asks for them:'
+    );
+    recentDown.forEach((entry, index) => {
+      const reasonSummary =
+        entry.reasons && entry.reasons.length > 0
+          ? entry.reasons.join(', ')
+          : 'no structured reasons provided';
+      const parts = [
+        `Rejected Arc #${index + 1}: "${entry.arcName}"`,
+        `reasons: ${reasonSummary}`,
+      ];
+      if (entry.note) {
+        parts.push(`user note: ${entry.note}`);
+      }
+      lines.push(parts.join(' – '));
+    });
+  }
+
+  if (recentUp.length > 0) {
+    lines.push(
+      '',
+      'Recent Arc patterns the user liked. Use these as soft reference points for tone and shape, without copying them directly:'
+    );
+    recentUp.forEach((entry, index) => {
+      const narrative = entry.arcNarrative ? ` – ${entry.arcNarrative}` : '';
+      lines.push(`Liked Arc #${index + 1}: "${entry.arcName}"${narrative}`);
+    });
+  }
+
+  if (lines.length === 0) {
+    return undefined;
+  }
+
+  return lines.join('\n');
 }
 
 type ArcContextSummary = {
@@ -205,6 +320,18 @@ export type AiChatPaneProps = {
    * every turn of the conversation has access to it without cluttering the UI.
    */
   launchContext?: string;
+  /**
+   * When true (the default), arcCreation mode will attempt to hydrate any
+   * saved draft for this thread so the user can resume where they left off.
+   * When false, a new, clean conversation is started even if a draft exists.
+   */
+  resumeDraft?: boolean;
+  /**
+   * Optional callback fired when the user confirms an Arc proposal inside
+   * the chat canvas. When omitted, the proposal card still lets the user
+   * edit the name and narrative but does not persist the Arc.
+   */
+  onConfirmArc?: (proposal: GeneratedArc) => void;
 };
 
 /**
@@ -212,7 +339,7 @@ export type AiChatPaneProps = {
  * This component intentionally does NOT own global app padding or navigation
  * chrome – the sheet + AppShell handle those layers.
  */
-export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
+export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmArc }: AiChatPaneProps) {
   const isArcCreationMode = mode === 'arcCreation';
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
@@ -221,6 +348,8 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
 
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
+  const arcFeedbackEntries = useAppStore((state) => state.arcFeedback);
+  const addArcFeedback = useAppStore((state) => state.addArcFeedback);
   const hasAgeRange = Boolean(userProfile?.ageRange);
   const shouldShowAgeQuestion = isArcCreationMode && !hasAgeRange;
 
@@ -233,6 +362,17 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
 
     if (modeSystemPrompt) {
       blocks.push(modeSystemPrompt.trim());
+    }
+
+    if (isArcCreationMode) {
+      const feedbackAddendum = buildArcFeedbackAddendum(arcFeedbackEntries);
+      if (feedbackAddendum) {
+        blocks.push(
+          '---',
+          'Feedback on previous Arc suggestions from this user. Use this to avoid repeating past mistakes and to lean toward what has resonated:',
+          feedbackAddendum
+        );
+      }
     }
 
     if (launchContext) {
@@ -270,6 +410,12 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [arcProposal, setArcProposal] = useState<GeneratedArc | null>(null);
+  const [arcDraftName, setArcDraftName] = useState('');
+  const [arcDraftNarrative, setArcDraftNarrative] = useState('');
+  const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
+  const [feedbackReasons, setFeedbackReasons] = useState<ArcProposalFeedbackReason[]>([]);
+  const [feedbackNote, setFeedbackNote] = useState('');
   const scrollRef = useRef<ScrollView | null>(null);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const inputRef = useRef<TextInput | null>(null);
@@ -399,8 +545,14 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
           content: m.content,
         }));
         const reply = await sendCoachChat(history, { mode });
+        const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
+        if (arcProposal) {
+          setArcProposal(arcProposal);
+          setArcDraftName(arcProposal.name ?? '');
+          setArcDraftNarrative(arcProposal.narrative ?? '');
+        }
         if (cancelled) return;
-        streamAssistantReply(reply, 'assistant-bootstrap', {
+        streamAssistantReply(displayContent, 'assistant-bootstrap', {
           onDone: () => {
             if (!cancelled) {
               setBootstrapped(true);
@@ -429,7 +581,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
   // When the user re-opens Arc Creation coach, restore any saved draft so they
   // can pick up where they left off instead of starting a fresh thread.
   useEffect(() => {
-    if (!isArcCreationMode) return;
+    if (!isArcCreationMode || !resumeDraft) return;
 
     let cancelled = false;
     const hydrateDraft = async () => {
@@ -450,7 +602,7 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
     return () => {
       cancelled = true;
     };
-  }, [isArcCreationMode]);
+  }, [isArcCreationMode, resumeDraft]);
 
   const handleSend = async () => {
     if (!canSend) {
@@ -480,7 +632,13 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
         content: m.content,
       }));
       const reply = await sendCoachChat(history, { mode });
-      streamAssistantReply(reply, 'assistant', {
+      const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
+      if (arcProposal) {
+        setArcProposal(arcProposal);
+        setArcDraftName(arcProposal.name ?? '');
+        setArcDraftNarrative(arcProposal.narrative ?? '');
+      }
+      streamAssistantReply(displayContent, 'assistant', {
         onDone: () => {
           setSending(false);
           setThinking(false);
@@ -612,6 +770,73 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
                       </View>
                     ),
                   )}
+                {isArcCreationMode && arcProposal && (
+                  <View style={styles.arcDraftCard}>
+                    <Text style={styles.arcDraftLabel}>Proposed Arc</Text>
+                    <TextInput
+                      style={styles.arcDraftNameInput}
+                      value={arcDraftName}
+                      onChangeText={setArcDraftName}
+                      placeholder="Arc name"
+                      placeholderTextColor={CHAT_COLORS.textSecondary}
+                    />
+                    <TextInput
+                      style={styles.arcDraftNarrativeInput}
+                      value={arcDraftNarrative}
+                      onChangeText={setArcDraftNarrative}
+                      placeholder="Arc narrative"
+                      placeholderTextColor={CHAT_COLORS.textSecondary}
+                      multiline
+                    />
+                    <View style={styles.arcDraftButtonsRow}>
+                      <Button
+                        variant="outline"
+                        onPress={() => {
+                          setArcProposal(null);
+                          setArcDraftName('');
+                          setArcDraftNarrative('');
+                        }}
+                      >
+                        <Text style={styles.arcDraftSecondaryButtonText}>Not now</Text>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onPress={() => {
+                          setFeedbackReasons([]);
+                          setFeedbackNote('');
+                          setIsFeedbackModalVisible(true);
+                        }}
+                      >
+                        <Text style={styles.arcDraftSecondaryButtonText}>Not quite</Text>
+                      </Button>
+                      <Button
+                        variant="ai"
+                        onPress={async () => {
+                          if (!arcProposal) return;
+                          const name = (arcDraftName || arcProposal.name || '').trim();
+                          const narrative = (arcDraftNarrative || arcProposal.narrative || '').trim();
+                          if (!name) {
+                            return;
+                          }
+
+                          const finalized: GeneratedArc = {
+                            ...arcProposal,
+                            name,
+                            narrative,
+                          };
+
+                          setArcProposal(finalized);
+                          await saveArcCreationDraft(null);
+                          if (onConfirmArc) {
+                            onConfirmArc(finalized);
+                          }
+                        }}
+                      >
+                        <Text style={styles.arcDraftConfirmText}>Confirm Arc</Text>
+                      </Button>
+                    </View>
+                  </View>
+                )}
                 {thinking && (
                   <View style={styles.assistantMessage}>
                     <ThinkingBubble />
@@ -816,6 +1041,111 @@ export function AiChatPane({ mode, launchContext }: AiChatPaneProps) {
                 accessibilityLabel="Close Arc creation info"
               >
                 <Text style={styles.arcInfoCloseLabel}>Got it</Text>
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    )}
+
+    {isArcCreationMode && arcProposal && (
+      <Modal
+        visible={isFeedbackModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsFeedbackModalVisible(false)}
+      >
+        <View style={styles.feedbackOverlay}>
+          <View style={styles.feedbackCard}>
+            <View style={styles.feedbackHeaderRow}>
+              <Text style={styles.feedbackTitle}>Help refine this Arc</Text>
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => setIsFeedbackModalVisible(false)}
+                accessibilityLabel="Close feedback"
+                style={styles.arcInfoCloseButton}
+              >
+                <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
+              </Button>
+            </View>
+            <Text style={styles.feedbackBody}>
+              What feels off about this suggestion? Pick any that apply and add a short note if
+              helpful.
+            </Text>
+            <View style={styles.feedbackChipsRow}>
+              {ARC_FEEDBACK_REASONS.map((reason) => {
+                const selected = feedbackReasons.includes(reason.value);
+                return (
+                  <Button
+                    key={reason.value}
+                    variant={selected ? 'secondary' : 'outline'}
+                    size="small"
+                    style={styles.feedbackChip}
+                    onPress={() => {
+                      setFeedbackReasons((current) =>
+                        current.includes(reason.value)
+                          ? current.filter((value) => value !== reason.value)
+                          : [...current, reason.value],
+                      );
+                    }}
+                  >
+                    <Text
+                      style={
+                        selected
+                          ? styles.feedbackChipTextSelected
+                          : styles.feedbackChipTextUnselected
+                      }
+                    >
+                      {reason.label}
+                    </Text>
+                  </Button>
+                );
+              })}
+            </View>
+            <View style={styles.feedbackNoteContainer}>
+              <Text style={styles.feedbackNoteLabel}>In your own words</Text>
+              <TextInput
+                style={styles.feedbackNoteInput}
+                value={feedbackNote}
+                onChangeText={setFeedbackNote}
+                placeholder="e.g. This sounds like a short project, I wanted a longer storyline."
+                placeholderTextColor={CHAT_COLORS.textSecondary}
+                multiline
+              />
+            </View>
+            <View style={styles.feedbackButtonsRow}>
+              <Button
+                variant="outline"
+                onPress={() => {
+                  setIsFeedbackModalVisible(false);
+                }}
+              >
+                <Text style={styles.arcDraftSecondaryButtonText}>Cancel</Text>
+              </Button>
+              <Button
+                variant="ai"
+                onPress={() => {
+                  if (!arcProposal) {
+                    setIsFeedbackModalVisible(false);
+                    return;
+                  }
+                  const payload: ArcProposalFeedback = {
+                    id: `arc-feedback-${Date.now()}`,
+                    arcName: arcProposal.name,
+                    arcNarrative: arcProposal.narrative,
+                    decision: 'down',
+                    reasons: feedbackReasons,
+                    note: feedbackNote.trim() || undefined,
+                    createdAt: new Date().toISOString(),
+                  };
+                  addArcFeedback(payload);
+                  setIsFeedbackModalVisible(false);
+                  setFeedbackReasons([]);
+                  setFeedbackNote('');
+                }}
+              >
+                <Text style={styles.arcDraftConfirmText}>Save feedback</Text>
               </Button>
             </View>
           </View>
@@ -1331,6 +1661,121 @@ const styles = StyleSheet.create({
   ageChipLabel: {
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
+  },
+  arcDraftCard: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 16,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    gap: spacing.sm,
+  },
+  arcDraftLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  arcDraftNameInput: {
+    ...typography.titleSm,
+    color: CHAT_COLORS.textPrimary,
+    paddingVertical: spacing.xs,
+  },
+  arcDraftNarrativeInput: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+    paddingVertical: spacing.xs,
+    textAlignVertical: 'top',
+    minHeight: typography.bodySm.lineHeight * 3,
+  },
+  arcDraftButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  arcDraftSecondaryButtonText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  arcDraftConfirmText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.userBubbleText,
+  },
+  feedbackOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+  },
+  feedbackCard: {
+    width: '100%',
+    borderRadius: 24,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  feedbackHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  feedbackTitle: {
+    ...typography.titleSm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  feedbackBody: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+    marginBottom: spacing.md,
+  },
+  feedbackChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  feedbackChip: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    minHeight: 0,
+  },
+  feedbackChipTextSelected: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  feedbackChipTextUnselected: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  feedbackNoteContainer: {
+    marginBottom: spacing.md,
+  },
+  feedbackNoteLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  feedbackNoteInput: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: typography.bodySm.lineHeight * 3,
+    textAlignVertical: 'top',
+  },
+  feedbackButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
 });
 

@@ -22,6 +22,9 @@ import { GoalDetailScreen } from '../features/arcs/GoalDetailScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { GoalsScreen } from '../features/goals/GoalsScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
+import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
+import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
+import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
@@ -31,6 +34,7 @@ export type RootDrawerParamList = {
   Goals: undefined;
   Activities: undefined;
   Chapters: undefined;
+  Settings: undefined;
 };
 
 export type ArcsStackParamList = {
@@ -39,7 +43,14 @@ export type ArcsStackParamList = {
   GoalDetail: { goalId: string };
 };
 
+export type SettingsStackParamList = {
+  SettingsHome: undefined;
+  SettingsAppearance: undefined;
+  SettingsProfile: undefined;
+};
+
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 const NAV_DRAWER_TOP_OFFSET = 13; // px offset between the status bar and drawer content
 const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v1';
@@ -165,6 +176,11 @@ export function RootNavigator() {
           component={ChaptersScreen}
           options={{ title: 'Chapters' }}
         />
+        <Drawer.Screen
+          name="Settings"
+          component={SettingsStackNavigator}
+          options={{ title: 'Settings' }}
+        />
       </Drawer.Navigator>
     </NavigationContainer>
   );
@@ -180,6 +196,22 @@ function ArcsStackNavigator() {
   );
 }
 
+function SettingsStackNavigator() {
+  return (
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SettingsStack.Screen name="SettingsHome" component={SettingsHomeScreen} />
+      <SettingsStack.Screen
+        name="SettingsAppearance"
+        component={AppearanceSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsProfile"
+        component={ProfileSettingsScreen}
+      />
+    </SettingsStack.Navigator>
+  );
+}
+
 function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
   switch (routeName) {
     case 'ArcsStack':
@@ -190,6 +222,8 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
       return 'activities';
     case 'Chapters':
       return 'chapters';
+    case 'Settings':
+      return 'dot';
     default:
       return 'dot';
   }
@@ -198,6 +232,22 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
 function LomoDrawerContent(props: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
+
+  // Hide the top-level Settings item from the drawer list while keeping the
+  // Settings screen available for navigation from the profile row.
+  const filteredRoutes = props.state.routes.filter(
+    (route: { name: string }) => route.name !== 'Settings',
+  );
+  const filteredRouteNames = props.state.routeNames.filter(
+    (name: string) => name !== 'Settings',
+  );
+
+  const filteredState = {
+    ...props.state,
+    routes: filteredRoutes,
+    routeNames: filteredRouteNames,
+    index: Math.min(props.state.index, filteredRoutes.length - 1),
+  };
 
   return (
     <DrawerContentScrollView
@@ -220,16 +270,26 @@ function LomoDrawerContent(props: any) {
         />
       </View>
       <View style={styles.drawerMain}>
-        <DrawerItemList {...props} />
+        <DrawerItemList
+          {...props}
+          state={filteredState}
+        />
       </View>
       <View style={styles.drawerFooter}>
-        <View style={styles.profileRow}>
+        <Pressable
+          style={styles.profileRow}
+          accessibilityRole="button"
+          accessibilityLabel="View profile and settings"
+          onPress={() => {
+            props.navigation.navigate('Settings');
+          }}
+        >
           <View style={styles.avatarPlaceholder} />
           <View>
             <Text style={styles.profileName}>Andrew Watanabe</Text>
             <Text style={styles.profileSubtitle}>View profile & settings</Text>
           </View>
-        </View>
+        </Pressable>
       </View>
     </DrawerContentScrollView>
   );

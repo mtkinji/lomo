@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Activity,
   Arc,
+  ArcProposalFeedback,
   Force,
   ForceLevel,
   Goal,
@@ -19,6 +20,7 @@ interface AppState {
   goals: Goal[];
   activities: Activity[];
   goalRecommendations: Record<string, GoalDraft[]>;
+  arcFeedback: ArcProposalFeedback[];
   userProfile: UserProfile | null;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
@@ -30,6 +32,7 @@ interface AppState {
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
+  addArcFeedback: (feedback: ArcProposalFeedback) => void;
   setUserProfile: (profile: UserProfile) => void;
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
@@ -37,6 +40,20 @@ interface AppState {
 }
 
 const now = () => new Date().toISOString();
+
+const buildDefaultUserProfile = (): UserProfile => {
+  const timestamp = now();
+  return {
+    id: 'local-user',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    fullName: 'Andrew Watanabe',
+    email: 'mtkinji@gmail.com',
+    avatarUrl: 'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=320&h=320&fit=crop',
+    communication: {},
+    visuals: {},
+  };
+};
 
 type ForceSeed = {
   id: string;
@@ -199,7 +216,8 @@ export const useAppStore = create(
       goals: [initialDemoGoal],
       activities: initialDemoActivities,
       goalRecommendations: {},
-      userProfile: null,
+      arcFeedback: [],
+      userProfile: buildDefaultUserProfile(),
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -255,6 +273,14 @@ export const useAppStore = create(
           delete updated[arcId];
           return { goalRecommendations: updated };
         }),
+      addArcFeedback: (feedback) =>
+        set((state) => {
+          const maxEntries = 20;
+          const next = [...state.arcFeedback, feedback];
+          const trimmed =
+            next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
+          return { arcFeedback: trimmed };
+        }),
       setUserProfile: (profile) =>
         set(() => ({
           userProfile: {
@@ -264,13 +290,7 @@ export const useAppStore = create(
         })),
       updateUserProfile: (updater) =>
         set((state) => {
-          const base: UserProfile = state.userProfile ?? {
-            id: 'local-user',
-            createdAt: now(),
-            updatedAt: now(),
-            communication: {},
-            visuals: {},
-          };
+          const base: UserProfile = state.userProfile ?? buildDefaultUserProfile();
           const next = updater(base);
           return {
             userProfile: {
@@ -287,6 +307,7 @@ export const useAppStore = create(
           goals: [],
           activities: [],
           goalRecommendations: {},
+          userProfile: buildDefaultUserProfile(),
         }),
     }),
     {

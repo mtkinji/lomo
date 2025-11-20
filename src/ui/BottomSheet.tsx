@@ -7,6 +7,8 @@ import {
 } from '@gorhom/bottom-sheet';
 import { colors, spacing } from '../theme';
 
+const DEFAULT_SNAP_POINTS: (string | number)[] = ['85%'];
+
 type LomoBottomSheetProps = {
   visible: boolean;
   onClose: () => void;
@@ -23,11 +25,23 @@ export function LomoBottomSheet({
 }: LomoBottomSheetProps) {
   const sheetRef = useRef<BottomSheetModal>(null);
   const points = useMemo<(string | number)[]>(
-    () => snapPoints ?? ['85%'],
+    () => snapPoints ?? DEFAULT_SNAP_POINTS,
     [snapPoints]
   );
+  const previousState = useRef({
+    visible,
+    snapPoints: points,
+  });
 
   useEffect(() => {
+    const { visible: prevVisible, snapPoints: prevSnapPoints } = previousState.current;
+    const visibilityChanged = prevVisible !== visible;
+    const snapPointsChanged = !areSnapPointsEqual(prevSnapPoints, points);
+
+    if (!visibilityChanged && !snapPointsChanged) {
+      return;
+    }
+
     if (__DEV__) {
       console.log('[bottomSheet] effect', {
         visible,
@@ -35,11 +49,19 @@ export function LomoBottomSheet({
         snapPoints: points,
       });
     }
-    if (visible) {
-      sheetRef.current?.present();
-    } else {
-      sheetRef.current?.dismiss();
+
+    if (visibilityChanged) {
+      if (visible) {
+        sheetRef.current?.present();
+      } else {
+        sheetRef.current?.dismiss();
+      }
     }
+
+    previousState.current = {
+      visible,
+      snapPoints: points,
+    };
   }, [visible, points]);
 
   const renderBackdrop: BottomSheetModalProps['backdropComponent'] = (backdropProps) => (
@@ -83,6 +105,24 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 });
+
+function areSnapPointsEqual(
+  current: (string | number)[],
+  next: (string | number)[]
+) {
+  if (current === next) {
+    return true;
+  }
+  if (current.length !== next.length) {
+    return false;
+  }
+  for (let index = 0; index < current.length; index += 1) {
+    if (current[index] !== next[index]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 
 

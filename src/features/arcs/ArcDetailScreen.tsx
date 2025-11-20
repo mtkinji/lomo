@@ -75,6 +75,53 @@ const hashStringToIndex = (value: string, modulo: number): number => {
   return modulo === 0 ? 0 : normalized % modulo;
 };
 
+const getArcInitial = (name: string): string => {
+  if (!name) return '';
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+  const firstWord = trimmed.split(/\s+/)[0];
+  return firstWord.charAt(0).toUpperCase();
+};
+
+// Abstract topography model for the Arc hero: 8x8 grid of dots sized by a hash
+// of the arc id / name, matching the list thumbnails.
+const ARC_TOPO_GRID_SIZE = 8;
+const ARC_TOPO_CELL_COUNT = ARC_TOPO_GRID_SIZE * ARC_TOPO_GRID_SIZE;
+
+const getArcTopoSizes = (seed: string): number[] => {
+  if (!seed) {
+    return Array(ARC_TOPO_CELL_COUNT).fill(1);
+  }
+  const sizes: number[] = [];
+  let value = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    value = (value * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  for (let i = 0; i < ARC_TOPO_CELL_COUNT; i += 1) {
+    const twoBits = (value >> ((i * 2) % 30)) & 0b11;
+    const size = twoBits % 3;
+    sizes.push(size);
+  }
+  return sizes;
+};
+
+// Geo mosaic model for the Arc hero, mirroring the list thumbnails.
+const ARC_MOSAIC_ROWS = 3;
+const ARC_MOSAIC_COLS = 4;
+const ARC_MOSAIC_COLORS = ['#F97373', '#0F3C5D', '#FACC15', '#F9E2AF', '#E5E7EB'];
+
+type ArcMosaicCell = {
+  shape: 0 | 1 | 2 | 3;
+  color: string;
+};
+
+const getArcMosaicCell = (seed: string, row: number, col: number): ArcMosaicCell => {
+  const base = hashStringToIndex(`${seed}:${row}:${col}`, 1024);
+  const shape = (base % 4) as ArcMosaicCell['shape'];
+  const colorIndex = (base >> 2) % ARC_MOSAIC_COLORS.length;
+  return { shape, color: ARC_MOSAIC_COLORS[colorIndex] };
+};
+
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
@@ -187,6 +234,23 @@ export function ArcDetailScreen() {
       ],
     [arc.id, arc.name]
   );
+  const thumbnailStyles = useAppStore((state) => {
+    const visuals = state.userProfile?.visuals;
+    if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
+      return visuals.thumbnailStyles;
+    }
+    if (visuals?.thumbnailStyle) {
+      return [visuals.thumbnailStyle];
+    }
+    return ['topographyDots'];
+  });
+  const heroSeed = arc.id || arc.name;
+  const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
+  const heroStyleIndex =
+    thumbnailStyles.length > 0 ? hashStringToIndex(heroSeed, thumbnailStyles.length) : 0;
+  const thumbnailStyle = thumbnailStyles[heroStyleIndex] ?? 'topographyDots';
+  const showTopography = thumbnailStyle === 'topographyDots';
+  const showGeoMosaic = thumbnailStyle === 'geoMosaic';
 
   const commitInlineEdit = useCallback(() => {
     if (!arc || !editingField) {
@@ -428,20 +492,100 @@ export function ArcDetailScreen() {
               accessibilityLabel="Edit arc image"
             >
               <View style={styles.arcThumbnailWrapper}>
-                {arc.thumbnailUrl ? (
-                  <Image
-                    source={{ uri: arc.thumbnailUrl }}
-                    style={styles.arcThumbnail}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <LinearGradient
-                    colors={[heroStartColor, heroEndColor]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.arcThumbnail}
-                  />
-                )}
+                <View style={styles.arcThumbnailInner}>
+                  {arc.thumbnailUrl ? (
+                    <Image
+                      source={{ uri: arc.thumbnailUrl }}
+                      style={styles.arcThumbnail}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={[heroStartColor, heroEndColor]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.arcThumbnail}
+                    />
+                  )}
+                  {showTopography && (
+                    <View style={styles.arcHeroTopoLayer}>
+                      <View style={styles.arcHeroTopoGrid}>
+                        {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
+                          <View
+                            // eslint-disable-next-line react/no-array-index-key
+                            key={`hero-topo-row-${rowIndex}`}
+                            style={styles.arcHeroTopoRow}
+                          >
+                            {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
+                              const cellIndex =
+                                rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
+                              const size = heroTopoSizes[cellIndex] ?? 1;
+                              return (
+                                // eslint-disable-next-line react/no-array-index-key
+                                <View
+                                  key={`hero-topo-cell-${rowIndex}-${colIndex}`}
+                                  style={[
+                                    styles.arcHeroTopoDot,
+                                    size === 0 && styles.arcHeroTopoDotSmall,
+                                    size === 1 && styles.arcHeroTopoDotMedium,
+                                    size === 2 && styles.arcHeroTopoDotLarge,
+                                  ]}
+                                />
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                  {showGeoMosaic && (
+                    <View style={styles.arcHeroMosaicLayer}>
+                      {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
+                        <View
+                          // eslint-disable-next-line react/no-array-index-key
+                          key={`hero-mosaic-row-${rowIndex}`}
+                          style={styles.arcHeroMosaicRow}
+                        >
+                          {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
+                            const cell = getArcMosaicCell(arc.id || arc.name, rowIndex, colIndex);
+                            if (cell.shape === 0) {
+                              return (
+                                // eslint-disable-next-line react/no-array-index-key
+                                <View
+                                  key={`hero-mosaic-cell-${rowIndex}-${colIndex}`}
+                                  style={styles.arcHeroMosaicCell}
+                                />
+                              );
+                            }
+
+                            let shapeStyle = styles.arcHeroMosaicCircle;
+                            if (cell.shape === 2) {
+                              shapeStyle = styles.arcHeroMosaicPillVertical;
+                            } else if (cell.shape === 3) {
+                              shapeStyle = styles.arcHeroMosaicPillHorizontal;
+                            }
+
+                            return (
+                              // eslint-disable-next-line react/no-array-index-key
+                              <View
+                                key={`hero-mosaic-cell-${rowIndex}-${colIndex}`}
+                                style={styles.arcHeroMosaicCell}
+                              >
+                                <View
+                                  style={[
+                                    styles.arcHeroMosaicShapeBase,
+                                    shapeStyle,
+                                    { backgroundColor: cell.color },
+                                  ]}
+                                />
+                              </View>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
             <VStack space="xs" flex={1}>
@@ -1078,12 +1222,82 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 16,
-    overflow: 'hidden',
     backgroundColor: colors.shellAlt,
+    overflow: 'hidden',
+  },
+  arcThumbnailInner: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   arcThumbnail: {
     width: '100%',
     height: '100%',
+  },
+  arcHeroTopoLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arcHeroTopoGrid: {
+    width: '100%',
+    height: '100%',
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  arcHeroTopoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  arcHeroTopoDot: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  arcHeroTopoDotSmall: {
+    width: 3,
+    height: 3,
+  },
+  arcHeroTopoDotMedium: {
+    width: 5,
+    height: 5,
+  },
+  arcHeroTopoDotLarge: {
+    width: 7,
+    height: 7,
+  },
+  arcHeroMosaicLayer: {
+    ...StyleSheet.absoluteFillObject,
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  arcHeroMosaicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  arcHeroMosaicCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arcHeroMosaicShapeBase: {
+    borderRadius: 999,
+  },
+  arcHeroMosaicCircle: {
+    width: '70%',
+    height: '70%',
+  },
+  arcHeroMosaicPillVertical: {
+    width: '55%',
+    height: '100%',
+  },
+  arcHeroMosaicPillHorizontal: {
+    width: '100%',
+    height: '55%',
+  },
+  arcHeroInitial: {
+    ...typography.titleSm,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 24,
   },
   backButton: {
     alignSelf: 'flex-start',

@@ -62,6 +62,13 @@ const ARC_THUMBNAIL_PALETTES: [string, string][] = [
   ['#F1F5F9', '#CBD5F5'],
 ];
 
+const ARC_THUMBNAIL_DIRECTIONS = [
+  { start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+  { start: { x: 0, y: 1 }, end: { x: 1, y: 0 } },
+  { start: { x: 0.1, y: 0 }, end: { x: 1, y: 0.8 } },
+  { start: { x: 0, y: 0.2 }, end: { x: 0.9, y: 1 } },
+];
+
 const hashStringToIndex = (value: string, modulo: number): number => {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -69,6 +76,56 @@ const hashStringToIndex = (value: string, modulo: number): number => {
   }
   const normalized = Math.abs(hash);
   return modulo === 0 ? 0 : normalized % modulo;
+};
+
+const getArcInitial = (name: string): string => {
+  if (!name) return '';
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+  const firstWord = trimmed.split(/\s+/)[0];
+  return firstWord.charAt(0).toUpperCase();
+};
+
+// Abstract topography model: 8x8 grid of dots whose sizes are driven by a hash
+// of the Arc id / name. This gives a rough "terrain" impression while staying
+// cheap and deterministic.
+const ARC_TOPO_GRID_SIZE = 8;
+const ARC_TOPO_CELL_COUNT = ARC_TOPO_GRID_SIZE * ARC_TOPO_GRID_SIZE;
+
+const getArcTopoSizes = (seed: string): number[] => {
+  if (!seed) {
+    return Array(ARC_TOPO_CELL_COUNT).fill(1);
+  }
+  const sizes: number[] = [];
+  let value = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    value = (value * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  for (let i = 0; i < ARC_TOPO_CELL_COUNT; i += 1) {
+    const twoBits = (value >> ((i * 2) % 30)) & 0b11; // 0–3
+    const size = twoBits % 3; // 0 = small, 1 = medium, 2 = large
+    sizes.push(size);
+  }
+  return sizes;
+};
+
+// Geo mosaic model: 3x4 grid of bold geometric tiles (circles and pills)
+// inspired by modernist patterns. All shapes are deterministic from the
+// Arc id / name and rendered on top of the gradient / hero image.
+const ARC_MOSAIC_ROWS = 3;
+const ARC_MOSAIC_COLS = 4;
+const ARC_MOSAIC_COLORS = ['#F97373', '#0F3C5D', '#FACC15', '#F9E2AF', '#E5E7EB'];
+
+type ArcMosaicCell = {
+  shape: 0 | 1 | 2 | 3; // 0=empty,1=circle,2=vertical pill,3=horizontal pill
+  color: string;
+};
+
+const getArcMosaicCell = (seed: string, row: number, col: number): ArcMosaicCell => {
+  const base = hashStringToIndex(`${seed}:${row}:${col}`, 1024);
+  const shape = (base % 4) as ArcMosaicCell['shape'];
+  const colorIndex = (base >> 2) % ARC_MOSAIC_COLORS.length;
+  return { shape, color: ARC_MOSAIC_COLORS[colorIndex] };
 };
 
 const formatRelativeDate = (iso: string | undefined): string => {
@@ -156,9 +213,20 @@ export function ArcsScreen() {
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [resumeDraftOnOpen, setResumeDraftOnOpen] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [arcCoachDraft, setArcCoachDraft] = useState<ArcCoachDraftMeta | null>(null);
+  const thumbnailStyles = useAppStore((state) => {
+    const visuals = state.userProfile?.visuals;
+    if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
+      return visuals.thumbnailStyles;
+    }
+    if (visuals?.thumbnailStyle) {
+      return [visuals.thumbnailStyle];
+    }
+    return ['topographyDots'];
+  });
   useEffect(() => {
     if (__DEV__) {
       console.log('ArcsScreen rendered');
@@ -236,6 +304,7 @@ export function ArcsScreen() {
                 style={styles.newArcButton}
                 onPress={() => {
                   logArcsDebug('newArc:open-pressed');
+                  setResumeDraftOnOpen(false);
                   setIsModalVisible(true);
                 }}
               >
@@ -274,26 +343,119 @@ export function ArcsScreen() {
               ARC_THUMBNAIL_PALETTES.length
             );
             const [startColor, endColor] = ARC_THUMBNAIL_PALETTES[paletteIndex];
+            const direction =
+              ARC_THUMBNAIL_DIRECTIONS[
+                hashStringToIndex(`${item.id || item.name}:dir`, ARC_THUMBNAIL_DIRECTIONS.length)
+              ];
+            const seed = item.id || item.name;
+            const topoSizes = getArcTopoSizes(seed);
+            const styleIndex =
+              thumbnailStyles.length > 0
+                ? hashStringToIndex(seed, thumbnailStyles.length)
+                : 0;
+            const thumbnailStyle = thumbnailStyles[styleIndex] ?? 'topographyDots';
+            const showTopography = thumbnailStyle === 'topographyDots';
+            const showGeoMosaic = thumbnailStyle === 'geoMosaic';
 
             return (
               <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
                 <Card style={styles.arcCard}>
                   <View style={styles.arcCardContent}>
                     <View style={styles.arcThumbnailWrapper}>
-                      {item.thumbnailUrl ? (
-                        <Image
-                          source={{ uri: item.thumbnailUrl }}
-                          style={styles.arcThumbnail}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <LinearGradient
-                          colors={[startColor, endColor]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={styles.arcThumbnail}
-                        />
-                      )}
+                      <View style={styles.arcThumbnailPlaceholder}>
+                        {item.thumbnailUrl ? (
+                          <Image
+                            source={{ uri: item.thumbnailUrl }}
+                            style={styles.arcThumbnail}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <LinearGradient
+                            colors={[startColor, endColor]}
+                            start={direction.start}
+                            end={direction.end}
+                            style={styles.arcThumbnailGradient}
+                          />
+                        )}
+                        {showTopography && (
+                          <View style={styles.arcTopoLayer}>
+                            <View style={styles.arcTopoGrid}>
+                              {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
+                                <View
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  key={`topo-row-${rowIndex}`}
+                                  style={styles.arcTopoRow}
+                                >
+                                  {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
+                                    const cellIndex =
+                                      rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
+                                    const size = topoSizes[cellIndex] ?? 1;
+                                    return (
+                                      // eslint-disable-next-line react/no-array-index-key
+                                      <View
+                                        key={`topo-cell-${rowIndex}-${colIndex}`}
+                                        style={[
+                                          styles.arcTopoDot,
+                                          size === 0 && styles.arcTopoDotSmall,
+                                          size === 1 && styles.arcTopoDotMedium,
+                                          size === 2 && styles.arcTopoDotLarge,
+                                        ]}
+                                      />
+                                    );
+                                  })}
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+                        {showGeoMosaic && (
+                          <View style={styles.arcMosaicLayer}>
+                            {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
+                              <View
+                                // eslint-disable-next-line react/no-array-index-key
+                                key={`mosaic-row-${rowIndex}`}
+                                style={styles.arcMosaicRow}
+                              >
+                                {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
+                                  const cell = getArcMosaicCell(seed, rowIndex, colIndex);
+                                  if (cell.shape === 0) {
+                                    return (
+                                      // eslint-disable-next-line react/no-array-index-key
+                                      <View
+                                        key={`mosaic-cell-${rowIndex}-${colIndex}`}
+                                        style={styles.arcMosaicCell}
+                                      />
+                                    );
+                                  }
+
+                                  let shapeStyle = styles.arcMosaicCircle;
+                                  if (cell.shape === 2) {
+                                    shapeStyle = styles.arcMosaicPillVertical;
+                                  } else if (cell.shape === 3) {
+                                    shapeStyle = styles.arcMosaicPillHorizontal;
+                                  }
+
+                                  return (
+                                    // eslint-disable-next-line react/no-array-index-key
+                                    <View
+                                      key={`mosaic-cell-${rowIndex}-${colIndex}`}
+                                      style={styles.arcMosaicCell}
+                                    >
+                                      <View
+                                        style={[
+                                          styles.arcMosaicShapeBase,
+                                          shapeStyle,
+                                          { backgroundColor: cell.color },
+                                        ]}
+                                      />
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
                     </View>
                     <VStack space="xs" style={styles.arcTextContainer}>
                       <Heading
@@ -331,6 +493,7 @@ export function ArcsScreen() {
               draft={arcCoachDraft}
               onResume={() => {
                 logArcsDebug('draft:resume-pressed');
+              setResumeDraftOnOpen(true);
                 setIsModalVisible(true);
               }}
               onDiscard={async () => {
@@ -349,6 +512,7 @@ export function ArcsScreen() {
           setIsModalVisible(false);
         }}
         launchContext={arcCoachLaunchContext}
+        resumeDraft={resumeDraftOnOpen}
       />
     </AppShell>
   );
@@ -444,24 +608,65 @@ const styles = StyleSheet.create({
   arcThumbnailGradient: {
     ...StyleSheet.absoluteFillObject,
   },
-  arcPatternGrid: {
+  arcTopoLayer: {
     ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arcTopoGrid: {
+    width: '100%',
+    height: '100%',
     padding: spacing.xs,
     justifyContent: 'space-between',
-    opacity: 0.35,
   },
-  arcPatternRow: {
+  arcTopoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  arcPatternCell: {
+  arcTopoDot: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  arcTopoDotSmall: {
+    width: 2,
+    height: 2,
+  },
+  arcTopoDotMedium: {
+    width: 4,
+    height: 4,
+  },
+  arcTopoDotLarge: {
     width: 6,
     height: 6,
-    borderRadius: 2,
-    backgroundColor: 'transparent',
   },
-  arcPatternCellActive: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
+  arcMosaicLayer: {
+    ...StyleSheet.absoluteFillObject,
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  arcMosaicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  arcMosaicCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arcMosaicShapeBase: {
+    borderRadius: 999,
+  },
+  arcMosaicCircle: {
+    width: '70%',
+    height: '70%',
+  },
+  arcMosaicPillVertical: {
+    width: '55%',
+    height: '100%',
+  },
+  arcMosaicPillHorizontal: {
+    width: '100%',
+    height: '55%',
   },
   arcThumbnailInitial: {
     ...typography.titleSm,
@@ -805,6 +1010,11 @@ type NewArcModalProps = {
    * arcs and goals so it can suggest complementary Arcs.
    */
   launchContext?: string;
+  /**
+   * Whether to resume any saved Arc Creation draft when opening the coach.
+   * When false, a brand new conversation is started even if a draft exists.
+   */
+  resumeDraft?: boolean;
 };
 
 function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -827,10 +1037,38 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
   );
 }
 
-function NewArcModal({ visible, onClose, launchContext }: NewArcModalProps) {
+function NewArcModal({ visible, onClose, launchContext, resumeDraft = true }: NewArcModalProps) {
+  const addArc = useAppStore((state) => state.addArc);
+  const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
+
+  const handleConfirmArc = (proposal: GeneratedArc) => {
+    const timestamp = new Date().toISOString();
+    const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const arc: Arc = {
+      id,
+      name: proposal.name,
+      narrative: proposal.narrative,
+      status: proposal.status ?? 'active',
+      startDate: timestamp,
+      endDate: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    addArc(arc);
+    onClose();
+    navigation.navigate('ArcDetail', { arcId: id });
+  };
+
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
-      <AiChatPane mode="arcCreation" launchContext={launchContext} />
+      <AiChatPane
+        mode="arcCreation"
+        launchContext={launchContext}
+        resumeDraft={resumeDraft}
+        onConfirmArc={handleConfirmArc}
+      />
     </BottomDrawer>
   );
 }

@@ -18,7 +18,6 @@ export function ChaptersScreen() {
       <PageHeader
         title="Chapters"
         iconName="chapters"
-        subtitle="AI-generated lookbacks"
         menuOpen={menuOpen}
         onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
       />
@@ -36,18 +35,6 @@ export function ChaptersScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    marginBottom: spacing.xl,
-  },
-  title: {
-    ...typography.titleLg,
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    marginTop: spacing.xs,
-    ...typography.body,
-    color: colors.textSecondary,
-  },
   emptyState: {
     marginTop: spacing['2xl'],
   },

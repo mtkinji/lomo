@@ -42,6 +42,34 @@ export interface Arc {
   updatedAt: string;
 }
 
+export type ArcProposalFeedbackReason =
+  | 'too_generic'
+  | 'project_not_identity'
+  | 'wrong_domain'
+  | 'tone_off'
+  | 'does_not_feel_like_me';
+
+export interface ArcProposalFeedback {
+  id: string;
+  arcName: string;
+  arcNarrative?: string;
+  /**
+   * Whether the user felt this Arc was a good fit.
+   */
+  decision: 'up' | 'down';
+  /**
+   * Structured reasons collected from quick-select chips so we can
+   * aggregate and feed them back into the Arc Creation Agent prompt.
+   */
+  reasons: ArcProposalFeedbackReason[];
+  /**
+   * Optional free-form explanation from the user describing what
+   * felt off or especially right about this Arc.
+   */
+  note?: string;
+  createdAt: string;
+}
+
 export interface GoalForceIntent {
   [forceId: string]: ForceLevel;
 }
@@ -176,10 +204,20 @@ export type VisualStyle = 'minimal' | 'vibrant' | 'photographic' | 'illustrated'
 
 export type ThumbnailPalette = 'warm' | 'cool' | 'neutral' | 'high-contrast';
 
+export type ThumbnailStyle =
+  | 'topographyDots'
+  | 'geoMosaic'
+  | 'contourRings'
+  | 'pixelBlocks'
+  | 'plainGradient';
+
 export interface UserProfile {
   id: string;
   createdAt: string;
   updatedAt: string;
+  fullName?: string;
+  email?: string;
+  avatarUrl?: string;
   ageRange?: AgeRange;
   timezone?: string;
   communication: {
@@ -194,6 +232,17 @@ export interface UserProfile {
     palette?: ThumbnailPalette;
     prefersPhotography?: boolean;
     prefersIcons?: boolean;
+    /**
+     * Preferred Arc thumbnail treatment. When unset, the app falls back
+     * to the current default style.
+     */
+    thumbnailStyle?: ThumbnailStyle;
+    /**
+     * Optional multi-select preference for Arc thumbnail styles. When present,
+     * the renderer will pick a style per Arc from this list (typically using
+     * a stable hash of the Arc id / name).
+     */
+    thumbnailStyles?: ThumbnailStyle[];
   };
   accessibility?: {
     prefersLargeText?: boolean;

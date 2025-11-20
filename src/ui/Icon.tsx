@@ -7,6 +7,7 @@ import Activity from 'lucide-react-native/dist/esm/icons/activity';
 import MessagesSquare from 'lucide-react-native/dist/esm/icons/messages-square';
 import ListChecks from 'lucide-react-native/dist/esm/icons/list-checks';
 import Paperclip from 'lucide-react-native/dist/esm/icons/paperclip';
+import Camera from 'lucide-react-native/dist/esm/icons/camera';
 import ImageIcon from 'lucide-react-native/dist/esm/icons/image';
 import Mic from 'lucide-react-native/dist/esm/icons/mic';
 import ArrowUp from 'lucide-react-native/dist/esm/icons/arrow-up';
@@ -25,6 +26,7 @@ import CloseIcon from 'lucide-react-native/dist/esm/icons/x';
 import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right';
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down';
 import Trash from 'lucide-react-native/dist/esm/icons/trash-2';
+import Check from 'lucide-react-native/dist/esm/icons/check';
 
 const icons = {
   today: CalendarCheck,
@@ -37,6 +39,7 @@ const icons = {
   panelLeft: PanelLeft,
   menu: Menu,
   paperclip: Paperclip,
+  camera: Camera,
   image: ImageIcon,
   mic: Mic,
   arrowUp: ArrowUp,
@@ -52,6 +55,7 @@ const icons = {
   chevronRight: ChevronRight,
   chevronDown: ChevronDown,
   trash: Trash,
+  check: Check,
 };
 
 export type IconName = keyof typeof icons;
