@@ -1499,11 +1499,22 @@ function ThinkingBubble() {
  * while letting BottomDrawer / LomoBottomSheet embed `AiChatPane` directly.
  */
 export function AiChatScreen() {
-  // Lazy-load AppShell here to avoid coupling the pane itself to app chrome.
+  // Lazy-load AppShell and AgentWorkspace here to avoid coupling the pane
+  // itself to app chrome or workflow orchestration.
   const { AppShell } = require('../../ui/layout/AppShell') as typeof import('../../ui/layout/AppShell');
+  const { AgentWorkspace } = require('./AgentWorkspace') as typeof import('./AgentWorkspace');
+
   return (
     <AppShell>
-      <AiChatPane />
+      <AgentWorkspace
+        // Standalone coach screen defaults to free-form coaching without a
+        // specific workflow attached.
+        mode={undefined}
+        launchContext={{
+          source: 'standaloneCoach',
+          intent: 'freeCoach',
+        }}
+      />
     </AppShell>
   );
 }

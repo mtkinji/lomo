@@ -39,8 +39,8 @@ export function DevToolsScreen() {
         menuOpen={menuOpen}
         onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
       >
-        <Text style={styles.screenSubtitle}>
-          Quick utilities for testing onboarding and other experimental surfaces. Only visible in
+        <Text style={[styles.screenSubtitle, { paddingTop: spacing.lg }]}>
+          Utilities for testing and development. Only visible in
           development builds.
         </Text>
       </PageHeader>
@@ -48,11 +48,11 @@ export function DevToolsScreen() {
         <View style={styles.stack}>
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>First-time UX</Text>
-            <Heading style={styles.cardTitle}>Trigger onboarding flow</Heading>
-            <Text style={styles.cardBody}>
+            {/* <Heading style={styles.cardTitle}>Trigger onboarding flow</Heading> */}
+            {/* <Text style={styles.cardBody}>
               Launches the first-time experience overlay immediately, even if it was already
               completed.
-            </Text>
+            </Text> */}
             <Button onPress={handleTriggerFirstTimeUx}>
               <Text style={styles.primaryButtonLabel}>Trigger first-time UX</Text>
             </Button>
