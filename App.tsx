@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { config } from '@gluestack-ui/config';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -16,6 +16,7 @@ import {
 import { Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
+import { FirstTimeUxFlow } from './src/features/onboarding/FirstTimeUxFlow';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -33,19 +34,15 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.shell }}>
       <SafeAreaProvider>
-        <SafeAreaView
-          style={{ flex: 1, backgroundColor: colors.shell }}
-          edges={['top', 'bottom']}
-        >
           <GluestackUIProvider config={config}>
             <BottomSheetModalProvider>
               <StatusBar style="dark" />
               <RootNavigator />
+              <FirstTimeUxFlow />
             </BottomSheetModalProvider>
           </GluestackUIProvider>
-        </SafeAreaView>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

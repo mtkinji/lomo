@@ -23,6 +23,11 @@ export interface Arc {
    */
   thumbnailUrl?: string;
   /**
+   * Optional counter used to rotate deterministic, system-generated thumbnails.
+   * Incrementing this value changes the seed passed to the appearance helpers.
+   */
+  thumbnailVariant?: number;
+  /**
    * Optional metadata about the Arc hero / thumbnail image.
    * The thumbnailUrl is still the canonical image URL used both for
    * the hero on the detail page and the thumbnail in lists.
@@ -194,6 +199,14 @@ export type AgeRange =
   | '65-plus'
   | 'prefer-not-to-say';
 
+export type FocusAreaId =
+  | 'health_energy'
+  | 'work_career'
+  | 'learning_skills'
+  | 'relationships_family'
+  | 'creativity_hobbies'
+  | 'organizing_life';
+
 export type CommunicationTone = 'gentle' | 'direct' | 'playful' | 'neutral';
 
 export type DetailLevel = 'short' | 'medium' | 'deep';
@@ -219,6 +232,10 @@ export interface UserProfile {
   email?: string;
   avatarUrl?: string;
   ageRange?: AgeRange;
+  focusAreas?: FocusAreaId[];
+  notifications?: {
+    remindersEnabled?: boolean;
+  };
   timezone?: string;
   communication: {
     tone?: CommunicationTone;

@@ -9,6 +9,7 @@ import ListChecks from 'lucide-react-native/dist/esm/icons/list-checks';
 import Paperclip from 'lucide-react-native/dist/esm/icons/paperclip';
 import Camera from 'lucide-react-native/dist/esm/icons/camera';
 import ImageIcon from 'lucide-react-native/dist/esm/icons/image';
+import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw';
 import Mic from 'lucide-react-native/dist/esm/icons/mic';
 import ArrowUp from 'lucide-react-native/dist/esm/icons/arrow-up';
 import Circle from 'lucide-react-native/dist/esm/icons/circle';
@@ -27,6 +28,7 @@ import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right';
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down';
 import Trash from 'lucide-react-native/dist/esm/icons/trash-2';
 import Check from 'lucide-react-native/dist/esm/icons/check';
+import FlaskConical from 'lucide-react-native/dist/esm/icons/flask-conical';
 
 const icons = {
   today: CalendarCheck,
@@ -55,7 +57,9 @@ const icons = {
   chevronRight: ChevronRight,
   chevronDown: ChevronDown,
   trash: Trash,
+  refresh: RefreshCw,
   check: Check,
+  dev: FlaskConical,
 };
 
 export type IconName = keyof typeof icons;

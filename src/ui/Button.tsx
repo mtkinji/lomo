@@ -18,6 +18,11 @@ type Props = {
   size?: ButtonSize;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Optional override for circular icon buttons.
+   * When provided, sets width/height/borderRadius to this value.
+   */
+  iconButtonSize?: number;
 } & TouchableOpacityProps;
 
 export function Button({
@@ -26,9 +31,26 @@ export function Button({
   style,
   children,
   disabled,
+  iconButtonSize,
   ...rest
 }: Props) {
   const variantStyle = stylesByVariant[variant];
+
+  const sizeStyle =
+    size === 'icon'
+      ? [
+          styles.iconSize,
+          iconButtonSize
+            ? {
+                width: iconButtonSize,
+                height: iconButtonSize,
+                borderRadius: iconButtonSize / 2,
+              }
+            : null,
+        ]
+      : size === 'small'
+      ? styles.smallSize
+      : styles.defaultSize;
 
   return (
     <TouchableOpacity
@@ -37,11 +59,7 @@ export function Button({
       disabled={disabled}
       style={[
         styles.base,
-        size === 'icon'
-          ? styles.iconSize
-          : size === 'small'
-          ? styles.smallSize
-          : styles.defaultSize,
+        sizeStyle,
         variantStyle,
         disabled && styles.disabled,
         style,

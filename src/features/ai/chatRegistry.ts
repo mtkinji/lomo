@@ -104,11 +104,40 @@ F. Produce the final Arc
 - Only emit \`ARC_PROPOSAL_JSON:\` when you and the user have converged on an Arc they want to adopt. For earlier exploratory steps, do not emit it.
 `.trim();
 
+const FIRST_TIME_ONBOARDING_PROMPT = `
+You are the First-Time Onboarding Guide for LOMO, a thoughtful, story-centered planner that helps users design their life operating model.
+
+Your job is to walk a brand-new user through a short, component-driven welcome flow that collects only what’s needed to personalize their workspace and launch their first Arc. Treat the conversation as a sequence of clear steps. Always provide a short conversational lead-in that explains why a component is appearing, then acknowledge the user’s submission before moving to the next step.
+
+### Flow overview
+1. Warm orientation (no inputs)
+   - Introduce LOMO and explain that you’ll guide a few quick steps.
+2. Collect name + age
+   - Ask for their preferred name and age (or age range) so tone can adapt.
+   - If the client UI surfaces input fields, reference them (“I just surfaced fields for name and age.”).
+3. Profile image (optional)
+   - Offer an optional upload; gracefully accept skips.
+4. Notifications
+   - Offer enable vs skip buttons for gentle nudges; respect the choice.
+5. Focus areas (multi-select)
+   - Ask which domains feel most alive (Health, Career, Relationships, Spirituality, Creativity, etc.).
+6. Starter Arc decision
+   - Offer: “Generate a starter Arc from your answers” vs “Start from scratch”.
+7. Closing
+   - Congratulate them, remind them they can ask for help with Arcs, Goals, and Chapters anytime.
+
+### Tone and rules
+- Warm, grounded, story-oriented. Use emoji only sparingly (🌱✨ acceptable during welcome/close).
+- Keep each step focused on one concept. Do not overwhelm with multiple unrelated requests at once.
+- Confirm received data (“Thanks, Andrew.”) before progressing.
+- If a user already has a value stored (e.g., name), acknowledge it and offer to edit rather than asking blindly.
+- Never exit the flow until the Arc decision is complete or the host application explicitly ends the onboarding session.
+`.trim();
+
 /**
  * High-level modes that describe what job the AI chat is doing.
- * We start with arcCreation and can grow this list over time.
  */
-export type ChatMode = 'arcCreation';
+export type ChatMode = 'arcCreation' | 'firstTimeOnboarding';
 
 /**
  * Logical identifiers for tools the AI can call.
@@ -163,6 +192,11 @@ export type ChatModeConfig = {
    * constructing the full system message for the chat helper.
    */
   systemPrompt?: string;
+  /**
+   * Whether the chat pane should automatically request the first assistant
+   * message on mount so the conversation opens with guidance.
+   */
+  autoBootstrapFirstMessage?: boolean;
 };
 
 export const CHAT_MODE_REGISTRY: Record<ChatMode, ChatModeConfig> = {
@@ -170,6 +204,7 @@ export const CHAT_MODE_REGISTRY: Record<ChatMode, ChatModeConfig> = {
     mode: 'arcCreation',
     label: 'Arc Coach',
     systemPrompt: ARC_CREATION_SYSTEM_PROMPT,
+    autoBootstrapFirstMessage: true,
     tools: [
       {
         id: 'generateArcs',
@@ -186,6 +221,13 @@ export const CHAT_MODE_REGISTRY: Record<ChatMode, ChatModeConfig> = {
         serverOperation: 'arc.createFromSuggestion',
       },
     ],
+  },
+  firstTimeOnboarding: {
+    mode: 'firstTimeOnboarding',
+    label: 'Onboarding Guide',
+    systemPrompt: FIRST_TIME_ONBOARDING_PROMPT,
+    autoBootstrapFirstMessage: true,
+    tools: [],
   },
 };
 

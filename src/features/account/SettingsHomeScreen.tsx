@@ -8,10 +8,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { HStack, Heading, Pressable, Text, VStack } from '@gluestack-ui/themed';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useDrawerStatus } from '@react-navigation/drawer';
 import * as ImagePicker from 'expo-image-picker';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -104,6 +105,8 @@ export function SettingsHomeScreen() {
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const navigation = useNavigation<SettingsNavigationProp>();
   const drawerNavigation = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
+  const drawerStatus = useDrawerStatus();
+  const menuOpen = drawerStatus === 'open';
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
 
@@ -122,16 +125,10 @@ export function SettingsHomeScreen() {
     navigation.navigate(item.route);
   };
 
-  const handleBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
+  const handleOpenMenu = () => {
+    if (drawerNavigation) {
+      drawerNavigation.dispatch(DrawerActions.openDrawer());
     }
-    if (drawerNavigation?.canGoBack?.()) {
-      drawerNavigation.goBack();
-      return;
-    }
-    drawerNavigation?.navigate('Activities');
   };
 
   const displayName = userProfile?.fullName?.trim() || 'Your profile';
@@ -184,7 +181,7 @@ export function SettingsHomeScreen() {
       setIsUpdatingAvatar(true);
       let result: ImagePicker.ImagePickerResult;
       const pickerOptions: ImagePicker.ImagePickerOptions = {
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.9,
@@ -214,7 +211,8 @@ export function SettingsHomeScreen() {
       <View style={styles.screen}>
         <PageHeader
           title="Settings"
-          onPressBack={handleBack}
+          menuOpen={menuOpen}
+          onPressMenu={handleOpenMenu}
         />
         <ScrollView
           contentContainerStyle={styles.scrollContent}

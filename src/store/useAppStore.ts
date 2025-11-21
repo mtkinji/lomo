@@ -36,6 +36,7 @@ interface AppState {
   setUserProfile: (profile: UserProfile) => void;
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
+  resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
 
@@ -47,9 +48,6 @@ const buildDefaultUserProfile = (): UserProfile => {
     id: 'local-user',
     createdAt: timestamp,
     updatedAt: timestamp,
-    fullName: 'Andrew Watanabe',
-    email: 'mtkinji@gmail.com',
-    avatarUrl: 'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=320&h=320&fit=crop',
     communication: {},
     visuals: {},
   };
@@ -300,6 +298,21 @@ export const useAppStore = create(
           };
         }),
       clearUserProfile: () => set({ userProfile: null }),
+      resetOnboardingAnswers: () =>
+        set((state) => {
+          const base: UserProfile = state.userProfile ?? buildDefaultUserProfile();
+          return {
+            userProfile: {
+              ...base,
+              fullName: undefined,
+              ageRange: undefined,
+              focusAreas: undefined,
+              avatarUrl: undefined,
+              notifications: undefined,
+              updatedAt: now(),
+            },
+          };
+        }),
       resetStore: () =>
         set({
           forces: canonicalForces,

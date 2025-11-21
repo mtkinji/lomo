@@ -6,6 +6,8 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Modal,
+  NativeEventEmitter,
+  NativeModules,
   Platform,
   Pressable,
   ScrollView,
@@ -18,11 +20,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '@gluestack-ui/themed';
 import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
+import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
 import { CoachChatTurn, GeneratedArc, sendCoachChat } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
+import { OnboardingGuidedFlow } from '../onboarding/OnboardingGuidedFlow';
 import type {
   AgeRange,
   ArcProposalFeedback,
@@ -41,6 +45,67 @@ type ChatDraft = {
   messages: ChatMessage[];
   input: string;
   updatedAt: string;
+};
+
+type DictationState = 'idle' | 'requesting' | 'starting' | 'recording' | 'stopping' | 'unavailable';
+
+type SpeechAuthorizationResult = {
+  speechAuthorization: 'authorized' | 'denied' | 'restricted' | 'notDetermined';
+  microphonePermission: 'granted' | 'denied';
+  onDeviceSupported: boolean;
+};
+
+type NativeSpeechTranscriptionModule = {
+  requestAuthorization: () => Promise<SpeechAuthorizationResult>;
+  start: (options?: { locale?: string }) => Promise<void>;
+  stop: () => Promise<void>;
+  cancel: () => Promise<void>;
+};
+
+type SpeechResultEvent = {
+  text?: string;
+  isFinal?: boolean;
+};
+
+type SpeechErrorEvent = {
+  code?: string;
+  message?: string;
+};
+
+type SpeechStateEvent = {
+  state?: DictationState;
+};
+
+type SpeechAvailabilityEvent = {
+  isAvailable?: boolean;
+};
+
+const iosSpeechModule: NativeSpeechTranscriptionModule | undefined =
+  Platform.OS === 'ios'
+    ? (NativeModules.SpeechTranscriptionModule as NativeSpeechTranscriptionModule | undefined)
+    : undefined;
+
+const iosSpeechEventEmitter = iosSpeechModule
+  ? new NativeEventEmitter(NativeModules.SpeechTranscriptionModule)
+  : null;
+
+const mergeDictationText = (base: string, transcript: string) => {
+  if (!base) {
+    return transcript;
+  }
+  if (!transcript) {
+    return base;
+  }
+  const needsSpace = !/\s$/.test(base);
+  return `${needsSpace ? `${base} ` : base}${transcript}`;
+};
+
+const getPreferredLocale = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale || 'en-US';
+  } catch {
+    return 'en-US';
+  }
 };
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
@@ -341,8 +406,15 @@ export type AiChatPaneProps = {
  */
 export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmArc }: AiChatPaneProps) {
   const isArcCreationMode = mode === 'arcCreation';
+  const isOnboardingMode = mode === 'firstTimeOnboarding';
+
+  if (isOnboardingMode) {
+    return <OnboardingGuidedFlow />;
+  }
+
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
+  const shouldBootstrapAssistant = Boolean(modeConfig?.autoBootstrapFirstMessage);
   const [isArcInfoVisible, setIsArcInfoVisible] = useState(false);
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -354,7 +426,7 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
   const shouldShowAgeQuestion = isArcCreationMode && !hasAgeRange;
 
   const buildInitialMessages = (): ChatMessage[] => {
-    if (!launchContext && !modeSystemPrompt && !isArcCreationMode) {
+    if (!launchContext && !modeSystemPrompt && !shouldBootstrapAssistant) {
       return INITIAL_MESSAGES;
     }
 
@@ -391,10 +463,10 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
       content: contextContent,
     };
 
-    // For arcCreation, we let the model generate the very first visible
-    // assistant message using the mode-specific system prompt + workspace
-    // snapshot instead of showing the generic placeholder intro.
-    if (isArcCreationMode) {
+    // For modes that bootstrap their first assistant reply automatically, we
+    // do not show the default intro message so the response comes directly
+    // from the mode-specific system prompt.
+    if (shouldBootstrapAssistant) {
       return [systemMessage];
     }
 
@@ -419,6 +491,12 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
   const scrollRef = useRef<ScrollView | null>(null);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const inputRef = useRef<TextInput | null>(null);
+  const dictationBaseRef = useRef('');
+  const [dictationState, setDictationState] = useState<DictationState>(
+    iosSpeechModule ? 'idle' : 'unavailable'
+  );
+  const [dictationError, setDictationError] = useState<string | null>(null);
+  const [isDictationAvailable, setIsDictationAvailable] = useState(Boolean(iosSpeechModule));
 
   const hasInput = input.trim().length > 0;
   const canSend = hasInput && !sending;
@@ -442,11 +520,146 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
     ? parseArcContextFromLaunchContext(launchContext)
     : undefined;
 
-  const handleStartDictation = () => {
-    // Today we lean on the system keyboard’s built-in dictation controls.
-    // Focusing the input reliably shows the keyboard; users can tap the mic
-    // there, which uses Apple’s on-device transcription.
-    inputRef.current?.focus();
+  const isDictationActive = dictationState === 'recording' || dictationState === 'starting';
+  const voiceButtonLabel = isDictationActive ? 'Stop voice input' : 'Start voice input';
+  const isDictationBusy = dictationState === 'requesting' || dictationState === 'stopping';
+  const voiceButtonIconColor = isDictationActive ? CHAT_COLORS.userBubbleText : colors.canvas;
+  const shouldShowDictationStatus = Boolean(dictationError || isDictationActive);
+  const dictationStatusMessage = dictationError ?? 'Listening… tap the mic to stop';
+
+  useEffect(() => {
+    if (!iosSpeechModule || !iosSpeechEventEmitter) {
+      return;
+    }
+
+    const resultSub = iosSpeechEventEmitter.addListener(
+      'SpeechTranscriptionResult',
+      (event: SpeechResultEvent) => {
+        const transcript = event?.text ?? '';
+        setInput(mergeDictationText(dictationBaseRef.current, transcript));
+        if (event?.isFinal) {
+          dictationBaseRef.current = '';
+          setDictationState('idle');
+        }
+      }
+    );
+
+    const errorSub = iosSpeechEventEmitter.addListener(
+      'SpeechTranscriptionError',
+      (event: SpeechErrorEvent) => {
+        setDictationError(event?.message ?? 'Dictation stopped unexpectedly.');
+        dictationBaseRef.current = '';
+        setDictationState('idle');
+      }
+    );
+
+    const availabilitySub = iosSpeechEventEmitter.addListener(
+      'SpeechTranscriptionAvailability',
+      (event: SpeechAvailabilityEvent) => {
+        if (typeof event?.isAvailable === 'boolean') {
+          setIsDictationAvailable(event.isAvailable);
+        }
+      }
+    );
+
+    const stateSub = iosSpeechEventEmitter.addListener(
+      'SpeechTranscriptionState',
+      (event: SpeechStateEvent) => {
+        if (!event?.state) {
+          return;
+        }
+        setDictationState(event.state);
+        if (event.state === 'idle') {
+          dictationBaseRef.current = '';
+        }
+      }
+    );
+
+    return () => {
+      resultSub.remove();
+      errorSub.remove();
+      availabilitySub.remove();
+      stateSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!dictationError) {
+      return;
+    }
+    const timeout = setTimeout(() => setDictationError(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [dictationError]);
+
+  useEffect(() => {
+    return () => {
+      if (!iosSpeechModule?.cancel) {
+        return;
+      }
+      iosSpeechModule.cancel().catch(() => undefined);
+    };
+  }, []);
+
+  const stopDictation = async () => {
+    if (!iosSpeechModule) {
+      return;
+    }
+    setDictationState('stopping');
+    try {
+      await iosSpeechModule.stop();
+    } catch (err) {
+      console.warn('Failed to stop dictation', err);
+      setDictationState('idle');
+      dictationBaseRef.current = '';
+    }
+  };
+
+  const handleStartDictation = async () => {
+    if (!iosSpeechModule || dictationState === 'unavailable' || !isDictationAvailable) {
+      inputRef.current?.focus();
+      return;
+    }
+
+    if (dictationState === 'recording' || dictationState === 'starting' || dictationState === 'requesting') {
+      await stopDictation();
+      return;
+    }
+
+    dictationBaseRef.current = input.trimEnd();
+    setDictationError(null);
+
+    try {
+      setDictationState('requesting');
+      const permissions = await iosSpeechModule.requestAuthorization();
+
+      if (permissions.speechAuthorization !== 'authorized') {
+        setDictationError('Enable speech recognition in Settings to use dictation.');
+        setDictationState('idle');
+        return;
+      }
+
+      if (permissions.microphonePermission !== 'granted') {
+        setDictationError('Microphone access is required for dictation.');
+        setDictationState('idle');
+        return;
+      }
+
+      if (!permissions.onDeviceSupported) {
+        setDictationError('On-device transcription is not supported on this device.');
+        setDictationState('idle');
+        return;
+      }
+
+      Keyboard.dismiss();
+      await iosSpeechModule.start({ locale: getPreferredLocale() });
+      setDictationState('starting');
+    } catch (err) {
+      console.warn('Failed to start dictation', err);
+      setDictationError(
+        err instanceof Error ? err.message : 'Unable to start dictation. Try again in a moment.'
+      );
+      setDictationState('idle');
+    }
   };
 
   const handleSelectAgeRange = (range: AgeRange) => {
@@ -502,7 +715,19 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
     }
 
     let index = 0;
+    const paragraphPausePoints: number[] = [];
+    const paragraphBreakRegex = /(?:\r?\n)\s*(?:\r?\n)/g;
+    let match: RegExpExecArray | null;
+    while ((match = paragraphBreakRegex.exec(fullText)) !== null) {
+      const pauseIndex = match.index + match[0].length;
+      if (pauseIndex < totalLength) {
+        paragraphPausePoints.push(pauseIndex);
+      }
+    }
+    paragraphPausePoints.sort((a, b) => a - b);
+    let nextPauseIdx = 0;
     const step = () => {
+      const previousIndex = index;
       index = Math.min(index + 3, totalLength);
       const nextContent = fullText.slice(0, index);
 
@@ -516,7 +741,15 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
       });
 
       if (index < totalLength) {
-        setTimeout(step, 20);
+        let crossedPause = false;
+        while (nextPauseIdx < paragraphPausePoints.length && paragraphPausePoints[nextPauseIdx] <= index) {
+          if (paragraphPausePoints[nextPauseIdx] > previousIndex) {
+            crossedPause = true;
+          }
+          nextPauseIdx += 1;
+        }
+        const delay = crossedPause ? 1500 : 20;
+        setTimeout(step, delay);
       } else {
         opts?.onDone?.();
       }
@@ -531,7 +764,7 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
   // that respects the Arc Creation Agent system prompt (including age
   // awareness) instead of a static placeholder.
   useEffect(() => {
-    if (mode !== 'arcCreation' || bootstrapped) {
+    if (!shouldBootstrapAssistant || bootstrapped) {
       return;
     }
 
@@ -576,7 +809,7 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
     return () => {
       cancelled = true;
     };
-  }, [mode, bootstrapped]);
+  }, [mode, bootstrapped, shouldBootstrapAssistant]);
 
   // When the user re-opens Arc Creation coach, restore any saved draft so they
   // can pick up where they left off instead of starting a fresh thread.
@@ -728,7 +961,7 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
                 <View style={styles.brandLockup}>
                   <Logo size={24} />
                   <View style={styles.brandTextBlock}>
-                    <Text style={styles.brandWordmark}>Lomo Coach</Text>
+                    <Text style={styles.brandWordmark}>Lomo</Text>
                   </View>
                 </View>
                 {isArcCreationMode && (
@@ -867,7 +1100,10 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
         <View
           style={[
             styles.composerFence,
-            keyboardHeight > 0 && { marginBottom: keyboardHeight - spacing.lg },
+            {
+              marginBottom:
+                keyboardHeight > 0 ? keyboardHeight - spacing.lg : -spacing.md,
+            },
           ]}
         >
           {!hasUserMessages && (
@@ -944,15 +1180,44 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
                     </Button>
                   ) : (
                     <TouchableOpacity
-                      style={styles.voiceButton}
+                      style={[
+                        styles.voiceButton,
+                        isDictationActive && styles.voiceButtonActive,
+                      ]}
                       onPress={handleStartDictation}
-                      accessibilityLabel="Start voice input"
+                      accessibilityLabel={voiceButtonLabel}
+                      accessibilityHint="Uses on-device transcription to capture your voice"
+                      accessibilityState={{ busy: isDictationActive }}
+                      disabled={isDictationBusy}
                       activeOpacity={0.85}
                     >
-                      <Icon name="mic" color={colors.canvas} size={16} />
+                      {isDictationBusy ? (
+                        <ActivityIndicator color={voiceButtonIconColor} size="small" />
+                      ) : (
+                        <Icon name="mic" color={voiceButtonIconColor} size={16} />
+                      )}
                     </TouchableOpacity>
                   )}
                 </View>
+                {shouldShowDictationStatus && (
+                  <View style={styles.dictationStatusRow}>
+                    <View
+                      style={[
+                        styles.dictationStatusDot,
+                        dictationError ? styles.dictationStatusDotError : styles.dictationStatusDotActive,
+                      ]}
+                    />
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.dictationStatusLabel,
+                        dictationError && styles.dictationStatusLabelError,
+                      ]}
+                    >
+                      {dictationStatusMessage}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             </View>
           </View>
@@ -1483,6 +1748,36 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  voiceButtonActive: {
+    backgroundColor: CHAT_COLORS.accent,
+  },
+  dictationStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  dictationStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: CHAT_COLORS.textSecondary,
+  },
+  dictationStatusDotActive: {
+    backgroundColor: CHAT_COLORS.accent,
+  },
+  dictationStatusDotError: {
+    backgroundColor: '#F87171',
+  },
+  dictationStatusLabel: {
+    ...typography.bodySm,
+    fontSize: 12,
+    lineHeight: 16,
+    color: CHAT_COLORS.textSecondary,
+  },
+  dictationStatusLabelError: {
+    color: '#F87171',
   },
   sendButtonInactive: {
     opacity: 0.4,

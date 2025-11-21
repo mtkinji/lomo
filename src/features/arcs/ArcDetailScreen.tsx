@@ -21,12 +21,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
-import { GoalDraft } from '../../domain/types';
-import { generateGoals, generateArcHeroImage } from '../../services/ai';
+import { GoalDraft, type ThumbnailStyle } from '../../domain/types';
+import { generateGoals } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { LomoBottomSheet } from '../../ui/BottomSheet';
+import { BottomDrawer } from '../../ui/BottomDrawer';
+import {
+  ARC_MOSAIC_COLS,
+  ARC_MOSAIC_ROWS,
+  ARC_TOPO_GRID_SIZE,
+  DEFAULT_THUMBNAIL_STYLE,
+  type ArcGradientDirection,
+  getArcGradient,
+  getArcMosaicCell,
+  getArcTopoSizes,
+  pickThumbnailStyle,
+  buildArcThumbnailSeed,
+} from './thumbnailVisuals';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -56,73 +68,6 @@ const FORCE_ORDER: Array<keyof typeof FORCE_LABELS> = [
   'force-mastery',
   'force-spirituality',
 ];
-
-// Slightly richer, higher-chroma palettes for Arc thumbnails and heroes.
-// Still stay in the brand's soft, spiritual range but feel more "alive".
-const ARC_HERO_PALETTES: [string, string][] = [
-  ['#DCFCE7', '#86EFAC'], // fresh pine → mint
-  ['#E0F2FE', '#7DD3FC'], // sky → bright sky
-  ['#FEF3C7', '#FACC15'], // warm amber
-  ['#FCE7F3', '#F472B6'], // rosy
-  ['#EDE9FE', '#A855F7'], // violet
-  ['#F1F5F9', '#CBD5F5'], // soft neutral with a cool lift
-];
-
-const hashStringToIndex = (value: string, modulo: number): number => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  }
-  const normalized = Math.abs(hash);
-  return modulo === 0 ? 0 : normalized % modulo;
-};
-
-const getArcInitial = (name: string): string => {
-  if (!name) return '';
-  const trimmed = name.trim();
-  if (!trimmed) return '';
-  const firstWord = trimmed.split(/\s+/)[0];
-  return firstWord.charAt(0).toUpperCase();
-};
-
-// Abstract topography model for the Arc hero: 8x8 grid of dots sized by a hash
-// of the arc id / name, matching the list thumbnails.
-const ARC_TOPO_GRID_SIZE = 8;
-const ARC_TOPO_CELL_COUNT = ARC_TOPO_GRID_SIZE * ARC_TOPO_GRID_SIZE;
-
-const getArcTopoSizes = (seed: string): number[] => {
-  if (!seed) {
-    return Array(ARC_TOPO_CELL_COUNT).fill(1);
-  }
-  const sizes: number[] = [];
-  let value = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    value = (value * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-  for (let i = 0; i < ARC_TOPO_CELL_COUNT; i += 1) {
-    const twoBits = (value >> ((i * 2) % 30)) & 0b11;
-    const size = twoBits % 3;
-    sizes.push(size);
-  }
-  return sizes;
-};
-
-// Geo mosaic model for the Arc hero, mirroring the list thumbnails.
-const ARC_MOSAIC_ROWS = 3;
-const ARC_MOSAIC_COLS = 4;
-const ARC_MOSAIC_COLORS = ['#F97373', '#0F3C5D', '#FACC15', '#F9E2AF', '#E5E7EB'];
-
-type ArcMosaicCell = {
-  shape: 0 | 1 | 2 | 3;
-  color: string;
-};
-
-const getArcMosaicCell = (seed: string, row: number, col: number): ArcMosaicCell => {
-  const base = hashStringToIndex(`${seed}:${row}:${col}`, 1024);
-  const shape = (base % 4) as ArcMosaicCell['shape'];
-  const colorIndex = (base >> 2) % ARC_MOSAIC_COLORS.length;
-  return { shape, color: ARC_MOSAIC_COLORS[colorIndex] };
-};
 
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
@@ -229,14 +174,7 @@ export function ArcDetailScreen() {
     );
   }
 
-  const [heroStartColor, heroEndColor] = useMemo(
-    () =>
-      ARC_HERO_PALETTES[
-        hashStringToIndex(arc.id || arc.name, ARC_HERO_PALETTES.length)
-      ],
-    [arc.id, arc.name]
-  );
-  const thumbnailStyles = useAppStore((state) => {
+  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
     const visuals = state.userProfile?.visuals;
     if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
       return visuals.thumbnailStyles;
@@ -244,15 +182,20 @@ export function ArcDetailScreen() {
     if (visuals?.thumbnailStyle) {
       return [visuals.thumbnailStyle];
     }
-    return ['topographyDots'];
+    return [DEFAULT_THUMBNAIL_STYLE];
   });
-  const heroSeed = arc.id || arc.name;
+  const heroSeed = buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
+  const { colors: heroGradientColors, direction: heroGradientDirection } = useMemo(
+    () => getArcGradient(heroSeed),
+    [heroSeed]
+  );
   const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
-  const heroStyleIndex =
-    thumbnailStyles.length > 0 ? hashStringToIndex(heroSeed, thumbnailStyles.length) : 0;
-  const thumbnailStyle = thumbnailStyles[heroStyleIndex] ?? 'topographyDots';
+  const thumbnailStyle = pickThumbnailStyle(heroSeed, thumbnailStyles);
   const showTopography = thumbnailStyle === 'topographyDots';
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
+  const hasCustomThumbnail = Boolean(arc.thumbnailUrl);
+  const shouldShowTopography = showTopography && !hasCustomThumbnail;
+  const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
 
   const commitInlineEdit = useCallback(() => {
     if (!arc || !editingField) {
@@ -326,39 +269,44 @@ export function ArcDetailScreen() {
     [arc, editingField, commitInlineEdit]
   );
 
-  const handleGenerateHeroImage = useCallback(async () => {
-    if (!arc) return;
+  const handleGenerateHeroImage = useCallback(() => {
+    if (!arc || arc.thumbnailUrl) {
+      return;
+    }
     const startedAt = Date.now();
-    logArcDetailDebug('hero:generate:start', { arcId: arc.id, arcName: arc.name });
+    logArcDetailDebug('hero:variant:start', { arcId: arc.id, arcName: arc.name });
     setHeroLoading(true);
     setHeroError('');
+    const timestamp = new Date().toISOString();
     try {
-      const url = await generateArcHeroImage({
-        arcName: arc.name,
-        arcNarrative: arc.narrative,
+      let appliedVariant = 0;
+      updateArc(arc.id, (prev) => {
+        const nextVariant = (prev.thumbnailVariant ?? 0) + 1;
+        appliedVariant = nextVariant;
+        const promptSummary = [prev.name, prev.narrative].filter(Boolean).join(' – ');
+        return {
+          ...prev,
+          thumbnailUrl: undefined,
+          thumbnailVariant: nextVariant,
+          heroImageMeta: {
+            source: 'ai',
+            prompt: promptSummary || undefined,
+            createdAt: timestamp,
+          },
+          updatedAt: timestamp,
+        };
       });
-      const timestamp = new Date().toISOString();
-      const promptSummary = [arc.name, arc.narrative].filter(Boolean).join(' – ');
-      updateArc(arc.id, (prev) => ({
-        ...prev,
-        thumbnailUrl: url,
-        heroImageMeta: {
-          source: 'ai',
-          prompt: promptSummary,
-          createdAt: timestamp,
-        },
-        updatedAt: timestamp,
-      }));
-      logArcDetailDebug('hero:generate:success', {
+      logArcDetailDebug('hero:variant:success', {
         durationMs: Date.now() - startedAt,
+        variant: appliedVariant,
       });
     } catch (err) {
-      console.error('Hero image generation failed', err);
-      logArcDetailDebug('hero:generate:error', {
+      console.error('Thumbnail variant refresh failed', err);
+      logArcDetailDebug('hero:variant:error', {
         durationMs: Date.now() - startedAt,
         message: err instanceof Error ? err.message : String(err),
       });
-      setHeroError('Something went wrong asking LOMO for an image. Try again.');
+      setHeroError('Unable to refresh the arc thumbnail. Try again.');
     } finally {
       setHeroLoading(false);
     }
@@ -369,7 +317,7 @@ export function ArcDetailScreen() {
     try {
       setHeroError('');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.9,
@@ -503,13 +451,13 @@ export function ArcDetailScreen() {
                     />
                   ) : (
                     <LinearGradient
-                      colors={[heroStartColor, heroEndColor]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
+                      colors={heroGradientColors}
+                      start={heroGradientDirection.start}
+                      end={heroGradientDirection.end}
                       style={styles.arcThumbnail}
                     />
                   )}
-                  {showTopography && (
+                  {shouldShowTopography && (
                     <View style={styles.arcHeroTopoLayer}>
                       <View style={styles.arcHeroTopoGrid}>
                         {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
@@ -521,16 +469,19 @@ export function ArcDetailScreen() {
                             {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
                               const cellIndex =
                                 rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                              const size = heroTopoSizes[cellIndex] ?? 1;
+                              const rawSize = heroTopoSizes[cellIndex] ?? 0;
+                              const isHidden = rawSize < 0;
+                              const dotSize = isHidden ? 0 : rawSize;
                               return (
                                 // eslint-disable-next-line react/no-array-index-key
                                 <View
                                   key={`hero-topo-cell-${rowIndex}-${colIndex}`}
                                   style={[
                                     styles.arcHeroTopoDot,
-                                    size === 0 && styles.arcHeroTopoDotSmall,
-                                    size === 1 && styles.arcHeroTopoDotMedium,
-                                    size === 2 && styles.arcHeroTopoDotLarge,
+                                    (dotSize === 0 || isHidden) && styles.arcHeroTopoDotSmall,
+                                    dotSize === 1 && styles.arcHeroTopoDotMedium,
+                                    dotSize === 2 && styles.arcHeroTopoDotLarge,
+                                    isHidden && styles.arcHeroTopoDotHidden,
                                   ]}
                                 />
                               );
@@ -540,7 +491,7 @@ export function ArcDetailScreen() {
                       </View>
                     </View>
                   )}
-                  {showGeoMosaic && (
+                  {shouldShowGeoMosaic && (
                     <View style={styles.arcHeroMosaicLayer}>
                       {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
                         <View
@@ -549,7 +500,7 @@ export function ArcDetailScreen() {
                           style={styles.arcHeroMosaicRow}
                         >
                           {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
-                            const cell = getArcMosaicCell(arc.id || arc.name, rowIndex, colIndex);
+                            const cell = getArcMosaicCell(heroSeed, rowIndex, colIndex);
                             if (cell.shape === 0) {
                               return (
                                 // eslint-disable-next-line react/no-array-index-key
@@ -615,9 +566,9 @@ export function ArcDetailScreen() {
                   <Heading style={styles.arcTitle}>{arc.name}</Heading>
                 )}
               </TouchableOpacity>
-              {arc.heroImageMeta && (
+              {arc.heroImageMeta?.source === 'ai' && (
                 <Text style={styles.heroMetaText}>
-                  {arc.heroImageMeta.source === 'ai' ? 'Generated by LOMO' : 'Uploaded image'}
+                  Generated by LOMO
                 </Text>
               )}
             </VStack>
@@ -737,9 +688,16 @@ export function ArcDetailScreen() {
         visible={heroEditorVisible}
         onClose={() => setHeroEditorVisible(false)}
         arcName={arc.name}
+        heroSeed={heroSeed}
         hasHero={Boolean(arc.thumbnailUrl)}
         loading={heroLoading}
         error={heroError}
+        thumbnailUrl={arc.thumbnailUrl}
+        heroGradientColors={heroGradientColors}
+        heroGradientDirection={heroGradientDirection}
+        heroTopoSizes={heroTopoSizes}
+        showTopography={showTopography}
+        showGeoMosaic={showGeoMosaic}
         onGenerate={handleGenerateHeroImage}
         onUpload={handlePickHeroImage}
         onRemove={handleRemoveHeroImage}
@@ -778,10 +736,10 @@ export function ArcDetailScreen() {
           </View>
         </TouchableOpacity>
       )}
-      <LomoBottomSheet
+      <BottomDrawer
         visible={recommendationsModalVisible}
         onClose={() => setRecommendationsModalVisible(false)}
-        snapPoints={['80%']}
+        heightRatio={0.8}
       >
         <View style={[styles.recommendationsModalContent, { paddingTop: spacing.lg }]}>
             <VStack space="md">
@@ -888,7 +846,7 @@ export function ArcDetailScreen() {
               </Button>
             </VStack>
           </View>
-      </LomoBottomSheet>
+      </BottomDrawer>
     </AppShell>
   );
 }
@@ -906,9 +864,16 @@ type HeroImageModalProps = {
   visible: boolean;
   onClose: () => void;
   arcName: string;
+  heroSeed: string;
   hasHero: boolean;
   loading: boolean;
   error: string;
+  thumbnailUrl?: string;
+  heroGradientColors: string[];
+  heroGradientDirection: ArcGradientDirection;
+  heroTopoSizes: number[];
+  showTopography: boolean;
+  showGeoMosaic: boolean;
   onGenerate: () => void;
   onUpload: () => void;
   onRemove: () => void;
@@ -1018,7 +983,7 @@ function NewGoalModal({
   };
 
   return (
-    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['80%']}>
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.8}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -1120,63 +1085,208 @@ function NewGoalModal({
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </LomoBottomSheet>
+    </BottomDrawer>
   );
 }
 
 function HeroImageModal({
   visible,
   onClose,
-  arcName,
+  heroSeed,
   hasHero,
   loading,
   error,
+  thumbnailUrl,
+  heroGradientColors,
+  heroGradientDirection,
+  heroTopoSizes,
+  showTopography,
+  showGeoMosaic,
   onGenerate,
   onUpload,
   onRemove,
 }: HeroImageModalProps) {
+  const shouldShowTopography = showTopography && !thumbnailUrl;
+  const shouldShowGeoMosaic = showGeoMosaic && !thumbnailUrl;
+  const showRefreshAction = !thumbnailUrl;
+
   return (
-    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['45%']}>
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.9}>
       <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
-        <Heading style={styles.modalTitle}>Arc image</Heading>
-        <Text style={styles.modalBody}>
-          Give this Arc a hero image that captures its feel. You can ask LOMO to generate one or
-          upload your own.
-        </Text>
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <VStack space="sm" style={{ marginTop: spacing.sm }}>
-          <Button variant="ai" disabled={loading} onPress={onGenerate}>
-            {loading ? (
-              <HStack alignItems="center" space="sm">
-                <ActivityIndicator color="#38BDF8" />
-                <Text style={styles.buttonText}>Asking LOMO…</Text>
-              </HStack>
-            ) : (
-              <>
-                <Icon name="arcs" size={18} color={colors.canvas} />
-                <Text style={styles.buttonText}>Ask LOMO for an image</Text>
-              </>
-            )}
-          </Button>
-          <Button variant="secondary" disabled={loading} onPress={onUpload}>
-            <Text style={styles.linkText}>Upload from library</Text>
-          </Button>
-          {hasHero && (
-            <Button
-              variant="outline"
-              disabled={loading}
-              onPress={onRemove}
-              style={{ marginTop: spacing.xs }}
-            >
-              <Text style={styles.optionsMenuItemDestructiveText}>Remove image</Text>
-            </Button>
-          )}
-        </VStack>
-        <Button variant="link" onPress={onClose} style={{ marginTop: spacing.lg }}>
-          <Text style={styles.linkText}>Close</Text>
-        </Button>
+        <Heading style={styles.modalTitle}>Arc Thumbnail</Heading>
+        <View style={styles.heroModalPreviewSection}>
+          <View style={styles.heroModalPreviewColumn}>
+            <View style={styles.heroModalPreviewFrame}>
+              <View style={styles.heroModalPreviewInner}>
+                {thumbnailUrl ? (
+                  <Image
+                    source={{ uri: thumbnailUrl }}
+                    style={styles.heroModalPreviewImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={heroGradientColors}
+                    start={heroGradientDirection.start}
+                    end={heroGradientDirection.end}
+                    style={styles.heroModalPreviewImage}
+                  />
+                )}
+                {shouldShowTopography && (
+                  <View style={styles.arcHeroTopoLayer}>
+                    <View style={styles.arcHeroTopoGrid}>
+                      {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
+                        <View
+                          // eslint-disable-next-line react/no-array-index-key
+                          key={`hero-modal-topo-row-${rowIndex}`}
+                          style={styles.arcHeroTopoRow}
+                        >
+                          {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
+                            const cellIndex = rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
+                            const rawSize = heroTopoSizes[cellIndex] ?? 0;
+                            const isHidden = rawSize < 0;
+                            const dotSize = isHidden ? 0 : rawSize;
+                            return (
+                              // eslint-disable-next-line react/no-array-index-key
+                              <View
+                                key={`hero-modal-topo-cell-${rowIndex}-${colIndex}`}
+                                style={[
+                                  styles.arcHeroTopoDot,
+                                  (dotSize === 0 || isHidden) && styles.arcHeroTopoDotSmall,
+                                  dotSize === 1 && styles.arcHeroTopoDotMedium,
+                                  dotSize === 2 && styles.arcHeroTopoDotLarge,
+                                  isHidden && styles.arcHeroTopoDotHidden,
+                                ]}
+                              />
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                {shouldShowGeoMosaic && (
+                  <View style={styles.arcHeroMosaicLayer}>
+                    {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
+                      <View
+                        // eslint-disable-next-line react/no-array-index-key
+                        key={`hero-modal-mosaic-row-${rowIndex}`}
+                        style={styles.arcHeroMosaicRow}
+                      >
+                        {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
+                          const cell = getArcMosaicCell(heroSeed, rowIndex, colIndex);
+                          if (cell.shape === 0) {
+                            return (
+                              // eslint-disable-next-line react/no-array-index-key
+                              <View
+                                key={`hero-modal-mosaic-cell-${rowIndex}-${colIndex}`}
+                                style={styles.arcHeroMosaicCell}
+                              />
+                            );
+                          }
+
+                          let shapeStyle: StyleProp<ViewStyle> = styles.arcHeroMosaicCircle;
+                          if (cell.shape === 2) {
+                            shapeStyle = styles.arcHeroMosaicPillVertical;
+                          } else if (cell.shape === 3) {
+                            shapeStyle = styles.arcHeroMosaicPillHorizontal;
+                          }
+
+                          return (
+                            // eslint-disable-next-line react/no-array-index-key
+                            <View
+                              key={`hero-modal-mosaic-cell-${rowIndex}-${colIndex}`}
+                              style={styles.arcHeroMosaicCell}
+                            >
+                              <View
+                                style={[
+                                  styles.arcHeroMosaicShapeBase,
+                                  shapeStyle,
+                                  { backgroundColor: cell.color },
+                                ]}
+                              />
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+          <View style={styles.heroModalControls}>
+            <View style={styles.heroModalActionRow}>
+              <View style={styles.heroModalAction}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!showRefreshAction || loading}
+                  onPress={onGenerate}
+                  style={styles.heroModalActionButton}
+                  accessibilityLabel="Refresh thumbnail"
+                >
+                  {loading ? (
+                    <ActivityIndicator color={colors.textPrimary} />
+                  ) : (
+                    <Icon
+                      name="refresh"
+                      size={20}
+                      color={showRefreshAction ? colors.textPrimary : colors.textSecondary}
+                    />
+                  )}
+                </Button>
+                <Text
+                  style={[
+                    styles.heroModalActionLabel,
+                    !showRefreshAction && { color: colors.textSecondary },
+                  ]}
+                >
+                  Refresh
+                </Text>
+              </View>
+              <View style={styles.heroModalAction}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!hasHero || loading}
+                  onPress={onRemove}
+                  style={styles.heroModalActionButton}
+                  accessibilityLabel="Remove image"
+                >
+                  <Icon
+                    name="trash"
+                    size={20}
+                    color={colors.textSecondary}
+                    style={{ opacity: hasHero ? 1 : 0.4 }}
+                  />
+                </Button>
+                <Text
+                  style={[
+                    styles.heroModalActionLabel,
+                    !hasHero && { color: colors.textSecondary, opacity: 0.5 },
+                  ]}
+                >
+                  Remove
+                </Text>
+              </View>
+            </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            <View style={styles.heroModalUploadContainer}>
+              <Button
+                variant="outline"
+                disabled={loading}
+                onPress={onUpload}
+                style={styles.heroModalUpload}
+              >
+                <Icon name="image" size={18} color={colors.textPrimary} />
+                <Text style={styles.buttonTextAlt}>Upload</Text>
+              </Button>
+            </View>
+          </View>
+        </View>
       </View>
-    </LomoBottomSheet>
+    </BottomDrawer>
   );
 }
 
@@ -1203,6 +1313,72 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     aspectRatio: 16 / 9,
+  },
+  buttonTextAlt: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  heroModalPreviewSection: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.lg,
+  },
+  heroModalPreviewColumn: {
+    flexBasis: '50%',
+    flexGrow: 1,
+    minWidth: 220,
+  },
+  heroModalPreviewFrame: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 28,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  heroModalPreviewInner: {
+    flex: 1,
+  },
+  heroModalPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroModalControls: {
+    flexBasis: '45%',
+    flexGrow: 1,
+    minWidth: 220,
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  heroModalActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xl,
+  },
+  heroModalAction: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  heroModalActionButton: {
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  heroModalActionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  heroModalSupportText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  heroModalUploadContainer: {
+    width: '100%',
+  },
+  heroModalUpload: {
+    width: '100%',
   },
   heroEditButton: {
     position: 'absolute',
@@ -1244,7 +1420,7 @@ const styles = StyleSheet.create({
   arcHeroTopoGrid: {
     width: '100%',
     height: '100%',
-    padding: spacing.xs,
+    padding: spacing.sm,
     justifyContent: 'space-between',
   },
   arcHeroTopoRow: {
@@ -1253,19 +1429,22 @@ const styles = StyleSheet.create({
   },
   arcHeroTopoDot: {
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
   },
   arcHeroTopoDotSmall: {
-    width: 3,
-    height: 3,
+    width: 4,
+    height: 4,
   },
   arcHeroTopoDotMedium: {
-    width: 5,
-    height: 5,
-  },
-  arcHeroTopoDotLarge: {
     width: 7,
     height: 7,
+  },
+  arcHeroTopoDotLarge: {
+    width: 10,
+    height: 10,
+  },
+  arcHeroTopoDotHidden: {
+    opacity: 0,
   },
   arcHeroMosaicLayer: {
     ...StyleSheet.absoluteFillObject,

@@ -15,7 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
-import { VStack, Heading, Text, Icon as GluestackIcon, HStack, Pressable } from '@gluestack-ui/themed';
+import { VStack, Heading, Text, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
@@ -31,8 +31,18 @@ import { LomoBottomSheet } from '../../ui/BottomSheet';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Card } from '../../ui/Card';
 import { Logo } from '../../ui/Logo';
-import type { Arc, Goal } from '../../domain/types';
+import type { Arc, Goal, ThumbnailStyle } from '../../domain/types';
 import { AiChatPane } from '../ai/AiChatScreen';
+import {
+  ARC_MOSAIC_COLS,
+  ARC_MOSAIC_ROWS,
+  ARC_TOPO_GRID_SIZE,
+  getArcGradient,
+  getArcMosaicCell,
+  getArcTopoSizes,
+  pickThumbnailStyle,
+  buildArcThumbnailSeed,
+} from './thumbnailVisuals';
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
 
@@ -50,84 +60,6 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
       console.log(`[arcs] ${event}`);
     }
   }
-};
-
-// Palette + hashing helpers for rich, pseudo-random Arc thumbnails.
-// These mirror the hero palettes in ArcDetail so the list and detail views
-// feel like the same visual system.
-const ARC_THUMBNAIL_PALETTES: [string, string][] = [
-  ['#DCFCE7', '#86EFAC'],
-  ['#E0F2FE', '#7DD3FC'],
-  ['#FEF3C7', '#FACC15'],
-  ['#FCE7F3', '#F472B6'],
-  ['#EDE9FE', '#A855F7'],
-  ['#F1F5F9', '#CBD5F5'],
-];
-
-const ARC_THUMBNAIL_DIRECTIONS = [
-  { start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
-  { start: { x: 0, y: 1 }, end: { x: 1, y: 0 } },
-  { start: { x: 0.1, y: 0 }, end: { x: 1, y: 0.8 } },
-  { start: { x: 0, y: 0.2 }, end: { x: 0.9, y: 1 } },
-];
-
-const hashStringToIndex = (value: string, modulo: number): number => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  }
-  const normalized = Math.abs(hash);
-  return modulo === 0 ? 0 : normalized % modulo;
-};
-
-const getArcInitial = (name: string): string => {
-  if (!name) return '';
-  const trimmed = name.trim();
-  if (!trimmed) return '';
-  const firstWord = trimmed.split(/\s+/)[0];
-  return firstWord.charAt(0).toUpperCase();
-};
-
-// Abstract topography model: 8x8 grid of dots whose sizes are driven by a hash
-// of the Arc id / name. This gives a rough "terrain" impression while staying
-// cheap and deterministic.
-const ARC_TOPO_GRID_SIZE = 8;
-const ARC_TOPO_CELL_COUNT = ARC_TOPO_GRID_SIZE * ARC_TOPO_GRID_SIZE;
-
-const getArcTopoSizes = (seed: string): number[] => {
-  if (!seed) {
-    return Array(ARC_TOPO_CELL_COUNT).fill(1);
-  }
-  const sizes: number[] = [];
-  let value = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    value = (value * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-  for (let i = 0; i < ARC_TOPO_CELL_COUNT; i += 1) {
-    const twoBits = (value >> ((i * 2) % 30)) & 0b11; // 0–3
-    const size = twoBits % 3; // 0 = small, 1 = medium, 2 = large
-    sizes.push(size);
-  }
-  return sizes;
-};
-
-// Geo mosaic model: 3x4 grid of bold geometric tiles (circles and pills)
-// inspired by modernist patterns. All shapes are deterministic from the
-// Arc id / name and rendered on top of the gradient / hero image.
-const ARC_MOSAIC_ROWS = 3;
-const ARC_MOSAIC_COLS = 4;
-const ARC_MOSAIC_COLORS = ['#F97373', '#0F3C5D', '#FACC15', '#F9E2AF', '#E5E7EB'];
-
-type ArcMosaicCell = {
-  shape: 0 | 1 | 2 | 3; // 0=empty,1=circle,2=vertical pill,3=horizontal pill
-  color: string;
-};
-
-const getArcMosaicCell = (seed: string, row: number, col: number): ArcMosaicCell => {
-  const base = hashStringToIndex(`${seed}:${row}:${col}`, 1024);
-  const shape = (base % 4) as ArcMosaicCell['shape'];
-  const colorIndex = (base >> 2) % ARC_MOSAIC_COLORS.length;
-  return { shape, color: ARC_MOSAIC_COLORS[colorIndex] };
 };
 
 const formatRelativeDate = (iso: string | undefined): string => {
@@ -219,7 +151,7 @@ export function ArcsScreen() {
   const [infoVisible, setInfoVisible] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [arcCoachDraft, setArcCoachDraft] = useState<ArcCoachDraftMeta | null>(null);
-  const thumbnailStyles = useAppStore((state) => {
+  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
     const visuals = state.userProfile?.visuals;
     if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
       return visuals.thumbnailStyles;
@@ -229,12 +161,6 @@ export function ArcsScreen() {
     }
     return ['topographyDots'];
   });
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('ArcsScreen rendered');
-    }
-  }, []);
-
   useEffect(() => {
     (async () => {
       const meta = await readArcCreationDraftMeta();
@@ -301,16 +227,18 @@ export function ArcsScreen() {
             rightElement={
               <Button
                 size="icon"
+                iconButtonSize={28}
                 accessibilityRole="button"
                 accessibilityLabel="Ask LOMO to create a new Arc"
                 style={styles.newArcButton}
+                hitSlop={8}
                 onPress={() => {
                   logArcsDebug('newArc:open-pressed');
                   setResumeDraftOnOpen(false);
                   setIsModalVisible(true);
                 }}
               >
-                <GluestackIcon as={() => <Icon name="plus" size={16} color="#FFFFFF" />} />
+                <Icon name="plus" size={16} color="#FFFFFF" />
               </Button>
             }
           />
@@ -340,31 +268,22 @@ export function ArcsScreen() {
           renderItem={({ item }) => {
             const goalCount = goalCountByArc[item.id] ?? 0;
             const activityCount = activityCountByArc[item.id] ?? 0;
-            const paletteIndex = hashStringToIndex(
-              item.id || item.name,
-              ARC_THUMBNAIL_PALETTES.length
-            );
-            const [startColor, endColor] = ARC_THUMBNAIL_PALETTES[paletteIndex];
-            const direction =
-              ARC_THUMBNAIL_DIRECTIONS[
-                hashStringToIndex(`${item.id || item.name}:dir`, ARC_THUMBNAIL_DIRECTIONS.length)
-              ];
-            const seed = item.id || item.name;
+            const seed = buildArcThumbnailSeed(item.id, item.name, item.thumbnailVariant);
+            const { colors: gradientColors, direction } = getArcGradient(seed);
             const topoSizes = getArcTopoSizes(seed);
-            const styleIndex =
-              thumbnailStyles.length > 0
-                ? hashStringToIndex(seed, thumbnailStyles.length)
-                : 0;
-            const thumbnailStyle = thumbnailStyles[styleIndex] ?? 'topographyDots';
+            const thumbnailStyle = pickThumbnailStyle(seed, thumbnailStyles);
             const showTopography = thumbnailStyle === 'topographyDots';
             const showGeoMosaic = thumbnailStyle === 'geoMosaic';
+            const hasCustomThumbnail = Boolean(item.thumbnailUrl);
+            const shouldShowTopography = showTopography && !hasCustomThumbnail;
+            const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
 
             return (
               <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
                 <Card style={styles.arcCard}>
                   <View style={styles.arcCardContent}>
                     <View style={styles.arcThumbnailWrapper}>
-                      <View style={styles.arcThumbnailPlaceholder}>
+                      <View style={styles.arcThumbnailInner}>
                         {item.thumbnailUrl ? (
                           <Image
                             source={{ uri: item.thumbnailUrl }}
@@ -373,13 +292,13 @@ export function ArcsScreen() {
                           />
                         ) : (
                           <LinearGradient
-                            colors={[startColor, endColor]}
+                            colors={gradientColors}
                             start={direction.start}
                             end={direction.end}
                             style={styles.arcThumbnailGradient}
                           />
                         )}
-                        {showTopography && (
+                        {shouldShowTopography && (
                           <View style={styles.arcTopoLayer}>
                             <View style={styles.arcTopoGrid}>
                               {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
@@ -391,16 +310,19 @@ export function ArcsScreen() {
                                   {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
                                     const cellIndex =
                                       rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                                    const size = topoSizes[cellIndex] ?? 1;
+                                    const rawSize = topoSizes[cellIndex] ?? 0;
+                                    const isHidden = rawSize < 0;
+                                    const dotSize = isHidden ? 0 : rawSize;
                                     return (
                                       // eslint-disable-next-line react/no-array-index-key
                                       <View
                                         key={`topo-cell-${rowIndex}-${colIndex}`}
                                         style={[
                                           styles.arcTopoDot,
-                                          size === 0 && styles.arcTopoDotSmall,
-                                          size === 1 && styles.arcTopoDotMedium,
-                                          size === 2 && styles.arcTopoDotLarge,
+                                          (dotSize === 0 || isHidden) && styles.arcTopoDotSmall,
+                                          dotSize === 1 && styles.arcTopoDotMedium,
+                                          dotSize === 2 && styles.arcTopoDotLarge,
+                                          isHidden && styles.arcTopoDotHidden,
                                         ]}
                                       />
                                     );
@@ -410,7 +332,7 @@ export function ArcsScreen() {
                             </View>
                           </View>
                         )}
-                        {showGeoMosaic && (
+                        {shouldShowGeoMosaic && (
                           <View style={styles.arcMosaicLayer}>
                             {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
                               <View
@@ -568,8 +490,6 @@ const styles = StyleSheet.create({
   newArcButton: {
     alignSelf: 'flex-start',
     marginTop: 0,
-    width: 36,
-    height: 36,
   },
   arcCard: {
     // Symmetric padding; let the content determine height so the card can
@@ -594,18 +514,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   arcThumbnail: {
     width: '100%',
     height: '100%',
   },
-  arcThumbnailPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  arcThumbnailInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
     overflow: 'hidden',
+    position: 'relative',
   },
   arcThumbnailGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -618,7 +537,7 @@ const styles = StyleSheet.create({
   arcTopoGrid: {
     width: '100%',
     height: '100%',
-    padding: spacing.xs,
+    padding: spacing.sm,
     justifyContent: 'space-between',
   },
   arcTopoRow: {
@@ -630,16 +549,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.5)',
   },
   arcTopoDotSmall: {
-    width: 2,
-    height: 2,
+    width: 3,
+    height: 3,
   },
   arcTopoDotMedium: {
-    width: 4,
-    height: 4,
+    width: 5,
+    height: 5,
   },
   arcTopoDotLarge: {
-    width: 6,
-    height: 6,
+    width: 7,
+    height: 7,
+  },
+  arcTopoDotHidden: {
+    opacity: 0,
   },
   arcMosaicLayer: {
     ...StyleSheet.absoluteFillObject,

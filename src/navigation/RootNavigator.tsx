@@ -29,6 +29,7 @@ import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
+import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 
 export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
@@ -36,6 +37,7 @@ export type RootDrawerParamList = {
   Activities: undefined;
   Chapters: undefined;
   Settings: undefined;
+  DevTools: undefined;
 };
 
 export type ArcsStackParamList = {
@@ -53,7 +55,8 @@ export type SettingsStackParamList = {
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
-const NAV_DRAWER_TOP_OFFSET = 13; // px offset between the status bar and drawer content
+// Match the AppShell's top gutter so the drawer content aligns with the page header.
+const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v1';
 
 const navTheme: Theme = {
@@ -71,6 +74,7 @@ const navTheme: Theme = {
 export function RootNavigator() {
   const { width } = useWindowDimensions();
   const drawerWidth = width * 0.8;
+  const showDevTools = __DEV__;
 
   const [isNavReady, setIsNavReady] = useState(false);
   const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
@@ -177,6 +181,13 @@ export function RootNavigator() {
           component={ChaptersScreen}
           options={{ title: 'Chapters' }}
         />
+        {showDevTools && (
+          <Drawer.Screen
+            name="DevTools"
+            component={DevToolsScreen}
+            options={{ title: 'Dev Mode' }}
+          />
+        )}
         <Drawer.Screen
           name="Settings"
           component={SettingsStackNavigator}
@@ -225,6 +236,8 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
       return 'chapters';
     case 'Settings':
       return 'dot';
+    case 'DevTools':
+      return 'dev';
     default:
       return 'dot';
   }
@@ -255,7 +268,10 @@ function LomoDrawerContent(props: any) {
       {...props}
       contentContainerStyle={[
         styles.drawerContentContainer,
-        { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET },
+        {
+          paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET,
+          paddingBottom: spacing.xl + insets.bottom,
+        },
       ]}
     >
       <View style={styles.drawerHeader}>
@@ -299,7 +315,6 @@ function LomoDrawerContent(props: any) {
 const styles = StyleSheet.create({
   drawerContentContainer: {
     flex: 1,
-    paddingBottom: spacing.xl,
     paddingHorizontal: spacing.xl,
   },
   drawerHeader: {

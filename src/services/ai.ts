@@ -1,4 +1,5 @@
 import { Arc, GoalDraft, type AgeRange } from '../domain/types';
+import { getFocusAreaLabel } from '../domain/focusAreas';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore } from '../store/useAppStore';
@@ -74,6 +75,10 @@ const buildUserProfileSummary = (): string | undefined => {
   if (profile.timezone) {
     parts.push(`Timezone: ${profile.timezone}.`);
   }
+  if (profile.focusAreas && profile.focusAreas.length > 0) {
+    const labels = profile.focusAreas.map((area) => getFocusAreaLabel(area));
+    parts.push(`Focus areas this season: ${labels.join(', ')}.`);
+  }
 
   const communication = profile.communication ?? {};
   if (communication.tone) {
@@ -130,6 +135,15 @@ const buildUserProfileSummary = (): string | undefined => {
   }
 
   const consent = profile.consent ?? {};
+  const notifications = profile.notifications ?? {};
+  if (typeof notifications.remindersEnabled === 'boolean') {
+    parts.push(
+      notifications.remindersEnabled
+        ? 'Notifications/reminders are enabled.'
+        : 'Notifications are currently off per the user.'
+    );
+  }
+
   if (typeof consent.personalizedSuggestionsEnabled === 'boolean') {
     parts.push(
       consent.personalizedSuggestionsEnabled
@@ -174,7 +188,8 @@ type OpenAiToolMessage = {
 };
 
 const buildCoachToolsForMode = (mode?: ChatMode) => {
-  if (mode !== 'arcCreation') {
+  const shouldExposeProfileTools = mode === 'arcCreation' || mode === 'firstTimeOnboarding';
+  if (!shouldExposeProfileTools) {
     return undefined;
   }
 
@@ -208,7 +223,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
       function: {
         name: 'set_user_profile' as CoachToolName,
         description:
-          'Update parts of the user profile such as age range. Use this only when the user has clearly provided or confirmed the information.',
+          'Update parts of the user profile such as name or age range. Use this only when the user has clearly provided or confirmed the information.',
         parameters: {
           type: 'object',
           properties: {
@@ -217,6 +232,10 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
               enum: ageRangeEnum,
               description:
                 'User age range bucket, used only to tune tone and examples, not to make assumptions.',
+            },
+            fullName: {
+              type: 'string',
+              description: 'Preferred name the user wants LOMO to use in conversations.',
             },
           },
           additionalProperties: false,
@@ -255,11 +274,15 @@ const runCoachTool = (tool: CoachToolCall) => {
   }
 
   if (name === 'set_user_profile') {
-    const payload = (args as { ageRange?: AgeRange | null }) ?? {};
-    if (typeof payload.ageRange === 'string') {
+    const payload = (args as { ageRange?: AgeRange | null; fullName?: string | null }) ?? {};
+    if (typeof payload.ageRange === 'string' || typeof payload.fullName === 'string') {
       state.updateUserProfile((current) => ({
         ...current,
-        ageRange: payload.ageRange as AgeRange,
+        ageRange: typeof payload.ageRange === 'string' ? (payload.ageRange as AgeRange) : current.ageRange,
+        fullName:
+          typeof payload.fullName === 'string' && payload.fullName.trim().length > 0
+            ? payload.fullName.trim()
+            : current.fullName,
       }));
     }
     const updated = typeof useAppStore.getState === 'function' ? useAppStore.getState() : state;
