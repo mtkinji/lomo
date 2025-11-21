@@ -9,16 +9,21 @@ import { useAppStore } from '../../store/useAppStore';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
-import { FIRST_TIME_ONBOARDING_WORKFLOW_ID } from '../../domain/workflows';
+import {
+  FIRST_TIME_ONBOARDING_WORKFLOW_ID,
+  FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID,
+} from '../../domain/workflows';
 
 export function FirstTimeUxFlow() {
   const isVisible = useFirstTimeUxStore((state) => state.isFlowActive);
+  const triggerCount = useFirstTimeUxStore((state) => state.triggerCount);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const completeFlow = useFirstTimeUxStore((state) => state.completeFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
   const insets = useSafeAreaInsets();
   const [showDevMenu, setShowDevMenu] = useState(false);
+  const [useV2Workflow, setUseV2Workflow] = useState(false);
 
   useEffect(() => {
     if (!isVisible) {
@@ -31,6 +36,8 @@ export function FirstTimeUxFlow() {
   if (!isVisible) {
     return null;
   }
+
+  const workspaceKey = `${useV2Workflow ? 'v2' : 'v1'}:${triggerCount}`;
 
   return (
     <Modal
@@ -63,6 +70,7 @@ export function FirstTimeUxFlow() {
                     onPress={() => {
                       resetOnboardingAnswers();
                       startFlow();
+                      setUseV2Workflow(false);
                       setShowDevMenu(false);
                     }}
                     style={({ pressed }) => [
@@ -73,6 +81,24 @@ export function FirstTimeUxFlow() {
                     <View style={styles.devMenuItemContent}>
                       <Icon name="refresh" size={16} color={colors.textPrimary} />
                       <Text style={styles.devMenuItemLabel}>Restart onboarding</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      resetOnboardingAnswers();
+                      setUseV2Workflow(true);
+                      startFlow();
+                      setShowDevMenu(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.devMenuItem,
+                      pressed && styles.devMenuItemPressed,
+                    ]}
+                  >
+                    <View style={styles.devMenuItemContent}>
+                      <Icon name="refresh" size={16} color={colors.textPrimary} />
+                      <Text style={styles.devMenuItemLabel}>Restart onboarding (v2 workflow)</Text>
                     </View>
                   </Pressable>
                   <Pressable
@@ -98,12 +124,16 @@ export function FirstTimeUxFlow() {
         )}
         <AppShell>
           <AgentWorkspace
+            key={workspaceKey}
             mode="firstTimeOnboarding"
             launchContext={{
               source: 'firstTimeAppOpen',
               intent: 'firstTimeOnboarding',
             }}
-            workflowDefinitionId={FIRST_TIME_ONBOARDING_WORKFLOW_ID}
+            workflowDefinitionId={
+              useV2Workflow ? FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID : FIRST_TIME_ONBOARDING_WORKFLOW_ID
+            }
+            workflowInstanceId={workspaceKey}
             onComplete={() => {
               completeFlow();
               dismissFlow();

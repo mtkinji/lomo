@@ -7,7 +7,6 @@ import {
   type WorkflowInstance,
   type WorkflowInstanceStatus,
   WORKFLOW_DEFINITIONS,
-  FIRST_TIME_ONBOARDING_WORKFLOW_ID,
 } from '../../domain/workflows';
 import { AiChatPane, type AiChatPaneController } from './AiChatScreen';
 import { WorkflowRuntimeContext } from './WorkflowRuntimeContext';
@@ -148,7 +147,10 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return undefined;
     }
 
-    if (workflowDefinition.id === FIRST_TIME_ONBOARDING_WORKFLOW_ID) {
+    // Any workflow that uses the firstTimeOnboarding chatMode is hosted by the
+    // shared OnboardingGuidedFlow presenter. The presenter inspects the
+    // workflow definition ID to branch between v1 and v2 behavior.
+    if (workflowDefinition.chatMode === 'firstTimeOnboarding') {
       return (
         <OnboardingGuidedFlow
           onComplete={() => {

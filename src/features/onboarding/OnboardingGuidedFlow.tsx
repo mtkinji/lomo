@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useMemo, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import { Text } from '@gluestack-ui/themed';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
 import { Input } from '../../ui/Input';
 import { Logo } from '../../ui/Logo';
 import { useAppStore } from '../../store/useAppStore';
@@ -26,6 +27,7 @@ import {
 } from '../../services/ai';
 import type { AgeRange, Arc, FocusAreaId } from '../../domain/types';
 import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
+import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 import type { AiChatPaneController } from '../ai/AiChatScreen';
 
 type OnboardingStage =
@@ -119,6 +121,8 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   }, []);
 
   const workflowRuntime = useWorkflowRuntime();
+  const workflowId = workflowRuntime?.definition?.id;
+  const isV2Workflow = workflowId === FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID;
 
   const appendChatUserMessage = useCallback(
     (content: string) => {
@@ -245,12 +249,22 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const isStepVisible = (step: OnboardingStage) => visibleSteps.includes(step);
   const isStepCompleted = (step: OnboardingStage) => completedSteps.includes(step);
 
-  const handleWelcome = async () => {
+  // For v1 we still want to advance the internal step graph from "welcome" to
+  // "name" so the Name card appears, but the visible welcome card itself is
+  // no longer shown. We auto-complete the welcome step on mount for v1 only.
+  useEffect(() => {
+    if (isV2Workflow) return;
+    if (!isStepVisible('welcome')) return;
+    // Advance to the next step in the local timeline and mark the workflow
+    // welcome step as complete without rendering a separate card.
     completeStep('welcome');
-    // Map to workflow step "welcome"
     workflowRuntime?.completeStep('welcome');
-    appendChatUserMessage("I’m ready to get started.");
-    await sendStepAssistantCopy('welcome');
+  }, []); // run once on mount
+
+  const handleWelcome = async () => {
+    // Legacy no-op: the dedicated welcome card has been removed in favor of
+    // the shared AiChatPane welcome message. We keep this function around so
+    // any lingering references remain safe.
   };
 
   const handleSaveName = () => {
@@ -288,16 +302,16 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     setAgeSubmitted(true);
     setIsEditingAge(false);
     completeStep('age');
-    // Map to workflow step "profile_basics" once we have a usable age range (and best-effort name).
+    // Map to workflow step "identity_basic" (v2) / "profile_basics" (v1)
     const effectiveName =
       userProfile?.fullName?.trim() || nameInput.trim() || undefined;
-    workflowRuntime?.completeStep('profile_basics', {
+    workflowRuntime?.completeStep(isV2Workflow ? 'identity_basic' : 'profile_basics', {
       name: effectiveName,
       ageRange: range,
     });
     const bucketLabel = AGE_RANGE_LABELS[range] ?? String(range);
     appendChatUserMessage(`I’m in the ${bucketLabel} age range.`);
-    await sendStepAssistantCopy('profile_basics');
+    await sendStepAssistantCopy(isV2Workflow ? 'identity_basic' : 'profile_basics');
   };
 
   const handleKeepAge = () => {
@@ -323,13 +337,16 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     }));
     setFocusAreasSubmitted(true);
     completeStep('focus');
-    // Map to workflow step "focus_areas"
-    workflowRuntime?.completeStep('focus_areas', {
-      focusAreas: selectedFocusAreas,
-    });
-    const summary = selectedFocusSummary || 'those areas';
-    appendChatUserMessage(`I want to focus on ${summary}.`);
-    await sendStepAssistantCopy('focus_areas');
+    // In v2, focus areas are implicitly captured through desire/goal; keep this
+    // UI-only for now and only map to the v1 workflow step.
+    if (!isV2Workflow) {
+      workflowRuntime?.completeStep('focus_areas', {
+        focusAreas: selectedFocusAreas,
+      });
+      const summary = selectedFocusSummary || 'those areas';
+      appendChatUserMessage(`I want to focus on ${summary}.`);
+      await sendStepAssistantCopy('focus_areas');
+    }
   };
 
   const handleKeepFocusAreas = () => {
@@ -443,14 +460,14 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     }));
     setNotificationsChoice(enabled);
     completeStep('notifications');
-    // Map to workflow step "notifications"
-    workflowRuntime?.completeStep('notifications', {
+    // Map to workflow step "notifications_v2" (v2) / "notifications" (v1)
+    workflowRuntime?.completeStep(isV2Workflow ? 'notifications_v2' : 'notifications', {
       notifications: enabled ? 'enabled' : 'disabled',
     });
     appendChatUserMessage(
       enabled ? 'Yes, enable reminders for me.' : 'No reminders for now, thanks.'
     );
-    await sendStepAssistantCopy('notifications');
+    await sendStepAssistantCopy(isV2Workflow ? 'notifications_v2' : 'notifications');
   };
 
   const handleConfirmNotifications = () => {
@@ -472,20 +489,24 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     } else {
       completeStep('arcIntro', 'arcManual');
     }
-    // Map to workflow step "starter_arc_decision"
-    const strategy =
-      choice === 'suggest'
-        ? 'generate_from_answers'
-        : 'start_from_scratch';
-    workflowRuntime?.completeStep('starter_arc_decision', {
-      starterArcStrategy: strategy,
-    });
-    appendChatUserMessage(
-      choice === 'suggest'
-        ? 'Please suggest a starter Arc based on what I shared.'
-        : 'I’d like to name my own first Arc.'
-    );
-    await sendStepAssistantCopy('starter_arc_decision');
+    // Starter Arc decision is a v1-only concept; for v2 the arc will be
+    // inferred from goal + identity prompts instead, so we do not advance the
+    // workflow here.
+    if (!isV2Workflow) {
+      const strategy =
+        choice === 'suggest'
+          ? 'generate_from_answers'
+          : 'start_from_scratch';
+      workflowRuntime?.completeStep('starter_arc_decision', {
+        starterArcStrategy: strategy,
+      });
+      appendChatUserMessage(
+        choice === 'suggest'
+          ? 'Please suggest a starter Arc based on what I shared.'
+          : 'I’d like to name my own first Arc.'
+      );
+      await sendStepAssistantCopy('starter_arc_decision');
+    }
   };
 
   const resetArcSelection = () => {
@@ -570,10 +591,10 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     setCreatedArcName(arc.name);
     const completionStep = arcChoice === 'manual' ? 'arcManual' : 'arcSuggestion';
     completeStep(completionStep, 'closing');
-    // Mark workflow "closing" step as reached so the runtime has a complete picture.
-    workflowRuntime?.completeStep('closing');
+    // Mark workflow closing step as reached. In v2, this is "closing_v2".
+    workflowRuntime?.completeStep(isV2Workflow ? 'closing_v2' : 'closing');
     appendChatUserMessage(`Let’s go with the Arc “${arc.name}”.`);
-    void sendStepAssistantCopy('closing');
+    void sendStepAssistantCopy(isV2Workflow ? 'closing_v2' : 'closing');
   };
 
   const handleCloseFlow = () => {
@@ -639,33 +660,11 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.timeline}>
-          {welcomeVisible && (
-            <StepCard
-              label={STEP_LABELS.welcome}
-              title="Welcome & framing"
-              completed={welcomeCompleted}
-            >
-              <Text style={styles.bodyText}>Welcome to Takado.</Text>
-              <Text style={styles.bodyText}>
-                I’ll help you turn your goals into a simple plan you can actually follow.
-              </Text>
-              <Text style={styles.bodyText}>First, let’s get you set up.</Text>
-              {welcomeCompleted ? (
-                <Text style={styles.ackText}>Great. Let’s keep going.</Text>
-              ) : (
-                <Button style={styles.primaryButton} onPress={handleWelcome}>
-                  <Text style={styles.primaryButtonLabel}>Let’s do it</Text>
-                </Button>
-              )}
-            </StepCard>
-          )}
-
           {nameVisible && (
-            <StepCard
-              label={STEP_LABELS.name}
-              title="Name"
-              completed={nameCompleted}
-            >
+            <Card style={[styles.stepCard, nameCompleted && styles.stepCardCompleted]}>
+              <Text style={styles.stepLabel}>{STEP_LABELS.name}</Text>
+              <Text style={styles.stepTitle}>Name</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>What should I call you?</Text>
               {nameSubmitted && !isEditingName ? (
                 <>
@@ -704,15 +703,15 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                   </Button>
                 </>
               )}
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {ageVisible && (
-            <StepCard
-              label={STEP_LABELS.age}
-              title="Age"
-              completed={ageCompleted}
-            >
+            <Card style={[styles.stepCard, ageCompleted && styles.stepCardCompleted]}>
+              <Text style={styles.stepLabel}>{STEP_LABELS.age}</Text>
+              <Text style={styles.stepTitle}>Age</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>How old are you?</Text>
               {ageSubmitted && !isEditingAge ? (
                 <>
@@ -755,15 +754,15 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                   </Button>
                 </>
               )}
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {focusVisible && (
-            <StepCard
-              label={STEP_LABELS.focus}
-              title="Focus areas"
-              completed={focusCompleted}
-            >
+            <Card style={[styles.stepCard, focusCompleted && styles.stepCardCompleted]}>
+              <Text style={styles.stepLabel}>{STEP_LABELS.focus}</Text>
+              <Text style={styles.stepTitle}>Focus areas</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>
                 Takado helps you organize your goals into clear paths, so you always know what to work
                 on next.
@@ -818,15 +817,15 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                   )}
                 </>
               )}
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {profileVisible && (
-            <StepCard
-              label={STEP_LABELS.profileImage}
-              title="Profile image (optional)"
-              completed={profileCompleted}
-            >
+            <Card style={[styles.stepCard, profileCompleted && styles.stepCardCompleted]}>
+              <Text style={styles.stepLabel}>{STEP_LABELS.profileImage}</Text>
+              <Text style={styles.stepTitle}>Profile image (optional)</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>
                 Do you want to add a photo or avatar for your profile? You can skip this if you’d
                 like.
@@ -881,15 +880,15 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                   </View>
                 </>
               )}
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {notificationsVisible && (
-            <StepCard
-              label={STEP_LABELS.notifications}
-              title="Notifications"
-              completed={notificationsCompleted}
-            >
+            <Card style={[styles.stepCard, notificationsCompleted && styles.stepCardCompleted]}>
+              <Text style={styles.stepLabel}>{STEP_LABELS.notifications}</Text>
+              <Text style={styles.stepTitle}>Notifications</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>
                 I can send gentle reminders when an important step is coming up. Do you want
                 notifications?
@@ -925,11 +924,15 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                   )}
                 </>
               )}
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {arcIntroVisible && (
-            <StepCard label={STEP_LABELS.arcIntro} title="First Arc">
+            <Card style={styles.stepCard}>
+              <Text style={styles.stepLabel}>{STEP_LABELS.arcIntro}</Text>
+              <Text style={styles.stepTitle}>First Arc</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>
                 In Takado, your bigger goals live inside Arcs. An Arc is just a focused chapter of
                 your life, like “Get fit for summer” or “Launch my side project.”
@@ -963,15 +966,20 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                   </Button>
                 </>
               )}
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {arcSuggestionVisible && (
-            <StepCard
-              label={STEP_LABELS.arcSuggestion}
-              title="Suggested Arc"
-              completed={isStepCompleted('arcSuggestion')}
+            <Card
+              style={[
+                styles.stepCard,
+                isStepCompleted('arcSuggestion') && styles.stepCardCompleted,
+              ]}
             >
+              <Text style={styles.stepLabel}>{STEP_LABELS.arcSuggestion}</Text>
+              <Text style={styles.stepTitle}>Suggested Arc</Text>
+              <View style={styles.stepBody}>
               {isGeneratingArc ? (
                 <View style={styles.loadingRow}>
                   <ActivityIndicator color={colors.textPrimary} />
@@ -1013,15 +1021,20 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                   </View>
                 </>
               ) : null}
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {arcManualVisible && (
-            <StepCard
-              label={STEP_LABELS.arcManual}
-              title="Name your Arc"
-              completed={isStepCompleted('arcManual')}
+            <Card
+              style={[
+                styles.stepCard,
+                isStepCompleted('arcManual') && styles.stepCardCompleted,
+              ]}
             >
+              <Text style={styles.stepLabel}>{STEP_LABELS.arcManual}</Text>
+              <Text style={styles.stepTitle}>Name your Arc</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>Okay. Let’s start with a name for this Arc.</Text>
               <Text style={styles.bodyText}>What’s one thing you want to make real in your life?</Text>
               <Input
@@ -1038,11 +1051,15 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
               >
                 <Text style={styles.primaryButtonLabel}>Save Arc name</Text>
               </Button>
-            </StepCard>
+              </View>
+            </Card>
           )}
 
           {closingVisible && (
-            <StepCard label={STEP_LABELS.closing} title="You’re all set" completed>
+            <Card style={[styles.stepCard, styles.stepCardCompleted]}>
+              <Text style={styles.stepLabel}>{STEP_LABELS.closing}</Text>
+              <Text style={styles.stepTitle}>You’re all set</Text>
+              <View style={styles.stepBody}>
               <Text style={styles.bodyText}>
                 You’re all set, {displayName || 'friend'}.
               </Text>
@@ -1059,28 +1076,12 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
               <Button style={styles.primaryButton} onPress={handleCloseFlow}>
                 <Text style={styles.primaryButtonLabel}>Enter Takado</Text>
               </Button>
-            </StepCard>
+              </View>
+            </Card>
           )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-type StepCardProps = {
-  label: string;
-  title: string;
-  children: ReactNode;
-  completed?: boolean;
-};
-
-function StepCard({ label, title, children, completed }: StepCardProps) {
-  return (
-    <View style={[styles.stepCard, completed && styles.stepCardCompleted]}>
-      <Text style={styles.stepLabel}>{label}</Text>
-      <Text style={styles.stepTitle}>{title}</Text>
-      <View style={styles.stepBody}>{children}</View>
-    </View>
   );
 }
 
