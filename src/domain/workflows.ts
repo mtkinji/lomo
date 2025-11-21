@@ -76,6 +76,34 @@ export type WorkflowStep = {
    */
   nextStepOnConfirmId?: string;
   nextStepOnEditId?: string;
+  /**
+   * Optional rendering mode hint so presenters know whether this step’s copy
+   * should come directly from the LLM promptTemplate or from a static string.
+   * When omitted, presenters should assume normal LLM-driven behavior.
+   */
+  renderMode?: 'llm' | 'static';
+  /**
+   * Optional exact assistant copy for this step when renderMode === 'static'.
+   * This lets us bypass the LLM entirely for simple, declarative messages
+   * (welcome lines, confirmations, etc).
+   */
+  staticCopy?: string;
+  /**
+   * Optional UI metadata for this step. For form-style steps this can include
+   * fields and primary action labels so presenters can render cards directly
+   * from the workflow definition.
+   */
+  ui?: {
+    title?: string;
+    description?: string;
+    fields?: {
+      id: string;
+      label: string;
+      type?: string;
+      placeholder?: string;
+    }[];
+    primaryActionLabel?: string;
+  };
 };
 
 export type WorkflowDefinition = {
@@ -149,15 +177,46 @@ const mapStepKindToType = (kind: FirstTimeOnboardingStepSpec['kind']): WorkflowS
 const compileFirstTimeOnboardingV2Spec = (
   spec: FirstTimeOnboardingWorkflowSpec
 ): WorkflowDefinition => {
-  const steps: WorkflowStep[] = spec.steps.map((step) => ({
-    id: step.id,
-    type: mapStepKindToType(step.kind),
-    label: step.label,
-    fieldsCollected: step.collects,
-    promptTemplate: step.prompt,
-    validationHint: step.validationHint,
-    nextStepId: step.next,
-  }));
+  const steps: WorkflowStep[] = spec.steps.map((step) => {
+    let lengthHint: string | undefined;
+    if (step.copyLength === 'one_sentence') {
+      lengthHint = 'Keep your visible reply to a single short sentence.';
+    } else if (step.copyLength === 'two_sentences') {
+      lengthHint = 'Keep your visible reply to one or two short sentences.';
+    } else if (step.copyLength === 'short_paragraph') {
+      lengthHint = 'Keep your visible reply to one short paragraph (2–3 sentences).';
+    }
+
+    const promptTemplate = [step.prompt, lengthHint].filter(Boolean).join(' ');
+
+    const ui =
+      step.ui && (step.ui.title || step.ui.description || step.ui.fields || step.ui.primaryActionLabel)
+        ? {
+            title: step.ui.title,
+            description: step.ui.description,
+            primaryActionLabel: step.ui.primaryActionLabel,
+            fields: step.ui.fields?.map((field) => ({
+              id: field.id,
+              label: field.label,
+              type: field.type,
+              placeholder: field.placeholder,
+            })),
+          }
+        : undefined;
+
+    return {
+      id: step.id,
+      type: mapStepKindToType(step.kind),
+      label: step.label,
+      fieldsCollected: step.collects,
+      promptTemplate,
+      validationHint: step.validationHint,
+      nextStepId: step.next,
+      renderMode: step.renderMode,
+      staticCopy: step.staticCopy,
+      ui,
+    };
+  });
 
   return {
     id: spec.id,

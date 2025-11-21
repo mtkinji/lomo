@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 're
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -134,14 +135,30 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   );
 
   const sendStepAssistantCopy = useCallback(
-    async (workflowStepId: string) => {
+    async (workflowStepId: string, opts?: { onDone?: () => void }) => {
       const controller = chatControllerRef?.current;
       if (!controller || !workflowRuntime?.definition || !workflowRuntime.instance) {
         return;
       }
 
       const step = workflowRuntime.definition.steps.find((s) => s.id === workflowStepId);
-      if (!step || !step.promptTemplate) {
+      if (!step) {
+        return;
+      }
+
+      // For static steps, we bypass the LLM entirely and stream the exact copy
+      // provided by the workflow definition. This is useful for fixed welcome
+      // lines, confirmations, or other copy where we want full control.
+      if (step.renderMode === 'static' && typeof step.staticCopy === 'string') {
+        controller.streamAssistantReplyFromWorkflow(
+          step.staticCopy,
+          `assistant-step-${workflowStepId}`,
+          { onDone: opts?.onDone }
+        );
+        return;
+      }
+
+      if (!step.promptTemplate) {
         return;
       }
 
@@ -170,7 +187,11 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
           ],
           { mode: workflowRuntime.definition.chatMode }
         );
-        controller.streamAssistantReplyFromWorkflow(reply, `assistant-step-${workflowStepId}`);
+        controller.streamAssistantReplyFromWorkflow(
+          reply,
+          `assistant-step-${workflowStepId}`,
+          { onDone: opts?.onDone }
+        );
       } catch (error) {
         console.error('[onboarding] Failed to fetch assistant copy for step', workflowStepId, error);
       }
@@ -239,6 +260,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     return initial;
   });
   const [identitySubmitting, setIdentitySubmitting] = useState(false);
+  const identityCardOpacity = useRef(new Animated.Value(0)).current;
 
   const displayName = userProfile?.fullName?.trim() || nameInput.trim() || 'friend';
 
@@ -284,19 +306,38 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
     let cancelled = false;
 
-    const run = async () => {
-      await sendStepAssistantCopy('welcome_orientation');
-      if (!cancelled) {
+    const run = () => {
+      // Fire and forget the welcome copy; in practice it renders almost
+      // immediately since it’s static. We don’t strictly need to wait for the
+      // streaming callback before revealing the card.
+      void sendStepAssistantCopy('welcome_orientation');
+
+      setTimeout(() => {
+        if (cancelled) return;
         workflowRuntime.completeStep('welcome_orientation');
-      }
+        Animated.timing(identityCardOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      }, 450);
     };
 
-    void run();
+    run();
 
     return () => {
       cancelled = true;
     };
-  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy]);
+  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy, identityCardOpacity]);
+
+  // Ensure the identity card is visible (opacity 1) whenever the workflow is
+  // already sitting on identity_basic – for example, if we resume mid-flow or
+  // if the welcome step has already completed.
+  useEffect(() => {
+    if (!isV2Workflow) return;
+    if (workflowRuntime?.instance?.currentStepId !== 'identity_basic') return;
+    identityCardOpacity.setValue(1);
+  }, [isV2Workflow, workflowRuntime?.instance?.currentStepId, identityCardOpacity]);
 
   const handleWelcome = async () => {
     // Legacy no-op: the dedicated welcome card has been removed in favor of
@@ -686,20 +727,32 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
   const currentWorkflowStepId = workflowRuntime?.instance?.currentStepId;
 
-  const identityBasicFields: FormFieldConfig[] = [
-    {
-      id: 'name',
-      label: 'Preferred name',
-      placeholder: 'e.g., Maya or MJ',
-      autoCapitalize: 'words',
-    },
-    {
-      id: 'age',
-      label: 'Age',
-      placeholder: 'How old are you?',
-      keyboardType: 'number-pad',
-    },
-  ];
+  const identityWorkflowStep = workflowRuntime?.definition?.steps.find(
+    (step) => step.id === 'identity_basic'
+  );
+  const identityUi = identityWorkflowStep?.ui;
+
+  const identityBasicFields: FormFieldConfig[] =
+    identityUi?.fields?.map((field) => ({
+      id: field.id,
+      label: field.label,
+      placeholder: field.placeholder,
+      keyboardType: field.type === 'number' ? 'number-pad' : 'default',
+      autoCapitalize: field.type === 'text' ? 'words' : 'none',
+    })) ?? [
+      {
+        id: 'name',
+        label: 'Preferred name',
+        placeholder: 'e.g., Maya or MJ',
+        autoCapitalize: 'words',
+      },
+      {
+        id: 'age',
+        label: 'Age',
+        placeholder: 'How old are you?',
+        keyboardType: 'number-pad',
+      },
+    ];
 
   const handleIdentityBasicSubmit = async () => {
     if (!workflowRuntime) return;
@@ -771,22 +824,23 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.timeline}>
-            <GenericFormCard
-              title="Basic identity"
-              description="Let’s start with the basics so I know how to address you."
-              fields={identityBasicFields}
-              values={identityValues}
-              onChange={(fieldId, value) =>
-                setIdentityFormValues((current) => ({
-                  ...current,
-                  [fieldId]: value,
-                }))
-              }
-              onSubmit={handleIdentityBasicSubmit}
-              primaryButtonLabel="Save and continue"
-              submitting={identitySubmitting}
-              submitDisabled={!canSubmit}
-            />
+            <Animated.View style={{ opacity: identityCardOpacity }}>
+              <GenericFormCard
+                title={identityUi?.title ?? 'Basic identity'}
+                fields={identityBasicFields}
+                values={identityValues}
+                onChange={(fieldId, value) =>
+                  setIdentityFormValues((current) => ({
+                    ...current,
+                    [fieldId]: value,
+                  }))
+                }
+                onSubmit={handleIdentityBasicSubmit}
+                primaryButtonLabel={identityUi?.primaryActionLabel ?? 'Save and continue'}
+                submitting={identitySubmitting}
+                submitDisabled={!canSubmit}
+              />
+            </Animated.View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

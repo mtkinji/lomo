@@ -43,6 +43,25 @@ export type StepSpec = {
    */
   prompt: string;
   /**
+   * Optional rendering mode. When omitted or set to 'llm', the runtime will
+   * call the coach LLM with this step’s prompt. When set to 'static', the
+   * runtime will render `staticCopy` directly as the assistant message and
+   * skip the LLM entirely.
+   */
+  renderMode?: 'llm' | 'static';
+  /**
+   * Exact assistant copy to display when `renderMode` is 'static'. This is
+   * useful for fixed welcome lines, short confirmations, or legal copy where
+   * you want full control over the wording.
+   */
+  staticCopy?: string;
+  /**
+   * Optional hint for how long the assistant’s visible reply should be.
+   * This is compiled into the underlying prompt so you don’t have to repeat
+   * “one short sentence” / “1–2 sentences” everywhere in `prompt`.
+   */
+  copyLength?: 'one_sentence' | 'two_sentences' | 'short_paragraph';
+  /**
    * IDs of fields this step is responsible for collecting or populating.
    * These map to keys in the outcome schema.
    */
@@ -64,6 +83,11 @@ export type StepSpec = {
     title?: string;
     description?: string;
     fields?: FormFieldSpec[];
+    /**
+     * Optional label for the primary action button when this step is rendered
+     * as a form card.
+     */
+    primaryActionLabel?: string;
   };
 };
 
@@ -114,7 +138,11 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Welcome & priming',
       prompt:
-        'Briefly welcome the user to TAKADO and explain in one short paragraph that this is a guided setup to clarify one goal, the Arc it lives inside, and a few simple starting steps.',
+        'In 1–2 short sentences, welcome the user to TAKADO, describe it as a place to bring clarity to their life one goal, one step, one chapter at a time, and explain that you will guide them through a short setup so they can begin with confidence.',
+      renderMode: 'static',
+      staticCopy:
+        '👋 Welcome to Takado.\n\nThis is where you turn vague ideas and “one day” goals into clear, doable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters. 🌿',
+      copyLength: 'short_paragraph',
       validationHint:
         'No fields collected; keep the message short, warm, and specific about what will happen.',
       next: 'identity_basic',
@@ -125,13 +153,13 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Basic identity',
       collects: ['name', 'age'],
       prompt:
-        'In one or two short sentences, explain that you’ll start by learning how to address the user and roughly how old they are. Then invite them to fill in the fields below without re-asking questions in the text.',
+        'Ask the user, in one short sentence, “What should I call you?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
+      copyLength: 'two_sentences',
       validationHint:
         'Name should be non-empty. Age should be a reasonable integer; if unclear, ask once for clarification and then move on.',
       next: 'desire_invite',
       ui: {
         title: 'Basic identity',
-        description: "Let’s start with the basics so I know how to address you.",
         fields: [
           {
             id: 'name',
@@ -154,7 +182,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Invite a desire',
       collects: ['desireSummary'],
       prompt:
-        'Invite the user to share one thing they would like to make progress on right now. Keep it low-pressure and concrete. End by pointing to the text box below where they can type it in.',
+        'Ask the user, in 1–2 short sentences, to share one thing they would like to make progress on right now. Emphasize that anything that matters to them is valid and low-pressure, and then point them to the box below to type it in.',
+      copyLength: 'short_paragraph',
       validationHint:
         'Expect a short free-text summary. If the user is unsure, offer 2–3 example categories like “health”, “creative work”, or “relationships”.',
       next: 'desire_clarify',
@@ -176,7 +205,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Clarify intention',
       collects: ['desireClarified'],
       prompt:
-        'Read the desireSummary and ask ONE targeted clarifying question that helps you understand what matters most. Examples: “What part of that feels most important right now?” or “Is this more about developing a habit, learning something, or making a specific change?” Record a short clarified phrase as desireClarified.',
+        'Read the desireSummary and ask ONE targeted clarifying question in a single sentence that helps you understand what matters most (for example, “What part of that feels most important right now?”). Record a short clarified phrase as desireClarified.',
+      copyLength: 'one_sentence',
       validationHint:
         'Only one follow-up question. Capture a short clarified summary or key phrase that will feed the goal draft.',
       next: 'goal_draft',
@@ -187,7 +217,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Draft goal formation',
       collects: ['goal'],
       prompt:
-        'Synthesize a simple, concrete goal from the user’s desire and clarified intention. Produce a title, a short “why it matters”, and a rough time horizon (30–90 days).',
+        'Synthesize a simple, concrete draft goal from the user’s desire and clarified intention. Produce a title, a short “why it matters”, and a rough 30–90 day time horizon.',
+      copyLength: 'short_paragraph',
       validationHint:
         'Goal should feel doable within ~30–90 days, specific but not overwhelming. Use the user’s own language where possible.',
       next: 'goal_confirm',
@@ -198,7 +229,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Goal confirmation',
       collects: ['goalConfirmed'],
       prompt:
-        'Once the user accepts or edits the goal in the UI, briefly acknowledge it and confirm you will use this as their first goal.',
+        'In one short sentence, acknowledge the saved goal and confirm that you will use this as their first goal.',
+      copyLength: 'one_sentence',
       validationHint:
         'No additional data; just confirm and reflect the goal back in natural language.',
       next: 'arc_introduce',
@@ -208,7 +240,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Introduce Arcs',
       prompt:
-        'Explain briefly that every goal in TAKADO lives inside an Arc, the broader chapter of life it belongs to. Set up the next identity-oriented questions.',
+        'In 1–2 short sentences, explain that every goal in TAKADO lives inside an Arc—the broader chapter of life it belongs to—and that you are going to find the right chapter for this goal.',
+      copyLength: 'two_sentences',
       validationHint:
         'No fields; keep it short and avoid jargon. Make Arcs feel like a natural container, not a technical concept.',
       next: 'arc_identity_primary',
@@ -219,7 +252,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Arc identity prompt',
       collects: ['arcIdentityRaw'],
       prompt:
-        'Ask: “When you imagine the version of yourself who reaches this goal, what kind of person are they becoming?” Capture their free-form answer as arcIdentityRaw.',
+        'Ask the user, in one clear question, “When you imagine the version of yourself who reaches this goal, what kind of person are they becoming?” Capture their free-form answer as arcIdentityRaw.',
+      copyLength: 'one_sentence',
       validationHint:
         'Answer may be short; do not force depth. This is raw material for the Arc name and description.',
       next: 'arc_identity_clarify',
@@ -230,7 +264,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Arc clarifying prompt',
       collects: ['arcIdentityClarified'],
       prompt:
-        'Based on arcIdentityRaw, ask ONE follow-up question about what feels most important in that identity shift. Example: “What about that feels most important to you?” Record a short clarified phrase as arcIdentityClarified.',
+        'Based on arcIdentityRaw, ask ONE short follow-up question about what feels most important in that identity shift (for example, “What about that feels most important to you?”). Record a short clarified phrase as arcIdentityClarified.',
+      copyLength: 'one_sentence',
       validationHint:
         'Single follow-up only. Capture a short clarified phrase or bullet that highlights the core value or direction.',
       next: 'arc_draft',
@@ -241,7 +276,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Draft Arc formation',
       collects: ['arc'],
       prompt:
-        'Propose an identity-based Arc that the goal fits inside. Produce an Arc name, a one-sentence description, and a short explanation tying the Arc to the current goal.',
+        'Propose an identity-based Arc that the goal fits inside. Provide an Arc name, a one-sentence description, and a very brief explanation tying the Arc to the current goal.',
+      copyLength: 'short_paragraph',
       validationHint:
         'Arc name should be identity-oriented and durable (a chapter), not a task. Description should be one grounded sentence.',
       next: 'arc_confirm',
@@ -252,7 +288,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Arc confirmation',
       collects: ['arcConfirmed'],
       prompt:
-        'Once the user accepts or edits the Arc in the UI, briefly acknowledge it and confirm this will be the chapter guiding their direction.',
+        'In one short sentence, acknowledge the chosen Arc and confirm that this will be the chapter guiding their direction.',
+      copyLength: 'one_sentence',
       validationHint:
         'No new structured fields; simply mark that the Arc has been adopted and reflect it back in natural language.',
       next: 'activities_generate',
@@ -263,7 +300,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Generate starter activities',
       collects: ['activities'],
       prompt:
-        'Given the confirmed goal and Arc, propose 2–4 small, clear starter Activities that build early momentum. Each should be concrete and doable (e.g., “Take a 10-minute walk today”).',
+        'Given the confirmed goal and Arc, list 2–4 small, clear starter Activities as specific, doable next steps (for example, “Take a 10-minute walk today”).',
+      copyLength: 'short_paragraph',
       validationHint:
         'Activities should feel like next steps, not projects. Avoid overloading the user; keep the list short.',
       next: 'activities_confirm',
@@ -274,7 +312,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Activities confirmation',
       collects: ['activitiesSelection'],
       prompt:
-        'Acknowledge whichever Activities the user chose to add (or that they skipped for now), and briefly summarize that these are now part of their plan.',
+        'In 1–2 short sentences, acknowledge whichever Activities the user chose to add (or that they skipped) and summarize that these steps are now part of their plan.',
+      copyLength: 'two_sentences',
       validationHint:
         'No new structured activities here; just record which ones the user adopted so the client can persist them.',
       next: 'profile_avatar',
@@ -285,13 +324,13 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Profile personalization',
       collects: ['avatarUrl'],
       prompt:
-        'Offer the option to add a photo or avatar before they begin, and gracefully accept skips.',
+        'Ask, in 1–2 short sentences, whether the user would like to add a photo or avatar now, and make it clear that skipping is completely fine.',
+      copyLength: 'two_sentences',
       validationHint:
         'avatarUrl may be null. Do not pressure the user; this is optional seasoning, not a requirement.',
       next: 'notifications_v2',
       ui: {
         title: 'Profile image (optional)',
-        description: 'You can add a photo or avatar now, or skip and do it later.',
         // Specific picker behavior is still implemented in the presenter;
         // this just documents intent.
       },
@@ -302,7 +341,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Notifications setup',
       collects: ['notifications'],
       prompt:
-        'Offer a simple choice to turn on gentle notifications for steps and Arc attention, or “Not now”.',
+        'Ask the user, in one short question, whether to turn on gentle notifications for steps and Arc attention, offering a clear choice between enabling them or “Not now”.',
+      copyLength: 'one_sentence',
       validationHint:
         'notifications should be enabled or disabled. Respect the user’s choice without pushing.',
       next: 'closing_v2',
@@ -315,7 +355,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Closing (goal, arc, activities)',
       prompt:
-        'Congratulate the user by name, briefly recap that they now have an Arc, a goal, and a few concrete next steps, and remind them they can ask what to do next at any time.',
+        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have an Arc, a goal, and a few concrete next steps, and remind them they can ask what to do next at any time.',
+      copyLength: 'short_paragraph',
       validationHint:
         'No new fields; keep it concise, encouraging, and grounded. Avoid hype.',
     },
