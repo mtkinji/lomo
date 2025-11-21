@@ -29,6 +29,7 @@ import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down';
 import Trash from 'lucide-react-native/dist/esm/icons/trash-2';
 import Check from 'lucide-react-native/dist/esm/icons/check';
 import FlaskConical from 'lucide-react-native/dist/esm/icons/flask-conical';
+import Code from 'lucide-react-native/dist/esm/icons/code';
 
 const icons = {
   today: CalendarCheck,
@@ -59,7 +60,7 @@ const icons = {
   trash: Trash,
   refresh: RefreshCw,
   check: Check,
-  dev: FlaskConical,
+  dev: Code,
 };
 
 export type IconName = keyof typeof icons;

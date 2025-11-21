@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -26,7 +26,7 @@ import { Logo } from '../../ui/Logo';
 import { CoachChatTurn, GeneratedArc, sendCoachChat } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
-import { OnboardingGuidedFlow } from '../onboarding/OnboardingGuidedFlow';
+import type { ReactNode, Ref } from 'react';
 import type {
   AgeRange,
   ArcProposalFeedback,
@@ -402,6 +402,35 @@ export type AiChatPaneProps = {
    * completes inside the chat surface.
    */
   onComplete?: (outcome?: unknown) => void;
+  /**
+   * Optional slot for rendering a workflow- or mode-specific step card
+   * beneath the transcript. For example, first-time onboarding can render
+   * its guided cards here while the shared chat surface stays consistent.
+   */
+  stepCard?: ReactNode;
+};
+
+export type AiChatPaneController = {
+  /**
+   * Append a synthetic user message into the visible transcript. Used by
+   * structured flows (like onboarding) so answers collected via cards also
+   * appear as chat bubbles.
+   */
+  appendUserMessage: (content: string) => void;
+  /**
+   * Stream an assistant reply into the transcript using the same animation
+   * behavior as normal chat turns.
+   */
+  streamAssistantReplyFromWorkflow: (
+    fullText: string,
+    baseId?: string,
+    opts?: { onDone?: () => void }
+  ) => void;
+  /**
+   * Snapshot the current chat history (including hidden system messages) so
+   * workflow presenters can call `sendCoachChat` with full context.
+   */
+  getHistory: () => CoachChatTurn[];
 };
 
 /**
@@ -409,19 +438,12 @@ export type AiChatPaneProps = {
  * This component intentionally does NOT own global app padding or navigation
  * chrome – the sheet + AppShell handle those layers.
  */
-export function AiChatPane({
-  mode,
-  launchContext,
-  resumeDraft = true,
-  onConfirmArc,
-  onComplete,
-}: AiChatPaneProps) {
+export const AiChatPane = forwardRef(function AiChatPane(
+  { mode, launchContext, resumeDraft = true, onConfirmArc, onComplete, stepCard }: AiChatPaneProps,
+  ref: Ref<AiChatPaneController>
+) {
   const isArcCreationMode = mode === 'arcCreation';
   const isOnboardingMode = mode === 'firstTimeOnboarding';
-
-  if (isOnboardingMode) {
-    return <OnboardingGuidedFlow onComplete={() => onComplete?.()} />;
-  }
 
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
@@ -474,6 +496,14 @@ export function AiChatPane({
       content: contextContent,
     };
 
+    // For first-time onboarding, we want the visible assistant copy to be
+    // orchestrated per workflow step (via workflow presenters) instead of a
+    // generic intro. We still keep the system message hidden in history so
+    // the model has full context.
+    if (isOnboardingMode) {
+      return [systemMessage];
+    }
+
     // For modes that bootstrap their first assistant reply automatically, we
     // do not show the default intro message so the response comes directly
     // from the mode-specific system prompt.
@@ -513,6 +543,7 @@ export function AiChatPane({
   const canSend = hasInput && !sending;
   const hasUserMessages = messages.some((m) => m.role === 'user');
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
+  const shouldShowSuggestionsRail = !hasUserMessages && !isOnboardingMode;
 
   const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
     if (!isArcCreationMode) return;
@@ -769,6 +800,35 @@ export function AiChatPane({
     // Kick off the first animation frame.
     setTimeout(step, 20);
   };
+
+  useImperativeHandle(
+    ref,
+    (): AiChatPaneController => ({
+      appendUserMessage: (content: string) => {
+        const userMessage: ChatMessage = {
+          id: `user-external-${Date.now()}`,
+          role: 'user',
+          content,
+        };
+        setMessages((prev) => {
+          const next = [...prev, userMessage];
+          messagesRef.current = next;
+          scheduleDraftSave(next, input);
+          return next;
+        });
+      },
+      streamAssistantReplyFromWorkflow: (fullText: string, baseId = 'assistant-workflow', opts) => {
+        streamAssistantReply(fullText, baseId, opts);
+      },
+      getHistory: () => {
+        return messagesRef.current.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+      },
+    }),
+    [input]
+  );
 
   // For arcCreation mode, automatically ask the model for an initial
   // assistant message on mount so the conversation opens with guidance
@@ -1105,10 +1165,12 @@ export function AiChatPane({
                   </View>
                 </View>
               )}
+
+              {stepCard && <View style={styles.stepCardHost}>{stepCard}</View>}
             </View>
           </ScrollView>
 
-        <View
+          <View
           style={[
             styles.composerFence,
             {
@@ -1117,7 +1179,7 @@ export function AiChatPane({
             },
           ]}
         >
-          {!hasUserMessages && (
+            {shouldShowSuggestionsRail && (
             <View style={styles.suggestionsFence}>
               <ScrollView
                 horizontal
@@ -1430,7 +1492,7 @@ export function AiChatPane({
     )}
   </>
   );
-}
+});
 
 function ThinkingBubble() {
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -1694,6 +1756,9 @@ const styles = StyleSheet.create({
   },
   suggestionsFence: {
     paddingBottom: spacing.sm,
+  },
+  stepCardHost: {
+    marginTop: spacing.lg,
   },
   composerSection: {
     gap: spacing.sm,

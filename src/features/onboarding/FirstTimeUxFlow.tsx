@@ -51,34 +51,46 @@ export function FirstTimeUxFlow() {
                 accessibilityLabel="Dev tools menu"
                 style={styles.devExitButton}
               >
-                <Icon name="menu" color={colors.canvas} size={14} />
+                <Icon name="dev" color={colors.canvas} size={16} />
               </Button>
             </View>
             {showDevMenu && (
               <>
                 <Pressable style={styles.devMenuOverlay} onPress={() => setShowDevMenu(false)} />
                 <View style={[styles.devMenu, { top: insets.top + 44 }]}>
-                  <Button
-                    variant="ghost"
-                    size="small"
+                  <Pressable
+                    accessibilityRole="button"
                     onPress={() => {
                       resetOnboardingAnswers();
                       startFlow();
                       setShowDevMenu(false);
                     }}
+                    style={({ pressed }) => [
+                      styles.devMenuItem,
+                      pressed && styles.devMenuItemPressed,
+                    ]}
                   >
-                    <Text style={styles.devMenuItemLabel}>Restart onboarding</Text>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="small"
+                    <View style={styles.devMenuItemContent}>
+                      <Icon name="refresh" size={16} color={colors.textPrimary} />
+                      <Text style={styles.devMenuItemLabel}>Restart onboarding</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
                     onPress={() => {
                       setShowDevMenu(false);
                       dismissFlow();
                     }}
+                    style={({ pressed }) => [
+                      styles.devMenuItem,
+                      pressed && styles.devMenuItemPressed,
+                    ]}
                   >
-                    <Text style={styles.devMenuItemLabel}>Exit onboarding</Text>
-                  </Button>
+                    <View style={styles.devMenuItemContent}>
+                      <Icon name="close" size={16} color={colors.textPrimary} />
+                      <Text style={styles.devMenuItemLabel}>Exit onboarding</Text>
+                    </View>
+                  </Pressable>
                 </View>
               </>
             )}
@@ -127,8 +139,9 @@ const styles = StyleSheet.create({
     right: 12,
     borderRadius: 16,
     backgroundColor: colors.canvas,
-    padding: spacing.md,
-    gap: spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    gap: 0,
     shadowColor: '#0F172A',
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -136,8 +149,21 @@ const styles = StyleSheet.create({
     elevation: 6,
     zIndex: 2,
   },
+  devMenuItem: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 8,
+  },
+  devMenuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  devMenuItemPressed: {
+    backgroundColor: colors.shell,
+  },
   devMenuItemLabel: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
   },
 });

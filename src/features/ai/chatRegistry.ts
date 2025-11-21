@@ -226,7 +226,7 @@ export const CHAT_MODE_REGISTRY: Record<ChatMode, ChatModeConfig> = {
     mode: 'firstTimeOnboarding',
     label: 'Onboarding Guide',
     systemPrompt: FIRST_TIME_ONBOARDING_PROMPT,
-    autoBootstrapFirstMessage: true,
+    autoBootstrapFirstMessage: false,
     tools: [],
   },
 };

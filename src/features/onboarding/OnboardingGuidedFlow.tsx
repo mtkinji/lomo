@@ -18,9 +18,15 @@ import { Input } from '../../ui/Input';
 import { Logo } from '../../ui/Logo';
 import { useAppStore } from '../../store/useAppStore';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
-import { generateArcs, type GeneratedArc } from '../../services/ai';
+import {
+  generateArcs,
+  sendCoachChat,
+  type CoachChatTurn,
+  type GeneratedArc,
+} from '../../services/ai';
 import type { AgeRange, Arc, FocusAreaId } from '../../domain/types';
 import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
+import type { AiChatPaneController } from '../ai/AiChatScreen';
 
 type OnboardingStage =
   | 'welcome'
@@ -96,9 +102,15 @@ type OnboardingGuidedFlowProps = {
    * store directly so legacy entry points keep working.
    */
   onComplete?: () => void;
+  /**
+   * Optional controller for the shared chat surface. When provided, answers
+   * collected in this flow are also mirrored into the AiChatPane transcript
+   * as user bubbles and per-step assistant copy is streamed via sendCoachChat.
+   */
+  chatControllerRef?: React.RefObject<AiChatPaneController | null>;
 };
 
-export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) {
+export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: OnboardingGuidedFlowProps) {
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => {
@@ -107,6 +119,60 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
   }, []);
 
   const workflowRuntime = useWorkflowRuntime();
+
+  const appendChatUserMessage = useCallback(
+    (content: string) => {
+      const controller = chatControllerRef?.current;
+      if (!controller) return;
+      controller.appendUserMessage(content);
+    },
+    [chatControllerRef]
+  );
+
+  const sendStepAssistantCopy = useCallback(
+    async (workflowStepId: string) => {
+      const controller = chatControllerRef?.current;
+      if (!controller || !workflowRuntime?.definition || !workflowRuntime.instance) {
+        return;
+      }
+
+      const step = workflowRuntime.definition.steps.find((s) => s.id === workflowStepId);
+      if (!step || !step.promptTemplate) {
+        return;
+      }
+
+      const collected = workflowRuntime.instance.collectedData ?? {};
+      const collectedSummary =
+        Object.keys(collected).length > 0
+          ? `\n\nCurrent collected onboarding data (JSON):\n${JSON.stringify(
+              collected,
+              null,
+              2
+            )}\n\nUse this context, but do not repeat it verbatim.`
+          : '';
+
+      const renderedPrompt = `${step.promptTemplate.trim()}${collectedSummary}\n\nRespond as the Takado coach directly to the user in 1–3 short paragraphs. Keep it warm, concrete, and low-pressure.`;
+
+      const history: CoachChatTurn[] = controller.getHistory();
+
+      try {
+        const reply = await sendCoachChat(
+          [
+            ...history,
+            {
+              role: 'user',
+              content: renderedPrompt,
+            },
+          ],
+          { mode: workflowRuntime.definition.chatMode }
+        );
+        controller.streamAssistantReplyFromWorkflow(reply, `assistant-step-${workflowStepId}`);
+      } catch (error) {
+        console.error('[onboarding] Failed to fetch assistant copy for step', workflowStepId, error);
+      }
+    },
+    [chatControllerRef, workflowRuntime]
+  );
 
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
@@ -179,10 +245,12 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
   const isStepVisible = (step: OnboardingStage) => visibleSteps.includes(step);
   const isStepCompleted = (step: OnboardingStage) => completedSteps.includes(step);
 
-  const handleWelcome = () => {
+  const handleWelcome = async () => {
     completeStep('welcome');
     // Map to workflow step "welcome"
     workflowRuntime?.completeStep('welcome');
+    appendChatUserMessage("I’m ready to get started.");
+    await sendStepAssistantCopy('welcome');
   };
 
   const handleSaveName = () => {
@@ -197,6 +265,7 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     setNameSubmitted(true);
     setIsEditingName(false);
     completeStep('name');
+    appendChatUserMessage(`You can call me ${trimmed}.`);
   };
 
   const handleKeepName = () => {
@@ -206,7 +275,7 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     completeStep('name');
   };
 
-  const handleSaveAge = () => {
+  const handleSaveAge = async () => {
     const parsed = Number(ageInput);
     if (!Number.isFinite(parsed) || parsed < 0) {
       return;
@@ -226,6 +295,9 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
       name: effectiveName,
       ageRange: range,
     });
+    const bucketLabel = AGE_RANGE_LABELS[range] ?? String(range);
+    appendChatUserMessage(`I’m in the ${bucketLabel} age range.`);
+    await sendStepAssistantCopy('profile_basics');
   };
 
   const handleKeepAge = () => {
@@ -241,7 +313,7 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     );
   };
 
-  const handleSaveFocusAreas = () => {
+  const handleSaveFocusAreas = async () => {
     if (selectedFocusAreas.length === 0) {
       return;
     }
@@ -255,6 +327,9 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     workflowRuntime?.completeStep('focus_areas', {
       focusAreas: selectedFocusAreas,
     });
+    const summary = selectedFocusSummary || 'those areas';
+    appendChatUserMessage(`I want to focus on ${summary}.`);
+    await sendStepAssistantCopy('focus_areas');
   };
 
   const handleKeepFocusAreas = () => {
@@ -358,7 +433,7 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     setProfileImageStatus('idle');
   };
 
-  const handleNotificationsChoice = (enabled: boolean) => {
+  const handleNotificationsChoice = async (enabled: boolean) => {
     updateUserProfile((current) => ({
       ...current,
       notifications: {
@@ -372,6 +447,10 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     workflowRuntime?.completeStep('notifications', {
       notifications: enabled ? 'enabled' : 'disabled',
     });
+    appendChatUserMessage(
+      enabled ? 'Yes, enable reminders for me.' : 'No reminders for now, thanks.'
+    );
+    await sendStepAssistantCopy('notifications');
   };
 
   const handleConfirmNotifications = () => {
@@ -381,7 +460,7 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     completeStep('notifications');
   };
 
-  const handleArcChoice = (choice: 'suggest' | 'manual') => {
+  const handleArcChoice = async (choice: 'suggest' | 'manual') => {
     setArcChoice(choice);
     setArcSuggestion(null);
     setArcSuggestionError(null);
@@ -401,6 +480,12 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     workflowRuntime?.completeStep('starter_arc_decision', {
       starterArcStrategy: strategy,
     });
+    appendChatUserMessage(
+      choice === 'suggest'
+        ? 'Please suggest a starter Arc based on what I shared.'
+        : 'I’d like to name my own first Arc.'
+    );
+    await sendStepAssistantCopy('starter_arc_decision');
   };
 
   const resetArcSelection = () => {
@@ -487,6 +572,8 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
     completeStep(completionStep, 'closing');
     // Mark workflow "closing" step as reached so the runtime has a complete picture.
     workflowRuntime?.completeStep('closing');
+    appendChatUserMessage(`Let’s go with the Arc “${arc.name}”.`);
+    void sendStepAssistantCopy('closing');
   };
 
   const handleCloseFlow = () => {
@@ -552,11 +639,6 @@ export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) 
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.timeline}>
-          <View style={styles.brandHeader}>
-            <Logo size={36} />
-            <Text style={styles.brandWordmark}>Takado</Text>
-          </View>
-
           {welcomeVisible && (
             <StepCard
               label={STEP_LABELS.welcome}

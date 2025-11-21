@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMode } from './chatRegistry';
 import type { GeneratedArc } from '../../services/ai';
 import {
@@ -7,9 +7,11 @@ import {
   type WorkflowInstance,
   type WorkflowInstanceStatus,
   WORKFLOW_DEFINITIONS,
+  FIRST_TIME_ONBOARDING_WORKFLOW_ID,
 } from '../../domain/workflows';
-import { AiChatPane } from './AiChatScreen';
+import { AiChatPane, type AiChatPaneController } from './AiChatScreen';
 import { WorkflowRuntimeContext } from './WorkflowRuntimeContext';
+import { OnboardingGuidedFlow } from '../onboarding/OnboardingGuidedFlow';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -79,6 +81,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     onComplete,
   } = props;
 
+  const chatPaneRef = useRef<AiChatPaneController | null>(null);
+
   const launchContextText = useMemo(() => {
     const base = serializeLaunchContext(launchContext);
     if (!workspaceSnapshot) {
@@ -139,6 +143,25 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     [workflowDefinition]
   );
 
+  const workflowStepCard = useMemo(() => {
+    if (!workflowDefinition) {
+      return undefined;
+    }
+
+    if (workflowDefinition.id === FIRST_TIME_ONBOARDING_WORKFLOW_ID) {
+      return (
+        <OnboardingGuidedFlow
+          onComplete={() => {
+            onComplete?.(workflowInstance?.collectedData ?? {});
+          }}
+          chatControllerRef={chatPaneRef}
+        />
+      );
+    }
+
+    return undefined;
+  }, [workflowDefinition, workflowInstance, onComplete]);
+
   useEffect(() => {
     if (!workflowInstance || workflowInstance.status !== 'completed') return;
     if (!onComplete) return;
@@ -173,11 +196,13 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       }}
     >
       <AiChatPane
+        ref={chatPaneRef}
         mode={mode}
         launchContext={launchContextText}
         resumeDraft={resumeDraft}
         onConfirmArc={onConfirmArc}
         onComplete={onComplete}
+        stepCard={workflowStepCard}
       />
     </WorkflowRuntimeContext.Provider>
   );
