@@ -188,7 +188,10 @@ type OpenAiToolMessage = {
 };
 
 const buildCoachToolsForMode = (mode?: ChatMode) => {
-  const shouldExposeProfileTools = mode === 'arcCreation' || mode === 'firstTimeOnboarding';
+  // Profile tools are intentionally restricted to Arc creation. First-time
+  // onboarding now collects identity data through workflow-driven cards
+  // instead of allowing the model to freestyle reads/writes.
+  const shouldExposeProfileTools = mode === 'arcCreation';
   if (!shouldExposeProfileTools) {
     return undefined;
   }

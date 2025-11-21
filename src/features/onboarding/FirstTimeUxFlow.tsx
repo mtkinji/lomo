@@ -10,7 +10,6 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
 import {
-  FIRST_TIME_ONBOARDING_WORKFLOW_ID,
   FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID,
 } from '../../domain/workflows';
 
@@ -23,7 +22,6 @@ export function FirstTimeUxFlow() {
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
   const insets = useSafeAreaInsets();
   const [showDevMenu, setShowDevMenu] = useState(false);
-  const [useV2Workflow, setUseV2Workflow] = useState(false);
 
   useEffect(() => {
     if (!isVisible) {
@@ -37,7 +35,7 @@ export function FirstTimeUxFlow() {
     return null;
   }
 
-  const workspaceKey = `${useV2Workflow ? 'v2' : 'v1'}:${triggerCount}`;
+  const workspaceKey = `v2:${triggerCount}`;
 
   return (
     <Modal
@@ -69,25 +67,6 @@ export function FirstTimeUxFlow() {
                     accessibilityRole="button"
                     onPress={() => {
                       resetOnboardingAnswers();
-                      startFlow();
-                      setUseV2Workflow(false);
-                      setShowDevMenu(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.devMenuItem,
-                      pressed && styles.devMenuItemPressed,
-                    ]}
-                  >
-                    <View style={styles.devMenuItemContent}>
-                      <Icon name="refresh" size={16} color={colors.textPrimary} />
-                      <Text style={styles.devMenuItemLabel}>Restart onboarding</Text>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      resetOnboardingAnswers();
-                      setUseV2Workflow(true);
                       startFlow();
                       setShowDevMenu(false);
                     }}
@@ -130,9 +109,7 @@ export function FirstTimeUxFlow() {
               source: 'firstTimeAppOpen',
               intent: 'firstTimeOnboarding',
             }}
-            workflowDefinitionId={
-              useV2Workflow ? FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID : FIRST_TIME_ONBOARDING_WORKFLOW_ID
-            }
+            workflowDefinitionId={FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID}
             workflowInstanceId={workspaceKey}
             onComplete={() => {
               completeFlow();

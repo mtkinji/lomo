@@ -229,6 +229,17 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const [arcFinalized, setArcFinalized] = useState(false);
   const [createdArcName, setCreatedArcName] = useState<string | null>(null);
 
+  // Lightweight state for schema-driven v2 identity collection. This is only
+  // used when the v2 workflow is active and the current step is identity_basic.
+  const [identityFormValues, setIdentityFormValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    if (userProfile?.fullName?.trim()) {
+      initial.name = userProfile.fullName.trim();
+    }
+    return initial;
+  });
+  const [identitySubmitting, setIdentitySubmitting] = useState(false);
+
   const displayName = userProfile?.fullName?.trim() || nameInput.trim() || 'friend';
 
   const addVisibleStep = (step: OnboardingStage) => {
@@ -260,6 +271,32 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     completeStep('welcome');
     workflowRuntime?.completeStep('welcome');
   }, []); // run once on mount
+
+  // For v2, the welcome_orientation step is agent-only. When we detect that
+  // the workflow is sitting on this step, we fetch the assistant copy once
+  // and then advance the workflow to identity_basic so the first interactive
+  // card can render in the chat surface.
+  useEffect(() => {
+    if (!isV2Workflow) return;
+    if (!workflowRuntime?.instance) return;
+    const currentStepId = workflowRuntime.instance.currentStepId;
+    if (currentStepId !== 'welcome_orientation') return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      await sendStepAssistantCopy('welcome_orientation');
+      if (!cancelled) {
+        workflowRuntime.completeStep('welcome_orientation');
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy]);
 
   const handleWelcome = async () => {
     // Legacy no-op: the dedicated welcome card has been removed in favor of
@@ -646,6 +683,115 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     }
     return selectedFocusAreas.map((area) => getFocusAreaLabel(area)).join(', ');
   }, [selectedFocusAreas, userProfile?.focusAreas]);
+
+  const currentWorkflowStepId = workflowRuntime?.instance?.currentStepId;
+
+  const identityBasicFields: FormFieldConfig[] = [
+    {
+      id: 'name',
+      label: 'Preferred name',
+      placeholder: 'e.g., Maya or MJ',
+      autoCapitalize: 'words',
+    },
+    {
+      id: 'age',
+      label: 'Age',
+      placeholder: 'How old are you?',
+      keyboardType: 'number-pad',
+    },
+  ];
+
+  const handleIdentityBasicSubmit = async () => {
+    if (!workflowRuntime) return;
+
+    const rawName = identityFormValues.name ?? '';
+    const rawAge = identityFormValues.age ?? '';
+    const trimmedName = rawName.trim();
+    const parsedAge = Number(rawAge.trim());
+
+    if (!trimmedName) {
+      return;
+    }
+    if (!Number.isFinite(parsedAge) || parsedAge <= 0) {
+      return;
+    }
+
+    setIdentitySubmitting(true);
+    try {
+      const ageRange = pickAgeRange(parsedAge);
+      updateUserProfile((current) => ({
+        ...current,
+        fullName: trimmedName,
+        ageRange,
+      }));
+
+      workflowRuntime.completeStep('identity_basic', {
+        name: trimmedName,
+        age: parsedAge,
+      });
+
+      appendChatUserMessage(`My name is ${trimmedName}, I'm ${parsedAge}.`);
+      await sendStepAssistantCopy('identity_basic');
+    } finally {
+      setIdentitySubmitting(false);
+    }
+  };
+
+  // When running under the v2 onboarding workflow, we render a single
+  // schema-driven card for the current step inside the shared chat surface.
+  // For now we only host the identity_basic step here; additional steps will
+  // be wired up following the same pattern.
+  if (isV2Workflow) {
+    if (currentWorkflowStepId !== 'identity_basic') {
+      // No interactive card for this step yet; let the conversation be driven
+      // purely by assistant copy.
+      return null;
+    }
+
+    const identityValues = {
+      name: identityFormValues.name ?? '',
+      age: identityFormValues.age ?? '',
+    };
+
+    const canSubmit =
+      (identityValues.name ?? '').trim().length > 0 &&
+      Number.isFinite(Number((identityValues.age ?? '').trim())) &&
+      Number((identityValues.age ?? '').trim()) > 0;
+
+    return (
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={64}
+      >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.timeline}>
+            <GenericFormCard
+              title="Basic identity"
+              description="Let’s start with the basics so I know how to address you."
+              fields={identityBasicFields}
+              values={identityValues}
+              onChange={(fieldId, value) =>
+                setIdentityFormValues((current) => ({
+                  ...current,
+                  [fieldId]: value,
+                }))
+              }
+              onSubmit={handleIdentityBasicSubmit}
+              primaryButtonLabel="Save and continue"
+              submitting={identitySubmitting}
+              submitDisabled={!canSubmit}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -1082,6 +1228,78 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+type FormFieldConfig = {
+  id: string;
+  label: string;
+  placeholder?: string;
+  keyboardType?: 'default' | 'number-pad' | 'email-address';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+};
+
+type GenericFormCardProps = {
+  stepLabel?: string;
+  title: string;
+  description?: string;
+  fields: FormFieldConfig[];
+  values: Record<string, string>;
+  onChange: (fieldId: string, value: string) => void;
+  onSubmit: () => void;
+  primaryButtonLabel: string;
+  submitting?: boolean;
+  submitDisabled?: boolean;
+};
+
+function GenericFormCard({
+  stepLabel,
+  title,
+  description,
+  fields,
+  values,
+  onChange,
+  onSubmit,
+  primaryButtonLabel,
+  submitting,
+  submitDisabled,
+}: GenericFormCardProps) {
+  const allFieldsFilled = fields.every((field) => (values[field.id] ?? '').trim().length > 0);
+  const disabled =
+    (submitDisabled ?? !allFieldsFilled) || Boolean(submitting);
+
+  return (
+    <Card style={styles.stepCard}>
+      {stepLabel ? <Text style={styles.stepLabel}>{stepLabel}</Text> : null}
+      <Text style={styles.stepTitle}>{title}</Text>
+      <View style={styles.stepBody}>
+        {description ? <Text style={styles.bodyText}>{description}</Text> : null}
+        {fields.map((field) => (
+          <Input
+            key={field.id}
+            label={field.label}
+            placeholder={field.placeholder}
+            value={values[field.id] ?? ''}
+            onChangeText={(text) => onChange(field.id, text)}
+            keyboardType={field.keyboardType}
+            autoCapitalize={field.autoCapitalize}
+            returnKeyType="done"
+            onSubmitEditing={onSubmit}
+          />
+        ))}
+        <Button
+          style={styles.primaryButton}
+          onPress={onSubmit}
+          disabled={disabled}
+        >
+          {submitting ? (
+            <ActivityIndicator color={colors.canvas} />
+          ) : (
+            <Text style={styles.primaryButtonLabel}>{primaryButtonLabel}</Text>
+          )}
+        </Button>
+      </View>
+    </Card>
   );
 }
 
