@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Icon, IconName } from '../../ui/Icon';
-import { LomoBottomSheet } from '../../ui/BottomSheet';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import type {
@@ -61,6 +61,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         icon: 'image',
         route: 'SettingsAppearance',
         tags: ['visuals', 'thumbnail', 'theme'],
+      },
+      {
+        id: 'takado',
+        title: 'Takado Agent',
+        description: 'Choose which LLM powers the Takado Agent.',
+        icon: 'aiGuide',
+        route: 'SettingsAiModel',
+        tags: ['ai', 'agent', 'model'],
       },
       {
         id: 'notifications',
@@ -314,7 +322,7 @@ export function SettingsHomeScreen() {
             </View>
           )}
         </ScrollView>
-        <LomoBottomSheet
+        <TakadoBottomSheet
           visible={avatarSheetVisible}
           onClose={() => {
             if (!isUpdatingAvatar) {
@@ -364,7 +372,7 @@ export function SettingsHomeScreen() {
               ) : null}
             </VStack>
           </View>
-        </LomoBottomSheet>
+        </TakadoBottomSheet>
       </View>
     </AppShell>
   );

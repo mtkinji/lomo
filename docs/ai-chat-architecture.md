@@ -4,7 +4,7 @@
 
 LOMO’s AI experiences are built around a **contextual helper** that lives in a bottom sheet, layered on top of the existing app shell and page canvas. Instead of a single generic chatbot, we treat each AI entry point as doing a specific job (a **mode**) with a well-defined set of **tools** it is allowed to call.
 
-- **Surface**: `LomoBottomSheet` hosting a chat-like interaction.
+- **Surface**: `TakadoBottomSheet` hosting a chat-like interaction.
 - **Mode**: describes the job (e.g. `arcCreation`).
 - **Context**: structured data passed at launch (arcs, goals, activities, etc.).
 - **Tool registry**: defines what the AI can do in that mode and where those tools live.
@@ -150,5 +150,49 @@ The bottom sheet UI and mode/registry shape remain consistent; only the backing 
 - Complex multi-pane editing experiences that don’t fit well in a bottom sheet.
 
 Those future needs can be met by building a server-side agent/orchestration layer that consumes the same **tool registry** and modes, while the mobile app continues to provide the conversational sheet UI and launch contexts.
+
+### Workflows & AgentWorkspace (v2)
+
+In addition to `ChatMode`, we now introduce **Workflows** and the shared **`AgentWorkspace`** shell:
+
+- **LaunchContext** (in `src/domain/workflows.ts`)
+  - Captures _where_ and _why_ the agent was launched.
+  - Example: `{ source: 'firstTimeAppOpen', intent: 'firstTimeOnboarding' }`.
+- **WorkflowDefinition**
+  - Describes a deterministic, step-based flow (`steps`, `outcomeSchema`, `chatMode`).
+  - Example: `FIRST_TIME_ONBOARDING_WORKFLOW` with steps like `welcome`, `profile_basics`, `notifications`, etc.
+- **WorkflowInstance** (future backend-backed)
+  - Tracks per-user progress through a definition (`currentStepId`, `collectedData`, `status`).
+- **AgentWorkspace** (`src/features/ai/AgentWorkspace.tsx`)
+  - Single, reusable host component for all agent UX.
+  - Receives `mode`, `launchContext`, and optional workflow IDs and owns the chat + card timeline.
+
+#### Adding a new workflow (current pattern)
+
+For now, all workflow definitions live in `src/domain/workflows.ts` behind a small registry:
+
+1. **Define the workflow**
+   - Add a new `WorkflowDefinition` constant:
+     - `id`: e.g. `arc_creation_v1`.
+     - `label`: human-readable name.
+     - `version`: integer.
+     - `chatMode`: one of the existing `ChatMode` values.
+     - `outcomeSchema`: brief description of the final object shape.
+     - `steps`: ordered list of `WorkflowStep`s (`id`, `type`, `fieldsCollected`, `nextStepId`, etc.).
+2. **Register it**
+   - Add it to `WORKFLOW_DEFINITIONS` in the same file:
+     - `WORKFLOW_DEFINITIONS[ARC_CREATION_WORKFLOW_ID] = ARC_CREATION_WORKFLOW`.
+3. **Wire it into AgentWorkspace**
+   - Wherever you mount the agent, pass:
+     - `mode`: matching `ChatMode` (e.g. `'arcCreation'`).
+     - `launchContext`: describing the launch source and intent.
+     - `workflowDefinitionId`: your new workflow ID.
+4. **(Optional) Drive UI off the workflow**
+   - Inside `AgentWorkspace`, use the workflow’s `steps` to:
+     - Decide which conversational turn to ask the model for.
+     - Render step-specific form cards under the assistant’s text.
+     - Show user confirmations as chat bubbles and advance `currentStepId`.
+
+As workflows grow, we can split definitions into separate files (e.g. `workflows/firstTimeOnboarding.ts`) and re-export them from `src/domain/workflows.ts`, but the registry remains the single entry point for the app and AgentWorkspace.
 
 

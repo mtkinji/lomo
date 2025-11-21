@@ -20,6 +20,11 @@ export const typography = {
     fontSize: 28,
     lineHeight: 34,
   },
+  titleMd: {
+    fontFamily: fonts.bold,
+    fontSize: 24,
+    lineHeight: 28,
+  },
   titleSm: {
     fontFamily: fonts.semibold,
     fontSize: 18,

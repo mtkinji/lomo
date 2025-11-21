@@ -774,7 +774,7 @@ export function ArcDetailScreen() {
               {loadingRecommendations && (
                 <HStack alignItems="center" space="sm">
                   <ActivityIndicator color="#38BDF8" />
-                  <Text style={styles.emptyBody}>Lomo is considering this arc…</Text>
+                  <Text style={styles.emptyBody}>Takado is considering this arc…</Text>
                 </HStack>
               )}
 

@@ -19,7 +19,7 @@ import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ForceLevel } from '../../domain/types';
-import { LomoBottomSheet } from '../../ui/BottomSheet';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 
 type GoalDetailRouteProp = RouteProp<ArcsStackParamList, 'GoalDetail'>;
 
@@ -479,7 +479,7 @@ function EditGoalModal({
   };
 
   return (
-    <LomoBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
+    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -567,7 +567,7 @@ function EditGoalModal({
           </HStack>
         </View>
       </KeyboardAvoidingView>
-    </LomoBottomSheet>
+    </TakadoBottomSheet>
   );
 }
 

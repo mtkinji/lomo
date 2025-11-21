@@ -6,14 +6,16 @@ import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
-import { AiChatPane } from '../ai/AiChatScreen';
+import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
+import { FIRST_TIME_ONBOARDING_WORKFLOW_ID } from '../../domain/workflows';
 
 export function FirstTimeUxFlow() {
   const isVisible = useFirstTimeUxStore((state) => state.isFlowActive);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
+  const completeFlow = useFirstTimeUxStore((state) => state.completeFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
   const insets = useSafeAreaInsets();
   const [showDevMenu, setShowDevMenu] = useState(false);
@@ -83,7 +85,18 @@ export function FirstTimeUxFlow() {
           </>
         )}
         <AppShell>
-          <AiChatPane mode="firstTimeOnboarding" resumeDraft={false} />
+          <AgentWorkspace
+            mode="firstTimeOnboarding"
+            launchContext={{
+              source: 'firstTimeAppOpen',
+              intent: 'firstTimeOnboarding',
+            }}
+            workflowDefinitionId={FIRST_TIME_ONBOARDING_WORKFLOW_ID}
+            onComplete={() => {
+              completeFlow();
+              dismissFlow();
+            }}
+          />
         </AppShell>
       </View>
     </Modal>

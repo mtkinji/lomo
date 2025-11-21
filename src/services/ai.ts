@@ -2,7 +2,7 @@ import { Arc, GoalDraft, type AgeRange } from '../domain/types';
 import { getFocusAreaLabel } from '../domain/focusAreas';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, type LlmModel } from '../store/useAppStore';
 import type { ChatMode } from '../features/ai/chatRegistry';
 
 type GenerateArcParams = {
@@ -363,6 +363,7 @@ async function requestOpenAiArcs(
   params: GenerateArcParams,
   apiKey: string
 ): Promise<GeneratedArc[]> {
+  const model = resolveChatModel();
   const baseSystemPrompt =
     'You are LOMO, a life architecture coach helping users define identity Arcs (long-term directions). ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
@@ -380,7 +381,7 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
 `;
 
   const body = {
-    model: 'gpt-4o-mini',
+    model,
     temperature: 0.6,
     response_format: {
       type: 'json_schema',
@@ -504,6 +505,7 @@ async function requestOpenAiGoals(
   params: GenerateGoalParams,
   apiKey: string
 ): Promise<GoalDraft[]> {
+  const model = resolveChatModel();
   const baseSystemPrompt =
     'You are LOMO, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
     'Return thoughtful goal drafts with title, description, status, forceIntent (values 0-3 for each canonical force), and optional suggestedActivities.';
@@ -523,7 +525,7 @@ Return 2-3 distinctive goal drafts that respect the arc's heart.
 `;
 
   const body = {
-    model: 'gpt-4o-mini',
+    model,
     temperature: 0.55,
     response_format: {
       type: 'json_schema',
@@ -707,7 +709,7 @@ async function requestOpenAiArcHeroImage(
 
 /**
  * Generic LOMO coach chat endpoint backed by OpenAI's Chat Completions API.
- * This powers the free-form Lomo Coach conversation in the bottom sheet.
+ * This powers the free-form Takado Coach conversation in the bottom sheet.
  */
 export async function sendCoachChat(
   messages: CoachChatTurn[],
@@ -728,7 +730,7 @@ export async function sendCoachChat(
   }
 
   const baseSystemPrompt =
-    'You are Lomo Coach, a calm, practical life architecture coach. ' +
+    'You are Takado Coach, a calm, practical life architecture coach. ' +
     'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
     'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
 
@@ -746,8 +748,10 @@ export async function sendCoachChat(
   ];
   const tools = buildCoachToolsForMode(options?.mode);
 
+  const model = resolveChatModel();
+
   const body: Record<string, unknown> = {
-    model: 'gpt-4o-mini',
+    model,
     temperature: 0.55,
     messages: openAiMessages,
   };
@@ -793,7 +797,7 @@ export async function sendCoachChat(
       statusText: response.statusText,
       payloadPreview: previewText(errorText),
     });
-    throw new Error('Unable to reach Lomo Coach');
+    throw new Error('Unable to reach Takado Coach');
   }
 
   const data = await response.json();
@@ -832,7 +836,7 @@ export async function sendCoachChat(
   });
 
   const followupBody: Record<string, unknown> = {
-    model: 'gpt-4o-mini',
+    model,
     temperature: 0.55,
     messages: [
       ...openAiMessages,
@@ -867,7 +871,7 @@ export async function sendCoachChat(
   if (!followupResponse.ok) {
     const errorText = await followupResponse.text();
     console.error('OpenAI coach follow-up error', errorText);
-    throw new Error('Unable to reach Lomo Coach (follow-up)');
+    throw new Error('Unable to reach Takado Coach (follow-up)');
   }
 
   const followupData = await followupResponse.json();
@@ -948,6 +952,15 @@ function logNetworkErrorDetails(context: 'arcs' | 'goals' | 'images', err: unkno
 
 function resolveOpenAiApiKey(): string | undefined {
   return getEnvVar<string>('openAiApiKey');
+}
+
+function resolveChatModel(): LlmModel {
+  const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
+  const model = state?.llmModel;
+  if (model === 'gpt-4o' || model === 'gpt-4o-mini') {
+    return model;
+  }
+  return 'gpt-4o-mini';
 }
 
 

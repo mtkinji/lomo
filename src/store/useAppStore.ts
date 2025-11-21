@@ -12,6 +12,8 @@ import {
   UserProfile,
 } from '../domain/types';
 
+export type LlmModel = 'gpt-4o-mini' | 'gpt-4o';
+
 type Updater<T> = (item: T) => T;
 
 interface AppState {
@@ -22,6 +24,7 @@ interface AppState {
   goalRecommendations: Record<string, GoalDraft[]>;
   arcFeedback: ArcProposalFeedback[];
   userProfile: UserProfile | null;
+  llmModel: LlmModel;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -36,6 +39,7 @@ interface AppState {
   setUserProfile: (profile: UserProfile) => void;
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
+  setLlmModel: (model: LlmModel) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
@@ -216,6 +220,7 @@ export const useAppStore = create(
       goalRecommendations: {},
       arcFeedback: [],
       userProfile: buildDefaultUserProfile(),
+      llmModel: 'gpt-4o-mini',
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -298,6 +303,7 @@ export const useAppStore = create(
           };
         }),
       clearUserProfile: () => set({ userProfile: null }),
+      setLlmModel: (model) => set({ llmModel: model }),
       resetOnboardingAnswers: () =>
         set((state) => {
           const base: UserProfile = state.userProfile ?? buildDefaultUserProfile();

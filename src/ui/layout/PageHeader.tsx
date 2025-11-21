@@ -78,10 +78,10 @@ export function PageHeader({
         </View>
 
         <View style={styles.centerColumn}>
-          <HStack alignItems="center" space="xs" justifyContent="center">
+          <HStack alignItems="center" space="sm" justifyContent="center">
             {iconName ? (
               <View style={styles.iconContainer}>
-                <Icon name={iconName} size={28} color={colors.textPrimary} />
+                <Icon name={iconName} size={24} color={colors.textPrimary} />
               </View>
             ) : null}
             <Heading style={styles.title}>{title}</Heading>
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    ...typography.titleLg,
+    ...typography.titleMd,
     color: colors.textPrimary,
     fontFamily: fonts.black,
   },

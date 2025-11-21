@@ -27,12 +27,13 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import { Button } from '../../ui/Button';
-import { LomoBottomSheet } from '../../ui/BottomSheet';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Card } from '../../ui/Card';
 import { Logo } from '../../ui/Logo';
 import type { Arc, Goal, ThumbnailStyle } from '../../domain/types';
-import { AiChatPane } from '../ai/AiChatScreen';
+import { AgentWorkspace } from '../ai/AgentWorkspace';
+import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -435,7 +436,7 @@ export function ArcsScreen() {
         onClose={() => {
           setIsModalVisible(false);
         }}
-        launchContext={arcCoachLaunchContext}
+        workspaceSnapshot={arcCoachLaunchContext}
         resumeDraft={resumeDraftOnOpen}
       />
     </AppShell>
@@ -929,11 +930,11 @@ type NewArcModalProps = {
   visible: boolean;
   onClose: () => void;
   /**
-   * Optional workspace snapshot passed down to Lomo Coach when launched
+   * Optional workspace snapshot passed down to Takado Coach when launched
    * from the Arcs screen. This gives the coach full context on existing
    * arcs and goals so it can suggest complementary Arcs.
    */
-  launchContext?: string;
+  workspaceSnapshot?: string;
   /**
    * Whether to resume any saved Arc Creation draft when opening the coach.
    * When false, a brand new conversation is started even if a draft exists.
@@ -961,7 +962,7 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
   );
 }
 
-function NewArcModal({ visible, onClose, launchContext, resumeDraft = true }: NewArcModalProps) {
+function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }: NewArcModalProps) {
   const addArc = useAppStore((state) => state.addArc);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
 
@@ -987,9 +988,14 @@ function NewArcModal({ visible, onClose, launchContext, resumeDraft = true }: Ne
 
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
-      <AiChatPane
+      <AgentWorkspace
         mode="arcCreation"
-        launchContext={launchContext}
+        launchContext={{
+          source: 'arcsList',
+          intent: 'arcCreation',
+        }}
+        workflowDefinitionId={ARC_CREATION_WORKFLOW_ID}
+        workspaceSnapshot={workspaceSnapshot}
         resumeDraft={resumeDraft}
         onConfirmArc={handleConfirmArc}
       />
@@ -1033,7 +1039,7 @@ function ArcDraftSection({ draft, onResume, onDiscard }: ArcDraftSectionProps) {
           <Pressable onPress={onResume}>
             <Card style={styles.draftCard}>
               <Text style={styles.draftPreview}>
-                {draft.preview ?? 'Arc draft with Lomo Coach'}
+                {draft.preview ?? 'Arc draft with Takado Coach'}
               </Text>
               <View style={styles.draftMetaRow}>
                 <Text style={styles.draftMetaText}>{lastUpdatedLabel}</Text>

@@ -17,7 +17,7 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Logo } from '../../ui/Logo';
 import { useAppStore } from '../../store/useAppStore';
-import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
+import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { generateArcs, type GeneratedArc } from '../../services/ai';
 import type { AgeRange, Arc, FocusAreaId } from '../../domain/types';
 import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
@@ -89,7 +89,16 @@ const AGE_RANGE_LABELS: Record<AgeRange, string> = {
   'prefer-not-to-say': 'Prefer not to say',
 };
 
-export function OnboardingGuidedFlow() {
+type OnboardingGuidedFlowProps = {
+  /**
+   * Optional callback fired when the user completes the onboarding flow.
+   * When omitted, the component falls back to updating the first-time UX
+   * store directly so legacy entry points keep working.
+   */
+  onComplete?: () => void;
+};
+
+export function OnboardingGuidedFlow({ onComplete }: OnboardingGuidedFlowProps) {
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => {
@@ -97,10 +106,11 @@ export function OnboardingGuidedFlow() {
     });
   }, []);
 
+  const workflowRuntime = useWorkflowRuntime();
+
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const addArc = useAppStore((state) => state.addArc);
-  const completeFlow = useFirstTimeUxStore((state) => state.completeFlow);
   const [visibleSteps, setVisibleSteps] = useState<OnboardingStage[]>(['welcome']);
   const [completedSteps, setCompletedSteps] = useState<OnboardingStage[]>([]);
 
@@ -171,6 +181,8 @@ export function OnboardingGuidedFlow() {
 
   const handleWelcome = () => {
     completeStep('welcome');
+    // Map to workflow step "welcome"
+    workflowRuntime?.completeStep('welcome');
   };
 
   const handleSaveName = () => {
@@ -207,6 +219,13 @@ export function OnboardingGuidedFlow() {
     setAgeSubmitted(true);
     setIsEditingAge(false);
     completeStep('age');
+    // Map to workflow step "profile_basics" once we have a usable age range (and best-effort name).
+    const effectiveName =
+      userProfile?.fullName?.trim() || nameInput.trim() || undefined;
+    workflowRuntime?.completeStep('profile_basics', {
+      name: effectiveName,
+      ageRange: range,
+    });
   };
 
   const handleKeepAge = () => {
@@ -232,6 +251,10 @@ export function OnboardingGuidedFlow() {
     }));
     setFocusAreasSubmitted(true);
     completeStep('focus');
+    // Map to workflow step "focus_areas"
+    workflowRuntime?.completeStep('focus_areas', {
+      focusAreas: selectedFocusAreas,
+    });
   };
 
   const handleKeepFocusAreas = () => {
@@ -345,6 +368,10 @@ export function OnboardingGuidedFlow() {
     }));
     setNotificationsChoice(enabled);
     completeStep('notifications');
+    // Map to workflow step "notifications"
+    workflowRuntime?.completeStep('notifications', {
+      notifications: enabled ? 'enabled' : 'disabled',
+    });
   };
 
   const handleConfirmNotifications = () => {
@@ -366,6 +393,14 @@ export function OnboardingGuidedFlow() {
     } else {
       completeStep('arcIntro', 'arcManual');
     }
+    // Map to workflow step "starter_arc_decision"
+    const strategy =
+      choice === 'suggest'
+        ? 'generate_from_answers'
+        : 'start_from_scratch';
+    workflowRuntime?.completeStep('starter_arc_decision', {
+      starterArcStrategy: strategy,
+    });
   };
 
   const resetArcSelection = () => {
@@ -450,10 +485,21 @@ export function OnboardingGuidedFlow() {
     setCreatedArcName(arc.name);
     const completionStep = arcChoice === 'manual' ? 'arcManual' : 'arcSuggestion';
     completeStep(completionStep, 'closing');
+    // Mark workflow "closing" step as reached so the runtime has a complete picture.
+    workflowRuntime?.completeStep('closing');
   };
 
   const handleCloseFlow = () => {
-    completeFlow();
+    if (onComplete) {
+      onComplete();
+      return;
+    }
+    // Legacy fallback for any callers that still depend on this component
+    // to close the first-time UX overlay directly.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useFirstTimeUxStore } = require('../../store/useFirstTimeUxStore') as typeof import('../../store/useFirstTimeUxStore');
+    const completeFlowFromStore = useFirstTimeUxStore.getState().completeFlow;
+    completeFlowFromStore();
   };
 
   const welcomeVisible = isStepVisible('welcome');
@@ -508,7 +554,7 @@ export function OnboardingGuidedFlow() {
         <View style={styles.timeline}>
           <View style={styles.brandHeader}>
             <Logo size={36} />
-            <Text style={styles.brandWordmark}>Lomo</Text>
+            <Text style={styles.brandWordmark}>Takado</Text>
           </View>
 
           {welcomeVisible && (
@@ -517,7 +563,7 @@ export function OnboardingGuidedFlow() {
               title="Welcome & framing"
               completed={welcomeCompleted}
             >
-              <Text style={styles.bodyText}>Welcome to Lomo.</Text>
+              <Text style={styles.bodyText}>Welcome to Takado.</Text>
               <Text style={styles.bodyText}>
                 I’ll help you turn your goals into a simple plan you can actually follow.
               </Text>
@@ -637,7 +683,7 @@ export function OnboardingGuidedFlow() {
               completed={focusCompleted}
             >
               <Text style={styles.bodyText}>
-                Lomo helps you organize your goals into clear paths, so you always know what to work
+                Takado helps you organize your goals into clear paths, so you always know what to work
                 on next.
               </Text>
               <Text style={styles.bodyText}>
@@ -803,7 +849,7 @@ export function OnboardingGuidedFlow() {
           {arcIntroVisible && (
             <StepCard label={STEP_LABELS.arcIntro} title="First Arc">
               <Text style={styles.bodyText}>
-                In Lomo, your bigger goals live inside Arcs. An Arc is just a focused chapter of
+                In Takado, your bigger goals live inside Arcs. An Arc is just a focused chapter of
                 your life, like “Get fit for summer” or “Launch my side project.”
               </Text>
               <Text style={styles.bodyText}>
@@ -929,7 +975,7 @@ export function OnboardingGuidedFlow() {
                 things simple and focused as you go. 🌱
               </Text>
               <Button style={styles.primaryButton} onPress={handleCloseFlow}>
-                <Text style={styles.primaryButtonLabel}>Enter Lomo</Text>
+                <Text style={styles.primaryButtonLabel}>Enter Takado</Text>
               </Button>
             </StepCard>
           )}

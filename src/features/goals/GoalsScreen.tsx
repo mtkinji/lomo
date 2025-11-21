@@ -72,7 +72,7 @@ export function GoalsScreen() {
           <Heading style={styles.emptyTitle}>No goals yet</Heading>
           <Text style={styles.emptyBody}>
             Goals live inside your arcs and express concrete progress. Start by creating an Arc,
-            then let Lomo help you design a few goals.
+            then let Takado help you design a few goals.
           </Text>
         </VStack>
       )}

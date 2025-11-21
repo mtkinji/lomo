@@ -50,6 +50,7 @@ export type SettingsStackParamList = {
   SettingsHome: undefined;
   SettingsAppearance: undefined;
   SettingsProfile: undefined;
+  SettingsAiModel: undefined;
 };
 
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
@@ -129,7 +130,7 @@ export function RootNavigator() {
       }}
     >
       <Drawer.Navigator
-        drawerContent={(props) => <LomoDrawerContent {...props} />}
+        drawerContent={(props) => <TakadoDrawerContent {...props} />}
         screenOptions={({ route }) => ({
           headerShown: false,
           // Use "slide" so the entire app canvas shifts right while the drawer stays pinned,
@@ -220,6 +221,10 @@ function SettingsStackNavigator() {
         name="SettingsProfile"
         component={ProfileSettingsScreen}
       />
+      <SettingsStack.Screen
+        name="SettingsAiModel"
+        component={require('../features/account/AiModelSettingsScreen').AiModelSettingsScreen}
+      />
     </SettingsStack.Navigator>
   );
 }
@@ -243,7 +248,7 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
   }
 }
 
-function LomoDrawerContent(props: any) {
+function TakadoDrawerContent(props: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
 
@@ -256,11 +261,23 @@ function LomoDrawerContent(props: any) {
     (name: string) => name !== 'Settings',
   );
 
+  // Keep the "focused" drawer item in sync with the *visible* routes.
+  // When the active route is the hidden Settings screen, we don't want any
+  // drawer item to appear focused; otherwise presses on DevTools would be
+  // treated as a no-op because the drawer thinks it's already selected.
+  const activeRoute = props.state.routes[props.state.index];
+  const filteredIndex = filteredRoutes.findIndex(
+    (route: { key: string }) => route.key === activeRoute?.key,
+  );
+
   const filteredState = {
     ...props.state,
     routes: filteredRoutes,
     routeNames: filteredRouteNames,
-    index: Math.min(props.state.index, filteredRoutes.length - 1),
+    // If the active route is hidden (i.e., Settings), filteredIndex will be -1.
+    // DrawerItemList only uses this to check `i === state.index` for focus,
+    // so -1 simply means "no visible item is focused".
+    index: filteredIndex,
   };
 
   return (

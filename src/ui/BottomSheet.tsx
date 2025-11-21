@@ -9,20 +9,20 @@ import { colors, spacing } from '../theme';
 
 const DEFAULT_SNAP_POINTS: (string | number)[] = ['85%'];
 
-type LomoBottomSheetProps = {
+type TakadoBottomSheetProps = {
   visible: boolean;
   onClose: () => void;
   children: ReactNode;
   snapPoints?: (string | number)[];
 } & Partial<BottomSheetModalProps>;
 
-export function LomoBottomSheet({
+export function TakadoBottomSheet({
   visible,
   onClose,
   children,
   snapPoints,
   ...rest
-}: LomoBottomSheetProps) {
+}: TakadoBottomSheetProps) {
   const sheetRef = useRef<BottomSheetModal>(null);
   const points = useMemo<(string | number)[]>(
     () => snapPoints ?? DEFAULT_SNAP_POINTS,

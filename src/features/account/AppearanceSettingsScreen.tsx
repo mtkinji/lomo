@@ -10,7 +10,6 @@ import { useAppStore } from '../../store/useAppStore';
 import type { ThumbnailStyle } from '../../domain/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
-import { SettingsBreadcrumbs } from './components/SettingsBreadcrumbs';
 
 type ThumbnailStyleOption = {
   value: ThumbnailStyle;
@@ -213,15 +212,7 @@ export function AppearanceSettingsScreen() {
         <PageHeader
           title="Appearance"
           onPressBack={() => navigation.goBack()}
-        >
-          <SettingsBreadcrumbs
-            items={[
-              { label: 'Settings', onPress: () => navigation.navigate('SettingsHome') },
-              { label: 'Appearance' },
-              { label: 'Thumbnail styles' },
-            ]}
-          />
-        </PageHeader>
+        />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}

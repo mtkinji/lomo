@@ -128,7 +128,7 @@ async function loadArcCreationDraft(): Promise<ChatDraft | null> {
     }
     return parsed;
   } catch (err) {
-    console.warn('Failed to load Lomo Coach arc draft', err);
+    console.warn('Failed to load Takado Coach arc draft', err);
     return null;
   }
 }
@@ -141,7 +141,7 @@ async function saveArcCreationDraft(draft: ChatDraft | null): Promise<void> {
     }
     await AsyncStorage.setItem(ARC_CREATION_DRAFT_STORAGE_KEY, JSON.stringify(draft));
   } catch (err) {
-    console.warn('Failed to save Lomo Coach arc draft', err);
+    console.warn('Failed to save Takado Coach arc draft', err);
   }
 }
 
@@ -263,7 +263,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     id: 'coach-intro-1',
     role: 'assistant',
     content:
-      "I'm your Lomo coach for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
+      "I'm your Takado Agent for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
   },
 ];
 
@@ -274,7 +274,7 @@ const PROMPT_SUGGESTIONS = [
 ];
 
 const CHAT_COLORS = {
-  // When rendered inside the BottomDrawer or LomoBottomSheet, the sheet surface
+  // When rendered inside the BottomDrawer or TakadoBottomSheet, the sheet surface
   // already uses `colors.canvas` and horizontal gutters. This palette assumes
   // that outer shell and keeps inner elements focused on content hierarchy.
   background: colors.canvas,
@@ -397,6 +397,11 @@ export type AiChatPaneProps = {
    * edit the name and narrative but does not persist the Arc.
    */
   onConfirmArc?: (proposal: GeneratedArc) => void;
+  /**
+   * Optional callback fired when a hosted flow (such as first-time onboarding)
+   * completes inside the chat surface.
+   */
+  onComplete?: (outcome?: unknown) => void;
 };
 
 /**
@@ -404,12 +409,18 @@ export type AiChatPaneProps = {
  * This component intentionally does NOT own global app padding or navigation
  * chrome – the sheet + AppShell handle those layers.
  */
-export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmArc }: AiChatPaneProps) {
+export function AiChatPane({
+  mode,
+  launchContext,
+  resumeDraft = true,
+  onConfirmArc,
+  onComplete,
+}: AiChatPaneProps) {
   const isArcCreationMode = mode === 'arcCreation';
   const isOnboardingMode = mode === 'firstTimeOnboarding';
 
   if (isOnboardingMode) {
-    return <OnboardingGuidedFlow />;
+    return <OnboardingGuidedFlow onComplete={() => onComplete?.()} />;
   }
 
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
@@ -794,7 +805,7 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
           },
         });
       } catch (err) {
-        console.error('Lomo Coach initial chat failed', err);
+        console.error('Takado Coach initial chat failed', err);
       } finally {
         if (!cancelled) {
           // In error cases we still mark as bootstrapped so we don’t loop.
@@ -878,12 +889,12 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
         },
       });
     } catch (err) {
-      console.error('Lomo Coach chat failed', err);
+      console.error('Takado Coach chat failed', err);
       const errorMessage: ChatMessage = {
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
         content:
-          "I'm having trouble reaching Lomo Coach right now. Try again in a moment, or adjust your connection.",
+          "I'm having trouble reaching Takado Coach right now. Try again in a moment, or adjust your connection.",
       };
       setMessages((prev) => {
         const next = [...prev, errorMessage];
@@ -961,7 +972,7 @@ export function AiChatPane({ mode, launchContext, resumeDraft = true, onConfirmA
                 <View style={styles.brandLockup}>
                   <Logo size={24} />
                   <View style={styles.brandTextBlock}>
-                    <Text style={styles.brandWordmark}>Lomo</Text>
+                    <Text style={styles.brandWordmark}>Takado</Text>
                   </View>
                 </View>
                 {isArcCreationMode && (
@@ -1496,7 +1507,7 @@ function ThinkingBubble() {
 /**
  * Convenience wrapper when the chat is used as a full-screen screen instead of
  * inside a bottom sheet. This preserves the existing AppShell-based layout
- * while letting BottomDrawer / LomoBottomSheet embed `AiChatPane` directly.
+ * while letting BottomDrawer / TakadoBottomSheet embed `AiChatPane` directly.
  */
 export function AiChatScreen() {
   // Lazy-load AppShell and AgentWorkspace here to avoid coupling the pane

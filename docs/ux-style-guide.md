@@ -37,7 +37,7 @@ Usage rules:
 
 ### Typography
 
-- **App name / logo lockup**: set “Lomo” in **Poppins** (weight 700, 34–36px) with only the first character capitalized to keep the playful rounded brand mark.
+- **App name / logo lockup**: set “Takado” in **Poppins** (weight 700, 34–36px) with only the first character capitalized to keep the playful rounded brand mark.
 - **All other copy**: use **Inter** (system-friendly, neutral). Maintain the hierarchy below:
   - Display / Title: 32-36px, weight 700, tracking +1%.
   - Section heading: 20-24px, weight 600.
