@@ -260,6 +260,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     return initial;
   });
   const [identitySubmitting, setIdentitySubmitting] = useState(false);
+  const [cardsReady, setCardsReady] = useState<Record<string, boolean>>({});
   const identityCardOpacity = useRef(new Animated.Value(0)).current;
 
   const displayName = userProfile?.fullName?.trim() || nameInput.trim() || 'friend';
@@ -294,10 +295,10 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     workflowRuntime?.completeStep('welcome');
   }, []); // run once on mount
 
-  // For v2, the welcome_orientation step is agent-only. When we detect that
-  // the workflow is sitting on this step, we fetch the assistant copy once
-  // and then advance the workflow to identity_basic so the first interactive
-  // card can render in the chat surface.
+  // For v2, welcome_orientation is an agent-only step. When we detect that the
+  // workflow is sitting on this step, we fetch the assistant copy once and,
+  // after it finishes streaming (or a generous fallback timeout), advance to
+  // the next workflow step. No card is rendered for this step.
   useEffect(() => {
     if (!isV2Workflow) return;
     if (!workflowRuntime?.instance) return;
@@ -306,44 +307,91 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
     let cancelled = false;
 
-    const run = () => {
-      // Fire and forget the welcome copy; in practice it renders almost
-      // immediately since it’s static. We don’t strictly need to wait for the
-      // streaming callback before revealing the card.
-      void sendStepAssistantCopy('welcome_orientation');
+    // Fallback in case streaming callbacks fail for any reason. After a
+    // generous window we still advance so the user isn't stuck. This delay is
+    // intentionally long so that under normal conditions the typewriter
+    // animation and onDone callback win.
+    const fallbackTimeout = setTimeout(() => {
+      if (cancelled) return;
+      workflowRuntime.completeStep('welcome_orientation');
+    }, 10000);
 
-      setTimeout(() => {
+    void sendStepAssistantCopy('welcome_orientation', {
+      onDone: () => {
         if (cancelled) return;
+        clearTimeout(fallbackTimeout);
         workflowRuntime.completeStep('welcome_orientation');
-        Animated.timing(identityCardOpacity, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }).start();
-      }, 450);
-    };
-
-    run();
+      },
+    });
 
     return () => {
       cancelled = true;
+      clearTimeout(fallbackTimeout);
     };
-  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy, identityCardOpacity]);
+  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy]);
 
-  // Ensure the identity card is visible (opacity 1) whenever the workflow is
-  // already sitting on identity_basic – for example, if we resume mid-flow or
-  // if the welcome step has already completed.
+  // For v2, identity_intro is a second agent-only step that invites the user
+  // to share their name and age. We auto-run this step the same way as the
+  // welcome step: stream copy once, then advance.
+  useEffect(() => {
+    if (!isV2Workflow) return;
+    if (!workflowRuntime?.instance) return;
+    const currentStepId = workflowRuntime.instance.currentStepId;
+    if (currentStepId !== 'identity_intro') return;
+
+    let cancelled = false;
+
+    const fallbackTimeout = setTimeout(() => {
+      if (cancelled) return;
+      workflowRuntime.completeStep('identity_intro');
+    }, 10000);
+
+    void sendStepAssistantCopy('identity_intro', {
+      onDone: () => {
+        if (cancelled) return;
+        clearTimeout(fallbackTimeout);
+        workflowRuntime.completeStep('identity_intro');
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallbackTimeout);
+    };
+  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy]);
+
+  // Ensure the identity card fades in once we've marked it as ready and the
+  // workflow has advanced to identity_basic.
   useEffect(() => {
     if (!isV2Workflow) return;
     if (workflowRuntime?.instance?.currentStepId !== 'identity_basic') return;
-    identityCardOpacity.setValue(1);
-  }, [isV2Workflow, workflowRuntime?.instance?.currentStepId, identityCardOpacity]);
+    if (!cardsReady.identity_basic) return;
+
+    identityCardOpacity.setValue(0);
+    Animated.timing(identityCardOpacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [isV2Workflow, workflowRuntime?.instance?.currentStepId, cardsReady.identity_basic, identityCardOpacity]);
 
   const handleWelcome = async () => {
     // Legacy no-op: the dedicated welcome card has been removed in favor of
     // the shared AiChatPane welcome message. We keep this function around so
     // any lingering references remain safe.
   };
+
+  // Mark the identity_basic card as ready whenever the workflow lands on that
+  // step. Because welcome_orientation -> identity_intro -> identity_basic,
+  // this means the card will only appear after the second onboarding message
+  // has completed.
+  useEffect(() => {
+    if (!isV2Workflow) return;
+    if (workflowRuntime?.instance?.currentStepId !== 'identity_basic') return;
+    if (cardsReady.identity_basic) return;
+
+    setCardsReady((current) => ({ ...current, identity_basic: true }));
+  }, [isV2Workflow, workflowRuntime?.instance?.currentStepId, cardsReady.identity_basic]);
 
   const handleSaveName = () => {
     const trimmed = nameInput.trim();
@@ -795,7 +843,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   // For now we only host the identity_basic step here; additional steps will
   // be wired up following the same pattern.
   if (isV2Workflow) {
-    if (currentWorkflowStepId !== 'identity_basic') {
+    if (currentWorkflowStepId !== 'identity_basic' || !cardsReady.identity_basic) {
       // No interactive card for this step yet; let the conversation be driven
       // purely by assistant copy.
       return null;

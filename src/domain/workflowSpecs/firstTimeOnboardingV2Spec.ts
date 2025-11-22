@@ -145,6 +145,17 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       copyLength: 'short_paragraph',
       validationHint:
         'No fields collected; keep the message short, warm, and specific about what will happen.',
+      next: 'identity_intro',
+    },
+    {
+      id: 'identity_intro',
+      kind: 'assistant_copy_only',
+      label: 'Invite name and age',
+      prompt:
+        'Ask the user, in one short sentence, “What should I call you?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
+      copyLength: 'two_sentences',
+      validationHint:
+        'No structured fields here; simply orient the user and invite them to share their preferred name and age.',
       next: 'identity_basic',
     },
     {
@@ -153,8 +164,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Basic identity',
       collects: ['name', 'age'],
       prompt:
-        'Ask the user, in one short sentence, “What should I call you?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
-      copyLength: 'two_sentences',
+        'After the user has seen the identity_intro message and shared their name and age via the card, acknowledge them warmly in one short sentence (for example, “Good to meet you, {{name}}.”) and note that you’ll use what they shared to tune tone and examples. Do not ask any new questions.',
+      copyLength: 'one_sentence',
       validationHint:
         'Name should be non-empty. Age should be a reasonable integer; if unclear, ask once for clarification and then move on.',
       next: 'desire_invite',

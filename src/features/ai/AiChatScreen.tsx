@@ -770,7 +770,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
     let nextPauseIdx = 0;
     const step = () => {
       const previousIndex = index;
-      index = Math.min(index + 3, totalLength);
+
+      // Propose the next index based on the typing speed. Slightly slower so
+      // longer replies feel more readable without dragging.
+      let nextIndex = Math.min(index + 2, totalLength);
+
+      // Skip over any pause points we've already passed.
+      while (
+        nextPauseIdx < paragraphPausePoints.length &&
+        paragraphPausePoints[nextPauseIdx] <= previousIndex
+      ) {
+        nextPauseIdx += 1;
+      }
+
+      let crossedPause = false;
+      if (nextPauseIdx < paragraphPausePoints.length) {
+        const pausePoint = paragraphPausePoints[nextPauseIdx];
+        // If the next typing step would jump over a paragraph boundary,
+        // clamp to the boundary so we pause before revealing the next
+        // paragraph’s first characters.
+        if (pausePoint > previousIndex && pausePoint <= nextIndex) {
+          nextIndex = pausePoint;
+          crossedPause = true;
+          nextPauseIdx += 1;
+        }
+      }
+
+      index = nextIndex;
       const nextContent = fullText.slice(0, index);
 
       setMessages((prev) => {
@@ -783,14 +809,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
 
       if (index < totalLength) {
-        let crossedPause = false;
-        while (nextPauseIdx < paragraphPausePoints.length && paragraphPausePoints[nextPauseIdx] <= index) {
-          if (paragraphPausePoints[nextPauseIdx] > previousIndex) {
-            crossedPause = true;
-          }
-          nextPauseIdx += 1;
-        }
-        const delay = crossedPause ? 1500 : 20;
+        const delay = crossedPause ? 800 : 30;
         setTimeout(step, delay);
       } else {
         opts?.onDone?.();
