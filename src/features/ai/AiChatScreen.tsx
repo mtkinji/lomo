@@ -435,7 +435,7 @@ export type AiChatPaneController = {
 };
 
 /**
- * Core chat pane to be rendered inside the LOMO bottom sheet.
+ * Core chat pane to be rendered inside the coach bottom sheet.
  * This component intentionally does NOT own global app padding or navigation
  * chrome – the sheet + AppShell handle those layers.
  */
@@ -964,6 +964,29 @@ export const AiChatPane = forwardRef(function AiChatPane(
       return next;
     });
     setInput('');
+
+    const isOnboardingWorkflow =
+      workflowRuntime?.definition?.chatMode === 'firstTimeOnboarding';
+    const currentWorkflowStepId = workflowRuntime?.instance?.currentStepId;
+
+    // In first-time onboarding, some steps (like desire_clarify) use the user's
+    // free-form answer purely as structured workflow data that feeds the next
+    // agent_generate step. For these, we complete the workflow step but do NOT
+    // trigger an immediate coach chat turn, so we don't end up with two
+    // overlapping assistant messages on screen.
+    if (isOnboardingWorkflow && currentWorkflowStepId === 'goal_draft') {
+      // Treat any reply here as the user's reaction to the draft goal. We
+      // advance through goal_draft -> goal_confirm -> arc_introduce without
+      // triggering an extra generic coach reply, so the next assistant message
+      // they see is the Arc introduction instead of a redundant confirmation.
+      workflowRuntime.completeStep('goal_draft');
+      workflowRuntime.completeStep('goal_confirm', {
+        goalConfirmed: trimmed,
+      });
+      setSending(false);
+      setThinking(false);
+      return;
+    }
 
     try {
       const history: CoachChatTurn[] = messagesRef.current.map((m) => ({

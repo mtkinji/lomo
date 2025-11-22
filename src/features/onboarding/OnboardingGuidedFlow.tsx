@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
+import { GoalCard } from '../../ui/GoalCard';
 import { Input } from '../../ui/Input';
 import { Logo } from '../../ui/Logo';
 import { useAppStore } from '../../store/useAppStore';
@@ -26,7 +27,7 @@ import {
   type CoachChatTurn,
   type GeneratedArc,
 } from '../../services/ai';
-import type { AgeRange, Arc, FocusAreaId } from '../../domain/types';
+import type { AgeRange, Arc, FocusAreaId, Goal } from '../../domain/types';
 import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
 import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 import type { AiChatPaneController } from '../ai/AiChatScreen';
@@ -187,8 +188,76 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
           ],
           { mode: workflowRuntime.definition.chatMode }
         );
+        let displayContent = reply;
+
+        // For the goal draft step in v2 onboarding, the model is instructed to
+        // return a JSON object with { title, why, timeHorizon }. We parse that
+        // and render a human-friendly summary instead of showing raw JSON, and
+        // also stash the structured goal on the workflow instance so the rest
+        // of the app can consume it.
+        if (isV2Workflow && workflowStepId === 'goal_draft') {
+          try {
+            // The model is instructed to respond with a single JSON object, but
+            // we defensively extract the first {...} block in case it adds any
+            // surrounding text.
+            const startIdx = reply.indexOf('{');
+            const endIdx = reply.lastIndexOf('}');
+            const jsonText =
+              startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
+                ? reply.slice(startIdx, endIdx + 1)
+                : reply;
+
+            const parsed = JSON.parse(jsonText) as {
+              title?: string;
+              why?: string;
+              timeHorizon?: string;
+            };
+
+            if (parsed && parsed.title && parsed.why && parsed.timeHorizon) {
+              workflowRuntime.completeStep('goal_draft', {
+                goal: {
+                  title: parsed.title,
+                  why: parsed.why,
+                  timeHorizon: parsed.timeHorizon,
+                },
+              });
+
+              // Create a real Goal record in the store using the same core
+              // fields our normal goal list relies on. For now we attach it to
+              // a placeholder Arc-less bucket so that the user lands on the
+              // goal detail page with something concrete to edit.
+              const nowISO = new Date().toISOString();
+              const goalId = `goal-onboarding-${Date.now()}`;
+              const newGoal: Goal = {
+                id: goalId,
+                arcId: 'onboarding-temp', // can be reassigned later
+                title: parsed.title,
+                description: parsed.why,
+                status: 'planned',
+                startDate: nowISO,
+                targetDate: undefined,
+                forceIntent: {},
+                metrics: [],
+                createdAt: nowISO,
+                updatedAt: nowISO,
+              };
+              addGoal(newGoal);
+              setLastOnboardingGoalId(goalId);
+
+              // Let the goal card handle showing the concrete details. Here we
+              // just explain that a first goal has been created.
+              displayContent =
+                'Takado uses AI to help you turn what you shared into a clear, short-term goal.\n\n' +
+                "I’ve created a first goal below for you to start from. You’ll be able to rename it or change it anytime once you’re in the app.";
+            }
+          } catch (parseErr) {
+            // If parsing fails, fall back to the raw assistant reply.
+            console.warn('[onboarding] Failed to parse goal draft JSON', parseErr);
+          }
+        }
+
         controller.streamAssistantReplyFromWorkflow(
-          reply,
+          displayContent,
           `assistant-step-${workflowStepId}`,
           { onDone: opts?.onDone }
         );
@@ -201,6 +270,8 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
+  const addGoal = useAppStore((state) => state.addGoal);
+  const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const addArc = useAppStore((state) => state.addArc);
   const [visibleSteps, setVisibleSteps] = useState<OnboardingStage[]>(['welcome']);
   const [completedSteps, setCompletedSteps] = useState<OnboardingStage[]>([]);
@@ -398,28 +469,29 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     };
   }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy, cardsReady.desire_invite]);
 
-  // For v2, desire_clarify is an assistant-only follow-up step that asks a
-  // single clarifying question based on the desire the user just entered.
-  // We auto-run this step when the workflow lands on it so the user never has
-  // to tap anything to proceed.
-  useEffect(() => {
+  // For downstream v2 steps where the agent is drafting structured output
+  // (goal/arc/activities), we auto-run the assistant once the workflow lands on
+  // each agent_generate step so the user never gets stuck without visible
+  // progress. Confirm-style steps continue to rely on normal chat replies.
+  const autoRunAssistantStep = useCallback(
+    (stepId: string) => {
     if (!isV2Workflow) return;
     if (!workflowRuntime?.instance) return;
     const currentStepId = workflowRuntime.instance.currentStepId;
-    if (currentStepId !== 'desire_clarify') return;
+      if (currentStepId !== stepId) return;
 
     let cancelled = false;
 
     const fallbackTimeout = setTimeout(() => {
       if (cancelled) return;
-      workflowRuntime.completeStep('desire_clarify');
+        workflowRuntime.completeStep(stepId);
     }, 10000);
 
-    void sendStepAssistantCopy('desire_clarify', {
+      void sendStepAssistantCopy(stepId, {
       onDone: () => {
         if (cancelled) return;
         clearTimeout(fallbackTimeout);
-        workflowRuntime.completeStep('desire_clarify');
+          workflowRuntime.completeStep(stepId);
       },
     });
 
@@ -427,7 +499,45 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       cancelled = true;
       clearTimeout(fallbackTimeout);
     };
-  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy]);
+    },
+    [isV2Workflow, workflowRuntime, sendStepAssistantCopy]
+  );
+
+  useEffect(() => {
+    const cleanup = autoRunAssistantStep('goal_draft');
+    return () => {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [autoRunAssistantStep]);
+
+  useEffect(() => {
+    const cleanup = autoRunAssistantStep('arc_introduce');
+    return () => {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [autoRunAssistantStep]);
+
+  useEffect(() => {
+    const cleanup = autoRunAssistantStep('arc_draft');
+    return () => {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [autoRunAssistantStep]);
+
+  useEffect(() => {
+    const cleanup = autoRunAssistantStep('activities_generate');
+    return () => {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [autoRunAssistantStep]);
 
   // Ensure the identity card fades in once we've marked it as ready and the
   // workflow has advanced to identity_basic.
@@ -626,6 +736,12 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
         }));
         setProfileImageStatus('completed');
         completeStep('profileImage');
+        if (isV2Workflow) {
+          workflowRuntime?.completeStep('profile_avatar', {
+            avatarUrl: asset.uri,
+          });
+          onComplete?.();
+        }
       } else {
         console.warn('[onboarding] picker returned result with no asset');
       }
@@ -652,6 +768,12 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const handleSkipImage = () => {
     setProfileImageStatus('skipped');
     completeStep('profileImage');
+    if (isV2Workflow) {
+      workflowRuntime?.completeStep('profile_avatar', {
+        avatarUrl: null,
+      });
+      onComplete?.();
+    }
   };
 
   const handleKeepAvatar = () => {
@@ -678,14 +800,18 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     }));
     setNotificationsChoice(enabled);
     completeStep('notifications');
-    // Map to workflow step "notifications_v2" (v2) / "notifications" (v1)
-    workflowRuntime?.completeStep(isV2Workflow ? 'notifications_v2' : 'notifications', {
+    // Map to workflow step "notifications" for the legacy v1 workflow only.
+    if (!isV2Workflow) {
+      workflowRuntime?.completeStep('notifications', {
       notifications: enabled ? 'enabled' : 'disabled',
     });
+    }
     appendChatUserMessage(
       enabled ? 'Yes, enable reminders for me.' : 'No reminders for now, thanks.'
     );
-    await sendStepAssistantCopy(isV2Workflow ? 'notifications_v2' : 'notifications');
+    if (!isV2Workflow) {
+      await sendStepAssistantCopy('notifications');
+    }
   };
 
   const handleConfirmNotifications = () => {
@@ -809,10 +935,12 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     setCreatedArcName(arc.name);
     const completionStep = arcChoice === 'manual' ? 'arcManual' : 'arcSuggestion';
     completeStep(completionStep, 'closing');
-    // Mark workflow closing step as reached. In v2, this is "closing_v2".
-    workflowRuntime?.completeStep(isV2Workflow ? 'closing_v2' : 'closing');
+    // Arc finalization is only relevant for the legacy v1 onboarding workflow.
+    if (!isV2Workflow) {
+      workflowRuntime?.completeStep('closing');
     appendChatUserMessage(`Let’s go with the Arc “${arc.name}”.`);
-    void sendStepAssistantCopy(isV2Workflow ? 'closing_v2' : 'closing');
+      void sendStepAssistantCopy('closing');
+    }
   };
 
   const handleCloseFlow = () => {
@@ -906,12 +1034,16 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       placeholder: field.placeholder,
       keyboardType: field.type === 'number' ? 'number-pad' : 'default',
       autoCapitalize: field.type === 'text' ? 'sentences' : 'none',
+      multiline: field.type === 'textarea',
+      numberOfLines: field.type === 'textarea' ? 5 : 1,
     })) ?? [
       {
         id: 'desireSummary',
         label: 'In your own words',
         placeholder: 'Describe one thing you’d like to make progress on.',
         autoCapitalize: 'sentences',
+        multiline: true,
+        numberOfLines: 5,
       },
     ];
 
@@ -953,6 +1085,21 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   // When running under the v2 onboarding workflow, we render a single
   // schema-driven card for the current step inside the shared chat surface.
   if (isV2Workflow) {
+    if (currentWorkflowStepId === 'goal_confirm') {
+      const goal = workflowRuntime?.instance?.collectedData
+        ?.goal as { title?: string; why?: string; timeHorizon?: string } | undefined;
+
+      if (goal && goal.title) {
+        return (
+          <GoalCard
+            title={goal.title}
+            body={goal.why}
+            metaLeft={goal.timeHorizon ? `Timeframe: ${goal.timeHorizon}` : undefined}
+            onPress={onComplete}
+          />
+        );
+      }
+    }
     if (currentWorkflowStepId === 'identity_basic') {
       if (!cardsReady.identity_basic) {
         // Let the assistant copy drive the experience until the card is ready.
@@ -975,7 +1122,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       return (
         <Animated.View style={{ opacity: identityCardOpacity }}>
           <GenericFormCard
-            title={identityUi?.title ?? 'Basic identity'}
+            title={identityUi?.title}
             fields={identityBasicFields}
             values={identityValues}
             onChange={(fieldId, value) =>
@@ -985,7 +1132,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
               }))
             }
             onSubmit={handleIdentityBasicSubmit}
-            primaryButtonLabel={identityUi?.primaryActionLabel ?? 'Save and continue'}
+            primaryButtonLabel={identityUi?.primaryActionLabel ?? 'Continue'}
             submitting={identitySubmitting}
             submitDisabled={!canSubmit}
           />
@@ -1006,7 +1153,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
       return (
         <GenericFormCard
-          title={desireUi?.title ?? 'What would you like to move forward?'}
+          title={desireUi?.title}
           fields={desireFields}
           values={desireValues}
           onChange={(fieldId, value) =>
@@ -1016,10 +1163,44 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
             }))
           }
           onSubmit={handleDesireInviteSubmit}
-          primaryButtonLabel={desireUi?.primaryActionLabel ?? 'Save and continue'}
+          primaryButtonLabel={desireUi?.primaryActionLabel ?? 'Continue'}
           submitting={desireSubmitting}
           submitDisabled={!canSubmit}
         />
+      );
+    }
+
+    if (currentWorkflowStepId === 'profile_avatar') {
+      return (
+        <Card style={styles.stepCard}>
+          <View style={styles.stepBody}>
+            <Text style={styles.bodyText}>
+              Do you want to add a photo or avatar for your profile? You can skip this if you’d
+              like.
+            </Text>
+            {hasAvatar ? (
+              <View style={styles.avatarPreview}>
+                <Image source={{ uri: profileImageUri }} style={styles.avatarImage} />
+              </View>
+            ) : null}
+            <View style={styles.inlineActions}>
+              <Button
+                style={styles.primaryButton}
+                onPress={() => handlePickImage('library')}
+                disabled={isPickingImage}
+              >
+                {isPickingImage ? (
+                  <ActivityIndicator color={colors.canvas} />
+                ) : (
+                  <Text style={styles.primaryButtonLabel}>Choose from library</Text>
+                )}
+              </Button>
+              <Button variant="ghost" onPress={handleSkipImage} disabled={isPickingImage}>
+                <Text style={styles.linkLabel}>Skip for now</Text>
+              </Button>
+            </View>
+          </View>
+        </Card>
       );
     }
 
@@ -1472,11 +1653,13 @@ type FormFieldConfig = {
   placeholder?: string;
   keyboardType?: 'default' | 'number-pad' | 'email-address';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  multiline?: boolean;
+  numberOfLines?: number;
 };
 
 type GenericFormCardProps = {
   stepLabel?: string;
-  title: string;
+  title?: string;
   description?: string;
   fields: FormFieldConfig[];
   values: Record<string, string>;
@@ -1506,7 +1689,7 @@ function GenericFormCard({
   return (
     <Card style={styles.stepCard}>
       {stepLabel ? <Text style={styles.stepLabel}>{stepLabel}</Text> : null}
-      <Text style={styles.stepTitle}>{title}</Text>
+      {title ? <Text style={styles.stepTitle}>{title}</Text> : null}
       <View style={styles.stepBody}>
         {description ? <Text style={styles.bodyText}>{description}</Text> : null}
         {fields.map((field) => (
@@ -1518,6 +1701,8 @@ function GenericFormCard({
             onChangeText={(text) => onChange(field.id, text)}
             keyboardType={field.keyboardType}
             autoCapitalize={field.autoCapitalize}
+            multiline={field.multiline}
+            numberOfLines={field.numberOfLines}
             returnKeyType="done"
             onSubmitEditing={onSubmit}
           />
@@ -1625,7 +1810,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   primaryButtonLabel: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.canvas,
     fontWeight: '600',
   },

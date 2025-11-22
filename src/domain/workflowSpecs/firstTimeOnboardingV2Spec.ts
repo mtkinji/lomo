@@ -116,7 +116,7 @@ export type WorkflowSpec = {
 
 export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
   id: 'first_time_onboarding_v2',
-  label: 'First-time onboarding (v2 – goal, arc, activities)',
+  label: 'First-time onboarding (v2 – first goal)',
   version: 2,
   chatMode: 'firstTimeOnboarding',
   outcomeSchema: {
@@ -130,13 +130,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         why: 'string',
         timeHorizon: 'string',
       },
-      arc: {
-        name: 'string',
-        description: 'string',
-      },
-      activities: 'array[activity]',
       avatarUrl: 'string?',
-      notifications: 'enum[enabled,disabled]',
     },
   },
   steps: [
@@ -145,11 +139,11 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Welcome & priming',
       prompt:
-        'In 1–2 short sentences, welcome the user to TAKADO, describe it as a place to bring clarity to their life one goal, one step, one chapter at a time, and explain that you will guide them through a short setup so they can begin with confidence.',
+        'In 1 short sentence, welcome the user to TAKADO, describe it as a place to bring clarity to their life one goal, one step, one chapter at a time, and explain that you will guide them through a short setup so they can begin with confidence.',
       renderMode: 'static',
       staticCopy:
-        '👋 Welcome to Takado.\n\nThis is where you turn vague ideas and “one day” goals into clear, doable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters. 🌿',
-      copyLength: 'short_paragraph',
+        '👋 Welcome to Takado.\n\nThis is where you turn vague ideas and "some day” goals into clear, doable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
+      copyLength: 'one_sentence',
       validationHint:
         'No fields collected; keep the message short, warm, and specific about what will happen.',
       next: 'identity_intro',
@@ -159,8 +153,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Invite name and age',
       prompt:
-        'Ask the user, in one short sentence, “What should I call you?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
-      copyLength: 'two_sentences',
+        'Ask the user, in one short sentence, “What should I call you and how old are you?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
+      copyLength: 'one_sentence',
       validationHint:
         'No structured fields here; simply orient the user and invite them to share their preferred name and age.',
       next: 'identity_basic',
@@ -178,7 +172,6 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         'Name should be non-empty. Age should be a reasonable integer; if unclear, ask once for clarification and then move on.',
       next: 'desire_invite',
       ui: {
-        title: 'Basic identity',
         fields: [
           {
             id: 'name',
@@ -203,16 +196,18 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       hideFreeformChatInput: true,
       prompt:
         'Ask the user, in 1–2 short sentences, to share one thing they would like to make progress on right now. Emphasize that anything that matters to them is valid and low-pressure, and then point them to the box below to type it in.',
-      copyLength: 'short_paragraph',
+      renderMode: 'static',
+      staticCopy:
+        'Thanks for sharing that. Now, I’d love to hear about one thing you’d like to make progress on right now. It can be anything that matters to you—big or small—there’s no pressure.',
+      copyLength: 'two_sentences',
       validationHint:
         'Expect a short free-text summary. If the user is unsure, offer 2–3 example categories like “health”, “creative work”, or “relationships”.',
-      next: 'desire_clarify',
+      next: 'goal_draft',
       ui: {
-        title: 'What would you like to move forward?',
         fields: [
           {
             id: 'desireSummary',
-            label: 'In your own words',
+            label: '',
             type: 'textarea',
             placeholder: 'Describe one thing you’d like to make progress on.',
           },
@@ -220,24 +215,26 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       },
     },
     {
-      id: 'desire_clarify',
-      kind: 'assistant_copy_only',
-      label: 'Clarify intention',
-      collects: ['desireClarified'],
-      prompt:
-        'Read the desireSummary and ask ONE targeted clarifying question in a single sentence that helps you understand what matters most (for example, “What part of that feels most important right now?”). Record a short clarified phrase as desireClarified.',
-      copyLength: 'one_sentence',
-      validationHint:
-        'Only one follow-up question. Capture a short clarified summary or key phrase that will feed the goal draft.',
-      next: 'goal_draft',
-    },
-    {
       id: 'goal_draft',
       kind: 'agent_generate',
       label: 'Draft goal formation',
       collects: ['goal'],
       prompt:
-        'Synthesize a simple, concrete draft goal from the user’s desire and clarified intention. Produce a title, a short “why it matters”, and a rough 30–90 day time horizon.',
+        'You are helping a new TAKADO user turn a single desire into a simple, realistic goal.\n\n' +
+        'Context you have about the user:\n' +
+        '- Name: {{name}}\n' +
+        '- Age: {{age}}\n' +
+        '- What they said they want to make progress on: {{desireSummary}}\n\n' +
+        'Using only this context, synthesize ONE short-term goal that feels achievable in roughly 30–90 days.\n' +
+        '- The goal **title** should be specific but not overwhelming (one short phrase).\n' +
+        '- The **why** should be one short sentence that reflects why this matters to them, using their own language where possible.\n' +
+        '- The **timeHorizon** should be a natural-language range like "next 30 days", "next 6–8 weeks", or "next 3 months".\n\n' +
+        'Respond ONLY with a JSON object with the following shape, and no extra commentary:\n' +
+        '{\n' +
+        '  "title": string,\n' +
+        '  "why": string,\n' +
+        '  "timeHorizon": string\n' +
+        '}',
       copyLength: 'short_paragraph',
       validationHint:
         'Goal should feel doable within ~30–90 days, specific but not overwhelming. Use the user’s own language where possible.',
@@ -249,93 +246,14 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Goal confirmation',
       collects: ['goalConfirmed'],
       prompt:
-        'In one short sentence, acknowledge the saved goal and confirm that you will use this as their first goal.',
-      copyLength: 'one_sentence',
+        'In 1–2 short sentences, briefly acknowledge the saved goal, note that Takado will use it as their first goal, and remind them they can edit or change it anytime from the Goals view.',
+      renderMode: 'static',
+      staticCopy:
+        'Great—let’s use this as your first goal in Takado. You can always rename it, tweak the wording, or change it from the Goals view once you’re in the app.',
+      copyLength: 'short_paragraph',
+      hideFreeformChatInput: true,
       validationHint:
         'No additional data; just confirm and reflect the goal back in natural language.',
-      next: 'arc_introduce',
-    },
-    {
-      id: 'arc_introduce',
-      kind: 'assistant_copy_only',
-      label: 'Introduce Arcs',
-      prompt:
-        'In 1–2 short sentences, explain that every goal in TAKADO lives inside an Arc—the broader chapter of life it belongs to—and that you are going to find the right chapter for this goal.',
-      copyLength: 'two_sentences',
-      validationHint:
-        'No fields; keep it short and avoid jargon. Make Arcs feel like a natural container, not a technical concept.',
-      next: 'arc_identity_primary',
-    },
-    {
-      id: 'arc_identity_primary',
-      kind: 'assistant_copy_only',
-      label: 'Arc identity prompt',
-      collects: ['arcIdentityRaw'],
-      prompt:
-        'Ask the user, in one clear question, “When you imagine the version of yourself who reaches this goal, what kind of person are they becoming?” Capture their free-form answer as arcIdentityRaw.',
-      copyLength: 'one_sentence',
-      validationHint:
-        'Answer may be short; do not force depth. This is raw material for the Arc name and description.',
-      next: 'arc_identity_clarify',
-    },
-    {
-      id: 'arc_identity_clarify',
-      kind: 'assistant_copy_only',
-      label: 'Arc clarifying prompt',
-      collects: ['arcIdentityClarified'],
-      prompt:
-        'Based on arcIdentityRaw, ask ONE short follow-up question about what feels most important in that identity shift (for example, “What about that feels most important to you?”). Record a short clarified phrase as arcIdentityClarified.',
-      copyLength: 'one_sentence',
-      validationHint:
-        'Single follow-up only. Capture a short clarified phrase or bullet that highlights the core value or direction.',
-      next: 'arc_draft',
-    },
-    {
-      id: 'arc_draft',
-      kind: 'agent_generate',
-      label: 'Draft Arc formation',
-      collects: ['arc'],
-      prompt:
-        'Propose an identity-based Arc that the goal fits inside. Provide an Arc name, a one-sentence description, and a very brief explanation tying the Arc to the current goal.',
-      copyLength: 'short_paragraph',
-      validationHint:
-        'Arc name should be identity-oriented and durable (a chapter), not a task. Description should be one grounded sentence.',
-      next: 'arc_confirm',
-    },
-    {
-      id: 'arc_confirm',
-      kind: 'assistant_copy_only',
-      label: 'Arc confirmation',
-      collects: ['arcConfirmed'],
-      prompt:
-        'In one short sentence, acknowledge the chosen Arc and confirm that this will be the chapter guiding their direction.',
-      copyLength: 'one_sentence',
-      validationHint:
-        'No new structured fields; simply mark that the Arc has been adopted and reflect it back in natural language.',
-      next: 'activities_generate',
-    },
-    {
-      id: 'activities_generate',
-      kind: 'agent_generate',
-      label: 'Generate starter activities',
-      collects: ['activities'],
-      prompt:
-        'Given the confirmed goal and Arc, list 2–4 small, clear starter Activities as specific, doable next steps (for example, “Take a 10-minute walk today”).',
-      copyLength: 'short_paragraph',
-      validationHint:
-        'Activities should feel like next steps, not projects. Avoid overloading the user; keep the list short.',
-      next: 'activities_confirm',
-    },
-    {
-      id: 'activities_confirm',
-      kind: 'assistant_copy_only',
-      label: 'Activities confirmation',
-      collects: ['activitiesSelection'],
-      prompt:
-        'In 1–2 short sentences, acknowledge whichever Activities the user chose to add (or that they skipped) and summarize that these steps are now part of their plan.',
-      copyLength: 'two_sentences',
-      validationHint:
-        'No new structured activities here; just record which ones the user adopted so the client can persist them.',
       next: 'profile_avatar',
     },
     {
@@ -348,7 +266,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       copyLength: 'two_sentences',
       validationHint:
         'avatarUrl may be null. Do not pressure the user; this is optional seasoning, not a requirement.',
-      next: 'notifications_v2',
+      next: 'closing_v2',
       ui: {
         title: 'Profile image (optional)',
         // Specific picker behavior is still implemented in the presenter;
@@ -356,26 +274,11 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       },
     },
     {
-      id: 'notifications_v2',
-      kind: 'form',
-      label: 'Notifications setup',
-      collects: ['notifications'],
-      prompt:
-        'Ask the user, in one short question, whether to turn on gentle notifications for steps and Arc attention, offering a clear choice between enabling them or “Not now”.',
-      copyLength: 'one_sentence',
-      validationHint:
-        'notifications should be enabled or disabled. Respect the user’s choice without pushing.',
-      next: 'closing_v2',
-      ui: {
-        title: 'Notifications',
-      },
-    },
-    {
       id: 'closing_v2',
       kind: 'assistant_copy_only',
-      label: 'Closing (goal, arc, activities)',
+      label: 'Closing',
       prompt:
-        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have an Arc, a goal, and a few concrete next steps, and remind them they can ask what to do next at any time.',
+        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in Takado, and remind them they can ask what to do next at any time.',
       copyLength: 'short_paragraph',
       validationHint:
         'No new fields; keep it concise, encouraging, and grounded. Avoid hype.',

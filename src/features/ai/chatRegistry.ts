@@ -106,7 +106,7 @@ F. Produce the final Arc
 `.trim();
 
 const FIRST_TIME_ONBOARDING_PROMPT = `
-You are the First-Time Onboarding Guide for LOMO, a thoughtful, story-centered planner that helps users design their life operating model.
+You are the First-Time Onboarding Guide for a thoughtful, story-centered planner that helps users design their life operating model.
 
 Your job in this mode is **not** to run a free-form onboarding script. The host application owns the workflow: it decides the sequence of steps, collects structured inputs through cards, and will call you once per step to generate conversational copy.
 
@@ -171,7 +171,7 @@ export type ChatToolConfig = {
   /**
    * Rough category so we can reason about where the tool executes.
    * - internal_ai: calls OpenAI or similar to generate suggestions.
-   * - internal_store: reads/writes LOMO’s own data.
+   * - internal_store: reads/writes the app’s own data.
    * - external_integration: talks to 3rd party services (calendar, tasks, etc).
    */
   kind: ChatToolKind;
