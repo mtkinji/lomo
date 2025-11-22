@@ -1,4 +1,5 @@
 import type { GeneratedArc } from '../../services/ai';
+import type { AgentComponentId } from '../../domain/agentComponents';
 
 const ARC_CREATION_SYSTEM_PROMPT = `
 You are the Arc Creation Agent within the user’s Life Operating Model, a system that helps people clarify meaningful identity directions in their lives.
@@ -204,6 +205,12 @@ export type ChatModeConfig = {
    * message on mount so the conversation opens with guidance.
    */
   autoBootstrapFirstMessage?: boolean;
+  /**
+   * Optional list of component IDs that the agent is allowed to reference in
+   * this mode. This is used for system prompts and future JSON handoffs so the
+   * agent knows which UI building blocks exist on this surface.
+   */
+  renderableComponents?: AgentComponentId[];
 };
 
 export const CHAT_MODE_REGISTRY: Record<ChatMode, ChatModeConfig> = {
@@ -212,6 +219,10 @@ export const CHAT_MODE_REGISTRY: Record<ChatMode, ChatModeConfig> = {
     label: 'Arc Coach',
     systemPrompt: ARC_CREATION_SYSTEM_PROMPT,
     autoBootstrapFirstMessage: true,
+    // Arc creation is primarily conversational for now. We reserve the
+    // InstructionCard component so prompts can safely reference it when we
+    // introduce richer inline explanations or context blocks.
+    renderableComponents: ['InstructionCard'],
     tools: [
       {
         id: 'generateArcs',
@@ -238,6 +249,16 @@ export const CHAT_MODE_REGISTRY: Record<ChatMode, ChatModeConfig> = {
     // message; instead, presenters call sendCoachChat with step-specific
     // prompts.
     autoBootstrapFirstMessage: false,
+    // First-time onboarding is the primary consumer of the component catalog:
+    // it uses form-style cards today and will evolve toward full
+    // agent-emitted component JSON over time.
+    renderableComponents: [
+      'FormField',
+      'ActionButton',
+      'InstructionCard',
+      'ProgressIndicator',
+      'InlineCapability',
+    ],
     tools: [],
   },
 };

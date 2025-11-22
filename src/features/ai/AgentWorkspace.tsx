@@ -33,6 +33,24 @@ export type AgentWorkspaceProps = {
    * for this workspace should be resumed on mount (arcCreation mode only).
    */
   resumeDraft?: boolean;
+  /**
+   * Optional analytics hook fired whenever a workflow step completes. This is
+   * emitted after the local WorkflowInstance has been updated so listeners can
+   * read the latest state.
+   */
+  onStepComplete?: (event: {
+    definition: WorkflowDefinition;
+    previousInstance: WorkflowInstance;
+    nextInstance: WorkflowInstance;
+    stepId: string;
+    collected?: Record<string, unknown>;
+    nextStepId?: string;
+  }) => void;
+  /**
+   * Optional lifecycle hook fired when a workflow instance transitions
+   * between statuses (for example, from "in_progress" to "completed").
+   */
+  onWorkflowStatusChange?: (instance: WorkflowInstance) => void;
   onComplete?: (outcome: unknown) => void;
   onDismiss?: () => void;
 };
@@ -77,6 +95,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     workspaceSnapshot,
     onConfirmArc,
     resumeDraft,
+    onStepComplete,
+    onWorkflowStatusChange,
     onComplete,
   } = props;
 
@@ -101,6 +121,17 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     }
     return createInitialWorkflowInstance(workflowDefinition, workflowInstanceId);
   });
+
+  // Track the most recent step completion so we can emit analytics events
+  // after React has applied the state update.
+  const lastStepEventRef = useRef<{
+    definition: WorkflowDefinition;
+    previousInstance: WorkflowInstance;
+    nextInstance: WorkflowInstance;
+    stepId: string;
+    collected?: Record<string, unknown>;
+    nextStepId?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!workflowDefinition) {
@@ -136,11 +167,39 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           currentStepId: nextStepId ?? current.currentStepId,
         };
 
+        if (onStepComplete) {
+          lastStepEventRef.current = {
+            definition: workflowDefinition,
+            previousInstance: current,
+            nextInstance,
+            stepId,
+            collected,
+            nextStepId,
+          };
+        }
+
         return nextInstance;
       });
     },
-    [workflowDefinition]
+    [workflowDefinition, onStepComplete]
   );
+
+  // Emit step-completion analytics after the instance state has been updated.
+  useEffect(() => {
+    if (!onStepComplete) return;
+    if (!workflowDefinition) return;
+    if (!workflowInstance) return;
+
+    const pending = lastStepEventRef.current;
+    if (!pending) return;
+
+    if (pending.nextInstance !== workflowInstance) {
+      return;
+    }
+
+    onStepComplete(pending);
+    lastStepEventRef.current = null;
+  }, [workflowInstance, workflowDefinition, onStepComplete]);
 
   const workflowStepCard = useMemo(() => {
     if (!workflowDefinition) {
@@ -165,11 +224,17 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   }, [workflowDefinition, workflowInstance, onComplete]);
 
   useEffect(() => {
-    if (!workflowInstance || workflowInstance.status !== 'completed') return;
+    if (!workflowInstance) return;
+
+    if (onWorkflowStatusChange) {
+      onWorkflowStatusChange(workflowInstance);
+    }
+
+    if (workflowInstance.status !== 'completed') return;
     if (!onComplete) return;
     onComplete(workflowInstance.outcome ?? workflowInstance.collectedData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflowInstance?.status]);
+  }, [workflowInstance, onWorkflowStatusChange]);
 
   // In development, emit a lightweight trace so we can confirm which mode and
   // workflow a given AgentWorkspace instance is running under.

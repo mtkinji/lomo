@@ -3,10 +3,14 @@
 ### Purpose
 - Capture how the chat-based Agent surface orchestrates declarative components while keeping LOMO’s app shell + canvas hierarchy intact.
 - Provide a reference FTUE that engineering, design, and prompt authors can point to when wiring the onboarding experience.
+- Describe the **system design** for the shared Agent surface in a way that matches the current implementation (`AgentWorkspace`, workflows, and the agent component catalog).
 
 ### Agent Window as a Component-Orchestrated Surface
 - **Placement**: lives inside the canvas, under the persistent app shell (nav + contextual chrome). Never replaces the shell; instead, it occupies the canvas area that the user lands on after the splash.
-- **Structured surface**: the Agent emits JSON that the UI renders as composable blocks sitting inline with conversational text.
+- **Structured surface (system design)**:
+  - The **host app** owns a workflow (`WorkflowDefinition` + `WorkflowInstance`) and passes it to `AgentWorkspace`, which in turn hosts the shared `AiChatPane`.
+  - Each workflow step can render a **step card** (e.g., onboarding forms) inside the canvas beneath the transcript.
+  - In the long run, the Agent will emit JSON that the UI renders as composable blocks sitting inline with conversational text. The **component catalog** in `src/domain/agentComponents.ts` defines the stable IDs for those blocks.
 - **Design principles**
   - Declarative: Agent specifies `componentId`, `props`, and optional bindings; UI handles rendering.
   - Actionable: every component maps to a backend endpoint or agent-defined function (tool).
@@ -14,24 +18,22 @@
   - State-aware: the Agent can query completion state before deciding to render (avoid asking twice).
 
 ### Component Catalog (V1 scope)
-- **FormField** (`text`, `number`, `date`, `image`, `select`, `multi-select`, `toggle`)
-  - Props: `label`, `helperText`, `endpoint`, `method` (`POST` for now), validation hints.
+The **component catalog** is represented in code by `AGENT_COMPONENT_CATALOG` in `src/domain/agentComponents.ts`. It names the building blocks the Agent can reference; presenters decide how to render them.
+
+- **FormField** (`FormField`, kind = `formField`)
+  - Intent: collect a single structured input (`text`, `number`, `date`, `image`, `select`, `multi-select`, `toggle`) and send it to a clear endpoint.
   - Example bindings: `/user/name`, `/user/age`, `/user/profileImage`, `/user/preferences/focusAreas`.
-- **ActionButton**
-  - Props: `label`, `kind` (`primary`, `secondary`, `inline`), `endpoint`, payload template.
+- **ActionButton** (`ActionButton`, kind = `actionButton`)
+  - Intent: fire a focused action such as enabling notifications or generating a starter Arc from preferences.
   - Example bindings: `/settings/notifications`, `/arc/generateFromPreferences`, `/arc/createEmpty`.
-- **InstructionCard**
-  - Props: `title`, `body`, optional `image`.
-  - Purely informational; pairs with conversation to set expectations.
-- **ProgressIndicator**
-  - Props: `currentStep`, `totalSteps`, optional labels.
-  - Mirrors onboarding state so the Agent can reinforce momentum.
-- **InlineCapability**
-  - Lightweight action clusters embedded within text, e.g., `[Enable] [Skip]`.
-  - Still backed by ActionButton endpoints.
-- **Composite (future)**
-  - Multi-field cards or checklists.
-  - Not required for the first pass but keep IDs reserved so prompts can reference them later.
+- **InstructionCard** (`InstructionCard`, kind = `instructionCard`)
+  - Intent: show short, static orientation copy that sits inline with the conversation to set expectations.
+- **ProgressIndicator** (`ProgressIndicator`, kind = `progressIndicator`)
+  - Intent: mirror workflow progress (`currentStep` / `totalSteps`) so the Agent and UI can reinforce momentum.
+- **InlineCapability** (`InlineCapability`, kind = `inlineCapability`)
+  - Intent: provide lightweight inline action clusters such as `[Enable] [Skip]`, still backed by ActionButton-style endpoints.
+- **Composite (future)** (`Composite`, kind = `composite`)
+  - Intent: represent multi-field cards or checklists. Not required for the first pass but IDs are reserved so prompts can reference them later.
 
 ### Conversation + Component Rules
 1. **Lead-in first**: one or two sentences explain why the component is surfacing before the UI renders it.
@@ -42,6 +44,18 @@
 6. **Chaining**: sequence components deliberately (name → age → image, etc.), but treat each as its own conversational turn.
 
 ### FTUE Flow (First-Time User Experience)
+
+In **v1 implementation**, the FTUE is driven by a workflow (`first_time_onboarding_v2`) authored in `src/domain/workflowSpecs/firstTimeOnboardingV2Spec.ts` and compiled into a `WorkflowDefinition`. `AgentWorkspace` hosts this workflow and surfaces a shared `OnboardingGuidedFlow` presenter as a **step card** beneath `AiChatPane`.
+
+- The Agent:
+  - receives **step-specific prompts** (via `FIRST_TIME_ONBOARDING_PROMPT` and WorkflowRuntime),
+  - provides warm, contextual copy for each step.
+- The host:
+  - owns the workflow graph (which step comes next),
+  - collects structured data via cards,
+  - updates the user profile and local domain store directly.
+
+The JSON-based component system described below is the **future evolution** of this surface. The catalog and `renderableComponents` metadata on chat modes are already in place so prompts can safely reference the components even before full JSON orchestration is wired up.
 
 #### Step 0 – Splash → Agent Landing
 - Auto-transition from splash to the Agent view embedded in the canvas.
