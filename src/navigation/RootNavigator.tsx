@@ -7,6 +7,7 @@ import {
   DrawerActions,
   NavigatorScreenParams,
   type NavigationState,
+  createNavigationContainerRef,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
@@ -42,7 +43,15 @@ export type RootDrawerParamList = {
 
 export type ArcsStackParamList = {
   ArcsList: undefined;
-  ArcDetail: { arcId: string };
+  ArcDetail: {
+    arcId: string;
+    /**
+     * When true, ArcDetail should immediately open the Goal creation wizard
+     * so the user can adopt a new goal for this Arc without hunting for the
+     * inline button.
+     */
+    openGoalCreation?: boolean;
+  };
   GoalDetail: {
     goalId: string;
     /**
@@ -65,6 +74,7 @@ export type SettingsStackParamList = {
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
+export const rootNavigationRef = createNavigationContainerRef<RootDrawerParamList>();
 // Match the AppShell's top gutter so the drawer content aligns with the page header.
 const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // Bump this key whenever the top-level navigator structure changes in a way
@@ -154,6 +164,7 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer
+      ref={rootNavigationRef}
       theme={navTheme}
       initialState={initialState}
       onStateChange={(state) => {

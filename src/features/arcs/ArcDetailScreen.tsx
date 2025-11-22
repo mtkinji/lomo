@@ -73,7 +73,7 @@ const FORCE_ORDER: Array<keyof typeof FORCE_LABELS> = [
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
-  const { arcId } = route.params;
+  const { arcId, openGoalCreation } = route.params;
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const addGoal = useAppStore((state) => state.addGoal);
@@ -97,6 +97,15 @@ export function ArcDetailScreen() {
   const [heroLoading, setHeroLoading] = useState(false);
   const [heroError, setHeroError] = useState('');
   const insets = useSafeAreaInsets();
+
+  // When launched from the Goals canvas with an explicit "create goal" intent,
+  // immediately open the Goal creation wizard so the user lands in a ready-to-go
+  // flow instead of hunting for the inline CTA in the Arc detail body.
+  useEffect(() => {
+    if (openGoalCreation) {
+      setGoalModalVisible(true);
+    }
+  }, [openGoalCreation]);
 
   const handleShareArc = useCallback(async () => {
     if (!arc) return;

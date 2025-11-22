@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, ScrollView, Image, StyleProp, ViewStyle } from 'react-native';
+import { Alert, StyleSheet, View, ScrollView, Image, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -15,6 +15,7 @@ import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import type { GoalDraft, ThumbnailStyle } from '../../domain/types';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -50,6 +51,7 @@ export function GoalsScreen() {
   }, {});
 
   const hasGoals = goals.length > 0;
+  const [arcPickerVisible, setArcPickerVisible] = React.useState(false);
 
   const activityCountByGoal = React.useMemo(
     () =>
@@ -108,6 +110,43 @@ export function GoalsScreen() {
 
   const hasDrafts = draftEntries.length > 0;
 
+  const handlePressNewGoal = () => {
+    if (arcs.length === 0) {
+      Alert.alert(
+        'Create an Arc first',
+        'Goals live inside your Arcs. Create an Arc, then you can add goals.',
+        [
+          {
+            text: 'Go to Arcs',
+            onPress: () =>
+              drawerNavigation.navigate('ArcsStack', {
+                screen: 'ArcsList',
+              }),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ],
+      );
+      return;
+    }
+
+    if (arcs.length === 1) {
+      const onlyArc = arcs[0];
+      drawerNavigation.navigate('ArcsStack', {
+        screen: 'ArcDetail',
+        params: {
+          arcId: onlyArc.id,
+          openGoalCreation: true,
+        },
+      });
+      return;
+    }
+
+    setArcPickerVisible(true);
+  };
+
   return (
     <AppShell>
       <PageHeader
@@ -115,16 +154,29 @@ export function GoalsScreen() {
         iconName="goals"
         menuOpen={menuOpen}
         onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
+        rightElement={
+          <Button
+            size="icon"
+            iconButtonSize={28}
+            accessibilityRole="button"
+            accessibilityLabel="Create a new goal"
+            style={styles.newGoalButton}
+            hitSlop={8}
+            onPress={handlePressNewGoal}
+          >
+            <Icon name="plus" size={16} color="#FFFFFF" />
+          </Button>
+        }
       />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {hasGoals ? (
-          <VStack space="md">
-            {goals.map((goal) => {
-              const arcName = arcLookup[goal.arcId];
+      {hasGoals ? (
+        <VStack space="md">
+          {goals.map((goal) => {
+            const arcName = arcLookup[goal.arcId];
               const statusLabel = goal.status.replace('_', ' ');
               const activityCount = activityCountByGoal[goal.id] ?? 0;
               const activityLabel =
@@ -147,15 +199,15 @@ export function GoalsScreen() {
               const shouldShowTopography = showTopography && !hasCustomThumbnail;
               const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
 
-              return (
+            return (
                 <Pressable
-                  key={goal.id}
-                  onPress={() =>
-                    drawerNavigation.navigate('ArcsStack', {
-                      screen: 'GoalDetail',
+                key={goal.id}
+                onPress={() =>
+                  drawerNavigation.navigate('ArcsStack', {
+                    screen: 'GoalDetail',
                       params: { goalId: goal.id, entryPoint: 'goalsTab' },
-                    })
-                  }
+                  })
+                }
                 >
                   <Card style={styles.goalListCard}>
                     <View style={styles.goalListContent}>
@@ -264,7 +316,7 @@ export function GoalsScreen() {
                           )}
                         </View>
                       </View>
-                      <VStack space="xs" style={styles.goalTextContainer}>
+                      <VStack style={styles.goalTextContainer}>
                         <Heading
                           style={styles.goalTitle}
                           numberOfLines={2}
@@ -283,18 +335,18 @@ export function GoalsScreen() {
                     </View>
                   </Card>
                 </Pressable>
-              );
-            })}
-          </VStack>
-        ) : (
-          <VStack space="sm" style={styles.emptyState}>
-            <Heading style={styles.emptyTitle}>No goals yet</Heading>
-            <Text style={styles.emptyBody}>
-              Goals live inside your arcs and express concrete progress. Start by creating an Arc,
-              then let Takado help you design a few goals.
-            </Text>
-          </VStack>
-        )}
+            );
+          })}
+        </VStack>
+      ) : (
+        <VStack space="sm" style={styles.emptyState}>
+          <Heading style={styles.emptyTitle}>No goals yet</Heading>
+          <Text style={styles.emptyBody}>
+            Goals live inside your arcs and express concrete progress. Start by creating an Arc,
+            then let Takado help you design a few goals.
+          </Text>
+        </VStack>
+      )}
 
         {hasDrafts && (
           <GoalDraftSection
@@ -304,6 +356,21 @@ export function GoalsScreen() {
           />
         )}
       </ScrollView>
+      <GoalArcPickerSheet
+        visible={arcPickerVisible}
+        arcs={arcs}
+        onClose={() => setArcPickerVisible(false)}
+        onSelectArc={(arcId) => {
+          setArcPickerVisible(false);
+          drawerNavigation.navigate('ArcsStack', {
+            screen: 'ArcDetail',
+            params: {
+              arcId,
+              openGoalCreation: true,
+            },
+          });
+        }}
+      />
     </AppShell>
   );
 }
@@ -377,6 +444,58 @@ function GoalDraftSection({ entries, onAdopt, onDismiss }: GoalDraftSectionProps
   );
 }
 
+type GoalArcPickerSheetProps = {
+  visible: boolean;
+  arcs: { id: string; name: string; narrative?: string | null }[];
+  onClose: () => void;
+  onSelectArc: (arcId: string) => void;
+};
+
+function GoalArcPickerSheet({ visible, arcs, onClose, onSelectArc }: GoalArcPickerSheetProps) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['55%']}>
+      <View style={styles.arcPickerContainer}>
+        <Heading style={styles.arcPickerTitle}>Choose an Arc for this goal</Heading>
+        <Text style={styles.arcPickerBody}>
+          Goals live inside your Arcs. Pick the home you want this new goal to strengthen.
+        </Text>
+        <ScrollView
+          style={styles.arcPickerScroll}
+          contentContainerStyle={styles.arcPickerScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <VStack space="sm">
+            {arcs.map((arc) => (
+              <Pressable
+                key={arc.id}
+                onPress={() => onSelectArc(arc.id)}
+                style={styles.arcPickerRow}
+                accessibilityRole="button"
+                accessibilityLabel={`Create goal in ${arc.name}`}
+              >
+                <Text style={styles.arcPickerName}>{arc.name}</Text>
+                {arc.narrative ? (
+                  <Text
+                    style={styles.arcPickerNarrative}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {arc.narrative}
+                  </Text>
+                ) : null}
+              </Pressable>
+            ))}
+          </VStack>
+        </ScrollView>
+      </View>
+    </TakadoBottomSheet>
+  );
+}
+
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
@@ -396,23 +515,28 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  newGoalButton: {
+    alignSelf: 'flex-start',
+    marginTop: 0,
+  },
   goalListCard: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    padding: spacing.sm,
     marginHorizontal: 0,
     marginVertical: 0,
   },
   goalListContent: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
+    height: 68, // 72,
     gap: spacing.md,
   },
   goalThumbnailWrapper: {
-    width: 56,
-    height: 56,
+    height: '100%',
+    aspectRatio: 1,
     borderRadius: 12,
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
+    alignSelf: 'stretch',
   },
   goalThumbnailInner: {
     width: '100%',
@@ -499,7 +623,7 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontFamily: typography.titleSm.fontFamily,
     color: colors.textPrimary,
-    lineHeight: 21,
+    // lineHeight: 21,
   },
   goalArcName: {
     ...typography.bodySm,
@@ -510,12 +634,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   goalMetaRow: {
-    marginTop: spacing.xs,
+    marginTop: spacing.xs / 2,
   },
   goalStatus: {
     ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
+    color: colors.textSecondary,
   },
   goalActivityMeta: {
     ...typography.bodySm,
@@ -555,6 +678,41 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.canvas,
     textAlign: 'center',
+  },
+  arcPickerContainer: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    flex: 1,
+  },
+  arcPickerTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  arcPickerBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+  },
+  arcPickerScroll: {
+    flex: 1,
+  },
+  arcPickerScrollContent: {
+    paddingBottom: spacing.lg,
+  },
+  arcPickerRow: {
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+  },
+  arcPickerName: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  arcPickerNarrative: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs / 2,
   },
 });
 

@@ -251,6 +251,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       staticCopy:
         'Great—let’s use this as your first goal in Takado. You can always rename it, tweak the wording, or change it from the Goals view once you’re in the app.',
       copyLength: 'short_paragraph',
+      hideFreeformChatInput: true,
       validationHint:
         'No additional data; just confirm and reflect the goal back in natural language.',
       next: 'profile_avatar',

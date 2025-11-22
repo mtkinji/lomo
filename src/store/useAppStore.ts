@@ -25,6 +25,7 @@ interface AppState {
   arcFeedback: ArcProposalFeedback[];
   userProfile: UserProfile | null;
   llmModel: LlmModel;
+  lastOnboardingGoalId: string | null;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -40,6 +41,7 @@ interface AppState {
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
   setLlmModel: (model: LlmModel) => void;
+  setLastOnboardingGoalId: (goalId: string | null) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
@@ -221,6 +223,7 @@ export const useAppStore = create(
       arcFeedback: [],
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
+      lastOnboardingGoalId: null,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -284,6 +287,10 @@ export const useAppStore = create(
             next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
           return { arcFeedback: trimmed };
         }),
+      setLastOnboardingGoalId: (goalId) =>
+        set(() => ({
+          lastOnboardingGoalId: goalId,
+        })),
       setUserProfile: (profile) =>
         set(() => ({
           userProfile: {
@@ -317,6 +324,7 @@ export const useAppStore = create(
               notifications: undefined,
               updatedAt: now(),
             },
+            lastOnboardingGoalId: null,
           };
         }),
       resetStore: () =>

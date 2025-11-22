@@ -6,6 +6,7 @@ import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
+import { rootNavigationRef } from '../../navigation/RootNavigator';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
@@ -20,6 +21,7 @@ export function FirstTimeUxFlow() {
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const completeFlow = useFirstTimeUxStore((state) => state.completeFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
+  const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const insets = useSafeAreaInsets();
   const [showDevMenu, setShowDevMenu] = useState(false);
 
@@ -114,6 +116,13 @@ export function FirstTimeUxFlow() {
             onComplete={() => {
               completeFlow();
               dismissFlow();
+              const goalId = useAppStore.getState().lastOnboardingGoalId;
+              if (goalId && rootNavigationRef.isReady()) {
+                rootNavigationRef.navigate('ArcsStack', {
+                  screen: 'GoalDetail',
+                  params: { goalId },
+                });
+              }
             }}
           />
         </AppShell>

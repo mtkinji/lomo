@@ -242,6 +242,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                 updatedAt: nowISO,
               };
               addGoal(newGoal);
+              setLastOnboardingGoalId(goalId);
 
               // Let the goal card handle showing the concrete details. Here we
               // just explain that a first goal has been created.
@@ -270,6 +271,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const addGoal = useAppStore((state) => state.addGoal);
+  const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const addArc = useAppStore((state) => state.addArc);
   const [visibleSteps, setVisibleSteps] = useState<OnboardingStage[]>(['welcome']);
   const [completedSteps, setCompletedSteps] = useState<OnboardingStage[]>([]);
@@ -1093,6 +1095,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
             title={goal.title}
             body={goal.why}
             metaLeft={goal.timeHorizon ? `Timeframe: ${goal.timeHorizon}` : undefined}
+            onPress={onComplete}
           />
         );
       }
