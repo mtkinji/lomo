@@ -26,6 +26,7 @@ import { Logo } from '../../ui/Logo';
 import { CoachChatTurn, GeneratedArc, sendCoachChat } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
+import { useWorkflowRuntime } from './WorkflowRuntimeContext';
 import type { ReactNode, Ref } from 'react';
 import type {
   AgeRange,
@@ -444,6 +445,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
 ) {
   const isArcCreationMode = mode === 'arcCreation';
   const isOnboardingMode = mode === 'firstTimeOnboarding';
+
+  const workflowRuntime = useWorkflowRuntime();
+  const currentWorkflowStepId = workflowRuntime?.instance?.currentStepId;
+  const currentWorkflowStep = workflowRuntime?.definition?.steps.find(
+    (step) => step.id === currentWorkflowStepId
+  );
+
+  const shouldHideComposerForWorkflowStep =
+    Boolean(
+      workflowRuntime &&
+        workflowRuntime.definition?.chatMode === 'firstTimeOnboarding' &&
+        currentWorkflowStep?.hideFreeformChatInput
+    );
+
+  const shouldShowComposer = !shouldHideComposerForWorkflowStep;
 
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
@@ -1189,133 +1205,137 @@ export const AiChatPane = forwardRef(function AiChatPane(
             </View>
           </ScrollView>
 
-          <View
-          style={[
-            styles.composerFence,
-            {
-              marginBottom:
-                keyboardHeight > 0 ? keyboardHeight - spacing.lg : -spacing.md,
-            },
-          ]}
-        >
-            {shouldShowSuggestionsRail && (
-            <View style={styles.suggestionsFence}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.suggestionRow}
-              >
-                {PROMPT_SUGGESTIONS.map((prompt) => (
-                  <Button
-                    key={prompt}
-                    variant="ghost"
-                    style={styles.suggestionChip}
-                    onPress={() => setInput(prompt)}
+          {shouldShowComposer && (
+            <View
+              style={[
+                styles.composerFence,
+                {
+                  marginBottom:
+                    keyboardHeight > 0 ? keyboardHeight - spacing.lg : -spacing.md,
+                },
+              ]}
+            >
+              {shouldShowSuggestionsRail && (
+                <View style={styles.suggestionsFence}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.suggestionRow}
                   >
-                    <Text style={styles.suggestionText}>{prompt}</Text>
-                  </Button>
-                ))}
-              </ScrollView>
+                    {PROMPT_SUGGESTIONS.map((prompt) => (
+                      <Button
+                        key={prompt}
+                        variant="ghost"
+                        style={styles.suggestionChip}
+                        onPress={() => setInput(prompt)}
+                      >
+                        <Text style={styles.suggestionText}>{prompt}</Text>
+                      </Button>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              <View style={styles.composerSection}>
+                <View style={styles.composerRow}>
+                  <Pressable
+                    style={[
+                      styles.inputShell,
+                      keyboardHeight > 0 && styles.inputShellRaised,
+                    ]}
+                    onPress={() => inputRef.current?.focus()}
+                  >
+                    <View style={styles.inputField}>
+                      <TextInput
+                        ref={inputRef}
+                        style={[styles.input, { height: inputHeight }]}
+                        placeholder="Ask anything"
+                        placeholderTextColor={CHAT_COLORS.textSecondary}
+                        value={input}
+                        onChangeText={setInput}
+                        multiline
+                        textAlignVertical="top"
+                        scrollEnabled={inputHeight >= INPUT_MAX_HEIGHT}
+                        returnKeyType="send"
+                        onSubmitEditing={handleSend}
+                        onContentSizeChange={(event) => {
+                          const nextHeight = event.nativeEvent.contentSize.height;
+                          setInputHeight((current) => {
+                            const clamped = Math.min(
+                              INPUT_MAX_HEIGHT,
+                              Math.max(INPUT_MIN_HEIGHT, nextHeight)
+                            );
+                            return clamped === current ? current : clamped;
+                          });
+                        }}
+                      />
+                    </View>
+                    <View style={styles.inputFooterRow}>
+                      {hasInput ? (
+                        <Button
+                          variant="default"
+                          size="icon"
+                          style={[
+                            styles.sendButton,
+                            (sending || !canSend) && styles.sendButtonInactive,
+                          ]}
+                          onPress={handleSend}
+                          accessibilityLabel="Send message"
+                        >
+                          {sending ? (
+                            <ActivityIndicator color={colors.canvas} />
+                          ) : (
+                            <Icon name="arrowUp" color={colors.canvas} size={16} />
+                          )}
+                        </Button>
+                      ) : (
+                        <TouchableOpacity
+                          style={[
+                            styles.voiceButton,
+                            isDictationActive && styles.voiceButtonActive,
+                          ]}
+                          onPress={handleStartDictation}
+                          accessibilityLabel={voiceButtonLabel}
+                          accessibilityHint="Uses on-device transcription to capture your voice"
+                          accessibilityState={{ busy: isDictationActive }}
+                          disabled={isDictationBusy}
+                          activeOpacity={0.85}
+                        >
+                          {isDictationBusy ? (
+                            <ActivityIndicator color={voiceButtonIconColor} size="small" />
+                          ) : (
+                            <Icon name="mic" color={voiceButtonIconColor} size={16} />
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {shouldShowDictationStatus && (
+                      <View style={styles.dictationStatusRow}>
+                        <View
+                          style={[
+                            styles.dictationStatusDot,
+                            dictationError
+                              ? styles.dictationStatusDotError
+                              : styles.dictationStatusDotActive,
+                          ]}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.dictationStatusLabel,
+                            dictationError && styles.dictationStatusLabelError,
+                          ]}
+                        >
+                          {dictationStatusMessage}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
             </View>
           )}
-          <View style={styles.composerSection}>
-            <View style={styles.composerRow}>
-              <Pressable
-                style={[
-                  styles.inputShell,
-                  keyboardHeight > 0 && styles.inputShellRaised,
-                ]}
-                onPress={() => inputRef.current?.focus()}
-              >
-                <View style={styles.inputField}>
-                  <TextInput
-                    ref={inputRef}
-                    style={[styles.input, { height: inputHeight }]}
-                    placeholder="Ask anything"
-                    placeholderTextColor={CHAT_COLORS.textSecondary}
-                    value={input}
-                    onChangeText={setInput}
-                    multiline
-                    textAlignVertical="top"
-                    scrollEnabled={inputHeight >= INPUT_MAX_HEIGHT}
-                    returnKeyType="send"
-                    onSubmitEditing={handleSend}
-                    onContentSizeChange={(event) => {
-                      const nextHeight = event.nativeEvent.contentSize.height;
-                      setInputHeight((current) => {
-                        const clamped = Math.min(
-                          INPUT_MAX_HEIGHT,
-                          Math.max(INPUT_MIN_HEIGHT, nextHeight),
-                        );
-                        return clamped === current ? current : clamped;
-                      });
-                    }}
-                  />
-                </View>
-                <View style={styles.inputFooterRow}>
-                  {hasInput ? (
-                    <Button
-                      variant="default"
-                      size="icon"
-                      style={[
-                        styles.sendButton,
-                        (sending || !canSend) && styles.sendButtonInactive,
-                      ]}
-                      onPress={handleSend}
-                      accessibilityLabel="Send message"
-                    >
-                      {sending ? (
-                        <ActivityIndicator color={colors.canvas} />
-                      ) : (
-                        <Icon name="arrowUp" color={colors.canvas} size={16} />
-                      )}
-                    </Button>
-                  ) : (
-                    <TouchableOpacity
-                      style={[
-                        styles.voiceButton,
-                        isDictationActive && styles.voiceButtonActive,
-                      ]}
-                      onPress={handleStartDictation}
-                      accessibilityLabel={voiceButtonLabel}
-                      accessibilityHint="Uses on-device transcription to capture your voice"
-                      accessibilityState={{ busy: isDictationActive }}
-                      disabled={isDictationBusy}
-                      activeOpacity={0.85}
-                    >
-                      {isDictationBusy ? (
-                        <ActivityIndicator color={voiceButtonIconColor} size="small" />
-                      ) : (
-                        <Icon name="mic" color={voiceButtonIconColor} size={16} />
-                      )}
-                    </TouchableOpacity>
-                  )}
-                </View>
-                {shouldShowDictationStatus && (
-                  <View style={styles.dictationStatusRow}>
-                    <View
-                      style={[
-                        styles.dictationStatusDot,
-                        dictationError ? styles.dictationStatusDotError : styles.dictationStatusDotActive,
-                      ]}
-                    />
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.dictationStatusLabel,
-                        dictationError && styles.dictationStatusLabelError,
-                      ]}
-                    >
-                      {dictationStatusMessage}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            </View>
-          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
 
     {isArcCreationMode && (
       <Modal
@@ -1777,7 +1797,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   stepCardHost: {
+    // Let workflow cards (like onboarding identity) sit directly in the chat
+    // canvas without being clipped. We keep only a top margin so horizontal
+    // shadows can render fully to the sheet gutters.
     marginTop: spacing.lg,
+    alignSelf: 'stretch',
   },
   composerSection: {
     gap: spacing.sm,

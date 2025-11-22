@@ -89,6 +89,13 @@ export type StepSpec = {
      */
     primaryActionLabel?: string;
   };
+  /**
+   * Optional hint for host chat surfaces about whether the generic free-form
+   * chat composer ("Ask anything") should be visible while this step is
+   * active. When true, presenters like `AiChatPane` can hide the bottom input
+   * so the user focuses on the structured card for this step.
+   */
+  hideFreeformChatInput?: boolean;
 };
 
 export type WorkflowSpec = {
@@ -163,6 +170,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'form',
       label: 'Basic identity',
       collects: ['name', 'age'],
+      hideFreeformChatInput: true,
       prompt:
         'After the user has seen the identity_intro message and shared their name and age via the card, acknowledge them warmly in one short sentence (for example, “Good to meet you, {{name}}.”) and note that you’ll use what they shared to tune tone and examples. Do not ask any new questions.',
       copyLength: 'one_sentence',
@@ -192,6 +200,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'form',
       label: 'Invite a desire',
       collects: ['desireSummary'],
+      hideFreeformChatInput: true,
       prompt:
         'Ask the user, in 1–2 short sentences, to share one thing they would like to make progress on right now. Emphasize that anything that matters to them is valid and low-pressure, and then point them to the box below to type it in.',
       copyLength: 'short_paragraph',
