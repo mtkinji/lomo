@@ -1,8 +1,4 @@
-import {
-  forwardRef,
-  useState,
-  ReactNode,
-} from 'react';
+import { forwardRef, memo, useState, ReactNode } from 'react';
 import {
   TextInput,
   TextInputProps,
@@ -37,7 +33,7 @@ type Props = TextInputProps & {
   variant?: InputVariant;
 };
 
-export const Input = forwardRef<TextInput, Props>(
+const InputBase = forwardRef<TextInput, Props>(
   (
     {
       label,
@@ -106,7 +102,7 @@ export const Input = forwardRef<TextInput, Props>(
               size === 'sm' && styles.inputSm,
               inputStyle,
             ]}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.muted}
             onFocus={handleFocus}
             onBlur={handleBlur}
           />
@@ -134,6 +130,10 @@ export const Input = forwardRef<TextInput, Props>(
   },
 );
 
+InputBase.displayName = 'Input';
+
+export const Input = memo(InputBase);
+
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
@@ -153,21 +153,23 @@ const styles = StyleSheet.create({
   },
   sizeMd: {
     minHeight: 44,
-    paddingVertical: spacing.xs,
+    paddingVertical: 0,
   },
   sizeSm: {
     minHeight: 36,
-    paddingVertical: spacing.xs - 2,
+    paddingVertical: 0,
     borderRadius: spacing.md,
   },
   input: {
     flex: 1,
-    ...typography.bodySm,
+    fontFamily: typography.bodySm.fontFamily,
+    fontSize: typography.bodySm.fontSize,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
   inputSm: {
-    ...typography.bodySm,
+    fontFamily: typography.bodySm.fontFamily,
+    fontSize: typography.bodySm.fontSize,
   },
   multilineInput: {
     textAlignVertical: 'top',

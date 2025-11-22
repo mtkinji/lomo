@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from 'react-native';
 import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,8 +19,20 @@ import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Arc, ForceLevel } from '../../domain/types';
+import type { Arc, ForceLevel, ThumbnailStyle } from '../../domain/types';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  ARC_MOSAIC_COLS,
+  ARC_MOSAIC_ROWS,
+  ARC_TOPO_GRID_SIZE,
+  DEFAULT_THUMBNAIL_STYLE,
+  getArcGradient,
+  getArcMosaicCell,
+  getArcTopoSizes,
+  pickThumbnailStyle,
+  buildArcThumbnailSeed,
+} from './thumbnailVisuals';
 
 type GoalDetailRouteProp = RouteProp<ArcsStackParamList, 'GoalDetail'>;
 
@@ -38,7 +51,24 @@ export function GoalDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
+  const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const hasSeenFirstGoalCelebration = useAppStore(
+    (state) => state.hasSeenFirstGoalCelebration
+  );
+  const setHasSeenFirstGoalCelebration = useAppStore(
+    (state) => state.setHasSeenFirstGoalCelebration
+  );
   const updateGoal = useAppStore((state) => state.updateGoal);
+  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
+    const visuals = state.userProfile?.visuals;
+    if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
+      return visuals.thumbnailStyles;
+    }
+    if (visuals?.thumbnailStyle) {
+      return [visuals.thumbnailStyle];
+    }
+    return [DEFAULT_THUMBNAIL_STYLE];
+  });
   const [arcSelectorVisible, setArcSelectorVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingField, setEditingField] = useState<'title' | 'description' | null>(null);
@@ -48,6 +78,7 @@ export function GoalDetailScreen() {
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
     defaultForceLevels(0)
   );
+  const [showFirstGoalCelebration, setShowFirstGoalCelebration] = useState(false);
   const insets = useSafeAreaInsets();
 
   const handleBack = () => {
@@ -98,6 +129,23 @@ export function GoalDetailScreen() {
     [activities, goalId]
   );
 
+  const heroSeed = useMemo(
+    () =>
+      arc ? buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant) : `goal-${goalId}`,
+    [arc, goalId]
+  );
+  const { colors: heroGradientColors, direction: heroGradientDirection } = useMemo(
+    () => getArcGradient(heroSeed),
+    [heroSeed]
+  );
+  const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
+  const thumbnailStyle = pickThumbnailStyle(heroSeed, thumbnailStyles);
+  const showTopography = thumbnailStyle === 'topographyDots';
+  const showGeoMosaic = thumbnailStyle === 'geoMosaic';
+  const hasCustomThumbnail = Boolean(arc?.thumbnailUrl);
+  const shouldShowTopography = showTopography && !hasCustomThumbnail;
+  const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
+
   if (!goal) {
     return (
       <AppShell>
@@ -122,6 +170,17 @@ export function GoalDetailScreen() {
     setEditForceIntent({ ...defaultForceLevels(0), ...goal.forceIntent });
   }, [goal]);
 
+  useEffect(() => {
+    if (
+      goal &&
+      lastOnboardingGoalId &&
+      goal.id === lastOnboardingGoalId &&
+      !hasSeenFirstGoalCelebration
+    ) {
+      setShowFirstGoalCelebration(true);
+    }
+  }, [goal, lastOnboardingGoalId, hasSeenFirstGoalCelebration]);
+
   const startDateLabel = goal.startDate
     ? new Date(goal.startDate).toLocaleDateString(undefined, {
         month: 'short',
@@ -140,6 +199,11 @@ export function GoalDetailScreen() {
 
   const forceIntent = { ...defaultForceLevels(0), ...goal.forceIntent };
   const liveForceIntent = editingForces ? editForceIntent : forceIntent;
+
+  const handleDismissFirstGoalCelebration = () => {
+    setShowFirstGoalCelebration(false);
+    setHasSeenFirstGoalCelebration(true);
+  };
 
   const handleUpdateArc = (nextArcId: string | null) => {
     const timestamp = new Date().toISOString();
@@ -265,6 +329,28 @@ export function GoalDetailScreen() {
 
   return (
     <AppShell>
+      {showFirstGoalCelebration && (
+        <View style={styles.firstGoalOverlay} pointerEvents="box-none">
+          <View style={styles.firstGoalBackdrop} />
+          <View style={styles.firstGoalCard}>
+            <Text style={styles.firstGoalBadge}>🎉 First goal created</Text>
+            <Heading style={styles.firstGoalTitle}>You just set your first goal</Heading>
+            <Text style={styles.firstGoalBody}>
+              This goal is your starting point in Takado. Next, add a couple of concrete Activities
+              so you always know the very next step.
+            </Text>
+            <Text style={styles.firstGoalBody}>
+              Use “Generate Activities with AI” for ideas, or “Add Activity manually” for something
+              you already have in mind.
+            </Text>
+            <HStack space="sm" marginTop={spacing.lg}>
+              <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>
+                <Text style={styles.primaryCtaText}>Got it</Text>
+              </Button>
+            </HStack>
+          </View>
+        </View>
+      )}
       {editingForces && (
         <TouchableOpacity
           activeOpacity={1}
@@ -273,85 +359,108 @@ export function GoalDetailScreen() {
         />
       )}
       <VStack space="lg">
-        <HStack justifyContent="space-between" alignItems="center">
-          <Button
-            size="icon"
-            style={styles.backButton}
-            onPress={handleBack}
-            accessibilityLabel="Back to Arc"
-          >
-            <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-          </Button>
-          <Button
-            size="icon"
-            style={styles.optionsButton}
-            accessibilityLabel="Goal options"
-            onPress={() => setEditModalVisible(true)}
-          >
-            <Icon name="more" size={18} color={colors.canvas} />
-          </Button>
+        <HStack alignItems="center">
+          <View style={styles.headerSide}>
+            <Button
+              size="icon"
+              style={styles.backButton}
+              onPress={handleBack}
+              accessibilityLabel="Back to Arc"
+            >
+              <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+            </Button>
+          </View>
+          <View style={styles.headerCenter}>
+            <HStack alignItems="center" justifyContent="center" space="xs">
+              <Icon name="goals" size={16} color={colors.textSecondary} />
+              <Text style={styles.objectTypeLabel}>Goal</Text>
+            </HStack>
+          </View>
+          <View style={styles.headerSideRight}>
+            <Button
+              size="icon"
+              style={styles.optionsButton}
+              accessibilityLabel="Goal options"
+              onPress={() => setEditModalVisible(true)}
+            >
+              <Icon name="more" size={18} color={colors.canvas} />
+            </Button>
+          </View>
         </HStack>
 
         <VStack space="sm">
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => beginInlineEdit('title')}
-            accessibilityRole="button"
-            accessibilityLabel="Edit goal title"
-          >
-            <View
-              style={[
-                styles.editableField,
-                editingField === 'title' && styles.editableFieldActive,
-              ]}
+          <HStack alignItems="flex-start" space="md">
+            {arc ? (
+              <View style={styles.goalThumbnailWrapper}>
+                <View style={styles.goalThumbnailInner}>
+                  {arc.thumbnailUrl ? (
+                    <Image
+                      source={{ uri: arc.thumbnailUrl }}
+                      style={styles.goalThumbnail}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={heroGradientColors}
+                      start={heroGradientDirection.start}
+                      end={heroGradientDirection.end}
+                      style={styles.goalThumbnail}
+                    />
+                  )}
+                </View>
+              </View>
+            ) : null}
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={0.8}
+              onPress={() => beginInlineEdit('title')}
+              accessibilityRole="button"
+              accessibilityLabel="Edit goal title"
             >
-              {editingField === 'title' ? (
-                <TextInput
-                  style={styles.goalTitleInput}
-                  value={editTitle}
-                  onChangeText={setEditTitle}
-                  autoFocus
-                  multiline
-                  scrollEnabled={false}
-                  onBlur={commitInlineEdit}
-                />
-              ) : (
-                <Heading style={styles.goalTitle}>{goal.title}</Heading>
-              )}
-            </View>
-          </TouchableOpacity>
+              <View
+                style={[
+                  styles.editableField,
+                  styles.goalTitleEditableField,
+                  editingField === 'title' && styles.editableFieldActive,
+                ]}
+              >
+                {editingField === 'title' ? (
+                  <TextInput
+                    style={styles.goalTitleInput}
+                    value={editTitle}
+                    onChangeText={setEditTitle}
+                    autoFocus
+                    multiline
+                    scrollEnabled={false}
+                    onBlur={commitInlineEdit}
+                  />
+                ) : (
+                  <Heading style={styles.goalTitle}>{goal.title}</Heading>
+                )}
+              </View>
+            </TouchableOpacity>
+          </HStack>
 
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => setArcSelectorVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel={
-              arc ? 'Change connected arc' : 'Connect this goal to an arc'
-            }
+            accessibilityLabel={arc ? 'Change connected arc' : 'Connect this goal to an arc'}
           >
-            <HStack
-              alignItems="center"
-              justifyContent="space-between"
-              style={styles.arcRow}
-            >
-              <VStack space="xs" flex={1}>
-                <Text style={styles.arcLabel}>
-                  {arc ? 'Arc' : 'Not connected to an arc'}
-                </Text>
-                {arc ? (
-                  <Text style={styles.arcName} numberOfLines={1} ellipsizeMode="tail">
-                    {arc.name}
-                  </Text>
-                ) : (
-                  <Text style={styles.arcEmptyHelper} numberOfLines={2}>
-                    Connect this goal to a broader arc so it has a clear home.
-                  </Text>
-                )}
-              </VStack>
-              <HStack alignItems="center" space="xs" style={styles.arcRight}>
-                <Text style={styles.arcChangeText}>{arc ? 'Change' : 'Connect'}</Text>
-                <Icon name="chevronRight" size={16} color={colors.textSecondary} />
-              </HStack>
+            <HStack alignItems="center" space="xs" style={styles.arcRow}>
+              <Icon
+                name="goals"
+                size={16}
+                color={arc ? colors.textPrimary : colors.textSecondary}
+              />
+              <Text
+                style={arc ? styles.arcChipTextConnected : styles.arcChipText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {arc ? `Arc · ${arc.name}` : 'Connect to an Arc'}
+              </Text>
+              <Icon name="chevronDown" size={16} color={colors.textSecondary} />
             </HStack>
           </TouchableOpacity>
 
@@ -380,7 +489,9 @@ export function GoalDetailScreen() {
                   onBlur={commitInlineEdit}
                 />
               ) : (
-                goal.description && <Text style={styles.goalDescription}>{goal.description}</Text>
+                goal.description && (
+                  <Text style={styles.goalDescription}>{goal.description}</Text>
+                )
               )}
             </View>
           </TouchableOpacity>
@@ -807,6 +918,20 @@ function ArcSelectorModal({
 }
 
 const styles = StyleSheet.create({
+  headerSide: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSideRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   backButton: {
     alignSelf: 'flex-start',
     borderRadius: 999,
@@ -821,9 +946,12 @@ const styles = StyleSheet.create({
   arcRow: {
     marginTop: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: 999,
-    backgroundColor: colors.shellAlt,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    alignSelf: 'flex-start',
   },
   arcLabel: {
     ...typography.bodyXs,
@@ -839,6 +967,14 @@ const styles = StyleSheet.create({
   arcEmptyHelper: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  arcChipText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  arcChipTextConnected: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
   },
   arcRight: {
     marginLeft: spacing.md,
@@ -943,12 +1079,33 @@ const styles = StyleSheet.create({
   forceEditOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
+  goalThumbnailWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: colors.shellAlt,
+    overflow: 'hidden',
+  },
+  goalThumbnailInner: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  goalThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
   editableField: {
     borderWidth: 1,
     borderRadius: 12,
     borderColor: 'transparent',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  // Remove top padding from the Goal title wrapper so the text baseline
+  // aligns more closely with the top edge of the thumbnail.
+  goalTitleEditableField: {
+    paddingTop: 0,
   },
   editableFieldActive: {
     borderColor: colors.accent,
@@ -1063,6 +1220,57 @@ const styles = StyleSheet.create({
   removeArcText: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  objectTypeLabel: {
+    // Match Arc detail header: slightly larger uppercase label centered
+    // between the navigation buttons.
+    ...typography.label,
+    fontSize: 20,
+    lineHeight: 24,
+    color: colors.textSecondary,
+  },
+  firstGoalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    zIndex: 10,
+  },
+  firstGoalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15,23,42,0.35)',
+  },
+  firstGoalCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 28,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    backgroundColor: colors.canvas,
+    alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  firstGoalBadge: {
+    ...typography.bodySm,
+    color: colors.accent,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  firstGoalTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  firstGoalBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
 });
 

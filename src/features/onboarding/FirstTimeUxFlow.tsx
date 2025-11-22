@@ -20,6 +20,9 @@ export function FirstTimeUxFlow() {
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const completeFlow = useFirstTimeUxStore((state) => state.completeFlow);
+  const requestDevAutoCompleteToAvatar = useFirstTimeUxStore(
+    (state) => state.requestDevAutoCompleteToAvatar
+  );
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const insets = useSafeAreaInsets();
@@ -85,6 +88,24 @@ export function FirstTimeUxFlow() {
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => {
+                      resetOnboardingAnswers();
+                      requestDevAutoCompleteToAvatar();
+                      startFlow();
+                      setShowDevMenu(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.devMenuItem,
+                      pressed && styles.devMenuItemPressed,
+                    ]}
+                  >
+                    <View style={styles.devMenuItemContent}>
+                      <Icon name="refresh" size={16} color={colors.textPrimary} />
+                      <Text style={styles.devMenuItemLabel}>Autofill and skip to last step</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
                       setShowDevMenu(false);
                       dismissFlow();
                     }}
@@ -120,7 +141,7 @@ export function FirstTimeUxFlow() {
               if (goalId && rootNavigationRef.isReady()) {
                 rootNavigationRef.navigate('ArcsStack', {
                   screen: 'GoalDetail',
-                  params: { goalId },
+                  params: { goalId, entryPoint: 'arcsStack' },
                 });
               }
             }}

@@ -127,8 +127,14 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       desireSummary: 'string',
       goal: {
         title: 'string',
-        why: 'string',
+        description: 'string',
         timeHorizon: 'string',
+        forceIntent: {
+          'force-activity': 'ForceLevel',
+          'force-connection': 'ForceLevel',
+          'force-mastery': 'ForceLevel',
+          'force-spirituality': 'ForceLevel',
+        },
       },
       avatarUrl: 'string?',
     },
@@ -142,7 +148,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         'In 1 short sentence, welcome the user to TAKADO, describe it as a place to bring clarity to their life one goal, one step, one chapter at a time, and explain that you will guide them through a short setup so they can begin with confidence.',
       renderMode: 'static',
       staticCopy:
-        '👋 Welcome to Takado.\n\nThis is where you turn vague ideas and "some day” goals into clear, doable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
+        '👋 Welcome to Takado.\n\nThis is where you turn vague ideas and "some day” goals into clear, actionable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
       copyLength: 'one_sentence',
       validationHint:
         'No fields collected; keep the message short, warm, and specific about what will happen.',
@@ -221,19 +227,29 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       collects: ['goal'],
       prompt:
         'You are helping a new TAKADO user turn a single desire into a simple, realistic goal.\n\n' +
+        'Follow these Life Architecture goal guidelines:\n' +
+        '- The goal should express concrete progress in who they are becoming over the next 30–90 days.\n' +
+        '- It can be identity-anchored (who they are becoming) or outcome-based (what gets completed), but avoid heavy metrics unless they naturally fit.\n' +
+        '- Use natural, human language and avoid corporate or productivity jargon.\n\n' +
         'Context you have about the user:\n' +
         '- Name: {{name}}\n' +
         '- Age: {{age}}\n' +
         '- What they said they want to make progress on: {{desireSummary}}\n\n' +
         'Using only this context, synthesize ONE short-term goal that feels achievable in roughly 30–90 days.\n' +
         '- The goal **title** should be specific but not overwhelming (one short phrase).\n' +
-        '- The **why** should be one short sentence that reflects why this matters to them, using their own language where possible.\n' +
+        '- The **description** should be 1–2 short sentences that reflect why this matters to them and what progress looks like, using their own language where possible.\n' +
         '- The **timeHorizon** should be a natural-language range like "next 30 days", "next 6–8 weeks", or "next 3 months".\n\n' +
-        'Respond ONLY with a JSON object with the following shape, and no extra commentary:\n' +
+        'Respond ONLY with a JSON object in our goal draft format, and no extra commentary:\n' +
         '{\n' +
         '  "title": string,\n' +
-        '  "why": string,\n' +
-        '  "timeHorizon": string\n' +
+        '  "description": string,\n' +
+        '  "timeHorizon": string,\n' +
+        '  "forceIntent": {\n' +
+        '    "force-activity": 0 | 1 | 2 | 3,\n' +
+        '    "force-connection": 0 | 1 | 2 | 3,\n' +
+        '    "force-mastery": 0 | 1 | 2 | 3,\n' +
+        '    "force-spirituality": 0 | 1 | 2 | 3\n' +
+        '  }\n' +
         '}',
       copyLength: 'short_paragraph',
       validationHint:
@@ -278,7 +294,12 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Closing',
       prompt:
-        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in Takado, and remind them they can ask what to do next at any time.',
+        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in Takado, and remind them they can always refine it, add more goals, and design concrete plans once they are in the app.',
+      renderMode: 'static',
+      staticCopy:
+        'Great—we’ve turned what you shared into a clear first goal to start from.\n\n' +
+        'This one isn’t meant to be perfect; it’s a simple starting point you can refine as you go. As you spend more time in Takado, you’ll be able to add more goals, break them into concrete steps, and design plans that actually fit your real life.\n\n' +
+        'From here, you can explore Takado, add your own goals, or start sketching a short plan around this one whenever you’re ready.',
       copyLength: 'short_paragraph',
       validationHint:
         'No new fields; keep it concise, encouraging, and grounded. Avoid hype.',

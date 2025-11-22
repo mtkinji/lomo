@@ -11,10 +11,18 @@ type FirstTimeUxState = {
   triggerCount: number;
   lastTriggeredAt: number | null;
   stage: FirstTimeUxStage;
+  /**
+   * DEV-ONLY: when true, the onboarding presenters should auto-complete the
+   * v2 workflow and land the user on the final interactive step instead of
+   * walking through each card manually.
+   */
+  devAutoCompleteToAvatar: boolean;
   startFlow: () => void;
   dismissFlow: () => void;
   completeFlow: () => void;
   setStage: (stage: FirstTimeUxStage) => void;
+  requestDevAutoCompleteToAvatar: () => void;
+  clearDevAutoCompleteToAvatar: () => void;
 };
 
 const INITIAL_STAGE: FirstTimeUxStage = 'collectingContext';
@@ -24,6 +32,7 @@ export const useFirstTimeUxStore = create<FirstTimeUxState>((set) => ({
   triggerCount: 0,
   lastTriggeredAt: null,
   stage: INITIAL_STAGE,
+  devAutoCompleteToAvatar: false,
   startFlow: () =>
     set((state) => ({
       isFlowActive: true,
@@ -44,6 +53,14 @@ export const useFirstTimeUxStore = create<FirstTimeUxState>((set) => ({
   setStage: (stage) =>
     set(() => ({
       stage,
+    })),
+  requestDevAutoCompleteToAvatar: () =>
+    set(() => ({
+      devAutoCompleteToAvatar: true,
+    })),
+  clearDevAutoCompleteToAvatar: () =>
+    set(() => ({
+      devAutoCompleteToAvatar: false,
     })),
 }));
 

@@ -21,11 +21,20 @@ interface AppState {
   arcs: Arc[];
   goals: Goal[];
   activities: Activity[];
+  /**
+   * When set, this is the goal that was most recently created by the
+   * first-time onboarding flow so we can land the user directly on it.
+   */
   goalRecommendations: Record<string, GoalDraft[]>;
   arcFeedback: ArcProposalFeedback[];
   userProfile: UserProfile | null;
   llmModel: LlmModel;
   lastOnboardingGoalId: string | null;
+  /**
+   * One-time flag so we only show the "first goal created" celebration
+   * the first time the user lands on the onboarding-created goal.
+   */
+  hasSeenFirstGoalCelebration: boolean;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -42,6 +51,7 @@ interface AppState {
   clearUserProfile: () => void;
   setLlmModel: (model: LlmModel) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
+  setHasSeenFirstGoalCelebration: (seen: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
@@ -224,6 +234,7 @@ export const useAppStore = create(
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
       lastOnboardingGoalId: null,
+      hasSeenFirstGoalCelebration: false,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -290,6 +301,10 @@ export const useAppStore = create(
       setLastOnboardingGoalId: (goalId) =>
         set(() => ({
           lastOnboardingGoalId: goalId,
+        })),
+      setHasSeenFirstGoalCelebration: (seen) =>
+        set(() => ({
+          hasSeenFirstGoalCelebration: seen,
         })),
       setUserProfile: (profile) =>
         set(() => ({

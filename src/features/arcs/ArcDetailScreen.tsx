@@ -424,23 +424,33 @@ export function ArcDetailScreen() {
       )}
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.paddedSection}>
-          <HStack justifyContent="space-between" alignItems="center">
-            <Button
-              size="icon"
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-              accessibilityLabel="Back to Arcs"
-            >
-              <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-            </Button>
-            <Button
-              size="icon"
-              style={styles.optionsButton}
-              accessibilityLabel="Arc options"
-              onPress={() => setOptionsMenuVisible((prev) => !prev)}
-            >
-              <Icon name="more" size={18} color={colors.canvas} />
-            </Button>
+          <HStack alignItems="center">
+            <View style={styles.headerSide}>
+              <Button
+                size="icon"
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+                accessibilityLabel="Back to Arcs"
+              >
+                <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+              </Button>
+            </View>
+            <View style={styles.headerCenter}>
+              <HStack alignItems="center" justifyContent="center" space="xs">
+                <Icon name="arcs" size={16} color={colors.textSecondary} />
+                <Text style={styles.objectTypeLabel}>Arc</Text>
+              </HStack>
+            </View>
+            <View style={styles.headerSideRight}>
+              <Button
+                size="icon"
+                style={styles.optionsButton}
+                accessibilityLabel="Arc options"
+                onPress={() => setOptionsMenuVisible((prev) => !prev)}
+              >
+                <Icon name="more" size={18} color={colors.canvas} />
+              </Button>
+            </View>
           </HStack>
         </View>
         <View style={[styles.paddedSection, styles.arcHeaderSection]}>
@@ -1291,6 +1301,20 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.lg,
   },
+  headerSide: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSideRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   paddedSection: {
     // Let the AppShell define the primary horizontal gutters so this screen
     // matches other canvases. We only add vertical spacing here.
@@ -1586,6 +1610,14 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
     marginBottom: spacing.xs,
+  },
+  objectTypeLabel: {
+    // Slightly larger uppercase label so it visually balances between the
+    // back and overflow buttons in the header.
+    ...typography.label,
+    fontSize: 20,
+    lineHeight: 24,
+    color: colors.textSecondary,
   },
   sectionTitle: {
     ...typography.titleSm,

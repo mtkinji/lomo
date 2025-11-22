@@ -16,10 +16,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
-import { GoalCard } from '../../ui/GoalCard';
+import { GoalListCard } from '../../ui/GoalListCard';
 import { Input } from '../../ui/Input';
 import { Logo } from '../../ui/Logo';
 import { useAppStore } from '../../store/useAppStore';
+import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import {
   generateArcs,
@@ -30,6 +31,7 @@ import {
 import type { AgeRange, Arc, FocusAreaId, Goal } from '../../domain/types';
 import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
 import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
+import type { ThumbnailStyle } from '../../domain/types';
 import type { AiChatPaneController } from '../ai/AiChatScreen';
 
 type OnboardingStage =
@@ -191,15 +193,23 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
         let displayContent = reply;
 
         // For the goal draft step in v2 onboarding, the model is instructed to
-        // return a JSON object with { title, why, timeHorizon }. We parse that
-        // and render a human-friendly summary instead of showing raw JSON, and
-        // also stash the structured goal on the workflow instance so the rest
-        // of the app can consume it.
-        if (isV2Workflow && workflowStepId === 'goal_draft') {
+        // return a JSON object with { title, description, timeHorizon, forceIntent }.
+        // We parse that and render a human-friendly summary instead of showing raw
+        // JSON, and also stash the structured goal on the workflow instance so the
+        // rest of the app can consume it. If parsing fails, we fall back to a
+        // simple, well-formed goal based on the desire summary so the UX stays
+        // consistent.
+        if (isV2Workflow && workflowStepId === 'goal_draft' && workflowRuntime?.instance) {
+          let parsedGoal:
+            | {
+                title: string;
+                description: string;
+                timeHorizon: string;
+                forceIntent?: Goal['forceIntent'];
+              }
+            | null = null;
+
           try {
-            // The model is instructed to respond with a single JSON object, but
-            // we defensively extract the first {...} block in case it adds any
-            // surrounding text.
             const startIdx = reply.indexOf('{');
             const endIdx = reply.lastIndexOf('}');
             const jsonText =
@@ -209,51 +219,63 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
             const parsed = JSON.parse(jsonText) as {
               title?: string;
-              why?: string;
+              description?: string;
               timeHorizon?: string;
+              forceIntent?: Goal['forceIntent'];
             };
 
-            if (parsed && parsed.title && parsed.why && parsed.timeHorizon) {
-              workflowRuntime.completeStep('goal_draft', {
-                goal: {
-                  title: parsed.title,
-                  why: parsed.why,
-                  timeHorizon: parsed.timeHorizon,
-                },
-              });
-
-              // Create a real Goal record in the store using the same core
-              // fields our normal goal list relies on. For now we attach it to
-              // a placeholder Arc-less bucket so that the user lands on the
-              // goal detail page with something concrete to edit.
-              const nowISO = new Date().toISOString();
-              const goalId = `goal-onboarding-${Date.now()}`;
-              const newGoal: Goal = {
-                id: goalId,
-                arcId: 'onboarding-temp', // can be reassigned later
+            if (parsed && parsed.title && parsed.description && parsed.timeHorizon) {
+              parsedGoal = {
                 title: parsed.title,
-                description: parsed.why,
-                status: 'planned',
-                startDate: nowISO,
-                targetDate: undefined,
-                forceIntent: {},
-                metrics: [],
-                createdAt: nowISO,
-                updatedAt: nowISO,
+                description: parsed.description,
+                timeHorizon: parsed.timeHorizon,
+                forceIntent: parsed.forceIntent,
               };
-              addGoal(newGoal);
-              setLastOnboardingGoalId(goalId);
-
-              // Let the goal card handle showing the concrete details. Here we
-              // just explain that a first goal has been created.
-              displayContent =
-                'Takado uses AI to help you turn what you shared into a clear, short-term goal.\n\n' +
-                "I’ve created a first goal below for you to start from. You’ll be able to rename it or change it anytime once you’re in the app.";
             }
           } catch (parseErr) {
-            // If parsing fails, fall back to the raw assistant reply.
             console.warn('[onboarding] Failed to parse goal draft JSON', parseErr);
           }
+
+          if (!parsedGoal) {
+            const collected = workflowRuntime.instance.collectedData ?? {};
+            const rawDesire = String(collected.desireSummary ?? '').trim();
+            const baseTitle = rawDesire || 'Your first goal';
+            const title = baseTitle.length > 60 ? `${baseTitle.slice(0, 57)}…` : baseTitle;
+            parsedGoal = {
+              title,
+              description:
+                'This matters because it’s something you told me you’d like to make progress on right now.',
+              timeHorizon: 'next 6–8 weeks',
+              forceIntent: undefined,
+            };
+          }
+
+          workflowRuntime.completeStep('goal_draft', {
+            goal: parsedGoal,
+          }, 'goal_draft');
+
+          const nowISO = new Date().toISOString();
+          const goalId = `goal-onboarding-${Date.now()}`;
+          const newGoal: Goal = {
+            id: goalId,
+            arcId: 'onboarding-temp', // can be reassigned later
+            title: parsedGoal.title,
+            description: parsedGoal.description,
+            status: 'planned',
+            startDate: nowISO,
+            targetDate: undefined,
+            forceIntent: parsedGoal.forceIntent ?? {},
+            metrics: [],
+            createdAt: nowISO,
+            updatedAt: nowISO,
+          };
+          addGoal(newGoal);
+          setLastOnboardingGoalId(goalId);
+
+          displayContent =
+            'Takado uses AI to help you turn what you shared into a clear, short-term goal.\n\n' +
+            'I’ve created a first goal below for you to start from. You’ll be able to rename it or change it anytime once you’re in the app.\n\n' +
+            'Take a look at the goal below—when you’re ready, you can tap the card or the “Try this in Takado” button to try it out inside the app.';
         }
 
         controller.streamAssistantReplyFromWorkflow(
@@ -273,6 +295,20 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const addGoal = useAppStore((state) => state.addGoal);
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const addArc = useAppStore((state) => state.addArc);
+  const goals = useAppStore((state) => state.goals);
+  const arcs = useAppStore((state) => state.arcs);
+  const activities = useAppStore((state) => state.activities);
+  const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
+    const visuals = state.userProfile?.visuals;
+    if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
+      return visuals.thumbnailStyles;
+    }
+    if (visuals?.thumbnailStyle) {
+      return [visuals.thumbnailStyle];
+    }
+    return ['topographyDots'];
+  });
   const [visibleSteps, setVisibleSteps] = useState<OnboardingStage[]>(['welcome']);
   const [completedSteps, setCompletedSteps] = useState<OnboardingStage[]>([]);
 
@@ -1086,17 +1122,38 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   // schema-driven card for the current step inside the shared chat surface.
   if (isV2Workflow) {
     if (currentWorkflowStepId === 'goal_confirm') {
-      const goal = workflowRuntime?.instance?.collectedData
-        ?.goal as { title?: string; why?: string; timeHorizon?: string } | undefined;
+      const onboardingGoal = goals.find((g) => g.id === lastOnboardingGoalId);
 
-      if (goal && goal.title) {
+      if (onboardingGoal) {
+        const activityCount =
+          activities.filter((activity) => activity.goalId === onboardingGoal.id).length ?? 0;
+        const parentArc = arcs.find((arc) => arc.id === onboardingGoal.arcId) ?? null;
+
+        const handleContinue = () => {
+          // Advance the underlying workflow so future runs can branch off of a
+          // completed goal_confirm step, then hand control back to the host to
+          // enter the main app.
+          workflowRuntime?.completeStep('goal_confirm', {
+            goalConfirmed: true,
+          });
+          onComplete?.();
+        };
+
         return (
-          <GoalCard
-            title={goal.title}
-            body={goal.why}
-            metaLeft={goal.timeHorizon ? `Timeframe: ${goal.timeHorizon}` : undefined}
-            onPress={onComplete}
-          />
+          <Card style={styles.stepCard}>
+            <View style={styles.stepBody}>
+              <GoalListCard
+                goal={onboardingGoal}
+                parentArc={parentArc}
+                activityCount={activityCount}
+                thumbnailStyles={thumbnailStyles}
+                onPress={handleContinue}
+              />
+              <Button style={styles.primaryButton} onPress={handleContinue}>
+                <Text style={styles.primaryButtonLabel}>Try this in Takado</Text>
+              </Button>
+            </View>
+          </Card>
         );
       }
     }
