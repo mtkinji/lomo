@@ -238,7 +238,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
             },
             fullName: {
               type: 'string',
-              description: 'Preferred name the user wants LOMO to use in conversations.',
+              description: 'Preferred name the user wants the coach to use in conversations.',
             },
           },
           additionalProperties: false,
@@ -368,7 +368,7 @@ async function requestOpenAiArcs(
 ): Promise<GeneratedArc[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are LOMO, a life architecture coach helping users define identity Arcs (long-term directions). ' +
+    'You are Takado Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -510,7 +510,7 @@ async function requestOpenAiGoals(
 ): Promise<GoalDraft[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are LOMO, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
+    'You are Takado Coach, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
     'Return thoughtful goal drafts with title, description, status, forceIntent (values 0-3 for each canonical force), and optional suggestedActivities.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -711,7 +711,7 @@ async function requestOpenAiArcHeroImage(
 }
 
 /**
- * Generic LOMO coach chat endpoint backed by OpenAI's Chat Completions API.
+ * Generic Takado Coach chat endpoint backed by OpenAI's Chat Completions API.
  * This powers the free-form Takado Coach conversation in the bottom sheet.
  */
 export async function sendCoachChat(

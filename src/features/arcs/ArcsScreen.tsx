@@ -230,7 +230,7 @@ export function ArcsScreen() {
                 size="icon"
                 iconButtonSize={28}
                 accessibilityRole="button"
-                accessibilityLabel="Ask LOMO to create a new Arc"
+                accessibilityLabel="Ask the coach to create a new Arc"
                 style={styles.newArcButton}
                 hitSlop={8}
                 onPress={() => {

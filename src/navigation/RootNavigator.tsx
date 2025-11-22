@@ -43,7 +43,16 @@ export type RootDrawerParamList = {
 export type ArcsStackParamList = {
   ArcsList: undefined;
   ArcDetail: { arcId: string };
-  GoalDetail: { goalId: string };
+  GoalDetail: {
+    goalId: string;
+    /**
+     * Optional hint about where the user navigated from. When set to
+     * "goalsTab", the Goal detail back affordance should return to the Goals
+     * canvas rather than stepping back through any existing Arcs stack
+     * history.
+     */
+    entryPoint?: 'goalsTab' | 'arcsStack';
+  };
 };
 
 export type SettingsStackParamList = {
@@ -58,7 +67,12 @@ const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 // Match the AppShell's top gutter so the drawer content aligns with the page header.
 const NAV_DRAWER_TOP_OFFSET = spacing.sm;
-const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v1';
+// Bump this key whenever the top-level navigator structure changes in a way
+// that could make previously persisted state incompatible (for example,
+// renaming routes like "Arcs" -> "ArcsStack"). This ensures we don't restore
+// stale navigation state that can prevent certain screens (like Arcs) from
+// being reachable.
+const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v2';
 
 const navTheme: Theme = {
   ...DefaultTheme,
@@ -93,7 +107,27 @@ export function RootNavigator() {
         const savedStateString = await AsyncStorage.getItem(NAV_PERSISTENCE_KEY);
         if (savedStateString) {
           const state = JSON.parse(savedStateString) as NavigationState;
-          if (isMounted) {
+
+          // Defensive guard: if the persisted root routes don't match the
+          // current drawer structure, ignore the saved state so navigation
+          // can re-initialize cleanly.
+          const allowedRootRoutes: Array<keyof RootDrawerParamList> = [
+            'ArcsStack',
+            'Goals',
+            'Activities',
+            'Chapters',
+            'Settings',
+            'DevTools',
+          ];
+
+          const rootHasUnexpectedRoute =
+            !state?.routes ||
+            state.routes.some(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (route: any) => !allowedRootRoutes.includes(route.name as keyof RootDrawerParamList),
+            );
+
+          if (!rootHasUnexpectedRoute && isMounted) {
             setInitialState(state);
           }
         }
@@ -131,6 +165,24 @@ export function RootNavigator() {
     >
       <Drawer.Navigator
         drawerContent={(props) => <TakadoDrawerContent {...props} />}
+        // Normalize drawer behavior so that tapping "Arcs" always lands on the
+        // Arcs list root, even if the current nested screen is a deep detail
+        // view like GoalDetail. This keeps the mental model of the primary
+        // nav items mapping to their top-level canvases.
+        screenListeners={({ navigation, route }) => ({
+          drawerItemPress: (event) => {
+            if (route.name !== 'ArcsStack') {
+              return;
+            }
+            // Override the default so we always jump to the ArcsList screen
+            // inside the Arcs stack instead of treating a tap on an already
+            // focused drawer item as a no-op.
+            event.preventDefault();
+            navigation.navigate('ArcsStack', {
+              screen: 'ArcsList',
+            });
+          },
+        })}
         screenOptions={({ route }) => ({
           headerShown: false,
           // Use "slide" so the entire app canvas shifts right while the drawer stays pinned,
@@ -201,7 +253,17 @@ export function RootNavigator() {
 
 function ArcsStackNavigator() {
   return (
-    <ArcsStack.Navigator screenOptions={{ headerShown: false }}>
+    <ArcsStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Use a consistent horizontal slide animation so Arcs → ArcDetail →
+        // GoalDetail (and back) all feel like part of the same flow, whether
+        // you entered from the Arcs canvas or from the Goals list.
+        animation: 'slide_from_right',
+        animationTypeForReplace: 'push',
+        fullScreenGestureEnabled: true,
+      }}
+    >
       <ArcsStack.Screen name="ArcsList" component={ArcsScreen} />
       <ArcsStack.Screen name="ArcDetail" component={ArcDetailScreen} />
       <ArcsStack.Screen name="GoalDetail" component={GoalDetailScreen} />

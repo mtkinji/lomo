@@ -18,7 +18,7 @@ import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ForceLevel } from '../../domain/types';
+import type { Arc, ForceLevel } from '../../domain/types';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
 
 type GoalDetailRouteProp = RouteProp<ArcsStackParamList, 'GoalDetail'>;
@@ -33,12 +33,13 @@ const FORCE_ORDER: Array<string> = [
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
   const navigation = useNavigation();
-  const { goalId } = route.params;
+  const { goalId, entryPoint } = route.params;
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
   const updateGoal = useAppStore((state) => state.updateGoal);
+  const [arcSelectorVisible, setArcSelectorVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingField, setEditingField] = useState<'title' | 'description' | null>(null);
   const [editingForces, setEditingForces] = useState(false);
@@ -48,6 +49,47 @@ export function GoalDetailScreen() {
     defaultForceLevels(0)
   );
   const insets = useSafeAreaInsets();
+
+  const handleBack = () => {
+    const nav: any = navigation;
+
+    // If we explicitly arrived here from the Goals tab, always send the user
+    // back to the Goals canvas instead of stepping back through any existing
+    // Arcs stack history.
+    if (entryPoint === 'goalsTab') {
+      if (nav && typeof nav.getParent === 'function') {
+        const parent = nav.getParent();
+        if (parent && typeof parent.navigate === 'function') {
+          parent.navigate('Goals');
+          return;
+        }
+      }
+      if (nav && typeof nav.navigate === 'function') {
+        nav.navigate('Goals');
+        return;
+      }
+    }
+
+    // When GoalDetail is pushed from ArcDetail inside the Arcs stack, we can
+    // safely pop back to the previous Arcs screen.
+    if (nav && typeof nav.canGoBack === 'function' && nav.canGoBack()) {
+      nav.goBack();
+      return;
+    }
+
+    // Fallback: if something unexpected happens with the stack history, treat
+    // Goals as a safe home base.
+    if (nav && typeof nav.getParent === 'function') {
+      const parent = nav.getParent();
+      if (parent && typeof parent.navigate === 'function') {
+        parent.navigate('Goals');
+        return;
+      }
+    }
+    if (nav && typeof nav.navigate === 'function') {
+      nav.navigate('Goals');
+    }
+  };
 
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
@@ -63,7 +105,7 @@ export function GoalDetailScreen() {
           <Button
             size="icon"
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleBack}
             accessibilityLabel="Back"
           >
             <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
@@ -98,6 +140,16 @@ export function GoalDetailScreen() {
 
   const forceIntent = { ...defaultForceLevels(0), ...goal.forceIntent };
   const liveForceIntent = editingForces ? editForceIntent : forceIntent;
+
+  const handleUpdateArc = (nextArcId: string | null) => {
+    const timestamp = new Date().toISOString();
+    updateGoal(goal.id, (prev) => ({
+      ...prev,
+      arcId: nextArcId ?? '',
+      updatedAt: timestamp,
+    }));
+    setArcSelectorVisible(false);
+  };
 
   const handleSaveGoal = (values: {
     title: string;
@@ -225,7 +277,7 @@ export function GoalDetailScreen() {
           <Button
             size="icon"
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleBack}
             accessibilityLabel="Back to Arc"
           >
             <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
@@ -241,7 +293,6 @@ export function GoalDetailScreen() {
         </HStack>
 
         <VStack space="sm">
-          <Text style={styles.arcPill}>{arc ? arc.name : 'Untitled Arc'}</Text>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => beginInlineEdit('title')}
@@ -268,6 +319,40 @@ export function GoalDetailScreen() {
                 <Heading style={styles.goalTitle}>{goal.title}</Heading>
               )}
             </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => setArcSelectorVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              arc ? 'Change connected arc' : 'Connect this goal to an arc'
+            }
+          >
+            <HStack
+              alignItems="center"
+              justifyContent="space-between"
+              style={styles.arcRow}
+            >
+              <VStack space="xs" flex={1}>
+                <Text style={styles.arcLabel}>
+                  {arc ? 'Arc' : 'Not connected to an arc'}
+                </Text>
+                {arc ? (
+                  <Text style={styles.arcName} numberOfLines={1} ellipsizeMode="tail">
+                    {arc.name}
+                  </Text>
+                ) : (
+                  <Text style={styles.arcEmptyHelper} numberOfLines={2}>
+                    Connect this goal to a broader arc so it has a clear home.
+                  </Text>
+                )}
+              </VStack>
+              <HStack alignItems="center" space="xs" style={styles.arcRight}>
+                <Text style={styles.arcChangeText}>{arc ? 'Change' : 'Connect'}</Text>
+                <Icon name="chevronRight" size={16} color={colors.textSecondary} />
+              </HStack>
+            </HStack>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -429,6 +514,13 @@ export function GoalDetailScreen() {
         onSubmit={handleSaveGoal}
         insetTop={insets.top}
       />
+      <ArcSelectorModal
+        visible={arcSelectorVisible}
+        arcs={arcs}
+        currentArcId={arc?.id ?? null}
+        onClose={() => setArcSelectorVisible(false)}
+        onSubmit={handleUpdateArc}
+      />
     </AppShell>
   );
 }
@@ -571,6 +663,149 @@ function EditGoalModal({
   );
 }
 
+type ArcSelectorModalProps = {
+  visible: boolean;
+  arcs: Arc[];
+  currentArcId: string | null;
+  onClose: () => void;
+  onSubmit: (arcId: string | null) => void;
+};
+
+function ArcSelectorModal({
+  visible,
+  arcs,
+  currentArcId,
+  onClose,
+  onSubmit,
+}: ArcSelectorModalProps) {
+  const [selectedArcId, setSelectedArcId] = useState<string | null>(currentArcId);
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedArcId(currentArcId);
+      setQuery('');
+    }
+  }, [visible, currentArcId]);
+
+  const filteredArcs = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return arcs;
+    return arcs.filter((arc) => {
+      const name = arc.name.toLowerCase();
+      const narrative = (arc.narrative ?? '').toLowerCase();
+      return name.includes(term) || narrative.includes(term);
+    });
+  }, [arcs, query]);
+
+  const handleConfirm = () => {
+    onSubmit(selectedArcId);
+  };
+
+  const handleRemoveConnection = () => {
+    setSelectedArcId(null);
+  };
+
+  const hasSelectionChanged = selectedArcId !== currentArcId;
+
+  return (
+    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['75%']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalOverlay}
+      >
+        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
+          <Heading style={styles.modalTitle}>Connect to an Arc</Heading>
+          <Text style={styles.modalBody}>
+            Choose an Arc this goal contributes to. You can change or remove this connection at any
+            time.
+          </Text>
+
+          <Text style={styles.modalLabel}>Search arcs</Text>
+          <TextInput
+            style={styles.input}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search by name or narrative"
+            placeholderTextColor="#6B7280"
+          />
+
+          <ScrollView
+            style={{ marginTop: spacing.lg, flex: 1 }}
+            contentContainerStyle={{ paddingBottom: spacing.lg }}
+          >
+            <VStack space="sm">
+              {filteredArcs.map((arc) => {
+                const selected = selectedArcId === arc.id;
+                return (
+                  <TouchableOpacity
+                    key={arc.id}
+                    activeOpacity={0.8}
+                    style={styles.arcOptionRow}
+                    onPress={() => setSelectedArcId(arc.id)}
+                  >
+                    <VStack space="xs" flex={1}>
+                      <Text style={styles.arcOptionName}>{arc.name}</Text>
+                      {arc.narrative ? (
+                        <Text
+                          style={styles.arcOptionNarrative}
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                        >
+                          {arc.narrative}
+                        </Text>
+                      ) : null}
+                    </VStack>
+                    <View
+                      style={[
+                        styles.arcOptionRadio,
+                        selected && styles.arcOptionRadioSelected,
+                      ]}
+                    >
+                      {selected && <View style={styles.arcOptionRadioDot} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+              {filteredArcs.length === 0 && (
+                <Text style={styles.emptyBody}>
+                  No arcs match that search. Try a different phrase or clear the search.
+                </Text>
+              )}
+            </VStack>
+          </ScrollView>
+
+          <VStack space="sm">
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.removeArcButton}
+              onPress={handleRemoveConnection}
+              disabled={currentArcId === null && selectedArcId === null}
+            >
+              <Text style={styles.removeArcText}>
+                {currentArcId || selectedArcId ? 'Remove arc connection' : 'No arc connected'}
+              </Text>
+            </TouchableOpacity>
+
+            <HStack space="sm" marginTop={spacing.sm}>
+              <Button variant="outline" style={{ flex: 1 }} onPress={onClose}>
+                <Text style={styles.secondaryCtaText}>Cancel</Text>
+              </Button>
+              <Button
+                style={{ flex: 1 }}
+                disabled={!hasSelectionChanged}
+                onPress={handleConfirm}
+              >
+                <Text style={styles.primaryCtaText}>Save</Text>
+              </Button>
+            </HStack>
+          </VStack>
+        </View>
+      </KeyboardAvoidingView>
+    </TakadoBottomSheet>
+  );
+}
+
 const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
@@ -583,9 +818,34 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
   },
-  arcPill: {
+  arcRow: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+  },
+  arcLabel: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  arcName: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  arcEmptyHelper: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  arcRight: {
+    marginLeft: spacing.md,
+  },
+  arcChangeText: {
+    ...typography.bodySm,
+    color: colors.accent,
   },
   goalTitle: {
     ...typography.titleLg,
@@ -763,6 +1023,46 @@ const styles = StyleSheet.create({
   forceEditIconButton: {
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs / 2,
+  },
+  arcOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  arcOptionName: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  arcOptionNarrative: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  arcOptionRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.md,
+  },
+  arcOptionRadioSelected: {
+    borderColor: colors.accent,
+  },
+  arcOptionRadioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.accent,
+  },
+  removeArcButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+  },
+  removeArcText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
 });
 
