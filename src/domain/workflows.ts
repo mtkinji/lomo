@@ -104,6 +104,14 @@ export type WorkflowStep = {
     }[];
     primaryActionLabel?: string;
   };
+  /**
+   * Optional hint for host chat surfaces about whether the generic free-form
+   * chat composer ("Ask anything") should be visible while this step is
+   * active. When true, presenters like `AiChatPane` can hide the bottom input
+   * so the user focuses on the structured card or assistant copy for this
+   * step.
+   */
+  hideFreeformChatInput?: boolean;
 };
 
 export type WorkflowDefinition = {
@@ -215,6 +223,7 @@ const compileFirstTimeOnboardingV2Spec = (
       renderMode: step.renderMode,
       staticCopy: step.staticCopy,
       ui,
+      hideFreeformChatInput: step.hideFreeformChatInput,
     };
   });
 

@@ -263,6 +263,12 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const [cardsReady, setCardsReady] = useState<Record<string, boolean>>({});
   const identityCardOpacity = useRef(new Animated.Value(0)).current;
 
+  // Simple state for the v2 desire_invite free-text step.
+  const [desireFormValues, setDesireFormValues] = useState<Record<string, string>>({
+    desireSummary: '',
+  });
+  const [desireSubmitting, setDesireSubmitting] = useState(false);
+
   const displayName = userProfile?.fullName?.trim() || nameInput.trim() || 'friend';
 
   const addVisibleStep = (step: OnboardingStage) => {
@@ -360,6 +366,69 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     };
   }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy]);
 
+  // For v2, desire_invite shows assistant copy first ("tell me one thing you
+  // want to move forward") and then reveals a free-text card where the user
+  // types their answer. We gate the card on the copy finishing so the flow
+  // feels conversational.
+  useEffect(() => {
+    if (!isV2Workflow) return;
+    if (!workflowRuntime?.instance) return;
+    const currentStepId = workflowRuntime.instance.currentStepId;
+    if (currentStepId !== 'desire_invite') return;
+    if (cardsReady.desire_invite) return;
+
+    let cancelled = false;
+
+    const fallbackTimeout = setTimeout(() => {
+      if (cancelled) return;
+      setCardsReady((current) => ({ ...current, desire_invite: true }));
+    }, 10000);
+
+    void sendStepAssistantCopy('desire_invite', {
+      onDone: () => {
+        if (cancelled) return;
+        clearTimeout(fallbackTimeout);
+        setCardsReady((current) => ({ ...current, desire_invite: true }));
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallbackTimeout);
+    };
+  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy, cardsReady.desire_invite]);
+
+  // For v2, desire_clarify is an assistant-only follow-up step that asks a
+  // single clarifying question based on the desire the user just entered.
+  // We auto-run this step when the workflow lands on it so the user never has
+  // to tap anything to proceed.
+  useEffect(() => {
+    if (!isV2Workflow) return;
+    if (!workflowRuntime?.instance) return;
+    const currentStepId = workflowRuntime.instance.currentStepId;
+    if (currentStepId !== 'desire_clarify') return;
+
+    let cancelled = false;
+
+    const fallbackTimeout = setTimeout(() => {
+      if (cancelled) return;
+      workflowRuntime.completeStep('desire_clarify');
+    }, 10000);
+
+    void sendStepAssistantCopy('desire_clarify', {
+      onDone: () => {
+        if (cancelled) return;
+        clearTimeout(fallbackTimeout);
+        workflowRuntime.completeStep('desire_clarify');
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallbackTimeout);
+    };
+  }, [isV2Workflow, workflowRuntime, sendStepAssistantCopy]);
+
   // Ensure the identity card fades in once we've marked it as ready and the
   // workflow has advanced to identity_basic.
   useEffect(() => {
@@ -392,6 +461,29 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
     setCardsReady((current) => ({ ...current, identity_basic: true }));
   }, [isV2Workflow, workflowRuntime?.instance?.currentStepId, cardsReady.identity_basic]);
+
+  const handleDesireInviteSubmit = async () => {
+    const raw = desireFormValues.desireSummary ?? '';
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    if (!workflowRuntime) {
+      return;
+    }
+
+    setDesireSubmitting(true);
+    try {
+      workflowRuntime.completeStep('desire_invite', {
+        desireSummary: trimmed,
+      });
+
+      appendChatUserMessage(trimmed);
+    } finally {
+      setDesireSubmitting(false);
+    }
+  };
 
   const handleSaveName = () => {
     const trimmed = nameInput.trim();
@@ -802,6 +894,27 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       },
     ];
 
+  const desireWorkflowStep = workflowRuntime?.definition?.steps.find(
+    (step) => step.id === 'desire_invite'
+  );
+  const desireUi = desireWorkflowStep?.ui;
+
+  const desireFields: FormFieldConfig[] =
+    desireUi?.fields?.map((field) => ({
+      id: field.id,
+      label: field.label,
+      placeholder: field.placeholder,
+      keyboardType: field.type === 'number' ? 'number-pad' : 'default',
+      autoCapitalize: field.type === 'text' ? 'sentences' : 'none',
+    })) ?? [
+      {
+        id: 'desireSummary',
+        label: 'In your own words',
+        placeholder: 'Describe one thing you’d like to make progress on.',
+        autoCapitalize: 'sentences',
+      },
+    ];
+
   const handleIdentityBasicSubmit = async () => {
     if (!workflowRuntime) return;
 
@@ -832,7 +945,6 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       });
 
       appendChatUserMessage(`My name is ${trimmedName}, I'm ${parsedAge}.`);
-      await sendStepAssistantCopy('identity_basic');
     } finally {
       setIdentitySubmitting(false);
     }
@@ -840,59 +952,80 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
   // When running under the v2 onboarding workflow, we render a single
   // schema-driven card for the current step inside the shared chat surface.
-  // For now we only host the identity_basic step here; additional steps will
-  // be wired up following the same pattern.
   if (isV2Workflow) {
-    if (currentWorkflowStepId !== 'identity_basic' || !cardsReady.identity_basic) {
-      // No interactive card for this step yet; let the conversation be driven
-      // purely by assistant copy.
-      return null;
+    if (currentWorkflowStepId === 'identity_basic') {
+      if (!cardsReady.identity_basic) {
+        // Let the assistant copy drive the experience until the card is ready.
+        return null;
+      }
+
+      const identityValues = {
+        name: identityFormValues.name ?? '',
+        age: identityFormValues.age ?? '',
+      };
+
+      const canSubmit =
+        (identityValues.name ?? '').trim().length > 0 &&
+        Number.isFinite(Number((identityValues.age ?? '').trim())) &&
+        Number((identityValues.age ?? '').trim()) > 0;
+
+      // In v2 we let the shared AiChatPane own scrolling, padding, and keyboard
+      // handling. Returning just the animated card keeps the UX aligned with the
+      // chat canvas and avoids clipping the card shadow inside an extra container.
+      return (
+        <Animated.View style={{ opacity: identityCardOpacity }}>
+          <GenericFormCard
+            title={identityUi?.title ?? 'Basic identity'}
+            fields={identityBasicFields}
+            values={identityValues}
+            onChange={(fieldId, value) =>
+              setIdentityFormValues((current) => ({
+                ...current,
+                [fieldId]: value,
+              }))
+            }
+            onSubmit={handleIdentityBasicSubmit}
+            primaryButtonLabel={identityUi?.primaryActionLabel ?? 'Save and continue'}
+            submitting={identitySubmitting}
+            submitDisabled={!canSubmit}
+          />
+        </Animated.View>
+      );
     }
 
-    const identityValues = {
-      name: identityFormValues.name ?? '',
-      age: identityFormValues.age ?? '',
-    };
+    if (currentWorkflowStepId === 'desire_invite') {
+      if (!cardsReady.desire_invite) {
+        return null;
+      }
 
-    const canSubmit =
-      (identityValues.name ?? '').trim().length > 0 &&
-      Number.isFinite(Number((identityValues.age ?? '').trim())) &&
-      Number((identityValues.age ?? '').trim()) > 0;
+      const desireValues = {
+        desireSummary: desireFormValues.desireSummary ?? '',
+      };
 
-    return (
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={64}
-      >
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.timeline}>
-            <Animated.View style={{ opacity: identityCardOpacity }}>
-              <GenericFormCard
-                title={identityUi?.title ?? 'Basic identity'}
-                fields={identityBasicFields}
-                values={identityValues}
-                onChange={(fieldId, value) =>
-                  setIdentityFormValues((current) => ({
-                    ...current,
-                    [fieldId]: value,
-                  }))
-                }
-                onSubmit={handleIdentityBasicSubmit}
-                primaryButtonLabel={identityUi?.primaryActionLabel ?? 'Save and continue'}
-                submitting={identitySubmitting}
-                submitDisabled={!canSubmit}
-              />
-            </Animated.View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    );
+      const canSubmit = (desireValues.desireSummary ?? '').trim().length > 0;
+
+      return (
+        <GenericFormCard
+          title={desireUi?.title ?? 'What would you like to move forward?'}
+          fields={desireFields}
+          values={desireValues}
+          onChange={(fieldId, value) =>
+            setDesireFormValues((current) => ({
+              ...current,
+              [fieldId]: value,
+            }))
+          }
+          onSubmit={handleDesireInviteSubmit}
+          primaryButtonLabel={desireUi?.primaryActionLabel ?? 'Save and continue'}
+          submitting={desireSubmitting}
+          submitDisabled={!canSubmit}
+        />
+      );
+    }
+
+    // For v2 steps that don't yet have a dedicated card, let the assistant copy
+    // drive the experience without rendering anything extra here.
+    return null;
   }
 
   return (
