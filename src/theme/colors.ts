@@ -6,6 +6,13 @@ export const colors = {
   card: '#FFFFFF',
   cardMuted: '#F5F5F4',
   border: '#E4E4E7',
+  // ShadCN-inspired primitives
+  primary: '#18181B',
+  primaryForeground: '#FAFAFA',
+  secondary: '#F4F4F5',
+  secondaryForeground: '#18181B',
+  destructive: '#DC2626',
+  destructiveForeground: '#FEF2F2',
   textPrimary: '#1B3020',
   textSecondary: '#5D6B54',
   muted: '#8E9B83',

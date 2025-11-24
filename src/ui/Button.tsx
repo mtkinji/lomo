@@ -126,17 +126,18 @@ const styles = StyleSheet.create({
 
 const stylesByVariant: Record<ButtonVariant, ViewStyle> = {
   default: {
-    backgroundColor: '#18181B', // shadcn primary
+    // ShadCN-style primary button
+    backgroundColor: colors.primary,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: colors.border,
   },
   secondary: {
-    backgroundColor: '#F4F4F5',
+    backgroundColor: colors.secondary,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: colors.border,
   },
   ghost: {
     backgroundColor: 'transparent',

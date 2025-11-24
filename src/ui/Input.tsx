@@ -16,6 +16,12 @@ import { Icon, IconName } from './Icon';
 type InputVariant = 'surface' | 'outline' | 'ghost';
 type InputSize = 'md' | 'sm';
 
+// Align with shadcn / React Native Reusables-style inputs:
+// - Slightly rounded corners (radius ~12)
+// - Comfortable vertical padding
+// - Clear focus ring via border + subtle shadow.
+const INPUT_RADIUS = 12;
+
 type FocusEventParam = Parameters<NonNullable<TextInputProps['onFocus']>>[0];
 type BlurEventParam = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
 
@@ -68,15 +74,16 @@ const InputBase = forwardRef<TextInput, Props>(
       onBlur?.(event);
     };
 
-    const statusColor = hasError ? '#B91C1C' : focused ? colors.accent : colors.border;
-    const iconColor = hasError ? '#B91C1C' : colors.textSecondary;
+    const statusColor = hasError ? colors.destructive : focused ? colors.accent : colors.border;
+    const iconColor = hasError ? colors.destructive : colors.textSecondary;
 
     return (
       <View style={styles.wrapper}>
-        {label ? <Text style={styles.label}>{label}</Text> : null}
+        {label ? <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text> : null}
         <View
           style={[
             styles.inputContainer,
+            focused && styles.inputContainerFocused,
             variantStyles[variant],
             size === 'sm' ? styles.sizeSm : styles.sizeMd,
             {
@@ -143,22 +150,32 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
+  labelFocused: {
+    color: colors.accent,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: spacing.lg,
+    borderRadius: INPUT_RADIUS,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
+  inputContainerFocused: {
+    shadowColor: colors.accent,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
   sizeMd: {
     minHeight: 44,
-    paddingVertical: 0,
+    paddingVertical: spacing.sm,
   },
   sizeSm: {
     minHeight: 36,
-    paddingVertical: 0,
-    borderRadius: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: INPUT_RADIUS,
   },
   input: {
     flex: 1,
@@ -173,6 +190,7 @@ const styles = StyleSheet.create({
   },
   multilineInput: {
     textAlignVertical: 'top',
+    minHeight: 112,
   },
   iconWrapper: {
     justifyContent: 'center',
@@ -188,16 +206,23 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typography.bodySm,
-    color: '#B91C1C',
+    color: colors.destructive,
     marginTop: spacing.xs,
   },
 });
 
 const variantStyles: Record<InputVariant, ViewStyle> = {
   surface: {
-    backgroundColor: colors.shell,
+    // Default input background: neutral card surface with a subtle shadow
+    backgroundColor: colors.card,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
   },
   outline: {
+    // Transparent fill with clear border, closer to classic shadcn outline
     backgroundColor: colors.canvas,
   },
   ghost: {
