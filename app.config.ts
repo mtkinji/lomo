@@ -40,10 +40,14 @@ const config: ExpoConfig = {
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.anonymous.LOMO',
+    bundleIdentifier: 'com.andrewwatanabe.lomo',
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+      UIBackgroundModes: ['fetch', 'remote-notification'],
+    },
   },
   android: {
-    package: 'com.anonymous.LOMO',
+    package: 'com.andrewwatanabe.lomo',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -56,6 +60,9 @@ const config: ExpoConfig = {
   },
   plugins: ['expo-font', 'expo-image-picker'],
   extra: {
+    eas: {
+      projectId: '278e7989-ae79-4c0b-8ee7-f4162e2b896f',
+    },
     openAiApiKey: process.env.OPENAI_API_KEY,
   },
 };
