@@ -23,6 +23,17 @@ If you bump native dependencies, also install pods:
 cd ios && pod install && cd ..
 ```
 
+### Core runtime version pins
+
+This project currently targets **Expo SDK 54.0.x + React Native 0.81.5** and is tested with:
+
+- `react`: `19.1.0`
+- `react-dom`: `19.1.0`
+- `react-native-worklets`: `0.5.1`
+- `react-native-reanimated`: `~4.1.1`
+
+These versions line up with Expo 54’s React 19 template and Reanimated’s compatibility matrix. Mixing React 18 / 19 or mismatched Worklets versions has previously produced hard‐to-debug Hermes boot errors (for example, `ReactCurrentDispatcher` and Worklets version mismatch crashes) in TestFlight, so when upgrading React, React Native, Reanimated, or Worklets, update all of them together and verify native builds before shipping.
+
 ## 2. Start Metro in dev-client mode
 
 The dev client expects Metro to run with the `--dev-client` flag.
