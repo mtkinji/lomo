@@ -14,8 +14,6 @@ export function Card({ children, style }: CardProps) {
 const styles = StyleSheet.create({
   card: {
     ...cardSurfaceStyle,
-    // ShadCN-like default card radius
-    borderRadius: 16,
     // Let the surrounding layout (lists, grids, etc.) control horizontal gutters
     // so cards can align cleanly with headers and page chrome.
     marginHorizontal: 0,

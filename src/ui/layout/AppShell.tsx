@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Box } from '@gluestack-ui/themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme';
 
@@ -13,7 +12,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <View style={styles.shell}>
-      <Box
+      <View
         style={[
           styles.container,
           {
@@ -23,7 +22,7 @@ export function AppShell({ children }: AppShellProps) {
         ]}
       >
         {children}
-      </Box>
+      </View>
     </View>
   );
 }

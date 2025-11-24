@@ -1,49 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import {
-  StyleSheet,
-  FlatList,
-  View,
-  TextInput,
-  Platform,
-  ScrollView,
-  KeyboardAvoidingView,
-  Image,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, FlatList, View, Text, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
-import { VStack, Heading, Text, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { Card } from '../../ui/Card';
+import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
-import { Button } from '../../ui/Button';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
-import { BottomDrawer } from '../../ui/BottomDrawer';
-import { Card } from '../../ui/Card';
-import { Logo } from '../../ui/Logo';
-import type { Arc, Goal, ThumbnailStyle } from '../../domain/types';
-import { AgentWorkspace } from '../ai/AgentWorkspace';
-import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
-import {
-  ARC_MOSAIC_COLS,
-  ARC_MOSAIC_ROWS,
-  ARC_TOPO_GRID_SIZE,
-  getArcGradient,
-  getArcMosaicCell,
-  getArcTopoSizes,
-  pickThumbnailStyle,
-  buildArcThumbnailSeed,
-} from './thumbnailVisuals';
+import type { Arc, Goal } from '../../domain/types';
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
 
@@ -140,106 +112,44 @@ async function readArcCreationDraftMeta(): Promise<ArcCoachDraftMeta | null> {
 
 export function ArcsScreen() {
   const arcs = useAppStore((state) => state.arcs);
-  const goals = useAppStore((state) => state.goals);
-  const activities = useAppStore((state) => state.activities);
-  const addArc = useAppStore((state) => state.addArc);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
   const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [resumeDraftOnOpen, setResumeDraftOnOpen] = useState(false);
-  const [infoVisible, setInfoVisible] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const [arcCoachDraft, setArcCoachDraft] = useState<ArcCoachDraftMeta | null>(null);
-  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
-    const visuals = state.userProfile?.visuals;
-    if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
-      return visuals.thumbnailStyles;
-    }
-    if (visuals?.thumbnailStyle) {
-      return [visuals.thumbnailStyle];
-    }
-    return ['topographyDots'];
-  });
-  useEffect(() => {
-    (async () => {
-      const meta = await readArcCreationDraftMeta();
-      setArcCoachDraft(meta);
-    })();
-  }, []);
 
-  // When the Arc Creation coach drawer is dismissed after a conversation,
-  // re-read any saved draft so it appears in the "In-progress Arc drafts" section
-  // without requiring a full navigation away and back to this screen.
-  useEffect(() => {
-    if (isModalVisible) {
-      return;
-    }
-    (async () => {
-      const meta = await readArcCreationDraftMeta();
-      setArcCoachDraft(meta);
-    })();
-  }, [isModalVisible]);
-
-  const empty = arcs.length === 0;
-
-  const arcCoachLaunchContext = useMemo(
-    () => buildArcCoachLaunchContext(arcs, goals),
-    [arcs, goals]
-  );
-
-  const goalCountByArc = useMemo(() => {
-    return goals.reduce<Record<string, number>>((acc, goal) => {
-      acc[goal.arcId] = (acc[goal.arcId] ?? 0) + 1;
-      return acc;
-    }, {});
-  }, [goals]);
-
-  const activityCountByArc = useMemo(() => {
-    const counts: Record<string, number> = {};
-    const goalArcLookup = goals.reduce<Record<string, string>>((acc, goal) => {
-      acc[goal.id] = goal.arcId;
-      return acc;
-    }, {});
-    activities.forEach((activity) => {
-      const arcId = activity.goalId ? goalArcLookup[activity.goalId] : undefined;
-      if (!arcId) return;
-      counts[arcId] = (counts[arcId] ?? 0) + 1;
-    });
-    return counts;
-  }, [activities, goals]);
   const listTopPadding = headerHeight ? headerHeight + spacing.md : spacing['2xl'];
-  const hideScrollIndicator = arcs.length <= 5;
 
   return (
     <AppShell>
       <View style={styles.screen}>
         <View
           style={styles.fixedHeader}
-          onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
+          onLayout={(event) => {
+            const nextHeight = event.nativeEvent.layout.height;
+            setHeaderHeight((prev) =>
+              Math.abs(prev - nextHeight) < 0.5 ? prev : nextHeight,
+            );
+          }}
         >
           <PageHeader
             title="Arcs"
             iconName="arcs"
             menuOpen={menuOpen}
             onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
-            onPressInfo={() => setInfoVisible(true)}
             rightElement={
               <Button
                 size="icon"
                 iconButtonSize={28}
                 accessibilityRole="button"
-                accessibilityLabel="Ask the coach to create a new Arc"
+                accessibilityLabel="Create a new Arc"
                 style={styles.newArcButton}
-                hitSlop={8}
                 onPress={() => {
-                  logArcsDebug('newArc:open-pressed');
-                  setResumeDraftOnOpen(false);
-                  setIsModalVisible(true);
+                  logArcsDebug('newArc:create-pressed');
+                  // TODO: rewire to Arc coach once the core Arcs layout is fully restored.
                 }}
               >
-                <Icon name="plus" size={16} color="#FFFFFF" />
+                <Icon name="plus" size={18} color="#FFFFFF" />
               </Button>
             }
           />
@@ -248,197 +158,27 @@ export function ArcsScreen() {
           style={styles.list}
           data={arcs}
           keyExtractor={(arc) => arc.id}
-          ItemSeparatorComponent={() => <VStack style={styles.separator} />}
-          contentContainerStyle={[
-            styles.listContent,
-            {
-              paddingBottom: spacing.md,
-              paddingTop: listTopPadding,
-            },
-            empty && styles.listEmptyContent,
-          ]}
-          ListEmptyComponent={
-            <VStack space="sm" style={styles.emptyState}>
-              <Heading style={styles.emptyTitle}>No arcs yet</Heading>
-              <Text style={styles.emptyBody}>
-                Arcs are long-horizon identity directions like Discipleship, Family Stewardship, or
-                Making &amp; Embodied Creativity. We&apos;ll use AI to help you define them.
-              </Text>
-            </VStack>
-          }
-          renderItem={({ item }) => {
-            const goalCount = goalCountByArc[item.id] ?? 0;
-            const activityCount = activityCountByArc[item.id] ?? 0;
-            const seed = buildArcThumbnailSeed(item.id, item.name, item.thumbnailVariant);
-            const { colors: gradientColors, direction } = getArcGradient(seed);
-            const topoSizes = getArcTopoSizes(seed);
-            const thumbnailStyle = pickThumbnailStyle(seed, thumbnailStyles);
-            const showTopography = thumbnailStyle === 'topographyDots';
-            const showGeoMosaic = thumbnailStyle === 'geoMosaic';
-            const hasCustomThumbnail = Boolean(item.thumbnailUrl);
-            const shouldShowTopography = showTopography && !hasCustomThumbnail;
-            const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
-
-            return (
-              <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
-                <Card style={styles.arcCard}>
-                  <View style={styles.arcCardContent}>
-                    <View style={styles.arcThumbnailWrapper}>
-                      <View style={styles.arcThumbnailInner}>
-                        {item.thumbnailUrl ? (
-                          <Image
-                            source={{ uri: item.thumbnailUrl }}
-                            style={styles.arcThumbnail}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <LinearGradient
-                            colors={gradientColors}
-                            start={direction.start}
-                            end={direction.end}
-                            style={styles.arcThumbnailGradient}
-                          />
-                        )}
-                        {shouldShowTopography && (
-                          <View style={styles.arcTopoLayer}>
-                            <View style={styles.arcTopoGrid}>
-                              {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
-                                <View
-                                  // eslint-disable-next-line react/no-array-index-key
-                                  key={`topo-row-${rowIndex}`}
-                                  style={styles.arcTopoRow}
-                                >
-                                  {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
-                                    const cellIndex =
-                                      rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                                    const rawSize = topoSizes[cellIndex] ?? 0;
-                                    const isHidden = rawSize < 0;
-                                    const dotSize = isHidden ? 0 : rawSize;
-                                    return (
-                                      // eslint-disable-next-line react/no-array-index-key
-                                      <View
-                                        key={`topo-cell-${rowIndex}-${colIndex}`}
-                                        style={[
-                                          styles.arcTopoDot,
-                                          (dotSize === 0 || isHidden) && styles.arcTopoDotSmall,
-                                          dotSize === 1 && styles.arcTopoDotMedium,
-                                          dotSize === 2 && styles.arcTopoDotLarge,
-                                          isHidden && styles.arcTopoDotHidden,
-                                        ]}
-                                      />
-                                    );
-                                  })}
-                                </View>
-                              ))}
-                            </View>
-                          </View>
-                        )}
-                        {shouldShowGeoMosaic && (
-                          <View style={styles.arcMosaicLayer}>
-                            {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
-                              <View
-                                // eslint-disable-next-line react/no-array-index-key
-                                key={`mosaic-row-${rowIndex}`}
-                                style={styles.arcMosaicRow}
-                              >
-                                {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
-                                  const cell = getArcMosaicCell(seed, rowIndex, colIndex);
-                                  if (cell.shape === 0) {
-                                    return (
-                                      // eslint-disable-next-line react/no-array-index-key
-                                      <View
-                                        key={`mosaic-cell-${rowIndex}-${colIndex}`}
-                                        style={styles.arcMosaicCell}
-                                      />
-                                    );
-                                  }
-
-                                  let shapeStyle: StyleProp<ViewStyle> = styles.arcMosaicCircle;
-                                  if (cell.shape === 2) {
-                                    shapeStyle = styles.arcMosaicPillVertical;
-                                  } else if (cell.shape === 3) {
-                                    shapeStyle = styles.arcMosaicPillHorizontal;
-                                  }
-
-                                  return (
-                                    // eslint-disable-next-line react/no-array-index-key
-                                    <View
-                                      key={`mosaic-cell-${rowIndex}-${colIndex}`}
-                                      style={styles.arcMosaicCell}
-                                    >
-                                      <View
-                                        style={[
-                                          styles.arcMosaicShapeBase,
-                                          shapeStyle,
-                                          { backgroundColor: cell.color },
-                                        ]}
-                                      />
-                                    </View>
-                                  );
-                                })}
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    <VStack space="xs" style={styles.arcTextContainer}>
-                      <Heading
-                        style={styles.arcTitle}
-                        numberOfLines={2}
-                        ellipsizeMode="tail"
-                      >
-                        {item.name}
-                      </Heading>
-                      <HStack space="lg" style={styles.arcMetaRow} alignItems="center">
-                        <HStack space="xs" alignItems="center">
-                          <Icon name="goals" size={14} color={colors.textSecondary} />
-                          <Text style={styles.arcStatValue}>{goalCount}</Text>
-                          <Text style={styles.arcStatLabel}>
-                            {goalCount === 1 ? 'Goal' : 'Goals'}
-                          </Text>
-                        </HStack>
-                        <HStack space="xs" alignItems="center">
-                          <Icon name="activities" size={14} color={colors.textSecondary} />
-                          <Text style={styles.arcStatValue}>{activityCount}</Text>
-                          <Text style={styles.arcStatLabel}>
-                            {activityCount === 1 ? 'Activity' : 'Activities'}
-                          </Text>
-                        </HStack>
-                      </HStack>
-                    </VStack>
+          contentContainerStyle={[styles.listContent, { paddingTop: listTopPadding }]}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
+              <Card style={styles.arcCard}>
+                <View style={styles.arcCardContent}>
+                  <View style={styles.arcTextContainer}>
+                    <Text style={styles.arcTitle} numberOfLines={2} ellipsizeMode="tail">
+                      {item.name}
+                    </Text>
+                    {item.narrative ? (
+                      <Text style={styles.arcNarrative} numberOfLines={2} ellipsizeMode="tail">
+                        {item.narrative}
+                      </Text>
+                    ) : null}
                   </View>
-                </Card>
-              </Pressable>
-            );
-          }}
-          showsVerticalScrollIndicator={!hideScrollIndicator}
-          ListFooterComponent={
-            <ArcDraftSection
-              draft={arcCoachDraft}
-              onResume={() => {
-                logArcsDebug('draft:resume-pressed');
-              setResumeDraftOnOpen(true);
-                setIsModalVisible(true);
-              }}
-              onDiscard={async () => {
-                logArcsDebug('draft:discard-pressed');
-                await AsyncStorage.removeItem(ARC_CREATION_DRAFT_STORAGE_KEY);
-                setArcCoachDraft(null);
-              }}
-            />
-          }
+                </View>
+              </Card>
+            </Pressable>
+          )}
         />
       </View>
-      <ArcInfoModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
-      <NewArcModal
-        visible={isModalVisible}
-        onClose={() => {
-          setIsModalVisible(false);
-        }}
-        workspaceSnapshot={arcCoachLaunchContext}
-        resumeDraft={resumeDraftOnOpen}
-      />
     </AppShell>
   );
 }
@@ -615,7 +355,15 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   arcMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.lg,
     marginTop: spacing.xs,
+  },
+  arcMetaGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
   },
   arcStatValue: {
     ...typography.bodySm,
@@ -945,7 +693,7 @@ type NewArcModalProps = {
 function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.55}>
-      <Heading style={styles.infoTitle}>What is an Arc?</Heading>
+      <Text style={styles.infoTitle}>What is an Arc?</Text>
       <Text style={styles.infoBody}>
         An Arc is a long-horizon identity direction—like Discipleship, Craft, or Family Stewardship.
         Each Arc anchors the season you&apos;re in, guides your goals, and keeps your activities

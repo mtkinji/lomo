@@ -83,7 +83,8 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 12,
+    // Match shadcn's default radius (non-pill) for all non-icon buttons
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -135,7 +136,8 @@ const stylesByVariant: Record<ButtonVariant, ViewStyle> = {
     borderColor: colors.border,
   },
   secondary: {
-    backgroundColor: colors.secondary,
+    // Neutral "white primary" surface, useful on shell backgrounds
+    backgroundColor: colors.canvas,
     borderWidth: 1,
     borderColor: colors.border,
   },

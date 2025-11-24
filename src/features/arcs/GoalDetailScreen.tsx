@@ -18,6 +18,7 @@ import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { Dialog } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle } from '../../domain/types';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
@@ -329,28 +330,26 @@ export function GoalDetailScreen() {
 
   return (
     <AppShell>
-      {showFirstGoalCelebration && (
-        <View style={styles.firstGoalOverlay} pointerEvents="box-none">
-          <View style={styles.firstGoalBackdrop} />
-          <View style={styles.firstGoalCard}>
-            <Text style={styles.firstGoalBadge}>🎉 First goal created</Text>
-            <Heading style={styles.firstGoalTitle}>You just set your first goal</Heading>
-            <Text style={styles.firstGoalBody}>
-              This goal is your starting point in Takado. Next, add a couple of concrete Activities
-              so you always know the very next step.
-            </Text>
-            <Text style={styles.firstGoalBody}>
-              Use “Generate Activities with AI” for ideas, or “Add Activity manually” for something
-              you already have in mind.
-            </Text>
-            <HStack space="sm" marginTop={spacing.lg}>
-              <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>
-                <Text style={styles.primaryCtaText}>Got it</Text>
-              </Button>
-            </HStack>
-          </View>
-        </View>
-      )}
+      <Dialog
+        visible={showFirstGoalCelebration}
+        onClose={handleDismissFirstGoalCelebration}
+      >
+        <Text style={styles.firstGoalBadge}>🎉 First goal created</Text>
+        <Heading style={styles.firstGoalTitle}>You just set your first goal</Heading>
+        <Text style={styles.firstGoalBody}>
+          This goal is your starting point in Takado. Next, add a couple of concrete Activities so
+          you always know the very next step.
+        </Text>
+        <Text style={styles.firstGoalBody}>
+          Use “Generate Activities with AI” for ideas, or “Add Activity manually” for something you
+          already have in mind.
+        </Text>
+        <HStack space="sm" marginTop={spacing.lg}>
+          <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>
+            <Text style={styles.primaryCtaText}>Got it</Text>
+          </Button>
+        </HStack>
+      </Dialog>
       {editingForces && (
         <TouchableOpacity
           activeOpacity={1}
@@ -1228,31 +1227,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     color: colors.textSecondary,
-  },
-  firstGoalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    zIndex: 10,
-  },
-  firstGoalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15,23,42,0.35)',
-  },
-  firstGoalCard: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 28,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
-    backgroundColor: colors.canvas,
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
   },
   firstGoalBadge: {
     ...typography.bodySm,

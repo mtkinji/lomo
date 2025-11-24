@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { Heading, Text } from '@gluestack-ui/themed';
@@ -21,10 +21,43 @@ export function DevToolsScreen() {
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
+  const goals = useAppStore((state) => state.goals);
+  const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
+  const setHasSeenFirstGoalCelebration = useAppStore(
+    (state) => state.setHasSeenFirstGoalCelebration
+  );
 
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
     startFlow();
+  };
+
+  const handleShowFirstGoalCelebration = () => {
+    // Prefer the explicit onboarding-created goal when available so the
+    // celebration mirrors the real first-time flow. Otherwise, fall back to
+    // the most recently created goal so the overlay can still be exercised in
+    // dev even without running onboarding first.
+    const targetGoalId =
+      lastOnboardingGoalId || (goals.length > 0 ? goals[goals.length - 1].id : null);
+
+    if (!targetGoalId) {
+      Alert.alert(
+        'No goals available',
+        'Create a goal first (or run onboarding) before testing the celebration overlay.'
+      );
+      return;
+    }
+
+    // Ensure the GoalDetail screen recognizes this goal as the onboarding
+    // target and that the one-time flag does not suppress the overlay.
+    setLastOnboardingGoalId(targetGoalId);
+    setHasSeenFirstGoalCelebration(false);
+
+    navigation.navigate('ArcsStack', {
+      screen: 'GoalDetail',
+      params: { goalId: targetGoalId, entryPoint: 'arcsStack' },
+    });
   };
 
   const lastTriggeredLabel = lastTriggeredAt
@@ -61,6 +94,9 @@ export function DevToolsScreen() {
                 <Text style={styles.secondaryButtonLabel}>Force dismiss</Text>
               </Button>
             )}
+            <Button variant="secondary" onPress={handleShowFirstGoalCelebration}>
+              <Text style={styles.secondaryButtonLabel}>Show first-goal celebration</Text>
+            </Button>
             <Text style={styles.meta}>
               Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
               {lastTriggeredLabel}
