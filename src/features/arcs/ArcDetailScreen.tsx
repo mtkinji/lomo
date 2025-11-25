@@ -14,8 +14,9 @@ import {
   StyleProp,
   ViewStyle,
   Text,
+  Animated,
 } from 'react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -37,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { GoalCard } from '../../ui/GoalCard';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -49,7 +51,6 @@ import {
   pickThumbnailStyle,
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -88,9 +89,15 @@ export function ArcDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const removeArc = useAppStore((state) => state.removeArc);
+  const updateArc = useAppStore((state) => state.updateArc);
+  const insets = useSafeAreaInsets();
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
+  const [isGoalsDrawerExpanded, setIsGoalsDrawerExpanded] = useState(false);
+  const [headerRegionHeight, setHeaderRegionHeight] = useState(0);
+  const [isNarrativeEditorVisible, setIsNarrativeEditorVisible] = useState(false);
+  const [isNewGoalModalVisible, setIsNewGoalModalVisible] = useState(false);
 
   if (!arc) {
     return (
@@ -112,6 +119,30 @@ export function ArcDetailScreen() {
     [heroSeed],
   );
 
+  const collapsedDrawerTop = headerRegionHeight ? headerRegionHeight + spacing.lg : undefined;
+  const expandedDrawerTop = headerRegionHeight ? headerRegionHeight + spacing.sm : collapsedDrawerTop;
+
+  const drawerTop = useRef(new Animated.Value(collapsedDrawerTop ?? 0)).current;
+
+  // Initialize the drawer position once we know the collapsed top.
+  useEffect(() => {
+    if (collapsedDrawerTop != null) {
+      drawerTop.setValue(collapsedDrawerTop);
+    }
+  }, [collapsedDrawerTop, drawerTop]);
+
+  // Animate between collapsed and expanded positions.
+  useEffect(() => {
+    const targetTop = isGoalsDrawerExpanded ? expandedDrawerTop : collapsedDrawerTop;
+    if (targetTop == null) return;
+
+    Animated.timing(drawerTop, {
+      toValue: targetTop,
+      duration: 220,
+      useNativeDriver: false,
+    }).start();
+  }, [isGoalsDrawerExpanded, collapsedDrawerTop, expandedDrawerTop, drawerTop]);
+
   const handleDeleteArc = useCallback(() => {
     Alert.alert(
       'Delete arc?',
@@ -131,146 +162,211 @@ export function ArcDetailScreen() {
   }, [arc.id, navigation, removeArc]);
 
   return (
-    <AppShell>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.paddedSection}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={styles.headerSide}>
-              <IconButton
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-                accessibilityLabel="Back to Arcs"
-              >
-                <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-              </IconButton>
-            </View>
-            <View style={styles.headerCenter}>
-              <View style={styles.objectTypeRow}>
-                <Icon name="arcs" size={18} color={colors.textSecondary} />
-                <Text style={styles.objectTypeLabel}>Arc</Text>
+    <AppShell backgroundVariant="arcGradient">
+      <View style={styles.screen}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
+        >
+          <View
+            onLayout={(event) => {
+              const nextHeight = event.nativeEvent.layout.height;
+              setHeaderRegionHeight((prev) =>
+                Math.abs(prev - nextHeight) < 0.5 ? prev : nextHeight,
+              );
+            }}
+          >
+            <View style={styles.paddedSection}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.headerSide}>
+                  <IconButton
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                    accessibilityLabel="Back to Arcs"
+                  >
+                    <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+                  </IconButton>
+                </View>
+                <View style={styles.headerCenter}>
+                  <View style={styles.objectTypeRow}>
+                    <Icon name="arcs" size={18} color={colors.textSecondary} />
+                    <Text style={styles.objectTypeLabel}>Arc</Text>
+                  </View>
+                </View>
+                <View style={styles.headerSideRight}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <IconButton style={styles.optionsButton} accessibilityLabel="Arc actions">
+                        <Icon name="more" size={18} color={colors.canvas} />
+                      </IconButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                      {/* Primary, non-destructive action(s) first */}
+                      <DropdownMenuItem
+                        onPress={() => {
+                          // TODO: wire up real archive behavior once the store exposes it.
+                          Alert.alert(
+                            'Archive arc',
+                            'Archiving is not yet implemented. This will be wired to an archive action in the store.'
+                          );
+                        }}
+                      >
+                        <View style={styles.menuItemRow}>
+                          <Icon name="info" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Archive</Text>
+                        </View>
+                      </DropdownMenuItem>
+
+                      {/* Divider before destructive actions */}
+                      <DropdownMenuSeparator />
+
+                      {/* Destructive action pinned to the bottom */}
+                      <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                        <View style={styles.menuItemRow}>
+                          <Icon name="trash" size={16} color={colors.destructive} />
+                          <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                        </View>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </View>
               </View>
             </View>
-            <View style={styles.headerSideRight}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <IconButton style={styles.optionsButton} accessibilityLabel="Arc actions">
-                    <Icon name="more" size={18} color={colors.canvas} />
-                  </IconButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                  {/* Primary, non-destructive action(s) first */}
-                  <DropdownMenuItem
-                    onPress={() => {
-                      // TODO: wire up real archive behavior once the store exposes it.
-                      Alert.alert(
-                        'Archive arc',
-                        'Archiving is not yet implemented. This will be wired to an archive action in the store.'
-                      );
-                    }}
-                  >
-                    <View style={styles.menuItemRow}>
-                      <Icon name="info" size={16} color={colors.textSecondary} />
-                      <Text style={styles.menuItemLabel}>Archive</Text>
-                    </View>
-                  </DropdownMenuItem>
 
-                  {/* Divider before destructive actions */}
-                  <DropdownMenuSeparator />
+            <View style={[styles.paddedSection, styles.arcHeaderSection]}>
+              <View style={styles.heroContainer}>
+                <View style={styles.heroImageWrapper}>
+                  {arc.thumbnailUrl ? (
+                    <Image
+                      source={{ uri: arc.thumbnailUrl }}
+                      style={styles.heroImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={headerGradientColors}
+                      start={headerGradientDirection.start}
+                      end={headerGradientDirection.end}
+                      style={styles.heroImage}
+                    />
+                  )}
+                </View>
+              </View>
 
-                  {/* Destructive action pinned to the bottom */}
-                  <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                    <View style={styles.menuItemRow}>
-                      <Icon name="trash" size={16} color={colors.destructive} />
-                      <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                    </View>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </View>
-          </View>
-        </View>
-
-        <View style={[styles.paddedSection, styles.arcHeaderSection]}>
-          <View style={styles.heroContainer}>
-            <View style={styles.heroImageWrapper}>
-              {arc.thumbnailUrl ? (
-                <Image
-                  source={{ uri: arc.thumbnailUrl }}
-                  style={styles.heroImage}
-                  resizeMode="cover"
-                />
+              <Text style={styles.arcTitle}>{arc.name}</Text>
+              {arc.narrative ? (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setIsNarrativeEditorVisible(true)}
+                >
+                  <Text style={[styles.arcNarrative, { marginTop: spacing.sm }]}>
+                    {arc.narrative}
+                  </Text>
+                </TouchableOpacity>
               ) : (
-                <LinearGradient
-                  colors={headerGradientColors}
-                  start={headerGradientDirection.start}
-                  end={headerGradientDirection.end}
-                  style={styles.heroImage}
-                />
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setIsNarrativeEditorVisible(true)}
+                  style={{ marginTop: spacing.sm }}
+                >
+                  <Text style={styles.arcNarrativePlaceholder}>
+                    Add a short note about this Arc…
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
           </View>
+        </ScrollView>
 
-          <Text style={styles.arcTitle}>{arc.name}</Text>
-          {arc.narrative ? (
-            <Text style={[styles.arcNarrative, { marginTop: spacing.sm }]}>{arc.narrative}</Text>
-          ) : null}
-        </View>
-
-        {/* Spacer so the header content doesn't feel cramped behind the sheet */}
-        <View style={{ height: spacing['2xl'] * 3 }} />
-      </ScrollView>
-
-      <TakadoBottomSheet
-        visible
-        onClose={() => {
-          // Non‑dismissable sheet; onClose should never fire.
-        }}
-        snapPoints={['45%']}
-        nonDismissable
-        hideBackdrop
-      >
-        <View style={styles.goalsDrawerInner}>
-          <View style={styles.goalsDrawerHeaderRow}>
-            <Text style={styles.sectionTitle}>
-              Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-            </Text>
-            <IconButton
-              style={styles.goalsExpandButton}
-              accessibilityLabel="Goals panel"
+        <Animated.View
+          style={[
+            styles.goalsDrawer,
+            // Let the drawer sit flush with the bottom safe area instead of
+            // hovering above the AppShell padding.
+            { top: drawerTop, bottom: -insets.bottom },
+          ]}
+        >
+          <View style={styles.goalsDrawerInner}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setIsGoalsDrawerExpanded((current) => !current)}
+              style={styles.goalsDrawerHandleContainer}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isGoalsDrawerExpanded ? 'Collapse goals drawer' : 'Expand goals drawer'
+              }
             >
-              <Icon name="arrowUp" size={18} color={colors.textPrimary} />
-            </IconButton>
+              <View style={styles.goalsDrawerHandle} />
+            </TouchableOpacity>
+
+            <View style={styles.goalsDrawerHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+              </Text>
+              <IconButton
+                style={styles.goalsExpandButton}
+                onPress={() => setIsNewGoalModalVisible(true)}
+                accessibilityLabel="Create a new goal"
+              >
+                <Icon name="plus" size={18} color={colors.canvas} />
+              </IconButton>
+            </View>
+
+            {arcGoals.length === 0 ? (
+              <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
+                No goals yet for this Arc.
+              </Text>
+            ) : (
+              <ScrollView
+                style={styles.goalsScroll}
+                contentContainerStyle={styles.goalsScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={{ gap: spacing.md }}>
+                  {arcGoals.map((item) => (
+                    <GoalCard
+                      key={item.id}
+                      title={item.title}
+                      body={item.description}
+                      metaLeft={item.status.replace('_', ' ')}
+                      metaRight=""
+                      onPress={() => navigation.navigate('GoalDetail', { goalId: item.id })}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            )}
           </View>
-
-          {arcGoals.length === 0 ? (
-            <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
-              No goals yet for this Arc.
-            </Text>
-          ) : (
-            <ScrollView
-              style={styles.goalsScroll}
-              contentContainerStyle={styles.goalsScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={{ gap: spacing.md }}>
-                {arcGoals.map((item) => (
-                  <GoalCard
-                    key={item.id}
-                    title={item.title}
-                    body={item.description}
-                    metaLeft={item.status.replace('_', ' ')}
-                    metaRight=""
-                    onPress={() => navigation.navigate('GoalDetail', { goalId: item.id })}
-                  />
-                ))}
-              </View>
-            </ScrollView>
-          )}
-        </View>
-      </TakadoBottomSheet>
+        </Animated.View>
+      </View>
+      <NewGoalModal
+        visible={isNewGoalModalVisible}
+        onClose={() => setIsNewGoalModalVisible(false)}
+        arcName={arc.name}
+        arcNarrative={arc.narrative}
+        onAdopt={(goal) => {
+          // For now, just close the modal after adopting; the detailed Goal
+          // creation plumbing can be wired separately.
+          setIsNewGoalModalVisible(false);
+        }}
+        insetTop={headerRegionHeight}
+      />
+      <ArcNarrativeEditorSheet
+        visible={isNarrativeEditorVisible}
+        onClose={() => setIsNarrativeEditorVisible(false)}
+        arcName={arc.name}
+        narrative={arc.narrative}
+        onSave={(nextNarrative) => {
+          const trimmed = nextNarrative.trim();
+          updateArc(arc.id, (current) => ({
+            ...current,
+            narrative: trimmed.length === 0 ? undefined : trimmed,
+            updatedAt: new Date().toISOString(),
+          }));
+          setIsNarrativeEditorVisible(false);
+        }}
+      />
     </AppShell>
   );
 }
@@ -301,6 +397,14 @@ type HeroImageModalProps = {
   onGenerate: () => void;
   onUpload: () => void;
   onRemove: () => void;
+};
+
+type ArcNarrativeEditorSheetProps = {
+  visible: boolean;
+  onClose: () => void;
+  arcName: string;
+  narrative?: string;
+  onSave: (nextNarrative: string) => void;
 };
 
 function NewGoalModal({
@@ -714,7 +818,99 @@ function HeroImageModal({
   );
 }
 
+function ArcNarrativeEditorSheet({
+  visible,
+  onClose,
+  arcName,
+  narrative,
+  onSave,
+}: ArcNarrativeEditorSheetProps) {
+  const [draft, setDraft] = useState(narrative ?? '');
+
+  useEffect(() => {
+    setDraft(narrative ?? '');
+  }, [narrative]);
+
+  if (!visible) {
+    return null;
+  }
+
+  const handleSave = () => {
+    onSave(draft);
+  };
+
+  return (
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.9}>
+      <View style={styles.narrativeSheetContent}>
+        <View style={styles.narrativeSheetHeaderRow}>
+          <View style={styles.narrativeSheetHeaderSide}>
+            <Button
+              variant="ghost"
+              onPress={onClose}
+              style={styles.narrativeSheetHeaderButton}
+            >
+              <Text style={styles.narrativeSheetHeaderLinkText}>Cancel</Text>
+            </Button>
+          </View>
+          <View style={styles.narrativeSheetHeaderCenter}>
+            <Text style={styles.narrativeSheetTitle}>Arc note</Text>
+            <Text style={styles.narrativeSheetSubtitle} numberOfLines={1}>
+              {arcName}
+            </Text>
+          </View>
+          <View style={styles.narrativeSheetHeaderSideRight}>
+            <Button
+              variant="ghost"
+              onPress={handleSave}
+              style={styles.narrativeSheetHeaderButton}
+            >
+              <Text style={styles.narrativeSheetHeaderPrimaryText}>Done</Text>
+            </Button>
+          </View>
+        </View>
+
+        <View style={styles.narrativeRichToolbar}>
+          <View style={styles.narrativeRichToolbarModePill}>
+            <Text style={styles.narrativeRichToolbarModeText}>Body</Text>
+          </View>
+          <View style={styles.narrativeRichToolbarSpacer} />
+          <View style={styles.narrativeRichToolbarGroup}>
+            <View style={styles.narrativeRichToolbarButton}>
+              <Text style={styles.narrativeRichToolbarButtonText}>B</Text>
+            </View>
+            <View style={styles.narrativeRichToolbarButton}>
+              <Text style={styles.narrativeRichToolbarButtonText}>I</Text>
+            </View>
+            <View style={styles.narrativeRichToolbarButton}>
+              <Text style={styles.narrativeRichToolbarButtonText}>U</Text>
+            </View>
+            <View style={styles.narrativeRichToolbarButton}>
+              <Text style={styles.narrativeRichToolbarButtonText}>•</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.narrativeSheetEditorContainer}>
+          <TextInput
+            style={styles.narrativeSheetTextInput}
+            multiline
+            textAlignVertical="top"
+            placeholder="Describe this Arc in your own words. What season are you in? What kind of work keeps you grounded here?"
+            placeholderTextColor={colors.textSecondary}
+            value={draft}
+            onChangeText={setDraft}
+            autoFocus
+          />
+        </View>
+      </View>
+    </BottomDrawer>
+  );
+}
+
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   scrollContent: {
     paddingBottom: spacing.lg,
   },
@@ -732,14 +928,44 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
+  goalsDrawerHandleContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: spacing.sm,
+  },
+  goalsDrawerHandle: {
+    width: 64,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+  },
+  goalsDrawer: {
+    position: 'absolute',
+    // Extend past the AppShell canvas gutters so the drawer is full‑width
+    // relative to the device screen, not just the inner canvas.
+    left: -spacing.xl,
+    right: -spacing.xl,
+    bottom: 0,
+  },
   goalsDrawerInner: {
-    ...cardSurfaceStyle,
-    borderRadius: 32,
+    flex: 1,
+    // Drawer surface: looks like a bottom sheet cap sitting on the canvas
+    // rather than a floating card.
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: -2 },
+    shadowRadius: 8,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    // Let the drawer hug the bottom of the canvas with no extra outer
-    // padding so it feels like a true bottom sheet.
-    paddingBottom: 0,
+    paddingBottom: spacing.lg,
+    minHeight: 220,
   },
   paddedSection: {
     // Let the AppShell define the primary horizontal gutters so this screen
@@ -947,27 +1173,37 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   arcTitle: {
+    // Primary Arc title – slightly larger than list card titles for hierarchy
     ...typography.titleSm,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.extrabold,
     color: colors.textPrimary,
-    fontSize: 22,
+    fontSize: 24,
     lineHeight: 28,
   },
   arcTitleInput: {
+    // Match the display title sizing so inline edits feel 1:1
     ...typography.titleSm,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.extrabold,
     color: colors.textPrimary,
-    fontSize: 22,
+    fontSize: 24,
     lineHeight: 28,
     padding: 0,
     margin: 0,
   },
   arcNarrative: {
-    ...typography.bodySm,
+    // Arc description – bump to the base body size for better readability
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  arcNarrativePlaceholder: {
+    ...typography.body,
     color: colors.textSecondary,
+    opacity: 0.7,
+    fontStyle: 'italic',
   },
   arcNarrativeInput: {
-    ...typography.bodySm,
+    // Keep edit state consistent with the display narrative
+    ...typography.body,
     color: colors.textSecondary,
     padding: 0,
     margin: 0,
@@ -1193,6 +1429,104 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.destructive,
     fontFamily: fonts.medium,
+  },
+  narrativeSheetContent: {
+    flex: 1,
+    paddingBottom: spacing.lg,
+  },
+  narrativeSheetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  narrativeSheetHeaderSide: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  narrativeSheetHeaderSideRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  narrativeSheetHeaderCenter: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  narrativeSheetTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  narrativeSheetSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  narrativeSheetHeaderButton: {
+    minHeight: 0,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  narrativeSheetHeaderLinkText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  narrativeSheetHeaderPrimaryText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.medium,
+  },
+  narrativeRichToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    marginBottom: spacing.md,
+  },
+  narrativeRichToolbarModePill: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.canvas,
+  },
+  narrativeRichToolbarModeText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  narrativeRichToolbarSpacer: {
+    flex: 1,
+  },
+  narrativeRichToolbarGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  narrativeRichToolbarButton: {
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    backgroundColor: colors.canvas,
+  },
+  narrativeRichToolbarButtonText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  narrativeSheetEditorContainer: {
+    flex: 1,
+    marginTop: spacing.sm,
+  },
+  narrativeSheetTextInput: {
+    flex: 1,
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.canvas,
+    color: colors.textPrimary,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    lineHeight: typography.body.lineHeight,
   },
 });
 

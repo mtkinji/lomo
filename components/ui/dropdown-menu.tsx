@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { FadeIn } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { motion } from '@/src/theme';
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 
@@ -72,7 +73,7 @@ function DropdownMenuSubContent({
 }: DropdownMenuPrimitive.SubContentProps &
   React.RefAttributes<DropdownMenuPrimitive.SubContentRef>) {
   return (
-    <NativeOnlyAnimatedView entering={FadeIn}>
+    <NativeOnlyAnimatedView entering={motion.menu.entering} exiting={motion.menu.exiting}>
       <DropdownMenuPrimitive.SubContent
         className={cn(
           'bg-popover border-border overflow-hidden rounded-md border p-1 shadow-lg shadow-black/5',
@@ -115,7 +116,10 @@ function DropdownMenuContent({
               : StyleSheet.absoluteFill,
           })}
           className={overlayClassName}>
-          <NativeOnlyAnimatedView entering={FadeIn}>
+          <NativeOnlyAnimatedView
+            entering={motion.menu.entering}
+            exiting={motion.menu.exiting}
+          >
             <TextClassContext.Provider value="text-popover-foreground">
               <DropdownMenuPrimitive.Content
                 className={cn(

@@ -22,6 +22,16 @@ type GoalListCardProps = {
   parentArc?: Arc | null;
   activityCount?: number;
   thumbnailStyles?: ThumbnailStyle[];
+  /**
+   * Optional override for the left-side activity/meta label. When omitted,
+   * the component falls back to "No activities yet" / "N activities".
+   */
+  activityMetaOverride?: string;
+  /**
+   * Optional override for the right-side status label. When omitted, the
+   * component falls back to the goal status ("in progress", "planned", etc).
+   */
+  statusLabelOverride?: string;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 };
@@ -31,14 +41,19 @@ export function GoalListCard({
   parentArc,
   activityCount = 0,
   thumbnailStyles,
+  activityMetaOverride,
+  statusLabelOverride,
   style,
   onPress,
 }: GoalListCardProps) {
-  const statusLabel = goal.status.replace('_', ' ');
-  const activityLabel =
+  const defaultStatusLabel = goal.status.replace('_', ' ');
+  const statusLabel = statusLabelOverride ?? defaultStatusLabel;
+
+  const defaultActivityLabel =
     activityCount === 0
       ? 'No activities yet'
       : `${activityCount} ${activityCount === 1 ? 'activity' : 'activities'}`;
+  const activityLabel = activityMetaOverride ?? defaultActivityLabel;
 
   const seed = buildArcThumbnailSeed(
     parentArc?.id ?? goal.arcId ?? goal.id,
@@ -60,9 +75,10 @@ export function GoalListCard({
 
   const content = (
     <Card style={[styles.goalListCard, style]}>
-      <View style={styles.goalListContent}>
-        <View style={styles.goalThumbnailWrapper}>
-          <View style={styles.goalThumbnailInner}>
+      <VStack style={styles.goalListContent} space="xs">
+        <HStack style={styles.goalTopRow} space="md">
+          <View style={styles.goalThumbnailWrapper}>
+            <View style={styles.goalThumbnailInner}>
             {parentArc?.thumbnailUrl ? (
               <Image
                 source={{ uri: parentArc.thumbnailUrl }}
@@ -152,20 +168,27 @@ export function GoalListCard({
               </View>
             )}
           </View>
-        </View>
-        <VStack style={styles.goalTextContainer}>
-          <Heading style={styles.goalTitle} numberOfLines={2} ellipsizeMode="tail">
-            {goal.title}
-          </Heading>
-          <HStack space="md" style={styles.goalMetaRow} alignItems="center">
-            <Text style={styles.goalStatus}>{statusLabel}</Text>
-            <HStack space="xs" alignItems="center">
-              <Icon name="activities" size={14} color={colors.textSecondary} />
-              <Text style={styles.goalActivityMeta}>{activityLabel}</Text>
-            </HStack>
+          </View>
+          <VStack style={styles.goalTextContainer}>
+            <Heading style={styles.goalTitle} numberOfLines={2} ellipsizeMode="tail">
+              {goal.title}
+            </Heading>
+          </VStack>
+        </HStack>
+
+        <HStack
+          space="md"
+          style={styles.goalMetaRow}
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <HStack space="xs" alignItems="center">
+            <Icon name="activities" size={14} color={colors.textSecondary} />
+            <Text style={styles.goalActivityMeta}>{activityLabel}</Text>
           </HStack>
-        </VStack>
-      </View>
+          <Text style={styles.goalStatus}>{statusLabel}</Text>
+        </HStack>
+      </VStack>
     </Card>
   );
 
@@ -178,23 +201,24 @@ export function GoalListCard({
 
 const styles = StyleSheet.create({
   goalListCard: {
-    padding: spacing.sm,
     marginHorizontal: 0,
     marginVertical: 0,
   },
   goalListContent: {
+    flexDirection: 'column',
+    minHeight: 68,
+    justifyContent: 'space-between',
+  },
+  goalTopRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    height: 68,
-    gap: spacing.md,
+    alignItems: 'flex-start',
   },
   goalThumbnailWrapper: {
-    height: '100%',
-    aspectRatio: 1,
+    width: 52,
+    height: 52,
     borderRadius: 12,
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
-    alignSelf: 'stretch',
   },
   goalThumbnailInner: {
     width: '100%',

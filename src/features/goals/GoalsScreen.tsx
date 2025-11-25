@@ -5,13 +5,12 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { GoalCard } from '../../ui/GoalCard';
 import { GoalListCard } from '../../ui/GoalListCard';
-import { Card } from '../../ui/Card';
+import { Card } from '@/components/ui/card';
 import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
-import type { GoalDraft, ThumbnailStyle } from '../../domain/types';
+import type { Arc, Goal, GoalDraft, ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
@@ -206,6 +205,8 @@ export function GoalsScreen() {
         {hasDrafts && (
           <GoalDraftSection
             entries={draftEntries}
+            arcs={arcs}
+            thumbnailStyles={thumbnailStyles}
             onAdopt={handleAdoptDraft}
             onDismiss={(entry) => dismissGoalRecommendation(entry.arcId, entry.draft.title)}
           />
@@ -232,11 +233,13 @@ export function GoalsScreen() {
 
 type GoalDraftSectionProps = {
   entries: GoalDraftEntry[];
+  arcs: Arc[];
+  thumbnailStyles: ThumbnailStyle[];
   onAdopt: (entry: GoalDraftEntry) => void;
   onDismiss: (entry: GoalDraftEntry) => void;
 };
 
-function GoalDraftSection({ entries, onAdopt, onDismiss }: GoalDraftSectionProps) {
+function GoalDraftSection({ entries, arcs, thumbnailStyles, onAdopt, onDismiss }: GoalDraftSectionProps) {
   const [expanded, setExpanded] = React.useState(false);
 
   return (
@@ -261,18 +264,33 @@ function GoalDraftSection({ entries, onAdopt, onDismiss }: GoalDraftSectionProps
       {expanded && (
         <VStack space="sm">
           {entries.map((entry) => {
-            const { arcName, draft } = entry;
+            const { arcId, arcName, draft } = entry;
             const statusLabel = draft.status.replace('_', ' ');
             const activityLevel = draft.forceIntent['force-activity'] ?? 0;
             const masteryLevel = draft.forceIntent['force-mastery'] ?? 0;
 
+            const parentArc = arcs.find((arc) => arc.id === arcId) ?? null;
+
+            const draftGoal: Goal = {
+              id: `draft-${arcId}-${draft.title}`,
+              arcId,
+              title: draft.title,
+              description: draft.description,
+              status: draft.status,
+              forceIntent: draft.forceIntent,
+              metrics: [],
+              createdAt: 'draft',
+              updatedAt: 'draft',
+            };
+
             return (
               <View key={`${entry.arcId}:${draft.title}`} style={styles.draftCard}>
-                <GoalCard
-                  title={draft.title}
-                  body={draft.description}
-                  metaLeft={`Draft · ${statusLabel}`}
-                  metaRight={`Activity ${activityLevel}/3 · Mastery ${masteryLevel}/3`}
+                <GoalListCard
+                  goal={draftGoal}
+                  parentArc={parentArc}
+                  activityMetaOverride={`Activity ${activityLevel}/3 · Mastery ${masteryLevel}/3`}
+                  statusLabelOverride={`Draft · ${statusLabel}`}
+                  thumbnailStyles={thumbnailStyles}
                 />
                 <HStack space="sm" style={styles.draftActionsRow}>
                   <Button
@@ -389,15 +407,25 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   draftCard: {
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    padding: spacing.sm,
+    marginTop: spacing.sm,
   },
   draftActionsRow: {
     marginTop: spacing.sm,
   },
   draftButton: {
     flex: 1,
+  },
+  draftGoalTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  draftGoalBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  draftMetaText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   draftDismissText: {
     ...typography.bodySm,

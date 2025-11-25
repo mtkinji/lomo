@@ -384,7 +384,8 @@ export function GoalDetailScreen() {
         </HStack>
 
         <VStack space="sm">
-          <HStack alignItems="flex-start" space="md">
+          {/* Slightly tighten the horizontal gap between thumbnail and title */}
+          <HStack alignItems="flex-start" space="sm">
             {arc ? (
               <View style={styles.goalThumbnailWrapper}>
                 <View style={styles.goalThumbnailInner}>
@@ -979,22 +980,26 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   goalTitle: {
-    ...typography.titleLg,
+    // Goal title – slightly smaller than the Arc header to keep this canvas
+    // feeling focused without overwhelming the hero thumbnail.
+    ...typography.titleMd,
     color: colors.textPrimary,
   },
   goalTitleInput: {
-    ...typography.titleLg,
+    ...typography.titleMd,
     color: colors.textPrimary,
     padding: 0,
     margin: 0,
   },
   goalDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+    // Goal description – make this slightly larger and higher contrast so it
+    // reads as primary supporting context under the title.
+    ...typography.body,
+    color: colors.textPrimary,
   },
   goalDescriptionInput: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+    ...typography.body,
+    color: colors.textPrimary,
     padding: 0,
     margin: 0,
   },
@@ -1075,9 +1080,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   goalThumbnailWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    // Slightly smaller than the Arc thumbnail in the list so the title has
+    // more breathing room and the header feels less top‑heavy.
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
   },
