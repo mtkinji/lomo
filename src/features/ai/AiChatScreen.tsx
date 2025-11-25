@@ -17,7 +17,6 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Text } from '@gluestack-ui/themed';
 import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -33,6 +32,7 @@ import type {
   ArcProposalFeedback,
   ArcProposalFeedbackReason,
 } from '../../domain/types';
+import { Text } from '../../ui/primitives';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 

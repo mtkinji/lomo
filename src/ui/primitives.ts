@@ -10,6 +10,8 @@ export { TakadoBottomSheet as Sheet } from './BottomSheet';
 export { Badge } from './Badge';
 export { DropdownMenu } from './DropdownMenu';
 export { Dialog } from './Dialog';
+export { VStack, HStack } from './Stack';
+export { Text, Heading } from './Typography';
 
 // Aliases for clarity in forms: Textarea is just Input with multiline enabled.
 export { Input as Textarea } from './Input';

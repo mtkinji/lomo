@@ -1,11 +1,11 @@
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
-import { Heading, Text } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
+import { Text } from '../../ui/primitives';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';

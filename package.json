@@ -13,9 +13,6 @@
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/poppins": "^0.2.3",
-    "@gluestack-style/react": "^1.0.57",
-    "@gluestack-ui/config": "^1.1.20",
-    "@gluestack-ui/themed": "^1.1.73",
     "@gorhom/bottom-sheet": "^5.2.6",
     "@react-native-aria/focus": "^0.2.9",
     "@react-native-aria/interactions": "^0.2.16",

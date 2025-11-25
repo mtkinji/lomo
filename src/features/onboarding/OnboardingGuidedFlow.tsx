@@ -11,7 +11,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Text } from '@gluestack-ui/themed';
+import { Text } from '../../ui/primitives';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';

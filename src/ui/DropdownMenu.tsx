@@ -82,16 +82,18 @@ export function DropdownMenuLabel({ style, ...props }: DropdownMenuLabelProps) {
 const styles = StyleSheet.create({
   content: {
     // Provide a clear popover surface on native where Tailwind / CSS tokens
-    // can be too subtle against the app shell. This mirrors the Reusables
-    // defaults: white card, rounded corners, border, and soft shadow, plus a
-    // fixed minimum width so single‑item menus don't feel cramped.
+    // can be too subtle against the app shell. Width is left to be driven by
+    // the intrinsic content (matching the web example) instead of being
+    // fixed, so the menu can grow slightly for longer labels.
     backgroundColor: colors.canvas,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
-    minWidth: 200,
+    // Match the web example's `w-56` (≈224px) as a comfortable minimum width,
+    // while still allowing the menu to grow with longer labels.
+    minWidth: 224,
     shadowColor: '#000000',
     shadowOpacity: 0.08,
     shadowRadius: 10,

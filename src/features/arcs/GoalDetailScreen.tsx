@@ -10,7 +10,6 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
@@ -18,7 +17,7 @@ import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Dialog } from '../../ui/primitives';
+import { Dialog, VStack, Heading, Text, HStack } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle } from '../../domain/types';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';

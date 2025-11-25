@@ -1,20 +1,20 @@
 ## UI architecture and React Native Reusables
 
-This app deliberately runs with a **mixed UI stack**:
+This app intentionally separates **layout/shell** concerns from **surface/control** concerns:
 
-- **Existing app system**
-  - Layout and surfaces using React Native `StyleSheet` plus `src/theme/*` tokens.
-  - App shell / canvas via `AppShell` and `PageHeader`.
-  - Gluestack components (`@gluestack-ui/themed`) in a few places.
-- **React Native Reusables system**
+- **Layout + shell (existing app system)**
+  - Layout using React Native `StyleSheet` plus `src/theme/*` tokens.
+  - App shell / canvas via `AppShell` and `PageHeader` (shell background, gutters, and safe‑area).
+- **React Native Reusables system (ShadCN‑style)**
   - Tailwind/NativeWind `className` styles, driven by `global.css` and `tailwind.config.js`.
-  - Low‑level primitives in `components/ui/*` (Card, Button, Dialog, DropdownMenu, etc.).
+  - Low‑level primitives in `components/ui/*` (Card, Button, Dialog, DropdownMenu, Input, Text, etc.).
+  - App‑level adapters in `src/ui/*` that expose the primitives the rest of the app uses.
 
-Because these systems have different assumptions, **feature code must not talk to Reusables directly**. Instead, the app uses a thin adapter layer.
+Because these systems have different assumptions, **feature code must not talk to Reusables directly**. Instead, the app uses a thin adapter layer in `src/ui/*`.
 
 ---
 
-## Option A: adapter layer (current, intentional approach)
+## Adapter layer (current, intentional approach)
 
 All feature code should go through **`src/ui/*` adapters**, not the raw Reusables exports.
 
@@ -23,15 +23,22 @@ All feature code should go through **`src/ui/*` adapters**, not the raw Reusable
   - Tailwind‑native, assume `className` + `global.css` tokens exist.
 
 - `src/ui/*`  
-  - Takado‑specific wrappers over Reusables (and, where needed, Gluestack).  
+  - Takado‑specific wrappers over Reusables:
+    - `Button`, `Card`, `Dialog`, `DropdownMenu`, `Sheet`, `Input`, `Badge`, etc.
+    - Layout primitives: `VStack`, `HStack`.
+    - Typography primitives: `Text`, `Heading`.
   - Responsible for:
     - Providing **React Native `style` fallbacks** so components still render correctly even if NativeWind styles are missing or delayed.
-    - Mapping Reusables props/variants into Takado’s naming (e.g. `variant="accent"` on `Button`).  
+    - Mapping Reusables props/variants into Takado’s naming (e.g. `variant="accent"` on `Button`, typography/tone on `Text`).
     - Integrating with `src/theme` tokens and the **shell / canvas** layout model.
 
 - **Feature layers** (`src/features/*`)  
-  - Import only from `src/ui/*`, `src/theme/*`, and layout components.  
-  - Never import from `components/ui/*` directly.
+  - Import only from:
+    - `src/ui/*` (surfaces, controls, stacks, text/heading),
+    - `src/theme/*` (tokens),
+    - layout components (e.g. `AppShell`, `PageHeader`),
+    - store/services/domain.
+  - **Never** import from `components/ui/*` directly.
 
 This keeps React Native Reusables as an implementation detail behind a small, consistent surface area while preserving the app’s existing UX structure.
 
@@ -42,8 +49,10 @@ This keeps React Native Reusables as an implementation detail behind a small, co
 1. **Only use adapters in feature code**
    - ✅ `import { Card } from '../../ui/Card';`
    - ✅ `import { Button } from '../../ui/Button';`
+   - ✅ `import { VStack, HStack, Text, Heading } from '../../ui/primitives';`
    - ❌ `import { Card } from '@/components/ui/card';`
    - ❌ `import { Button } from '@/components/ui/button';`
+   - ❌ `import { Text } from 'react-native';` for on‑canvas copy and headings (use the adapters instead).
 
 2. **Adapters must guarantee visible surfaces**
    - Each adapter wraps the corresponding Reusables component and:
@@ -62,6 +71,34 @@ This keeps React Native Reusables as an implementation detail behind a small, co
      - `Card` from `src/ui/Card.tsx` as the surface, plus
      - Layout using `StyleSheet` + `src/theme/*` for inner content.
    - Only add a brand‑new `src/ui/*` component when there is clear reuse across multiple screens.
+
+---
+
+## How to build a screen using the system
+
+When implementing a new screen or refactoring an existing one:
+
+1. **Wrap the screen in the app shell**
+   - Use `AppShell` as the root container.
+   - Use `PageHeader` for page‑level titles and primary actions when appropriate.
+
+2. **Use layout primitives + theme for structure**
+   - Use `VStack`/`HStack` from `src/ui/primitives` for vertical/horizontal stacks and spacing (`space` prop).
+   - Use `StyleSheet` + `spacing`, `colors`, `typography` for layout details inside the canvas.
+
+3. **Use UI primitives for surfaces and controls**
+   - Buttons: `Button` / `IconButton` (`variant`, `size`).
+   - Surfaces: `Card`, `Dialog`, `Sheet`, `DropdownMenu`, `Badge`.
+   - Form controls: `Input` (or `Textarea` alias), plus RN components for very custom inputs when needed.
+
+4. **Use `Text` / `Heading` for all on‑canvas copy**
+   - Choose a `variant` that matches the design (`body`, `bodySm`, `label`, or `xl`/`lg`/`md`/`sm` for headings).
+   - Choose a `tone` (`default`, `secondary`, `muted`, `accent`, `destructive`, `inverse`) instead of hard‑coding colors when possible.
+   - You can still override `style` for one‑off cases, but prefer variants/tone so typography stays consistent.
+
+5. **Only drop to raw RN primitives when necessary**
+   - Use `View`, `ScrollView`, `FlatList`, `Pressable`, etc. for layout and interaction scaffolding.
+   - Don’t introduce new visual systems (e.g. another component library) at the feature level; wrap anything new in `src/ui/*` if it becomes a shared primitive.
 
 ---
 

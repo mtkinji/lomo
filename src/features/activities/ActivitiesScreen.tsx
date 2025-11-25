@@ -1,12 +1,12 @@
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
-import { VStack } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { VStack } from '../../ui/primitives';
 
 export function ActivitiesScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();

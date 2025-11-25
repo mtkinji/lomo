@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '@gluestack-ui/themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
@@ -10,6 +9,7 @@ import { rootNavigationRef } from '../../navigation/RootNavigator';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
+import { Text } from '../../ui/primitives';
 import {
   FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID,
 } from '../../domain/workflows';

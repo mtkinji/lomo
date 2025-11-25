@@ -1,12 +1,12 @@
 import React from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { HStack, Text } from '@gluestack-ui/themed';
 import { Card } from '@/components/ui/card';
 import { Icon } from './Icon';
 import { colors, spacing, typography } from '../theme';
 import type { Arc } from '../domain/types';
 import { buildArcThumbnailSeed, getArcGradient } from '../features/arcs/thumbnailVisuals';
+import { HStack, Text } from './primitives';
 
 type ArcListCardProps = {
   arc: Arc;

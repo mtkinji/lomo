@@ -15,7 +15,6 @@ import {
   ViewStyle,
   Text,
 } from 'react-native';
-import { VStack, Heading, HStack } from '@gluestack-ui/themed';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,13 +26,14 @@ import { generateGoals } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Sheet } from '../../ui/primitives';
+import { Sheet, VStack, Heading, HStack } from '../../ui/primitives';
 import { Text as UiText } from '@/components/ui/text';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { GoalCard } from '../../ui/GoalCard';
@@ -160,32 +160,38 @@ export function ArcDetailScreen() {
                     <Icon name="more" size={18} color={colors.canvas} />
                   </IconButton>
                 </DropdownMenuTrigger>
-                    <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                      <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                        <View style={styles.menuItemRow}>
-                          <Icon name="trash" size={16} color={colors.destructive} />
-                          <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                        </View>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onPress={() => {
-                          // TODO: wire up real archive behavior once the store exposes it.
-                          Alert.alert(
-                            'Archive arc',
-                            'Archiving is not yet implemented. This will be wired to an archive action in the store.'
-                          );
-                        }}
-                      >
-                        <View style={styles.menuItemRow}>
-                          <Icon name="info" size={16} color={colors.textSecondary} />
-                          <Text style={styles.menuItemLabel}>Archive</Text>
-                        </View>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </View>
-              </View>
+                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                  {/* Primary, non-destructive action(s) first */}
+                  <DropdownMenuItem
+                    onPress={() => {
+                      // TODO: wire up real archive behavior once the store exposes it.
+                      Alert.alert(
+                        'Archive arc',
+                        'Archiving is not yet implemented. This will be wired to an archive action in the store.'
+                      );
+                    }}
+                  >
+                    <View style={styles.menuItemRow}>
+                      <Icon name="info" size={16} color={colors.textSecondary} />
+                      <Text style={styles.menuItemLabel}>Archive</Text>
+                    </View>
+                  </DropdownMenuItem>
+
+                  {/* Divider before destructive actions */}
+                  <DropdownMenuSeparator />
+
+                  {/* Destructive action pinned to the bottom */}
+                  <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                    <View style={styles.menuItemRow}>
+                      <Icon name="trash" size={16} color={colors.destructive} />
+                      <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                    </View>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </View>
+          </View>
+        </View>
 
         <View style={[styles.paddedSection, styles.arcHeaderSection]}>
           <View style={styles.heroContainer}>

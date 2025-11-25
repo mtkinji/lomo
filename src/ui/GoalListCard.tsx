@@ -1,7 +1,6 @@
 import React from 'react';
-import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Image, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heading, HStack, Pressable, Text, VStack } from '@gluestack-ui/themed';
 import { Card } from '@/components/ui/card';
 import { Icon } from './Icon';
 import { colors, spacing, typography } from '../theme';
@@ -16,6 +15,7 @@ import {
   getArcTopoSizes,
   pickThumbnailStyle,
 } from '../features/arcs/thumbnailVisuals';
+import { VStack, HStack, Heading, Text } from './primitives';
 
 type GoalListCardProps = {
   goal: Goal;
@@ -173,11 +173,7 @@ export function GoalListCard({
     return content;
   }
 
-  return (
-    <Pressable onPress={onPress}>
-      {content}
-    </Pressable>
-  );
+  return <Pressable onPress={onPress}>{content}</Pressable>;
 }
 
 const styles = StyleSheet.create({

@@ -41,22 +41,7 @@ export function TakadoBottomSheet({
     () => snapPoints ?? DEFAULT_SNAP_POINTS,
     [snapPoints]
   );
-  const previousState = useRef({
-    // Start as not visible so that an initial `visible: true` will trigger a
-    // present() call on mount, which is what we want for always-on sheets.
-    visible: false,
-    snapPoints: points,
-  });
-
   useEffect(() => {
-    const { visible: prevVisible, snapPoints: prevSnapPoints } = previousState.current;
-    const visibilityChanged = prevVisible !== visible;
-    const snapPointsChanged = !areSnapPointsEqual(prevSnapPoints, points);
-
-    if (!visibilityChanged && !snapPointsChanged) {
-      return;
-    }
-
     if (__DEV__) {
       console.log('[bottomSheet] effect', {
         visible,
@@ -65,18 +50,11 @@ export function TakadoBottomSheet({
       });
     }
 
-    if (visibilityChanged) {
-      if (visible) {
-        sheetRef.current?.present();
-      } else {
-        sheetRef.current?.dismiss();
-      }
+    if (visible) {
+      sheetRef.current?.present();
+    } else {
+      sheetRef.current?.dismiss();
     }
-
-    previousState.current = {
-      visible,
-      snapPoints: points,
-    };
   }, [visible, points]);
 
   const renderBackdrop: BottomSheetModalProps['backdropComponent'] = useCallback(

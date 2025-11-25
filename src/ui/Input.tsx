@@ -1,6 +1,5 @@
 import { forwardRef, memo, useState, ReactNode } from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
-import { Pressable } from '@gluestack-ui/themed';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle, Pressable } from 'react-native';
 import { Input as ReusableInput } from '@/components/ui/input';
 import type { TextInputProps } from 'react-native';
 import { colors, spacing, typography } from '../theme';

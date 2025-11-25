@@ -1,9 +1,8 @@
 import React from 'react';
-import { Alert, StyleSheet, View, ScrollView, StyleProp, ViewStyle } from 'react-native';
+import { Alert, StyleSheet, View, ScrollView, StyleProp, ViewStyle, Pressable } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
-import { VStack, Heading, Text, HStack, Pressable } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { GoalCard } from '../../ui/GoalCard';
@@ -16,6 +15,7 @@ import type { GoalDraft, ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { VStack, Heading, Text, HStack } from '../../ui/primitives';
 
 type GoalDraftEntry = {
   arcId: string;
