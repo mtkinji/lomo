@@ -34,11 +34,22 @@ import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 
 export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
-  Goals: undefined;
+  Goals: NavigatorScreenParams<GoalsStackParamList> | undefined;
   Activities: undefined;
   Chapters: undefined;
   Settings: undefined;
   DevTools: undefined;
+};
+
+export type GoalDetailRouteParams = {
+  goalId: string;
+  /**
+   * Optional hint about where the user navigated from. When set to
+   * "goalsTab", the Goal detail back affordance should return to the Goals
+   * canvas rather than stepping back through any existing Arcs stack
+   * history.
+   */
+  entryPoint?: 'goalsTab' | 'arcsStack';
 };
 
 export type ArcsStackParamList = {
@@ -51,17 +62,13 @@ export type ArcsStackParamList = {
      * inline button.
      */
     openGoalCreation?: boolean;
-  };
-  GoalDetail: {
-    goalId: string;
-    /**
-     * Optional hint about where the user navigated from. When set to
-     * "goalsTab", the Goal detail back affordance should return to the Goals
-     * canvas rather than stepping back through any existing Arcs stack
-     * history.
-     */
-    entryPoint?: 'goalsTab' | 'arcsStack';
-  };
+   };
+  GoalDetail: GoalDetailRouteParams;
+};
+
+export type GoalsStackParamList = {
+  GoalsList: undefined;
+  GoalDetail: GoalDetailRouteParams;
 };
 
 export type SettingsStackParamList = {
@@ -72,6 +79,7 @@ export type SettingsStackParamList = {
 };
 
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
+const GoalsStack = createNativeStackNavigator<GoalsStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 export const rootNavigationRef = createNavigationContainerRef<RootDrawerParamList>();
@@ -79,10 +87,10 @@ export const rootNavigationRef = createNavigationContainerRef<RootDrawerParamLis
 const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // Bump this key whenever the top-level navigator structure changes in a way
 // that could make previously persisted state incompatible (for example,
-// renaming routes like "Arcs" -> "ArcsStack"). This ensures we don't restore
-// stale navigation state that can prevent certain screens (like Arcs) from
-// being reachable.
-const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v2';
+// renaming routes like "Arcs" -> "ArcsStack" or nesting a tab inside a stack).
+// This ensures we don't restore stale navigation state that can prevent certain
+// screens (like Arcs or Goals) from being reachable or animating correctly.
+const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v3';
 
 const navTheme: Theme = {
   ...DefaultTheme,
@@ -232,7 +240,7 @@ export function RootNavigator() {
         />
         <Drawer.Screen
           name="Goals"
-          component={GoalsScreen}
+          component={GoalsStackNavigator}
           options={{ title: 'Goals' }}
         />
         <Drawer.Screen
@@ -279,6 +287,24 @@ function ArcsStackNavigator() {
       <ArcsStack.Screen name="ArcDetail" component={ArcDetailScreen} />
       <ArcsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
     </ArcsStack.Navigator>
+  );
+}
+
+function GoalsStackNavigator() {
+  return (
+    <GoalsStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Mirror the Arcs stack so Goals → GoalDetail (and back) use the same
+        // horizontal slide transition semantics.
+        animation: 'slide_from_right',
+        animationTypeForReplace: 'push',
+        fullScreenGestureEnabled: true,
+      }}
+    >
+      <GoalsStack.Screen name="GoalsList" component={GoalsScreen} />
+      <GoalsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
+    </GoalsStack.Navigator>
   );
 }
 

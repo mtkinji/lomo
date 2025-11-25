@@ -2,6 +2,9 @@ export const colors = {
   // Light canvas: primary background (shadcn neutral-100)
   shell: '#F5F5F4',
   shellAlt: '#E7E5E4', // secondary neutral tint
+  // Arc detail: subtle pine-tinted shell gradient stops
+  arcShellTop: '#F7FBF6',
+  arcShellBottom: '#EDF4ED',
   canvas: '#FFFFFF',
   card: '#FFFFFF',
   cardMuted: '#F5F5F4',

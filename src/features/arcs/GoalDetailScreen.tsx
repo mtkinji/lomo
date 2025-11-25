@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
-import type { ArcsStackParamList } from '../../navigation/RootNavigator';
+import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Dialog, VStack, Heading, Text, HStack } from '../../ui/primitives';
@@ -34,7 +34,7 @@ import {
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
 
-type GoalDetailRouteProp = RouteProp<ArcsStackParamList, 'GoalDetail'>;
+type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
 const FORCE_ORDER: Array<string> = [
   'force-activity',
@@ -84,41 +84,32 @@ export function GoalDetailScreen() {
   const handleBack = () => {
     const nav: any = navigation;
 
-    // If we explicitly arrived here from the Goals tab, always send the user
-    // back to the Goals canvas instead of stepping back through any existing
-    // Arcs stack history.
-    if (entryPoint === 'goalsTab') {
-      if (nav && typeof nav.getParent === 'function') {
-        const parent = nav.getParent();
-        if (parent && typeof parent.navigate === 'function') {
-          parent.navigate('Goals');
-          return;
-        }
-      }
-      if (nav && typeof nav.navigate === 'function') {
-        nav.navigate('Goals');
-        return;
-      }
-    }
-
-    // When GoalDetail is pushed from ArcDetail inside the Arcs stack, we can
-    // safely pop back to the previous Arcs screen.
+    // Prefer stack back for a smooth, consistent slide transition whenever
+    // possible (both from the Arcs stack and the Goals stack).
     if (nav && typeof nav.canGoBack === 'function' && nav.canGoBack()) {
       nav.goBack();
       return;
     }
 
-    // Fallback: if something unexpected happens with the stack history, treat
-    // Goals as a safe home base.
+    // Fallback: if something unexpected happens with the stack history, route
+    // back to a safe top-level canvas based on the entry point hint.
     if (nav && typeof nav.getParent === 'function') {
       const parent = nav.getParent();
       if (parent && typeof parent.navigate === 'function') {
-        parent.navigate('Goals');
+        if (entryPoint === 'arcsStack') {
+          parent.navigate('ArcsStack', { screen: 'ArcsList' });
+        } else {
+          parent.navigate('Goals');
+        }
         return;
       }
     }
     if (nav && typeof nav.navigate === 'function') {
-      nav.navigate('Goals');
+      if (entryPoint === 'arcsStack') {
+        nav.navigate('ArcsStack', { screen: 'ArcsList' });
+      } else {
+        nav.navigate('Goals');
+      }
     }
   };
 
@@ -384,7 +375,8 @@ export function GoalDetailScreen() {
         </HStack>
 
         <VStack space="sm">
-          <HStack alignItems="flex-start" space="md">
+          {/* Slightly tighten the horizontal gap between thumbnail and title */}
+          <HStack alignItems="flex-start" space="sm">
             {arc ? (
               <View style={styles.goalThumbnailWrapper}>
                 <View style={styles.goalThumbnailInner}>
@@ -979,22 +971,26 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   goalTitle: {
-    ...typography.titleLg,
+    // Goal title – slightly smaller than the Arc header to keep this canvas
+    // feeling focused without overwhelming the hero thumbnail.
+    ...typography.titleMd,
     color: colors.textPrimary,
   },
   goalTitleInput: {
-    ...typography.titleLg,
+    ...typography.titleMd,
     color: colors.textPrimary,
     padding: 0,
     margin: 0,
   },
   goalDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+    // Goal description – make this slightly larger and higher contrast so it
+    // reads as primary supporting context under the title.
+    ...typography.body,
+    color: colors.textPrimary,
   },
   goalDescriptionInput: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+    ...typography.body,
+    color: colors.textPrimary,
     padding: 0,
     margin: 0,
   },
@@ -1075,9 +1071,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   goalThumbnailWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    // Slightly smaller than the Arc thumbnail in the list so the title has
+    // more breathing room and the header feels less top‑heavy.
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
   },

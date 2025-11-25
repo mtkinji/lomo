@@ -199,8 +199,8 @@ export function ArcsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    // Prevent cards from peeking above the fixed header into the safe area
-    overflow: 'hidden',
+    // Let card shadows render naturally without clipping at the screen edges.
+    overflow: 'visible',
   },
   list: {
     flex: 1,
