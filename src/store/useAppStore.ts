@@ -40,6 +40,7 @@ interface AppState {
   removeArc: (arcId: string) => void;
   addGoal: (goal: Goal) => void;
   updateGoal: (goalId: string, updater: Updater<Goal>) => void;
+  removeGoal: (goalId: string) => void;
   addActivity: (activity: Activity) => void;
   updateActivity: (activityId: string, updater: Updater<Activity>) => void;
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
@@ -262,6 +263,20 @@ export const useAppStore = create(
         set((state) => ({
           goals: withUpdate(state.goals, goalId, updater),
         })),
+      removeGoal: (goalId) =>
+        set((state) => {
+          const remainingGoals = state.goals.filter((goal) => goal.id !== goalId);
+          const remainingActivities = state.activities.filter(
+            (activity) => activity.goalId !== goalId
+          );
+          const nextLastOnboardingGoalId =
+            state.lastOnboardingGoalId === goalId ? null : state.lastOnboardingGoalId;
+          return {
+            goals: remainingGoals,
+            activities: remainingActivities,
+            lastOnboardingGoalId: nextLastOnboardingGoalId,
+          };
+        }),
       addActivity: (activity) => set((state) => ({ activities: [...state.activities, activity] })),
       updateActivity: (activityId, updater) =>
         set((state) => ({
