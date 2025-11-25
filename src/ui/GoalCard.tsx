@@ -1,5 +1,5 @@
 import { StyleSheet, ViewStyle, StyleProp, TouchableOpacity, View } from 'react-native';
-import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
+import { VStack, Heading, Text, HStack } from './primitives';
 import { cardSurfaceStyle, colors, spacing, typography } from '../theme';
 
 type GoalCardProps = {

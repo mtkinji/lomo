@@ -13,8 +13,8 @@ import {
   Share,
   StyleProp,
   ViewStyle,
+  Text,
 } from 'react-native';
-import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,9 +24,18 @@ import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
 import { GoalDraft, type ThumbnailStyle } from '../../domain/types';
 import { generateGoals } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { Sheet, VStack, Heading, HStack } from '../../ui/primitives';
+import { Text as UiText } from '@/components/ui/text';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
 import { GoalCard } from '../../ui/GoalCard';
 import {
   ARC_MOSAIC_COLS,
@@ -40,6 +49,7 @@ import {
   pickThumbnailStyle,
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -73,787 +83,194 @@ const FORCE_ORDER: Array<keyof typeof FORCE_LABELS> = [
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
-  const { arcId, openGoalCreation } = route.params;
+  const { arcId } = route.params;
+
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
-  const addGoal = useAppStore((state) => state.addGoal);
-  const updateArc = useAppStore((state) => state.updateArc);
   const removeArc = useAppStore((state) => state.removeArc);
-  const goalRecommendationsMap = useAppStore((state) => state.goalRecommendations);
-  const setGoalRecommendations = useAppStore((state) => state.setGoalRecommendations);
-  const dismissGoalRecommendation = useAppStore((state) => state.dismissGoalRecommendation);
+
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
-  const recommendations = goalRecommendationsMap[arcId] ?? [];
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
-  const [recommendationsError, setRecommendationsError] = useState('');
-  const [goalModalVisible, setGoalModalVisible] = useState(false);
-  const [recommendationsModalVisible, setRecommendationsModalVisible] = useState(false);
-  const [editingField, setEditingField] = useState<'name' | 'narrative' | null>(null);
-  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editNarrative, setEditNarrative] = useState('');
-  const [heroEditorVisible, setHeroEditorVisible] = useState(false);
-  const [heroLoading, setHeroLoading] = useState(false);
-  const [heroError, setHeroError] = useState('');
-  const insets = useSafeAreaInsets();
-
-  // When launched from the Goals canvas with an explicit "create goal" intent,
-  // immediately open the Goal creation wizard so the user lands in a ready-to-go
-  // flow instead of hunting for the inline CTA in the Arc detail body.
-  useEffect(() => {
-    if (openGoalCreation) {
-      setGoalModalVisible(true);
-    }
-  }, [openGoalCreation]);
-
-  const handleShareArc = useCallback(async () => {
-    if (!arc) return;
-
-    const sections: string[] = [];
-    sections.push(arc.name);
-    if (arc.narrative) {
-      sections.push(`Narrative: ${arc.narrative}`);
-    }
-
-    const message = sections.join('\n\n');
-
-    try {
-      logArcDetailDebug('share:open', { arcId: arc.id, arcName: arc.name });
-      await Share.share({
-        title: arc.name,
-        message,
-      });
-      logArcDetailDebug('share:completed', { arcId: arc.id, arcName: arc.name });
-    } catch (err) {
-      logArcDetailDebug('share:error', {
-        arcId: arc.id,
-        arcName: arc.name,
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }, [arc]);
-
-  const fetchRecommendations = useCallback(async () => {
-    if (!arc) return;
-    const startedAt = Date.now();
-    logArcDetailDebug('recommendations:fetch:start', { arcId: arc.id, arcName: arc.name });
-    setLoadingRecommendations(true);
-    setRecommendationsError('');
-    try {
-      const recs = await generateGoals({
-        arcName: arc.name,
-        arcNarrative: arc.narrative,
-      });
-      logArcDetailDebug('recommendations:fetch:success', {
-        durationMs: Date.now() - startedAt,
-        resultCount: recs.length,
-      });
-      setGoalRecommendations(arc.id, recs);
-    } catch (err) {
-      console.error('Goal recommendations failed', err);
-      logArcDetailDebug('recommendations:fetch:error', {
-        durationMs: Date.now() - startedAt,
-        message: err instanceof Error ? err.message : String(err),
-      });
-      setRecommendationsError('Something went wrong asking LOMO for goals. Try again.');
-    } finally {
-      setLoadingRecommendations(false);
-    }
-  }, [arc, setGoalRecommendations]);
-
-  useEffect(() => {
-    if (!arc) return;
-    if (recommendations.length > 0 || loadingRecommendations || recommendationsError) {
-      return;
-    }
-    fetchRecommendations();
-  }, [
-    arc,
-    recommendations.length,
-    loadingRecommendations,
-    recommendationsError,
-    fetchRecommendations,
-  ]);
 
   if (!arc) {
     return (
       <AppShell>
-        <Text style={styles.emptyBody}>Arc not found.</Text>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={styles.emptyBody}>Arc not found.</Text>
+        </View>
       </AppShell>
     );
   }
 
-  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
-    const visuals = state.userProfile?.visuals;
-    if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
-      return visuals.thumbnailStyles;
-    }
-    if (visuals?.thumbnailStyle) {
-      return [visuals.thumbnailStyle];
-    }
-    return [DEFAULT_THUMBNAIL_STYLE];
-  });
-  const heroSeed = buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
-  const { colors: heroGradientColors, direction: heroGradientDirection } = useMemo(
-    () => getArcGradient(heroSeed),
-    [heroSeed]
+  const heroSeed = useMemo(
+    () => buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant),
+    [arc.id, arc.name, arc.thumbnailVariant],
   );
-  const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
-  const thumbnailStyle = pickThumbnailStyle(heroSeed, thumbnailStyles);
-  const showTopography = thumbnailStyle === 'topographyDots';
-  const showGeoMosaic = thumbnailStyle === 'geoMosaic';
-  const hasCustomThumbnail = Boolean(arc.thumbnailUrl);
-  const shouldShowTopography = showTopography && !hasCustomThumbnail;
-  const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
 
-  const commitInlineEdit = useCallback(() => {
-    if (!arc || !editingField) {
-      setEditingField(null);
-      return;
-    }
-
-    const timestamp = new Date().toISOString();
-
-    if (editingField === 'name') {
-      const nextName = editName.trim();
-      if (!nextName || nextName === arc.name) {
-        setEditingField(null);
-        return;
-      }
-      updateArc(arc.id, (prev) => ({
-        ...prev,
-        name: nextName,
-        updatedAt: timestamp,
-      }));
-    } else if (editingField === 'narrative') {
-      const nextNarrative = editNarrative.trim();
-      if (nextNarrative === (arc.narrative ?? '')) {
-        setEditingField(null);
-        return;
-      }
-      updateArc(arc.id, (prev) => ({
-        ...prev,
-        narrative: nextNarrative || undefined,
-        updatedAt: timestamp,
-      }));
-    }
-
-    setEditingField(null);
-  }, [arc, editingField, editName, editNarrative, updateArc]);
+  const { colors: headerGradientColors, direction: headerGradientDirection } = useMemo(
+    () => getArcGradient(heroSeed),
+    [heroSeed],
+  );
 
   const handleDeleteArc = useCallback(() => {
-    if (!arc) return;
-    removeArc(arc.id);
-    navigation.goBack();
-  }, [arc, removeArc, navigation]);
-
-  const confirmDeleteArc = useCallback(() => {
-    if (!arc) return;
     Alert.alert(
       'Delete arc?',
       'This will remove the arc and related goals.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: handleDeleteArc },
-      ]
-    );
-  }, [arc, handleDeleteArc]);
-
-  const beginInlineEdit = useCallback(
-    (field: 'name' | 'narrative') => {
-      if (!arc) return;
-      // If another field is currently editing, first commit that change.
-      if (editingField && editingField !== field) {
-        commitInlineEdit();
-        return;
-      }
-
-      setEditingField(field);
-      if (field === 'name') {
-        setEditName(arc.name);
-      } else if (field === 'narrative') {
-        setEditNarrative(arc.narrative ?? '');
-      }
-    },
-    [arc, editingField, commitInlineEdit]
-  );
-
-  const handleGenerateHeroImage = useCallback(() => {
-    if (!arc || arc.thumbnailUrl) {
-      return;
-    }
-    const startedAt = Date.now();
-    logArcDetailDebug('hero:variant:start', { arcId: arc.id, arcName: arc.name });
-    setHeroLoading(true);
-    setHeroError('');
-    const timestamp = new Date().toISOString();
-    try {
-      let appliedVariant = 0;
-      updateArc(arc.id, (prev) => {
-        const nextVariant = (prev.thumbnailVariant ?? 0) + 1;
-        appliedVariant = nextVariant;
-        const promptSummary = [prev.name, prev.narrative].filter(Boolean).join(' – ');
-        return {
-          ...prev,
-          thumbnailUrl: undefined,
-          thumbnailVariant: nextVariant,
-          heroImageMeta: {
-            source: 'ai',
-            prompt: promptSummary || undefined,
-            createdAt: timestamp,
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            removeArc(arc.id);
+            navigation.goBack();
           },
-          updatedAt: timestamp,
-        };
-      });
-      logArcDetailDebug('hero:variant:success', {
-        durationMs: Date.now() - startedAt,
-        variant: appliedVariant,
-      });
-    } catch (err) {
-      console.error('Thumbnail variant refresh failed', err);
-      logArcDetailDebug('hero:variant:error', {
-        durationMs: Date.now() - startedAt,
-        message: err instanceof Error ? err.message : String(err),
-      });
-      setHeroError('Unable to refresh the arc thumbnail. Try again.');
-    } finally {
-      setHeroLoading(false);
-    }
-  }, [arc, updateArc]);
-
-  const handlePickHeroImage = useCallback(async () => {
-    if (!arc) return;
-    try {
-      setHeroError('');
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.9,
-      });
-      if (result.canceled) {
-        return;
-      }
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        return;
-      }
-      const timestamp = new Date().toISOString();
-      updateArc(arc.id, (prev) => ({
-        ...prev,
-        thumbnailUrl: asset.uri,
-        heroImageMeta: {
-          source: 'upload',
-          createdAt: timestamp,
         },
-        updatedAt: timestamp,
-      }));
-    } catch (err) {
-      console.error('Hero image picker failed', err);
-      setHeroError('Unable to pick an image right now.');
-    }
-  }, [arc, updateArc]);
-
-  const handleRemoveHeroImage = useCallback(() => {
-    if (!arc) return;
-    const timestamp = new Date().toISOString();
-    updateArc(arc.id, (prev) => {
-      const { heroImageMeta: _hero, ...rest } = prev;
-      return {
-        ...rest,
-        thumbnailUrl: undefined,
-        updatedAt: timestamp,
-      };
-    });
-    setHeroError('');
-  }, [arc, updateArc]);
-
-  const handleAdoptGoal = (draft: GoalDraft) => {
-    if (!arc) {
-      logArcDetailDebug('goal:adopt:skipped-no-arc');
-      return;
-    }
-    logArcDetailDebug('goal:adopt', {
-      arcId: arc.id,
-      title: draft.title,
-      status: draft.status,
-    });
-    const timestamp = new Date().toISOString();
-    const mergedForceIntent = { ...defaultForceLevels(0), ...draft.forceIntent };
-
-    addGoal({
-      id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      arcId: arc.id,
-      title: draft.title,
-      description: draft.description,
-      status: draft.status,
-      startDate: timestamp,
-      targetDate: undefined,
-      forceIntent: mergedForceIntent,
-      metrics: [],
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    });
-  };
-
-  const handleAdoptRecommendation = (draft: GoalDraft) => {
-    if (!arc) {
-      logArcDetailDebug('goal:recommendation-adopt:skipped-no-arc');
-      return;
-    }
-    logArcDetailDebug('goal:recommendation-adopt', {
-      arcId: arc.id,
-      title: draft.title,
-    });
-    handleAdoptGoal(draft);
-    dismissGoalRecommendation(arc.id, draft.title);
-  };
-
-  const hasGoals = arcGoals.length > 0;
-  const hasRecommendations = recommendations.length > 0;
+      ],
+    );
+  }, [arc.id, navigation, removeArc]);
 
   return (
     <AppShell>
-      {editingField && (
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.inlineEditOverlay}
-          onPress={commitInlineEdit}
-        />
-      )}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.paddedSection}>
-          <HStack alignItems="center">
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={styles.headerSide}>
-              <Button
-                size="icon"
+              <IconButton
                 style={styles.backButton}
                 onPress={() => navigation.goBack()}
                 accessibilityLabel="Back to Arcs"
               >
                 <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-              </Button>
+              </IconButton>
             </View>
             <View style={styles.headerCenter}>
-              <HStack alignItems="center" justifyContent="center" space="xs">
-                <Icon name="arcs" size={16} color={colors.textSecondary} />
+              <View style={styles.objectTypeRow}>
+                <Icon name="arcs" size={18} color={colors.textSecondary} />
                 <Text style={styles.objectTypeLabel}>Arc</Text>
-              </HStack>
+              </View>
             </View>
             <View style={styles.headerSideRight}>
-              <Button
-                size="icon"
-                style={styles.optionsButton}
-                accessibilityLabel="Arc options"
-                onPress={() => setOptionsMenuVisible((prev) => !prev)}
-              >
-                <Icon name="more" size={18} color={colors.canvas} />
-              </Button>
-            </View>
-          </HStack>
-        </View>
-        <View style={[styles.paddedSection, styles.arcHeaderSection]}>
-          <HStack alignItems="flex-start" space="md">
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setHeroEditorVisible(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Edit arc image"
-            >
-              <View style={styles.arcThumbnailWrapper}>
-                <View style={styles.arcThumbnailInner}>
-                  {arc.thumbnailUrl ? (
-                    <Image
-                      source={{ uri: arc.thumbnailUrl }}
-                      style={styles.arcThumbnail}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <LinearGradient
-                      colors={heroGradientColors}
-                      start={heroGradientDirection.start}
-                      end={heroGradientDirection.end}
-                      style={styles.arcThumbnail}
-                    />
-                  )}
-                  {shouldShowTopography && (
-                    <View style={styles.arcHeroTopoLayer}>
-                      <View style={styles.arcHeroTopoGrid}>
-                        {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
-                          <View
-                            // eslint-disable-next-line react/no-array-index-key
-                            key={`hero-topo-row-${rowIndex}`}
-                            style={styles.arcHeroTopoRow}
-                          >
-                            {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
-                              const cellIndex =
-                                rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                              const rawSize = heroTopoSizes[cellIndex] ?? 0;
-                              const isHidden = rawSize < 0;
-                              const dotSize = isHidden ? 0 : rawSize;
-                              return (
-                                // eslint-disable-next-line react/no-array-index-key
-                                <View
-                                  key={`hero-topo-cell-${rowIndex}-${colIndex}`}
-                                  style={[
-                                    styles.arcHeroTopoDot,
-                                    (dotSize === 0 || isHidden) && styles.arcHeroTopoDotSmall,
-                                    dotSize === 1 && styles.arcHeroTopoDotMedium,
-                                    dotSize === 2 && styles.arcHeroTopoDotLarge,
-                                    isHidden && styles.arcHeroTopoDotHidden,
-                                  ]}
-                                />
-                              );
-                            })}
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                  {shouldShowGeoMosaic && (
-                    <View style={styles.arcHeroMosaicLayer}>
-                      {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
-                        <View
-                          // eslint-disable-next-line react/no-array-index-key
-                          key={`hero-mosaic-row-${rowIndex}`}
-                          style={styles.arcHeroMosaicRow}
-                        >
-                          {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
-                            const cell = getArcMosaicCell(heroSeed, rowIndex, colIndex);
-                            if (cell.shape === 0) {
-                              return (
-                                // eslint-disable-next-line react/no-array-index-key
-                                <View
-                                  key={`hero-mosaic-cell-${rowIndex}-${colIndex}`}
-                                  style={styles.arcHeroMosaicCell}
-                                />
-                              );
-                            }
-
-                            let shapeStyle: StyleProp<ViewStyle> = styles.arcHeroMosaicCircle;
-                            if (cell.shape === 2) {
-                              shapeStyle = styles.arcHeroMosaicPillVertical;
-                            } else if (cell.shape === 3) {
-                              shapeStyle = styles.arcHeroMosaicPillHorizontal;
-                            }
-
-                            return (
-                              // eslint-disable-next-line react/no-array-index-key
-                              <View
-                                key={`hero-mosaic-cell-${rowIndex}-${colIndex}`}
-                                style={styles.arcHeroMosaicCell}
-                              >
-                                <View
-                                  style={[
-                                    styles.arcHeroMosaicShapeBase,
-                                    shapeStyle,
-                                    { backgroundColor: cell.color },
-                                  ]}
-                                />
-                              </View>
-                            );
-                          })}
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-            <VStack space="xs" flex={1}>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => beginInlineEdit('name')}
-                style={[
-                  styles.editableField,
-                  styles.arcNameEditableField,
-                  editingField === 'name' && styles.editableFieldActive,
-                ]}
-              >
-                {editingField === 'name' ? (
-                  <TextInput
-                    style={styles.arcTitleInput}
-                    value={editName}
-                    onChangeText={setEditName}
-                    placeholder="Arc name"
-                    placeholderTextColor={colors.textSecondary}
-                    returnKeyType="done"
-                    onSubmitEditing={commitInlineEdit}
-                    autoFocus
-                  />
-                ) : (
-                  <Heading style={styles.arcTitle}>{arc.name}</Heading>
-                )}
-              </TouchableOpacity>
-              {/* Intentionally no "generated by" label to keep the hero image source implicit. */}
-            </VStack>
-          </HStack>
-        </View>
-        <View style={styles.paddedSection}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => beginInlineEdit('narrative')}
-            style={[
-              styles.editableField,
-              editingField === 'narrative' && styles.editableFieldActive,
-            ]}
-          >
-            {editingField === 'narrative' ? (
-              <TextInput
-                style={styles.arcNarrativeInput}
-                value={editNarrative}
-                onChangeText={setEditNarrative}
-                placeholder="Tap to add a narrative for this Arc"
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                onBlur={commitInlineEdit}
-              />
-            ) : (
-              <Text style={styles.arcNarrative}>
-                {arc.narrative || 'Tap to add a narrative for this Arc.'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={[styles.paddedSection, styles.goalsSection]}>
-          <VStack space="md">
-            <HStack justifyContent="space-between" alignItems="center">
-              <Heading style={styles.sectionTitle}>
-                Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-              </Heading>
-              <Button
-                variant="secondary"
-                size="small"
-                style={styles.sectionActionButton}
-                onPress={() => setGoalModalVisible(true)}
-              >
-                <Text style={styles.sectionActionText}>New Goal</Text>
-              </Button>
-            </HStack>
-
-            {!hasGoals && (
-              <VStack space="md" style={styles.goalsEmptyState}>
-                <View style={styles.goalsEmptyImageWrapper}>
-                  <LinearGradient
-                    colors={['#E0F2FE', '#F5F3FF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.goalsEmptyImage}
-                  />
-                  <Icon name="goals" size={32} color={colors.textSecondary} />
-                </View>
-                <Heading style={styles.sectionTitle}>No goals yet for this Arc</Heading>
-                <Text style={styles.emptyBody}>
-                  Start with a few gentle recommendations from LOMO. You can adopt them as-is or
-                  tweak them to fit your season.
-                </Text>
-                {hasRecommendations && (
-                  <Button
-                    variant="ai"
-                    style={styles.recommendationsEntryButton}
-                    onPress={() => setRecommendationsModalVisible(true)}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <IconButton style={styles.optionsButton} accessibilityLabel="Arc actions">
+                    <Icon name="more" size={18} color={colors.canvas} />
+                  </IconButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                  {/* Primary, non-destructive action(s) first */}
+                  <DropdownMenuItem
+                    onPress={() => {
+                      // TODO: wire up real archive behavior once the store exposes it.
+                      Alert.alert(
+                        'Archive arc',
+                        'Archiving is not yet implemented. This will be wired to an archive action in the store.'
+                      );
+                    }}
                   >
-                    <Icon name="arcs" size={16} color={colors.canvas} />
-                    <Text style={styles.recommendationsEntryText}>
-                      View {recommendations.length} recommended goal
-                      {recommendations.length > 1 ? 's' : ''}
-                    </Text>
-                  </Button>
-                )}
-              </VStack>
-            )}
+                    <View style={styles.menuItemRow}>
+                      <Icon name="info" size={16} color={colors.textSecondary} />
+                      <Text style={styles.menuItemLabel}>Archive</Text>
+                    </View>
+                  </DropdownMenuItem>
 
-            {hasGoals && (
-              <VStack space="md">
+                  {/* Divider before destructive actions */}
+                  <DropdownMenuSeparator />
+
+                  {/* Destructive action pinned to the bottom */}
+                  <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                    <View style={styles.menuItemRow}>
+                      <Icon name="trash" size={16} color={colors.destructive} />
+                      <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                    </View>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.paddedSection, styles.arcHeaderSection]}>
+          <View style={styles.heroContainer}>
+            <View style={styles.heroImageWrapper}>
+              {arc.thumbnailUrl ? (
+                <Image
+                  source={{ uri: arc.thumbnailUrl }}
+                  style={styles.heroImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={headerGradientColors}
+                  start={headerGradientDirection.start}
+                  end={headerGradientDirection.end}
+                  style={styles.heroImage}
+                />
+              )}
+            </View>
+          </View>
+
+          <Text style={styles.arcTitle}>{arc.name}</Text>
+          {arc.narrative ? (
+            <Text style={[styles.arcNarrative, { marginTop: spacing.sm }]}>{arc.narrative}</Text>
+          ) : null}
+        </View>
+
+        {/* Spacer so the header content doesn't feel cramped behind the sheet */}
+        <View style={{ height: spacing['2xl'] * 3 }} />
+      </ScrollView>
+
+      <TakadoBottomSheet
+        visible
+        onClose={() => {
+          // Non‑dismissable sheet; onClose should never fire.
+        }}
+        snapPoints={['45%']}
+        nonDismissable
+        hideBackdrop
+      >
+        <View style={styles.goalsDrawerInner}>
+          <View style={styles.goalsDrawerHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+            </Text>
+            <IconButton
+              style={styles.goalsExpandButton}
+              accessibilityLabel="Goals panel"
+            >
+              <Icon name="arrowUp" size={18} color={colors.textPrimary} />
+            </IconButton>
+          </View>
+
+          {arcGoals.length === 0 ? (
+            <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
+              No goals yet for this Arc.
+            </Text>
+          ) : (
+            <ScrollView
+              style={styles.goalsScroll}
+              contentContainerStyle={styles.goalsScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={{ gap: spacing.md }}>
                 {arcGoals.map((item) => (
                   <GoalCard
                     key={item.id}
                     title={item.title}
                     body={item.description}
                     metaLeft={item.status.replace('_', ' ')}
-                    metaRight={`Activity ${item.forceIntent['force-activity'] ?? 0}/3 · Mastery ${
-                      item.forceIntent['force-mastery'] ?? 0
-                    }/3`}
+                    metaRight=""
                     onPress={() => navigation.navigate('GoalDetail', { goalId: item.id })}
                   />
                 ))}
-              </VStack>
-            )}
-          </VStack>
+              </View>
+            </ScrollView>
+          )}
         </View>
-      </ScrollView>
-      <NewGoalModal
-        visible={goalModalVisible}
-        onClose={() => setGoalModalVisible(false)}
-        arcName={arc.name}
-        arcNarrative={arc.narrative}
-        onAdopt={handleAdoptGoal}
-        insetTop={insets.top}
-      />
-      <HeroImageModal
-        visible={heroEditorVisible}
-        onClose={() => setHeroEditorVisible(false)}
-        arcName={arc.name}
-        heroSeed={heroSeed}
-        hasHero={Boolean(arc.thumbnailUrl)}
-        loading={heroLoading}
-        error={heroError}
-        thumbnailUrl={arc.thumbnailUrl}
-        heroGradientColors={heroGradientColors}
-        heroGradientDirection={heroGradientDirection}
-        heroTopoSizes={heroTopoSizes}
-        showTopography={showTopography}
-        showGeoMosaic={showGeoMosaic}
-        onGenerate={handleGenerateHeroImage}
-        onUpload={handlePickHeroImage}
-        onRemove={handleRemoveHeroImage}
-      />
-      {optionsMenuVisible && (
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.optionsMenuOverlay}
-          onPress={() => setOptionsMenuVisible(false)}
-        >
-          <View style={styles.optionsMenuContainer}>
-            <View style={styles.optionsMenu}>
-              <Text style={styles.optionsMenuLabel}>Arc actions</Text>
-              <View style={styles.optionsMenuSeparator} />
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.optionsMenuItem}
-                onPress={() => {
-                  setOptionsMenuVisible(false);
-                  handleShareArc();
-                }}
-              >
-                <Text style={styles.optionsMenuItemText}>Share arc</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.optionsMenuItem}
-                onPress={() => {
-                  setOptionsMenuVisible(false);
-                  confirmDeleteArc();
-                }}
-              >
-                <Text style={styles.optionsMenuItemDestructiveText}>Delete arc</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      )}
-      <BottomDrawer
-        visible={recommendationsModalVisible}
-        onClose={() => setRecommendationsModalVisible(false)}
-        heightRatio={0.8}
-      >
-        <View style={[styles.recommendationsModalContent, { paddingTop: spacing.lg }]}>
-            <VStack space="md">
-              <HStack justifyContent="space-between" alignItems="center">
-                <Heading style={styles.sectionTitle}>Recommended Goals</Heading>
-                <HStack alignItems="center" space="sm">
-                  <Button
-                    variant="link"
-                    disabled={loadingRecommendations}
-                    onPress={fetchRecommendations}
-                  >
-                    <Text style={styles.linkText}>
-                      {loadingRecommendations ? 'Fetching…' : 'Refresh suggestions'}
-                    </Text>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    style={styles.recommendationsCloseButton}
-                    onPress={() => setRecommendationsModalVisible(false)}
-                    accessibilityLabel="Close recommended goals"
-                  >
-                    <Icon name="more" size={18} color={colors.textPrimary} />
-                  </Button>
-                </HStack>
-              </HStack>
-
-              {recommendationsError ? (
-                <Text style={styles.errorText}>{recommendationsError}</Text>
-              ) : null}
-
-              {loadingRecommendations && (
-                <HStack alignItems="center" space="sm">
-                  <ActivityIndicator color="#38BDF8" />
-                  <Text style={styles.emptyBody}>Takado is considering this arc…</Text>
-                </HStack>
-              )}
-
-              {!loadingRecommendations &&
-              !recommendationsError &&
-              recommendations.length === 0 ? (
-                <Text style={styles.emptyBody}>
-                  LOMO will offer goal drafts once it has more context. Tap refresh to nudge it.
-                </Text>
-              ) : null}
-
-              {recommendations.length > 0 && (
-                <ScrollView
-                  style={{ marginTop: spacing.sm }}
-                  contentContainerStyle={{ paddingBottom: spacing.lg }}
-                >
-                  <VStack space="md">
-                    {recommendations.map((goal) => (
-                      <VStack key={goal.title} style={styles.recommendationCard} space="sm">
-                        <Heading style={styles.goalTitle}>{goal.title}</Heading>
-                        {goal.description && (
-                          <Text style={styles.goalDescription}>{goal.description}</Text>
-                        )}
-                        <Text style={styles.metaText}>Force intent</Text>
-                        <HStack style={styles.forceIntentRow}>
-                          {FORCE_ORDER.map((force) => (
-                            <Text key={force} style={styles.intentChip}>
-                              {FORCE_LABELS[force]} · {goal.forceIntent[force] ?? 0}/3
-                            </Text>
-                          ))}
-                        </HStack>
-                        {goal.suggestedActivities && goal.suggestedActivities.length > 0 && (
-                          <VStack space="xs">
-                            {goal.suggestedActivities.map((activity) => (
-                              <Text key={activity} style={styles.metaText}>
-                                • {activity}
-                              </Text>
-                            ))}
-                          </VStack>
-                        )}
-                        <HStack space="sm">
-                          <Button
-                            variant="outline"
-                            style={{ flex: 1 }}
-                            onPress={() => dismissGoalRecommendation(arc.id, goal.title)}
-                          >
-                            <Text style={styles.linkText}>Dismiss</Text>
-                          </Button>
-                          <Button
-                            variant="accent"
-                            style={{ flex: 1 }}
-                            onPress={() => handleAdoptRecommendation(goal)}
-                          >
-                            <Text style={styles.buttonText}>Adopt Goal</Text>
-                          </Button>
-                        </HStack>
-                      </VStack>
-                    ))}
-                  </VStack>
-                </ScrollView>
-              )}
-
-              <Button
-                variant="link"
-                onPress={() => setRecommendationsModalVisible(false)}
-                style={{ marginTop: spacing.sm }}
-              >
-                <Text style={styles.linkText}>Close</Text>
-              </Button>
-            </VStack>
-          </View>
-      </BottomDrawer>
+      </TakadoBottomSheet>
     </AppShell>
   );
 }
@@ -990,7 +407,7 @@ function NewGoalModal({
   };
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.8}>
+    <Sheet visible={visible} onClose={onClose} snapPoints={['80%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -1092,7 +509,7 @@ function NewGoalModal({
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </BottomDrawer>
+    </Sheet>
   );
 }
 
@@ -1118,7 +535,7 @@ function HeroImageModal({
   const showRefreshAction = !thumbnailUrl;
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.9}>
+    <Sheet visible={visible} onClose={onClose} snapPoints={['90%']}>
       <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
         <Heading style={styles.modalTitle}>Arc Thumbnail</Heading>
         <View style={styles.heroModalPreviewSection}>
@@ -1293,7 +710,7 @@ function HeroImageModal({
           </View>
         </View>
       </View>
-    </BottomDrawer>
+    </Sheet>
   );
 }
 
@@ -1315,6 +732,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
+  goalsDrawerInner: {
+    ...cardSurfaceStyle,
+    borderRadius: 32,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    // Let the drawer hug the bottom of the canvas with no extra outer
+    // padding so it feels like a true bottom sheet.
+    paddingBottom: 0,
+  },
   paddedSection: {
     // Let the AppShell define the primary horizontal gutters so this screen
     // matches other canvases. We only add vertical spacing here.
@@ -1324,16 +750,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   heroContainer: {
-    marginTop: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
   },
   heroImageWrapper: {
-    borderRadius: 24,
+    width: '100%',
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.shellAlt,
   },
   heroImage: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    // Match the Arc list card hero: a wide banner that still leaves room
+    // for content below.
+    aspectRatio: 3 / 1,
   },
   buttonTextAlt: {
     ...typography.body,
@@ -1563,83 +993,36 @@ const styles = StyleSheet.create({
   inlineEditOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
-  optionsMenuOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-start',
-    backgroundColor: 'transparent',
-  },
-  optionsMenuContainer: {
-    flex: 1,
-    alignItems: 'flex-end',
-    paddingTop: spacing['2xl'],
-    paddingRight: spacing.lg,
-  },
-  optionsMenu: {
-    backgroundColor: colors.canvas,
-    borderRadius: 12,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    minWidth: 160,
-    // soft shadow similar to shadcn popover / dropdown
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  optionsMenuItem: {
-    paddingVertical: spacing.sm,
-  },
-  optionsMenuItemText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  optionsMenuItemDestructiveText: {
-    ...typography.bodySm,
-    color: colors.warning,
-  },
-  optionsMenuLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-    marginBottom: spacing.xs,
-  },
-  optionsMenuSeparator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginBottom: spacing.xs,
+  objectTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
   },
   objectTypeLabel: {
-    // Slightly larger uppercase label so it visually balances between the
-    // back and overflow buttons in the header.
-    ...typography.label,
+    // Centered object type label (e.g. "Arc") that visually balances between
+    // the back and overflow buttons in the header, without forcing uppercase.
+    fontFamily: fonts.medium,
     fontSize: 20,
     lineHeight: 24,
+    letterSpacing: 0.5,
     color: colors.textSecondary,
   },
   sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  goalsDrawerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  goalsExpandButton: {
+    alignSelf: 'flex-end',
+    marginTop: 0,
+  },
   goalsSection: {
     // Give the Arc narrative more breathing room before the Goals section
     marginTop: spacing['2xl'],
-  },
-  sectionActionButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    minHeight: 32,
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.border,
-    // Slightly stronger shadow so the chip reads clearly on shell background, similar to shadcn
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.09,
-    shadowRadius: 5,
-    elevation: 3,
   },
   sectionActionText: {
     ...typography.bodySm,
@@ -1680,6 +1063,12 @@ const styles = StyleSheet.create({
   },
   goalsEmptyState: {
     marginTop: spacing.lg,
+  },
+  goalsScroll: {
+    marginTop: spacing.md,
+  },
+  goalsScrollContent: {
+    paddingBottom: spacing.lg,
   },
   goalsEmptyImageWrapper: {
     alignSelf: 'center',
@@ -1788,6 +1177,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 32,
     height: 32,
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
+    width: '100%',
+  },
+  menuItemLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  destructiveMenuRowText: {
+    ...typography.bodySm,
+    color: colors.destructive,
+    fontFamily: fonts.medium,
   },
 });
 

@@ -1,9 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { GluestackUIProvider } from '@gluestack-ui/themed';
-import { config } from '@gluestack-ui/config';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { PortalHost } from '@rn-primitives/portal';
 import {
   useFonts,
   Inter_400Regular,
@@ -36,13 +35,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.shell }}>
       <SafeAreaProvider>
-          <GluestackUIProvider config={config}>
-            <BottomSheetModalProvider>
-              <StatusBar style="dark" />
-              <RootNavigator />
-              <FirstTimeUxFlow />
-            </BottomSheetModalProvider>
-          </GluestackUIProvider>
+        <BottomSheetModalProvider>
+          <StatusBar style="dark" />
+          <RootNavigator />
+          <FirstTimeUxFlow />
+          <PortalHost />
+        </BottomSheetModalProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

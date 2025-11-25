@@ -16,7 +16,7 @@ import {
   DrawerItemList,
 } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Text, Pressable } from '@gluestack-ui/themed';
+import { Text, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';

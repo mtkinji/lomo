@@ -11,7 +11,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Text } from '@gluestack-ui/themed';
+import { Text } from '../../ui/primitives';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -509,32 +509,41 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   // (goal/arc/activities), we auto-run the assistant once the workflow lands on
   // each agent_generate step so the user never gets stuck without visible
   // progress. Confirm-style steps continue to rely on normal chat replies.
+  const autoRunStepsRef = useRef<Set<string>>(new Set());
   const autoRunAssistantStep = useCallback(
     (stepId: string) => {
-    if (!isV2Workflow) return;
-    if (!workflowRuntime?.instance) return;
-    const currentStepId = workflowRuntime.instance.currentStepId;
+      if (!isV2Workflow) return;
+      if (!workflowRuntime?.instance) return;
+      const currentStepId = workflowRuntime.instance.currentStepId;
       if (currentStepId !== stepId) return;
 
-    let cancelled = false;
+      // Prevent multiple auto-runs for the same step while the workflow
+      // instance is on this step. Without this guard, React effects can
+      // re-run and stream duplicate assistant messages.
+      if (autoRunStepsRef.current.has(stepId)) {
+        return;
+      }
+      autoRunStepsRef.current.add(stepId);
 
-    const fallbackTimeout = setTimeout(() => {
-      if (cancelled) return;
+      let cancelled = false;
+
+      const fallbackTimeout = setTimeout(() => {
+        if (cancelled) return;
         workflowRuntime.completeStep(stepId);
-    }, 10000);
+      }, 10000);
 
       void sendStepAssistantCopy(stepId, {
-      onDone: () => {
-        if (cancelled) return;
-        clearTimeout(fallbackTimeout);
+        onDone: () => {
+          if (cancelled) return;
+          clearTimeout(fallbackTimeout);
           workflowRuntime.completeStep(stepId);
-      },
-    });
+        },
+      });
 
-    return () => {
-      cancelled = true;
-      clearTimeout(fallbackTimeout);
-    };
+      return () => {
+        cancelled = true;
+        clearTimeout(fallbackTimeout);
+      };
     },
     [isV2Workflow, workflowRuntime, sendStepAssistantCopy]
   );
@@ -1121,8 +1130,18 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   // When running under the v2 onboarding workflow, we render a single
   // schema-driven card for the current step inside the shared chat surface.
   if (isV2Workflow) {
-    if (currentWorkflowStepId === 'goal_confirm') {
-      const onboardingGoal = goals.find((g) => g.id === lastOnboardingGoalId);
+    // Goal confirmation: render the drafted goal card once the workflow has
+    // produced a goal. In practice we've seen cases where the runtime remains
+    // on `goal_draft` while still having the goal in store, so we render the
+    // card for both `goal_draft` and `goal_confirm` and advance as needed when
+    // the user continues.
+    if (currentWorkflowStepId === 'goal_confirm' || currentWorkflowStepId === 'goal_draft') {
+      // Prefer the explicit onboarding goal ID if available, but fall back to
+      // the most recently created goal so we still render a card even if the
+      // linking field fails to update for some reason.
+      const onboardingGoal =
+        goals.find((g) => g.id === lastOnboardingGoalId) ??
+        (goals.length > 0 ? goals[goals.length - 1] : undefined);
 
       if (onboardingGoal) {
         const activityCount =
@@ -1130,9 +1149,13 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
         const parentArc = arcs.find((arc) => arc.id === onboardingGoal.arcId) ?? null;
 
         const handleContinue = () => {
-          // Advance the underlying workflow so future runs can branch off of a
-          // completed goal_confirm step, then hand control back to the host to
-          // enter the main app.
+          // Ensure the workflow advances beyond goal_draft/goal_confirm before
+          // handing control back to the host.
+          if (currentWorkflowStepId === 'goal_draft') {
+            workflowRuntime?.completeStep('goal_draft', {
+              goal: onboardingGoal,
+            });
+          }
           workflowRuntime?.completeStep('goal_confirm', {
             goalConfirmed: true,
           });

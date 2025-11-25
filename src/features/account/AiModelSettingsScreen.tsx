@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { HStack, Pressable, Text, VStack } from '@gluestack-ui/themed';
+import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -9,6 +8,7 @@ import { Icon } from '../../ui/Icon';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore, type LlmModel } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { HStack, Text, VStack } from '../../ui/primitives';
 
 type AiModelSettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,

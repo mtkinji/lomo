@@ -1,6 +1,5 @@
 import { ReactNode, useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
-import { HStack, VStack, Heading, Pressable } from '@gluestack-ui/themed';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 
@@ -53,8 +52,8 @@ export function PageHeader({
   children,
 }: PageHeaderProps) {
   return (
-    <VStack space="md" style={styles.container}>
-      <HStack alignItems="center" style={styles.topRow}>
+    <View style={styles.container}>
+      <View style={styles.topRow}>
         <View style={styles.sideColumn}>
           {onPressBack ? (
             <Pressable
@@ -78,13 +77,13 @@ export function PageHeader({
         </View>
 
         <View style={styles.centerColumn}>
-          <HStack alignItems="center" space="sm" justifyContent="center">
+          <View style={styles.titleRow}>
             {iconName ? (
               <View style={styles.iconContainer}>
                 <Icon name={iconName} size={24} color={colors.textPrimary} />
               </View>
             ) : null}
-            <Heading style={styles.title}>{title}</Heading>
+            <Text style={styles.title}>{title}</Text>
             {onPressInfo ? (
               <Pressable
                 accessibilityRole="button"
@@ -95,15 +94,15 @@ export function PageHeader({
                 <Icon name="info" size={22} color={colors.textSecondary} />
               </Pressable>
             ) : null}
-          </HStack>
+          </View>
         </View>
 
         <View style={styles.sideColumnRight}>
           {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
         </View>
-      </HStack>
-      {children}
-    </VStack>
+      </View>
+      {children ? <View style={styles.childrenContainer}>{children}</View> : null}
+    </View>
   );
 }
 
@@ -112,8 +111,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
   },
+  childrenContainer: {
+    marginTop: spacing.md,
+  },
   topRow: {
     width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
   },
   title: {
@@ -125,6 +128,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: spacing.sm,
+  },
   centerColumn: {
     flex: 2,
     alignItems: 'center',
@@ -132,6 +141,7 @@ const styles = StyleSheet.create({
   },
   sideColumn: {
     flex: 1,
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   sideColumnRight: {

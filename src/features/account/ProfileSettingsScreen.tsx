@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { VStack } from '@gluestack-ui/themed';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -9,6 +8,7 @@ import { Input } from '../../ui/Input';
 import { spacing, cardSurfaceStyle } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { VStack } from '../../ui/primitives';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,

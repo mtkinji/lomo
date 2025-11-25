@@ -1,23 +1,12 @@
 import { forwardRef, memo, useState, ReactNode } from 'react';
-import {
-  TextInput,
-  TextInputProps,
-  View,
-  Text,
-  StyleSheet,
-  StyleProp,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
-import { Pressable } from '@gluestack-ui/themed';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle, Pressable } from 'react-native';
+import { Input as ReusableInput } from '@/components/ui/input';
+import type { TextInputProps } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 
 type InputVariant = 'surface' | 'outline' | 'ghost';
 type InputSize = 'md' | 'sm';
-
-type FocusEventParam = Parameters<NonNullable<TextInputProps['onFocus']>>[0];
-type BlurEventParam = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
 
 type Props = TextInputProps & {
   label?: string;
@@ -58,22 +47,12 @@ const InputBase = forwardRef<TextInput, Props>(
     const [focused, setFocused] = useState(false);
     const hasError = Boolean(errorText);
 
-    const handleFocus = (event: FocusEventParam) => {
-      setFocused(true);
-      onFocus?.(event);
-    };
-
-    const handleBlur = (event: BlurEventParam) => {
-      setFocused(false);
-      onBlur?.(event);
-    };
-
-    const statusColor = hasError ? '#B91C1C' : focused ? colors.accent : colors.border;
-    const iconColor = hasError ? '#B91C1C' : colors.textSecondary;
+    const statusColor = hasError ? colors.destructive : focused ? colors.accent : colors.border;
+    const iconColor = hasError ? colors.destructive : colors.textSecondary;
 
     return (
       <View style={styles.wrapper}>
-        {label ? <Text style={styles.label}>{label}</Text> : null}
+        {label ? <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text> : null}
         <View
           style={[
             styles.inputContainer,
@@ -91,20 +70,21 @@ const InputBase = forwardRef<TextInput, Props>(
               <Icon name={leadingIcon} size={16} color={iconColor} />
             </View>
           ) : null}
-          <TextInput
+          <ReusableInput
             {...rest}
-            ref={ref}
+            ref={ref as any}
             editable={editable}
             multiline={multiline}
-            style={[
-              styles.input,
-              multiline && styles.multilineInput,
-              size === 'sm' && styles.inputSm,
-              inputStyle,
-            ]}
-            placeholderTextColor={colors.muted}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onFocus={(event) => {
+              setFocused(true);
+              onFocus?.(event);
+            }}
+            onBlur={(event) => {
+              setFocused(false);
+              onBlur?.(event);
+            }}
+            className=""
+            style={[styles.input, multiline && styles.multilineInput, size === 'sm' && styles.inputSm, inputStyle]}
           />
           {trailingIcon ? (
             <Pressable
@@ -143,22 +123,32 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
+  labelFocused: {
+    color: colors.accent,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: spacing.lg,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
+  inputContainerFocused: {
+    shadowColor: colors.accent,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
   sizeMd: {
     minHeight: 44,
-    paddingVertical: 0,
+    paddingVertical: spacing.sm,
   },
   sizeSm: {
     minHeight: 36,
-    paddingVertical: 0,
-    borderRadius: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
   },
   input: {
     flex: 1,
@@ -173,6 +163,7 @@ const styles = StyleSheet.create({
   },
   multilineInput: {
     textAlignVertical: 'top',
+    minHeight: 112,
   },
   iconWrapper: {
     justifyContent: 'center',
@@ -188,16 +179,23 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...typography.bodySm,
-    color: '#B91C1C',
+    color: colors.destructive,
     marginTop: spacing.xs,
   },
 });
 
 const variantStyles: Record<InputVariant, ViewStyle> = {
   surface: {
-    backgroundColor: colors.shell,
+    // Default input background: neutral card surface with a subtle shadow
+    backgroundColor: colors.card,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
   },
   outline: {
+    // Transparent fill with clear border, closer to classic shadcn outline
     backgroundColor: colors.canvas,
   },
   ghost: {

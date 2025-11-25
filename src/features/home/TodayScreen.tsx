@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, FlatList, View } from 'react-native';
-import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
@@ -8,6 +7,7 @@ import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
 import { Logo } from '../../ui/Logo';
 import { Card } from '../../ui/Card';
+import { VStack, Heading, Text, HStack } from '../../ui/primitives';
 
 const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 

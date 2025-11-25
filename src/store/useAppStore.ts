@@ -340,6 +340,11 @@ export const useAppStore = create(
               updatedAt: now(),
             },
             lastOnboardingGoalId: null,
+            // When we explicitly reset onboarding answers (typically from dev
+            // tooling), also reset the one-time "first goal created"
+            // celebration flag so the overlay can be exercised again on the
+            // next onboarding-created goal.
+            hasSeenFirstGoalCelebration: false,
           };
         }),
       resetStore: () =>

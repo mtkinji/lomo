@@ -1,7 +1,7 @@
-import { StyleSheet } from 'react-native';
-import { HStack, Pressable, Text } from '@gluestack-ui/themed';
+import { StyleSheet, Pressable } from 'react-native';
 import { Icon } from '../../../ui/Icon';
 import { colors, spacing, typography } from '../../../theme';
+import { HStack, Text } from '../../../ui/primitives';
 
 type BreadcrumbItem = {
   label: string;

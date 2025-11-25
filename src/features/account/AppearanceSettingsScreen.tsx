@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { VStack, Text, HStack, Pressable } from '@gluestack-ui/themed';
+import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -10,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import type { ThumbnailStyle } from '../../domain/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { VStack, Text, HStack } from '../../ui/primitives';
 
 type ThumbnailStyleOption = {
   value: ThumbnailStyle;

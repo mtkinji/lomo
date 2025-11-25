@@ -7,9 +7,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Pressable,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
-import { HStack, Heading, Pressable, Text, VStack } from '@gluestack-ui/themed';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -20,6 +20,7 @@ import { Icon, IconName } from '../../ui/Icon';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { VStack, Heading, Text, HStack } from '../../ui/primitives';
 import type {
   RootDrawerParamList,
   SettingsStackParamList,
