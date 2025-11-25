@@ -53,6 +53,12 @@ export type AgentWorkspaceProps = {
   onWorkflowStatusChange?: (instance: WorkflowInstance) => void;
   onComplete?: (outcome: unknown) => void;
   onDismiss?: () => void;
+  /**
+   * When true, hide the Takado brand header inside the chat timeline.
+   * Hosts that render their own header chrome (e.g., New Arc bottom sheet)
+   * can use this to avoid duplicate branding.
+   */
+  hideBrandHeader?: boolean;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -98,6 +104,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     onStepComplete,
     onWorkflowStatusChange,
     onComplete,
+    hideBrandHeader,
   } = props;
 
   const chatPaneRef = useRef<AiChatPaneController | null>(null);
@@ -267,6 +274,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         mode={mode}
         launchContext={launchContextText}
         resumeDraft={resumeDraft}
+        hideBrandHeader={hideBrandHeader}
         onConfirmArc={onConfirmArc}
         onComplete={onComplete}
         stepCard={workflowStepCard}

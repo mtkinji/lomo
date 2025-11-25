@@ -28,6 +28,7 @@ import ChevronRight from 'lucide-react-native/dist/esm/icons/chevron-right';
 import ChevronDown from 'lucide-react-native/dist/esm/icons/chevron-down';
 import Trash from 'lucide-react-native/dist/esm/icons/trash-2';
 import Check from 'lucide-react-native/dist/esm/icons/check';
+import Sparkles from 'lucide-react-native/dist/esm/icons/sparkles';
 import FlaskConical from 'lucide-react-native/dist/esm/icons/flask-conical';
 import Code from 'lucide-react-native/dist/esm/icons/code';
 
@@ -61,6 +62,7 @@ const icons = {
   refresh: RefreshCw,
   check: Check,
   dev: Code,
+  sparkles: Sparkles,
 };
 
 export type IconName = keyof typeof icons;

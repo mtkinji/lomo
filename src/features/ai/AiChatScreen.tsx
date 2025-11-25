@@ -409,6 +409,11 @@ export type AiChatPaneProps = {
    * its guided cards here while the shared chat surface stays consistent.
    */
   stepCard?: ReactNode;
+  /**
+   * When true, hide the Takado brand header row so hosts (like BottomDrawer
+   * sheets) can render their own mode header outside the chat timeline.
+   */
+  hideBrandHeader?: boolean;
 };
 
 export type AiChatPaneController = {
@@ -440,7 +445,15 @@ export type AiChatPaneController = {
  * chrome – the sheet + AppShell handle those layers.
  */
 export const AiChatPane = forwardRef(function AiChatPane(
-  { mode, launchContext, resumeDraft = true, onConfirmArc, onComplete, stepCard }: AiChatPaneProps,
+  {
+    mode,
+    launchContext,
+    resumeDraft = true,
+    onConfirmArc,
+    onComplete,
+    stepCard,
+    hideBrandHeader = false,
+  }: AiChatPaneProps,
   ref: Ref<AiChatPaneController>
 ) {
   const isArcCreationMode = mode === 'arcCreation';
@@ -1085,39 +1098,41 @@ export const AiChatPane = forwardRef(function AiChatPane(
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={scrollToLatest}
           >
-            <View style={styles.timeline}>
-              <View style={styles.brandHeaderRow}>
-                <View style={styles.brandLockup}>
-                  <Logo size={24} />
-                  <View style={styles.brandTextBlock}>
-                    <Text style={styles.brandWordmark}>Takado</Text>
-                  </View>
-                </View>
-                {isArcCreationMode && (
-                  <Pressable
-                    style={styles.modePill}
-                    onPress={() => setIsArcInfoVisible(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Learn about Arc creation and see context"
-                  >
-                    <View style={styles.modePillLeft}>
-                      <Icon
-                        name="arcs"
-                        size={14}
-                        color={CHAT_COLORS.textSecondary}
-                        style={styles.modePillIcon}
-                      />
-                      <Text style={styles.modePillText}>Arc creation</Text>
+              <View style={styles.timeline}>
+              {!hideBrandHeader && (
+                <View style={styles.brandHeaderRow}>
+                  <View style={styles.brandLockup}>
+                    <Logo size={24} />
+                    <View style={styles.brandTextBlock}>
+                      <Text style={styles.brandWordmark}>Takado</Text>
                     </View>
-                    <Icon
-                      name="info"
-                      size={16}
-                      color={CHAT_COLORS.textSecondary}
-                      style={styles.modePillInfoIcon}
-                    />
-                  </Pressable>
-                )}
-              </View>
+                  </View>
+                  {isArcCreationMode && (
+                    <Pressable
+                      style={styles.modePill}
+                      onPress={() => setIsArcInfoVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Learn about Arc creation and see context"
+                    >
+                      <View style={styles.modePillLeft}>
+                        <Icon
+                          name="arcs"
+                          size={14}
+                          color={CHAT_COLORS.textSecondary}
+                          style={styles.modePillIcon}
+                        />
+                        <Text style={styles.modePillText}>Arc creation</Text>
+                      </View>
+                      <Icon
+                        name="info"
+                        size={16}
+                        color={CHAT_COLORS.textSecondary}
+                        style={styles.modePillInfoIcon}
+                      />
+                    </Pressable>
+                  )}
+                </View>
+              )}
               <View style={styles.messagesStack}>
                 {messages
                   .filter((message) => message.role !== 'system')
