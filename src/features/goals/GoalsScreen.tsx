@@ -8,13 +8,14 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '@/components/ui/card';
 import { colors, spacing, typography } from '../../theme';
-import type { RootDrawerParamList } from '../../navigation/RootNavigator';
+import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type GoalDraftEntry = {
   arcId: string;
@@ -23,7 +24,11 @@ type GoalDraftEntry = {
 };
 
 export function GoalsScreen() {
-  const drawerNavigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'> &
+        DrawerNavigationProp<RootDrawerParamList>
+    >();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
 
@@ -109,10 +114,12 @@ export function GoalsScreen() {
         [
           {
             text: 'Go to Arcs',
-            onPress: () =>
-              drawerNavigation.navigate('ArcsStack', {
+            onPress: () => {
+              const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
+              parent?.navigate('ArcsStack', {
                 screen: 'ArcsList',
-              }),
+              });
+            },
           },
           {
             text: 'Cancel',
@@ -125,7 +132,8 @@ export function GoalsScreen() {
 
     if (arcs.length === 1) {
       const onlyArc = arcs[0];
-      drawerNavigation.navigate('ArcsStack', {
+      const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
+      parent?.navigate('ArcsStack', {
         screen: 'ArcDetail',
         params: {
           arcId: onlyArc.id,
@@ -144,7 +152,10 @@ export function GoalsScreen() {
         title="Goals"
         iconName="goals"
         menuOpen={menuOpen}
-        onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
+        onPressMenu={() => {
+          const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
+          parent?.dispatch(DrawerActions.openDrawer());
+        }}
         rightElement={
           <IconButton
             accessibilityRole="button"
@@ -163,7 +174,7 @@ export function GoalsScreen() {
         showsVerticalScrollIndicator={false}
       >
       {hasGoals ? (
-        <VStack space="md">
+        <VStack space="sm">
           {goals.map((goal) => {
             const arcName = arcLookup[goal.arcId];
               const statusLabel = goal.status.replace('_', ' ');
@@ -183,9 +194,9 @@ export function GoalsScreen() {
                   activityCount={activityCount}
                   thumbnailStyles={thumbnailStyles}
                   onPress={() =>
-                    drawerNavigation.navigate('ArcsStack', {
-                      screen: 'GoalDetail',
-                      params: { goalId: goal.id, entryPoint: 'goalsTab' },
+                    navigation.push('GoalDetail', {
+                      goalId: goal.id,
+                      entryPoint: 'goalsTab',
                     })
                   }
                 />
@@ -218,7 +229,8 @@ export function GoalsScreen() {
         onClose={() => setArcPickerVisible(false)}
         onSelectArc={(arcId) => {
           setArcPickerVisible(false);
-          drawerNavigation.navigate('ArcsStack', {
+          const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
+          parent?.navigate('ArcsStack', {
             screen: 'ArcDetail',
             params: {
               arcId,
@@ -271,6 +283,11 @@ function GoalDraftSection({ entries, arcs, thumbnailStyles, onAdopt, onDismiss }
 
             const parentArc = arcs.find((arc) => arc.id === arcId) ?? null;
 
+            const totalSlots = 6; // Activity 3 + Mastery 3
+            const filledSlots = activityLevel + masteryLevel;
+            const readyPercentage =
+              filledSlots <= 0 ? 0 : Math.round((filledSlots / totalSlots) * 100);
+
             const draftGoal: Goal = {
               id: `draft-${arcId}-${draft.title}`,
               arcId,
@@ -288,26 +305,39 @@ function GoalDraftSection({ entries, arcs, thumbnailStyles, onAdopt, onDismiss }
                 <GoalListCard
                   goal={draftGoal}
                   parentArc={parentArc}
-                  activityMetaOverride={`Activity ${activityLevel}/3 · Mastery ${masteryLevel}/3`}
-                  statusLabelOverride={`Draft · ${statusLabel}`}
+                  showThumbnail={false}
+                  showActivityMeta={false}
+                  compact
                   thumbnailStyles={thumbnailStyles}
-                />
-                <HStack space="sm" style={styles.draftActionsRow}>
-                  <Button
-                    variant="outline"
-                    style={styles.draftButton}
-                    onPress={() => onDismiss(entry)}
+                >
+                  <HStack
+                    style={styles.draftFooterRow}
+                    alignItems="center"
+                    justifyContent="space-between"
                   >
-                    <Text style={styles.draftDismissText}>Dismiss</Text>
-                  </Button>
-                  <Button
-                    variant="accent"
-                    style={styles.draftButton}
-                    onPress={() => onAdopt(entry)}
-                  >
-                    <Text style={styles.draftAdoptText}>Adopt Goal</Text>
-                  </Button>
-                </HStack>
+                    <Text style={styles.draftMetaText}>{`Ready ${readyPercentage}%`}</Text>
+                    <HStack space="xs" alignItems="center">
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onPress={() => onDismiss(entry)}
+                        accessibilityLabel="Delete draft"
+                      >
+                        <Icon name="trash" size={14} />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="default"
+                        onPress={() => onAdopt(entry)}
+                      >
+                        <HStack space="xs" alignItems="center">
+                          <Text>Continue</Text>
+                          <Icon name="chevronRight" size={14} />
+                        </HStack>
+                      </Button>
+                    </HStack>
+                  </HStack>
+                </GoalListCard>
               </View>
             );
           })}
@@ -409,33 +439,13 @@ const styles = StyleSheet.create({
   draftCard: {
     marginTop: spacing.sm,
   },
-  draftActionsRow: {
+  draftFooterRow: {
     marginTop: spacing.sm,
-  },
-  draftButton: {
-    flex: 1,
-  },
-  draftGoalTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  draftGoalBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   draftMetaText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-  },
-  draftDismissText: {
-    ...typography.bodySm,
-    color: colors.accent,
-    textAlign: 'center',
-  },
-  draftAdoptText: {
-    ...typography.bodySm,
-    color: colors.canvas,
-    textAlign: 'center',
+    flexShrink: 1,
   },
   arcPickerContainer: {
     paddingHorizontal: spacing.xl,

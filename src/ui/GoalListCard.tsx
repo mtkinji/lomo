@@ -1,8 +1,10 @@
 import React from 'react';
+import type { ReactNode } from 'react';
 import { Image, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/card';
 import { Icon } from './Icon';
+import { Badge } from './Badge';
 import { colors, spacing, typography } from '../theme';
 import type { Arc, Goal, ThumbnailStyle } from '../domain/types';
 import {
@@ -32,6 +34,28 @@ type GoalListCardProps = {
    * component falls back to the goal status ("in progress", "planned", etc).
    */
   statusLabelOverride?: string;
+  /**
+   * Whether to show the left-side activity/meta cluster. For draft contexts
+   * we often hide this so the card feels lighter.
+   */
+  showActivityMeta?: boolean;
+  /**
+   * When false, hides the thumbnail block so the card becomes a simple
+   * text + meta layout. Used for contexts like draft goals where we want
+   * a lighter, less visual treatment.
+   */
+  showThumbnail?: boolean;
+  /**
+   * Compact mode relaxes the minimum height constraint so the card can shrink
+   * to fit its content, useful for thumbnail-less list items like drafts.
+   */
+  compact?: boolean;
+  /**
+   * Optional footer content rendered inside the Card below the meta row. Used
+   * for contextual actions (e.g., draft actions) while preserving the shared
+   * card shell.
+   */
+  children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 };
@@ -43,11 +67,22 @@ export function GoalListCard({
   thumbnailStyles,
   activityMetaOverride,
   statusLabelOverride,
+  showActivityMeta = true,
+  showThumbnail = true,
+  compact = false,
+  children,
   style,
   onPress,
 }: GoalListCardProps) {
   const defaultStatusLabel = goal.status.replace('_', ' ');
   const statusLabel = statusLabelOverride ?? defaultStatusLabel;
+
+  const statusVariant =
+    goal.status === 'in_progress'
+      ? 'default'
+      : goal.status === 'planned'
+        ? 'secondary'
+        : 'secondary';
 
   const defaultActivityLabel =
     activityCount === 0
@@ -75,100 +110,105 @@ export function GoalListCard({
 
   const content = (
     <Card style={[styles.goalListCard, style]}>
-      <VStack style={styles.goalListContent} space="xs">
+      <VStack
+        style={[styles.goalListContent, compact && styles.goalListContentCompact]}
+        space="xs"
+      >
         <HStack style={styles.goalTopRow} space="md">
-          <View style={styles.goalThumbnailWrapper}>
-            <View style={styles.goalThumbnailInner}>
-            {parentArc?.thumbnailUrl ? (
-              <Image
-                source={{ uri: parentArc.thumbnailUrl }}
-                style={styles.goalThumbnail}
-                resizeMode="cover"
-              />
-            ) : (
-              <LinearGradient
-                colors={gradientColors}
-                start={direction.start}
-                end={direction.end}
-                style={styles.goalThumbnailGradient}
-              />
-            )}
-            {shouldShowTopography && (
-              <View style={styles.goalTopoLayer}>
-                <View style={styles.goalTopoGrid}>
-                  {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <View key={`goal-topo-row-${rowIndex}`} style={styles.goalTopoRow}>
-                      {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
-                        const cellIndex = rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                        const rawSize = topoSizes[cellIndex] ?? 0;
-                        const isHidden = rawSize < 0;
-                        const dotSize = isHidden ? 0 : rawSize;
-                        return (
-                          // eslint-disable-next-line react/no-array-index-key
-                          <View
-                            key={`goal-topo-cell-${rowIndex}-${colIndex}`}
-                            style={[
-                              styles.goalTopoDot,
-                              (dotSize === 0 || isHidden) && styles.goalTopoDotSmall,
-                              dotSize === 1 && styles.goalTopoDotMedium,
-                              dotSize === 2 && styles.goalTopoDotLarge,
-                              isHidden && styles.goalTopoDotHidden,
-                            ]}
-                          />
-                        );
-                      })}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-            {shouldShowGeoMosaic && (
-              <View style={styles.goalMosaicLayer}>
-                {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
-                  // eslint-disable-next-line react/no-array-index-key
-                  <View key={`goal-mosaic-row-${rowIndex}`} style={styles.goalMosaicRow}>
-                    {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
-                      const cell = getArcMosaicCell(seed, rowIndex, colIndex);
-                      if (cell.shape === 0) {
-                        return (
-                          // eslint-disable-next-line react/no-array-index-key
-                          <View
-                            key={`goal-mosaic-cell-${rowIndex}-${colIndex}`}
-                            style={styles.goalMosaicCell}
-                          />
-                        );
-                      }
-
-                      let shapeStyle: StyleProp<ViewStyle> = styles.goalMosaicCircle;
-                      if (cell.shape === 2) {
-                        shapeStyle = styles.goalMosaicPillVertical;
-                      } else if (cell.shape === 3) {
-                        shapeStyle = styles.goalMosaicPillHorizontal;
-                      }
-
-                      return (
+          {showThumbnail && (
+            <View style={styles.goalThumbnailWrapper}>
+              <View style={styles.goalThumbnailInner}>
+                {parentArc?.thumbnailUrl ? (
+                  <Image
+                    source={{ uri: parentArc.thumbnailUrl }}
+                    style={styles.goalThumbnail}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={gradientColors}
+                    start={direction.start}
+                    end={direction.end}
+                    style={styles.goalThumbnailGradient}
+                  />
+                )}
+                {shouldShowTopography && (
+                  <View style={styles.goalTopoLayer}>
+                    <View style={styles.goalTopoGrid}>
+                      {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
                         // eslint-disable-next-line react/no-array-index-key
-                        <View
-                          key={`goal-mosaic-cell-${rowIndex}-${colIndex}`}
-                          style={styles.goalMosaicCell}
-                        >
-                          <View
-                            style={[
-                              styles.goalMosaicShapeBase,
-                              shapeStyle,
-                              { backgroundColor: cell.color },
-                            ]}
-                          />
+                        <View key={`goal-topo-row-${rowIndex}`} style={styles.goalTopoRow}>
+                          {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
+                            const cellIndex = rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
+                            const rawSize = topoSizes[cellIndex] ?? 0;
+                            const isHidden = rawSize < 0;
+                            const dotSize = isHidden ? 0 : rawSize;
+                            return (
+                              // eslint-disable-next-line react/no-array-index-key
+                              <View
+                                key={`goal-topo-cell-${rowIndex}-${colIndex}`}
+                                style={[
+                                  styles.goalTopoDot,
+                                  (dotSize === 0 || isHidden) && styles.goalTopoDotSmall,
+                                  dotSize === 1 && styles.goalTopoDotMedium,
+                                  dotSize === 2 && styles.goalTopoDotLarge,
+                                  isHidden && styles.goalTopoDotHidden,
+                                ]}
+                              />
+                            );
+                          })}
                         </View>
-                      );
-                    })}
+                      ))}
+                    </View>
                   </View>
-                ))}
+                )}
+                {shouldShowGeoMosaic && (
+                  <View style={styles.goalMosaicLayer}>
+                    {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <View key={`goal-mosaic-row-${rowIndex}`} style={styles.goalMosaicRow}>
+                        {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
+                          const cell = getArcMosaicCell(seed, rowIndex, colIndex);
+                          if (cell.shape === 0) {
+                            return (
+                              // eslint-disable-next-line react/no-array-index-key
+                              <View
+                                key={`goal-mosaic-cell-${rowIndex}-${colIndex}`}
+                                style={styles.goalMosaicCell}
+                              />
+                            );
+                          }
+
+                          let shapeStyle: StyleProp<ViewStyle> = styles.goalMosaicCircle;
+                          if (cell.shape === 2) {
+                            shapeStyle = styles.goalMosaicPillVertical;
+                          } else if (cell.shape === 3) {
+                            shapeStyle = styles.goalMosaicPillHorizontal;
+                          }
+
+                          return (
+                            // eslint-disable-next-line react/no-array-index-key
+                            <View
+                              key={`goal-mosaic-cell-${rowIndex}-${colIndex}`}
+                              style={styles.goalMosaicCell}
+                            >
+                              <View
+                                style={[
+                                  styles.goalMosaicShapeBase,
+                                  shapeStyle,
+                                  { backgroundColor: cell.color },
+                                ]}
+                              />
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-          </View>
+            </View>
+          )}
           <VStack style={styles.goalTextContainer}>
             <Heading style={styles.goalTitle} numberOfLines={2} ellipsizeMode="tail">
               {goal.title}
@@ -176,18 +216,22 @@ export function GoalListCard({
           </VStack>
         </HStack>
 
-        <HStack
-          space="md"
-          style={styles.goalMetaRow}
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <HStack space="xs" alignItems="center">
-            <Icon name="activities" size={14} color={colors.textSecondary} />
-            <Text style={styles.goalActivityMeta}>{activityLabel}</Text>
+        {showActivityMeta && (
+          <HStack
+            space="md"
+            style={styles.goalMetaRow}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <HStack space="xs" alignItems="center">
+              <Icon name="activities" size={14} color={colors.textSecondary} />
+              <Text style={styles.goalActivityMeta}>{activityLabel}</Text>
+            </HStack>
+            <Badge variant={statusVariant}>{statusLabel}</Badge>
           </HStack>
-          <Text style={styles.goalStatus}>{statusLabel}</Text>
-        </HStack>
+        )}
+
+        {children}
       </VStack>
     </Card>
   );
@@ -208,6 +252,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     minHeight: 68,
     justifyContent: 'space-between',
+  },
+  goalListContentCompact: {
+    minHeight: 0,
   },
   goalTopRow: {
     flexDirection: 'row',

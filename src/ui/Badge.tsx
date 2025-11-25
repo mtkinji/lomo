@@ -1,31 +1,58 @@
-import { ReactNode } from 'react';
-import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import type { ReactNode } from 'react';
+import {
+  Platform,
+  StyleSheet,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
+import { Badge as ReusableBadge } from '@/components/ui/badge';
+import type { BadgeProps as ReusableBadgeProps } from '@/components/ui/badge';
+import { Text } from '@/components/ui/text';
 import { colors, spacing, typography } from '../theme';
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'info';
 
 type BadgeProps = {
+  /**
+   * High-level visual variant used throughout the app.
+   * `info` is preserved for backwards compatibility and maps to the
+   * Reusables `secondary` badge under the hood.
+   */
   variant?: BadgeVariant;
+  /**
+   * Content to render inside the badge. Strings/numbers are
+   * automatically wrapped in the shared `Text` component so they
+   * render correctly on native.
+   */
   children: ReactNode;
+  /**
+   * Optional React Native style override applied to the underlying
+   * badge container.
+   */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Optional text style override applied when children are rendered
+   * as plain text.
+   */
   textStyle?: StyleProp<TextStyle>;
-};
+} & Omit<ReusableBadgeProps, 'variant' | 'style' | 'children'>;
 
-const BACKGROUND_BY_VARIANT: Record<BadgeVariant, string> = {
-  // Primary / status badges: filled Pine
+function mapVariantToReusable(variant?: BadgeVariant): ReusableBadgeProps['variant'] {
+  if (!variant) return undefined;
+  if (variant === 'info') return 'secondary';
+  return variant;
+}
+
+const NATIVE_BACKGROUND_BY_VARIANT: Record<BadgeVariant, string> = {
   default: colors.accent,
-  // Neutral metadata: Light Canvas / shell tint
   secondary: colors.shellAlt,
-  destructive: '#DC2626',
+  destructive: colors.destructive,
   outline: colors.canvas,
   info: colors.accentMuted,
 };
 
-const BORDER_BY_VARIANT: Partial<Record<BadgeVariant, string>> = {
-  outline: colors.border,
-};
-
-const TEXT_BY_VARIANT: Record<BadgeVariant, string> = {
+const NATIVE_TEXT_BY_VARIANT: Record<BadgeVariant, string> = {
   default: colors.canvas,
   secondary: colors.textSecondary,
   destructive: colors.canvas,
@@ -33,37 +60,65 @@ const TEXT_BY_VARIANT: Record<BadgeVariant, string> = {
   info: colors.canvas,
 };
 
-export function Badge({ variant = 'default', children, style, textStyle }: BadgeProps) {
+export function Badge({
+  variant = 'default',
+  children,
+  style,
+  textStyle,
+  ...rest
+}: BadgeProps) {
+  const nativeContainerStyle: StyleProp<ViewStyle> =
+    Platform.OS === 'web'
+      ? style
+      : [
+          styles.nativeBase,
+          {
+            backgroundColor: NATIVE_BACKGROUND_BY_VARIANT[variant],
+          },
+          style,
+        ];
+
+  const content =
+    typeof children === 'string' || typeof children === 'number' ? (
+      <Text
+        style={[
+          styles.nativeText,
+          Platform.OS !== 'web' && { color: NATIVE_TEXT_BY_VARIANT[variant] },
+          textStyle,
+        ]}
+      >
+        {children}
+      </Text>
+    ) : (
+      children
+    );
+
   return (
-    <View
-      style={[
-        styles.base,
-        {
-          backgroundColor: BACKGROUND_BY_VARIANT[variant],
-          borderColor: BORDER_BY_VARIANT[variant] ?? BACKGROUND_BY_VARIANT[variant],
-          borderWidth: variant === 'outline' ? StyleSheet.hairlineWidth : 0,
-        },
-        style,
-      ]}
+    <ReusableBadge
+      {...rest}
+      variant={mapVariantToReusable(variant)}
+      // Preserve React Native visual fallback while still allowing
+      // Reusables / NativeWind to drive styling via className.
+      style={nativeContainerStyle}
     >
-      <Text style={[styles.text, { color: TEXT_BY_VARIANT[variant] }, textStyle]}>{children}</Text>
-    </View>
+      {content}
+    </ReusableBadge>
   );
 }
 
 const styles = StyleSheet.create({
-  base: {
+  nativeBase: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
-    borderRadius: 999,
+    // 6px radius to match app badge visual spec.
+    borderRadius: 6,
     alignSelf: 'flex-start',
   },
-  text: {
+  nativeText: {
     ...typography.bodySm,
     fontFamily: typography.label.fontFamily,
     fontSize: 13,
   },
 });
-
 
 
