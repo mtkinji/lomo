@@ -1,74 +1,40 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, spacing } from '../theme';
+import {
+  Dialog as PrimitiveDialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type DialogProps = {
   visible: boolean;
-  /**
-   * Optional callback invoked when the user taps the backdrop. When omitted,
-   * the dialog behaves as modal-only (backdrop is not tappable).
-   */
   onClose?: () => void;
-  children: ReactNode;
+  title?: string;
+  description?: string;
+  children?: ReactNode;
   /**
-   * Optional override for the content card style so individual dialogs can
-   * tweak width, padding, or radius while preserving the shared ShadCN-style
-   * overlay + elevation.
+   * Optional footer content. When omitted, the caller is responsible for
+   * rendering actions inside `children`.
    */
-  contentStyle?: StyleProp<ViewStyle>;
+  footer?: ReactNode;
 };
 
-export function Dialog({ visible, onClose, children, contentStyle }: DialogProps) {
-  if (!visible) {
-    return null;
-  }
-
+export function Dialog({ visible, onClose, title, description, children, footer }: DialogProps) {
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      {onClose ? (
-        <Pressable style={styles.backdrop} onPress={onClose} />
-      ) : (
-        <View style={styles.backdrop} />
-      )}
-      <View style={styles.centerColumn} pointerEvents="box-none">
-        <View style={[styles.card, contentStyle]} pointerEvents="auto">
-          {children}
-        </View>
-      </View>
-    </View>
+    <PrimitiveDialog open={visible} onOpenChange={(open) => !open && onClose?.()}>
+      <DialogContent>
+        {(title || description) && (
+          <DialogHeader>
+            {title ? <DialogTitle>{title}</DialogTitle> : null}
+            {description ? <DialogDescription>{description}</DialogDescription> : null}
+          </DialogHeader>
+        )}
+        {children}
+        {footer ? <DialogFooter>{footer}</DialogFooter> : null}
+      </DialogContent>
+    </PrimitiveDialog>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15,23,42,0.35)',
-  },
-  centerColumn: {
-    paddingHorizontal: spacing.lg,
-    width: '100%',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 28,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
-    backgroundColor: colors.canvas,
-    alignSelf: 'center',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
-  },
-});
-
-
 

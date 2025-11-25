@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heading, HStack, Pressable, Text, VStack } from '@gluestack-ui/themed';
-import { Card } from './Card';
+import { Card } from '@/components/ui/card';
 import { Icon } from './Icon';
 import { colors, spacing, typography } from '../theme';
 import type { Arc, Goal, ThumbnailStyle } from '../domain/types';

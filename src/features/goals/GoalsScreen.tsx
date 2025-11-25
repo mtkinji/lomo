@@ -13,7 +13,7 @@ import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import type { GoalDraft, ThumbnailStyle } from '../../domain/types';
-import { Button } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { TakadoBottomSheet } from '../../ui/BottomSheet';
 
@@ -53,16 +53,18 @@ export function GoalsScreen() {
     [activities],
   );
 
-  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
-    const visuals = state.userProfile?.visuals;
+  const visuals = useAppStore((state) => state.userProfile?.visuals);
+  const thumbnailStyles = React.useMemo<ThumbnailStyle[]>(() => {
     if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
       return visuals.thumbnailStyles;
     }
     if (visuals?.thumbnailStyle) {
       return [visuals.thumbnailStyle];
     }
+    // Use a shared constant array so React's external store snapshot
+    // remains referentially stable when nothing has changed.
     return ['topographyDots'];
-  });
+  }, [visuals]);
 
   const draftEntries: GoalDraftEntry[] = React.useMemo(
     () =>
@@ -145,17 +147,15 @@ export function GoalsScreen() {
         menuOpen={menuOpen}
         onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
         rightElement={
-          <Button
-            size="icon"
-            iconButtonSize={28}
+          <IconButton
             accessibilityRole="button"
             accessibilityLabel="Create a new goal"
             style={styles.newGoalButton}
             hitSlop={8}
             onPress={handlePressNewGoal}
           >
-            <Icon name="plus" size={16} color="#FFFFFF" />
-          </Button>
+            <Icon name="plus" size={18} color="#FFFFFF" />
+          </IconButton>
         }
       />
       <ScrollView

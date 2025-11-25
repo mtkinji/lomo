@@ -8,7 +8,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { Card } from '../../ui/Card';
-import { Button } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -16,6 +16,10 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import type { Arc, Goal } from '../../domain/types';
+import { BottomDrawer } from '../../ui/BottomDrawer';
+import { AgentWorkspace } from '../ai/AgentWorkspace';
+import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
+import { ArcListCard } from '../../ui/ArcListCard';
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
 
@@ -112,13 +116,30 @@ async function readArcCreationDraftMeta(): Promise<ArcCoachDraftMeta | null> {
 
 export function ArcsScreen() {
   const arcs = useAppStore((state) => state.arcs);
+  const goals = useAppStore((state) => state.goals);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
   const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [newArcModalVisible, setNewArcModalVisible] = useState(false);
+
+  const goalCountByArc = useMemo(
+    () =>
+      goals.reduce<Record<string, number>>((acc, goal) => {
+        if (!goal.arcId) return acc;
+        acc[goal.arcId] = (acc[goal.arcId] ?? 0) + 1;
+        return acc;
+      }, {}),
+    [goals]
+  );
 
   const listTopPadding = headerHeight ? headerHeight + spacing.md : spacing['2xl'];
+
+  const workspaceSnapshot = useMemo(
+    () => buildArcCoachLaunchContext(arcs, goals),
+    [arcs, goals]
+  );
 
   return (
     <AppShell>
@@ -138,19 +159,17 @@ export function ArcsScreen() {
             menuOpen={menuOpen}
             onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
             rightElement={
-              <Button
-                size="icon"
-                iconButtonSize={28}
+              <IconButton
                 accessibilityRole="button"
                 accessibilityLabel="Create a new Arc"
                 style={styles.newArcButton}
                 onPress={() => {
                   logArcsDebug('newArc:create-pressed');
-                  // TODO: rewire to Arc coach once the core Arcs layout is fully restored.
+                  setNewArcModalVisible(true);
                 }}
               >
                 <Icon name="plus" size={18} color="#FFFFFF" />
-              </Button>
+              </IconButton>
             }
           />
         </View>
@@ -161,22 +180,16 @@ export function ArcsScreen() {
           contentContainerStyle={[styles.listContent, { paddingTop: listTopPadding }]}
           renderItem={({ item }) => (
             <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
-              <Card style={styles.arcCard}>
-                <View style={styles.arcCardContent}>
-                  <View style={styles.arcTextContainer}>
-                    <Text style={styles.arcTitle} numberOfLines={2} ellipsizeMode="tail">
-                      {item.name}
-                    </Text>
-                    {item.narrative ? (
-                      <Text style={styles.arcNarrative} numberOfLines={2} ellipsizeMode="tail">
-                        {item.narrative}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              </Card>
+              <ArcListCard arc={item} goalCount={goalCountByArc[item.id] ?? 0} />
             </Pressable>
           )}
+        />
+
+        <NewArcModal
+          visible={newArcModalVisible}
+          onClose={() => setNewArcModalVisible(false)}
+          workspaceSnapshot={workspaceSnapshot}
+          resumeDraft
         />
       </View>
     </AppShell>
@@ -233,13 +246,16 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   arcCard: {
-    // Symmetric padding; let the content determine height so the card can
-    // grow naturally with longer titles while preserving padding.
+    // Use the shared card surface style so Arc rows feel like proper cards
+    // sitting on the canvas (and remain visible without Tailwind styles).
+    ...cardSurfaceStyle,
+    // Symmetric padding; let the content determine height so the card can grow
+    // naturally with longer titles while preserving padding.
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
-    // Let the app shell define horizontal gutters so cards align with the header
+    // Let the app shell define horizontal gutters so cards align with the header.
     marginHorizontal: 0,
-    // Use the base card vertical spacing so lists stay consistent across screens
+    // Use the base card vertical spacing so lists stay consistent across screens.
     marginVertical: 0,
   },
   arcCardContent: {

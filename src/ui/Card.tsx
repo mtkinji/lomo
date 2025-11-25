@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
-import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { cardSurfaceStyle, spacing } from '../theme';
+import type { ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { Card as ReusableCard } from '@/components/ui/card';
 
 interface CardProps {
   children: ReactNode;
@@ -8,17 +8,14 @@ interface CardProps {
 }
 
 export function Card({ children, style }: CardProps) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  return (
+    <ReusableCard
+      // Preserve existing spacing expectations from the old implementation.
+      className="my-1"
+      // Allow legacy callers to continue using React Native style objects for layout.
+      style={style as any}
+    >
+      {children}
+    </ReusableCard>
+  );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    ...cardSurfaceStyle,
-    // Let the surrounding layout (lists, grids, etc.) control horizontal gutters
-    // so cards can align cleanly with headers and page chrome.
-    marginHorizontal: 0,
-    marginVertical: spacing.xs,
-  },
-});
-
-

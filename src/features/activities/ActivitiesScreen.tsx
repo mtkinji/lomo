@@ -5,6 +5,8 @@ import { VStack } from '@gluestack-ui/themed';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
+import { IconButton } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
 
 export function ActivitiesScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
@@ -18,6 +20,17 @@ export function ActivitiesScreen() {
         iconName="activities"
         menuOpen={menuOpen}
         onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
+        rightElement={
+          <IconButton
+            accessibilityRole="button"
+            accessibilityLabel="Add Activity"
+            onPress={() => {
+              // TODO: wire to Activity creation sheet when implemented.
+            }}
+          >
+            <Icon name="plus" size={18} color="#FFFFFF" />
+          </IconButton>
+        }
       />
       <VStack space="sm">
         {/* Placeholder body copy while the workspace is under construction */}

@@ -13,8 +13,9 @@ import {
   Share,
   StyleProp,
   ViewStyle,
+  Text,
 } from 'react-native';
-import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
+import { VStack, Heading, HStack } from '@gluestack-ui/themed';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,10 +25,17 @@ import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
 import { GoalDraft, type ThumbnailStyle } from '../../domain/types';
 import { generateGoals } from '../../services/ai';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Sheet } from '../../ui/primitives';
-import { DropdownMenu } from '../../ui/DropdownMenu';
+import { Text as UiText } from '@/components/ui/text';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
 import { GoalCard } from '../../ui/GoalCard';
 import {
   ARC_MOSAIC_COLS,
@@ -41,6 +49,7 @@ import {
   pickThumbnailStyle,
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -82,7 +91,6 @@ export function ArcDetailScreen() {
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
-  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
 
   if (!arc) {
     return (
@@ -93,6 +101,16 @@ export function ArcDetailScreen() {
       </AppShell>
     );
   }
+
+  const heroSeed = useMemo(
+    () => buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant),
+    [arc.id, arc.name, arc.thumbnailVariant],
+  );
+
+  const { colors: headerGradientColors, direction: headerGradientDirection } = useMemo(
+    () => getArcGradient(heroSeed),
+    [heroSeed],
+  );
 
   const handleDeleteArc = useCallback(() => {
     Alert.alert(
@@ -114,80 +132,139 @@ export function ArcDetailScreen() {
 
   return (
     <AppShell>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.paddedSection}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={styles.headerSide}>
-              <Button
-                size="icon"
+              <IconButton
                 style={styles.backButton}
                 onPress={() => navigation.goBack()}
                 accessibilityLabel="Back to Arcs"
               >
                 <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-              </Button>
+              </IconButton>
             </View>
             <View style={styles.headerCenter}>
-              <Text style={styles.objectTypeLabel}>Arc</Text>
+              <View style={styles.objectTypeRow}>
+                <Icon name="arcs" size={18} color={colors.textSecondary} />
+                <Text style={styles.objectTypeLabel}>Arc</Text>
+              </View>
             </View>
             <View style={styles.headerSideRight}>
-              <Button
-                size="icon"
-                style={styles.optionsButton}
-                accessibilityLabel="Arc actions"
-                onPress={() => setOptionsMenuVisible(true)}
-              >
-                <Icon name="more" size={18} color={colors.canvas} />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <IconButton style={styles.optionsButton} accessibilityLabel="Arc actions">
+                    <Icon name="more" size={18} color={colors.canvas} />
+                  </IconButton>
+                </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                      <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                        <View style={styles.menuItemRow}>
+                          <Icon name="trash" size={16} color={colors.destructive} />
+                          <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onPress={() => {
+                          // TODO: wire up real archive behavior once the store exposes it.
+                          Alert.alert(
+                            'Archive arc',
+                            'Archiving is not yet implemented. This will be wired to an archive action in the store.'
+                          );
+                        }}
+                      >
+                        <View style={styles.menuItemRow}>
+                          <Icon name="info" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Archive</Text>
+                        </View>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
 
         <View style={[styles.paddedSection, styles.arcHeaderSection]}>
+          <View style={styles.heroContainer}>
+            <View style={styles.heroImageWrapper}>
+              {arc.thumbnailUrl ? (
+                <Image
+                  source={{ uri: arc.thumbnailUrl }}
+                  style={styles.heroImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={headerGradientColors}
+                  start={headerGradientDirection.start}
+                  end={headerGradientDirection.end}
+                  style={styles.heroImage}
+                />
+              )}
+            </View>
+          </View>
+
           <Text style={styles.arcTitle}>{arc.name}</Text>
           {arc.narrative ? (
             <Text style={[styles.arcNarrative, { marginTop: spacing.sm }]}>{arc.narrative}</Text>
           ) : null}
         </View>
 
-        <View style={[styles.paddedSection, styles.goalsSection]}>
-          <Text style={styles.sectionTitle}>
-            Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-          </Text>
+        {/* Spacer so the header content doesn't feel cramped behind the sheet */}
+        <View style={{ height: spacing['2xl'] * 3 }} />
+      </ScrollView>
+
+      <TakadoBottomSheet
+        visible
+        onClose={() => {
+          // Non‑dismissable sheet; onClose should never fire.
+        }}
+        snapPoints={['45%']}
+        nonDismissable
+        hideBackdrop
+      >
+        <View style={styles.goalsDrawerInner}>
+          <View style={styles.goalsDrawerHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+            </Text>
+            <IconButton
+              style={styles.goalsExpandButton}
+              accessibilityLabel="Goals panel"
+            >
+              <Icon name="arrowUp" size={18} color={colors.textPrimary} />
+            </IconButton>
+          </View>
 
           {arcGoals.length === 0 ? (
-            <Text style={[styles.emptyBody, { marginTop: spacing.sm }]}>
+            <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
               No goals yet for this Arc.
             </Text>
           ) : (
-            <View style={{ marginTop: spacing.md, gap: spacing.md }}>
-              {arcGoals.map((item) => (
-                <GoalCard
-                  key={item.id}
-                  title={item.title}
-                  body={item.description}
-                  metaLeft={item.status.replace('_', ' ')}
-                  metaRight=""
-                  onPress={() => navigation.navigate('GoalDetail', { goalId: item.id })}
-                />
-              ))}
-            </View>
+            <ScrollView
+              style={styles.goalsScroll}
+              contentContainerStyle={styles.goalsScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={{ gap: spacing.md }}>
+                {arcGoals.map((item) => (
+                  <GoalCard
+                    key={item.id}
+                    title={item.title}
+                    body={item.description}
+                    metaLeft={item.status.replace('_', ' ')}
+                    metaRight=""
+                    onPress={() => navigation.navigate('GoalDetail', { goalId: item.id })}
+                  />
+                ))}
+              </View>
+            </ScrollView>
           )}
         </View>
-      </ScrollView>
-      <DropdownMenu
-        open={optionsMenuVisible}
-        onOpenChange={setOptionsMenuVisible}
-        label="Arc actions"
-        topOffset={spacing['2xl']}
-        items={[
-          {
-            label: 'Delete arc',
-            variant: 'destructive',
-            onPress: handleDeleteArc,
-          },
-        ]}
-      />
+      </TakadoBottomSheet>
     </AppShell>
   );
 }
@@ -649,6 +726,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
+  goalsDrawerInner: {
+    ...cardSurfaceStyle,
+    borderRadius: 32,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    // Let the drawer hug the bottom of the canvas with no extra outer
+    // padding so it feels like a true bottom sheet.
+    paddingBottom: 0,
+  },
   paddedSection: {
     // Let the AppShell define the primary horizontal gutters so this screen
     // matches other canvases. We only add vertical spacing here.
@@ -658,16 +744,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   heroContainer: {
-    marginTop: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
   },
   heroImageWrapper: {
-    borderRadius: 24,
+    width: '100%',
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.shellAlt,
   },
   heroImage: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    // Match the Arc list card hero: a wide banner that still leaves room
+    // for content below.
+    aspectRatio: 3 / 1,
   },
   buttonTextAlt: {
     ...typography.body,
@@ -897,17 +987,32 @@ const styles = StyleSheet.create({
   inlineEditOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
+  objectTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
   objectTypeLabel: {
-    // Slightly larger uppercase label so it visually balances between the
-    // back and overflow buttons in the header.
-    ...typography.label,
+    // Centered object type label (e.g. "Arc") that visually balances between
+    // the back and overflow buttons in the header, without forcing uppercase.
+    fontFamily: fonts.medium,
     fontSize: 20,
     lineHeight: 24,
+    letterSpacing: 0.5,
     color: colors.textSecondary,
   },
   sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
+  },
+  goalsDrawerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  goalsExpandButton: {
+    alignSelf: 'flex-end',
+    marginTop: 0,
   },
   goalsSection: {
     // Give the Arc narrative more breathing room before the Goals section
@@ -952,6 +1057,12 @@ const styles = StyleSheet.create({
   },
   goalsEmptyState: {
     marginTop: spacing.lg,
+  },
+  goalsScroll: {
+    marginTop: spacing.md,
+  },
+  goalsScrollContent: {
+    paddingBottom: spacing.lg,
   },
   goalsEmptyImageWrapper: {
     alignSelf: 'center',
@@ -1060,6 +1171,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 32,
     height: 32,
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
+    width: '100%',
+  },
+  menuItemLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  destructiveMenuRowText: {
+    ...typography.bodySm,
+    color: colors.destructive,
+    fontFamily: fonts.medium,
   },
 });
 

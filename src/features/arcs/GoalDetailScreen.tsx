@@ -13,10 +13,10 @@ import {
 import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
-import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
+import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
-import { Button } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Dialog } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,8 +60,8 @@ export function GoalDetailScreen() {
     (state) => state.setHasSeenFirstGoalCelebration
   );
   const updateGoal = useAppStore((state) => state.updateGoal);
-  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
-    const visuals = state.userProfile?.visuals;
+  const visuals = useAppStore((state) => state.userProfile?.visuals);
+  const thumbnailStyles = useMemo<ThumbnailStyle[]>(() => {
     if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
       return visuals.thumbnailStyles;
     }
@@ -69,7 +69,7 @@ export function GoalDetailScreen() {
       return [visuals.thumbnailStyle];
     }
     return [DEFAULT_THUMBNAIL_STYLE];
-  });
+  }, [visuals]);
   const [arcSelectorVisible, setArcSelectorVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingField, setEditingField] = useState<'title' | 'description' | null>(null);
@@ -333,22 +333,21 @@ export function GoalDetailScreen() {
       <Dialog
         visible={showFirstGoalCelebration}
         onClose={handleDismissFirstGoalCelebration}
+        title="You just set your first goal"
+        description="This goal is your starting point in Takado. Next, add a couple of concrete Activities so you always know the very next step."
+        footer={
+          <HStack space="sm" marginTop={spacing.lg}>
+            <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>
+              <Text style={styles.primaryCtaText}>Got it</Text>
+            </Button>
+          </HStack>
+        }
       >
         <Text style={styles.firstGoalBadge}>🎉 First goal created</Text>
-        <Heading style={styles.firstGoalTitle}>You just set your first goal</Heading>
-        <Text style={styles.firstGoalBody}>
-          This goal is your starting point in Takado. Next, add a couple of concrete Activities so
-          you always know the very next step.
-        </Text>
         <Text style={styles.firstGoalBody}>
           Use “Generate Activities with AI” for ideas, or “Add Activity manually” for something you
           already have in mind.
         </Text>
-        <HStack space="sm" marginTop={spacing.lg}>
-          <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>
-            <Text style={styles.primaryCtaText}>Got it</Text>
-          </Button>
-        </HStack>
       </Dialog>
       {editingForces && (
         <TouchableOpacity
@@ -360,14 +359,13 @@ export function GoalDetailScreen() {
       <VStack space="lg">
         <HStack alignItems="center">
           <View style={styles.headerSide}>
-            <Button
-              size="icon"
+            <IconButton
               style={styles.backButton}
               onPress={handleBack}
               accessibilityLabel="Back to Arc"
             >
               <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-            </Button>
+            </IconButton>
           </View>
           <View style={styles.headerCenter}>
             <HStack alignItems="center" justifyContent="center" space="xs">
@@ -376,14 +374,13 @@ export function GoalDetailScreen() {
             </HStack>
           </View>
           <View style={styles.headerSideRight}>
-            <Button
-              size="icon"
+            <IconButton
               style={styles.optionsButton}
               accessibilityLabel="Goal options"
               onPress={() => setEditModalVisible(true)}
             >
               <Icon name="more" size={18} color={colors.canvas} />
-            </Button>
+            </IconButton>
           </View>
         </HStack>
 
@@ -953,7 +950,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   arcLabel: {
-    ...typography.bodyXs,
+    ...typography.bodySm,
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1221,11 +1218,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   objectTypeLabel: {
-    // Match Arc detail header: slightly larger uppercase label centered
+    // Match Arc detail header: slightly larger mixed-case label centered
     // between the navigation buttons.
-    ...typography.label,
+    fontFamily: fonts.medium,
     fontSize: 20,
     lineHeight: 24,
+    letterSpacing: 0.5,
     color: colors.textSecondary,
   },
   firstGoalBadge: {

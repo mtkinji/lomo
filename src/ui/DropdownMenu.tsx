@@ -1,161 +1,115 @@
-import { ReactNode } from 'react';
+import type { StyleProp, ViewStyle, TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
 import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  View,
-  TouchableOpacity,
-  Text,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  DropdownMenu as ReusableDropdownMenu,
+  DropdownMenuCheckboxItem as ReusableDropdownMenuCheckboxItem,
+  DropdownMenuContent as ReusableDropdownMenuContent,
+  DropdownMenuGroup as ReusableDropdownMenuGroup,
+  DropdownMenuItem as ReusableDropdownMenuItem,
+  DropdownMenuLabel as ReusableDropdownMenuLabel,
+  DropdownMenuPortal as ReusableDropdownMenuPortal,
+  DropdownMenuRadioGroup as ReusableDropdownMenuRadioGroup,
+  DropdownMenuRadioItem as ReusableDropdownMenuRadioItem,
+  DropdownMenuSeparator as ReusableDropdownMenuSeparator,
+  DropdownMenuShortcut as ReusableDropdownMenuShortcut,
+  DropdownMenuSub as ReusableDropdownMenuSub,
+  DropdownMenuSubContent as ReusableDropdownMenuSubContent,
+  DropdownMenuSubTrigger as ReusableDropdownMenuSubTrigger,
+  DropdownMenuTrigger as ReusableDropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { colors, spacing, typography } from '../theme';
 
-type DropdownMenuItem = {
-  label: string;
-  /**
-   * Visual variant. `destructive` is styled in warning/red tones.
-   */
-  variant?: 'default' | 'destructive';
-  onPress: () => void;
-};
+export const DropdownMenu = ReusableDropdownMenu;
+export const DropdownMenuCheckboxItem = ReusableDropdownMenuCheckboxItem;
+export const DropdownMenuGroup = ReusableDropdownMenuGroup;
+export const DropdownMenuPortal = ReusableDropdownMenuPortal;
+export const DropdownMenuRadioGroup = ReusableDropdownMenuRadioGroup;
+export const DropdownMenuRadioItem = ReusableDropdownMenuRadioItem;
+export const DropdownMenuSeparator = ReusableDropdownMenuSeparator;
+export const DropdownMenuSub = ReusableDropdownMenuSub;
+export const DropdownMenuSubContent = ReusableDropdownMenuSubContent;
+export const DropdownMenuSubTrigger = ReusableDropdownMenuSubTrigger;
+export const DropdownMenuTrigger = ReusableDropdownMenuTrigger;
+export const DropdownMenuShortcut = ReusableDropdownMenuShortcut;
 
-type DropdownMenuProps = {
-  /**
-   * Whether the menu is visible. This is controlled from the host so the same
-   * state can drive trigger affordances.
-   */
-  open: boolean;
-  onOpenChange: (nextOpen: boolean) => void;
-  /**
-   * Optional label rendered at the top of the menu (e.g., "Arc actions").
-   */
-  label?: string;
-  items: DropdownMenuItem[];
-  /**
-   * Optional vertical offset (in dp) added below the safe-area top before
-   * placing the menu. Use this when the trigger sits below the shell header
-   * so the menu visually drops down from the trigger instead of overlapping
-   * it.
-   */
-  topOffset?: number;
+type DropdownMenuContentProps = React.ComponentProps<typeof ReusableDropdownMenuContent> & {
+  style?: StyleProp<ViewStyle>;
 };
 
 /**
- * ShadCN-style dropdown menu for Takado.
- *
- * This is a lightweight, copy-paste friendly primitive inspired by
- * reactnativereusables.com's Dropdown Menu. It renders a small menu card
- * anchored to the top-right shell area with a translucent backdrop.
+ * App-level wrapper that guarantees the dropdown surface looks like a real
+ * popover even if NativeWind / Tailwind styling is unavailable. This keeps
+ * the "more" menu usable on native while still letting the Reusables
+ * component handle positioning, animation, and theming.
  */
-export function DropdownMenu({
-  open,
-  onOpenChange,
-  label,
-  items,
-  topOffset,
-}: DropdownMenuProps) {
-  const insets = useSafeAreaInsets();
-  if (!open) return null;
-
-  const handleClose = () => onOpenChange(false);
-
+export function DropdownMenuContent({ style, ...props }: DropdownMenuContentProps) {
   return (
-    <Modal
-      visible={open}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
-    >
-      <Pressable style={styles.overlay} onPress={handleClose}>
-        <View
-          style={[
-            styles.container,
-            {
-              // Anchor just below the shell/header by including the device safe
-              // area top plus a configurable gutter so the menu visually
-              // "drops down" from the trigger button, shadcn-style.
-              paddingTop: insets.top + (topOffset ?? spacing.lg),
-            }
-          ]}
-        >
-          <View style={styles.menu}>
-            {label ? <Text style={styles.menuLabel}>{label}</Text> : null}
-            {label ? <View style={styles.menuSeparator} /> : null}
-            {items.map((item) => (
-              <TouchableOpacity
-                key={item.label}
-                activeOpacity={0.8}
-                style={styles.menuItem}
-                onPress={() => {
-                  handleClose();
-                  item.onPress();
-                }}
-              >
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    item.variant === 'destructive' && styles.menuItemTextDestructive,
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Pressable>
-    </Modal>
+    <ReusableDropdownMenuContent
+      {...props}
+      // Cast through `unknown` to satisfy the slightly narrower typing on the
+      // underlying component while still allowing standard RN style arrays.
+      style={[styles.content, style] as unknown as ViewStyle}
+    />
+  );
+}
+
+type DropdownMenuItemProps = React.ComponentProps<typeof ReusableDropdownMenuItem> & {
+  style?: StyleProp<ViewStyle>;
+};
+
+export function DropdownMenuItem({ style, ...props }: DropdownMenuItemProps) {
+  return (
+    <ReusableDropdownMenuItem
+      {...props}
+      style={[styles.item, style] as unknown as ViewStyle}
+    />
+  );
+}
+
+type DropdownMenuLabelProps = React.ComponentProps<typeof ReusableDropdownMenuLabel> & {
+  style?: StyleProp<TextStyle>;
+};
+
+export function DropdownMenuLabel({ style, ...props }: DropdownMenuLabelProps) {
+  return (
+    <ReusableDropdownMenuLabel
+      {...props}
+      style={[styles.label, style] as unknown as TextStyle}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    backgroundColor: 'transparent',
-  },
-  container: {
-    flex: 1,
-    alignItems: 'flex-end',
-    paddingTop: spacing['2xl'],
-    paddingRight: spacing.lg,
-  },
-  menu: {
+  content: {
+    // Provide a clear popover surface on native where Tailwind / CSS tokens
+    // can be too subtle against the app shell. This mirrors the Reusables
+    // defaults: white card, rounded corners, border, and soft shadow, plus a
+    // fixed minimum width so single‑item menus don't feel cramped.
     backgroundColor: colors.canvas,
-    borderRadius: 12,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    minWidth: 160,
-    // Soft shadow similar to shadcn popover / dropdown
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    minWidth: 200,
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  menuItem: {
+  item: {
+    // Match the Reusables `px-2 py-2` spacing so row hit areas feel right.
+    minHeight: 40,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
-  menuItemText: {
+  label: {
+    // Light touch on the label: respect our type scale but don't fight the
+    // library's own colors/radius.
     ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  menuItemTextDestructive: {
-    color: colors.warning,
-  },
-  menuLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-    marginBottom: spacing.xs,
-  },
-  menuSeparator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
 });
-
 

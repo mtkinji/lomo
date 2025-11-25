@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import {
   BottomSheetBackdrop,
@@ -14,6 +14,17 @@ type TakadoBottomSheetProps = {
   onClose: () => void;
   children: ReactNode;
   snapPoints?: (string | number)[];
+  /**
+   * When true, the sheet cannot be dismissed by panning down or tapping the
+   * backdrop. This is useful for "anchored" sheets that behave like permanent
+   * panels rather than transient modals.
+   */
+  nonDismissable?: boolean;
+  /**
+   * When true, disables the backdrop entirely so the underlying content
+   * remains fully visible and interactive (no scrim).
+   */
+  hideBackdrop?: boolean;
 } & Partial<BottomSheetModalProps>;
 
 export function TakadoBottomSheet({
@@ -21,6 +32,8 @@ export function TakadoBottomSheet({
   onClose,
   children,
   snapPoints,
+  nonDismissable = false,
+  hideBackdrop = false,
   ...rest
 }: TakadoBottomSheetProps) {
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -29,7 +42,9 @@ export function TakadoBottomSheet({
     [snapPoints]
   );
   const previousState = useRef({
-    visible,
+    // Start as not visible so that an initial `visible: true` will trigger a
+    // present() call on mount, which is what we want for always-on sheets.
+    visible: false,
     snapPoints: points,
   });
 
@@ -64,14 +79,18 @@ export function TakadoBottomSheet({
     };
   }, [visible, points]);
 
-  const renderBackdrop: BottomSheetModalProps['backdropComponent'] = (backdropProps) => (
-    <BottomSheetBackdrop
-      {...backdropProps}
-      appearsOnIndex={0}
-      disappearsOnIndex={-1}
-      pressBehavior="close"
-      opacity={0.45}
-    />
+  const renderBackdrop: BottomSheetModalProps['backdropComponent'] = useCallback(
+    (backdropProps) =>
+      hideBackdrop ? null : (
+        <BottomSheetBackdrop
+          {...backdropProps}
+          appearsOnIndex={0}
+          disappearsOnIndex={-1}
+          pressBehavior={nonDismissable ? 'none' : 'close'}
+          opacity={0.45}
+        />
+      ),
+    [hideBackdrop, nonDismissable]
   );
 
   return (
@@ -79,9 +98,10 @@ export function TakadoBottomSheet({
       ref={sheetRef}
       // Let `present()` / `dismiss()` control visibility; don't set `index` explicitly.
       snapPoints={points}
-      enableDismissOnClose
-      onDismiss={onClose}
-      backdropComponent={renderBackdrop}
+      enableDismissOnClose={!nonDismissable}
+      enablePanDownToClose={!nonDismissable}
+      onDismiss={nonDismissable ? undefined : onClose}
+      backdropComponent={hideBackdrop ? undefined : renderBackdrop}
       backgroundStyle={styles.background}
       handleIndicatorStyle={styles.handle}
       {...rest}

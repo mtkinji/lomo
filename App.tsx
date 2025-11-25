@@ -4,6 +4,7 @@ import { GluestackUIProvider } from '@gluestack-ui/themed';
 import { config } from '@gluestack-ui/config';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { PortalHost } from '@rn-primitives/portal';
 import {
   useFonts,
   Inter_400Regular,
@@ -41,6 +42,7 @@ export default function App() {
               <StatusBar style="dark" />
               <RootNavigator />
               <FirstTimeUxFlow />
+              <PortalHost />
             </BottomSheetModalProvider>
           </GluestackUIProvider>
       </SafeAreaProvider>

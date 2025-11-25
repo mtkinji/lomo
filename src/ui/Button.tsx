@@ -1,16 +1,18 @@
-import { ReactNode } from 'react';
-import {
-  TouchableOpacity,
-  TouchableOpacityProps,
-  StyleSheet,
-  StyleProp,
-  ViewStyle,
-  View,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, spacing } from '../theme';
+import type { ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { Button as ReusableButton } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { colors } from '../theme';
 
-type ButtonVariant = 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'accent' | 'ai';
+type ButtonVariant =
+  | 'default'
+  | 'outline'
+  | 'secondary'
+  | 'ghost'
+  | 'link'
+  | 'accent'
+  | 'ai'
+  | 'destructive';
 type ButtonSize = 'default' | 'small' | 'icon';
 
 type Props = {
@@ -23,139 +25,81 @@ type Props = {
    * When provided, sets width/height/borderRadius to this value.
    */
   iconButtonSize?: number;
-} & TouchableOpacityProps;
+} & Omit<React.ComponentProps<typeof ReusableButton>, 'variant' | 'size'>;
 
 export function Button({
   variant = 'default',
   size = 'default',
   style,
-  children,
-  disabled,
   iconButtonSize,
+  children,
   ...rest
 }: Props) {
-  const variantStyle = stylesByVariant[variant];
+  const mappedSize: 'default' | 'sm' | 'lg' | 'icon' =
+    size === 'small' ? 'sm' : size === 'icon' ? 'icon' : 'default';
 
-  const sizeStyle =
-    size === 'icon'
-      ? [
-          styles.iconSize,
-          iconButtonSize
-            ? {
-                width: iconButtonSize,
-                height: iconButtonSize,
-                borderRadius: iconButtonSize / 2,
-              }
-            : null,
-        ]
-      : size === 'small'
-      ? styles.smallSize
-      : styles.defaultSize;
+  const combinedStyle: StyleProp<ViewStyle> = [
+    // Minimal visual fallback so critical actions (e.g., destructive) still
+    // read as buttons even if Tailwind styling is unavailable.
+    variant === 'destructive'
+      ? {
+          backgroundColor: colors.destructive,
+          borderRadius: 8,
+        }
+      : null,
+    // Structural sizing only; all visual styling (colors, radius, borders)
+    // comes from the underlying React Native Reusables component.
+    iconButtonSize
+      ? {
+          width: iconButtonSize,
+          height: iconButtonSize,
+          borderRadius: iconButtonSize / 2,
+        }
+      : null,
+    style,
+  ];
 
   return (
-    <TouchableOpacity
+    <ReusableButton
       {...rest}
-      activeOpacity={variant === 'link' ? 0.7 : 0.85}
-      disabled={disabled}
-      style={[
-        styles.base,
-        sizeStyle,
-        variantStyle,
-        disabled && styles.disabled,
-        style,
-        variant === 'link' && styles.linkBase,
-      ]}
-    >
-      {variant === 'ai' && (
-        <View pointerEvents="none" style={styles.aiGradientOverlay}>
-          <LinearGradient
-            colors={['#166534', '#22C55E']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </View>
+      variant={variant === 'accent' || variant === 'ai' ? 'default' : variant}
+      size={mappedSize}
+      className={cn(
+        iconButtonSize && 'rounded-full'
       )}
+      // Preserve support for legacy React Native `style` usage while letting
+      // NativeWind handle visual styling via `className`.
+      style={combinedStyle}
+    >
       {children}
-    </TouchableOpacity>
+    </ReusableButton>
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    // Match shadcn's default radius (non-pill) for all non-icon buttons
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: spacing.sm,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  defaultSize: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    minHeight: 44,
-  },
-  smallSize: {
-    // Match the visual thickness of the 36x36 "+" icon button on Arcs
-    paddingVertical: spacing.sm - 2,
-    paddingHorizontal: spacing.lg,
-    minHeight: 36,
-  },
-  iconSize: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    padding: 0,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  linkBase: {
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  aiGradientOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-  },
-});
+type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
 
-const stylesByVariant: Record<ButtonVariant, ViewStyle> = {
-  default: {
-    // ShadCN-style primary button
-    backgroundColor: colors.primary,
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  secondary: {
-    // Neutral "white primary" surface, useful on shell backgrounds
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  link: {
-    backgroundColor: 'transparent',
-  },
-  // Accent: Pine brand color, available but opt-in
-  accent: {
-    backgroundColor: colors.accent,
-  },
-  // AI: lighter Pine-tinted surface for AI / guidance flows
-  ai: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-  },
-};
+/**
+ * Canonical circular icon button: pine background, fully rounded, fixed icon
+ * sizing. Intended for header actions and compact icon-only controls.
+ */
+export function IconButton({ style, ...rest }: IconButtonProps) {
+  return (
+    <Button
+      {...rest}
+      size="icon"
+      // Explicitly size + center the icon chip via React Native styles so it
+      // looks correct even if NativeWind classes aren't fully applied.
+      iconButtonSize={28}
+      style={[
+        {
+          backgroundColor: colors.accent,
+          borderRadius: 999,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}
+    />
+  );
+}
 

@@ -1,29 +1,13 @@
 import { forwardRef, memo, useState, ReactNode } from 'react';
-import {
-  TextInput,
-  TextInputProps,
-  View,
-  Text,
-  StyleSheet,
-  StyleProp,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { Pressable } from '@gluestack-ui/themed';
+import { Input as ReusableInput } from '@/components/ui/input';
+import type { TextInputProps } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 
 type InputVariant = 'surface' | 'outline' | 'ghost';
 type InputSize = 'md' | 'sm';
-
-// Align with shadcn / React Native Reusables-style inputs:
-// - Slightly rounded corners (radius ~12)
-// - Comfortable vertical padding
-// - Clear focus ring via border + subtle shadow.
-const INPUT_RADIUS = 12;
-
-type FocusEventParam = Parameters<NonNullable<TextInputProps['onFocus']>>[0];
-type BlurEventParam = Parameters<NonNullable<TextInputProps['onBlur']>>[0];
 
 type Props = TextInputProps & {
   label?: string;
@@ -64,16 +48,6 @@ const InputBase = forwardRef<TextInput, Props>(
     const [focused, setFocused] = useState(false);
     const hasError = Boolean(errorText);
 
-    const handleFocus = (event: FocusEventParam) => {
-      setFocused(true);
-      onFocus?.(event);
-    };
-
-    const handleBlur = (event: BlurEventParam) => {
-      setFocused(false);
-      onBlur?.(event);
-    };
-
     const statusColor = hasError ? colors.destructive : focused ? colors.accent : colors.border;
     const iconColor = hasError ? colors.destructive : colors.textSecondary;
 
@@ -83,7 +57,6 @@ const InputBase = forwardRef<TextInput, Props>(
         <View
           style={[
             styles.inputContainer,
-            focused && styles.inputContainerFocused,
             variantStyles[variant],
             size === 'sm' ? styles.sizeSm : styles.sizeMd,
             {
@@ -98,20 +71,21 @@ const InputBase = forwardRef<TextInput, Props>(
               <Icon name={leadingIcon} size={16} color={iconColor} />
             </View>
           ) : null}
-          <TextInput
+          <ReusableInput
             {...rest}
-            ref={ref}
+            ref={ref as any}
             editable={editable}
             multiline={multiline}
-            style={[
-              styles.input,
-              multiline && styles.multilineInput,
-              size === 'sm' && styles.inputSm,
-              inputStyle,
-            ]}
-            placeholderTextColor={colors.muted}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onFocus={(event) => {
+              setFocused(true);
+              onFocus?.(event);
+            }}
+            onBlur={(event) => {
+              setFocused(false);
+              onBlur?.(event);
+            }}
+            className=""
+            style={[styles.input, multiline && styles.multilineInput, size === 'sm' && styles.inputSm, inputStyle]}
           />
           {trailingIcon ? (
             <Pressable
@@ -156,7 +130,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: INPUT_RADIUS,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -175,7 +149,7 @@ const styles = StyleSheet.create({
   sizeSm: {
     minHeight: 36,
     paddingVertical: spacing.xs,
-    borderRadius: INPUT_RADIUS,
+    borderRadius: 12,
   },
   input: {
     flex: 1,
