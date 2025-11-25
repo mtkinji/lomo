@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -33,6 +34,13 @@ import {
   pickThumbnailStyle,
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -58,6 +66,7 @@ export function GoalDetailScreen() {
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
   );
+  const removeGoal = useAppStore((state) => state.removeGoal);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const thumbnailStyles = useMemo<ThumbnailStyle[]>(() => {
@@ -194,6 +203,24 @@ export function GoalDetailScreen() {
   const handleDismissFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);
     setHasSeenFirstGoalCelebration(true);
+  };
+
+  const handleDeleteGoal = () => {
+    Alert.alert(
+      'Delete goal?',
+      'This will remove the goal and related activities.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            removeGoal(goal.id);
+            handleBack();
+          },
+        },
+      ],
+    );
   };
 
   const handleUpdateArc = (nextArcId: string | null) => {
@@ -364,13 +391,45 @@ export function GoalDetailScreen() {
             </HStack>
           </View>
           <View style={styles.headerSideRight}>
-            <IconButton
-              style={styles.optionsButton}
-              accessibilityLabel="Goal options"
-              onPress={() => setEditModalVisible(true)}
-            >
-              <Icon name="more" size={18} color={colors.canvas} />
-            </IconButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton style={styles.optionsButton} accessibilityLabel="Goal actions">
+                  <Icon name="more" size={18} color={colors.canvas} />
+                </IconButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                {/* Primary, non-destructive actions first */}
+                <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
+                  <View style={styles.menuItemRow}>
+                    <Icon name="edit" size={16} color={colors.textSecondary} />
+                    <Text style={styles.menuItemLabel}>Edit details</Text>
+                  </View>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onPress={() => {
+                    Alert.alert(
+                      'Archive goal',
+                      'Archiving is not yet implemented. This will be wired to an archive action in the store.',
+                    );
+                  }}
+                >
+                  <View style={styles.menuItemRow}>
+                    <Icon name="info" size={16} color={colors.textSecondary} />
+                    <Text style={styles.menuItemLabel}>Archive</Text>
+                  </View>
+                </DropdownMenuItem>
+
+                {/* Divider before destructive actions */}
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
+                  <View style={styles.menuItemRow}>
+                    <Icon name="trash" size={16} color={colors.destructive} />
+                    <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
+                  </View>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </View>
         </HStack>
 
@@ -929,6 +988,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
+    width: '100%',
+  },
+  menuItemLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  destructiveMenuRowText: {
+    ...typography.bodySm,
+    color: colors.destructive,
+    fontFamily: fonts.medium,
   },
   arcRow: {
     marginTop: spacing.xs,
