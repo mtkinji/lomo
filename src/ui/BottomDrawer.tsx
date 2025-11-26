@@ -183,8 +183,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.canvas,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
     // Keep a slim 16px gutter from the screen edge so the chat canvas can feel
     // expansive while still not touching the bezels.
     paddingHorizontal: spacing.lg,
