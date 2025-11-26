@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { StyleSheet, View, Pressable, TextInput, Text } from 'react-native';
 import { colors, spacing, typography } from '../theme';
+import { Icon } from './Icon';
 
 interface AiHelpContext {
   objectType: 'arc' | 'goal' | 'activity' | 'chapter';
@@ -113,7 +114,10 @@ export function EditableTextArea({
         />
         {enableAi && onRequestAiHelp && aiContext && isEditing ? (
           <Pressable onPress={handleRequestAi} style={styles.inlineAiButton}>
-            <Text style={styles.inlineAiText}>Refine with AI</Text>
+            <View style={styles.inlineAiContent}>
+              <Icon name="sparkles" size={14} color={colors.primaryForeground} />
+              <Text style={styles.inlineAiText}>Refine with AI</Text>
+            </View>
           </Pressable>
         ) : null}
       </View>
@@ -130,17 +134,24 @@ const styles = StyleSheet.create({
   },
   labelRow: {
     marginBottom: spacing.xs,
+    // Indent to align with the text inside the textarea wrapper,
+    // keeping the label visually tied to the field content.
+    paddingLeft: spacing.md,
   },
   label: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
   },
   labelDisabled: {
     color: colors.muted,
   },
   textareaWrapper: {
     borderRadius: 12,
-    backgroundColor: colors.card,
+    // Default state: same white as cards, but with lower opacity so
+    // long-form copy feels softer until you tap to edit.
+    backgroundColor: 'rgba(255,255,255,0.25)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
@@ -152,6 +163,7 @@ const styles = StyleSheet.create({
   },
   textareaWrapperFocused: {
     borderColor: colors.accent,
+    backgroundColor: colors.card,
   },
   textareaWrapperExpanded: {
     // Extra height while editing so the inline AI button
@@ -177,6 +189,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: 8,
     backgroundColor: colors.accent,
+  },
+  inlineAiContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
   },
   inlineAiText: {
     ...typography.bodySm,

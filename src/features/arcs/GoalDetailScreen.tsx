@@ -10,6 +10,8 @@ import {
   ScrollView,
   Image,
   Alert,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -41,6 +43,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
+import { EditableField } from '../../ui/EditableField';
+import { EditableTextArea } from '../../ui/EditableTextArea';
+import { AgentFab } from '../../ui/AgentFab';
+import { useAgentLauncher } from '../ai/useAgentLauncher';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -80,15 +86,14 @@ export function GoalDetailScreen() {
   }, [visuals]);
   const [arcSelectorVisible, setArcSelectorVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingField, setEditingField] = useState<'title' | 'description' | null>(null);
   const [editingForces, setEditingForces] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDescription, setEditDescription] = useState('');
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
     defaultForceLevels(0)
   );
   const [showFirstGoalCelebration, setShowFirstGoalCelebration] = useState(false);
   const insets = useSafeAreaInsets();
+
+  const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
 
   const handleBack = () => {
     const nav: any = navigation;
@@ -165,8 +170,6 @@ export function GoalDetailScreen() {
   }
 
   useEffect(() => {
-    setEditTitle(goal.title);
-    setEditDescription(goal.description ?? '');
     setEditForceIntent({ ...defaultForceLevels(0), ...goal.forceIntent });
   }, [goal]);
 
@@ -249,56 +252,6 @@ export function GoalDetailScreen() {
     setEditModalVisible(false);
   };
 
-  const beginInlineEdit = (field: 'title' | 'description') => {
-    // If a different field is currently editing, first commit that change.
-    if (editingField && editingField !== field) {
-      commitInlineEdit();
-      return;
-    }
-
-    setEditingField(field);
-    if (field === 'title') {
-      setEditTitle(goal.title);
-    } else {
-      setEditDescription(goal.description ?? '');
-    }
-  };
-
-  const commitInlineEdit = () => {
-    if (!editingField) return;
-    const timestamp = new Date().toISOString();
-
-    if (editingField === 'title') {
-      const nextTitle = editTitle.trim();
-      if (!nextTitle || nextTitle === goal.title) {
-        setEditingField(null);
-        setEditTitle(goal.title);
-        return;
-      }
-      updateGoal(goal.id, (prev) => ({
-        ...prev,
-        title: nextTitle,
-        updatedAt: timestamp,
-      }));
-    }
-
-    if (editingField === 'description') {
-      const nextDescription = editDescription.trim();
-      if (nextDescription === (goal.description ?? '')) {
-        setEditingField(null);
-        setEditDescription(goal.description ?? '');
-        return;
-      }
-      updateGoal(goal.id, (prev) => ({
-        ...prev,
-        description: nextDescription || undefined,
-        updatedAt: timestamp,
-      }));
-    }
-
-    setEditingField(null);
-  };
-
   const commitForceEdit = () => {
     if (!editingForces) return;
     const timestamp = new Date().toISOString();
@@ -373,6 +326,8 @@ export function GoalDetailScreen() {
           onPress={commitForceEdit}
         />
       )}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
       <VStack space="lg">
         <HStack alignItems="center">
           <View style={styles.headerSide}>
@@ -434,8 +389,8 @@ export function GoalDetailScreen() {
         </HStack>
 
         <VStack space="sm">
-          {/* Slightly tighten the horizontal gap between thumbnail and title */}
-          <HStack alignItems="flex-start" space="sm">
+          {/* Thumbnail + inline title editor */}
+          <HStack alignItems="center" space="sm">
             {arc ? (
               <View style={styles.goalThumbnailWrapper}>
                 <View style={styles.goalThumbnailInner}>
@@ -456,35 +411,33 @@ export function GoalDetailScreen() {
                 </View>
               </View>
             ) : null}
-            <TouchableOpacity
-              style={{ flex: 1 }}
-              activeOpacity={0.8}
-              onPress={() => beginInlineEdit('title')}
-              accessibilityRole="button"
-              accessibilityLabel="Edit goal title"
-            >
-              <View
-                style={[
-                  styles.editableField,
-                  styles.goalTitleEditableField,
-                  editingField === 'title' && styles.editableFieldActive,
-                ]}
-              >
-                {editingField === 'title' ? (
-                  <TextInput
-                    style={styles.goalTitleInput}
-                    value={editTitle}
-                    onChangeText={setEditTitle}
-                    autoFocus
-                    multiline
-                    scrollEnabled={false}
-                    onBlur={commitInlineEdit}
-                  />
-                ) : (
-                  <Heading style={styles.goalTitle}>{goal.title}</Heading>
-                )}
-              </View>
-            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <EditableField
+                style={styles.inlineTitleField}
+                label="Title"
+                value={goal.title}
+                variant="title"
+                placeholder="Goal title"
+                validate={(next) => {
+                  if (!next.trim()) {
+                    return 'Title cannot be empty';
+                  }
+                  return null;
+                }}
+                onChange={(nextTitle) => {
+                  const trimmed = nextTitle.trim();
+                  if (!trimmed || trimmed === goal.title) {
+                    return;
+                  }
+                  const timestamp = new Date().toISOString();
+                  updateGoal(goal.id, (prev) => ({
+                    ...prev,
+                    title: trimmed,
+                    updatedAt: timestamp,
+                  }));
+                }}
+              />
+            </View>
           </HStack>
 
           <TouchableOpacity
@@ -510,37 +463,38 @@ export function GoalDetailScreen() {
             </HStack>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => beginInlineEdit('description')}
-            accessibilityRole="button"
-            accessibilityLabel="Edit goal description"
-          >
-            <View
-              style={[
-                styles.editableField,
-                editingField === 'description' && styles.editableFieldActive,
-              ]}
-            >
-              {editingField === 'description' ? (
-                <TextInput
-                  style={styles.goalDescriptionInput}
-                  value={editDescription}
-                  onChangeText={setEditDescription}
-                  placeholder="Add a short description"
-                  placeholderTextColor="#6B7280"
-                  autoFocus
-                  multiline
-                  scrollEnabled={false}
-                  onBlur={commitInlineEdit}
-                />
-              ) : (
-                goal.description && (
-                  <Text style={styles.goalDescription}>{goal.description}</Text>
-                )
-              )}
-            </View>
-          </TouchableOpacity>
+          <View style={{ marginTop: spacing.sm }}>
+            <EditableTextArea
+              label="Description"
+              value={goal.description ?? ''}
+              placeholder="Add a short description"
+              maxCollapsedLines={3}
+              enableAi
+              aiContext={{
+                objectType: 'goal',
+                objectId: goal.id,
+                fieldId: 'description',
+              }}
+              onChange={(nextDescription) => {
+                const trimmed = nextDescription.trim();
+                const timestamp = new Date().toISOString();
+                updateGoal(goal.id, (prev) => ({
+                  ...prev,
+                  description: trimmed.length === 0 ? undefined : trimmed,
+                  updatedAt: timestamp,
+                }));
+              }}
+              onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                openForFieldContext({
+                  objectType,
+                  objectId,
+                  fieldId,
+                  currentText,
+                  fieldLabel: 'Goal description',
+                });
+              }}
+            />
+          </View>
           <HStack space="md" alignItems="center" style={styles.timeRow}>
             {startDateLabel && (
               <Text style={styles.timeText}>
@@ -662,6 +616,8 @@ export function GoalDetailScreen() {
           )}
         </VStack>
       </VStack>
+        </View>
+      </TouchableWithoutFeedback>
       <EditGoalModal
         visible={editModalVisible}
         onClose={() => setEditModalVisible(false)}
@@ -678,6 +634,12 @@ export function GoalDetailScreen() {
         onClose={() => setArcSelectorVisible(false)}
         onSubmit={handleUpdateArc}
       />
+      <AgentFab
+        onPress={() => {
+          openForScreenContext({ objectType: 'goal', objectId: goal.id });
+        }}
+      />
+      {AgentWorkspaceSheet}
     </AppShell>
   );
 }
@@ -1169,6 +1131,11 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  inlineTitleField: {
+    // Reduce vertical padding so the title row vertically centers better
+    // alongside the goal thumbnail in the header.
+    paddingVertical: spacing.sm,
   },
   // Remove top padding from the Goal title wrapper so the text baseline
   // aligns more closely with the top edge of the thumbnail.

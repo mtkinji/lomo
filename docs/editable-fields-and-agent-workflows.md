@@ -28,7 +28,7 @@ It is intentionally **object‑agnostic**: detail screens for different objects 
     - Canvas gutters and shell background.
   - **Detail screens** live in the canvas and host:
     - Fields rendered via shared editable primitives.
-    - A floating “Ask LOMO” FAB.
+    - A floating circular FAB in the bottom‑right (sparkles icon, no brand text).
 
 - **Consistency across objects**
   - Arcs/Goals/Activities/Chapters share the **same field state machine** and visual language.
@@ -175,28 +175,21 @@ We want **one AI surface** (AgentWorkspace) with several **entry points**.
   - Present on any **object detail canvas** (Arc, Goal, Activity, Chapter).
   - Visual:
     - Floating circular button in bottom‑right or bottom‑edge corner.
-    - Wand icon + optional “Ask LOMO” label.
+    - Sparkles icon only (no brand text while naming is in flux).
   - Behavior:
-    - When tapped, calls `openAgentWorkspaceForScreenContext` with:
-      - `objectType` + `objectId`.
-      - Optional summary of related objects (e.g., goals for an arc).
-    - Opens `AgentWorkspace` in an **edit mode**, e.g.:
-      - `arcEditing`
-      - `goalEditing`
-      - `activityEditing`
+    - When tapped, calls `openForScreenContext({ objectType, objectId })` from `useAgentLauncher`.
+    - Opens `AgentWorkspace` anchored to that object (e.g., an Arc or Goal), using the launch context string to describe purpose.
     - Initial cards:
       - Snapshot of the object and its children.
       - Prompt suggestions like “Help me reshape this Arc” or “Review these goals”.
 
 - **Field‑level AI button (inside `EditableTextArea`)**
   - Only appears in **Edit state** when `enableAi` is true.
-  - Label “Refine with AI” (optionally with a wand icon).
+  - Label “Refine with AI” with a sparkles icon.
   - Behavior:
-    - Calls a shared helper (e.g., `openAgentWorkspaceForFieldContext`) with:
-      - `objectType`, `objectId`
-      - `fieldId`, `currentText`
-    - AgentWorkspace launches in the same relevant mode, but with a **focused intent**:
-      - “Help refine the {fieldId} text for this {objectType}.”
+    - Calls a shared helper `openForFieldContext({ objectType, objectId, fieldId, currentText })` from `useAgentLauncher`.
+    - AgentWorkspace launches with a **focused intent**:
+      - “Help refine the {fieldId} text for this {objectType},” including the current text in the launch context payload.
     - Workspace shows:
       - Current draft as a read‑only card.
       - Suggested rewrites as cards with “Use this” actions.
@@ -204,23 +197,30 @@ We want **one AI surface** (AgentWorkspace) with several **entry points**.
       - Parent calls `onChange(suggestedText)` on the `EditableTextArea`.
       - Editor remains in Edit state; user can still tweak and tap Done.
 
-Both entry points share the **same visual identity** (wand) and surface (AgentWorkspace) so it feels like one coherent AI system.
+Both entry points share the **same visual identity** (sparkles) and surface (AgentWorkspace) so it feels like one coherent AI system.
 
-#### 5.2 `launchContext` examples
+#### 5.2 `useAgentLauncher` helper and `launchContext` shape
 
-- **Screen‑level**
-  - `{ source: 'ArcDetail', intent: 'arcEditing', arcId }`
-  - `{ source: 'GoalDetail', intent: 'goalEditing', goalId }`
+- **Helper API (conceptual)**
+  - `useAgentLauncher(workspaceSnapshot?: string)`
+    - Returns:
+      - `openForScreenContext({ objectType: 'arc' | 'goal' | 'activity' | 'chapter'; objectId: string })`
+      - `openForFieldContext({ objectType; objectId; fieldId: string; currentText: string; fieldLabel?: string })`
+      - `AgentWorkspaceSheet` React node to render near the root of the detail screen.
+      - `isAgentOpen: boolean`
 
-- **Field‑level**
-  - `{ source: 'ArcDetail', intent: 'editField', objectType: 'arc', objectId: arcId, fieldId: 'narrative', currentText }`
-  - `{ source: 'GoalDetail', intent: 'editField', objectType: 'goal', objectId: goalId, fieldId: 'description', currentText }`
+- **Screen‑level launchContext examples**
+  - `{ source: 'arcDetail', intent: 'arcEditing', objectType: 'arc', objectId: arcId }`
+  - `{ source: 'goalDetail', intent: 'goalEditing', objectType: 'goal', objectId: goalId }`
+
+- **Field‑level launchContext examples**
+  - `{ source: 'arcDetail', intent: 'editField', objectType: 'arc', objectId: arcId, fieldId: 'narrative', fieldLabel: 'Arc narrative', currentText }`
+  - `{ source: 'goalDetail', intent: 'editField', objectType: 'goal', objectId: goalId, fieldId: 'description', currentText }`
 
 These `launchContext` payloads are consumed by AgentWorkspace to:
 
-- Pick the correct `chatMode` (e.g., `arcEditing` vs `goalEditing`).
-- Construct initial system prompt + user‑visible intro.
-- Decide which tools are available (e.g., `suggestArcNarrative`, `proposeGoalSetChanges`, etc.).
+- Construct a rich launch context string (source, intent, object, field, and current text).
+- Combine that context with the active `ChatMode` (when present) and any workspace snapshot string.
 
 ---
 
@@ -286,60 +286,67 @@ These `launchContext` payloads are consumed by AgentWorkspace to:
 
 ---
 
-### 7. Implementation checklist
+### 7. Implementation checklist (with status)
 
-This is the working checklist for bringing the plan to life.
+This is the working checklist for bringing the plan to life.  
+Status legend: **[x] done** · **[~] in progress / partial** · **[ ] not started**
 
-1. **Finalize visual + interaction rules**
-   - Confirm:
-     - Label and value typography/tone for each state.
-     - Border, radius, and padding for Editing state.
-     - Behavior of blur while editing (auto‑save vs discard).
-     - Exact placement + size of Cancel/Done controls.
-     - Wand iconography and labels (“Ask LOMO”, “Refine with LOMO”).
+1. **Finalize visual + interaction rules** – **[x]**
+   - [x] Label and value typography/tone for each state.
+   - [x] Border, radius, and padding for Editing state.
+   - [x] Behavior of blur while editing (auto‑save everywhere, with inline errors).
+   - [x] Placement of inline AI affordance (bottom‑right inside textarea while editing).
+   - [x] Copy for AI entry points (“Ask LOMO”, “Refine with AI”).
 
-2. **Implement primitives (RN + theme only)**
-   - Create `src/ui/EditableField.tsx`:
-     - Internal `isEditing` state.
-     - Read and Edit render paths.
+2. **Implement primitives (RN + theme only)** – **[x]**
+   - [x] `src/ui/EditableField.tsx`:
+     - Always-on `TextInput` with internal `isEditing` state.
+     - Stable layout in read vs edit.
      - Validation + error display.
-   - Create `src/ui/EditableTextArea.tsx`:
-     - Collapsed and expanded modes.
-     - Rich text editing with multi‑line `TextInput`.
-     - Optional inline AI button wired to `onRequestAiHelp`.
+   - [x] `src/ui/EditableTextArea.tsx`:
+     - Collapsed read state + expanded edit state.
+     - Multi‑line `TextInput` with controlled growth.
+     - Inline **“Refine with AI”** button wired to `onRequestAiHelp`.
 
-3. **Create Agent entry helpers**
-   - Implement a small helper or hook (e.g., `useAgentLauncher`) that exposes:
+3. **Create Agent entry helpers** – **[~]**
+   - [x] Implement a helper/hook `useAgentLauncher` that exposes:
      - `openForScreenContext({ objectType, objectId })`.
      - `openForFieldContext({ objectType, objectId, fieldId, currentText })`.
-   - Wire helpers to:
-     - FAB on detail screens.
-     - `EditableTextArea.onRequestAiHelp`.
+   - [~] Wire helpers to:
+     - [x] FAB on Arc detail.
+     - [x] Arc narrative `EditableTextArea.onRequestAiHelp`.
+     - [~] FAB and field editors on Goal / Activity / Chapter detail.
+       - [x] Goal FAB + description `EditableTextArea.onRequestAiHelp`.
+       - [ ] Activity / Chapter FAB + field editors.
 
-4. **Add floating FAB to object detail canvases**
-   - Implement a simple `AgentFab` in `src/ui/AgentFab.tsx`.
-   - Mount it in:
-     - `ArcDetailScreen`
-     - `GoalDetailScreen`
-     - `ActivityDetailScreen`
-     - (Optionally) Chapter detail
-   - Use `openForScreenContext` on press.
+4. **Add floating FAB to object detail canvases** – **[~]**
+   - [x] Implement `AgentFab` in `src/ui/AgentFab.tsx`.
+   - [x] Mount it in `ArcDetailScreen` and wire to `openForScreenContext`.
+   - [~] Mount in `GoalDetailScreen`, `ActivityDetailScreen`, (optionally) Chapter detail.
+     - [x] Mount and wire in `GoalDetailScreen`.
+     - [ ] Mount in `ActivityDetailScreen`, (optionally) Chapter detail.
 
-5. **Retrofit detail screens to use primitives**
-   - Start with **Arc**:
-     - Replace current ad‑hoc title/narrative editors with `EditableField` / `EditableTextArea`.
+5. **Retrofit detail screens to use primitives** – **[~]**
+   - [x] **Arc**:
+     - Replace ad‑hoc title/narrative editors with `EditableField` / `EditableTextArea`.
      - Hook `onChange`/`onSubmit` into `updateArc`.
-     - Enable AI for `narrative` via `onRequestAiHelp`.
-   - Repeat for **Goals**, then **Activities**, then **Chapters**.
+     - Enable AI for `narrative` via `EditableTextArea.enableAi` + `onRequestAiHelp` wired to `useAgentLauncher`.
+   - [x] **Goals**:
+     - Use `EditableField` / `EditableTextArea` for goal title/description.
+     - Enable AI for `description` via `EditableTextArea.enableAi` + `onRequestAiHelp` wired to `useAgentLauncher`.
+   - [ ] **Activities**:
+     - Use `EditableField` (title) and optional `EditableTextArea` (notes).
+   - [ ] **Chapters**:
+     - Use `EditableField` (title) and `EditableTextArea` for narrative sections.
 
-6. **QA and polish**
-   - Verify:
-     - Editing flows on iOS/Android (keyboard behavior, safe‑area insets).
-     - Error states (validation messages, blocked Done).
-     - AI flows from both FAB and inline textareas:
-       - Context is correct in AgentWorkspace.
-       - Returned suggestions correctly update field values.
-   - Adjust spacing and typography so fields feel cohesive across all screens.
+6. **QA and polish** – **[~]**
+   - [x] iOS behavior verified on Arc detail (keyboard, focus/blur).
+   - [ ] Android behavior (keyboard + safe‑area) verified.
+   - [x] Error states confirmed for `EditableField` / `EditableTextArea`.
+   - [ ] Full AI flow from both FAB and inline textareas:
+     - [ ] Context is correct in AgentWorkspace.
+     - [ ] Returned suggestions correctly update field values.
+   - [x] Spacing and typography tuned for Arc detail; extend to other screens as they adopt the primitives.
 
 This doc should be the **source of truth** for editing UX and the relationship between inline edits and AgentWorkspace. As we build, we should update it with any deviations or refinements.
 

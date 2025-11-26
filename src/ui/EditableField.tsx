@@ -6,6 +6,8 @@ import {
   Text,
   NativeSyntheticEvent,
   TextInputSubmitEditingEventData,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 
@@ -21,6 +23,11 @@ export interface EditableFieldProps {
   validate?: (next: string) => string | null;
   variant?: EditableFieldVariant;
   autoFocusOnEdit?: boolean;
+  /**
+   * Optional style override for the outer container. Use sparingly for local
+   * alignment tweaks (e.g., reducing vertical padding next to a thumbnail).
+   */
+  style?: StyleProp<ViewStyle>;
 }
 
 export function EditableField({
@@ -33,6 +40,7 @@ export function EditableField({
   validate,
   variant = 'body',
   autoFocusOnEdit = true,
+  style,
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -72,7 +80,7 @@ export function EditableField({
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <View style={styles.labelRow}>
         <Text style={labelStyle}>{label}</Text>
       </View>
@@ -126,10 +134,18 @@ const styles = StyleSheet.create({
   },
   labelRow: {
     marginBottom: spacing.xs,
+    // Indent to align with the text inside the input wrapper,
+    // not the card edge, so the label feels like a micro-label
+    // for the field value rather than a section header.
+    paddingLeft: spacing.md,
   },
   label: {
     ...typography.label,
-    color: colors.textSecondary,
+    // De-emphasize the label visually so the field value
+    // is the primary focus.
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
   },
   labelDisabled: {
     color: colors.muted,
@@ -155,7 +171,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    backgroundColor: colors.card,
+    // Default state: same white as cards, but with lower opacity so it
+    // sits back slightly until focused.
+    backgroundColor: 'rgba(255,255,255,0.25)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 44,
@@ -166,6 +184,7 @@ const styles = StyleSheet.create({
   },
   inputWrapperFocused: {
     borderColor: colors.accent,
+    backgroundColor: colors.card,
   },
   input: {
     ...typography.body,

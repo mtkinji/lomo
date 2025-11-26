@@ -1,33 +1,53 @@
 import { ReactNode } from 'react';
-import { StyleSheet, View, Pressable, Text } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { StyleSheet, View, Pressable } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, spacing } from '../theme';
 import { Icon } from './Icon';
+import { Logo } from './Logo';
 
 export interface AgentFabProps {
   onPress: () => void;
-  label?: string;
-  iconName?: ReactNode;
+  /**
+   * Optional accessible label. This is used for screen readers only; the
+   * visual FAB renders as an icon-only circle while branding is in flux.
+   */
+  accessibilityLabel?: string;
+  icon?: ReactNode;
 }
 
-export function AgentFab({ onPress, label = 'Ask LOMO', iconName }: AgentFabProps) {
+export function AgentFab({
+  onPress,
+  accessibilityLabel = 'Open coach',
+  icon,
+}: AgentFabProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[styles.container, { bottom: insets.bottom + spacing.lg }]}
+      pointerEvents="box-none"
+    >
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [
-          styles.button,
-          pressed && styles.buttonPressed,
-        ]}
+        style={({ pressed }) => (pressed ? styles.buttonPressed : undefined)}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={accessibilityLabel}
       >
-        <View style={styles.contentRow}>
-          {iconName ? (
-            iconName
-          ) : (
-            <Icon name="sparkles" size={18} color={colors.primaryForeground} />
-          )}
-          <Text style={styles.label}>{label}</Text>
+        <View style={styles.fabShadow}>
+          <LinearGradient
+            // Pine-inspired dark → light → dark sweep so the center feels lit
+            // while the edges stay anchored and rich.
+            colors={[colors.accent, colors.success, colors.accent]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabCircle}
+          >
+            <View style={styles.logoStack}>
+              {/* Pine green logo mark in a lighter tone so it sits inside the FAB */}
+              <Logo size={32} color={colors.primaryForeground} />
+            </View>
+          </LinearGradient>
         </View>
       </Pressable>
     </View>
@@ -39,30 +59,41 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.xl,
     bottom: spacing.xl,
+    zIndex: 100,
   },
-  button: {
-    borderRadius: 999,
-    backgroundColor: colors.accent,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+  fabShadow: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    // Shadow + border live on an outer wrapper so the gradient can fill the
+    // inner circle cleanly.
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Stronger "floating" shadow so this clearly reads as a FAB.
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  fabCircle: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoStack: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonPressed: {
     opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-  },
-  label: {
-    ...typography.bodySm,
-    color: colors.primaryForeground,
+    transform: [{ scale: 0.96 }],
   },
 });
 

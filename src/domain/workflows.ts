@@ -13,6 +13,8 @@ export type LaunchSource =
   | 'arcsList'
   | 'arcDetail'
   | 'goalDetail'
+  | 'activityDetail'
+  | 'chapterDetail'
   | 'devTools'
   | 'standaloneCoach';
 
@@ -20,12 +22,18 @@ export type LaunchIntent =
   | 'firstTimeOnboarding'
   | 'arcCreation'
   | 'goalCreation'
-  | 'freeCoach';
+  | 'freeCoach'
+  | 'arcEditing'
+  | 'goalEditing'
+  | 'activityEditing'
+  | 'editField';
 
 export type LaunchContextEntityRef =
   | { type: 'arc'; id: string }
   | { type: 'goal'; id: string }
   | { type: 'activity'; id: string };
+
+export type LaunchContextObjectType = 'arc' | 'goal' | 'activity' | 'chapter';
 
 export type LaunchContext = {
   source: LaunchSource;
@@ -39,6 +47,29 @@ export type LaunchContext = {
    * Arc or Goal the user had focused when launching the agent.
    */
   entityRef?: LaunchContextEntityRef;
+  /**
+   * Optional richer context for inline edit flows. These fields intentionally
+   * stay lightweight and human-readable so `serializeLaunchContext` can turn
+   * them into a natural-language summary for the model.
+   */
+  objectType?: LaunchContextObjectType;
+  objectId?: string;
+  /**
+   * Optional identifier for the specific field being edited – for example,
+   * "narrative", "description", or "notes".
+   */
+  fieldId?: string;
+  /**
+   * Optional human-readable label for the field being edited. This lets
+   * callers distinguish between multiple textareas on the same screen while
+   * keeping the launch context compact.
+   */
+  fieldLabel?: string;
+  /**
+   * Optional snapshot of the current field text. Hosts should truncate this
+   * as needed before passing it in so prompts stay within reasonable bounds.
+   */
+  currentText?: string;
 };
 
 // --- Generic workflow primitives -------------------------------------------

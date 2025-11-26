@@ -74,6 +74,22 @@ const serializeLaunchContext = (context: LaunchContext): string => {
     );
   }
 
+  if (context.objectType && context.objectId) {
+    parts.push(`Object: ${context.objectType}#${context.objectId}.`);
+  }
+
+  if (context.fieldId) {
+    const label = context.fieldLabel ? ` (${context.fieldLabel})` : '';
+    parts.push(`Field: ${context.fieldId}${label}.`);
+  }
+
+  if (context.currentText) {
+    parts.push(
+      'Current field text (truncated if needed by the host):',
+      context.currentText,
+    );
+  }
+
   return parts.join(' ');
 };
 
