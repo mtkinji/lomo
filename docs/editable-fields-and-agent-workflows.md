@@ -37,6 +37,11 @@ It is intentionally **object‑agnostic**: detail screens for different objects 
     - How changes map to store actions / tools.
     - What `launchContext` we pass into AgentWorkspace.
 
+- **Stable layout, minimal reflow**
+  - Entering edit mode **does not move fields around**:
+    - Atomic fields keep the same height and padding; only the caret + border change.
+    - Textareas grow **vertically** in a controlled way when editing to make room for inline AI affordances, without shifting surrounding sections.
+
 ---
 
 ### 3. Field model & states
@@ -55,9 +60,9 @@ We categorize fields by behavior, but all share the same **state machine**.
   2. **Pressed**
      - Slight background tint/feedback while pressing.
   3. **Editing**
-     - Replaces value with an input (single‑ or multi‑line).
-     - Adds border + radius + focused styles.
-     - Shows local editor chrome (Cancel / Done; optional inline AI button for rich text).
+     - Field chrome stays in place; the value is now an active input (single‑ or multi‑line).
+     - Adds border + radius + focused styles (accent border).
+     - For rich text, may reveal an **inline “Refine with AI” button** while editing.
   4. **Error**
      - Same as Editing, with destructive border + helper text.
   5. **Disabled**
@@ -65,12 +70,10 @@ We categorize fields by behavior, but all share the same **state machine**.
 
 - **Global behavior rules**
   - **Tap row** → enters Editing (if not disabled).
-  - **Cancel** → revert to last saved value, return to Read‑only.
-  - **Done** → validate; if OK, commit changes (local state and/or store) and return to Read‑only.
-  - **Tap outside while editing**
-    - We choose one behavior and apply it everywhere:
-      - Preferred: **auto‑save on blur** (equivalent to Done) for low friction.
-      - Alternative: **discard on blur** (equivalent to Cancel) if we want stronger confirmation.
+  - **Tap outside / blur while editing**
+    - We use **auto‑save on blur** everywhere:
+      - Validate, commit changes if valid, and return to Read‑only.
+      - On validation failure, stay in Editing and show an inline error.
 
 ---
 
@@ -91,14 +94,16 @@ All feature code should use these **shared primitives** instead of custom per‑
     - Value: typography `body` / `bodySm` or heading for titles.
     - Optional right‑aligned pencil icon or chevron.
   - Interaction:
-    - Entire row is pressable; on press → Editing.
+    - Entire row is pressable; on press, the underlying input receives focus (caret appears).
 
 - **Edit state**
-  - Value replaced by a single‑line `TextInput` styled like an input.
-  - Border + radius; focus border color = accent.
-  - Cancel / Done row:
-    - Right‑aligned small text buttons or compact buttons.
-  - Value commits via Done or blur (according to global behavior).
+  - Layout stays the same:
+    - Same label.
+    - Same field “box” (background, padding, radius).
+  - The inner element is an always‑present single‑line `TextInput`:
+    - In read state it simply isn’t focused.
+    - In edit state it is focused with an accent border on the wrapper.
+  - Value commits via **blur** (auto‑save) or pressing return, following validation rules.
 
 - **Suggested props (conceptual)**
   - `label: string`
@@ -121,19 +126,19 @@ Implementation: **pure React Native** + `src/theme/*`:
 
 - **Collapsed read state**
   - Label + value, truncated to N lines (e.g., 3) with ellipsis/fade if long.
-  - Tap anywhere → Editing.
+  - Tap anywhere → focuses the underlying multi‑line input (Editing).
 
 - **Expanded edit state**
-  - Card expands vertically.
+  - Same card + label layout; the textarea **grows vertically** when editing.
   - Multi‑line `TextInput` with:
     - Input border + radius.
-    - Fixed min height (e.g., 4–6 lines) and scroll if long.
-  - Local toolbar (above textarea or above keyboard):
-    - `Cancel` / `Done`.
-    - Optional **“Refine with LOMO”** wand button when `enableAi` is true.
+    - Fixed minimum height and scroll if content exceeds it.
+  - When `enableAi` is true and the field is editing:
+    - An inline **“Refine with AI”** button appears anchored to the **bottom‑right inside the textarea**.
+    - Extra padding and height ensure the button sits on its own line below the text with breathing room.
 
 - **AI integration behavior**
-  - When the inline wand is tapped:
+  - When the inline AI button is tapped:
     - Component calls `onRequestAiHelp` with:
       - `currentText`
       - `objectType` (`'arc' | 'goal' | 'activity' | 'chapter'`)
@@ -185,7 +190,7 @@ We want **one AI surface** (AgentWorkspace) with several **entry points**.
 
 - **Field‑level AI button (inside `EditableTextArea`)**
   - Only appears in **Edit state** when `enableAi` is true.
-  - Label “Refine with LOMO” + wand icon.
+  - Label “Refine with AI” (optionally with a wand icon).
   - Behavior:
     - Calls a shared helper (e.g., `openAgentWorkspaceForFieldContext`) with:
       - `objectType`, `objectId`

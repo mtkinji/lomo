@@ -27,6 +27,9 @@ import { generateGoals } from '../../services/ai';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Sheet, VStack, Heading, HStack } from '../../ui/primitives';
+import { EditableField } from '../../ui/EditableField';
+import { EditableTextArea } from '../../ui/EditableTextArea';
+import { AgentFab } from '../../ui/AgentFab';
 import { Text as UiText } from '@/components/ui/text';
 import {
   DropdownMenu,
@@ -241,27 +244,55 @@ export function ArcDetailScreen() {
                   </View>
                 </View>
 
-                <Text style={styles.arcTitle}>{arc.name}</Text>
-                {arc.narrative ? (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setIsNarrativeEditorVisible(true)}
-                  >
-                    <Text style={[styles.arcNarrative, { marginTop: spacing.sm }]}>
-                      {arc.narrative}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setIsNarrativeEditorVisible(true)}
-                    style={{ marginTop: spacing.sm }}
-                  >
-                    <Text style={styles.arcNarrativePlaceholder}>
-                      Add a short note about this Arc…
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                <EditableField
+                  label="Name"
+                  value={arc.name}
+                  variant="title"
+                  onChange={(nextName) => {
+                    const trimmed = nextName.trim();
+                    if (trimmed.length === 0 || trimmed === arc.name) {
+                      return;
+                    }
+                    updateArc(arc.id, (current) => ({
+                      ...current,
+                      name: trimmed,
+                      updatedAt: new Date().toISOString(),
+                    }));
+                  }}
+                  placeholder="Name this Arc"
+                  validate={(next) => {
+                    if (!next.trim()) {
+                      return 'Name cannot be empty';
+                    }
+                    return null;
+                  }}
+                />
+                <View style={{ marginTop: spacing.sm }}>
+                  <EditableTextArea
+                    label="Description"
+                    value={arc.narrative ?? ''}
+                    placeholder="Add a short note about this Arc…"
+                    maxCollapsedLines={3}
+                    enableAi
+                    aiContext={{
+                      objectType: 'arc',
+                      objectId: arc.id,
+                      fieldId: 'narrative',
+                    }}
+                    onChange={(nextNarrative) => {
+                      const trimmed = nextNarrative.trim();
+                      updateArc(arc.id, (current) => ({
+                        ...current,
+                        narrative: trimmed.length === 0 ? undefined : trimmed,
+                        updatedAt: new Date().toISOString(),
+                      }));
+                    }}
+                    onRequestAiHelp={(_, // args currently unused until AgentWorkspace wiring is added
+                    ) => {
+                      // TODO: wire to AgentWorkspace launch helper for field-level narrative editing.
+                    }}
+                  />
+                </View>
               </View>
 
               <View style={styles.sectionDivider} />
@@ -328,19 +359,10 @@ export function ArcDetailScreen() {
           setIsNewGoalModalVisible(false);
         }}
       />
-      <ArcNarrativeEditorSheet
-        visible={isNarrativeEditorVisible}
-        onClose={() => setIsNarrativeEditorVisible(false)}
-        arcName={arc.name}
-        narrative={arc.narrative}
-        onSave={(nextNarrative) => {
-          const trimmed = nextNarrative.trim();
-          updateArc(arc.id, (current) => ({
-            ...current,
-            narrative: trimmed.length === 0 ? undefined : trimmed,
-            updatedAt: new Date().toISOString(),
-          }));
-          setIsNarrativeEditorVisible(false);
+      {/* Floating AgentWorkspace entry; actual launch wiring to be added in a dedicated helper */}
+      <AgentFab
+        onPress={() => {
+          // TODO: wire to AgentWorkspace for arcEditing mode using arc.id context.
         }}
       />
     </AppShell>
@@ -924,7 +946,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     marginTop: spacing.xs,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
   heroImageWrapper: {
     width: '100%',
