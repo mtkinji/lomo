@@ -122,9 +122,11 @@ const styles = StyleSheet.create({
   },
   card: {
     marginHorizontal: 0,
-    // Vertical spacing between items is controlled by the parent VStack's
-    // `space` prop so Activities can match the global spacing scale (e.g. `xs`).
     marginVertical: 0,
+    // Match the outer padding used on Goal cards so Activities share the same
+    // density and shell rhythm.
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   leftCluster: {
     flex: 1,

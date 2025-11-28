@@ -125,6 +125,7 @@ export function ActivitiesScreen() {
   const [viewEditorMode, setViewEditorMode] = React.useState<'create' | 'settings'>('create');
   const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
   const [viewEditorName, setViewEditorName] = React.useState('');
+  const [viewsMenuOpen, setViewsMenuOpen] = React.useState(false);
 
   const activeView: ActivityView | undefined = React.useMemo(() => {
     const current =
@@ -134,6 +135,7 @@ export function ActivitiesScreen() {
 
   const filterMode = activeView?.filterMode ?? 'all';
   const sortMode = activeView?.sortMode ?? 'manual';
+  const showCompleted = activeView?.showCompleted ?? true;
 
   const goalTitleById = React.useMemo(
     () =>
@@ -219,8 +221,9 @@ export function ActivitiesScreen() {
   );
 
   const completedActivities = React.useMemo(
-    () => visibleActivities.filter((activity) => activity.status === 'done'),
-    [visibleActivities],
+    () =>
+      showCompleted ? visibleActivities.filter((activity) => activity.status === 'done') : [],
+    [visibleActivities, showCompleted],
   );
 
   const hasAnyActivities = visibleActivities.length > 0;
@@ -280,6 +283,17 @@ export function ActivitiesScreen() {
       updateActivityView(activeView.id, (view) => ({
         ...view,
         sortMode: next,
+      }));
+    },
+    [activeView, updateActivityView],
+  );
+
+  const handleUpdateShowCompleted = React.useCallback(
+    (next: boolean) => {
+      if (!activeView) return;
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        showCompleted: next,
       }));
     },
     [activeView, updateActivityView],
@@ -414,7 +428,7 @@ export function ActivitiesScreen() {
               justifyContent="space-between"
             >
               <View style={styles.toolbarButtonWrapper}>
-                <DropdownMenu>
+                <DropdownMenu open={viewsMenuOpen} onOpenChange={setViewsMenuOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
@@ -439,7 +453,10 @@ export function ActivitiesScreen() {
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel={`View options for ${view.name}`}
-                              onPress={() => handleOpenViewSettings(view)}
+                              onPress={() => {
+                                setViewsMenuOpen(false);
+                                handleOpenViewSettings(view);
+                              }}
                             >
                               <Icon name="more" size={16} color={colors.textSecondary} />
                             </Pressable>
@@ -667,6 +684,32 @@ export function ActivitiesScreen() {
               onChangeText={setViewEditorName}
             />
             {viewEditorMode === 'settings' && (
+              <HStack
+                style={styles.viewEditorToggleRow}
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Text style={styles.viewEditorToggleLabel}>Show completed </Text>
+                <Pressable
+                  accessibilityRole="switch"
+                  accessibilityLabel="Toggle visibility of completed activities section"
+                  accessibilityState={{ checked: showCompleted }}
+                  onPress={() => handleUpdateShowCompleted(!showCompleted)}
+                  style={[
+                    styles.viewEditorToggleTrack,
+                    showCompleted && styles.viewEditorToggleTrackOn,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.viewEditorToggleThumb,
+                      showCompleted && styles.viewEditorToggleThumbOn,
+                    ]}
+                  />
+                </Pressable>
+              </HStack>
+            )}
+            {viewEditorMode === 'settings' && (
               <VStack style={styles.viewEditorShortcutsSection} space="xs">
                 <Text style={styles.viewEditorFieldLabel}>View actions</Text>
                 <HStack style={styles.viewEditorSecondaryActions} space="sm" alignItems="center">
@@ -756,8 +799,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   completedToggleLabel: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   completedCountLabel: {
     ...typography.bodySm,
@@ -898,6 +941,34 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
+  },
+  viewEditorToggleRow: {
+    marginTop: spacing.lg,
+  },
+  viewEditorToggleLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  viewEditorToggleTrack: {
+    width: 46,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  viewEditorToggleTrackOn: {
+    backgroundColor: colors.accent,
+  },
+  viewEditorToggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: colors.canvas,
+    alignSelf: 'flex-start',
+  },
+  viewEditorToggleThumbOn: {
+    alignSelf: 'flex-end',
   },
   viewEditorShortcutsSection: {
     marginTop: spacing.lg,

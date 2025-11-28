@@ -201,6 +201,12 @@ export interface ActivityView {
   filterMode: ActivityFilterMode;
   sortMode: ActivitySortMode;
   /**
+   * Whether this view includes the "Completed" section in the Activities list.
+   * When false, completed activities are still stored but hidden in the UI.
+   * Defaults to true when omitted.
+   */
+  showCompleted?: boolean;
+  /**
    * System views (like "Default view" or "Priority 1 focus") act as
    * guardrails and can't be deleted. They can still be edited and those
    * changes are persisted just like custom views.

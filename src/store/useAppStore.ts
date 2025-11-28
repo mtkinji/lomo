@@ -245,6 +245,7 @@ const initialActivityViews: ActivityView[] = [
     name: 'Default view',
     filterMode: 'all',
     sortMode: 'manual',
+    showCompleted: true,
     isSystem: true,
   },
   {
@@ -252,6 +253,7 @@ const initialActivityViews: ActivityView[] = [
     name: 'Priority 1 focus',
     filterMode: 'priority1',
     sortMode: 'priority',
+    showCompleted: true,
     isSystem: true,
   },
 ];
