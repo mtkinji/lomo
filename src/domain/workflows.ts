@@ -11,6 +11,7 @@ export type LaunchSource =
   | 'firstTimeAppOpen'
   | 'todayScreen'
   | 'arcsList'
+  | 'activitiesList'
   | 'arcDetail'
   | 'goalDetail'
   | 'activityDetail'
@@ -22,6 +23,7 @@ export type LaunchIntent =
   | 'firstTimeOnboarding'
   | 'arcCreation'
   | 'goalCreation'
+  | 'activityCreation'
   | 'freeCoach'
   | 'arcEditing'
   | 'goalEditing'
@@ -323,9 +325,63 @@ export const ARC_CREATION_WORKFLOW: WorkflowDefinition = {
   ],
 };
 
+export const ACTIVITY_CREATION_WORKFLOW_ID = 'activity_creation_v1';
+
+export const ACTIVITY_CREATION_WORKFLOW: WorkflowDefinition = {
+  id: ACTIVITY_CREATION_WORKFLOW_ID,
+  label: 'Activity creation',
+  version: 1,
+  chatMode: 'activityCreation',
+  outcomeSchema: {
+    kind: 'activity_creation_outcome',
+    fields: {
+      prompt: 'string',
+      timeHorizon: 'string',
+      energyLevel: 'string?',
+      constraints: 'string?',
+      adoptedActivityTitles: 'string[]?',
+    },
+  },
+  steps: [
+    {
+      id: 'context_collect',
+      type: 'collect_fields',
+      label: 'Collect context',
+      fieldsCollected: ['prompt', 'timeHorizon', 'energyLevel', 'constraints'],
+      promptTemplate:
+        'Ask one concise question to understand what area of life or which goal the user wants activities for, and one question about the rough time horizon (today, this week, or this month). Optionally ask about energy level and any hard constraints (time, family, health) if it will change the activity suggestions.',
+      validationHint:
+        'Ensure there is at least a short free-text prompt describing the kind of progress the user wants to make and a rough time horizon.',
+      nextStepId: 'agent_generate_activities',
+    },
+    {
+      id: 'agent_generate_activities',
+      type: 'agent_generate',
+      label: 'Generate activity suggestions',
+      fieldsCollected: [],
+      promptTemplate:
+        'Given the user’s context, any focused goal from the launch context, and the workspace snapshot of existing goals and activities, propose a short list of concrete, bite-sized activities they could actually do in the stated time horizon. Prefer small, realistic steps over vague or massive projects.',
+      validationHint:
+        'Activities should be specific, doable in a single sitting, and not simply restate existing activities verbatim unless the user explicitly wants to revisit something.',
+      nextStepId: 'confirm_activities',
+    },
+    {
+      id: 'confirm_activities',
+      type: 'confirm',
+      label: 'Confirm or edit activities',
+      fieldsCollected: ['adoptedActivityTitles'],
+      promptTemplate:
+        'Help the user pick one to three activities to adopt right now. Encourage trimming or rephrasing suggestions so they feel light and realistic. Capture the titles of any activities the user explicitly chooses so the host app can create them.',
+      validationHint:
+        'Capture the final activity titles the user confirms; leave the list empty if they decide not to adopt any yet.',
+    },
+  ],
+};
+
 export const WORKFLOW_DEFINITIONS: Record<string, WorkflowDefinition> = {
   [FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID]: FIRST_TIME_ONBOARDING_WORKFLOW_V2,
   [ARC_CREATION_WORKFLOW_ID]: ARC_CREATION_WORKFLOW,
+  [ACTIVITY_CREATION_WORKFLOW_ID]: ACTIVITY_CREATION_WORKFLOW,
 };
 
 

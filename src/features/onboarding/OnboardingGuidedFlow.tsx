@@ -317,13 +317,10 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const [nameSubmitted, setNameSubmitted] = useState(Boolean(initialName));
   const [isEditingName, setIsEditingName] = useState(!nameSubmitted);
 
-  const initialAgePlaceholder =
-    userProfile?.ageRange && userProfile.ageRange !== 'prefer-not-to-say'
-      ? DEFAULT_AGE_PLACEHOLDER[userProfile.ageRange]
-      : '';
-  const [ageInput, setAgeInput] = useState(initialAgePlaceholder);
-  const [ageSubmitted, setAgeSubmitted] = useState(Boolean(userProfile?.ageRange));
-  const [isEditingAge, setIsEditingAge] = useState(!ageSubmitted);
+  const initialBirthdate = userProfile?.birthdate ?? '';
+  const [birthdateInput, setBirthdateInput] = useState(initialBirthdate);
+  const [birthdateSubmitted, setBirthdateSubmitted] = useState(Boolean(userProfile?.birthdate));
+  const [isEditingBirthdate, setIsEditingBirthdate] = useState(!birthdateSubmitted);
 
   const [selectedFocusAreas, setSelectedFocusAreas] = useState<FocusAreaId[]>(
     userProfile?.focusAreas ?? []
@@ -363,6 +360,9 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     const initial: Record<string, string> = {};
     if (userProfile?.fullName?.trim()) {
       initial.name = userProfile.fullName.trim();
+    }
+    if (userProfile?.birthdate) {
+      initial.birthdate = userProfile.birthdate;
     }
     return initial;
   });
@@ -663,32 +663,46 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   };
 
   const handleSaveAge = async () => {
-    const parsed = Number(ageInput);
-    if (!Number.isFinite(parsed) || parsed < 0) {
+    const raw = birthdateInput.trim();
+    if (!raw) {
       return;
     }
-    const range = pickAgeRange(parsed);
+
+    const normalized = normalizeBirthdate(raw);
+    if (!normalized) {
+      Alert.alert('Invalid date', 'Please enter your birthday as YYYY-MM-DD.');
+      return;
+    }
+
+    const age = calculateAgeFromBirthdate(normalized);
+    const range = typeof age === 'number' ? pickAgeRange(age) : undefined;
+
     updateUserProfile((current) => ({
       ...current,
-      ageRange: range,
+      birthdate: normalized,
+      ageRange: range ?? current.ageRange,
     }));
-    setAgeSubmitted(true);
-    setIsEditingAge(false);
+    setBirthdateSubmitted(true);
+    setIsEditingBirthdate(false);
     completeStep('age');
     // Map to workflow step "identity_basic" (v2) / "profile_basics" (v1)
     const effectiveName =
       userProfile?.fullName?.trim() || nameInput.trim() || undefined;
     workflowRuntime?.completeStep(isV2Workflow ? 'identity_basic' : 'profile_basics', {
       name: effectiveName,
-      ageRange: range,
+      birthdate: normalized,
+      age,
     });
-    const bucketLabel = AGE_RANGE_LABELS[range] ?? String(range);
-    appendChatUserMessage(`I’m in the ${bucketLabel} age range.`);
+    if (typeof age === 'number') {
+      appendChatUserMessage(`My birthday is ${normalized} (about ${age} years old).`);
+    } else {
+      appendChatUserMessage(`My birthday is ${normalized}.`);
+    }
     await sendStepAssistantCopy(isV2Workflow ? 'identity_basic' : 'profile_basics');
   };
 
   const handleKeepAge = () => {
-    if (!userProfile?.ageRange) {
+    if (!userProfile?.birthdate) {
       return;
     }
     completeStep('age');
@@ -1060,10 +1074,9 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
         autoCapitalize: 'words',
       },
       {
-        id: 'age',
-        label: 'Age',
-        placeholder: 'How old are you?',
-        keyboardType: 'number-pad',
+        id: 'birthdate',
+        label: 'Birthday',
+        placeholder: 'YYYY-MM-DD',
       },
     ];
 
@@ -1096,32 +1109,49 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
     if (!workflowRuntime) return;
 
     const rawName = identityFormValues.name ?? '';
-    const rawAge = identityFormValues.age ?? '';
+    const rawBirthdate = identityFormValues.birthdate ?? '';
     const trimmedName = rawName.trim();
-    const parsedAge = Number(rawAge.trim());
+    const trimmedBirthdateInput = rawBirthdate.trim();
 
     if (!trimmedName) {
       return;
     }
-    if (!Number.isFinite(parsedAge) || parsedAge <= 0) {
+    if (!trimmedBirthdateInput) {
+      return;
+    }
+
+    const normalized = normalizeBirthdate(trimmedBirthdateInput);
+    if (!normalized) {
+      Alert.alert('Invalid date', 'Please enter your birthday as YYYY-MM-DD.');
+      return;
+    }
+
+    const age = calculateAgeFromBirthdate(normalized);
+    if (typeof age !== 'number') {
+      Alert.alert(
+        'Unable to read birthday',
+        'Please check the date and try again using the format YYYY-MM-DD.'
+      );
       return;
     }
 
     setIdentitySubmitting(true);
     try {
-      const ageRange = pickAgeRange(parsedAge);
+      const ageRange = pickAgeRange(age);
       updateUserProfile((current) => ({
         ...current,
         fullName: trimmedName,
         ageRange,
+        birthdate: normalized,
       }));
 
       workflowRuntime.completeStep('identity_basic', {
         name: trimmedName,
-        age: parsedAge,
+        birthdate: normalized,
+        age,
       });
 
-      appendChatUserMessage(`My name is ${trimmedName}, I'm ${parsedAge}.`);
+      appendChatUserMessage(`My name is ${trimmedName}, and my birthday is ${normalized}.`);
     } finally {
       setIdentitySubmitting(false);
     }
@@ -1188,13 +1218,12 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
 
       const identityValues = {
         name: identityFormValues.name ?? '',
-        age: identityFormValues.age ?? '',
+        birthdate: identityFormValues.birthdate ?? '',
       };
 
       const canSubmit =
         (identityValues.name ?? '').trim().length > 0 &&
-        Number.isFinite(Number((identityValues.age ?? '').trim())) &&
-        Number((identityValues.age ?? '').trim()) > 0;
+        Boolean(normalizeBirthdate((identityValues.birthdate ?? '').trim()));
 
       // In v2 we let the shared AiChatPane own scrolling, padding, and keyboard
       // handling. Returning just the animated card keeps the UX aligned with the
@@ -1352,27 +1381,29 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
           {ageVisible && (
             <Card style={[styles.stepCard, ageCompleted && styles.stepCardCompleted]}>
               <Text style={styles.stepLabel}>{STEP_LABELS.age}</Text>
-              <Text style={styles.stepTitle}>Age</Text>
+              <Text style={styles.stepTitle}>Birthday</Text>
               <View style={styles.stepBody}>
-              <Text style={styles.bodyText}>How old are you?</Text>
-              {ageSubmitted && !isEditingAge ? (
+              <Text style={styles.bodyText}>When is your birthday?</Text>
+              {birthdateSubmitted && !isEditingBirthdate ? (
                 <>
                   <Text style={styles.bodyText}>
-                    {existingAgeLabel
-                      ? `I currently have you in the ${existingAgeLabel} range.`
-                      : 'Age saved.'}
+                    {userProfile?.birthdate
+                      ? existingAgeLabel
+                        ? `I currently have you in the ${existingAgeLabel} range, based on your saved birthday (${userProfile.birthdate}).`
+                        : `Birthday saved as ${userProfile.birthdate}.`
+                      : 'Birthday saved.'}
                   </Text>
                   {ageCompleted ? (
-                    <Button variant="link" onPress={() => setIsEditingAge(true)}>
-                      <Text style={styles.linkLabel}>Update age</Text>
+                    <Button variant="link" onPress={() => setIsEditingBirthdate(true)}>
+                      <Text style={styles.linkLabel}>Update birthday</Text>
                     </Button>
                   ) : (
                     <View style={styles.inlineActions}>
                       <Button style={styles.primaryButton} onPress={handleKeepAge}>
-                        <Text style={styles.primaryButtonLabel}>Keep this age range</Text>
+                        <Text style={styles.primaryButtonLabel}>Keep this birthday</Text>
                       </Button>
-                      <Button variant="ghost" onPress={() => setIsEditingAge(true)}>
-                        <Text style={styles.linkLabel}>Edit age</Text>
+                      <Button variant="ghost" onPress={() => setIsEditingBirthdate(true)}>
+                        <Text style={styles.linkLabel}>Edit birthday</Text>
                       </Button>
                     </View>
                   )}
@@ -1380,19 +1411,19 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
               ) : (
                 <>
                   <Input
-                    value={ageInput}
-                    onChangeText={setAgeInput}
-                    placeholder="Enter your age"
-                    keyboardType="number-pad"
+                    value={birthdateInput}
+                    onChangeText={setBirthdateInput}
+                    placeholder="YYYY-MM-DD"
+                    keyboardType="default"
                     returnKeyType="done"
                     onSubmitEditing={handleSaveAge}
                   />
                   <Button
                     style={styles.primaryButton}
                     onPress={handleSaveAge}
-                    disabled={!ageInput.trim()}
+                    disabled={!birthdateInput.trim()}
                   >
-                    <Text style={styles.primaryButtonLabel}>Save age</Text>
+                    <Text style={styles.primaryButtonLabel}>Save birthday</Text>
                   </Button>
                 </>
               )}
@@ -1806,6 +1837,42 @@ function GenericFormCard({
 function pickAgeRange(age: number): AgeRange {
   const bucket = AGE_BUCKETS.find((entry) => age >= entry.min && age <= entry.max);
   return bucket ? bucket.range : '65-plus';
+}
+
+function normalizeBirthdate(input: string): string | null {
+  const trimmed = input.trim();
+  // Expect ISO-style YYYY-MM-DD so we can parse consistently.
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1900 || year > 2100) return null;
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > 31) return null;
+  // Let Date catch impossible dates like Feb 30.
+  const candidate = new Date(`${match[1]}-${match[2]}-${match[3]}`);
+  if (Number.isNaN(candidate.getTime())) {
+    return null;
+  }
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+function calculateAgeFromBirthdate(birthdate: string): number | null {
+  const date = new Date(birthdate);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDiff = today.getMonth() - date.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+    age -= 1;
+  }
+  if (age < 0 || age > 120) {
+    return null;
+  }
+  return age;
 }
 
 function buildArcRecord(payload: {

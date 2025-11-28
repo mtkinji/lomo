@@ -123,6 +123,17 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
     kind: 'first_time_onboarding_v2',
     fields: {
       name: 'string',
+      /**
+       * Canonical birthdate captured during onboarding. Stored as a string so
+       * clients can choose their preferred formatting, but callers should
+       * normalize to ISO YYYY-MM-DD where possible.
+       */
+      birthdate: 'string',
+      /**
+       * Approximate age derived from the birthdate at the time of onboarding.
+       * This is treated as a soft hint for tone/examples and may drift over
+       * time; the birthdate remains the source of truth.
+       */
       age: 'number',
       desireSummary: 'string',
       goal: {
@@ -157,9 +168,9 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
     {
       id: 'identity_intro',
       kind: 'assistant_copy_only',
-      label: 'Invite name and age',
+      label: 'Invite name and birthday',
       prompt:
-        'Ask the user, in one short sentence, “What should I call you and how old are you?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
+        'Ask the user, in one short sentence, “What should I call you and when is your birthday?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
       copyLength: 'one_sentence',
       validationHint:
         'No structured fields here; simply orient the user and invite them to share their preferred name and age.',
@@ -169,13 +180,13 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       id: 'identity_basic',
       kind: 'form',
       label: 'Basic identity',
-      collects: ['name', 'age'],
+      collects: ['name', 'birthdate', 'age'],
       hideFreeformChatInput: true,
       prompt:
-        'After the user has seen the identity_intro message and shared their name and age via the card, acknowledge them warmly in one short sentence (for example, “Good to meet you, {{name}}.”) and note that you’ll use what they shared to tune tone and examples. Do not ask any new questions.',
+        'After the user has seen the identity_intro message and shared their name and birthday via the card, acknowledge them warmly in one short sentence (for example, “Good to meet you, {{name}}.”) and note that you’ll use what they shared to tune tone and examples. Do not ask any new questions.',
       copyLength: 'one_sentence',
       validationHint:
-        'Name should be non-empty. Age should be a reasonable integer; if unclear, ask once for clarification and then move on.',
+        'Name should be non-empty. Birthdate should be a valid calendar date; if unclear, ask once for clarification and then move on.',
       next: 'desire_invite',
       ui: {
         fields: [
@@ -186,10 +197,10 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
             placeholder: 'e.g., Maya or MJ',
           },
           {
-            id: 'age',
-            label: 'Age',
-            type: 'number',
-            placeholder: 'How old are you?',
+            id: 'birthdate',
+            label: 'Birthday',
+            type: 'text',
+            placeholder: 'YYYY-MM-DD',
           },
         ],
       },
@@ -233,7 +244,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         '- Use natural, human language and avoid corporate or productivity jargon.\n\n' +
         'Context you have about the user:\n' +
         '- Name: {{name}}\n' +
-        '- Age: {{age}}\n' +
+        '- Birthdate: {{birthdate}}\n' +
+        '- Approximate age (derived from birthdate): {{age}}\n' +
         '- What they said they want to make progress on: {{desireSummary}}\n\n' +
         'Using only this context, synthesize ONE short-term goal that feels achievable in roughly 30–90 days.\n' +
         '- The goal **title** should be specific but not overwhelming (one short phrase).\n' +

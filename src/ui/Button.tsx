@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Button as ReusableButton } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { colors } from '../theme';
+import { colors, spacing } from '../theme';
 
 type ButtonVariant =
   | 'default'
@@ -38,17 +38,51 @@ export function Button({
   const mappedSize: 'default' | 'sm' | 'lg' | 'icon' =
     size === 'small' ? 'sm' : size === 'icon' ? 'icon' : 'default';
 
+  const isSmall = size === 'small';
+  const baseMinHeight = isSmall ? 32 : 40;
+  const basePaddingHorizontal = isSmall ? spacing.md : spacing.lg;
+
   const combinedStyle: StyleProp<ViewStyle> = [
     // Minimal visual fallback so critical actions (e.g., destructive) still
     // read as buttons even if Tailwind styling is unavailable.
-    variant === 'destructive'
+    // Skip these for explicit icon buttons so they can remain perfectly
+    // circular and rely on iconButtonSize overrides instead.
+    variant === 'destructive' && !iconButtonSize
       ? {
           backgroundColor: colors.destructive,
           borderRadius: 8,
+          minHeight: baseMinHeight,
+          paddingHorizontal: basePaddingHorizontal,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }
+      : null,
+    // For non-destructive variants, ensure the control still looks like a
+    // tappable button (especially on native where Tailwind may be disabled),
+    // again only when we are *not* in the special circular icon mode.
+    variant !== 'destructive' && !iconButtonSize
+      ? {
+          borderRadius: 8,
+          minHeight: baseMinHeight,
+          paddingHorizontal: basePaddingHorizontal,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...(variant === 'outline'
+            ? {
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.canvas,
+              }
+            : null),
+          ...(variant === 'ai'
+            ? {
+                backgroundColor: colors.accent,
+              }
+            : null),
         }
       : null,
     // Structural sizing only; all visual styling (colors, radius, borders)
-    // comes from the underlying React Native Reusables component.
+    // from iconButtonSize overrides for circular icon buttons.
     iconButtonSize
       ? {
           width: iconButtonSize,

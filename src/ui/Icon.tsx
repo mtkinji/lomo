@@ -31,6 +31,10 @@ import Check from 'lucide-react-native/dist/esm/icons/check';
 import Sparkles from 'lucide-react-native/dist/esm/icons/sparkles';
 import FlaskConical from 'lucide-react-native/dist/esm/icons/flask-conical';
 import Code from 'lucide-react-native/dist/esm/icons/code';
+import Clipboard from 'lucide-react-native/dist/esm/icons/clipboard';
+import Star from 'lucide-react-native/dist/esm/icons/star';
+import ArrowUpDown from 'lucide-react-native/dist/esm/icons/arrow-up-down';
+import Funnel from 'lucide-react-native/dist/esm/icons/funnel';
 
 const icons = {
   today: CalendarCheck,
@@ -63,6 +67,10 @@ const icons = {
   check: Check,
   dev: Code,
   sparkles: Sparkles,
+  clipboard: Clipboard,
+  star: Star,
+  funnel: Funnel,
+  sort: ArrowUpDown,
 };
 
 export type IconName = keyof typeof icons;

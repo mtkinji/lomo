@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -30,6 +31,7 @@ import type { Arc, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
+import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { Logo } from '../../ui/Logo';
 
@@ -133,6 +135,7 @@ export function ArcsScreen() {
   const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
+  const insets = useSafeAreaInsets();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
   const [arcDraftMeta, setArcDraftMeta] = useState<ArcCoachDraftMeta | null>(null);
@@ -148,6 +151,7 @@ export function ArcsScreen() {
   );
 
   const listTopPadding = headerHeight ? headerHeight + spacing.md : spacing['2xl'];
+  const listBottomPadding = 0;
 
   const workspaceSnapshot = useMemo(
     () => buildArcCoachLaunchContext(arcs, goals),
@@ -174,7 +178,18 @@ export function ArcsScreen() {
 
   return (
     <AppShell>
-      <View style={styles.screen}>
+      <View
+        style={[
+          styles.screen,
+          {
+            // Let the Arcs header visually hug the top safe area while keeping
+            // the global AppShell padding for other screens.
+            marginTop: -spacing.sm,
+            // Allow the card list to visually run off the bottom of the phone.
+            marginBottom: -insets.bottom,
+          },
+        ]}
+      >
         <View
           style={styles.fixedHeader}
           onLayout={(event) => {
@@ -204,36 +219,41 @@ export function ArcsScreen() {
             }
           />
         </View>
-        <FlatList
-          style={styles.list}
-          data={arcs}
-          keyExtractor={(arc) => arc.id}
-          contentContainerStyle={[styles.listContent, { paddingTop: listTopPadding }]}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
-              <ArcListCard arc={item} goalCount={goalCountByArc[item.id] ?? 0} />
-            </Pressable>
-          )}
-          ListFooterComponent={
-            arcDraftMeta ? (
-              <ArcDraftSection
-                draft={arcDraftMeta}
-                onResume={() => {
-                  logArcsDebug('draft:resume-pressed');
-                  setNewArcModalVisible(true);
-                }}
-                onDiscard={() => {
-                  AsyncStorage.removeItem(ARC_CREATION_DRAFT_STORAGE_KEY).catch((err) => {
-                    if (__DEV__) {
-                      console.warn('[arcs] Failed to discard arc draft', err);
-                    }
-                  });
-                  setArcDraftMeta(null);
-                }}
-              />
-            ) : null
-          }
-        />
+        <View style={styles.listContainer}>
+          <FlatList
+            style={styles.list}
+            data={arcs}
+            keyExtractor={(arc) => arc.id}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingTop: listTopPadding, paddingBottom: listBottomPadding },
+            ]}
+            renderItem={({ item }) => (
+              <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
+                <ArcListCard arc={item} goalCount={goalCountByArc[item.id] ?? 0} />
+              </Pressable>
+            )}
+            ListFooterComponent={
+              arcDraftMeta ? (
+                <ArcDraftSection
+                  draft={arcDraftMeta}
+                  onResume={() => {
+                    logArcsDebug('draft:resume-pressed');
+                    setNewArcModalVisible(true);
+                  }}
+                  onDiscard={() => {
+                    AsyncStorage.removeItem(ARC_CREATION_DRAFT_STORAGE_KEY).catch((err) => {
+                      if (__DEV__) {
+                        console.warn('[arcs] Failed to discard arc draft', err);
+                      }
+                    });
+                    setArcDraftMeta(null);
+                  }}
+                />
+              ) : null
+            }
+          />
+        </View>
 
         <NewArcModal
           visible={newArcModalVisible}
@@ -252,6 +272,12 @@ const styles = StyleSheet.create({
     // Let card shadows render naturally without clipping at the screen edges.
     overflow: 'visible',
   },
+  listContainer: {
+    flex: 1,
+    // Clip vertical overscroll so Arc cards never appear inside the top
+    // safe-area / header band when you pull down on the list.
+    overflow: 'hidden',
+  },
   list: {
     flex: 1,
     // Let the list inherit the app shell / canvas background so it doesn’t look like a separate panel
@@ -259,7 +285,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   listContent: {
-    paddingBottom: spacing.xl,
     paddingHorizontal: 0,
   },
   listEmptyContent: {
@@ -981,6 +1006,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
               workspaceSnapshot={workspaceSnapshot}
               resumeDraft={resumeDraft}
               hideBrandHeader
+              hidePromptSuggestions
               onConfirmArc={handleConfirmArc}
             />
           </View>
@@ -1089,49 +1115,4 @@ function ArcDraftSection({ draft, onResume, onDiscard }: ArcDraftSectionProps) {
     </View>
   );
 }
-
-function buildArcCoachLaunchContext(arcs: Arc[], goals: Goal[]): string | undefined {
-  if (arcs.length === 0 && goals.length === 0) {
-    return undefined;
-  }
-
-  const lines: string[] = [];
-
-  lines.push(
-    'Existing workspace snapshot: the user already has the following arcs and goals. Use this to keep new Arc suggestions distinctive and complementary.'
-  );
-  lines.push(`Total arcs: ${arcs.length}. Total goals: ${goals.length}.`);
-  lines.push('');
-
-  arcs.forEach((arc) => {
-    const arcGoals = goals.filter((goal) => goal.arcId === arc.id);
-
-    lines.push(`Arc: ${arc.name} (status: ${arc.status}).`);
-    if (arc.narrative) {
-      lines.push(`Narrative: ${arc.narrative}`);
-    }
-
-    if (arcGoals.length > 0) {
-      lines.push('Goals in this arc:');
-      arcGoals.forEach((goal) => {
-        const trimmedDescription =
-          goal.description && goal.description.length > 200
-            ? `${goal.description.slice(0, 197)}…`
-            : goal.description;
-
-        const base = `- ${goal.title} (status: ${goal.status})`;
-        lines.push(
-          trimmedDescription ? `${base} – ${trimmedDescription}` : base
-        );
-      });
-    } else {
-      lines.push('No goals are currently attached to this arc.');
-    }
-
-    lines.push(''); // spacer between arcs
-  });
-
-  return lines.join('\n');
-}
-
 

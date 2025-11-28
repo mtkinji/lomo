@@ -59,6 +59,11 @@ export type AgentWorkspaceProps = {
    * can use this to avoid duplicate branding.
    */
   hideBrandHeader?: boolean;
+  /**
+   * When true, hide the default prompt suggestions rail in the underlying
+   * chat pane so hosts can provide their own focused guidance.
+   */
+  hidePromptSuggestions?: boolean;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -121,6 +126,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     onWorkflowStatusChange,
     onComplete,
     hideBrandHeader,
+    hidePromptSuggestions,
   } = props;
 
   const chatPaneRef = useRef<AiChatPaneController | null>(null);
@@ -291,6 +297,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         launchContext={launchContextText}
         resumeDraft={resumeDraft}
         hideBrandHeader={hideBrandHeader}
+        hidePromptSuggestions={hidePromptSuggestions}
         onConfirmArc={onConfirmArc}
         onComplete={onComplete}
         stepCard={workflowStepCard}

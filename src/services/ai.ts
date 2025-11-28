@@ -44,6 +44,22 @@ const previewText = (value?: string) => {
   return `${trimmed.slice(0, 77)}…`;
 };
 
+const calculateAgeFromBirthdate = (birthdate?: string): number | null => {
+  if (!birthdate) return null;
+  const date = new Date(birthdate);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDiff = today.getMonth() - date.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+    age -= 1;
+  }
+  if (age < 0 || age > 120) {
+    return null;
+  }
+  return age;
+};
+
 const describeKey = (key?: string) =>
   key ? { present: true, length: key.length } : { present: false };
 
@@ -58,7 +74,7 @@ const devLog = (context: string, details?: Record<string, unknown>) => {
   }
 };
 
-const buildUserProfileSummary = (): string | undefined => {
+export const buildUserProfileSummary = (): string | undefined => {
   // Zustand store hook has a getState method we can use outside React components.
   const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
   const profile = state?.userProfile;
@@ -69,11 +85,28 @@ const buildUserProfileSummary = (): string | undefined => {
 
   const parts: string[] = [];
 
+  // Core identity snapshot
+  if (profile.fullName) {
+    parts.push(`Name: ${profile.fullName}.`);
+  }
+  const derivedAge = calculateAgeFromBirthdate(profile.birthdate);
+  if (typeof derivedAge === 'number') {
+    parts.push(`Approximate age: ${derivedAge}.`);
+  }
+  if (profile.birthdate) {
+    parts.push(`Birthdate: ${profile.birthdate}.`);
+  }
   if (profile.ageRange) {
     parts.push(`Age range: ${profile.ageRange}.`);
   }
   if (profile.timezone) {
     parts.push(`Timezone: ${profile.timezone}.`);
+  }
+  if (profile.identitySummary) {
+    parts.push(`Identity summary: ${profile.identitySummary}`);
+  }
+  if (profile.coachContextSummary) {
+    parts.push(`Additional context: ${profile.coachContextSummary}`);
   }
   if (profile.focusAreas && profile.focusAreas.length > 0) {
     const labels = profile.focusAreas.map((area) => getFocusAreaLabel(area));
@@ -163,7 +196,15 @@ const buildUserProfileSummary = (): string | undefined => {
     return undefined;
   }
 
-  return parts.join(' ');
+  const text = parts.join(' ');
+
+  // Keep the final summary reasonably compact so prompts stay within bounds.
+  const MAX_LENGTH = 600;
+  if (text.length <= MAX_LENGTH) {
+    return text;
+  }
+
+  return `${text.slice(0, MAX_LENGTH - 1)}…`;
 };
 
 export type CoachChatTurn = {
@@ -960,9 +1001,11 @@ function resolveOpenAiApiKey(): string | undefined {
 function resolveChatModel(): LlmModel {
   const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
   const model = state?.llmModel;
-  if (model === 'gpt-4o' || model === 'gpt-4o-mini') {
+
+  if (model === 'gpt-4o' || model === 'gpt-4o-mini' || model === 'gpt-5.1') {
     return model;
   }
+
   return 'gpt-4o-mini';
 }
 

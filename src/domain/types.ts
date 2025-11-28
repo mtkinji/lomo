@@ -120,8 +120,33 @@ export interface Activity {
   goalId: string | null;
   title: string;
   notes?: string;
+  /**
+   * Optional timestamp for a reminder notification associated with this
+   * activity (for example, "remind me tomorrow morning"). This is stored as an
+   * ISO string in the user's local timezone and can be interpreted by
+   * scheduling logic in a future notifications layer.
+   */
+  reminderAt?: string | null;
+  /**
+   * Optional priority bucket for Activities. When set, 1 represents the
+   * highest priority (e.g., "Priority 1"), with larger numbers indicating
+   * lower urgency. Unset/null means the activity is not explicitly ranked.
+   */
+  priority?: 1 | 2 | 3;
   estimateMinutes?: number | null;
   scheduledDate?: string | null;
+  /**
+   * Optional recurrence rule for Activities that repeat on a cadence. This is
+   * intentionally lightweight for now; a future implementation can expand this
+   * to a richer RRULE-style structure if needed.
+   */
+  repeatRule?:
+    | 'daily'
+    | 'weekly'
+    | 'weekdays'
+    | 'monthly'
+    | 'yearly'
+    | 'custom';
   orderIndex?: number | null;
   phase?: string | null;
   status: ActivityStatus;
@@ -231,7 +256,32 @@ export interface UserProfile {
   fullName?: string;
   email?: string;
   avatarUrl?: string;
+  /**
+   * Optional birthdate for the user in ISO YYYY-MM-DD format. This is the
+   * canonical source of truth for age; other fields like ageRange can be
+   * derived from it.
+   */
+  birthdate?: string;
   ageRange?: AgeRange;
+  /**
+   * Optional free-form description of how the user sees themselves in this
+   * season (roles, responsibilities, what matters most). Edited directly by
+   * the user in the Profile screen.
+   */
+  identitySummary?: string;
+  /**
+   * Optional longer-form context the user wants the Takado Agent to know about
+   * them (pasted background, life story, etc). This can be several paragraphs
+   * and is not passed to the model directly; instead it is summarized into
+   * `coachContextSummary` for use in prompts.
+   */
+  coachContextRaw?: string;
+  /**
+   * Short, model-ready summary of the user’s identity and background compiled
+   * from `identitySummary`, `coachContextRaw`, and other profile fields. This
+   * is the primary blob we include in prompts alongside structured fields.
+   */
+  coachContextSummary?: string;
   focusAreas?: FocusAreaId[];
   notifications?: {
     remindersEnabled?: boolean;

@@ -17,6 +17,11 @@ export interface EditableTextAreaProps {
   onSubmit?: (next: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /**
+   * Maximum number of visible lines when the field is in its resting state.
+   * Pass `0` or a negative value to disable collapsing and allow the textarea
+   * to grow naturally with its content.
+   */
   maxCollapsedLines?: number;
   validate?: (next: string) => string | null;
   enableAi?: boolean;
@@ -71,6 +76,11 @@ export function EditableTextArea({
     disabled && styles.labelDisabled,
   ];
 
+  const effectiveNumberOfLines =
+    typeof maxCollapsedLines === 'number' && maxCollapsedLines > 0
+      ? maxCollapsedLines
+      : undefined;
+
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
@@ -110,7 +120,9 @@ export function EditableTextArea({
             commit(draft);
             setIsEditing(false);
           }}
-          numberOfLines={maxCollapsedLines}
+          // When `maxCollapsedLines` is 0 or negative, we omit `numberOfLines`
+          // so React Native lets the textarea expand to fit the full content.
+          numberOfLines={effectiveNumberOfLines}
         />
         {enableAi && onRequestAiHelp && aiContext && isEditing ? (
           <Pressable onPress={handleRequestAi} style={styles.inlineAiButton}>

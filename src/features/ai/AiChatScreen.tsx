@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -291,6 +292,77 @@ const CHAT_COLORS = {
   chip: colors.card,
 } as const;
 
+const markdownStyles = StyleSheet.create({
+  body: {
+    ...typography.body,
+    color: CHAT_COLORS.accent,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: spacing.xs,
+  },
+  heading1: {
+    ...typography.titleLg,
+    color: CHAT_COLORS.accent,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  heading2: {
+    ...typography.titleSm,
+    color: CHAT_COLORS.accent,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  heading3: {
+    ...typography.body,
+    fontWeight: '600',
+    color: CHAT_COLORS.accent,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs / 2,
+  },
+  bullet_list: {
+    marginVertical: spacing.xs,
+  },
+  ordered_list: {
+    marginVertical: spacing.xs,
+  },
+  list_item: {
+    flexDirection: 'row',
+    marginBottom: spacing.xs / 2,
+  },
+  strong: {
+    fontWeight: '600',
+  },
+  em: {
+    fontStyle: 'italic',
+  },
+  link: {
+    color: CHAT_COLORS.accent,
+    textDecorationLine: 'underline',
+  },
+  code_inline: {
+    ...typography.bodySm,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  code_block: {
+    ...typography.bodySm,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+  },
+  blockquote: {
+    borderLeftWidth: 2,
+    borderLeftColor: CHAT_COLORS.border,
+    paddingLeft: spacing.md,
+    marginVertical: spacing.xs,
+    color: CHAT_COLORS.accent,
+  },
+});
+
 const INPUT_MIN_HEIGHT = typography.bodySm.lineHeight * 4;
 const INPUT_MAX_HEIGHT = typography.bodySm.lineHeight * 8;
 
@@ -414,6 +486,12 @@ export type AiChatPaneProps = {
    * sheets) can render their own mode header outside the chat timeline.
    */
   hideBrandHeader?: boolean;
+  /**
+   * When true, hide the default prompt suggestion chips that sit above the
+   * chat composer. This is useful for focused creation workflows where we
+   * want the surface to stay on-task without generic prompts.
+   */
+  hidePromptSuggestions?: boolean;
 };
 
 export type AiChatPaneController = {
@@ -453,6 +531,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     onComplete,
     stepCard,
     hideBrandHeader = false,
+    hidePromptSuggestions = false,
   }: AiChatPaneProps,
   ref: Ref<AiChatPaneController>
 ) {
@@ -572,7 +651,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const canSend = hasInput && !sending;
   const hasUserMessages = messages.some((m) => m.role === 'user');
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
-  const shouldShowSuggestionsRail = !hasUserMessages && !isOnboardingMode;
+  const shouldShowSuggestionsRail =
+    !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode;
 
   const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
     if (!isArcCreationMode) return;
@@ -914,6 +994,18 @@ export const AiChatPane = forwardRef(function AiChatPane(
         });
       } catch (err) {
         console.error('Takado Coach initial chat failed', err);
+        if (cancelled) return;
+        const errorMessage: ChatMessage = {
+          id: `assistant-error-bootstrap-${Date.now()}`,
+          role: 'assistant',
+          content:
+            "I'm having trouble reaching Takado Coach right now. Check your connection or API key configuration, then try again.",
+        };
+        setMessages((prev) => {
+          const next = [...prev, errorMessage];
+          messagesRef.current = next;
+          return next;
+        });
       } finally {
         if (!cancelled) {
           // In error cases we still mark as bootstrapped so we don’t loop.
@@ -940,11 +1032,25 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const draft = await loadArcCreationDraft();
       if (cancelled || !draft) return;
 
+      const hasNonSystemMessages = draft.messages.some(
+        (message) => message.role !== 'system'
+      );
+      const hasInput = Boolean(draft.input && draft.input.trim().length > 0);
+
+      // If the persisted draft has no visible conversation or input, treat it
+      // as empty so the Arc Creation Agent can still bootstrap a fresh first
+      // reply instead of leaving the canvas blank.
+      if (!hasNonSystemMessages && !hasInput) {
+        await saveArcCreationDraft(null);
+        return;
+      }
+
       setMessages(draft.messages);
       messagesRef.current = draft.messages;
       setInput(draft.input ?? '');
       // Mark as bootstrapped so we don't trigger the automatic "first reply"
-      // bootstrap when restoring an in-progress Arc conversation.
+      // bootstrap when restoring an in-progress Arc conversation with real
+      // content.
       setBootstrapped(true);
       setThinking(false);
     };
@@ -1139,7 +1245,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   .map((message) =>
                     message.role === 'assistant' ? (
                       <View key={message.id} style={styles.assistantMessage}>
-                        <Text style={styles.assistantText}>{message.content}</Text>
+                        <Markdown style={markdownStyles}>{message.content}</Markdown>
                       </View>
                     ) : (
                       <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
@@ -1209,7 +1315,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           }
                         }}
                       >
-                        <Text style={styles.arcDraftConfirmText}>Confirm Arc</Text>
+                        <Text style={styles.arcDraftConfirmText}>Adopt Arc</Text>
                       </Button>
                     </View>
                   </View>
@@ -1309,22 +1415,23 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     </View>
                     <View style={styles.inputFooterRow}>
                       {hasInput ? (
-                        <Button
-                          variant="default"
-                          size="icon"
+                        <TouchableOpacity
                           style={[
                             styles.sendButton,
                             (sending || !canSend) && styles.sendButtonInactive,
                           ]}
                           onPress={handleSend}
+                          accessibilityRole="button"
                           accessibilityLabel="Send message"
+                          disabled={sending || !canSend}
+                          activeOpacity={0.85}
                         >
                           {sending ? (
                             <ActivityIndicator color={colors.canvas} />
                           ) : (
                             <Icon name="arrowUp" color={colors.canvas} size={16} />
                           )}
-                        </Button>
+                        </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
                           style={[
@@ -1908,6 +2015,9 @@ const styles = StyleSheet.create({
     borderColor: '#18181B',
     width: 28,
     height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   voiceButton: {
     backgroundColor: '#18181B',

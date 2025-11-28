@@ -1,5 +1,15 @@
 import React from 'react';
-import { Alert, StyleSheet, View, ScrollView, StyleProp, ViewStyle, Pressable } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  StyleProp,
+  ViewStyle,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  TextInput,
+} from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -13,9 +23,13 @@ import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AgentWorkspace } from '../ai/AgentWorkspace';
+import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { Logo } from '../../ui/Logo';
+import { fonts } from '../../theme/typography';
 
 type GoalDraftEntry = {
   arcId: string;
@@ -45,7 +59,7 @@ export function GoalsScreen() {
   }, {});
 
   const hasGoals = goals.length > 0;
-  const [arcPickerVisible, setArcPickerVisible] = React.useState(false);
+  const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
 
   const activityCountByGoal = React.useMemo(
     () =>
@@ -107,43 +121,7 @@ export function GoalsScreen() {
   const hasDrafts = draftEntries.length > 0;
 
   const handlePressNewGoal = () => {
-    if (arcs.length === 0) {
-      Alert.alert(
-        'Create an Arc first',
-        'Goals live inside your Arcs. Create an Arc, then you can add goals.',
-        [
-          {
-            text: 'Go to Arcs',
-            onPress: () => {
-              const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
-              parent?.navigate('ArcsStack', {
-                screen: 'ArcsList',
-              });
-            },
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ],
-      );
-      return;
-    }
-
-    if (arcs.length === 1) {
-      const onlyArc = arcs[0];
-      const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
-      parent?.navigate('ArcsStack', {
-        screen: 'ArcDetail',
-        params: {
-          arcId: onlyArc.id,
-          openGoalCreation: true,
-        },
-      });
-      return;
-    }
-
-    setArcPickerVisible(true);
+    setGoalCoachVisible(true);
   };
 
   return (
@@ -207,8 +185,8 @@ export function GoalsScreen() {
         <VStack space="sm" style={styles.emptyState}>
           <Heading style={styles.emptyTitle}>No goals yet</Heading>
           <Text style={styles.emptyBody}>
-            Goals live inside your arcs and express concrete progress. Start by creating an Arc,
-            then let Takado help you design a few goals.
+            Goals live inside your arcs and express concrete progress. You can start with a
+            standalone goal now, then connect it to an Arc later.
           </Text>
         </VStack>
       )}
@@ -223,21 +201,11 @@ export function GoalsScreen() {
           />
         )}
       </ScrollView>
-      <GoalArcPickerSheet
-        visible={arcPickerVisible}
+      <GoalCoachDrawer
+        visible={goalCoachVisible}
+        onClose={() => setGoalCoachVisible(false)}
         arcs={arcs}
-        onClose={() => setArcPickerVisible(false)}
-        onSelectArc={(arcId) => {
-          setArcPickerVisible(false);
-          const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
-          parent?.navigate('ArcsStack', {
-            screen: 'ArcDetail',
-            params: {
-              arcId,
-              openGoalCreation: true,
-            },
-          });
-        }}
+        goals={goals}
       />
     </AppShell>
   );
@@ -354,48 +322,219 @@ type GoalArcPickerSheetProps = {
   onSelectArc: (arcId: string) => void;
 };
 
-function GoalArcPickerSheet({ visible, arcs, onClose, onSelectArc }: GoalArcPickerSheetProps) {
-  if (!visible) {
-    return null;
-  }
+type GoalCoachDrawerProps = {
+  visible: boolean;
+  onClose: () => void;
+  arcs: Arc[];
+  goals: Goal[];
+  /**
+   * Optional Arc id to anchor goal creation to. When provided, manual goals
+   * created from this drawer will be attached to that Arc, and the agent
+   * launch context will reference the Arc detail surface.
+   */
+  launchFromArcId?: string;
+  /**
+   * When true (default), navigating to the new Goal detail screen after
+   * manual creation. For Arc detail hosts we keep the user on the Arc canvas.
+   */
+  navigateToGoalDetailOnCreate?: boolean;
+};
+
+export function GoalCoachDrawer({
+  visible,
+  onClose,
+  arcs,
+  goals,
+  launchFromArcId,
+  navigateToGoalDetailOnCreate = true,
+}: GoalCoachDrawerProps) {
+  const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
+  const [manualTitle, setManualTitle] = React.useState('');
+  const [manualDescription, setManualDescription] = React.useState('');
+  const addGoal = useAppStore((state) => state.addGoal);
+  const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList>>();
+
+  const workspaceSnapshot = React.useMemo(
+    () => buildArcCoachLaunchContext(arcs, goals),
+    [arcs, goals],
+  );
+
+  const launchContext = React.useMemo(
+    () =>
+      launchFromArcId
+        ? {
+            source: 'arcDetail',
+            intent: 'goalCreation',
+            entityRef: { type: 'arc', id: launchFromArcId } as const,
+            objectType: 'arc' as const,
+            objectId: launchFromArcId,
+          }
+        : {
+            source: 'todayScreen' as const,
+            intent: 'goalCreation' as const,
+          },
+    [launchFromArcId],
+  );
+
+  React.useEffect(() => {
+    if (!visible) {
+      setActiveTab('ai');
+      setManualTitle('');
+      setManualDescription('');
+    }
+  }, [visible]);
+
+  const handleCreateManualGoal = () => {
+    const trimmedTitle = manualTitle.trim();
+    const trimmedDescription = manualDescription.trim();
+    if (!trimmedTitle) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const goal: Goal = {
+      id,
+      arcId: launchFromArcId ?? '',
+      title: trimmedTitle,
+      description: trimmedDescription.length > 0 ? trimmedDescription : undefined,
+      status: 'planned',
+      startDate: timestamp,
+      targetDate: undefined,
+      forceIntent: defaultForceLevels(0),
+      metrics: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    addGoal(goal);
+    onClose();
+    if (navigateToGoalDetailOnCreate) {
+      navigation.push('GoalDetail', {
+        goalId: id,
+        entryPoint: 'goalsTab',
+      });
+    }
+  };
 
   return (
-    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['55%']}>
-      <View style={styles.arcPickerContainer}>
-        <Heading style={styles.arcPickerTitle}>Choose an Arc for this goal</Heading>
-        <Text style={styles.arcPickerBody}>
-          Goals live inside your Arcs. Pick the home you want this new goal to strengthen.
-        </Text>
-        <ScrollView
-          style={styles.arcPickerScroll}
-          contentContainerStyle={styles.arcPickerScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <VStack space="sm">
-            {arcs.map((arc) => (
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+      <View style={styles.goalCoachContainer}>
+        <View style={styles.sheetHeaderRow}>
+          <View style={styles.brandLockup}>
+            <Logo size={24} />
+            <Text style={styles.brandWordmark}>Takado</Text>
+          </View>
+          <View style={styles.headerSideRight}>
+            <View style={styles.segmentedControl}>
               <Pressable
-                key={arc.id}
-                onPress={() => onSelectArc(arc.id)}
-                style={styles.arcPickerRow}
+                style={[
+                  styles.segmentedOption,
+                  activeTab === 'ai' && styles.segmentedOptionActive,
+                ]}
                 accessibilityRole="button"
-                accessibilityLabel={`Create goal in ${arc.name}`}
+                accessibilityLabel="Create goal with AI"
+                onPress={() => setActiveTab('ai')}
               >
-                <Text style={styles.arcPickerName}>{arc.name}</Text>
-                {arc.narrative ? (
+                <View style={styles.segmentedOptionContent}>
+                  <Icon
+                    name="sparkles"
+                    size={14}
+                    color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
+                  />
                   <Text
-                    style={styles.arcPickerNarrative}
-                    numberOfLines={2}
-                    ellipsizeMode="tail"
+                    style={[
+                      styles.segmentedOptionLabel,
+                      activeTab === 'ai' && styles.segmentedOptionLabelActive,
+                    ]}
                   >
-                    {arc.narrative}
+                    AI
                   </Text>
-                ) : null}
+                </View>
               </Pressable>
-            ))}
-          </VStack>
-        </ScrollView>
+              <Pressable
+                style={[
+                  styles.segmentedOption,
+                  activeTab === 'manual' && styles.segmentedOptionActive,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Create goal manually"
+                onPress={() => setActiveTab('manual')}
+              >
+                <View style={styles.segmentedOptionContent}>
+                  <Icon
+                    name="edit"
+                    size={14}
+                    color={activeTab === 'manual' ? colors.textPrimary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.segmentedOptionLabel,
+                      activeTab === 'manual' && styles.segmentedOptionLabelActive,
+                    ]}
+                  >
+                    Manual
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+        {activeTab === 'ai' ? (
+          <View style={styles.goalCoachBody}>
+            <AgentWorkspace
+              // Goal creation uses the dedicated Goal Creation Agent mode so the
+              // conversation stays tightly focused on drafting one clear goal.
+              mode="goalCreation"
+              launchContext={launchContext}
+              workspaceSnapshot={workspaceSnapshot}
+              resumeDraft={false}
+              hideBrandHeader
+              hidePromptSuggestions
+            />
+          </View>
+        ) : (
+          <KeyboardAvoidingView
+            style={styles.goalCoachBody}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              style={styles.manualFormContainer}
+              contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.modalLabel}>Goal title</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Build a Birdhouse"
+                placeholderTextColor={colors.textSecondary}
+                value={manualTitle}
+                onChangeText={setManualTitle}
+              />
+              <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Short description</Text>
+              <TextInput
+                style={[styles.input, styles.manualNarrativeInput]}
+                placeholder="Describe the concrete progress you want to make."
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                value={manualDescription}
+                onChangeText={setManualDescription}
+              />
+              <View style={{ marginTop: spacing.xl }}>
+                <Button
+                  disabled={manualTitle.trim().length === 0}
+                  onPress={handleCreateManualGoal}
+                >
+                  <Text style={styles.buttonText}>Create Goal</Text>
+                </Button>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
       </View>
-    </TakadoBottomSheet>
+    </BottomDrawer>
   );
 }
 
@@ -447,40 +586,90 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flexShrink: 1,
   },
-  arcPickerContainer: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+  goalCoachContainer: {
     flex: 1,
   },
-  arcPickerTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  arcPickerBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
-  arcPickerScroll: {
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandWordmark: {
+    ...typography.bodySm,
+    fontFamily: fonts.logo,
+    color: colors.accent,
+    marginLeft: spacing.xs,
+  },
+  goalCoachBody: {
     flex: 1,
   },
-  arcPickerScrollContent: {
-    paddingBottom: spacing.lg,
+  headerSideRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flex: 1,
   },
-  arcPickerRow: {
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
+  segmentedControl: {
+    flexDirection: 'row',
+    padding: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
   },
-  arcPickerName: {
-    ...typography.body,
-    color: colors.textPrimary,
+  segmentedOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
   },
-  arcPickerNarrative: {
+  segmentedOptionActive: {
+    backgroundColor: colors.canvas,
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  segmentedOptionLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    marginTop: spacing.xs / 2,
+  },
+  segmentedOptionLabelActive: {
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  segmentedOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  manualFormContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
+  },
+  modalLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    minHeight: 44,
+  },
+  manualNarrativeInput: {
+    minHeight: 120,
+    textAlignVertical: 'top',
   },
 });
 

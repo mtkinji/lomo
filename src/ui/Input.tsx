@@ -1,5 +1,16 @@
 import { forwardRef, memo, useState, ReactNode } from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
+  Pressable,
+  TextInput,
+  NativeSyntheticEvent,
+  TextInputContentSizeChangeEventData,
+} from 'react-native';
 import { Input as ReusableInput } from '@/components/ui/input';
 import type { TextInputProps } from 'react-native';
 import { colors, spacing, typography } from '../theme';
@@ -7,6 +18,9 @@ import { Icon, IconName } from './Icon';
 
 type InputVariant = 'surface' | 'outline' | 'ghost';
 type InputSize = 'md' | 'sm';
+
+const MULTILINE_MIN_HEIGHT = 112;
+const MULTILINE_MAX_HEIGHT = 220;
 
 type Props = TextInputProps & {
   label?: string;
@@ -40,11 +54,15 @@ const InputBase = forwardRef<TextInput, Props>(
       onFocus,
       onBlur,
       multiline = false,
+      onContentSizeChange,
       ...rest
     },
     ref,
   ) => {
     const [focused, setFocused] = useState(false);
+    const [multilineHeight, setMultilineHeight] = useState<number | undefined>(
+      undefined,
+    );
     const hasError = Boolean(errorText);
 
     const statusColor = hasError ? colors.destructive : focused ? colors.accent : colors.border;
@@ -75,6 +93,19 @@ const InputBase = forwardRef<TextInput, Props>(
             ref={ref as any}
             editable={editable}
             multiline={multiline}
+            onContentSizeChange={(
+              event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
+            ) => {
+              if (multiline) {
+                const nextHeight = event.nativeEvent.contentSize.height;
+                const clampedHeight = Math.max(
+                  MULTILINE_MIN_HEIGHT,
+                  Math.min(nextHeight, MULTILINE_MAX_HEIGHT),
+                );
+                setMultilineHeight(clampedHeight);
+              }
+              onContentSizeChange?.(event);
+            }}
             onFocus={(event) => {
               setFocused(true);
               onFocus?.(event);
@@ -84,7 +115,15 @@ const InputBase = forwardRef<TextInput, Props>(
               onBlur?.(event);
             }}
             className=""
-            style={[styles.input, multiline && styles.multilineInput, size === 'sm' && styles.inputSm, inputStyle]}
+            style={[
+              styles.input,
+              multiline && styles.multilineInput,
+              size === 'sm' && styles.inputSm,
+              multiline && multilineHeight != null
+                ? { height: multilineHeight }
+                : null,
+              inputStyle,
+            ]}
           />
           {trailingIcon ? (
             <Pressable

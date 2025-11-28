@@ -12,7 +12,7 @@ import {
   UserProfile,
 } from '../domain/types';
 
-export type LlmModel = 'gpt-4o-mini' | 'gpt-4o';
+export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
 type Updater<T> = (item: T) => T;
 
@@ -43,6 +43,7 @@ interface AppState {
   removeGoal: (goalId: string) => void;
   addActivity: (activity: Activity) => void;
   updateActivity: (activityId: string, updater: Updater<Activity>) => void;
+  removeActivity: (activityId: string) => void;
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
@@ -282,6 +283,10 @@ export const useAppStore = create(
         set((state) => ({
           activities: withUpdate(state.activities, activityId, updater),
         })),
+      removeActivity: (activityId) =>
+        set((state) => ({
+          activities: state.activities.filter((activity) => activity.id !== activityId),
+        })),
       setGoalRecommendations: (arcId, goals) =>
         set((state) => ({
           goalRecommendations: {
@@ -348,6 +353,7 @@ export const useAppStore = create(
             userProfile: {
               ...base,
               fullName: undefined,
+              birthdate: undefined,
               ageRange: undefined,
               focusAreas: undefined,
               avatarUrl: undefined,
