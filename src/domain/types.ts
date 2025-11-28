@@ -92,6 +92,29 @@ export interface Goal {
   arcId: string;
   title: string;
   description?: string;
+  /**
+   * Optional thumbnail image for visually distinguishing this Goal in lists.
+   * Can be a remote URL or a local asset URI.
+   */
+  thumbnailUrl?: string;
+  /**
+   * Optional counter used to rotate deterministic, system-generated thumbnails.
+   * Incrementing this value changes the seed passed to the appearance helpers.
+   */
+  thumbnailVariant?: number;
+  /**
+   * Optional metadata about the Goal hero / thumbnail image.
+   * The thumbnailUrl is still the canonical image URL used both for
+   * the hero on the detail page and the thumbnail in lists.
+   */
+  heroImageMeta?: {
+    source: 'ai' | 'upload';
+    /**
+     * Free-form description or prompt used when generating the image.
+     */
+    prompt?: string;
+    createdAt: string;
+  };
   status: 'planned' | 'in_progress' | 'completed' | 'archived';
   startDate?: string;
   targetDate?: string;
@@ -110,6 +133,18 @@ export interface GoalDraft {
 }
 
 export type ActivityStatus = 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled';
+
+// Shared activity list view types so sort / filter modes can be reused across
+// screens and persisted in the app store.
+export type ActivityFilterMode = 'all' | 'priority1' | 'active' | 'completed';
+
+export type ActivitySortMode =
+  | 'manual'
+  | 'titleAsc'
+  | 'titleDesc'
+  | 'dueDateAsc'
+  | 'dueDateDesc'
+  | 'priority';
 
 export interface ActivityForceActual {
   [forceId: string]: ForceLevel;
@@ -156,6 +191,21 @@ export interface Activity {
   forceActual: ActivityForceActual;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ActivityViewId = string;
+
+export interface ActivityView {
+  id: ActivityViewId;
+  name: string;
+  filterMode: ActivityFilterMode;
+  sortMode: ActivitySortMode;
+  /**
+   * System views (like "Default view" or "Priority 1 focus") act as
+   * guardrails and can't be deleted. They can still be edited and those
+   * changes are persisted just like custom views.
+   */
+  isSystem?: boolean;
 }
 
 export interface ChapterArcStats {

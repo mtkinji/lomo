@@ -13,7 +13,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
@@ -47,6 +47,7 @@ import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
 import { AgentFab } from '../../ui/AgentFab';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
+import * as ImagePicker from 'expo-image-picker';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -94,6 +95,7 @@ export function GoalDetailScreen() {
   const insets = useSafeAreaInsets();
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
+  const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
 
   const handleBack = () => {
     const nav: any = navigation;
@@ -136,8 +138,8 @@ export function GoalDetailScreen() {
 
   const heroSeed = useMemo(
     () =>
-      arc ? buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant) : `goal-${goalId}`,
-    [arc, goalId]
+      buildArcThumbnailSeed(goal?.id, goal?.title, goal?.thumbnailVariant),
+    [goal?.id, goal?.title, goal?.thumbnailVariant]
   );
   const { colors: heroGradientColors, direction: heroGradientDirection } = useMemo(
     () => getArcGradient(heroSeed),
@@ -147,7 +149,7 @@ export function GoalDetailScreen() {
   const thumbnailStyle = pickThumbnailStyle(heroSeed, thumbnailStyles);
   const showTopography = thumbnailStyle === 'topographyDots';
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
-  const hasCustomThumbnail = Boolean(arc?.thumbnailUrl);
+  const hasCustomThumbnail = Boolean(goal?.thumbnailUrl);
   const shouldShowTopography = showTopography && !hasCustomThumbnail;
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
 
@@ -202,6 +204,44 @@ export function GoalDetailScreen() {
 
   const forceIntent = { ...defaultForceLevels(0), ...goal.forceIntent };
   const liveForceIntent = editingForces ? editForceIntent : forceIntent;
+
+  const handleShuffleGoalThumbnail = useCallback(() => {
+    const timestamp = new Date().toISOString();
+    updateGoal(goal.id, (prev) => ({
+      ...prev,
+      thumbnailUrl: prev.thumbnailUrl,
+      thumbnailVariant: (prev.thumbnailVariant ?? 0) + 1,
+      updatedAt: timestamp,
+    }));
+  }, [goal.id, updateGoal]);
+
+  const handleUploadGoalThumbnail = useCallback(async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+
+      const nowIso = new Date().toISOString();
+      updateGoal(goal.id, (prev) => ({
+        ...prev,
+        thumbnailUrl: asset.uri,
+        heroImageMeta: {
+          source: 'upload',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+        },
+        updatedAt: nowIso,
+      }));
+    } catch {
+      // Swallow picker errors for now; we can add surfaced feedback later.
+    }
+  }, [goal.id, updateGoal]);
 
   const handleDismissFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);
@@ -391,26 +431,30 @@ export function GoalDetailScreen() {
         <VStack space="sm">
           {/* Thumbnail + inline title editor */}
           <HStack alignItems="center" space="sm">
-            {arc ? (
-              <View style={styles.goalThumbnailWrapper}>
-                <View style={styles.goalThumbnailInner}>
-                  {arc.thumbnailUrl ? (
-                    <Image
-                      source={{ uri: arc.thumbnailUrl }}
-                      style={styles.goalThumbnail}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <LinearGradient
-                      colors={heroGradientColors}
-                      start={heroGradientDirection.start}
-                      end={heroGradientDirection.end}
-                      style={styles.goalThumbnail}
-                    />
-                  )}
-                </View>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.goalThumbnailWrapper}
+              accessibilityRole="button"
+              accessibilityLabel="Edit goal thumbnail"
+              onPress={() => setThumbnailSheetVisible(true)}
+            >
+              <View style={styles.goalThumbnailInner}>
+                {goal.thumbnailUrl ? (
+                  <Image
+                    source={{ uri: goal.thumbnailUrl }}
+                    style={styles.goalThumbnail}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={heroGradientColors}
+                    start={heroGradientDirection.start}
+                    end={heroGradientDirection.end}
+                    style={styles.goalThumbnail}
+                  />
+                )}
               </View>
-            ) : null}
+            </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <EditableField
                 style={styles.inlineTitleField}
@@ -640,6 +684,51 @@ export function GoalDetailScreen() {
         }}
       />
       {AgentWorkspaceSheet}
+      <TakadoBottomSheet
+        visible={thumbnailSheetVisible}
+        onClose={() => setThumbnailSheetVisible(false)}
+        snapPoints={['55%']}
+      >
+        <View style={styles.goalThumbnailSheetContent}>
+          <Heading style={styles.goalThumbnailSheetTitle}>Goal thumbnail</Heading>
+          <View style={styles.goalThumbnailSheetPreviewFrame}>
+            <View style={styles.goalThumbnailSheetPreviewInner}>
+              {goal.thumbnailUrl ? (
+                <Image
+                  source={{ uri: goal.thumbnailUrl }}
+                  style={styles.goalThumbnailSheetImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={heroGradientColors}
+                  start={heroGradientDirection.start}
+                  end={heroGradientDirection.end}
+                  style={styles.goalThumbnailSheetImage}
+                />
+              )}
+            </View>
+          </View>
+          <HStack space="sm" style={styles.goalThumbnailSheetButtonsRow}>
+            <Button
+              variant="outline"
+              style={styles.goalThumbnailSheetButton}
+              onPress={handleShuffleGoalThumbnail}
+            >
+              <Text style={styles.goalThumbnailControlLabel}>Refresh</Text>
+            </Button>
+            <Button
+              variant="outline"
+              style={styles.goalThumbnailSheetButton}
+              onPress={() => {
+                void handleUploadGoalThumbnail();
+              }}
+            >
+              <Text style={styles.goalThumbnailControlLabel}>Upload</Text>
+            </Button>
+          </HStack>
+        </View>
+      </TakadoBottomSheet>
     </AppShell>
   );
 }
@@ -1124,6 +1213,48 @@ const styles = StyleSheet.create({
   goalThumbnail: {
     width: '100%',
     height: '100%',
+  },
+  goalThumbnailControlsRow: {
+    // no-op placeholder; controls moved into bottom sheet
+    marginTop: 0,
+  },
+  goalThumbnailSheetContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  goalThumbnailSheetTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  goalThumbnailSheetPreviewFrame: {
+    width: '100%',
+    aspectRatio: 3 / 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+    marginBottom: spacing.lg,
+  },
+  goalThumbnailSheetPreviewInner: {
+    flex: 1,
+  },
+  goalThumbnailSheetImage: {
+    width: '100%',
+    height: '100%',
+  },
+  goalThumbnailSheetButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
+  },
+  goalThumbnailSheetButton: {
+    flexShrink: 1,
+  },
+  goalThumbnailControlLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
   },
   editableField: {
     borderWidth: 1,

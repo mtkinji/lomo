@@ -91,22 +91,27 @@ export function GoalListCard({
   const activityLabel = activityMetaOverride ?? defaultActivityLabel;
 
   const seed = buildArcThumbnailSeed(
-    parentArc?.id ?? goal.arcId ?? goal.id,
-    parentArc?.name ?? goal.title,
-    parentArc?.thumbnailVariant
+    goal.id,
+    goal.title,
+    goal.thumbnailVariant ?? parentArc?.thumbnailVariant ?? null
   );
 
   const { colors: gradientColors, direction } = getArcGradient(seed);
   const topoSizes = getArcTopoSizes(seed);
-  const thumbnailStyle = pickThumbnailStyle(seed, thumbnailStyles && thumbnailStyles.length > 0
-    ? thumbnailStyles
-    : ['topographyDots']);
+  const thumbnailStyle = pickThumbnailStyle(
+    seed,
+    thumbnailStyles && thumbnailStyles.length > 0 ? thumbnailStyles : ['topographyDots']
+  );
 
   const showTopography = thumbnailStyle === 'topographyDots';
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
-  const hasCustomThumbnail = Boolean(parentArc?.thumbnailUrl);
+  const showContourRings = thumbnailStyle === 'contourRings';
+  const showPixelBlocks = thumbnailStyle === 'pixelBlocks';
+  const hasCustomThumbnail = Boolean(goal.thumbnailUrl || parentArc?.thumbnailUrl);
   const shouldShowTopography = showTopography && !hasCustomThumbnail;
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
+  const shouldShowContourRings = showContourRings && !hasCustomThumbnail;
+  const shouldShowPixelBlocks = showPixelBlocks && !hasCustomThumbnail;
 
   const content = (
     <Card style={[styles.goalListCard, style]}>
@@ -118,7 +123,13 @@ export function GoalListCard({
           {showThumbnail && (
             <View style={styles.goalThumbnailWrapper}>
               <View style={styles.goalThumbnailInner}>
-                {parentArc?.thumbnailUrl ? (
+                {goal.thumbnailUrl ? (
+                  <Image
+                    source={{ uri: goal.thumbnailUrl }}
+                    style={styles.goalThumbnail}
+                    resizeMode="cover"
+                  />
+                ) : parentArc?.thumbnailUrl ? (
                   <Image
                     source={{ uri: parentArc.thumbnailUrl }}
                     style={styles.goalThumbnail}
@@ -206,6 +217,48 @@ export function GoalListCard({
                     ))}
                   </View>
                 )}
+                {shouldShowContourRings && (
+                  <View style={styles.goalContourLayer}>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <View
+                        key={`goal-contour-ring-${index}`}
+                        style={[
+                          styles.goalContourRing,
+                          {
+                            margin: 3 + index * 2,
+                            borderColor: `rgba(15,23,42,${0.18 + index * 0.07})`,
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+                {shouldShowPixelBlocks && (
+                  <View style={styles.goalPixelLayer}>
+                    {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <View
+                        key={`goal-pixel-row-${rowIndex}`}
+                        style={styles.goalPixelRow}
+                      >
+                        {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
+                          const filled = (rowIndex + colIndex) % 2 === 0;
+                          return (
+                            // eslint-disable-next-line react/no-array-index-key
+                            <View
+                              key={`goal-pixel-${rowIndex}-${colIndex}`}
+                              style={[
+                                styles.goalPixelCell,
+                                filled && styles.goalPixelCellFilled,
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -247,6 +300,8 @@ const styles = StyleSheet.create({
   goalListCard: {
     marginHorizontal: 0,
     marginVertical: 0,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   goalListContent: {
     flexDirection: 'column',
@@ -261,9 +316,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   goalThumbnailWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
+    // Sized to roughly match two lines of title text while staying on the 8px grid.
+    width: 48,
+    height: 48,
+    borderRadius: 8,
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
   },
@@ -343,6 +399,37 @@ const styles = StyleSheet.create({
   goalMosaicPillHorizontal: {
     width: '100%',
     height: '55%',
+  },
+  goalContourLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalContourRing: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderRadius: 999,
+    borderColor: 'rgba(15,23,42,0.2)',
+    ...StyleSheet.absoluteFillObject,
+  },
+  goalPixelLayer: {
+    ...StyleSheet.absoluteFillObject,
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  goalPixelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  goalPixelCell: {
+    flex: 1,
+    aspectRatio: 1,
+    margin: 0.5,
+    borderRadius: 2,
+    backgroundColor: 'rgba(15,23,42,0.15)',
+  },
+  goalPixelCellFilled: {
+    backgroundColor: '#1D4ED8',
   },
   goalTextContainer: {
     flex: 1,

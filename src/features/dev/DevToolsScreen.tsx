@@ -1,4 +1,5 @@
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput } from 'react-native';
+import { useEffect, useState } from 'react';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -10,6 +11,13 @@ import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
+  type CoachChatTurn,
+  type DevCoachChatLogEntry,
+  type DevCoachChatFeedback,
+} from '../../services/ai';
 
 export function DevToolsScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
@@ -27,6 +35,34 @@ export function DevToolsScreen() {
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
   );
+
+  const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
+  const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
+  const [feedbackSummary, setFeedbackSummary] = useState<string>('');
+
+  const loadChatHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      const raw = await AsyncStorage.getItem(DEV_COACH_CHAT_HISTORY_STORAGE_KEY);
+      if (!raw) {
+        setChatHistory([]);
+        return;
+      }
+      const parsed = JSON.parse(raw) as DevCoachChatLogEntry[];
+      setChatHistory(Array.isArray(parsed) ? parsed.slice().reverse() : []);
+    } catch (err) {
+      console.warn('Failed to load dev coach chat history', err);
+      setChatHistory([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadChatHistory();
+  }, []);
 
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
@@ -63,6 +99,144 @@ export function DevToolsScreen() {
   const lastTriggeredLabel = lastTriggeredAt
     ? new Date(lastTriggeredAt).toLocaleString()
     : 'Never';
+
+  const handleClearChatHistory = async () => {
+    Alert.alert(
+      'Clear chat history?',
+      'This will remove all locally stored Takado Coach dev history.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(DEV_COACH_CHAT_HISTORY_STORAGE_KEY);
+              setChatHistory([]);
+            } catch (err) {
+              console.warn('Failed to clear dev coach chat history', err);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const formatTimestamp = (value: string) => {
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
+  };
+
+  const previewLastUserMessage = (messages: CoachChatTurn[]) => {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return 'No user messages';
+    const trimmed = lastUser.content.trim();
+    if (trimmed.length <= 80) return trimmed;
+    return `${trimmed.slice(0, 77)}…`;
+  };
+
+  const prettyRole = (role: CoachChatTurn['role']) => {
+    switch (role) {
+      case 'user':
+        return 'You';
+      case 'assistant':
+        return 'Coach';
+      case 'system':
+        return 'System';
+      default:
+        return role;
+    }
+  };
+
+  const handleSaveFeedback = async (entryId: string) => {
+    const draft = (feedbackDrafts[entryId] ?? '').trim();
+    if (!draft) return;
+
+    try {
+      const raw = await AsyncStorage.getItem(DEV_COACH_CHAT_HISTORY_STORAGE_KEY);
+      const existing: DevCoachChatLogEntry[] = raw ? JSON.parse(raw) : [];
+      const now = new Date().toISOString();
+      const nextFeedback: DevCoachChatFeedback = {
+        id: `feedback-${now}`,
+        createdAt: now,
+        note: draft,
+      };
+      const updated = existing.map((entry) =>
+        entry.id === entryId
+          ? {
+              ...entry,
+              feedback: [...(entry.feedback ?? []), nextFeedback],
+            }
+          : entry
+      );
+      await AsyncStorage.setItem(DEV_COACH_CHAT_HISTORY_STORAGE_KEY, JSON.stringify(updated));
+      setFeedbackDrafts((current) => {
+        const next = { ...current };
+        delete next[entryId];
+        return next;
+      });
+      // Refresh visible list to pick up new feedback and keep newest-first ordering.
+      void loadChatHistory();
+    } catch (err) {
+      console.warn('Failed to save dev coach chat feedback', err);
+    }
+  };
+
+  const handleGenerateSummary = () => {
+    const entriesWithFeedback = chatHistory.filter(
+      (entry) => entry.feedback && entry.feedback.length > 0
+    );
+    if (entriesWithFeedback.length === 0) {
+      setFeedbackSummary(
+        'No feedback recorded yet. Add notes on individual chats to generate a workflow change summary.'
+      );
+      return;
+    }
+
+    const lines: string[] = [];
+    lines.push(`Workflow feedback summary (${entriesWithFeedback.length} chats with feedback)`);
+    lines.push('');
+
+    const grouped = new Map<string, DevCoachChatLogEntry[]>();
+    for (const entry of entriesWithFeedback) {
+      const key = entry.workflowDefinitionId || `mode:${entry.mode ?? 'unscoped'}`;
+      const bucket = grouped.get(key);
+      if (bucket) {
+        bucket.push(entry);
+      } else {
+        grouped.set(key, [entry]);
+      }
+    }
+
+    for (const [key, entries] of grouped) {
+      const isModeKey = key.startsWith('mode:');
+      const label = isModeKey ? `Mode: ${key.slice('mode:'.length)}` : `Workflow: ${key}`;
+      lines.push(`- ${label}`);
+
+      const sorted = [...entries].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      for (const entry of sorted) {
+        const metaParts: string[] = [`  - Chat at ${formatTimestamp(entry.timestamp)}`];
+        if (entry.workflowStepId) {
+          metaParts.push(`step=${entry.workflowStepId}`);
+        }
+        if (entry.launchContextSummary) {
+          metaParts.push(`context="${entry.launchContextSummary}"`);
+        }
+        lines.push(metaParts.join(' '));
+
+        for (const fb of entry.feedback ?? []) {
+          lines.push(`    - Feedback (${formatTimestamp(fb.createdAt)}): ${fb.note}`);
+        }
+      }
+
+      lines.push('');
+    }
+
+    setFeedbackSummary(lines.join('\n'));
+  };
 
   return (
     <AppShell>
@@ -102,6 +276,160 @@ export function DevToolsScreen() {
               {lastTriggeredLabel}
             </Text>
           </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardEyebrow}>Agent chat history</Text>
+              <Button
+                variant="secondary"
+                size="sm"
+                onPress={() => {
+                  void loadChatHistory();
+                }}
+              >
+                <Text style={styles.secondaryButtonLabel}>
+                  {isLoadingHistory ? 'Refreshing…' : 'Refresh'}
+                </Text>
+              </Button>
+            </View>
+            <Text style={styles.cardBody}>
+              Inspect recent Takado Coach conversations captured from this device. History is stored
+              locally and only in development builds.
+            </Text>
+            {chatHistory.length === 0 ? (
+              <Text style={styles.meta}>
+                No chat history captured yet. Start a conversation with the coach and then refresh.
+              </Text>
+            ) : (
+              <View style={styles.historyList}>
+                {chatHistory.map((entry) => {
+                  const isExpanded = expandedEntryId === entry.id;
+                  return (
+                    <View key={entry.id} style={styles.historyItem}>
+                      <Pressable
+                        onPress={() =>
+                          setExpandedEntryId((current) =>
+                            current === entry.id ? null : entry.id
+                          )
+                        }
+                        style={styles.historyHeaderRow}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.historyTitle}>
+                            {entry.mode ? `Mode: ${entry.mode}` : 'Untyped conversation'}
+                          </Text>
+                          <Text style={styles.historySubtitle}>
+                            {previewLastUserMessage(entry.messages)}
+                          </Text>
+                        </View>
+                        <Text style={styles.historyTimestamp}>
+                          {formatTimestamp(entry.timestamp)}
+                        </Text>
+                      </Pressable>
+                      {isExpanded && (
+                        <View style={styles.historyTranscript}>
+                          {entry.workflowDefinitionId && (
+                            <Text style={styles.historyMetaLine}>
+                              Workflow: {entry.workflowDefinitionId}
+                              {entry.workflowStepId ? ` • Step: ${entry.workflowStepId}` : ''}
+                            </Text>
+                          )}
+                          {!entry.workflowDefinitionId && entry.mode && (
+                            <Text style={styles.historyMetaLine}>Mode: {entry.mode}</Text>
+                          )}
+                          {entry.launchContextSummary && (
+                            <Text style={styles.historyMetaLine} numberOfLines={3}>
+                              {entry.launchContextSummary}
+                            </Text>
+                          )}
+                          {entry.messages.map((message, index) => (
+                            <View key={`${entry.id}-${index}`} style={styles.historyMessageRow}>
+                              <Text style={styles.historyMessageRole}>
+                                {prettyRole(message.role)}
+                              </Text>
+                              <Text style={styles.historyMessageContent}>
+                                {message.content}
+                              </Text>
+                            </View>
+                          ))}
+                          {entry.feedback && entry.feedback.length > 0 && (
+                            <View style={styles.feedbackList}>
+                              {entry.feedback.map((fb) => (
+                                <View key={fb.id} style={styles.feedbackItem}>
+                                  <Text style={styles.feedbackMeta}>
+                                    {formatTimestamp(fb.createdAt)}
+                                  </Text>
+                                  <Text style={styles.feedbackNote}>{fb.note}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                          <View style={styles.feedbackEditor}>
+                            <Text style={styles.feedbackLabel}>
+                              Add workflow feedback for this chat
+                            </Text>
+                            <TextInput
+                              style={styles.feedbackInput}
+                              multiline
+                              placeholder="e.g., Offer a confirm option earlier when the user says they’re ready."
+                              placeholderTextColor={colors.textSecondary}
+                              value={feedbackDrafts[entry.id] ?? ''}
+                              onChangeText={(text) =>
+                                setFeedbackDrafts((current) => ({
+                                  ...current,
+                                  [entry.id]: text,
+                                }))
+                              }
+                            />
+                            <View style={styles.feedbackActionsRow}>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onPress={() => handleSaveFeedback(entry.id)}
+                              >
+                                <Text style={styles.secondaryButtonLabel}>Save feedback</Text>
+                              </Button>
+                            </View>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+            {chatHistory.length > 0 && (
+              <>
+                <View style={styles.historyFooterRow}>
+                  <Button variant="secondary" size="sm" onPress={handleGenerateSummary}>
+                    <Text style={styles.secondaryButtonLabel}>Generate workflow summary</Text>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onPress={handleClearChatHistory}
+                    style={{ marginLeft: spacing.sm }}
+                  >
+                    <Text style={styles.secondaryButtonLabel}>Clear history</Text>
+                  </Button>
+                </View>
+                {feedbackSummary.length > 0 && (
+                  <View style={styles.summaryContainer}>
+                    <Text style={styles.summaryLabel}>Summary (copy/paste into Cursor)</Text>
+                    <ScrollView
+                      style={styles.summaryScroll}
+                      contentContainerStyle={styles.summaryContent}
+                      nestedScrollEnabled
+                    >
+                      <Text style={styles.summaryText} selectable>
+                        {feedbackSummary}
+                      </Text>
+                    </ScrollView>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
         </View>
       </ScrollView>
     </AppShell>
@@ -130,6 +458,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
   cardEyebrow: {
     ...typography.label,
     color: colors.muted,
@@ -156,6 +490,130 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.muted,
     marginTop: spacing.sm,
+  },
+  historyList: {
+    marginTop: spacing.md,
+    gap: spacing.md,
+  },
+  historyItem: {
+    borderRadius: 16,
+    backgroundColor: colors.shell,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  historyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  historyTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs / 2,
+  },
+  historySubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  historyTimestamp: {
+    ...typography.caption,
+    color: colors.muted,
+  },
+  historyTranscript: {
+    marginTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  historyMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  historyMessageRole: {
+    ...typography.bodySm,
+    color: colors.muted,
+    width: 72,
+  },
+  historyMessageContent: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  historyFooterRow: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  historyMetaLine: {
+    ...typography.bodySm,
+    color: colors.muted,
+    marginBottom: spacing.xs,
+  },
+  feedbackEditor: {
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  feedbackLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  feedbackInput: {
+    minHeight: 64,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    backgroundColor: colors.canvas,
+  },
+  feedbackActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: spacing.xs,
+  },
+  feedbackList: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  feedbackItem: {
+    borderRadius: 10,
+    backgroundColor: colors.canvas,
+    padding: spacing.sm,
+    gap: spacing.xs / 2,
+  },
+  feedbackMeta: {
+    ...typography.caption,
+    color: colors.muted,
+  },
+  feedbackNote: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  summaryContainer: {
+    marginTop: spacing.lg,
+    borderRadius: 16,
+    backgroundColor: colors.shell,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  summaryLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  summaryScroll: {
+    maxHeight: 200,
+  },
+  summaryContent: {
+    paddingBottom: spacing.xs,
+  },
+  summaryText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
   },
 });
 

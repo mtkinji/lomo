@@ -27,6 +27,7 @@ import {
   sendCoachChat,
   type CoachChatTurn,
   type GeneratedArc,
+  type CoachChatOptions,
 } from '../../services/ai';
 import type { AgeRange, Arc, FocusAreaId, Goal } from '../../domain/types';
 import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
@@ -180,6 +181,12 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       const history: CoachChatTurn[] = controller.getHistory();
 
       try {
+        const coachOptions: CoachChatOptions = {
+          mode: workflowRuntime.definition.chatMode,
+          workflowDefinitionId: workflowRuntime.definition.id,
+          workflowInstanceId: workflowRuntime.instance.id,
+          workflowStepId: workflowStepId,
+        };
         const reply = await sendCoachChat(
           [
             ...history,
@@ -188,7 +195,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
               content: renderedPrompt,
             },
           ],
-          { mode: workflowRuntime.definition.chatMode }
+          coachOptions
         );
         let displayContent = reply;
 

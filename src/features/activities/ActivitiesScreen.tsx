@@ -3,7 +3,7 @@ import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, TextInput } from 'react-native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import type {
@@ -27,12 +27,15 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { Logo } from '../../ui/Logo';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
-import type { Activity, Goal, Arc } from '../../domain/types';
+import type {
+  Activity,
+  ActivityView,
+  ActivityFilterMode,
+  ActivitySortMode,
+  Goal,
+  Arc,
+} from '../../domain/types';
 import { fonts } from '../../theme/typography';
-
-type ActivitySortMode = 'manual' | 'priority';
-type ActivityFilterMode = 'all' | 'priority1' | 'active' | 'completed';
-type ActivityViewId = 'default' | 'priorityFocus';
 
 type CompletedActivitySectionProps = {
   activities: Activity[];
@@ -110,11 +113,27 @@ export function ActivitiesScreen() {
   const goals = useAppStore((state) => state.goals);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const activityViews = useAppStore((state) => state.activityViews);
+  const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
+  const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
+  const addActivityView = useAppStore((state) => state.addActivityView);
+  const updateActivityView = useAppStore((state) => state.updateActivityView);
+  const removeActivityView = useAppStore((state) => state.removeActivityView);
 
-  const [sortMode, setSortMode] = React.useState<ActivitySortMode>('manual');
-  const [filterMode, setFilterMode] = React.useState<ActivityFilterMode>('all');
   const [activityCoachVisible, setActivityCoachVisible] = React.useState(false);
-  const [activeView, setActiveView] = React.useState<ActivityViewId>('default');
+  const [viewEditorVisible, setViewEditorVisible] = React.useState(false);
+  const [viewEditorMode, setViewEditorMode] = React.useState<'create' | 'settings'>('create');
+  const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
+  const [viewEditorName, setViewEditorName] = React.useState('');
+
+  const activeView: ActivityView | undefined = React.useMemo(() => {
+    const current =
+      activityViews.find((view) => view.id === activeActivityViewId) ?? activityViews[0];
+    return current;
+  }, [activityViews, activeActivityViewId]);
+
+  const filterMode = activeView?.filterMode ?? 'all';
+  const sortMode = activeView?.sortMode ?? 'manual';
 
   const goalTitleById = React.useMemo(
     () =>
@@ -153,13 +172,42 @@ export function ActivitiesScreen() {
       return (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
     };
 
+    const compareTitle = (a: (typeof list)[number], b: (typeof list)[number]) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+
+    const getDueDate = (activity: (typeof list)[number]) => {
+      // Prefer a scheduled date as the canonical "due date", falling back to a reminder if present.
+      const source = activity.scheduledDate ?? activity.reminderAt ?? null;
+      if (!source) return Number.MAX_SAFE_INTEGER;
+      return new Date(source).getTime();
+    };
+
     list.sort((a, b) => {
-      if (sortMode === 'priority') {
+      switch (sortMode) {
+        case 'titleAsc':
+          return compareTitle(a, b) || compareManual(a, b);
+        case 'titleDesc':
+          return compareTitle(b, a) || compareManual(a, b);
+        case 'dueDateAsc': {
+          const diff = getDueDate(a) - getDueDate(b);
+          if (diff !== 0) return diff;
+          return compareManual(a, b);
+        }
+        case 'dueDateDesc': {
+          const diff = getDueDate(b) - getDueDate(a);
+          if (diff !== 0) return diff;
+          return compareManual(a, b);
+        }
+        case 'priority': {
         const priA = a.priority ?? Number.MAX_SAFE_INTEGER;
         const priB = b.priority ?? Number.MAX_SAFE_INTEGER;
         if (priA !== priB) return priA - priB;
+          return compareManual(a, b);
       }
+        case 'manual':
+        default:
       return compareManual(a, b);
+      }
     });
 
     return list;
@@ -209,22 +257,127 @@ export function ActivitiesScreen() {
   );
 
   const applyView = React.useCallback(
-    (viewId: ActivityViewId) => {
-      setActiveView(viewId);
-      switch (viewId) {
-        case 'priorityFocus':
-          setFilterMode('priority1');
-          setSortMode('priority');
-          break;
-        case 'default':
-        default:
-          setFilterMode('all');
-          setSortMode('manual');
-          break;
-      }
+    (viewId: string) => {
+      setActiveActivityViewId(viewId);
     },
-    [setFilterMode, setSortMode],
+    [setActiveActivityViewId],
   );
+
+  const handleUpdateFilterMode = React.useCallback(
+    (next: ActivityFilterMode) => {
+      if (!activeView) return;
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        filterMode: next,
+      }));
+    },
+    [activeView, updateActivityView],
+  );
+
+  const handleUpdateSortMode = React.useCallback(
+    (next: ActivitySortMode) => {
+      if (!activeView) return;
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        sortMode: next,
+      }));
+    },
+    [activeView, updateActivityView],
+  );
+
+  const handleOpenCreateView = React.useCallback(() => {
+    setViewEditorMode('create');
+    setViewEditorTargetId(null);
+    setViewEditorName('New view');
+    setViewEditorVisible(true);
+  }, []);
+
+  const handleOpenViewSettings = React.useCallback(
+    (view: ActivityView) => {
+      if (view.isSystem) {
+        return;
+      }
+      setViewEditorMode('settings');
+      setViewEditorTargetId(view.id);
+      setViewEditorName(view.name);
+      setViewEditorVisible(true);
+    },
+    [],
+  );
+
+  const handleConfirmViewEdit = React.useCallback(() => {
+    const trimmedName = viewEditorName.trim() || 'Untitled view';
+
+    if (viewEditorMode === 'create') {
+      const id = `view-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const nextView: ActivityView = {
+        id,
+        name: trimmedName,
+        // New views always start from the base default configuration.
+        filterMode: 'all',
+        sortMode: 'manual',
+        isSystem: false,
+      };
+      addActivityView(nextView);
+      setActiveActivityViewId(id);
+    } else if (viewEditorMode === 'settings' && viewEditorTargetId) {
+      updateActivityView(viewEditorTargetId, (view) => ({
+        ...view,
+        name: trimmedName,
+      }));
+    }
+
+    setViewEditorVisible(false);
+  }, [
+    addActivityView,
+    setActiveActivityViewId,
+    updateActivityView,
+    viewEditorMode,
+    viewEditorName,
+    viewEditorTargetId,
+  ]);
+
+  const handleDuplicateView = React.useCallback(
+    (view: ActivityView) => {
+      const id = `view-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const nextView: ActivityView = {
+        id,
+        name: `${view.name} copy`,
+        filterMode: view.filterMode,
+        sortMode: view.sortMode,
+        isSystem: false,
+      };
+      addActivityView(nextView);
+      setActiveActivityViewId(id);
+    },
+    [addActivityView, setActiveActivityViewId],
+  );
+
+  const handleDeleteView = React.useCallback(
+    (view: ActivityView) => {
+      if (view.isSystem) {
+        return;
+      }
+      removeActivityView(view.id);
+    },
+    [removeActivityView],
+  );
+
+  const handleDuplicateCurrentView = React.useCallback(() => {
+    if (!viewEditorTargetId) return;
+    const view = activityViews.find((v) => v.id === viewEditorTargetId);
+    if (!view) return;
+    handleDuplicateView(view);
+    setViewEditorVisible(false);
+  }, [activityViews, handleDuplicateView, viewEditorTargetId]);
+
+  const handleDeleteCurrentView = React.useCallback(() => {
+    if (!viewEditorTargetId) return;
+    const view = activityViews.find((v) => v.id === viewEditorTargetId);
+    if (!view || view.isSystem) return;
+    handleDeleteView(view);
+    setViewEditorVisible(false);
+  }, [activityViews, handleDeleteView, viewEditorTargetId]);
 
   return (
     <AppShell>
@@ -271,18 +424,35 @@ export function ActivitiesScreen() {
                     >
                       <HStack alignItems="center" space="xs">
                         <Icon name="panelLeft" size={14} color={colors.textPrimary} />
-                        <Text style={styles.toolbarButtonLabel}>Views</Text>
+                        <Text style={styles.toolbarButtonLabel}>
+                          {activeView?.name ?? 'Default view'}
+                        </Text>
                       </HStack>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                    <DropdownMenuItem onPress={() => applyView('default')}>
-                      <Text style={styles.menuItemText}>Default view</Text>
+                    {activityViews.map((view) => (
+                      <DropdownMenuItem key={view.id} onPress={() => applyView(view.id)}>
+                        <HStack alignItems="center" justifyContent="space-between" space="sm">
+                          <Text style={styles.menuItemText}>{view.name}</Text>
+                          {!view.isSystem && (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`View options for ${view.name}`}
+                              onPress={() => handleOpenViewSettings(view)}
+                            >
+                              <Icon name="more" size={16} color={colors.textSecondary} />
+                            </Pressable>
+                          )}
+                        </HStack>
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuItem onPress={handleOpenCreateView}>
+                      <HStack alignItems="center" space="xs">
+                        <Icon name="plus" size={14} color={colors.textSecondary} />
+                        <Text style={styles.menuItemText}>New view</Text>
+                      </HStack>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onPress={() => applyView('priorityFocus')}>
-                      <Text style={styles.menuItemText}>Priority 1 focus</Text>
-                    </DropdownMenuItem>
-                    {/* TODO: Add \"Save current as view…\" flow when view persistence is designed. */}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </View>
@@ -297,23 +467,20 @@ export function ActivitiesScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Filter activities"
                       >
-                        <HStack alignItems="center" space="xs">
                           <Icon name="funnel" size={14} color={colors.textPrimary} />
-                          <Text style={styles.toolbarButtonLabel}>Filter</Text>
-                        </HStack>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                      <DropdownMenuItem onPress={() => setFilterMode('all')}>
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('all')}>
                         <Text style={styles.menuItemText}>All activities</Text>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => setFilterMode('priority1')}>
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('priority1')}>
                         <Text style={styles.menuItemText}>Priority 1</Text>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => setFilterMode('active')}>
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('active')}>
                         <Text style={styles.menuItemText}>Active</Text>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => setFilterMode('completed')}>
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('completed')}>
                         <Text style={styles.menuItemText}>Completed</Text>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -329,18 +496,45 @@ export function ActivitiesScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Sort activities"
                       >
-                        <HStack alignItems="center" space="xs">
                           <Icon name="sort" size={14} color={colors.textPrimary} />
-                          <Text style={styles.toolbarButtonLabel}>Sort</Text>
-                        </HStack>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                      <DropdownMenuItem onPress={() => setSortMode('manual')}>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('manual')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="menu" size={14} color={colors.textSecondary} />
                         <Text style={styles.menuItemText}>Manual order</Text>
+                        </HStack>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => setSortMode('priority')}>
-                        <Text style={styles.menuItemText}>Priority (1 → 3)</Text>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('titleAsc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="arrowUp" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Title A–Z</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('titleDesc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="arrowDown" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Title Z–A</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateAsc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="today" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Due date (soonest first)</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateDesc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="today" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Due date (latest first)</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('priority')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="star" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Priority (P1 first)</Text>
+                        </HStack>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -348,28 +542,13 @@ export function ActivitiesScreen() {
               </HStack>
             </HStack>
 
-            {(filterMode !== 'all' || sortMode !== 'manual' || activeView !== 'default') && (
+            {(filterMode !== 'all' || sortMode !== 'manual') && (
               <HStack style={styles.appliedChipsRow} space="xs" alignItems="center">
-                {activeView !== 'default' && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Reset to default view"
-                    onPress={() => applyView('default')}
-                    style={styles.appliedChip}
-                  >
-                    <HStack space="xs" alignItems="center">
-                      <Text style={styles.appliedChipLabel}>
-                        View: {getViewLabel(activeView)}
-                      </Text>
-                      <Icon name="close" size={12} color={colors.textSecondary} />
-                    </HStack>
-                  </Pressable>
-                )}
                 {filterMode !== 'all' && (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Clear activity filters"
-                    onPress={() => setFilterMode('all')}
+                    onPress={() => handleUpdateFilterMode('all')}
                     style={styles.appliedChip}
                   >
                     <HStack space="xs" alignItems="center">
@@ -384,7 +563,7 @@ export function ActivitiesScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Reset sort to manual order"
-                    onPress={() => setSortMode('manual')}
+                    onPress={() => handleUpdateSortMode('manual')}
                     style={styles.appliedChip}
                   >
                     <HStack space="xs" alignItems="center">
@@ -462,6 +641,73 @@ export function ActivitiesScreen() {
         arcs={arcs}
         addActivity={addActivity}
       />
+      {viewEditorVisible && (
+        <View style={styles.viewEditorOverlay} pointerEvents="box-none">
+          <Pressable
+            style={styles.viewEditorBackdrop}
+            onPress={() => setViewEditorVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss view editor"
+          />
+          <View style={styles.viewEditorCard}>
+            <Text style={styles.viewEditorTitle}>
+              {viewEditorMode === 'create' ? 'New view' : 'View settings'}
+            </Text>
+            <Text style={styles.viewEditorDescription}>
+              {viewEditorMode === 'create'
+                ? 'Give this view a short, memorable name.'
+                : 'Rename this view or manage its shortcuts.'}
+            </Text>
+            <Text style={styles.viewEditorFieldLabel}>View name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Top priorities"
+              placeholderTextColor={colors.textSecondary}
+              value={viewEditorName}
+              onChangeText={setViewEditorName}
+            />
+            {viewEditorMode === 'settings' && (
+              <VStack style={styles.viewEditorShortcutsSection} space="xs">
+                <Text style={styles.viewEditorFieldLabel}>View actions</Text>
+                <HStack style={styles.viewEditorSecondaryActions} space="sm" alignItems="center">
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onPress={handleDuplicateCurrentView}
+                    accessibilityRole="button"
+                    accessibilityLabel="Duplicate this view"
+                  >
+                    <HStack alignItems="center" space="xs">
+                      <Icon name="clipboard" size={14} color={colors.textPrimary} />
+                      <Text style={styles.viewEditorShortcutLabel}>Duplicate view</Text>
+                    </HStack>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="small"
+                    onPress={handleDeleteCurrentView}
+                    accessibilityRole="button"
+                    accessibilityLabel="Delete this view"
+                  >
+                    <HStack alignItems="center" space="xs">
+                      <Icon name="trash" size={14} color={colors.canvas} />
+                      <Text style={styles.viewEditorShortcutDestructiveLabel}>Delete view</Text>
+                    </HStack>
+                  </Button>
+                </HStack>
+              </VStack>
+            )}
+            <HStack style={styles.viewEditorActions} space="sm" alignItems="center">
+              <Button variant="ghost" onPress={() => setViewEditorVisible(false)}>
+                <Text>Cancel</Text>
+              </Button>
+              <Button onPress={handleConfirmViewEdit}>
+                <Text>Save</Text>
+              </Button>
+            </HStack>
+          </View>
+        </View>
+      )}
     </AppShell>
   );
 }
@@ -484,9 +730,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   appliedChipsRow: {
-    // Keep the gap between the applied chips and the Activities canvas tight so
-    // the pills feel directly connected to the list below.
-    marginBottom: 0,
+    // Keep a comfortable gap between the applied chips and the Activities list
+    // so the controls feel visually separate from the canvas, while still
+    // clearly associated with it.
+    marginBottom: spacing.lg,
   },
   emptyState: {
     // When the list is empty, keep the "No activities yet" message close to the
@@ -615,6 +862,62 @@ const styles = StyleSheet.create({
     minHeight: 120,
     textAlignVertical: 'top',
   },
+  viewEditorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewEditorBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+  },
+  viewEditorCard: {
+    maxWidth: 480,
+    width: '90%',
+    borderRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.canvas,
+    shadowColor: '#000000',
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  viewEditorTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  viewEditorDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  viewEditorFieldLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  viewEditorShortcutsSection: {
+    marginTop: spacing.lg,
+  },
+  viewEditorSecondaryActions: {
+    flexDirection: 'row',
+  },
+  viewEditorActions: {
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  viewEditorShortcutLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  viewEditorShortcutDestructiveLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+  },
 });
 
 function getFilterLabel(mode: ActivityFilterMode): string {
@@ -633,21 +936,19 @@ function getFilterLabel(mode: ActivityFilterMode): string {
 
 function getSortLabel(mode: ActivitySortMode): string {
   switch (mode) {
+    case 'titleAsc':
+      return 'Title A–Z';
+    case 'titleDesc':
+      return 'Title Z–A';
+    case 'dueDateAsc':
+      return 'Due date (soonest first)';
+    case 'dueDateDesc':
+      return 'Due date (latest first)';
     case 'priority':
-      return 'Priority (1 → 3)';
+      return 'Priority (P1 first)';
     case 'manual':
     default:
       return 'Manual order';
-  }
-}
-
-function getViewLabel(viewId: ActivityViewId): string {
-  switch (viewId) {
-    case 'priorityFocus':
-      return 'Priority 1 focus';
-    case 'default':
-    default:
-      return 'Default view';
   }
 }
 

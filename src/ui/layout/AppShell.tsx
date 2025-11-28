@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     flex: 1,
     // Canvas: Light surface floating on top of the Pine shell
     backgroundColor: colors.shell,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
     paddingBottom: 0,
   },

@@ -23,7 +23,7 @@ import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
-import { CoachChatTurn, GeneratedArc, sendCoachChat } from '../../services/ai';
+import { CoachChatTurn, GeneratedArc, sendCoachChat, type CoachChatOptions } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
 import { useWorkflowRuntime } from './WorkflowRuntimeContext';
@@ -976,7 +976,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
           role: m.role,
           content: m.content,
         }));
-        const reply = await sendCoachChat(history, { mode });
+        const coachOptions: CoachChatOptions = {
+          mode,
+          workflowDefinitionId: workflowRuntime?.definition?.id,
+          workflowInstanceId: workflowRuntime?.instance?.id,
+          workflowStepId: workflowRuntime?.instance?.currentStepId,
+          launchContextSummary: launchContext,
+        };
+        const reply = await sendCoachChat(history, coachOptions);
         const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
         if (arcProposal) {
           setArcProposal(arcProposal);
@@ -1020,7 +1027,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     return () => {
       cancelled = true;
     };
-  }, [mode, bootstrapped, shouldBootstrapAssistant]);
+  }, [mode, bootstrapped, shouldBootstrapAssistant, workflowRuntime, launchContext]);
 
   // When the user re-opens Arc Creation coach, restore any saved draft so they
   // can pick up where they left off instead of starting a fresh thread.
@@ -1112,7 +1119,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
         role: m.role,
         content: m.content,
       }));
-      const reply = await sendCoachChat(history, { mode });
+      const coachOptions: CoachChatOptions = {
+        mode,
+        workflowDefinitionId: workflowRuntime?.definition?.id,
+        workflowInstanceId: workflowRuntime?.instance?.id,
+        workflowStepId: workflowRuntime?.instance?.currentStepId,
+        launchContextSummary: launchContext,
+      };
+      const reply = await sendCoachChat(history, coachOptions);
       const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
       if (arcProposal) {
         setArcProposal(arcProposal);

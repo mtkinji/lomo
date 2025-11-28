@@ -11,7 +11,6 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -135,7 +134,6 @@ export function ArcsScreen() {
   const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
-  const insets = useSafeAreaInsets();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
   const [arcDraftMeta, setArcDraftMeta] = useState<ArcCoachDraftMeta | null>(null);
@@ -150,7 +148,7 @@ export function ArcsScreen() {
     [goals]
   );
 
-  const listTopPadding = headerHeight ? headerHeight + spacing.md : spacing['2xl'];
+  const listTopPadding = headerHeight ? headerHeight : spacing['2xl'];
   const listBottomPadding = 0;
 
   const workspaceSnapshot = useMemo(
@@ -178,18 +176,7 @@ export function ArcsScreen() {
 
   return (
     <AppShell>
-      <View
-        style={[
-          styles.screen,
-          {
-            // Let the Arcs header visually hug the top safe area while keeping
-            // the global AppShell padding for other screens.
-            marginTop: -spacing.sm,
-            // Allow the card list to visually run off the bottom of the phone.
-            marginBottom: -insets.bottom,
-          },
-        ]}
-      >
+      <View style={styles.screen}>
         <View
           style={styles.fixedHeader}
           onLayout={(event) => {
@@ -233,6 +220,7 @@ export function ArcsScreen() {
                 <ArcListCard arc={item} goalCount={goalCountByArc[item.id] ?? 0} />
               </Pressable>
             )}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListFooterComponent={
               arcDraftMeta ? (
                 <ArcDraftSection
@@ -470,7 +458,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   separator: {
-    height: spacing.md,
+    height: spacing.sm,
   },
   modalOverlay: {
     flex: 1,

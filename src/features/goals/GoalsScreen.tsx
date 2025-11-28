@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
+  Image,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -20,21 +21,56 @@ import { Card } from '@/components/ui/card';
 import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
-import type { Arc, Goal, GoalDraft, ThumbnailStyle } from '../../domain/types';
+import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { Logo } from '../../ui/Logo';
 import { fonts } from '../../theme/typography';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  ARC_MOSAIC_COLS,
+  ARC_MOSAIC_ROWS,
+  ARC_TOPO_GRID_SIZE,
+  buildArcThumbnailSeed,
+  getArcGradient,
+  getArcMosaicCell,
+  getArcTopoSizes,
+  pickThumbnailStyle,
+} from '../arcs/thumbnailVisuals';
+import * as ImagePicker from 'expo-image-picker';
 
 type GoalDraftEntry = {
   arcId: string;
   arcName: string;
   draft: GoalDraft;
+};
+
+type GoalCreationDraft = GoalDraft & {
+  /**
+   * Optional Arc this draft will be attached to once created. When unset, the
+   * goal starts as a standalone goal and can be connected later from the
+   * detail canvas.
+   */
+  arcId: string | null;
+  thumbnailUrl?: string;
+  thumbnailVariant?: number | null;
+  heroImageMeta?: Goal['heroImageMeta'];
+};
+
+const GOAL_FORCE_ORDER: Array<'force-activity' | 'force-connection' | 'force-mastery' | 'force-spirituality'> =
+  ['force-activity', 'force-connection', 'force-mastery', 'force-spirituality'];
+
+const GOAL_FORCE_LABELS: Record<(typeof GOAL_FORCE_ORDER)[number], string> = {
+  'force-activity': 'Activity',
+  'force-connection': 'Connection',
+  'force-mastery': 'Mastery',
+  'force-spirituality': 'Spirituality',
 };
 
 export function GoalsScreen() {
@@ -349,9 +385,23 @@ export function GoalCoachDrawer({
   navigateToGoalDetailOnCreate = true,
 }: GoalCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
-  const [manualTitle, setManualTitle] = React.useState('');
-  const [manualDescription, setManualDescription] = React.useState('');
+  const [thumbnailSheetVisible, setThumbnailSheetVisible] = React.useState(false);
+  const buildEmptyDraft = React.useCallback(
+    (): GoalCreationDraft => ({
+      title: '',
+      description: '',
+      status: 'planned',
+      forceIntent: defaultForceLevels(0),
+      arcId: launchFromArcId ?? null,
+      thumbnailUrl: undefined,
+      thumbnailVariant: 0,
+      heroImageMeta: undefined,
+    }),
+    [launchFromArcId],
+  );
+  const [draft, setDraft] = React.useState<GoalCreationDraft>(() => buildEmptyDraft());
   const addGoal = useAppStore((state) => state.addGoal);
+  const visuals = useAppStore((state) => state.userProfile?.visuals);
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList>>();
 
   const workspaceSnapshot = React.useMemo(
@@ -379,14 +429,85 @@ export function GoalCoachDrawer({
   React.useEffect(() => {
     if (!visible) {
       setActiveTab('ai');
-      setManualTitle('');
-      setManualDescription('');
+      setDraft(buildEmptyDraft());
     }
-  }, [visible]);
+  }, [visible, buildEmptyDraft, setDraft]);
+
+  const goalThumbnailSeed = React.useMemo(
+    () => buildArcThumbnailSeed(undefined, draft.title || 'New goal', draft.thumbnailVariant ?? 0),
+    [draft.title, draft.thumbnailVariant]
+  );
+
+  const { colors: goalThumbnailColors, direction: goalThumbnailDirection } = React.useMemo(
+    () => getArcGradient(goalThumbnailSeed),
+    [goalThumbnailSeed]
+  );
+
+  const thumbnailStyles = React.useMemo<ThumbnailStyle[]>(() => {
+    if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
+      return visuals.thumbnailStyles;
+    }
+    if (visuals?.thumbnailStyle) {
+      return [visuals.thumbnailStyle];
+    }
+    return ['topographyDots'];
+  }, [visuals]);
+
+  const goalThumbnailTopoSizes = React.useMemo(
+    () => getArcTopoSizes(goalThumbnailSeed),
+    [goalThumbnailSeed]
+  );
+
+  const goalThumbnailStyle = React.useMemo(
+    () => pickThumbnailStyle(goalThumbnailSeed, thumbnailStyles),
+    [goalThumbnailSeed, thumbnailStyles]
+  );
+
+  const manualShowTopography = goalThumbnailStyle === 'topographyDots';
+  const manualShowGeoMosaic = goalThumbnailStyle === 'geoMosaic';
+  const manualShowContourRings = goalThumbnailStyle === 'contourRings';
+  const manualShowPixelBlocks = goalThumbnailStyle === 'pixelBlocks';
+  const manualHasCustomThumbnail = Boolean(draft.thumbnailUrl);
+
+  const handleShuffleThumbnail = React.useCallback(() => {
+    setDraft((current) => ({
+      ...current,
+      thumbnailUrl: current.thumbnailUrl,
+      thumbnailVariant: (current.thumbnailVariant ?? 0) + 1,
+      heroImageMeta: current.heroImageMeta,
+    }));
+  }, []);
+
+  const handleUploadThumbnail = React.useCallback(async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+
+      const nowIso = new Date().toISOString();
+      setDraft((current) => ({
+        ...current,
+        thumbnailUrl: asset.uri,
+        heroImageMeta: {
+          source: 'upload',
+          prompt: undefined,
+          createdAt: nowIso,
+        },
+      }));
+    } catch {
+      // Swallow picker errors for now; we can surface a toast in a later pass.
+    }
+  }, []);
 
   const handleCreateManualGoal = () => {
-    const trimmedTitle = manualTitle.trim();
-    const trimmedDescription = manualDescription.trim();
+    const trimmedTitle = draft.title.trim();
+    const trimmedDescription = (draft.description ?? '').trim();
     if (!trimmedTitle) {
       return;
     }
@@ -396,16 +517,19 @@ export function GoalCoachDrawer({
 
     const goal: Goal = {
       id,
-      arcId: launchFromArcId ?? '',
+      arcId: draft.arcId ?? launchFromArcId ?? '',
       title: trimmedTitle,
       description: trimmedDescription.length > 0 ? trimmedDescription : undefined,
-      status: 'planned',
+      status: draft.status,
       startDate: timestamp,
       targetDate: undefined,
-      forceIntent: defaultForceLevels(0),
+      forceIntent: draft.forceIntent,
       metrics: [],
       createdAt: timestamp,
       updatedAt: timestamp,
+      thumbnailUrl: draft.thumbnailUrl,
+      thumbnailVariant: draft.thumbnailVariant ?? undefined,
+      heroImageMeta: draft.heroImageMeta,
     };
 
     addGoal(goal);
@@ -481,22 +605,33 @@ export function GoalCoachDrawer({
             </View>
           </View>
         </View>
-        {activeTab === 'ai' ? (
-          <View style={styles.goalCoachBody}>
+        {/* Keep both panes mounted so users can switch between AI and Manual without
+            losing their place in either canvas. We toggle visibility via styles
+            instead of mounting/unmounting children. */}
+        <View
+          style={[
+            styles.goalCoachBody,
+            activeTab !== 'ai' && { display: 'none' },
+          ]}
+        >
             <AgentWorkspace
               // Goal creation uses the dedicated Goal Creation Agent mode so the
               // conversation stays tightly focused on drafting one clear goal.
               mode="goalCreation"
               launchContext={launchContext}
               workspaceSnapshot={workspaceSnapshot}
+            // For now, we rely on keeping the workspace mounted to preserve state
+            // instead of resuming a persisted draft.
               resumeDraft={false}
               hideBrandHeader
               hidePromptSuggestions
             />
           </View>
-        ) : (
           <KeyboardAvoidingView
-            style={styles.goalCoachBody}
+          style={[
+            styles.goalCoachBody,
+            activeTab !== 'manual' && { display: 'none' },
+          ]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <ScrollView
@@ -505,13 +640,42 @@ export function GoalCoachDrawer({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
+            <Text style={styles.modalLabel}>Thumbnail</Text>
+            <Pressable
+              style={styles.goalThumbnailSection}
+              accessibilityRole="button"
+              accessibilityLabel="Edit goal thumbnail"
+              onPress={() => setThumbnailSheetVisible(true)}
+            >
+              <View style={styles.goalThumbnailPreview}>
+                {draft.thumbnailUrl ? (
+                  <Image
+                    source={{ uri: draft.thumbnailUrl }}
+                    style={styles.goalThumbnailImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={goalThumbnailColors}
+                    start={goalThumbnailDirection.start}
+                    end={goalThumbnailDirection.end}
+                    style={styles.goalThumbnailImage}
+                  />
+                )}
+              </View>
+            </Pressable>
               <Text style={styles.modalLabel}>Goal title</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Build a Birdhouse"
                 placeholderTextColor={colors.textSecondary}
-                value={manualTitle}
-                onChangeText={setManualTitle}
+                value={draft.title}
+                onChangeText={(next) =>
+                  setDraft((current) => ({
+                    ...current,
+                    title: next,
+                  }))
+                }
               />
               <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Short description</Text>
               <TextInput
@@ -519,12 +683,66 @@ export function GoalCoachDrawer({
                 placeholder="Describe the concrete progress you want to make."
                 placeholderTextColor={colors.textSecondary}
                 multiline
-                value={manualDescription}
-                onChangeText={setManualDescription}
+                value={draft.description ?? ''}
+                onChangeText={(next) =>
+                  setDraft((current) => ({
+                    ...current,
+                    description: next,
+                  }))
+                }
               />
+              <View style={{ marginTop: spacing.lg }}>
+                <Text style={styles.modalLabel}>Force intent (optional)</Text>
+                {GOAL_FORCE_ORDER.map((forceId) => {
+                  const level = (draft.forceIntent?.[forceId] ?? 0) as ForceLevel;
+                  return (
+                    <View key={forceId} style={styles.forceRow}>
+                      <View style={styles.forceHeaderRow}>
+                        <Text style={styles.forceLabel}>{GOAL_FORCE_LABELS[forceId]}</Text>
+                        <Text style={styles.forceValue}>{level}/3</Text>
+                      </View>
+                      <View style={styles.forceChipsRow}>
+                        {[0, 1, 2, 3].map((value) => {
+                          const isActive = level === value;
+                          return (
+                            <Pressable
+                              // eslint-disable-next-line react/no-array-index-key
+                              key={value}
+                              style={[
+                                styles.forceChip,
+                                isActive && styles.forceChipActive,
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Set ${GOAL_FORCE_LABELS[forceId]} to level ${value}`}
+                              onPress={() =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  forceIntent: {
+                                    ...current.forceIntent,
+                                    [forceId]: value as ForceLevel,
+                                  },
+                                }))
+                              }
+                            >
+                              <Text
+                                style={[
+                                  styles.forceChipLabel,
+                                  isActive && styles.forceChipLabelActive,
+                                ]}
+                              >
+                                {value}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
               <View style={{ marginTop: spacing.xl }}>
                 <Button
-                  disabled={manualTitle.trim().length === 0}
+                  disabled={draft.title.trim().length === 0}
                   onPress={handleCreateManualGoal}
                 >
                   <Text style={styles.buttonText}>Create Goal</Text>
@@ -532,8 +750,52 @@ export function GoalCoachDrawer({
               </View>
             </ScrollView>
           </KeyboardAvoidingView>
-        )}
       </View>
+      <TakadoBottomSheet
+        visible={thumbnailSheetVisible}
+        onClose={() => setThumbnailSheetVisible(false)}
+        snapPoints={['55%']}
+      >
+        <View style={styles.goalThumbnailSheetContent}>
+          <Text style={styles.goalThumbnailSheetTitle}>Goal thumbnail</Text>
+          <View style={styles.goalThumbnailSheetPreviewFrame}>
+            <View style={styles.goalThumbnailSheetPreviewInner}>
+              {draft.thumbnailUrl ? (
+                <Image
+                  source={{ uri: draft.thumbnailUrl }}
+                  style={styles.goalThumbnailSheetImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <LinearGradient
+                  colors={goalThumbnailColors}
+                  start={goalThumbnailDirection.start}
+                  end={goalThumbnailDirection.end}
+                  style={styles.goalThumbnailSheetImage}
+                />
+              )}
+            </View>
+          </View>
+          <View style={styles.goalThumbnailSheetButtonsRow}>
+            <Button
+              variant="outline"
+              style={styles.goalThumbnailSheetButton}
+              onPress={handleShuffleThumbnail}
+            >
+              <Text style={styles.goalThumbnailButtonLabel}>Refresh</Text>
+            </Button>
+            <Button
+              variant="outline"
+              style={styles.goalThumbnailSheetButton}
+              onPress={() => {
+                void handleUploadThumbnail();
+              }}
+            >
+              <Text style={styles.goalThumbnailButtonLabel}>Upload</Text>
+            </Button>
+          </View>
+        </View>
+      </TakadoBottomSheet>
     </BottomDrawer>
   );
 }
@@ -647,7 +909,9 @@ const styles = StyleSheet.create({
   },
   manualFormContainer: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
+    // Let the BottomDrawer define the primary horizontal gutters so this form
+    // aligns with other canvases. We only add vertical spacing here.
+    paddingHorizontal: 0,
     paddingTop: spacing.sm,
   },
   modalLabel: {
@@ -670,6 +934,197 @@ const styles = StyleSheet.create({
   manualNarrativeInput: {
     minHeight: 120,
     textAlignVertical: 'top',
+  },
+  goalThumbnailSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    columnGap: spacing.md,
+  },
+  goalThumbnailPreview: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  goalThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  goalThumbnailTopoLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalThumbnailTopoGrid: {
+    width: '100%',
+    height: '100%',
+    padding: spacing.sm,
+    justifyContent: 'space-between',
+  },
+  goalThumbnailTopoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  goalThumbnailTopoDot: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  goalThumbnailTopoDotSmall: {
+    width: 3,
+    height: 3,
+  },
+  goalThumbnailTopoDotMedium: {
+    width: 5,
+    height: 5,
+  },
+  goalThumbnailTopoDotLarge: {
+    width: 7,
+    height: 7,
+  },
+  goalThumbnailTopoDotHidden: {
+    opacity: 0,
+  },
+  goalThumbnailMosaicLayer: {
+    ...StyleSheet.absoluteFillObject,
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  goalThumbnailMosaicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  goalThumbnailMosaicCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalThumbnailMosaicBlock: {
+    width: '80%',
+    height: '80%',
+    borderRadius: 4,
+  },
+  goalThumbnailContourLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalThumbnailContourRing: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderRadius: 999,
+    borderColor: 'rgba(15,23,42,0.2)',
+    ...StyleSheet.absoluteFillObject,
+  },
+  goalThumbnailPixelLayer: {
+    ...StyleSheet.absoluteFillObject,
+    padding: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  goalThumbnailPixelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  goalThumbnailPixelCell: {
+    flex: 1,
+    aspectRatio: 1,
+    margin: 0.5,
+    borderRadius: 2,
+    backgroundColor: 'rgba(15,23,42,0.15)',
+  },
+  goalThumbnailPixelCellFilled: {
+    backgroundColor: '#1D4ED8',
+  },
+  goalThumbnailSheetContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  goalThumbnailSheetTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  goalThumbnailSheetPreviewFrame: {
+    width: '100%',
+    aspectRatio: 3 / 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+    marginBottom: spacing.lg,
+  },
+  goalThumbnailSheetPreviewInner: {
+    flex: 1,
+  },
+  goalThumbnailSheetImage: {
+    width: '100%',
+    height: '100%',
+  },
+  goalThumbnailSheetButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
+  },
+  goalThumbnailSheetButton: {
+    flexShrink: 1,
+  },
+  goalThumbnailButtonsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
+  },
+  goalThumbnailButton: {
+    flexShrink: 1,
+  },
+  goalThumbnailButtonLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  forceRow: {
+    marginTop: spacing.sm,
+  },
+  forceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  forceLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  forceValue: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  forceChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  forceChip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  forceChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  forceChipLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  forceChipLabelActive: {
+    color: colors.canvas,
   },
 });
 

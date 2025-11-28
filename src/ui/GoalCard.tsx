@@ -72,7 +72,7 @@ export function GoalCard({
 const styles = StyleSheet.create({
   goalCard: {
     ...cardSurfaceStyle,
-    padding: spacing.lg,
+    padding: spacing.sm,
   },
   goalTitle: {
     ...typography.titleSm,

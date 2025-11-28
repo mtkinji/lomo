@@ -12,6 +12,7 @@ import ImageIcon from 'lucide-react-native/dist/esm/icons/image';
 import RefreshCw from 'lucide-react-native/dist/esm/icons/refresh-cw';
 import Mic from 'lucide-react-native/dist/esm/icons/mic';
 import ArrowUp from 'lucide-react-native/dist/esm/icons/arrow-up';
+import ArrowDown from 'lucide-react-native/dist/esm/icons/arrow-down';
 import Circle from 'lucide-react-native/dist/esm/icons/circle';
 import ArrowLeft from 'lucide-react-native/dist/esm/icons/arrow-left';
 import Plus from 'lucide-react-native/dist/esm/icons/plus';
@@ -51,6 +52,7 @@ const icons = {
   image: ImageIcon,
   mic: Mic,
   arrowUp: ArrowUp,
+  arrowDown: ArrowDown,
   dot: Circle,
   arrowLeft: ArrowLeft,
   plus: Plus,

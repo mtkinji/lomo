@@ -1,4 +1,5 @@
 import { Arc, GoalDraft, type AgeRange } from '../domain/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFocusAreaLabel } from '../domain/focusAreas';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
@@ -210,6 +211,83 @@ export const buildUserProfileSummary = (): string | undefined => {
 export type CoachChatTurn = {
   role: 'assistant' | 'user' | 'system';
   content: string;
+};
+
+/**
+ * Dev-only storage key for inspecting raw Takado Coach conversations from the
+ * in-app DevTools screen. This is intentionally not used for any production
+ * features and is gated by `__DEV__` so we don't accumulate unbounded history
+ * in release builds.
+ */
+export const DEV_COACH_CHAT_HISTORY_STORAGE_KEY = 'lomo-dev-coach-history-v1';
+
+export type DevCoachChatFeedback = {
+  id: string;
+  createdAt: string;
+  note: string;
+};
+
+export type DevCoachChatLogEntry = {
+  id: string;
+  timestamp: string;
+  mode?: ChatMode;
+  /**
+   * Optional workflow metadata for chats that are running under a concrete
+   * WorkflowDefinition (for example, first-time onboarding v2).
+   */
+  workflowDefinitionId?: string;
+  workflowInstanceId?: string;
+  workflowStepId?: string;
+  /**
+   * Optional human-readable launch context summary string passed into the
+   * chat as a hidden system message. This is useful when reviewing dev
+   * history so we can see which screen/intent launched the coach.
+   */
+  launchContextSummary?: string;
+  messages: CoachChatTurn[];
+  /**
+   * Optional dev feedback notes attached from the DevTools screen. These are
+   * never sent to the model; they exist purely so we can aggregate workflow
+   * edits from real conversations.
+   */
+  feedback?: DevCoachChatFeedback[];
+};
+
+const MAX_DEV_CHAT_HISTORY_ENTRIES = 50;
+
+export type CoachChatOptions = {
+  mode?: ChatMode;
+  workflowDefinitionId?: string;
+  workflowInstanceId?: string;
+  workflowStepId?: string;
+  launchContextSummary?: string;
+};
+
+const appendDevCoachChatHistory = async (
+  snapshot: Omit<DevCoachChatLogEntry, 'id'>
+): Promise<void> => {
+  if (!__DEV__) return;
+
+  try {
+    const raw = await AsyncStorage.getItem(DEV_COACH_CHAT_HISTORY_STORAGE_KEY);
+    const existing: DevCoachChatLogEntry[] = raw ? JSON.parse(raw) : [];
+    const nextEntry: DevCoachChatLogEntry = {
+      id: `${snapshot.timestamp}-${existing.length + 1}`,
+      ...snapshot,
+    };
+    const next = [...existing, nextEntry];
+    const trimmed =
+      next.length > MAX_DEV_CHAT_HISTORY_ENTRIES
+        ? next.slice(next.length - MAX_DEV_CHAT_HISTORY_ENTRIES)
+        : next;
+    await AsyncStorage.setItem(
+      DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
+      JSON.stringify(trimmed)
+    );
+  } catch (err) {
+    // Dev-only surface; avoid crashing if history logging fails.
+    console.warn('Failed to append dev coach chat history', err);
+  }
 };
 
 type CoachToolName = 'get_user_profile' | 'set_user_profile';
@@ -757,7 +835,7 @@ async function requestOpenAiArcHeroImage(
  */
 export async function sendCoachChat(
   messages: CoachChatTurn[],
-  options?: { mode?: ChatMode }
+  options?: CoachChatOptions
 ): Promise<string> {
   const apiKey = resolveOpenAiApiKey();
   devLog('coachChat:init', {
@@ -923,8 +1001,26 @@ export async function sendCoachChat(
   if (!finalContent) {
     throw new Error('OpenAI coach chat follow-up response malformed');
   }
-
   devLog('coachChat:parsed:final', { contentPreview: previewText(finalContent) });
+
+  // In development builds, persist a snapshot of this turn so it can be
+  // inspected from the DevTools screen.
+  void appendDevCoachChatHistory({
+    timestamp: new Date().toISOString(),
+    mode: options?.mode,
+    workflowDefinitionId: options?.workflowDefinitionId,
+    workflowInstanceId: options?.workflowInstanceId,
+    workflowStepId: options?.workflowStepId,
+    launchContextSummary: options?.launchContextSummary,
+    messages: [
+      ...messages,
+      {
+        role: 'assistant',
+        content: String(finalContent),
+      },
+    ],
+  });
+
   return finalContent as string;
 }
 
