@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
+import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
 import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
@@ -48,6 +49,8 @@ import { EditableTextArea } from '../../ui/EditableTextArea';
 import { AgentFab } from '../../ui/AgentFab';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
+import { ActivityListItem } from '../../ui/ActivityListItem';
+import type { Activity } from '../../domain/types';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -73,6 +76,8 @@ export function GoalDetailScreen() {
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
   );
+  const addActivity = useAppStore((state) => state.addActivity);
+  const updateActivity = useAppStore((state) => state.updateActivity);
   const removeGoal = useAppStore((state) => state.removeGoal);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
@@ -92,7 +97,9 @@ export function GoalDetailScreen() {
     defaultForceLevels(0)
   );
   const [showFirstGoalCelebration, setShowFirstGoalCelebration] = useState(false);
+  const [vectorsInfoVisible, setVectorsInfoVisible] = useState(false);
   const insets = useSafeAreaInsets();
+  const [activityComposerVisible, setActivityComposerVisible] = useState(false);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
@@ -129,11 +136,52 @@ export function GoalDetailScreen() {
     }
   };
 
+  useEffect(() => {
+    if (__DEV__) {
+      // Track sheet visibility transitions so we can debug why the Arc selector
+      // may not be appearing when expected.
+      // eslint-disable-next-line no-console
+      console.log('[goalDetail] arcSelectorVisible changed', arcSelectorVisible);
+    }
+  }, [arcSelectorVisible]);
+
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
+  const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>('details');
   const goalActivities = useMemo(
     () => activities.filter((activity) => activity.goalId === goalId),
     [activities, goalId]
+  );
+
+  const handleToggleActivityComplete = useCallback(
+    (activityId: string) => {
+      const timestamp = new Date().toISOString();
+      updateActivity(activityId, (activity) => {
+        const nextIsDone = activity.status !== 'done';
+        return {
+          ...activity,
+          status: nextIsDone ? 'done' : 'planned',
+          completedAt: nextIsDone ? timestamp : null,
+          updatedAt: timestamp,
+        };
+      });
+    },
+    [updateActivity]
+  );
+
+  const handleToggleActivityPriorityOne = useCallback(
+    (activityId: string) => {
+      const timestamp = new Date().toISOString();
+      updateActivity(activityId, (activity) => {
+        const nextPriority = activity.priority === 1 ? undefined : 1;
+        return {
+          ...activity,
+          priority: nextPriority,
+          updatedAt: timestamp,
+        };
+      });
+    },
+    [updateActivity]
   );
 
   const heroSeed = useMemo(
@@ -204,6 +252,25 @@ export function GoalDetailScreen() {
 
   const forceIntent = { ...defaultForceLevels(0), ...goal.forceIntent };
   const liveForceIntent = editingForces ? editForceIntent : forceIntent;
+
+  const statusRaw = goal.status.replace('_', ' ');
+  const statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+
+  const updatedAtLabel = goal.updatedAt
+    ? new Date(goal.updatedAt).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : undefined;
+
+  const createdAtLabel = goal.createdAt
+    ? new Date(goal.createdAt).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : undefined;
 
   const handleShuffleGoalThumbnail = useCallback(() => {
     const timestamp = new Date().toISOString();
@@ -276,6 +343,18 @@ export function GoalDetailScreen() {
     setArcSelectorVisible(false);
   };
 
+  const handleOpenArcSelector = () => {
+    if (__DEV__) {
+      // Instrument tap behavior so we can debug Arc connection interactions.
+      // eslint-disable-next-line no-console
+      console.log('[goalDetail] Arc connection field pressed', {
+        goalId: goal.id,
+        currentArcId: goal.arcId || null,
+      });
+    }
+    setArcSelectorVisible(true);
+  };
+
   const handleSaveGoal = (values: {
     title: string;
     description?: string;
@@ -320,22 +399,55 @@ export function GoalDetailScreen() {
     }));
   };
 
-  const renderActivity = ({ item }: { item: (typeof activities)[number] }) => {
-    const estimateHours =
-      item.estimateMinutes != null ? Math.round((item.estimateMinutes ?? 0) / 60) : null;
+  const renderActivity = ({ item }: { item: Activity }) => {
+    const phase = item.phase ?? undefined;
+    const metaParts = [phase].filter(Boolean);
+    const meta = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+
     return (
-      <VStack style={styles.activityCard} space="xs">
-        <HStack justifyContent="space-between" alignItems="center">
-          <Text style={styles.activityPhase}>{item.phase ?? 'Activity'}</Text>
-          <Text style={styles.activityMeta}>
-            {estimateHours != null ? `${estimateHours}h · ` : ''}
-            {item.status.replace('_', ' ')}
-          </Text>
-        </HStack>
-        <Text style={styles.activityTitle}>{item.title}</Text>
-        {item.notes ? <Text style={styles.activityNotes}>{item.notes}</Text> : null}
-      </VStack>
+      <ActivityListItem
+        title={item.title}
+        meta={meta}
+        isCompleted={item.status === 'done'}
+        onToggleComplete={() => handleToggleActivityComplete(item.id)}
+        isPriorityOne={item.priority === 1}
+        onTogglePriority={() => handleToggleActivityPriorityOne(item.id)}
+      />
     );
+  };
+
+  const handleCreateActivityFromPlan = (values: { title: string; notes?: string }) => {
+    const trimmedTitle = values.title.trim();
+    if (!trimmedTitle) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const nextActivity: Activity = {
+      id,
+      goalId: goal.id,
+      title: trimmedTitle,
+      notes: values.notes?.trim().length ? values.notes.trim() : undefined,
+      reminderAt: null,
+      priority: undefined,
+      estimateMinutes: null,
+      scheduledDate: null,
+      repeatRule: undefined,
+      orderIndex: (activities.length || 0) + 1,
+      phase: null,
+      status: 'planned',
+      actualMinutes: null,
+      startedAt: null,
+      completedAt: null,
+      forceActual: defaultForceLevels(0),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    addActivity(nextActivity);
+    setActivityComposerVisible(false);
   };
 
   return (
@@ -368,298 +480,462 @@ export function GoalDetailScreen() {
       )}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={{ flex: 1 }}>
-      <VStack space="lg">
-        <HStack alignItems="center">
-          <View style={styles.headerSide}>
-            <IconButton
-              style={styles.backButton}
-              onPress={handleBack}
-              accessibilityLabel="Back to Arc"
-            >
-              <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-            </IconButton>
-          </View>
-          <View style={styles.headerCenter}>
-            <HStack alignItems="center" justifyContent="center" space="xs">
-              <Icon name="goals" size={16} color={colors.textSecondary} />
-              <Text style={styles.objectTypeLabel}>Goal</Text>
-            </HStack>
-          </View>
-          <View style={styles.headerSideRight}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <IconButton style={styles.optionsButton} accessibilityLabel="Goal actions">
-                  <Icon name="more" size={18} color={colors.canvas} />
-                </IconButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                {/* Primary, non-destructive actions first */}
-                <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
-                  <View style={styles.menuItemRow}>
-                    <Icon name="edit" size={16} color={colors.textSecondary} />
-                    <Text style={styles.menuItemLabel}>Edit details</Text>
-                  </View>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onPress={() => {
-                    Alert.alert(
-                      'Archive goal',
-                      'Archiving is not yet implemented. This will be wired to an archive action in the store.',
-                    );
-                  }}
+          <VStack space="lg">
+            <HStack alignItems="center">
+              <View style={styles.headerSide}>
+                <IconButton
+                  style={styles.backButton}
+                  onPress={handleBack}
+                  accessibilityLabel="Back to Arc"
                 >
-                  <View style={styles.menuItemRow}>
-                    <Icon name="info" size={16} color={colors.textSecondary} />
-                    <Text style={styles.menuItemLabel}>Archive</Text>
-                  </View>
-                </DropdownMenuItem>
-
-                {/* Divider before destructive actions */}
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
-                  <View style={styles.menuItemRow}>
-                    <Icon name="trash" size={16} color={colors.destructive} />
-                    <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
-                  </View>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </View>
-        </HStack>
-
-        <VStack space="sm">
-          {/* Thumbnail + inline title editor */}
-          <HStack alignItems="center" space="sm">
-            <TouchableOpacity
-              activeOpacity={0.9}
-              style={styles.goalThumbnailWrapper}
-              accessibilityRole="button"
-              accessibilityLabel="Edit goal thumbnail"
-              onPress={() => setThumbnailSheetVisible(true)}
-            >
-              <View style={styles.goalThumbnailInner}>
-                {goal.thumbnailUrl ? (
-                  <Image
-                    source={{ uri: goal.thumbnailUrl }}
-                    style={styles.goalThumbnail}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <LinearGradient
-                    colors={heroGradientColors}
-                    start={heroGradientDirection.start}
-                    end={heroGradientDirection.end}
-                    style={styles.goalThumbnail}
-                  />
-                )}
+                  <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+                </IconButton>
               </View>
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <EditableField
-                style={styles.inlineTitleField}
-                label="Title"
-                value={goal.title}
-                variant="title"
-                placeholder="Goal title"
-                validate={(next) => {
-                  if (!next.trim()) {
-                    return 'Title cannot be empty';
-                  }
-                  return null;
-                }}
-                onChange={(nextTitle) => {
-                  const trimmed = nextTitle.trim();
-                  if (!trimmed || trimmed === goal.title) {
-                    return;
-                  }
-                  const timestamp = new Date().toISOString();
-                  updateGoal(goal.id, (prev) => ({
-                    ...prev,
-                    title: trimmed,
-                    updatedAt: timestamp,
-                  }));
-                }}
-              />
-            </View>
-          </HStack>
+              <View style={styles.headerCenter}>
+                <HStack alignItems="center" justifyContent="center" space="xs">
+                  <Icon name="goals" size={16} color={colors.textSecondary} />
+                  <Text style={styles.objectTypeLabel}>Goal</Text>
+                </HStack>
+              </View>
+              <View style={styles.headerSideRight}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <IconButton style={styles.optionsButton} accessibilityLabel="Goal actions">
+                      <Icon name="more" size={18} color={colors.canvas} />
+                    </IconButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                    {/* Primary, non-destructive actions first */}
+                    <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
+                      <View style={styles.menuItemRow}>
+                        <Icon name="edit" size={16} color={colors.textSecondary} />
+                        <Text style={styles.menuItemLabel}>Edit details</Text>
+                      </View>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onPress={() => {
+                        Alert.alert(
+                          'Archive goal',
+                          'Archiving is not yet implemented. This will be wired to an archive action in the store.',
+                        );
+                      }}
+                    >
+                      <View style={styles.menuItemRow}>
+                        <Icon name="info" size={16} color={colors.textSecondary} />
+                        <Text style={styles.menuItemLabel}>Archive</Text>
+                      </View>
+                    </DropdownMenuItem>
 
-          <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => setArcSelectorVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel={arc ? 'Change connected arc' : 'Connect this goal to an arc'}
-          >
-            <HStack alignItems="center" space="xs" style={styles.arcRow}>
-              <Icon
-                name="goals"
-                size={16}
-                color={arc ? colors.textPrimary : colors.textSecondary}
-              />
-              <Text
-                style={arc ? styles.arcChipTextConnected : styles.arcChipText}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {arc ? `Arc · ${arc.name}` : 'Connect to an Arc'}
-              </Text>
-              <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                    {/* Divider before destructive actions */}
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
+                      <View style={styles.menuItemRow}>
+                        <Icon name="trash" size={16} color={colors.destructive} />
+                        <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
+                      </View>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </View>
             </HStack>
-          </TouchableOpacity>
 
-          <View style={{ marginTop: spacing.sm }}>
-            <EditableTextArea
-              label="Description"
-              value={goal.description ?? ''}
-              placeholder="Add a short description"
-              maxCollapsedLines={3}
-              enableAi
-              aiContext={{
-                objectType: 'goal',
-                objectId: goal.id,
-                fieldId: 'description',
-              }}
-              onChange={(nextDescription) => {
-                const trimmed = nextDescription.trim();
-                const timestamp = new Date().toISOString();
-                updateGoal(goal.id, (prev) => ({
-                  ...prev,
-                  description: trimmed.length === 0 ? undefined : trimmed,
-                  updatedAt: timestamp,
-                }));
-              }}
-              onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                openForFieldContext({
-                  objectType,
-                  objectId,
-                  fieldId,
-                  currentText,
-                  fieldLabel: 'Goal description',
-                });
-              }}
-            />
-          </View>
-          <HStack space="md" alignItems="center" style={styles.timeRow}>
-            {startDateLabel && (
-              <Text style={styles.timeText}>
-                Started {startDateLabel}
-                {targetDateLabel ? ` · Target ${targetDateLabel}` : ''}
-              </Text>
-            )}
-            {!startDateLabel && targetDateLabel && (
-              <Text style={styles.timeText}>Target {targetDateLabel}</Text>
-            )}
-            <Text style={styles.statusText}>{goal.status.replace('_', ' ')}</Text>
-          </HStack>
-        </VStack>
+            <VStack space="sm">
+              {/* Thumbnail + inline title editor */}
+              <HStack alignItems="center" space="sm">
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.goalThumbnailWrapper}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit goal thumbnail"
+                  onPress={() => setThumbnailSheetVisible(true)}
+                >
+                  <View style={styles.goalThumbnailInner}>
+                    {goal.thumbnailUrl ? (
+                      <Image
+                        source={{ uri: goal.thumbnailUrl }}
+                        style={styles.goalThumbnail}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={heroGradientColors}
+                        start={heroGradientDirection.start}
+                        end={heroGradientDirection.end}
+                        style={styles.goalThumbnail}
+                      />
+                    )}
+                  </View>
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <EditableField
+                    style={styles.inlineTitleField}
+                    label="Title"
+                    value={goal.title}
+                    variant="title"
+                    placeholder="Goal title"
+                    validate={(next) => {
+                      if (!next.trim()) {
+                        return 'Title cannot be empty';
+                      }
+                      return null;
+                    }}
+                    onChange={(nextTitle) => {
+                      const trimmed = nextTitle.trim();
+                      if (!trimmed || trimmed === goal.title) {
+                        return;
+                      }
+                      const timestamp = new Date().toISOString();
+                      updateGoal(goal.id, (prev) => ({
+                        ...prev,
+                        title: trimmed,
+                        updatedAt: timestamp,
+                      }));
+                    }}
+                  />
+                </View>
+              </HStack>
 
-        <VStack space="sm">
-          <HStack justifyContent="space-between" alignItems="center">
-            <Heading style={styles.sectionTitle}>Force intent</Heading>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleToggleForceEdit}
-              accessibilityRole="button"
-              accessibilityLabel={
-                editingForces ? 'Save force intent updates' : 'Edit force intent'
-              }
-              style={styles.forceEditIconButton}
-            >
-              <Icon
-                name="edit"
-                size={16}
-                color={editingForces ? colors.accent : colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </HStack>
-          <VStack
-            style={[styles.forceCard, editingForces && styles.editableFieldActive]}
-            space="sm"
-          >
-            {FORCE_ORDER.map((forceId) => {
-              const force = getCanonicalForce(forceId);
-              if (!force) return null;
-              const level = liveForceIntent[forceId] ?? 0;
-              const percentage = (Number(level) / 3) * 100;
+              {/* Canvas mode toggle: Details vs Plan vs History */}
+              <View style={styles.segmentedControlRow}>
+                <View style={styles.segmentedControl}>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    accessibilityRole="button"
+                    accessibilityLabel="Show goal details"
+                    style={[
+                      styles.segmentedOption,
+                      activeTab === 'details' && styles.segmentedOptionActive,
+                    ]}
+                    onPress={() => setActiveTab('details')}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentedOptionLabel,
+                        activeTab === 'details' && styles.segmentedOptionLabelActive,
+                      ]}
+                    >
+                      Details
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    accessibilityRole="button"
+                    accessibilityLabel="Show goal plan and activities"
+                    style={[
+                      styles.segmentedOption,
+                      activeTab === 'plan' && styles.segmentedOptionActive,
+                    ]}
+                    onPress={() => setActiveTab('plan')}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentedOptionLabel,
+                        activeTab === 'plan' && styles.segmentedOptionLabelActive,
+                      ]}
+                    >
+                      Plan
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    accessibilityRole="button"
+                    accessibilityLabel="Show goal history"
+                    style={[
+                      styles.segmentedOption,
+                      activeTab === 'history' && styles.segmentedOptionActive,
+                    ]}
+                    onPress={() => setActiveTab('history')}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentedOptionLabel,
+                        activeTab === 'history' && styles.segmentedOptionLabelActive,
+                      ]}
+                    >
+                      History
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </VStack>
 
-              if (!editingForces) {
-                return (
-                  <VStack key={forceId} space="xs">
-                    <HStack justifyContent="space-between" alignItems="center">
-                      <Text style={styles.forceLabel}>{force.name}</Text>
-                      <Text style={styles.forceValue}>{level}/3</Text>
-                    </HStack>
-                    <View style={styles.forceBarTrack}>
-                      <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
-                    </View>
-                  </VStack>
-                );
-              }
-
-              return (
-                <VStack key={forceId} space="xs">
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <Text style={styles.forceLabel}>{force.name}</Text>
-                    <Text style={styles.forceValue}>{level}/3</Text>
-                  </HStack>
-                  <HStack space="xs" style={styles.forceSliderRow}>
-                    {[0, 1, 2, 3].map((value) => (
-                      <TouchableOpacity
-                        key={value}
-                        activeOpacity={0.8}
-                        style={[
-                          styles.forceLevelChip,
-                          level === value && styles.forceLevelChipActive,
-                        ]}
-                        onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
+            {activeTab === 'details' && (
+              <VStack space="md">
+                <View style={{ marginTop: spacing.md }}>
+                  <HStack style={styles.timeRow}>
+                    <VStack space="xs" style={styles.lifecycleColumn}>
+                      <Text style={styles.timeLabel}>Status</Text>
+                      <Badge
+                        variant={
+                          goal.status === 'in_progress'
+                            ? 'default'
+                            : goal.status === 'planned'
+                              ? 'secondary'
+                              : 'secondary'
+                        }
                       >
-                        <Text
-                          style={[
-                            styles.forceLevelChipText,
-                            level === value && styles.forceLevelChipTextActive,
-                          ]}
-                        >
-                          {value}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                        {statusLabel}
+                      </Badge>
+                    </VStack>
+                    <VStack space="xs" style={styles.lifecycleColumn}>
+                      <Text style={styles.timeLabel}>Last modified</Text>
+                      <Text style={styles.timeText}>
+                        {updatedAtLabel ?? 'Just now'}
+                      </Text>
+                    </VStack>
                   </HStack>
+                </View>
+
+                <View style={{ marginTop: spacing.md }}>
+                  <EditableTextArea
+                    label="Description"
+                    value={goal.description ?? ''}
+                    placeholder="Add a short description"
+                    maxCollapsedLines={3}
+                    enableAi
+                    aiContext={{
+                      objectType: 'goal',
+                      objectId: goal.id,
+                      fieldId: 'description',
+                    }}
+                    onChange={(nextDescription) => {
+                      const trimmed = nextDescription.trim();
+                      const timestamp = new Date().toISOString();
+                      updateGoal(goal.id, (prev) => ({
+                        ...prev,
+                        description: trimmed.length === 0 ? undefined : trimmed,
+                        updatedAt: timestamp,
+                      }));
+                    }}
+                    onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                      openForFieldContext({
+                        objectType,
+                        objectId,
+                        fieldId,
+                        currentText,
+                        fieldLabel: 'Goal description',
+                      });
+                    }}
+                  />
+                </View>
+
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={styles.arcConnectionLabel}>Arc</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={handleOpenArcSelector}
+                    accessibilityRole="button"
+                    accessibilityLabel={arc ? 'Change connected arc' : 'Connect this goal to an arc'}
+                  >
+                    <HStack
+                      alignItems="center"
+                      justifyContent="space-between"
+                      style={styles.arcRow}
+                    >
+                      <Text
+                        style={arc ? styles.arcChipTextConnected : styles.arcChipText}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {arc ? arc.name : 'Connect to an Arc'}
+                      </Text>
+                      <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                    </HStack>
+                  </TouchableOpacity>
+                </View>
+
+                <HStack justifyContent="space-between" alignItems="center">
+                  <HStack alignItems="center" space="xs">
+                    <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => setVectorsInfoVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Learn how vectors work for this goal"
+                      style={styles.forceInfoIconButton}
+                    >
+                      <Icon name="info" size={16} color={colors.muted} />
+                    </TouchableOpacity>
+                  </HStack>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handleToggleForceEdit}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      editingForces
+                        ? 'Save vector balance updates'
+                        : 'Edit how this goal moves different vectors in your life'
+                    }
+                    style={styles.forceEditIconButton}
+                  >
+                    <Icon
+                      name="edit"
+                      size={16}
+                      color={editingForces ? colors.accent : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </HStack>
+                <VStack
+                  style={[styles.forceCard, editingForces && styles.editableFieldActive]}
+                  space="xs"
+                >
+                  {FORCE_ORDER.map((forceId) => {
+                    const force = getCanonicalForce(forceId);
+                    if (!force) return null;
+                    const level = liveForceIntent[forceId] ?? 0;
+                    const percentage = (Number(level) / 3) * 100;
+
+                    if (!editingForces) {
+                      return (
+                        <HStack key={forceId} style={styles.forceRow} alignItems="center">
+                          <Text style={styles.forceLabel}>{force.name}</Text>
+                          <View style={styles.forceBarWrapper}>
+                            <View style={styles.forceBarTrack}>
+                              <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
+                            </View>
+                          </View>
+                          <Text style={styles.forceValue}>{level}/3</Text>
+                        </HStack>
+                      );
+                    }
+
+                    return (
+                      <VStack key={forceId} space="xs">
+                        <HStack justifyContent="space-between" alignItems="center">
+                          <Text style={styles.forceLabel}>{force.name}</Text>
+                          <Text style={styles.forceValue}>{level}/3</Text>
+                        </HStack>
+                        <HStack space="xs" style={styles.forceSliderRow}>
+                          {[0, 1, 2, 3].map((value) => (
+                            <TouchableOpacity
+                              key={value}
+                              activeOpacity={0.8}
+                              style={[
+                                styles.forceLevelChip,
+                                level === value && styles.forceLevelChipActive,
+                              ]}
+                              onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
+                            >
+                              <Text
+                                style={[
+                                  styles.forceLevelChipText,
+                                  level === value && styles.forceLevelChipTextActive,
+                                ]}
+                              >
+                                {value}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </HStack>
+                      </VStack>
+                    );
+                  })}
                 </VStack>
-              );
-            })}
+                {createdAtLabel && (
+                  <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
+                )}
+              </VStack>
+            )}
+
+            {activeTab === 'history' && (
+              <VStack
+                space="md"
+                style={{
+                  flex: 1,
+                  paddingHorizontal: spacing.md,
+                  paddingBottom: spacing.lg,
+                  paddingTop: spacing.md,
+                }}
+              >
+                <Heading style={styles.sectionTitle}>History</Heading>
+                <VStack space="sm">
+                  <HStack style={styles.timeRow}>
+                    <VStack space="xs" style={styles.lifecycleColumn}>
+                      <Text style={styles.timeLabel}>Created</Text>
+                      <Text style={styles.timeText}>{createdAtLabel ?? 'Just now'}</Text>
+                    </VStack>
+                    <VStack space="xs" style={styles.lifecycleColumn}>
+                      <Text style={styles.timeLabel}>Last modified</Text>
+                      <Text style={styles.timeText}>{updatedAtLabel ?? 'Just now'}</Text>
+                    </VStack>
+                  </HStack>
+                  <Text style={styles.historyHintText}>
+                    This timeline will evolve to include key changes to your goal and related
+                    activities.
+                  </Text>
+                </VStack>
+              </VStack>
+            )}
+
+            {activeTab === 'plan' && (
+              <VStack
+                space="md"
+                style={{
+                  flex: 1,
+                  paddingHorizontal: spacing.md,
+                  paddingBottom: spacing.lg,
+                  paddingTop: spacing.md,
+                }}
+              >
+                <HStack justifyContent="space-between" alignItems="center">
+                  <Heading style={styles.sectionTitle}>Activities</Heading>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    accessibilityRole="button"
+                    accessibilityLabel="Add activity for this goal"
+                    onPress={() => setActivityComposerVisible(true)}
+                  >
+                    <HStack alignItems="center" space="xs">
+                      <Icon name="plus" size={14} color={colors.textPrimary} />
+                      <Text style={styles.addActivityLabel}>Add Activity</Text>
+                    </HStack>
+                  </Button>
+                </HStack>
+                {goalActivities.length === 0 ? (
+                  <VStack space="sm" style={styles.planEmptyState}>
+                    <Heading style={styles.planEmptyTitle}>No Activities yet</Heading>
+                    <Text style={styles.planEmptyBody}>
+                      Break this goal into a few small steps. Start with one quick win you can do in
+                      the next few days.
+                    </Text>
+                    <Text style={styles.planEmptyHint}>
+                      Use “Add Activity” to capture a concrete step. You can refine timing and
+                      details later from the Activities canvas.
+                    </Text>
+                  </VStack>
+                ) : (
+                  <VStack space="md">
+                    {goalActivities.map((activity) => (
+                      // TEMP: log activity titles to confirm data being rendered in Plan tab
+                      // eslint-disable-next-line no-console
+                      console.log('[GoalDetail] plan activity title', activity.title),
+                      <ActivityListItem
+                        key={activity.id}
+                        title={activity.title}
+                        meta={
+                          [
+                            activity.phase ?? undefined,
+                            // Mirror the Activities list by showing the parent goal title
+                            // under the activity. In this context we know the goal already,
+                            // so we can re-use its title directly.
+                            goal.title,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')
+                        }
+                        isCompleted={activity.status === 'done'}
+                        onToggleComplete={() => handleToggleActivityComplete(activity.id)}
+                        isPriorityOne={activity.priority === 1}
+                        onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
+                      />
+                    ))}
+                  </VStack>
+                )}
+              </VStack>
+            )}
           </VStack>
-        </VStack>
-
-        <VStack space="md">
-          <HStack space="sm">
-            <Button style={{ flex: 1 }}>
-              <Text style={styles.primaryCtaText}>Generate Activities with AI</Text>
-            </Button>
-            <Button variant="outline" style={{ flex: 1 }}>
-              <Text style={styles.secondaryCtaText}>Add Activity manually</Text>
-            </Button>
-          </HStack>
-        </VStack>
-
-        <VStack space="md" style={{ flex: 1 }}>
-          <Heading style={styles.sectionTitle}>Activities</Heading>
-          {goalActivities.length === 0 ? (
-            <Text style={styles.emptyBody}>
-              No Activities yet. These are the atomic units of doing—short, concrete steps that move
-              this goal forward.
-            </Text>
-          ) : (
-            <FlatList
-              data={goalActivities}
-              keyExtractor={(item) => item.id}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-              renderItem={renderActivity}
-              contentContainerStyle={{ paddingBottom: spacing.lg }}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </VStack>
-      </VStack>
         </View>
       </TouchableWithoutFeedback>
       <EditGoalModal
@@ -684,6 +960,28 @@ export function GoalDetailScreen() {
         }}
       />
       {AgentWorkspaceSheet}
+      <TakadoBottomSheet
+        visible={vectorsInfoVisible}
+        onClose={() => setVectorsInfoVisible(false)}
+        snapPoints={['40%']}
+      >
+        <VStack space="md" style={styles.vectorInfoContent}>
+          <Heading style={styles.vectorInfoTitle}>What are Vectors?</Heading>
+          <Text style={styles.vectorInfoBody}>
+            Vectors are the core directions of your life that this goal can move — like activity,
+            connection, mastery, and spirituality.
+          </Text>
+          <Text style={styles.vectorInfoBody}>
+            Use the levels to show how much this goal is about each vector. We use this to shape
+            better suggestions, reflections, and plans with you.
+          </Text>
+          <View style={styles.vectorInfoFooter}>
+            <Button variant="ghost" onPress={() => setVectorsInfoVisible(false)}>
+              <Text style={styles.vectorInfoCloseLabel}>Got it</Text>
+            </Button>
+          </View>
+        </VStack>
+      </TakadoBottomSheet>
       <TakadoBottomSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
@@ -729,6 +1027,12 @@ export function GoalDetailScreen() {
           </HStack>
         </View>
       </TakadoBottomSheet>
+      <GoalActivityComposerModal
+        visible={activityComposerVisible}
+        onClose={() => setActivityComposerVisible(false)}
+        onSubmit={handleCreateActivityFromPlan}
+        insetTop={insets.top}
+      />
     </AppShell>
   );
 }
@@ -891,6 +1195,13 @@ function ArcSelectorModal({
 
   useEffect(() => {
     if (visible) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[goalDetail] ArcSelectorModal opened', {
+          currentArcId,
+          availableArcs: arcs.length,
+        });
+      }
       setSelectedArcId(currentArcId);
       setQuery('');
     }
@@ -929,12 +1240,11 @@ function ArcSelectorModal({
             time.
           </Text>
 
-          <Text style={styles.modalLabel}>Search arcs</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.arcSearchInput]}
             value={query}
             onChangeText={setQuery}
-            placeholder="Search by name or narrative"
+            placeholder="Search arcs…"
             placeholderTextColor="#6B7280"
           />
 
@@ -949,7 +1259,10 @@ function ArcSelectorModal({
                   <TouchableOpacity
                     key={arc.id}
                     activeOpacity={0.8}
-                    style={styles.arcOptionRow}
+                    style={[
+                      styles.arcOptionRow,
+                      selected && styles.arcOptionRowSelected,
+                    ]}
                     onPress={() => setSelectedArcId(arc.id)}
                   >
                     <VStack space="xs" flex={1}>
@@ -1014,6 +1327,82 @@ function ArcSelectorModal({
   );
 }
 
+type GoalActivityComposerModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (values: { title: string; notes?: string }) => void;
+  insetTop: number;
+};
+
+function GoalActivityComposerModal({
+  visible,
+  onClose,
+  onSubmit,
+  insetTop,
+}: GoalActivityComposerModalProps) {
+  const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (visible) {
+      setTitle('');
+      setNotes('');
+    }
+  }, [visible]);
+
+  const disabled = title.trim().length === 0;
+
+  const handleSubmit = () => {
+    if (disabled) return;
+    onSubmit({ title, notes: notes.trim().length > 0 ? notes : undefined });
+  };
+
+  return (
+    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['55%']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[styles.modalOverlay, { paddingTop: insetTop }]}
+      >
+        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
+          <Heading style={styles.modalTitle}>Add Activity</Heading>
+          <Text style={styles.modalBody}>
+            Capture a concrete step that moves this goal forward. You can refine details later from
+            the Activities canvas.
+          </Text>
+
+          <Text style={styles.modalLabel}>Title</Text>
+          <TextInput
+            style={styles.input}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="e.g., Measure the desk area"
+            placeholderTextColor="#6B7280"
+          />
+
+          <Text style={styles.modalLabel}>Notes (optional)</Text>
+          <TextInput
+            style={[styles.input, styles.descriptionInput]}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Add a short note or checklist for this activity."
+            placeholderTextColor="#6B7280"
+            multiline
+          />
+
+          <HStack space="sm" marginTop={spacing.lg}>
+            <Button variant="outline" style={{ flex: 1 }} onPress={onClose}>
+              <Text style={styles.secondaryCtaText}>Cancel</Text>
+            </Button>
+            <Button style={{ flex: 1 }} disabled={disabled} onPress={handleSubmit}>
+              <Text style={styles.primaryCtaText}>Add</Text>
+            </Button>
+          </HStack>
+        </View>
+      </KeyboardAvoidingView>
+    </TakadoBottomSheet>
+  );
+}
+
 const styles = StyleSheet.create({
   headerSide: {
     flex: 1,
@@ -1057,14 +1446,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
   arcRow: {
-    marginTop: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.canvas,
-    alignSelf: 'flex-start',
+    width: '100%',
+  },
+  arcConnectionLabel: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
+    marginBottom: spacing.xs,
+    paddingLeft: spacing.md,
   },
   arcLabel: {
     ...typography.bodySm,
@@ -1121,42 +1517,110 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   timeRow: {
-    marginTop: spacing.xs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
   },
   timeText: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  statusText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+  timeLabel: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  lifecycleLabel: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
+    paddingLeft: spacing.md,
   },
   sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  lifecycleColumn: {
+    flex: 1,
+  },
+  forceIntentLabel: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
+    paddingLeft: spacing.md,
+  },
+  forceInfoIconButton: {
+    padding: spacing.xs,
+  },
   forceCard: {
     ...cardSurfaceStyle,
     padding: spacing.lg,
   },
+  forceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  forceBarWrapper: {
+    flex: 1,
+  },
   forceLabel: {
     ...typography.bodySm,
     color: colors.textPrimary,
+    minWidth: 120,
   },
   forceValue: {
     ...typography.bodySm,
     color: colors.textSecondary,
+    minWidth: 32,
+    textAlign: 'right',
   },
   forceBarTrack: {
     height: 8,
     borderRadius: 99,
     backgroundColor: colors.cardMuted,
     overflow: 'hidden',
+    width: '100%',
   },
   forceBarFill: {
     height: 8,
     borderRadius: 99,
     backgroundColor: colors.accent,
+  },
+  createdAtText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+  },
+  historyHintText: {
+    ...typography.bodySm,
+    color: colors.muted,
+    marginTop: spacing.sm,
+  },
+  vectorInfoContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  vectorInfoTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  vectorInfoBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  vectorInfoFooter: {
+    marginTop: spacing.md,
+    alignItems: 'flex-end',
+  },
+  vectorInfoCloseLabel: {
+    ...typography.bodySm,
+    color: colors.accent,
   },
   primaryCtaText: {
     ...typography.body,
@@ -1192,6 +1656,26 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: spacing.md,
+  },
+  addActivityLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  planEmptyState: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  planEmptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  planEmptyBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  planEmptyHint: {
+    ...typography.bodySm,
+    color: colors.muted,
   },
   forceEditOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1350,7 +1834,12 @@ const styles = StyleSheet.create({
   arcOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    borderRadius: 12,
+  },
+  arcOptionRowSelected: {
+    backgroundColor: colors.shellAlt,
   },
   arcOptionName: {
     ...typography.body,
@@ -1383,6 +1872,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: spacing.xs,
   },
+  arcSearchInput: {
+    marginTop: spacing.md,
+  },
   removeArcText: {
     ...typography.bodySm,
     color: colors.textSecondary,
@@ -1413,6 +1905,36 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
     textAlign: 'center',
+  },
+  segmentedControlRow: {
+    marginTop: spacing.xs,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    padding: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    alignSelf: 'flex-start',
+  },
+  segmentedOption: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  segmentedOptionActive: {
+    backgroundColor: colors.canvas,
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  segmentedOptionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  segmentedOptionLabelActive: {
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
   },
 });
 

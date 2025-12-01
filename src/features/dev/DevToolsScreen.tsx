@@ -5,8 +5,14 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography, fonts } from '../../theme';
-import { Button } from '../../ui/Button';
-import { Text } from '../../ui/primitives';
+import { Button, IconButton } from '../../ui/Button';
+import { Input } from '../../ui/Input';
+import { Badge } from '../../ui/Badge';
+import { Card } from '../../ui/Card';
+import { Icon } from '../../ui/Icon';
+import { VStack, HStack, Text, Heading, Textarea } from '../../ui/primitives';
+import { Dialog } from '../../ui/Dialog';
+import { TakadoBottomSheet } from '../../ui/BottomSheet';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
@@ -41,6 +47,9 @@ export function DevToolsScreen() {
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'tools' | 'gallery'>('tools');
+  const [demoDialogVisible, setDemoDialogVisible] = useState(false);
+  const [demoSheetVisible, setDemoSheetVisible] = useState(false);
 
   const loadChatHistory = async () => {
     try {
@@ -238,6 +247,213 @@ export function DevToolsScreen() {
     setFeedbackSummary(lines.join('\n'));
   };
 
+  const isGallery = viewMode === 'gallery';
+
+  const renderComponentGallery = () => {
+    return (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.stack}>
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Buttons</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Variants and sizes from the shared `Button` adapter.
+            </Text>
+            <VStack space="sm">
+              <HStack space="sm">
+                <Button variant="accent">
+                  <Text style={styles.primaryButtonLabel}>Primary</Text>
+                </Button>
+                <Button variant="secondary">
+                  <Text style={styles.secondaryButtonLabel}>Secondary</Text>
+                </Button>
+                <Button variant="outline">
+                  <Text style={styles.secondaryButtonLabel}>Outline</Text>
+                </Button>
+              </HStack>
+              <HStack space="sm">
+                <Button variant="destructive">
+                  <Text style={styles.primaryButtonLabel}>Destructive</Text>
+                </Button>
+                <Button variant="ghost">
+                  <Text style={styles.secondaryButtonLabel}>Ghost</Text>
+                </Button>
+              </HStack>
+              <View style={styles.gallerySubsectionHeader}>
+                <Text style={styles.galleryFieldLabel}>Size variants</Text>
+              </View>
+              <HStack space="sm">
+                <Button variant="accent">
+                  <Text style={styles.primaryButtonLabel}>Default</Text>
+                </Button>
+                <Button variant="accent" size="small">
+                  <Text style={styles.primaryButtonLabel}>Small</Text>
+                </Button>
+                <IconButton accessibilityLabel="Icon button example">
+                  <Icon name="more" size={18} color={colors.canvas} />
+                </IconButton>
+              </HStack>
+            </VStack>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Inputs</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Labeled inputs with helper and error text states.
+            </Text>
+            <VStack space="sm">
+              <Input label="Surface input" placeholder="Type something" />
+              <Input
+                label="Outline input"
+                variant="outline"
+                placeholder="Search"
+                leadingIcon="search"
+              />
+              <Input
+                label="With helper text"
+                helperText="Explain what belongs here."
+                placeholder="Add details"
+              />
+              <View style={styles.gallerySubsectionHeader}>
+                <Text style={styles.galleryFieldLabel}>Textarea</Text>
+              </View>
+              <Textarea
+                label="Notes"
+                placeholder="Long-form copy or notes across multiple lines."
+                multiline
+                numberOfLines={4}
+              />
+              <Input
+                label="Error state"
+                errorText="Something went wrong"
+                placeholder="Try again"
+              />
+            </VStack>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Badges</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Status and meta labels using the shared `Badge` adapter.
+            </Text>
+            <HStack space="sm">
+              <Badge>Default</Badge>
+              <Badge variant="secondary">Secondary</Badge>
+              <Badge variant="info">Info</Badge>
+              <Badge variant="outline">Outline</Badge>
+              <Badge variant="destructive">Destructive</Badge>
+            </HStack>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Cards</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Surface container from the `Card` adapter.
+            </Text>
+            <Card style={{ padding: spacing.md }}>
+              <VStack space="xs">
+                <Heading variant="sm">Card title</Heading>
+                <Text>
+                  Use cards to group related content on the main canvas without changing the shell
+                  background.
+                </Text>
+                <Button size="small">
+                  <Text style={styles.primaryButtonLabel}>Primary action</Text>
+                </Button>
+              </VStack>
+            </Card>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Typography</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Heading and text primitives with tone variants.
+            </Text>
+            <VStack space="sm">
+              <Heading variant="xl">Heading XL</Heading>
+              <Heading variant="lg">Heading LG</Heading>
+              <Heading variant="md">Heading MD</Heading>
+              <Heading variant="sm">Heading SM</Heading>
+              <Text>Body (default)</Text>
+              <Text variant="body">Body (body)</Text>
+              <Text variant="bodySm">Body (bodySm)</Text>
+              <Text variant="label">Label</Text>
+              <HStack space="sm" style={{ marginTop: spacing.sm }}>
+                <Text tone="secondary">Secondary tone</Text>
+                <Text tone="muted">Muted tone</Text>
+                <Text tone="accent">Accent tone</Text>
+                <Text tone="destructive">Destructive tone</Text>
+              </HStack>
+            </VStack>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Dialog</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Modal confirmation dialog using the shared `Dialog` adapter.
+            </Text>
+            <Button variant="accent" onPress={() => setDemoDialogVisible(true)}>
+              <Text style={styles.primaryButtonLabel}>Open dialog</Text>
+            </Button>
+            <Dialog
+              visible={demoDialogVisible}
+              onClose={() => setDemoDialogVisible(false)}
+              title="Example dialog"
+              description="Use dialogs for confirmations or focused decisions."
+              footer={
+                <HStack space="sm" style={{ justifyContent: 'flex-end' }}>
+                  <Button variant="outline" size="small" onPress={() => setDemoDialogVisible(false)}>
+                    <Text style={styles.secondaryButtonLabel}>Cancel</Text>
+                  </Button>
+                  <Button size="small" onPress={() => setDemoDialogVisible(false)}>
+                    <Text style={styles.primaryButtonLabel}>Confirm</Text>
+                  </Button>
+                </HStack>
+              }
+            >
+              <Text>
+                This is a live dialog preview. In real flows, you’d wire the actions to your feature
+                logic.
+              </Text>
+            </Dialog>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Bottom sheet</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Sliding panel built on the shared `TakadoBottomSheet` adapter.
+            </Text>
+            <Button variant="accent" onPress={() => setDemoSheetVisible(true)}>
+              <Text style={styles.primaryButtonLabel}>Open bottom sheet</Text>
+            </Button>
+            <Text style={styles.galleryHelperText}>
+              On device, swipe down or tap the scrim to dismiss.
+            </Text>
+          </View>
+        </View>
+
+        <TakadoBottomSheet
+          visible={demoSheetVisible}
+          onClose={() => setDemoSheetVisible(false)}
+          snapPoints={['40%']}
+        >
+          <View style={styles.sheetContent}>
+            <Heading variant="sm">Bottom sheet preview</Heading>
+            <Text style={styles.sheetBody}>
+              Use sheets for secondary flows and filters that should feel attached to the current
+              canvas.
+            </Text>
+            <Button variant="accent" size="small" onPress={() => setDemoSheetVisible(false)}>
+              <Text style={styles.primaryButtonLabel}>Close sheet</Text>
+            </Button>
+          </View>
+        </TakadoBottomSheet>
+      </ScrollView>
+    );
+  };
+
   return (
     <AppShell>
       <PageHeader
@@ -247,191 +463,227 @@ export function DevToolsScreen() {
         onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
       >
         <Text style={[styles.screenSubtitle, { paddingTop: spacing.lg }]}>
-          Utilities for testing and development. Only visible in
-          development builds.
+          {isGallery
+            ? 'Preview shared UI primitives live on-device. Only visible in development builds.'
+            : 'Utilities for testing and development. Only visible in development builds.'}
         </Text>
+        <View style={styles.tabSwitcher}>
+          <Pressable
+            style={[styles.tab, !isGallery && styles.tabActive]}
+            onPress={() => setViewMode('tools')}
+          >
+            <Text
+              style={[
+                styles.tabLabel,
+                !isGallery && styles.tabLabelActive,
+              ]}
+            >
+              Tools
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tab, isGallery && styles.tabActive]}
+            onPress={() => setViewMode('gallery')}
+          >
+            <Text
+              style={[
+                styles.tabLabel,
+                isGallery && styles.tabLabelActive,
+              ]}
+            >
+              Components
+            </Text>
+          </Pressable>
+        </View>
       </PageHeader>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.stack}>
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>First-time UX</Text>
-            {/* <Heading style={styles.cardTitle}>Trigger onboarding flow</Heading> */}
-            {/* <Text style={styles.cardBody}>
-              Launches the first-time experience overlay immediately, even if it was already
-              completed.
-            </Text> */}
-            <Button onPress={handleTriggerFirstTimeUx}>
-              <Text style={styles.primaryButtonLabel}>Trigger first-time UX</Text>
-            </Button>
-            {isFlowActive && (
-              <Button variant="secondary" onPress={dismissFlow}>
-                <Text style={styles.secondaryButtonLabel}>Force dismiss</Text>
+      {isGallery ? (
+        renderComponentGallery()
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.stack}>
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>First-time UX</Text>
+              {/* <Heading style={styles.cardTitle}>Trigger onboarding flow</Heading> */}
+              {/* <Text style={styles.cardBody}>
+                Launches the first-time experience overlay immediately, even if it was already
+                completed.
+              </Text> */}
+              <Button onPress={handleTriggerFirstTimeUx}>
+                <Text style={styles.primaryButtonLabel}>Trigger first-time UX</Text>
               </Button>
-            )}
-            <Button variant="secondary" onPress={handleShowFirstGoalCelebration}>
-              <Text style={styles.secondaryButtonLabel}>Show first-goal celebration</Text>
-            </Button>
-            <Text style={styles.meta}>
-              Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
-              {lastTriggeredLabel}
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardEyebrow}>Agent chat history</Text>
-              <Button
-                variant="secondary"
-                size="sm"
-                onPress={() => {
-                  void loadChatHistory();
-                }}
-              >
-                <Text style={styles.secondaryButtonLabel}>
-                  {isLoadingHistory ? 'Refreshing…' : 'Refresh'}
-                </Text>
+              {isFlowActive && (
+                <Button variant="secondary" onPress={dismissFlow}>
+                  <Text style={styles.secondaryButtonLabel}>Force dismiss</Text>
+                </Button>
+              )}
+              <Button variant="secondary" onPress={handleShowFirstGoalCelebration}>
+                <Text style={styles.secondaryButtonLabel}>Show first-goal celebration</Text>
               </Button>
-            </View>
-            <Text style={styles.cardBody}>
-              Inspect recent Takado Coach conversations captured from this device. History is stored
-              locally and only in development builds.
-            </Text>
-            {chatHistory.length === 0 ? (
               <Text style={styles.meta}>
-                No chat history captured yet. Start a conversation with the coach and then refresh.
+                Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
+                {lastTriggeredLabel}
               </Text>
-            ) : (
-              <View style={styles.historyList}>
-                {chatHistory.map((entry) => {
-                  const isExpanded = expandedEntryId === entry.id;
-                  return (
-                    <View key={entry.id} style={styles.historyItem}>
-                      <Pressable
-                        onPress={() =>
-                          setExpandedEntryId((current) =>
-                            current === entry.id ? null : entry.id
-                          )
-                        }
-                        style={styles.historyHeaderRow}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.historyTitle}>
-                            {entry.mode ? `Mode: ${entry.mode}` : 'Untyped conversation'}
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardEyebrow}>Agent chat history</Text>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => {
+                    void loadChatHistory();
+                  }}
+                >
+                  <Text style={styles.secondaryButtonLabel}>
+                    {isLoadingHistory ? 'Refreshing…' : 'Refresh'}
+                  </Text>
+                </Button>
+              </View>
+              <Text style={styles.cardBody}>
+                Inspect recent Takado Coach conversations captured from this device. History is
+                stored locally and only in development builds.
+              </Text>
+              {chatHistory.length === 0 ? (
+                <Text style={styles.meta}>
+                  No chat history captured yet. Start a conversation with the coach and then refresh.
+                </Text>
+              ) : (
+                <View style={styles.historyList}>
+                  {chatHistory.map((entry) => {
+                    const isExpanded = expandedEntryId === entry.id;
+                    return (
+                      <View key={entry.id} style={styles.historyItem}>
+                        <Pressable
+                          onPress={() =>
+                            setExpandedEntryId((current) =>
+                              current === entry.id ? null : entry.id,
+                            )
+                          }
+                          style={styles.historyHeaderRow}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.historyTitle}>
+                              {entry.mode ? `Mode: ${entry.mode}` : 'Untyped conversation'}
+                            </Text>
+                            <Text style={styles.historySubtitle}>
+                              {previewLastUserMessage(entry.messages)}
+                            </Text>
+                          </View>
+                          <Text style={styles.historyTimestamp}>
+                            {formatTimestamp(entry.timestamp)}
                           </Text>
-                          <Text style={styles.historySubtitle}>
-                            {previewLastUserMessage(entry.messages)}
-                          </Text>
-                        </View>
-                        <Text style={styles.historyTimestamp}>
-                          {formatTimestamp(entry.timestamp)}
-                        </Text>
-                      </Pressable>
-                      {isExpanded && (
-                        <View style={styles.historyTranscript}>
-                          {entry.workflowDefinitionId && (
-                            <Text style={styles.historyMetaLine}>
-                              Workflow: {entry.workflowDefinitionId}
-                              {entry.workflowStepId ? ` • Step: ${entry.workflowStepId}` : ''}
-                            </Text>
-                          )}
-                          {!entry.workflowDefinitionId && entry.mode && (
-                            <Text style={styles.historyMetaLine}>Mode: {entry.mode}</Text>
-                          )}
-                          {entry.launchContextSummary && (
-                            <Text style={styles.historyMetaLine} numberOfLines={3}>
-                              {entry.launchContextSummary}
-                            </Text>
-                          )}
-                          {entry.messages.map((message, index) => (
-                            <View key={`${entry.id}-${index}`} style={styles.historyMessageRow}>
-                              <Text style={styles.historyMessageRole}>
-                                {prettyRole(message.role)}
+                        </Pressable>
+                        {isExpanded && (
+                          <View style={styles.historyTranscript}>
+                            {entry.workflowDefinitionId && (
+                              <Text style={styles.historyMetaLine}>
+                                Workflow: {entry.workflowDefinitionId}
+                                {entry.workflowStepId ? ` • Step: ${entry.workflowStepId}` : ''}
                               </Text>
-                              <Text style={styles.historyMessageContent}>
-                                {message.content}
+                            )}
+                            {!entry.workflowDefinitionId && entry.mode && (
+                              <Text style={styles.historyMetaLine}>Mode: {entry.mode}</Text>
+                            )}
+                            {entry.launchContextSummary && (
+                              <Text style={styles.historyMetaLine} numberOfLines={3}>
+                                {entry.launchContextSummary}
                               </Text>
-                            </View>
-                          ))}
-                          {entry.feedback && entry.feedback.length > 0 && (
-                            <View style={styles.feedbackList}>
-                              {entry.feedback.map((fb) => (
-                                <View key={fb.id} style={styles.feedbackItem}>
-                                  <Text style={styles.feedbackMeta}>
-                                    {formatTimestamp(fb.createdAt)}
-                                  </Text>
-                                  <Text style={styles.feedbackNote}>{fb.note}</Text>
-                                </View>
-                              ))}
-                            </View>
-                          )}
-                          <View style={styles.feedbackEditor}>
-                            <Text style={styles.feedbackLabel}>
-                              Add workflow feedback for this chat
-                            </Text>
-                            <TextInput
-                              style={styles.feedbackInput}
-                              multiline
-                              placeholder="e.g., Offer a confirm option earlier when the user says they’re ready."
-                              placeholderTextColor={colors.textSecondary}
-                              value={feedbackDrafts[entry.id] ?? ''}
-                              onChangeText={(text) =>
-                                setFeedbackDrafts((current) => ({
-                                  ...current,
-                                  [entry.id]: text,
-                                }))
-                              }
-                            />
-                            <View style={styles.feedbackActionsRow}>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onPress={() => handleSaveFeedback(entry.id)}
-                              >
-                                <Text style={styles.secondaryButtonLabel}>Save feedback</Text>
-                              </Button>
+                            )}
+                            {entry.messages.map((message, index) => (
+                              <View key={`${entry.id}-${index}`} style={styles.historyMessageRow}>
+                                <Text style={styles.historyMessageRole}>
+                                  {prettyRole(message.role)}
+                                </Text>
+                                <Text style={styles.historyMessageContent}>
+                                  {message.content}
+                                </Text>
+                              </View>
+                            ))}
+                            {entry.feedback && entry.feedback.length > 0 && (
+                              <View style={styles.feedbackList}>
+                                {entry.feedback.map((fb) => (
+                                  <View key={fb.id} style={styles.feedbackItem}>
+                                    <Text style={styles.feedbackMeta}>
+                                      {formatTimestamp(fb.createdAt)}
+                                    </Text>
+                                    <Text style={styles.feedbackNote}>{fb.note}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                            <View style={styles.feedbackEditor}>
+                              <Text style={styles.feedbackLabel}>
+                                Add workflow feedback for this chat
+                              </Text>
+                              <TextInput
+                                style={styles.feedbackInput}
+                                multiline
+                                placeholder="e.g., Offer a confirm option earlier when the user says they’re ready."
+                                placeholderTextColor={colors.textSecondary}
+                                value={feedbackDrafts[entry.id] ?? ''}
+                                onChangeText={(text) =>
+                                  setFeedbackDrafts((current) => ({
+                                    ...current,
+                                    [entry.id]: text,
+                                  }))
+                                }
+                              />
+                              <View style={styles.feedbackActionsRow}>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onPress={() => handleSaveFeedback(entry.id)}
+                                >
+                                  <Text style={styles.secondaryButtonLabel}>Save feedback</Text>
+                                </Button>
+                              </View>
                             </View>
                           </View>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-            {chatHistory.length > 0 && (
-              <>
-                <View style={styles.historyFooterRow}>
-                  <Button variant="secondary" size="sm" onPress={handleGenerateSummary}>
-                    <Text style={styles.secondaryButtonLabel}>Generate workflow summary</Text>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onPress={handleClearChatHistory}
-                    style={{ marginLeft: spacing.sm }}
-                  >
-                    <Text style={styles.secondaryButtonLabel}>Clear history</Text>
-                  </Button>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
-                {feedbackSummary.length > 0 && (
-                  <View style={styles.summaryContainer}>
-                    <Text style={styles.summaryLabel}>Summary (copy/paste into Cursor)</Text>
-                    <ScrollView
-                      style={styles.summaryScroll}
-                      contentContainerStyle={styles.summaryContent}
-                      nestedScrollEnabled
+              )}
+              {chatHistory.length > 0 && (
+                <>
+                  <View style={styles.historyFooterRow}>
+                    <Button variant="secondary" size="sm" onPress={handleGenerateSummary}>
+                      <Text style={styles.secondaryButtonLabel}>Generate workflow summary</Text>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onPress={handleClearChatHistory}
+                      style={{ marginLeft: spacing.sm }}
                     >
-                      <Text style={styles.summaryText} selectable>
-                        {feedbackSummary}
-                      </Text>
-                    </ScrollView>
+                      <Text style={styles.secondaryButtonLabel}>Clear history</Text>
+                    </Button>
                   </View>
-                )}
-              </>
-            )}
+                  {feedbackSummary.length > 0 && (
+                    <View style={styles.summaryContainer}>
+                      <Text style={styles.summaryLabel}>Summary (copy/paste into Cursor)</Text>
+                      <ScrollView
+                        style={styles.summaryScroll}
+                        contentContainerStyle={styles.summaryContent}
+                        nestedScrollEnabled
+                      >
+                        <Text style={styles.summaryText} selectable>
+                          {feedbackSummary}
+                        </Text>
+                      </ScrollView>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </AppShell>
   );
 }
@@ -442,6 +694,30 @@ const styles = StyleSheet.create({
   },
   stack: {
     gap: spacing.lg,
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    padding: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    alignSelf: 'center',
+    marginTop: spacing.lg,
+  },
+  tab: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  tabActive: {
+    backgroundColor: colors.canvas,
+  },
+  tabLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  tabLabelActive: {
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
   },
   screenSubtitle: {
     ...typography.body,
@@ -614,6 +890,33 @@ const styles = StyleSheet.create({
   summaryText: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  gallerySectionDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  gallerySubsectionHeader: {
+    marginTop: spacing.sm,
+  },
+  galleryFieldLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  galleryHelperText: {
+    ...typography.bodySm,
+    color: colors.muted,
+    marginTop: spacing.xs,
+  },
+  sheetContent: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  sheetBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
 });
 

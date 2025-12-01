@@ -74,7 +74,9 @@ export function Button({
                 backgroundColor: colors.canvas,
               }
             : null),
-          ...(variant === 'ai'
+          // Treat both "accent" and "ai" as primary buttons that should read
+          // as solid pine even if Tailwind styles are unavailable.
+          ...(variant === 'ai' || variant === 'accent'
             ? {
                 backgroundColor: colors.accent,
               }

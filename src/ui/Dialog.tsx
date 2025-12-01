@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Modal, Platform, StyleSheet, View, TouchableWithoutFeedback } from 'react-native';
 import {
   Dialog as PrimitiveDialog,
   DialogContent,
@@ -7,6 +8,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { colors, spacing, typography } from '../theme';
+import { Text, Heading } from './Typography';
 
 type DialogProps = {
   visible: boolean;
@@ -22,6 +25,50 @@ type DialogProps = {
 };
 
 export function Dialog({ visible, onClose, title, description, children, footer }: DialogProps) {
+  // On native platforms, prefer a simple, reliable Modal-based implementation
+  // so dialogs always render as a centered card with a dimmed backdrop on top
+  // of the current app canvas.
+  if (Platform.OS !== 'web') {
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.overlay}>
+            <TouchableWithoutFeedback
+              // Capture taps inside the card so they don't bubble to the overlay.
+              onPress={() => {}}
+            >
+              <View style={styles.card}>
+                {(title || description) && (
+                  <View style={styles.header}>
+                    {title ? (
+                      <Heading style={styles.title} variant="sm">
+                        {title}
+                      </Heading>
+                    ) : null}
+                    {description ? (
+                      <Text style={styles.description} variant="bodySm" tone="secondary">
+                        {description}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+                {children ? <View style={styles.body}>{children}</View> : null}
+                {footer ? <View style={styles.footer}>{footer}</View> : null}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  }
+
+  // Web: keep using the Radix-style primitives so the design system matches
+  // the shadcn-react reference implementation.
   return (
     <PrimitiveDialog open={visible} onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent>
@@ -37,4 +84,43 @@ export function Dialog({ visible, onClose, title, description, children, footer 
     </PrimitiveDialog>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.45)', // translucent shell scrim
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 480,
+    borderRadius: 28,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+  },
+  header: {
+    marginBottom: spacing.sm,
+  },
+  title: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  description: {
+    marginTop: spacing.xs,
+  },
+  body: {
+    marginTop: spacing.sm,
+  },
+  footer: {
+    marginTop: spacing.lg,
+  },
+});
+
 
