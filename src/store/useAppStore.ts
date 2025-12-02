@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Activity,
+  ActivityView,
   Arc,
   ArcProposalFeedback,
   Force,
@@ -12,7 +13,7 @@ import {
   UserProfile,
 } from '../domain/types';
 
-export type LlmModel = 'gpt-4o-mini' | 'gpt-4o';
+export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
 type Updater<T> = (item: T) => T;
 
@@ -35,6 +36,16 @@ interface AppState {
    * the first time the user lands on the onboarding-created goal.
    */
   hasSeenFirstGoalCelebration: boolean;
+  /**
+   * Saved configurations for the Activities list. Includes both system views
+   * like "Default view" and user-created custom views.
+   */
+  activityViews: ActivityView[];
+  /**
+   * The currently active Activities view. When unset, the app falls back to
+   * the "default" view entry in `activityViews`.
+   */
+  activeActivityViewId: string | null;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -43,6 +54,7 @@ interface AppState {
   removeGoal: (goalId: string) => void;
   addActivity: (activity: Activity) => void;
   updateActivity: (activityId: string, updater: Updater<Activity>) => void;
+  removeActivity: (activityId: string) => void;
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
@@ -53,6 +65,10 @@ interface AppState {
   setLlmModel: (model: LlmModel) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
+  setActiveActivityViewId: (viewId: string | null) => void;
+  addActivityView: (view: ActivityView) => void;
+  updateActivityView: (viewId: string, updater: Updater<ActivityView>) => void;
+  removeActivityView: (viewId: string) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
@@ -223,6 +239,25 @@ const initialDemoActivities: Activity[] = [
   },
 ];
 
+const initialActivityViews: ActivityView[] = [
+  {
+    id: 'default',
+    name: 'Default view',
+    filterMode: 'all',
+    sortMode: 'manual',
+    showCompleted: true,
+    isSystem: true,
+  },
+  {
+    id: 'priorityFocus',
+    name: 'Priority 1 focus',
+    filterMode: 'priority1',
+    sortMode: 'priority',
+    showCompleted: true,
+    isSystem: true,
+  },
+];
+
 export const useAppStore = create(
   persist<AppState>(
     (set, get) => ({
@@ -230,6 +265,8 @@ export const useAppStore = create(
       arcs: [initialDemoArc],
       goals: [initialDemoGoal],
       activities: initialDemoActivities,
+      activityViews: initialActivityViews,
+      activeActivityViewId: 'default',
       goalRecommendations: {},
       arcFeedback: [],
       userProfile: buildDefaultUserProfile(),
@@ -282,6 +319,10 @@ export const useAppStore = create(
         set((state) => ({
           activities: withUpdate(state.activities, activityId, updater),
         })),
+      removeActivity: (activityId) =>
+        set((state) => ({
+          activities: state.activities.filter((activity) => activity.id !== activityId),
+        })),
       setGoalRecommendations: (arcId, goals) =>
         set((state) => ({
           goalRecommendations: {
@@ -321,6 +362,28 @@ export const useAppStore = create(
         set(() => ({
           hasSeenFirstGoalCelebration: seen,
         })),
+      setActiveActivityViewId: (viewId) =>
+        set(() => ({
+          activeActivityViewId: viewId,
+        })),
+      addActivityView: (view) =>
+        set((state) => ({
+          activityViews: [...state.activityViews, view],
+        })),
+      updateActivityView: (viewId, updater) =>
+        set((state) => ({
+          activityViews: withUpdate(state.activityViews, viewId, updater),
+        })),
+      removeActivityView: (viewId) =>
+        set((state) => {
+          const remainingViews = state.activityViews.filter((view) => view.id !== viewId);
+          const nextActiveId =
+            state.activeActivityViewId === viewId ? 'default' : state.activeActivityViewId;
+          return {
+            activityViews: remainingViews,
+            activeActivityViewId: nextActiveId,
+          };
+        }),
       setUserProfile: (profile) =>
         set(() => ({
           userProfile: {
@@ -348,6 +411,7 @@ export const useAppStore = create(
             userProfile: {
               ...base,
               fullName: undefined,
+              birthdate: undefined,
               ageRange: undefined,
               focusAreas: undefined,
               avatarUrl: undefined,
@@ -370,6 +434,8 @@ export const useAppStore = create(
           activities: [],
           goalRecommendations: {},
           userProfile: buildDefaultUserProfile(),
+          activityViews: initialActivityViews,
+          activeActivityViewId: 'default',
         }),
     }),
     {

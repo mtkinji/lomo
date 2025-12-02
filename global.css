@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* Light / dark theme surface tokens for React Native Reusables.
- * We map these roughly onto the existing Takado theme so that library
+ * We map these roughly onto the existing Kwilt theme so that library
  * primitives feel at home inside the app shell + canvas layers.
  */
 

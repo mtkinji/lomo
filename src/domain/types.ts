@@ -92,6 +92,29 @@ export interface Goal {
   arcId: string;
   title: string;
   description?: string;
+  /**
+   * Optional thumbnail image for visually distinguishing this Goal in lists.
+   * Can be a remote URL or a local asset URI.
+   */
+  thumbnailUrl?: string;
+  /**
+   * Optional counter used to rotate deterministic, system-generated thumbnails.
+   * Incrementing this value changes the seed passed to the appearance helpers.
+   */
+  thumbnailVariant?: number;
+  /**
+   * Optional metadata about the Goal hero / thumbnail image.
+   * The thumbnailUrl is still the canonical image URL used both for
+   * the hero on the detail page and the thumbnail in lists.
+   */
+  heroImageMeta?: {
+    source: 'ai' | 'upload';
+    /**
+     * Free-form description or prompt used when generating the image.
+     */
+    prompt?: string;
+    createdAt: string;
+  };
   status: 'planned' | 'in_progress' | 'completed' | 'archived';
   startDate?: string;
   targetDate?: string;
@@ -111,6 +134,18 @@ export interface GoalDraft {
 
 export type ActivityStatus = 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled';
 
+// Shared activity list view types so sort / filter modes can be reused across
+// screens and persisted in the app store.
+export type ActivityFilterMode = 'all' | 'priority1' | 'active' | 'completed';
+
+export type ActivitySortMode =
+  | 'manual'
+  | 'titleAsc'
+  | 'titleDesc'
+  | 'dueDateAsc'
+  | 'dueDateDesc'
+  | 'priority';
+
 export interface ActivityForceActual {
   [forceId: string]: ForceLevel;
 }
@@ -120,8 +155,33 @@ export interface Activity {
   goalId: string | null;
   title: string;
   notes?: string;
+  /**
+   * Optional timestamp for a reminder notification associated with this
+   * activity (for example, "remind me tomorrow morning"). This is stored as an
+   * ISO string in the user's local timezone and can be interpreted by
+   * scheduling logic in a future notifications layer.
+   */
+  reminderAt?: string | null;
+  /**
+   * Optional priority bucket for Activities. When set, 1 represents the
+   * highest priority (e.g., "Priority 1"), with larger numbers indicating
+   * lower urgency. Unset/null means the activity is not explicitly ranked.
+   */
+  priority?: 1 | 2 | 3;
   estimateMinutes?: number | null;
   scheduledDate?: string | null;
+  /**
+   * Optional recurrence rule for Activities that repeat on a cadence. This is
+   * intentionally lightweight for now; a future implementation can expand this
+   * to a richer RRULE-style structure if needed.
+   */
+  repeatRule?:
+    | 'daily'
+    | 'weekly'
+    | 'weekdays'
+    | 'monthly'
+    | 'yearly'
+    | 'custom';
   orderIndex?: number | null;
   phase?: string | null;
   status: ActivityStatus;
@@ -131,6 +191,27 @@ export interface Activity {
   forceActual: ActivityForceActual;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ActivityViewId = string;
+
+export interface ActivityView {
+  id: ActivityViewId;
+  name: string;
+  filterMode: ActivityFilterMode;
+  sortMode: ActivitySortMode;
+  /**
+   * Whether this view includes the "Completed" section in the Activities list.
+   * When false, completed activities are still stored but hidden in the UI.
+   * Defaults to true when omitted.
+   */
+  showCompleted?: boolean;
+  /**
+   * System views (like "Default view" or "Priority 1 focus") act as
+   * guardrails and can't be deleted. They can still be edited and those
+   * changes are persisted just like custom views.
+   */
+  isSystem?: boolean;
 }
 
 export interface ChapterArcStats {
@@ -231,7 +312,32 @@ export interface UserProfile {
   fullName?: string;
   email?: string;
   avatarUrl?: string;
+  /**
+   * Optional birthdate for the user in ISO YYYY-MM-DD format. This is the
+   * canonical source of truth for age; other fields like ageRange can be
+   * derived from it.
+   */
+  birthdate?: string;
   ageRange?: AgeRange;
+  /**
+   * Optional free-form description of how the user sees themselves in this
+   * season (roles, responsibilities, what matters most). Edited directly by
+   * the user in the Profile screen.
+   */
+  identitySummary?: string;
+  /**
+   * Optional longer-form context the user wants the Kwilt Agent to know about
+   * them (pasted background, life story, etc). This can be several paragraphs
+   * and is not passed to the model directly; instead it is summarized into
+   * `coachContextSummary` for use in prompts.
+   */
+  coachContextRaw?: string;
+  /**
+   * Short, model-ready summary of the user’s identity and background compiled
+   * from `identitySummary`, `coachContextRaw`, and other profile fields. This
+   * is the primary blob we include in prompts alongside structured fields.
+   */
+  coachContextSummary?: string;
   focusAreas?: FocusAreaId[];
   notifications?: {
     remindersEnabled?: boolean;

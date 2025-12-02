@@ -1,4 +1,5 @@
 import { Arc, GoalDraft, type AgeRange } from '../domain/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFocusAreaLabel } from '../domain/focusAreas';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
@@ -44,6 +45,22 @@ const previewText = (value?: string) => {
   return `${trimmed.slice(0, 77)}…`;
 };
 
+const calculateAgeFromBirthdate = (birthdate?: string): number | null => {
+  if (!birthdate) return null;
+  const date = new Date(birthdate);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDiff = today.getMonth() - date.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+    age -= 1;
+  }
+  if (age < 0 || age > 120) {
+    return null;
+  }
+  return age;
+};
+
 const describeKey = (key?: string) =>
   key ? { present: true, length: key.length } : { present: false };
 
@@ -58,7 +75,7 @@ const devLog = (context: string, details?: Record<string, unknown>) => {
   }
 };
 
-const buildUserProfileSummary = (): string | undefined => {
+export const buildUserProfileSummary = (): string | undefined => {
   // Zustand store hook has a getState method we can use outside React components.
   const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
   const profile = state?.userProfile;
@@ -69,11 +86,28 @@ const buildUserProfileSummary = (): string | undefined => {
 
   const parts: string[] = [];
 
+  // Core identity snapshot
+  if (profile.fullName) {
+    parts.push(`Name: ${profile.fullName}.`);
+  }
+  const derivedAge = calculateAgeFromBirthdate(profile.birthdate);
+  if (typeof derivedAge === 'number') {
+    parts.push(`Approximate age: ${derivedAge}.`);
+  }
+  if (profile.birthdate) {
+    parts.push(`Birthdate: ${profile.birthdate}.`);
+  }
   if (profile.ageRange) {
     parts.push(`Age range: ${profile.ageRange}.`);
   }
   if (profile.timezone) {
     parts.push(`Timezone: ${profile.timezone}.`);
+  }
+  if (profile.identitySummary) {
+    parts.push(`Identity summary: ${profile.identitySummary}`);
+  }
+  if (profile.coachContextSummary) {
+    parts.push(`Additional context: ${profile.coachContextSummary}`);
   }
   if (profile.focusAreas && profile.focusAreas.length > 0) {
     const labels = profile.focusAreas.map((area) => getFocusAreaLabel(area));
@@ -163,12 +197,97 @@ const buildUserProfileSummary = (): string | undefined => {
     return undefined;
   }
 
-  return parts.join(' ');
+  const text = parts.join(' ');
+
+  // Keep the final summary reasonably compact so prompts stay within bounds.
+  const MAX_LENGTH = 600;
+  if (text.length <= MAX_LENGTH) {
+    return text;
+  }
+
+  return `${text.slice(0, MAX_LENGTH - 1)}…`;
 };
 
 export type CoachChatTurn = {
   role: 'assistant' | 'user' | 'system';
   content: string;
+};
+
+/**
+ * Dev-only storage key for inspecting raw Kwilt Coach conversations from the
+ * in-app DevTools screen. This is intentionally not used for any production
+ * features and is gated by `__DEV__` so we don't accumulate unbounded history
+ * in release builds.
+ */
+export const DEV_COACH_CHAT_HISTORY_STORAGE_KEY = 'lomo-dev-coach-history-v1';
+
+export type DevCoachChatFeedback = {
+  id: string;
+  createdAt: string;
+  note: string;
+};
+
+export type DevCoachChatLogEntry = {
+  id: string;
+  timestamp: string;
+  mode?: ChatMode;
+  /**
+   * Optional workflow metadata for chats that are running under a concrete
+   * WorkflowDefinition (for example, first-time onboarding v2).
+   */
+  workflowDefinitionId?: string;
+  workflowInstanceId?: string;
+  workflowStepId?: string;
+  /**
+   * Optional human-readable launch context summary string passed into the
+   * chat as a hidden system message. This is useful when reviewing dev
+   * history so we can see which screen/intent launched the coach.
+   */
+  launchContextSummary?: string;
+  messages: CoachChatTurn[];
+  /**
+   * Optional dev feedback notes attached from the DevTools screen. These are
+   * never sent to the model; they exist purely so we can aggregate workflow
+   * edits from real conversations.
+   */
+  feedback?: DevCoachChatFeedback[];
+};
+
+const MAX_DEV_CHAT_HISTORY_ENTRIES = 50;
+
+export type CoachChatOptions = {
+  mode?: ChatMode;
+  workflowDefinitionId?: string;
+  workflowInstanceId?: string;
+  workflowStepId?: string;
+  launchContextSummary?: string;
+};
+
+const appendDevCoachChatHistory = async (
+  snapshot: Omit<DevCoachChatLogEntry, 'id'>
+): Promise<void> => {
+  if (!__DEV__) return;
+
+  try {
+    const raw = await AsyncStorage.getItem(DEV_COACH_CHAT_HISTORY_STORAGE_KEY);
+    const existing: DevCoachChatLogEntry[] = raw ? JSON.parse(raw) : [];
+    const nextEntry: DevCoachChatLogEntry = {
+      id: `${snapshot.timestamp}-${existing.length + 1}`,
+      ...snapshot,
+    };
+    const next = [...existing, nextEntry];
+    const trimmed =
+      next.length > MAX_DEV_CHAT_HISTORY_ENTRIES
+        ? next.slice(next.length - MAX_DEV_CHAT_HISTORY_ENTRIES)
+        : next;
+    await AsyncStorage.setItem(
+      DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
+      JSON.stringify(trimmed)
+    );
+  } catch (err) {
+    // Dev-only surface; avoid crashing if history logging fails.
+    console.warn('Failed to append dev coach chat history', err);
+  }
 };
 
 type CoachToolName = 'get_user_profile' | 'set_user_profile';
@@ -368,7 +487,7 @@ async function requestOpenAiArcs(
 ): Promise<GeneratedArc[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are Takado Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
+    'You are Kwilt Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -510,7 +629,7 @@ async function requestOpenAiGoals(
 ): Promise<GoalDraft[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are Takado Coach, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
+    'You are Kwilt Coach, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
     'Return thoughtful goal drafts with title, description, status, forceIntent (values 0-3 for each canonical force), and optional suggestedActivities.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -711,12 +830,12 @@ async function requestOpenAiArcHeroImage(
 }
 
 /**
- * Generic Takado Coach chat endpoint backed by OpenAI's Chat Completions API.
- * This powers the free-form Takado Coach conversation in the bottom sheet.
+ * Generic Kwilt Coach chat endpoint backed by OpenAI's Chat Completions API.
+ * This powers the free-form Kwilt Coach conversation in the bottom sheet.
  */
 export async function sendCoachChat(
   messages: CoachChatTurn[],
-  options?: { mode?: ChatMode }
+  options?: CoachChatOptions
 ): Promise<string> {
   const apiKey = resolveOpenAiApiKey();
   devLog('coachChat:init', {
@@ -733,7 +852,7 @@ export async function sendCoachChat(
   }
 
   const baseSystemPrompt =
-    'You are Takado Coach, a calm, practical life architecture coach. ' +
+    'You are Kwilt Coach, a calm, practical life architecture coach. ' +
     'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
     'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
 
@@ -800,7 +919,7 @@ export async function sendCoachChat(
       statusText: response.statusText,
       payloadPreview: previewText(errorText),
     });
-    throw new Error('Unable to reach Takado Coach');
+    throw new Error('Unable to reach Kwilt Coach');
   }
 
   const data = await response.json();
@@ -874,7 +993,7 @@ export async function sendCoachChat(
   if (!followupResponse.ok) {
     const errorText = await followupResponse.text();
     console.error('OpenAI coach follow-up error', errorText);
-    throw new Error('Unable to reach Takado Coach (follow-up)');
+    throw new Error('Unable to reach Kwilt Coach (follow-up)');
   }
 
   const followupData = await followupResponse.json();
@@ -882,8 +1001,26 @@ export async function sendCoachChat(
   if (!finalContent) {
     throw new Error('OpenAI coach chat follow-up response malformed');
   }
-
   devLog('coachChat:parsed:final', { contentPreview: previewText(finalContent) });
+
+  // In development builds, persist a snapshot of this turn so it can be
+  // inspected from the DevTools screen.
+  void appendDevCoachChatHistory({
+    timestamp: new Date().toISOString(),
+    mode: options?.mode,
+    workflowDefinitionId: options?.workflowDefinitionId,
+    workflowInstanceId: options?.workflowInstanceId,
+    workflowStepId: options?.workflowStepId,
+    launchContextSummary: options?.launchContextSummary,
+    messages: [
+      ...messages,
+      {
+        role: 'assistant',
+        content: String(finalContent),
+      },
+    ],
+  });
+
   return finalContent as string;
 }
 
@@ -960,9 +1097,11 @@ function resolveOpenAiApiKey(): string | undefined {
 function resolveChatModel(): LlmModel {
   const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
   const model = state?.llmModel;
-  if (model === 'gpt-4o' || model === 'gpt-4o-mini') {
+
+  if (model === 'gpt-4o' || model === 'gpt-4o-mini' || model === 'gpt-5.1') {
     return model;
   }
+
   return 'gpt-4o-mini';
 }
 

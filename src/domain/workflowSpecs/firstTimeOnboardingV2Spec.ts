@@ -123,6 +123,17 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
     kind: 'first_time_onboarding_v2',
     fields: {
       name: 'string',
+      /**
+       * Canonical birthdate captured during onboarding. Stored as a string so
+       * clients can choose their preferred formatting, but callers should
+       * normalize to ISO YYYY-MM-DD where possible.
+       */
+      birthdate: 'string',
+      /**
+       * Approximate age derived from the birthdate at the time of onboarding.
+       * This is treated as a soft hint for tone/examples and may drift over
+       * time; the birthdate remains the source of truth.
+       */
       age: 'number',
       desireSummary: 'string',
       goal: {
@@ -148,7 +159,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         'In 1 short sentence, welcome the user to TAKADO, describe it as a place to bring clarity to their life one goal, one step, one chapter at a time, and explain that you will guide them through a short setup so they can begin with confidence.',
       renderMode: 'static',
       staticCopy:
-        '👋 Welcome to Takado.\n\nThis is where you turn vague ideas and "some day” goals into clear, actionable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
+        '👋 Welcome to Kwilt.\n\nThis is where you turn vague ideas and "some day” goals into clear, actionable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
       copyLength: 'one_sentence',
       validationHint:
         'No fields collected; keep the message short, warm, and specific about what will happen.',
@@ -157,9 +168,9 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
     {
       id: 'identity_intro',
       kind: 'assistant_copy_only',
-      label: 'Invite name and age',
+      label: 'Invite name and birthday',
       prompt:
-        'Ask the user, in one short sentence, “What should I call you and how old are you?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
+        'Ask the user, in one short sentence, “What should I call you and when is your birthday?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
       copyLength: 'one_sentence',
       validationHint:
         'No structured fields here; simply orient the user and invite them to share their preferred name and age.',
@@ -169,13 +180,13 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       id: 'identity_basic',
       kind: 'form',
       label: 'Basic identity',
-      collects: ['name', 'age'],
+      collects: ['name', 'birthdate', 'age'],
       hideFreeformChatInput: true,
       prompt:
-        'After the user has seen the identity_intro message and shared their name and age via the card, acknowledge them warmly in one short sentence (for example, “Good to meet you, {{name}}.”) and note that you’ll use what they shared to tune tone and examples. Do not ask any new questions.',
+        'After the user has seen the identity_intro message and shared their name and birthday via the card, acknowledge them warmly in one short sentence (for example, “Good to meet you, {{name}}.”) and note that you’ll use what they shared to tune tone and examples. Do not ask any new questions.',
       copyLength: 'one_sentence',
       validationHint:
-        'Name should be non-empty. Age should be a reasonable integer; if unclear, ask once for clarification and then move on.',
+        'Name should be non-empty. Birthdate should be a valid calendar date; if unclear, ask once for clarification and then move on.',
       next: 'desire_invite',
       ui: {
         fields: [
@@ -186,10 +197,10 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
             placeholder: 'e.g., Maya or MJ',
           },
           {
-            id: 'age',
-            label: 'Age',
-            type: 'number',
-            placeholder: 'How old are you?',
+            id: 'birthdate',
+            label: 'Birthday',
+            type: 'text',
+            placeholder: 'YYYY-MM-DD',
           },
         ],
       },
@@ -233,7 +244,8 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         '- Use natural, human language and avoid corporate or productivity jargon.\n\n' +
         'Context you have about the user:\n' +
         '- Name: {{name}}\n' +
-        '- Age: {{age}}\n' +
+        '- Birthdate: {{birthdate}}\n' +
+        '- Approximate age (derived from birthdate): {{age}}\n' +
         '- What they said they want to make progress on: {{desireSummary}}\n\n' +
         'Using only this context, synthesize ONE short-term goal that feels achievable in roughly 30–90 days.\n' +
         '- The goal **title** should be specific but not overwhelming (one short phrase).\n' +
@@ -262,10 +274,10 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Goal confirmation',
       collects: ['goalConfirmed'],
       prompt:
-        'In 1–2 short sentences, briefly acknowledge the saved goal, note that Takado will use it as their first goal, and remind them they can edit or change it anytime from the Goals view.',
+        'In 1–2 short sentences, briefly acknowledge the saved goal, note that Kwilt will use it as their first goal, and remind them they can edit or change it anytime from the Goals view.',
       renderMode: 'static',
       staticCopy:
-        'Great—let’s use this as your first goal in Takado. You can always rename it, tweak the wording, or change it from the Goals view once you’re in the app.',
+        'Great—let’s use this as your first goal in Kwilt. You can always rename it, tweak the wording, or change it from the Goals view once you’re in the app.',
       copyLength: 'short_paragraph',
       hideFreeformChatInput: true,
       validationHint:
@@ -294,12 +306,12 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Closing',
       prompt:
-        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in Takado, and remind them they can always refine it, add more goals, and design concrete plans once they are in the app.',
+        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in Kwilt, and remind them they can always refine it, add more goals, and design concrete plans once they are in the app.',
       renderMode: 'static',
       staticCopy:
         'Great—we’ve turned what you shared into a clear first goal to start from.\n\n' +
-        'This one isn’t meant to be perfect; it’s a simple starting point you can refine as you go. As you spend more time in Takado, you’ll be able to add more goals, break them into concrete steps, and design plans that actually fit your real life.\n\n' +
-        'From here, you can explore Takado, add your own goals, or start sketching a short plan around this one whenever you’re ready.',
+        'This one isn’t meant to be perfect; it’s a simple starting point you can refine as you go. As you spend more time in Kwilt, you’ll be able to add more goals, break them into concrete steps, and design plans that actually fit your real life.\n\n' +
+        'From here, you can explore Kwilt, add your own goals, or start sketching a short plan around this one whenever you’re ready.',
       copyLength: 'short_paragraph',
       validationHint:
         'No new fields; keep it concise, encouraging, and grounded. Avoid hype.',

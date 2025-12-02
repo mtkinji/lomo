@@ -24,6 +24,7 @@ import { GoalDetailScreen } from '../features/arcs/GoalDetailScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { GoalsScreen } from '../features/goals/GoalsScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
+import { ActivityDetailScreen } from '../features/activities/ActivityDetailScreen';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
@@ -35,7 +36,7 @@ import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Goals: NavigatorScreenParams<GoalsStackParamList> | undefined;
-  Activities: undefined;
+  Activities: NavigatorScreenParams<ActivitiesStackParamList> | undefined;
   Chapters: undefined;
   Settings: undefined;
   DevTools: undefined;
@@ -50,6 +51,10 @@ export type GoalDetailRouteParams = {
    * history.
    */
   entryPoint?: 'goalsTab' | 'arcsStack';
+};
+
+export type ActivityDetailRouteParams = {
+  activityId: string;
 };
 
 export type ArcsStackParamList = {
@@ -71,6 +76,11 @@ export type GoalsStackParamList = {
   GoalDetail: GoalDetailRouteParams;
 };
 
+export type ActivitiesStackParamList = {
+  ActivitiesList: undefined;
+  ActivityDetail: ActivityDetailRouteParams;
+};
+
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   SettingsAppearance: undefined;
@@ -80,6 +90,7 @@ export type SettingsStackParamList = {
 
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
 const GoalsStack = createNativeStackNavigator<GoalsStackParamList>();
+const ActivitiesStack = createNativeStackNavigator<ActivitiesStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 export const rootNavigationRef = createNavigationContainerRef<RootDrawerParamList>();
@@ -90,7 +101,7 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // renaming routes like "Arcs" -> "ArcsStack" or nesting a tab inside a stack).
 // This ensures we don't restore stale navigation state that can prevent certain
 // screens (like Arcs or Goals) from being reachable or animating correctly.
-const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v3';
+const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v4';
 
 const navTheme: Theme = {
   ...DefaultTheme,
@@ -183,7 +194,7 @@ export function RootNavigator() {
       }}
     >
       <Drawer.Navigator
-        drawerContent={(props) => <TakadoDrawerContent {...props} />}
+        drawerContent={(props) => <KwiltDrawerContent {...props} />}
         // Normalize drawer behavior so that tapping "Arcs" always lands on the
         // Arcs list root, even if the current nested screen is a deep detail
         // view like GoalDetail. This keeps the mental model of the primary
@@ -245,7 +256,7 @@ export function RootNavigator() {
         />
         <Drawer.Screen
           name="Activities"
-          component={ActivitiesScreen}
+          component={ActivitiesStackNavigator}
           options={{ title: 'Activities' }}
         />
         <Drawer.Screen
@@ -308,6 +319,22 @@ function GoalsStackNavigator() {
   );
 }
 
+function ActivitiesStackNavigator() {
+  return (
+    <ActivitiesStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        animationTypeForReplace: 'push',
+        fullScreenGestureEnabled: true,
+      }}
+    >
+      <ActivitiesStack.Screen name="ActivitiesList" component={ActivitiesScreen} />
+      <ActivitiesStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
+    </ActivitiesStack.Navigator>
+  );
+}
+
 function SettingsStackNavigator() {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
@@ -347,7 +374,7 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
   }
 }
 
-function TakadoDrawerContent(props: any) {
+function KwiltDrawerContent(props: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
 
@@ -374,9 +401,11 @@ function TakadoDrawerContent(props: any) {
     routes: filteredRoutes,
     routeNames: filteredRouteNames,
     // If the active route is hidden (i.e., Settings), filteredIndex will be -1.
-    // DrawerItemList only uses this to check `i === state.index` for focus,
-    // so -1 simply means "no visible item is focused".
-    index: filteredIndex,
+    // React Navigation's DrawerItemList expects `state.routes[state.index]` to
+    // always be defined, so we clamp the index to 0 in that case. This means
+    // the first visible item appears focused when Settings is active, which is
+    // preferable to a runtime crash.
+    index: filteredIndex === -1 ? 0 : filteredIndex,
   };
 
   return (

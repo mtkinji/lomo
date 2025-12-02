@@ -88,8 +88,8 @@ export function ArcListCard({ arc, goalCount, style }: ArcListCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
+    marginTop: 0,
+    marginBottom: 0,
   },
   heroInner: {
     width: '100%',

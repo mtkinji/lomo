@@ -16,13 +16,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
-import { CoachChatTurn, GeneratedArc, sendCoachChat } from '../../services/ai';
+import { CoachChatTurn, GeneratedArc, sendCoachChat, type CoachChatOptions } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
 import { useWorkflowRuntime } from './WorkflowRuntimeContext';
@@ -129,7 +130,7 @@ async function loadArcCreationDraft(): Promise<ChatDraft | null> {
     }
     return parsed;
   } catch (err) {
-    console.warn('Failed to load Takado Coach arc draft', err);
+    console.warn('Failed to load Kwilt Coach arc draft', err);
     return null;
   }
 }
@@ -142,7 +143,7 @@ async function saveArcCreationDraft(draft: ChatDraft | null): Promise<void> {
     }
     await AsyncStorage.setItem(ARC_CREATION_DRAFT_STORAGE_KEY, JSON.stringify(draft));
   } catch (err) {
-    console.warn('Failed to save Takado Coach arc draft', err);
+    console.warn('Failed to save Kwilt Coach arc draft', err);
   }
 }
 
@@ -264,7 +265,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     id: 'coach-intro-1',
     role: 'assistant',
     content:
-      "I'm your Takado Agent for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
+      "I'm your Kwilt Agent for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
   },
 ];
 
@@ -275,7 +276,7 @@ const PROMPT_SUGGESTIONS = [
 ];
 
 const CHAT_COLORS = {
-  // When rendered inside the BottomDrawer or TakadoBottomSheet, the sheet surface
+// When rendered inside the BottomDrawer or KwiltBottomSheet, the sheet surface
   // already uses `colors.canvas` and horizontal gutters. This palette assumes
   // that outer shell and keeps inner elements focused on content hierarchy.
   background: colors.canvas,
@@ -290,6 +291,77 @@ const CHAT_COLORS = {
   chipBorder: colors.border,
   chip: colors.card,
 } as const;
+
+const markdownStyles = StyleSheet.create({
+  body: {
+    ...typography.body,
+    color: CHAT_COLORS.accent,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: spacing.xs,
+  },
+  heading1: {
+    ...typography.titleLg,
+    color: CHAT_COLORS.accent,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  heading2: {
+    ...typography.titleSm,
+    color: CHAT_COLORS.accent,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  heading3: {
+    ...typography.body,
+    fontWeight: '600',
+    color: CHAT_COLORS.accent,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs / 2,
+  },
+  bullet_list: {
+    marginVertical: spacing.xs,
+  },
+  ordered_list: {
+    marginVertical: spacing.xs,
+  },
+  list_item: {
+    flexDirection: 'row',
+    marginBottom: spacing.xs / 2,
+  },
+  strong: {
+    fontWeight: '600',
+  },
+  em: {
+    fontStyle: 'italic',
+  },
+  link: {
+    color: CHAT_COLORS.accent,
+    textDecorationLine: 'underline',
+  },
+  code_inline: {
+    ...typography.bodySm,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  code_block: {
+    ...typography.bodySm,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+  },
+  blockquote: {
+    borderLeftWidth: 2,
+    borderLeftColor: CHAT_COLORS.border,
+    paddingLeft: spacing.md,
+    marginVertical: spacing.xs,
+    color: CHAT_COLORS.accent,
+  },
+});
 
 const INPUT_MIN_HEIGHT = typography.bodySm.lineHeight * 4;
 const INPUT_MAX_HEIGHT = typography.bodySm.lineHeight * 8;
@@ -409,6 +481,17 @@ export type AiChatPaneProps = {
    * its guided cards here while the shared chat surface stays consistent.
    */
   stepCard?: ReactNode;
+  /**
+   * When true, hide the Kwilt brand header row so hosts (like BottomDrawer
+   * sheets) can render their own mode header outside the chat timeline.
+   */
+  hideBrandHeader?: boolean;
+  /**
+   * When true, hide the default prompt suggestion chips that sit above the
+   * chat composer. This is useful for focused creation workflows where we
+   * want the surface to stay on-task without generic prompts.
+   */
+  hidePromptSuggestions?: boolean;
 };
 
 export type AiChatPaneController = {
@@ -440,7 +523,16 @@ export type AiChatPaneController = {
  * chrome – the sheet + AppShell handle those layers.
  */
 export const AiChatPane = forwardRef(function AiChatPane(
-  { mode, launchContext, resumeDraft = true, onConfirmArc, onComplete, stepCard }: AiChatPaneProps,
+  {
+    mode,
+    launchContext,
+    resumeDraft = true,
+    onConfirmArc,
+    onComplete,
+    stepCard,
+    hideBrandHeader = false,
+    hidePromptSuggestions = false,
+  }: AiChatPaneProps,
   ref: Ref<AiChatPaneController>
 ) {
   const isArcCreationMode = mode === 'arcCreation';
@@ -559,7 +651,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const canSend = hasInput && !sending;
   const hasUserMessages = messages.some((m) => m.role === 'user');
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
-  const shouldShowSuggestionsRail = !hasUserMessages && !isOnboardingMode;
+  const shouldShowSuggestionsRail =
+    !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode;
 
   const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
     if (!isArcCreationMode) return;
@@ -883,7 +976,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
           role: m.role,
           content: m.content,
         }));
-        const reply = await sendCoachChat(history, { mode });
+        const coachOptions: CoachChatOptions = {
+          mode,
+          workflowDefinitionId: workflowRuntime?.definition?.id,
+          workflowInstanceId: workflowRuntime?.instance?.id,
+          workflowStepId: workflowRuntime?.instance?.currentStepId,
+          launchContextSummary: launchContext,
+        };
+        const reply = await sendCoachChat(history, coachOptions);
         const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
         if (arcProposal) {
           setArcProposal(arcProposal);
@@ -900,7 +1000,19 @@ export const AiChatPane = forwardRef(function AiChatPane(
           },
         });
       } catch (err) {
-        console.error('Takado Coach initial chat failed', err);
+        console.error('Kwilt Coach initial chat failed', err);
+        if (cancelled) return;
+        const errorMessage: ChatMessage = {
+          id: `assistant-error-bootstrap-${Date.now()}`,
+          role: 'assistant',
+          content:
+            "I'm having trouble reaching Kwilt Coach right now. Check your connection or API key configuration, then try again.",
+        };
+        setMessages((prev) => {
+          const next = [...prev, errorMessage];
+          messagesRef.current = next;
+          return next;
+        });
       } finally {
         if (!cancelled) {
           // In error cases we still mark as bootstrapped so we don’t loop.
@@ -915,7 +1027,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     return () => {
       cancelled = true;
     };
-  }, [mode, bootstrapped, shouldBootstrapAssistant]);
+  }, [mode, bootstrapped, shouldBootstrapAssistant, workflowRuntime, launchContext]);
 
   // When the user re-opens Arc Creation coach, restore any saved draft so they
   // can pick up where they left off instead of starting a fresh thread.
@@ -927,11 +1039,25 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const draft = await loadArcCreationDraft();
       if (cancelled || !draft) return;
 
+      const hasNonSystemMessages = draft.messages.some(
+        (message) => message.role !== 'system'
+      );
+      const hasInput = Boolean(draft.input && draft.input.trim().length > 0);
+
+      // If the persisted draft has no visible conversation or input, treat it
+      // as empty so the Arc Creation Agent can still bootstrap a fresh first
+      // reply instead of leaving the canvas blank.
+      if (!hasNonSystemMessages && !hasInput) {
+        await saveArcCreationDraft(null);
+        return;
+      }
+
       setMessages(draft.messages);
       messagesRef.current = draft.messages;
       setInput(draft.input ?? '');
       // Mark as bootstrapped so we don't trigger the automatic "first reply"
-      // bootstrap when restoring an in-progress Arc conversation.
+      // bootstrap when restoring an in-progress Arc conversation with real
+      // content.
       setBootstrapped(true);
       setThinking(false);
     };
@@ -993,7 +1119,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
         role: m.role,
         content: m.content,
       }));
-      const reply = await sendCoachChat(history, { mode });
+      const coachOptions: CoachChatOptions = {
+        mode,
+        workflowDefinitionId: workflowRuntime?.definition?.id,
+        workflowInstanceId: workflowRuntime?.instance?.id,
+        workflowStepId: workflowRuntime?.instance?.currentStepId,
+        launchContextSummary: launchContext,
+      };
+      const reply = await sendCoachChat(history, coachOptions);
       const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
       if (arcProposal) {
         setArcProposal(arcProposal);
@@ -1007,12 +1140,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
         },
       });
     } catch (err) {
-      console.error('Takado Coach chat failed', err);
+      console.error('Kwilt Coach chat failed', err);
       const errorMessage: ChatMessage = {
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
         content:
-          "I'm having trouble reaching Takado Coach right now. Try again in a moment, or adjust your connection.",
+          "I'm having trouble reaching Kwilt Coach right now. Try again in a moment, or adjust your connection.",
       };
       setMessages((prev) => {
         const next = [...prev, errorMessage];
@@ -1085,46 +1218,48 @@ export const AiChatPane = forwardRef(function AiChatPane(
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={scrollToLatest}
           >
-            <View style={styles.timeline}>
-              <View style={styles.brandHeaderRow}>
-                <View style={styles.brandLockup}>
-                  <Logo size={24} />
-                  <View style={styles.brandTextBlock}>
-                    <Text style={styles.brandWordmark}>Takado</Text>
-                  </View>
-                </View>
-                {isArcCreationMode && (
-                  <Pressable
-                    style={styles.modePill}
-                    onPress={() => setIsArcInfoVisible(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Learn about Arc creation and see context"
-                  >
-                    <View style={styles.modePillLeft}>
-                      <Icon
-                        name="arcs"
-                        size={14}
-                        color={CHAT_COLORS.textSecondary}
-                        style={styles.modePillIcon}
-                      />
-                      <Text style={styles.modePillText}>Arc creation</Text>
+              <View style={styles.timeline}>
+              {!hideBrandHeader && (
+                <View style={styles.brandHeaderRow}>
+                  <View style={styles.brandLockup}>
+                    <Logo size={24} />
+                    <View style={styles.brandTextBlock}>
+                      <Text style={styles.brandWordmark}>Kwilt</Text>
                     </View>
-                    <Icon
-                      name="info"
-                      size={16}
-                      color={CHAT_COLORS.textSecondary}
-                      style={styles.modePillInfoIcon}
-                    />
-                  </Pressable>
-                )}
-              </View>
+                  </View>
+                  {isArcCreationMode && (
+                    <Pressable
+                      style={styles.modePill}
+                      onPress={() => setIsArcInfoVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Learn about Arc creation and see context"
+                    >
+                      <View style={styles.modePillLeft}>
+                        <Icon
+                          name="arcs"
+                          size={14}
+                          color={CHAT_COLORS.textSecondary}
+                          style={styles.modePillIcon}
+                        />
+                        <Text style={styles.modePillText}>Arc creation</Text>
+                      </View>
+                      <Icon
+                        name="info"
+                        size={16}
+                        color={CHAT_COLORS.textSecondary}
+                        style={styles.modePillInfoIcon}
+                      />
+                    </Pressable>
+                  )}
+                </View>
+              )}
               <View style={styles.messagesStack}>
                 {messages
                   .filter((message) => message.role !== 'system')
                   .map((message) =>
                     message.role === 'assistant' ? (
                       <View key={message.id} style={styles.assistantMessage}>
-                        <Text style={styles.assistantText}>{message.content}</Text>
+                        <Markdown style={markdownStyles}>{message.content}</Markdown>
                       </View>
                     ) : (
                       <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
@@ -1194,7 +1329,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           }
                         }}
                       >
-                        <Text style={styles.arcDraftConfirmText}>Confirm Arc</Text>
+                        <Text style={styles.arcDraftConfirmText}>Adopt Arc</Text>
                       </Button>
                     </View>
                   </View>
@@ -1294,22 +1429,23 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     </View>
                     <View style={styles.inputFooterRow}>
                       {hasInput ? (
-                        <Button
-                          variant="default"
-                          size="icon"
+                        <TouchableOpacity
                           style={[
                             styles.sendButton,
                             (sending || !canSend) && styles.sendButtonInactive,
                           ]}
                           onPress={handleSend}
+                          accessibilityRole="button"
                           accessibilityLabel="Send message"
+                          disabled={sending || !canSend}
+                          activeOpacity={0.85}
                         >
                           {sending ? (
                             <ActivityIndicator color={colors.canvas} />
                           ) : (
                             <Icon name="arrowUp" color={colors.canvas} size={16} />
                           )}
-                        </Button>
+                        </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
                           style={[
@@ -1631,7 +1767,7 @@ function ThinkingBubble() {
 /**
  * Convenience wrapper when the chat is used as a full-screen screen instead of
  * inside a bottom sheet. This preserves the existing AppShell-based layout
- * while letting BottomDrawer / TakadoBottomSheet embed `AiChatPane` directly.
+ * while letting BottomDrawer / KwiltBottomSheet embed `AiChatPane` directly.
  */
 export function AiChatScreen() {
   // Lazy-load AppShell and AgentWorkspace here to avoid coupling the pane
@@ -1893,6 +2029,9 @@ const styles = StyleSheet.create({
     borderColor: '#18181B',
     width: 28,
     height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   voiceButton: {
     backgroundColor: '#18181B',

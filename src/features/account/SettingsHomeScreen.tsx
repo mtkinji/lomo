@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Icon, IconName } from '../../ui/Icon';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
@@ -65,8 +65,8 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         id: 'takado',
-        title: 'Takado Agent',
-        description: 'Choose which LLM powers the Takado Agent.',
+        title: 'Kwilt Agent',
+        description: 'Choose which LLM powers the Kwilt Agent.',
         icon: 'aiGuide',
         route: 'SettingsAiModel',
         tags: ['ai', 'agent', 'model'],
@@ -74,7 +74,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         id: 'notifications',
         title: 'Notifications',
-        description: 'Plan gentle reminders from LOMO.',
+        description: 'Plan gentle reminders from Kwilt.',
         icon: 'activities',
         disabled: true,
         status: 'soon',
@@ -323,7 +323,7 @@ export function SettingsHomeScreen() {
             </View>
           )}
         </ScrollView>
-        <TakadoBottomSheet
+        <KwiltBottomSheet
           visible={avatarSheetVisible}
           onClose={() => {
             if (!isUpdatingAvatar) {
@@ -334,7 +334,7 @@ export function SettingsHomeScreen() {
         >
           <View style={styles.sheetContent}>
             <Heading style={styles.sheetTitle}>Update photo</Heading>
-            <Text style={styles.sheetSubtitle}>Make LOMO feel unmistakably yours.</Text>
+            <Text style={styles.sheetSubtitle}>Make Kwilt feel unmistakably yours.</Text>
             <VStack space="sm">
               <Pressable
                 style={styles.sheetOption}
@@ -373,7 +373,7 @@ export function SettingsHomeScreen() {
               ) : null}
             </VStack>
           </View>
-        </TakadoBottomSheet>
+        </KwiltBottomSheet>
       </View>
     </AppShell>
   );

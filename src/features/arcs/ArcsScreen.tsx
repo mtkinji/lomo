@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { StyleSheet, FlatList, View, Text, Pressable } from 'react-native';
+import {
+  StyleSheet,
+  FlatList,
+  View,
+  Text,
+  Pressable,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
+import { fonts } from '../../theme/typography';
 import { useAppStore } from '../../store/useAppStore';
 import { Card } from '../../ui/Card';
 import { Button, IconButton } from '../../ui/Button';
@@ -19,7 +30,9 @@ import type { Arc, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
+import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { ArcListCard } from '../../ui/ArcListCard';
+import { Logo } from '../../ui/Logo';
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
 
@@ -123,6 +136,7 @@ export function ArcsScreen() {
   const menuOpen = drawerStatus === 'open';
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
+  const [arcDraftMeta, setArcDraftMeta] = useState<ArcCoachDraftMeta | null>(null);
 
   const goalCountByArc = useMemo(
     () =>
@@ -134,12 +148,31 @@ export function ArcsScreen() {
     [goals]
   );
 
-  const listTopPadding = headerHeight ? headerHeight + spacing.md : spacing['2xl'];
+  const listTopPadding = headerHeight ? headerHeight : spacing['2xl'];
+  const listBottomPadding = 0;
 
   const workspaceSnapshot = useMemo(
     () => buildArcCoachLaunchContext(arcs, goals),
     [arcs, goals]
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    readArcCreationDraftMeta()
+      .then((meta) => {
+        if (isMounted) {
+          setArcDraftMeta(meta);
+        }
+      })
+      .catch((err) => {
+        if (__DEV__) {
+          console.warn('[arcs] Failed to load arc creation draft meta', err);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <AppShell>
@@ -173,17 +206,42 @@ export function ArcsScreen() {
             }
           />
         </View>
-        <FlatList
-          style={styles.list}
-          data={arcs}
-          keyExtractor={(arc) => arc.id}
-          contentContainerStyle={[styles.listContent, { paddingTop: listTopPadding }]}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
-              <ArcListCard arc={item} goalCount={goalCountByArc[item.id] ?? 0} />
-            </Pressable>
-          )}
-        />
+        <View style={styles.listContainer}>
+          <FlatList
+            style={styles.list}
+            data={arcs}
+            keyExtractor={(arc) => arc.id}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingTop: listTopPadding, paddingBottom: listBottomPadding },
+            ]}
+            renderItem={({ item }) => (
+              <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
+                <ArcListCard arc={item} goalCount={goalCountByArc[item.id] ?? 0} />
+              </Pressable>
+            )}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListFooterComponent={
+              arcDraftMeta ? (
+                <ArcDraftSection
+                  draft={arcDraftMeta}
+                  onResume={() => {
+                    logArcsDebug('draft:resume-pressed');
+                    setNewArcModalVisible(true);
+                  }}
+                  onDiscard={() => {
+                    AsyncStorage.removeItem(ARC_CREATION_DRAFT_STORAGE_KEY).catch((err) => {
+                      if (__DEV__) {
+                        console.warn('[arcs] Failed to discard arc draft', err);
+                      }
+                    });
+                    setArcDraftMeta(null);
+                  }}
+                />
+              ) : null
+            }
+          />
+        </View>
 
         <NewArcModal
           visible={newArcModalVisible}
@@ -202,6 +260,12 @@ const styles = StyleSheet.create({
     // Let card shadows render naturally without clipping at the screen edges.
     overflow: 'visible',
   },
+  listContainer: {
+    flex: 1,
+    // Clip vertical overscroll so Arc cards never appear inside the top
+    // safe-area / header band when you pull down on the list.
+    overflow: 'hidden',
+  },
   list: {
     flex: 1,
     // Let the list inherit the app shell / canvas background so it doesn’t look like a separate panel
@@ -209,7 +273,6 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   listContent: {
-    paddingBottom: spacing.xl,
     paddingHorizontal: 0,
   },
   listEmptyContent: {
@@ -395,7 +458,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   separator: {
-    height: spacing.md,
+    height: spacing.sm,
   },
   modalOverlay: {
     flex: 1,
@@ -421,29 +484,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
+  headerSideRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flex: 1,
+  },
   brandLockup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-  },
-  brandTextBlock: {
-    flexDirection: 'column',
   },
   brandWordmark: {
-    ...typography.brand,
-    color: colors.textPrimary,
-  },
-  brandSubLabel: {
     ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  sheetHandle: {
-    backgroundColor: colors.border,
-    width: 64,
-    height: 5,
-    borderRadius: 999,
-    alignSelf: 'center',
-    marginBottom: spacing.lg,
+    fontFamily: fonts.logo,
+    color: colors.accent,
+    marginLeft: spacing.xs,
   },
   infoOverlay: {
     flex: 1,
@@ -468,6 +523,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.lg,
   },
+  modalLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
   infoTitle: {
     ...typography.titleLg,
     color: colors.textPrimary,
@@ -482,6 +542,21 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.textPrimary,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    minHeight: 44,
+  },
+  manualNarrativeInput: {
+    minHeight: 120,
+    textAlignVertical: 'top',
   },
   conversationContainer: {
     flex: 1,
@@ -688,13 +763,65 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
+  segmentedControl: {
+    flexDirection: 'row',
+    padding: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+  },
+  segmentedOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  segmentedOptionActive: {
+    backgroundColor: colors.canvas,
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  segmentedOptionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  segmentedOptionLabelActive: {
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  headerModeSwitcher: {
+    marginLeft: spacing.md,
+  },
+  segmentedOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  modeLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: spacing.sm,
+  },
+  modeLabelText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginLeft: spacing.xs,
+  },
+  modeLabelInfoIcon: {
+    marginLeft: spacing.sm,
+  },
+  manualFormContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
+  },
 });
 
 type NewArcModalProps = {
   visible: boolean;
   onClose: () => void;
   /**
-   * Optional workspace snapshot passed down to Takado Coach when launched
+   * Optional workspace snapshot passed down to Kwilt Coach when launched
    * from the Arcs screen. This gives the coach full context on existing
    * arcs and goals so it can suggest complementary Arcs.
    */
@@ -730,6 +857,19 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
   const addArc = useAppStore((state) => state.addArc);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
 
+  const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
+  const [manualName, setManualName] = useState('');
+  const [manualNarrative, setManualNarrative] = useState('');
+  const [isArcInfoVisible, setIsArcInfoVisible] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setActiveTab('ai');
+      setManualName('');
+      setManualNarrative('');
+    }
+  }, [visible]);
+
   const handleConfirmArc = (proposal: GeneratedArc) => {
     const timestamp = new Date().toISOString();
     const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -750,19 +890,159 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
     navigation.navigate('ArcDetail', { arcId: id });
   };
 
+  const handleCreateManualArc = () => {
+    const trimmedName = manualName.trim();
+    const trimmedNarrative = manualNarrative.trim();
+    if (!trimmedName) {
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const arc: Arc = {
+      id,
+      name: trimmedName,
+      narrative: trimmedNarrative.length > 0 ? trimmedNarrative : undefined,
+      status: 'active',
+      startDate: timestamp,
+      endDate: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    addArc(arc);
+    onClose();
+    navigation.navigate('ArcDetail', { arcId: id });
+  };
+
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
-      <AgentWorkspace
-        mode="arcCreation"
-        launchContext={{
-          source: 'arcsList',
-          intent: 'arcCreation',
-        }}
-        workflowDefinitionId={ARC_CREATION_WORKFLOW_ID}
-        workspaceSnapshot={workspaceSnapshot}
-        resumeDraft={resumeDraft}
-        onConfirmArc={handleConfirmArc}
-      />
+      <View style={styles.drawerKeyboardContainer}>
+        <View style={styles.sheetHeaderRow}>
+          <View style={styles.brandLockup}>
+            <Logo size={24} />
+            <Text style={styles.brandWordmark}>Kwilt</Text>
+          </View>
+
+          <View style={styles.headerSideRight}>
+            <View style={styles.segmentedControl}>
+              <Pressable
+                style={[
+                  styles.segmentedOption,
+                  activeTab === 'ai' && styles.segmentedOptionActive,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Create Arc with AI"
+                onPress={() => setActiveTab('ai')}
+              >
+                <View style={styles.segmentedOptionContent}>
+                  <Icon
+                    name="sparkles"
+                    size={14}
+                    color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.segmentedOptionLabel,
+                      activeTab === 'ai' && styles.segmentedOptionLabelActive,
+                    ]}
+                  >
+                    AI
+                  </Text>
+                </View>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.segmentedOption,
+                  activeTab === 'manual' && styles.segmentedOptionActive,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Create Arc manually"
+                onPress={() => setActiveTab('manual')}
+              >
+                <View style={styles.segmentedOptionContent}>
+                  <Icon
+                    name="edit"
+                    size={14}
+                    color={
+                      activeTab === 'manual' ? colors.textPrimary : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.segmentedOptionLabel,
+                      activeTab === 'manual' && styles.segmentedOptionLabelActive,
+                    ]}
+                  >
+                    Manual
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        {activeTab === 'ai' ? (
+          <View style={styles.drawerContent}>
+            <AgentWorkspace
+              mode="arcCreation"
+              launchContext={{
+                source: 'arcsList',
+                intent: 'arcCreation',
+              }}
+              workflowDefinitionId={ARC_CREATION_WORKFLOW_ID}
+              workspaceSnapshot={workspaceSnapshot}
+              resumeDraft={resumeDraft}
+              hideBrandHeader
+              hidePromptSuggestions
+              onConfirmArc={handleConfirmArc}
+            />
+          </View>
+        ) : (
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              style={styles.manualFormContainer}
+              contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.modalLabel}>Arc name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Family Stewardship"
+                placeholderTextColor={colors.textSecondary}
+                value={manualName}
+                onChangeText={setManualName}
+              />
+              <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Short narrative</Text>
+              <TextInput
+                style={[styles.input, styles.manualNarrativeInput]}
+                placeholder="Describe the identity direction for this Arc."
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                value={manualNarrative}
+                onChangeText={setManualNarrative}
+              />
+              <View style={{ marginTop: spacing.xl }}>
+                <Button
+                  disabled={manualName.trim().length === 0}
+                  onPress={handleCreateManualArc}
+                >
+                  <Text style={styles.buttonText}>Create Arc</Text>
+                </Button>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+
+        <ArcInfoModal
+          visible={isArcInfoVisible}
+          onClose={() => setIsArcInfoVisible(false)}
+        />
+      </View>
     </BottomDrawer>
   );
 }
@@ -803,7 +1083,7 @@ function ArcDraftSection({ draft, onResume, onDiscard }: ArcDraftSectionProps) {
           <Pressable onPress={onResume}>
             <Card style={styles.draftCard}>
               <Text style={styles.draftPreview}>
-                {draft.preview ?? 'Arc draft with Takado Coach'}
+                {draft.preview ?? 'Arc draft with Kwilt Coach'}
               </Text>
               <View style={styles.draftMetaRow}>
                 <Text style={styles.draftMetaText}>{lastUpdatedLabel}</Text>
@@ -823,49 +1103,4 @@ function ArcDraftSection({ draft, onResume, onDiscard }: ArcDraftSectionProps) {
     </View>
   );
 }
-
-function buildArcCoachLaunchContext(arcs: Arc[], goals: Goal[]): string | undefined {
-  if (arcs.length === 0 && goals.length === 0) {
-    return undefined;
-  }
-
-  const lines: string[] = [];
-
-  lines.push(
-    'Existing workspace snapshot: the user already has the following arcs and goals. Use this to keep new Arc suggestions distinctive and complementary.'
-  );
-  lines.push(`Total arcs: ${arcs.length}. Total goals: ${goals.length}.`);
-  lines.push('');
-
-  arcs.forEach((arc) => {
-    const arcGoals = goals.filter((goal) => goal.arcId === arc.id);
-
-    lines.push(`Arc: ${arc.name} (status: ${arc.status}).`);
-    if (arc.narrative) {
-      lines.push(`Narrative: ${arc.narrative}`);
-    }
-
-    if (arcGoals.length > 0) {
-      lines.push('Goals in this arc:');
-      arcGoals.forEach((goal) => {
-        const trimmedDescription =
-          goal.description && goal.description.length > 200
-            ? `${goal.description.slice(0, 197)}…`
-            : goal.description;
-
-        const base = `- ${goal.title} (status: ${goal.status})`;
-        lines.push(
-          trimmedDescription ? `${base} – ${trimmedDescription}` : base
-        );
-      });
-    } else {
-      lines.push('No goals are currently attached to this arc.');
-    }
-
-    lines.push(''); // spacer between arcs
-  });
-
-  return lines.join('\n');
-}
-
 

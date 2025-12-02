@@ -53,6 +53,17 @@ export type AgentWorkspaceProps = {
   onWorkflowStatusChange?: (instance: WorkflowInstance) => void;
   onComplete?: (outcome: unknown) => void;
   onDismiss?: () => void;
+  /**
+   * When true, hide the Kwilt brand header inside the chat timeline.
+   * Hosts that render their own header chrome (e.g., New Arc bottom sheet)
+   * can use this to avoid duplicate branding.
+   */
+  hideBrandHeader?: boolean;
+  /**
+   * When true, hide the default prompt suggestions rail in the underlying
+   * chat pane so hosts can provide their own focused guidance.
+   */
+  hidePromptSuggestions?: boolean;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -65,6 +76,22 @@ const serializeLaunchContext = (context: LaunchContext): string => {
   if (context.entityRef) {
     parts.push(
       `Focused entity: ${context.entityRef.type}#${context.entityRef.id}.`,
+    );
+  }
+
+  if (context.objectType && context.objectId) {
+    parts.push(`Object: ${context.objectType}#${context.objectId}.`);
+  }
+
+  if (context.fieldId) {
+    const label = context.fieldLabel ? ` (${context.fieldLabel})` : '';
+    parts.push(`Field: ${context.fieldId}${label}.`);
+  }
+
+  if (context.currentText) {
+    parts.push(
+      'Current field text (truncated if needed by the host):',
+      context.currentText,
     );
   }
 
@@ -98,6 +125,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     onStepComplete,
     onWorkflowStatusChange,
     onComplete,
+    hideBrandHeader,
+    hidePromptSuggestions,
   } = props;
 
   const chatPaneRef = useRef<AiChatPaneController | null>(null);
@@ -267,6 +296,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         mode={mode}
         launchContext={launchContextText}
         resumeDraft={resumeDraft}
+        hideBrandHeader={hideBrandHeader}
+        hidePromptSuggestions={hidePromptSuggestions}
         onConfirmArc={onConfirmArc}
         onComplete={onComplete}
         stepCard={workflowStepCard}

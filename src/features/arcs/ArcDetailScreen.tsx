@@ -4,11 +4,13 @@ import {
   View,
   TextInput,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ScrollView,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   Image,
   Share,
   StyleProp,
@@ -21,12 +23,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
-import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
-import { GoalDraft, type ThumbnailStyle } from '../../domain/types';
-import { generateGoals } from '../../services/ai';
+import { useAppStore } from '../../store/useAppStore';
+import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Sheet, VStack, Heading, HStack } from '../../ui/primitives';
+import { EditableField } from '../../ui/EditableField';
+import { EditableTextArea } from '../../ui/EditableTextArea';
+import { AgentFab } from '../../ui/AgentFab';
 import { Text as UiText } from '@/components/ui/text';
 import {
   DropdownMenu,
@@ -50,6 +54,8 @@ import {
   pickThumbnailStyle,
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
+import { useAgentLauncher } from '../ai/useAgentLauncher';
+import { GoalCoachDrawer } from '../goals/GoalsScreen';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -66,24 +72,10 @@ const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => 
 type ArcDetailRouteProp = RouteProp<ArcsStackParamList, 'ArcDetail'>;
 type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'ArcDetail'>;
 
-const FORCE_LABELS: Record<string, string> = {
-  'force-activity': 'Activity',
-  'force-connection': 'Connection',
-  'force-mastery': 'Mastery',
-  'force-spirituality': 'Spirituality',
-};
-
-const FORCE_ORDER: Array<keyof typeof FORCE_LABELS> = [
-  'force-activity',
-  'force-connection',
-  'force-mastery',
-  'force-spirituality',
-];
-
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
-  const { arcId } = route.params;
+  const { arcId, openGoalCreation } = route.params;
   const insets = useSafeAreaInsets();
 
   const arcs = useAppStore((state) => state.arcs);
@@ -92,6 +84,7 @@ export function ArcDetailScreen() {
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const removeArc = useAppStore((state) => state.removeArc);
   const updateArc = useAppStore((state) => state.updateArc);
+  const addGoal = useAppStore((state) => state.addGoal);
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
@@ -114,7 +107,34 @@ export function ArcDetailScreen() {
     return ['topographyDots'];
   }, [visuals]);
   const [isNarrativeEditorVisible, setIsNarrativeEditorVisible] = useState(false);
-  const [isNewGoalModalVisible, setIsNewGoalModalVisible] = useState(false);
+  const [isGoalCoachVisible, setIsGoalCoachVisible] = useState(false);
+  const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] = useState(false);
+
+  const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
+
+  // When navigated to with `openGoalCreation: true` (for example, from the Goals
+  // canvas "new goal" affordance), immediately surface the Goal creation
+  // wizard so the user can adopt a draft without hunting for the inline "+".
+  useEffect(() => {
+    if (openGoalCreation && !hasOpenedGoalCreationFromParam) {
+      setIsGoalCoachVisible(true);
+      setHasOpenedGoalCreationFromParam(true);
+    }
+  }, [openGoalCreation, hasOpenedGoalCreationFromParam]);
+
+  const handleBackToArcs = useCallback(() => {
+    // In some persisted navigation states ArcDetail can be the first (and only)
+    // screen in the Arcs stack. In that case, `goBack` would dispatch a
+    // GO_BACK action that no navigator can handle, triggering a noisy dev
+    // warning. Instead, treat the back affordance as "return to the Arcs
+    // canvas" and explicitly jump to the ArcsList root when there is no stack
+    // history to pop.
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('ArcsList');
+    }
+  }, [navigation]);
 
   if (!arc) {
     return (
@@ -147,213 +167,234 @@ export function ArcDetailScreen() {
           style: 'destructive',
           onPress: () => {
             removeArc(arc.id);
-            navigation.goBack();
+            handleBackToArcs();
           },
         },
       ],
     );
-  }, [arc.id, navigation, removeArc]);
+  }, [arc.id, handleBackToArcs, removeArc]);
 
   return (
     <AppShell backgroundVariant="arcGradient">
-      <View style={styles.screen}>
-        <View style={styles.paddedSection}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={styles.headerSide}>
-              <IconButton
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-                accessibilityLabel="Back to Arcs"
-              >
-                <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
-              </IconButton>
-            </View>
-            <View style={styles.headerCenter}>
-              <View style={styles.objectTypeRow}>
-                <Icon name="arcs" size={18} color={colors.textSecondary} />
-                <Text style={styles.objectTypeLabel}>Arc</Text>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={styles.screen}>
+          <View style={styles.paddedSection}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.headerSide}>
+                <IconButton
+                  style={styles.backButton}
+                  onPress={handleBackToArcs}
+                  accessibilityLabel="Back to Arcs"
+                >
+                  <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+                </IconButton>
               </View>
-            </View>
-            <View style={styles.headerSideRight}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <IconButton style={styles.optionsButton} accessibilityLabel="Arc actions">
-                    <Icon name="more" size={18} color={colors.canvas} />
-                  </IconButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                  {/* Primary, non-destructive action(s) first */}
-                  <DropdownMenuItem
-                    onPress={() => {
-                      // TODO: wire up real archive behavior once the store exposes it.
-                      Alert.alert(
-                        'Archive arc',
-                        'Archiving is not yet implemented. This will be wired to an archive action in the store.'
-                      );
-                    }}
-                  >
-                    <View style={styles.menuItemRow}>
-                      <Icon name="info" size={16} color={colors.textSecondary} />
-                      <Text style={styles.menuItemLabel}>Archive</Text>
-                    </View>
-                  </DropdownMenuItem>
+              <View style={styles.headerCenter}>
+                <View style={styles.objectTypeRow}>
+                  <Icon name="arcs" size={18} color={colors.textSecondary} />
+                  <Text style={styles.objectTypeLabel}>Arc</Text>
+                </View>
+              </View>
+              <View style={styles.headerSideRight}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <IconButton style={styles.optionsButton} accessibilityLabel="Arc actions">
+                      <Icon name="more" size={18} color={colors.canvas} />
+                    </IconButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                    {/* Primary, non-destructive action(s) first */}
+                    <DropdownMenuItem
+                      onPress={() => {
+                        // TODO: wire up real archive behavior once the store exposes it.
+                        Alert.alert(
+                          'Archive arc',
+                          'Archiving is not yet implemented. This will be wired to an archive action in the store.'
+                        );
+                      }}
+                    >
+                      <View style={styles.menuItemRow}>
+                        <Icon name="info" size={16} color={colors.textSecondary} />
+                        <Text style={styles.menuItemLabel}>Archive</Text>
+                      </View>
+                    </DropdownMenuItem>
 
-                  {/* Divider before destructive actions */}
-                  <DropdownMenuSeparator />
+                    {/* Divider before destructive actions */}
+                    <DropdownMenuSeparator />
 
-                  {/* Destructive action pinned to the bottom */}
-                  <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                    <View style={styles.menuItemRow}>
-                      <Icon name="trash" size={16} color={colors.destructive} />
-                      <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                    </View>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    {/* Destructive action pinned to the bottom */}
+                    <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                      <View style={styles.menuItemRow}>
+                        <Icon name="trash" size={16} color={colors.destructive} />
+                        <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                      </View>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </View>
             </View>
           </View>
-        </View>
 
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.pageContent}>
-            <View>
-              <View style={[styles.paddedSection, styles.arcHeaderSection]}>
-                <View style={styles.heroContainer}>
-                  <View style={styles.heroImageWrapper}>
-                    {arc.thumbnailUrl ? (
-                      <Image
-                        source={{ uri: arc.thumbnailUrl }}
-                        style={styles.heroImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <LinearGradient
-                        colors={headerGradientColors}
-                        start={headerGradientDirection.start}
-                        end={headerGradientDirection.end}
-                        style={styles.heroImage}
-                      />
-                    )}
-                  </View>
-                </View>
-
-                <Text style={styles.arcTitle}>{arc.name}</Text>
-                {arc.narrative ? (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setIsNarrativeEditorVisible(true)}
-                  >
-                    <Text style={[styles.arcNarrative, { marginTop: spacing.sm }]}>
-                      {arc.narrative}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setIsNarrativeEditorVisible(true)}
-                    style={{ marginTop: spacing.sm }}
-                  >
-                    <Text style={styles.arcNarrativePlaceholder}>
-                      Add a short note about this Arc…
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.sectionDivider} />
-            </View>
-
-            <View style={styles.goalsSection}>
-              <View
-                style={[
-                  styles.goalsDrawerInner,
-                  { paddingBottom: spacing['2xl'] + insets.bottom },
-                ]}
-              >
-                <View style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}>
-                  <Text style={styles.sectionTitle}>
-                    Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-                  </Text>
-                  <IconButton
-                    style={styles.goalsExpandButton}
-                    onPress={() => setIsNewGoalModalVisible(true)}
-                    accessibilityLabel="Create a new goal"
-                  >
-                    <Icon name="plus" size={18} color={colors.canvas} />
-                  </IconButton>
-                </View>
-
-                {arcGoals.length === 0 ? (
-                  <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
-                    No goals yet for this Arc.
-                  </Text>
-                ) : (
-                  <View style={styles.goalsScrollContent}>
-                    <View style={{ gap: spacing.sm }}>
-                      {arcGoals.map((goal) => (
-                        <GoalListCard
-                          key={goal.id}
-                          goal={goal}
-                          parentArc={arc}
-                          activityCount={activityCountByGoal[goal.id] ?? 0}
-                          thumbnailStyles={thumbnailStyles}
-                          onPress={() =>
-                            navigation.navigate('GoalDetail', {
-                              goalId: goal.id,
-                              entryPoint: 'arcsStack',
-                            })
-                          }
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
+          >
+            <View style={styles.pageContent}>
+              <View>
+                <View style={[styles.paddedSection, styles.arcHeaderSection]}>
+                  <View style={styles.heroContainer}>
+                    <View style={styles.heroImageWrapper}>
+                      {arc.thumbnailUrl ? (
+                        <Image
+                          source={{ uri: arc.thumbnailUrl }}
+                          style={styles.heroImage}
+                          resizeMode="cover"
                         />
-                      ))}
+                      ) : (
+                        <LinearGradient
+                          colors={headerGradientColors}
+                          start={headerGradientDirection.start}
+                          end={headerGradientDirection.end}
+                          style={styles.heroImage}
+                        />
+                      )}
                     </View>
                   </View>
-                )}
+
+                  <EditableField
+                    label="Name"
+                    value={arc.name}
+                    variant="title"
+                  autoFocusOnEdit={false}
+                    onChange={(nextName) => {
+                      const trimmed = nextName.trim();
+                      if (trimmed.length === 0 || trimmed === arc.name) {
+                        return;
+                      }
+                      updateArc(arc.id, (current) => ({
+                        ...current,
+                        name: trimmed,
+                        updatedAt: new Date().toISOString(),
+                      }));
+                    }}
+                    placeholder="Name this Arc"
+                    validate={(next) => {
+                      if (!next.trim()) {
+                        return 'Name cannot be empty';
+                      }
+                      return null;
+                    }}
+                  />
+                  <View style={{ marginTop: spacing.sm }}>
+                    <EditableTextArea
+                      label="Description"
+                      value={arc.narrative ?? ''}
+                      placeholder="Add a short note about this Arc…"
+                      // For Arc narratives, always expose the full text instead of
+                      // truncating so longer descriptions remain fully readable.
+                      maxCollapsedLines={0}
+                      enableAi
+                      aiContext={{
+                        objectType: 'arc',
+                        objectId: arc.id,
+                        fieldId: 'narrative',
+                      }}
+                      onChange={(nextNarrative) => {
+                        const trimmed = nextNarrative.trim();
+                        updateArc(arc.id, (current) => ({
+                          ...current,
+                          narrative: trimmed.length === 0 ? undefined : trimmed,
+                          updatedAt: new Date().toISOString(),
+                        }));
+                      }}
+                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                        openForFieldContext({
+                          objectType,
+                          objectId,
+                          fieldId,
+                          currentText,
+                          fieldLabel: 'Arc narrative',
+                        });
+                      }}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.sectionDivider} />
+              </View>
+
+              <View style={styles.goalsSection}>
+                <View
+                  style={[
+                    styles.goalsDrawerInner,
+                    { paddingBottom: spacing['2xl'] + insets.bottom },
+                  ]}
+                >
+                  <View style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}>
+                    <Text style={styles.sectionTitle}>
+                      Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+                    </Text>
+                    <IconButton
+                      style={styles.goalsExpandButton}
+                      onPress={() => setIsGoalCoachVisible(true)}
+                      accessibilityLabel="Create a new goal"
+                    >
+                      <Icon name="plus" size={18} color={colors.canvas} />
+                    </IconButton>
+                  </View>
+
+                  {arcGoals.length === 0 ? (
+                    <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
+                      No goals yet for this Arc.
+                    </Text>
+                  ) : (
+                    <View style={styles.goalsScrollContent}>
+                      <View style={{ gap: spacing.sm }}>
+                        {arcGoals.map((goal) => (
+                          <GoalListCard
+                            key={goal.id}
+                            goal={goal}
+                            parentArc={arc}
+                            activityCount={activityCountByGoal[goal.id] ?? 0}
+                            thumbnailStyles={thumbnailStyles}
+                            onPress={() =>
+                              navigation.navigate('GoalDetail', {
+                                goalId: goal.id,
+                                entryPoint: 'arcsStack',
+                              })
+                            }
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
-          </View>
-        </ScrollView>
-      </View>
-      <NewGoalModal
-        visible={isNewGoalModalVisible}
-        onClose={() => setIsNewGoalModalVisible(false)}
-        arcName={arc.name}
-        arcNarrative={arc.narrative}
-        onAdopt={(goal) => {
-          // For now, just close the modal after adopting; the detailed Goal
-          // creation plumbing can be wired separately.
-          setIsNewGoalModalVisible(false);
+          </ScrollView>
+        </View>
+      </TouchableWithoutFeedback>
+      <GoalCoachDrawer
+        visible={isGoalCoachVisible}
+        onClose={() => setIsGoalCoachVisible(false)}
+        arcs={arcs}
+        goals={goals}
+        launchFromArcId={arc.id}
+        navigateToGoalDetailOnCreate={false}
+      />
+      {/* Floating AgentWorkspace entry; launches the shared Agent workspace for this Arc */}
+      <AgentFab
+        onPress={() => {
+          openForScreenContext({ objectType: 'arc', objectId: arc.id });
         }}
       />
-      <ArcNarrativeEditorSheet
-        visible={isNarrativeEditorVisible}
-        onClose={() => setIsNarrativeEditorVisible(false)}
-        arcName={arc.name}
-        narrative={arc.narrative}
-        onSave={(nextNarrative) => {
-          const trimmed = nextNarrative.trim();
-          updateArc(arc.id, (current) => ({
-            ...current,
-            narrative: trimmed.length === 0 ? undefined : trimmed,
-            updatedAt: new Date().toISOString(),
-          }));
-          setIsNarrativeEditorVisible(false);
-        }}
-      />
+      {AgentWorkspaceSheet}
     </AppShell>
   );
 }
-
-type NewGoalModalProps = {
-  visible: boolean;
-  onClose: () => void;
-  arcName: string;
-  arcNarrative?: string;
-  onAdopt: (goal: GoalDraft) => void;
-};
 
 type HeroImageModalProps = {
   visible: boolean;
@@ -381,215 +422,6 @@ type ArcNarrativeEditorSheetProps = {
   narrative?: string;
   onSave: (nextNarrative: string) => void;
 };
-
-function NewGoalModal({
-  visible,
-  onClose,
-  arcName,
-  arcNarrative,
-  onAdopt,
-}: NewGoalModalProps) {
-  const [prompt, setPrompt] = useState('');
-  const [timeHorizon, setTimeHorizon] = useState('');
-  const [constraints, setConstraints] = useState('');
-  const [currentStep, setCurrentStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<GoalDraft[]>([]);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!visible) {
-      setPrompt('');
-      setTimeHorizon('');
-      setConstraints('');
-      setCurrentStep(0);
-      setSuggestions([]);
-      setError('');
-    }
-  }, [visible]);
-
-  const QUESTIONS = [
-    {
-      title: 'What kind of progress would feel meaningful in this Arc?',
-      placeholder: 'e.g. mentor younger leaders, grow in stillness, finish a workshop',
-      value: prompt,
-      onChange: setPrompt,
-      required: true,
-      multiline: true,
-    },
-    {
-      title: 'Desired time horizon',
-      placeholder: 'Next 6 weeks',
-      value: timeHorizon,
-      onChange: setTimeHorizon,
-      required: false,
-      multiline: false,
-    },
-    {
-      title: 'Constraints or guidance?',
-      placeholder: 'Only evenings, protect Sabbath, keep family involved…',
-      value: constraints,
-      onChange: setConstraints,
-      required: false,
-      multiline: true,
-    },
-  ] as const;
-
-  const atResults = suggestions.length > 0;
-  const atLoading = loading;
-  const showQuestions = !atResults && !atLoading;
-  const totalSteps = QUESTIONS.length;
-  const currentQuestion = QUESTIONS[currentStep] ?? QUESTIONS[0];
-  const isFinalStep = currentStep === totalSteps - 1;
-  const nextDisabled =
-    currentQuestion.required && currentQuestion.value.trim().length === 0;
-
-  const handleSubmit = async () => {
-    if (!isFinalStep) {
-      setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1));
-      return;
-    }
-
-    const startedAt = Date.now();
-    logArcDetailDebug('goalModal:generate:start', {
-      arcName,
-      promptLength: prompt.length,
-      timeHorizon: timeHorizon || null,
-      constraintsLength: constraints.length,
-    });
-    setLoading(true);
-    setError('');
-    try {
-      const results = await generateGoals({
-        arcName,
-        arcNarrative,
-        prompt,
-        timeHorizon,
-        constraints,
-      });
-      logArcDetailDebug('goalModal:generate:success', {
-        durationMs: Date.now() - startedAt,
-        resultCount: results.length,
-      });
-      setSuggestions(results);
-    } catch (err) {
-      console.error('Goal wizard failed', err);
-      logArcDetailDebug('goalModal:generate:error', {
-        durationMs: Date.now() - startedAt,
-        message: err instanceof Error ? err.message : String(err),
-      });
-      setError('Something went wrong asking LOMO. Try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Sheet visible={visible} onClose={onClose} snapPoints={['80%']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
-        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
-          <Heading style={styles.modalTitle}>Ask LOMO for Goal drafts</Heading>
-          <Text style={styles.modalBody}>
-            Share a bit about the season inside {arcName}. LOMO will suggest concrete goals you can adopt or tweak.
-          </Text>
-
-          {showQuestions && (
-            <>
-              <Text style={styles.progressText}>
-                Step {currentStep + 1} / {totalSteps}
-              </Text>
-              <Text style={styles.questionTitle}>{currentQuestion.title}</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  currentQuestion.multiline && { minHeight: 120, textAlignVertical: 'top' },
-                ]}
-                multiline={currentQuestion.multiline}
-                placeholder={currentQuestion.placeholder}
-                placeholderTextColor="#6B7280"
-                value={currentQuestion.value}
-                onChangeText={currentQuestion.onChange}
-              />
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
-              <HStack justifyContent="space-between" marginTop={spacing.lg}>
-                <Button
-                  variant="outline"
-                  disabled={currentStep === 0}
-                  onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-                  style={{ flex: 1, marginRight: spacing.sm }}
-                >
-                  <Text style={styles.linkText}>Back</Text>
-                </Button>
-                <Button
-                  variant={isFinalStep ? 'ai' : 'default'}
-                  style={{ flex: 1 }}
-                  disabled={nextDisabled}
-                  onPress={handleSubmit}
-                >
-                  {isFinalStep && <Icon name="arcs" size={18} color={colors.canvas} />}
-                  <Text style={styles.buttonText}>{isFinalStep ? 'Ask LOMO' : 'Next'}</Text>
-                </Button>
-              </HStack>
-            </>
-          )}
-
-          {atLoading && (
-            <VStack alignItems="center" space="md" style={{ marginTop: spacing.xl }}>
-              <ActivityIndicator size="large" color="#38BDF8" />
-              <Text style={styles.modalBody}>Drafting goal ideas…</Text>
-            </VStack>
-          )}
-
-          {atResults && (
-            <ScrollView
-              style={{ marginTop: spacing.lg }}
-              contentContainerStyle={{ paddingBottom: spacing.lg }}
-            >
-              <Text style={styles.modalLabel}>Suggested Goals</Text>
-              <VStack space="md" style={{ marginTop: spacing.sm }}>
-                {suggestions.map((suggestion) => (
-                  <VStack key={suggestion.title} style={styles.goalCard} space="sm">
-                    <Heading style={styles.goalTitle}>{suggestion.title}</Heading>
-                    {suggestion.description && (
-                      <Text style={styles.goalDescription}>{suggestion.description}</Text>
-                    )}
-                    <HStack style={styles.forceIntentRow}>
-                      {FORCE_ORDER.map((force) => (
-                        <Text key={force} style={styles.intentChip}>
-                          {FORCE_LABELS[force]} · {suggestion.forceIntent[force] ?? 0}/3
-                        </Text>
-                      ))}
-                    </HStack>
-                    <Button variant="accent" onPress={() => onAdopt(suggestion)}>
-                      <Text style={styles.buttonText}>Adopt Goal</Text>
-                    </Button>
-                  </VStack>
-                ))}
-              </VStack>
-              <Button
-                variant="link"
-                onPress={() => {
-                  setSuggestions([]);
-                  setCurrentStep(0);
-                }}
-                style={{ marginTop: spacing.lg }}
-              >
-                <Text style={styles.linkText}>Ask again</Text>
-              </Button>
-            </ScrollView>
-          )}
-
-          <Button variant="link" onPress={onClose} style={{ marginTop: spacing.lg }}>
-            <Text style={styles.linkText}>Close</Text>
-          </Button>
-        </View>
-      </KeyboardAvoidingView>
-    </Sheet>
-  );
-}
 
 function HeroImageModal({
   visible,
@@ -924,7 +756,7 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     marginTop: spacing.xs,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
   heroImageWrapper: {
     width: '100%',
