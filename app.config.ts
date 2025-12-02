@@ -33,12 +33,9 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
-  // NOTE: New Architecture is intentionally disabled to keep the dev client stable
-  // while we focus on product work. Do NOT flip this to `true` unless:
-  //   1) you are explicitly working on New Arch migration on a branch, and
-  //   2) you are prepared to debug native/Fabric/TurboModule crashes.
-  // See project notes: we want a boring, stable baseline for the next ~3 years.
-  newArchEnabled: false,
+  // Enable React Native New Architecture so SDK 54-compatible libraries like
+  // Reanimated and Worklets can install their pods correctly on EAS.
+  newArchEnabled: true,
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
