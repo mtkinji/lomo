@@ -26,8 +26,9 @@ envFiles.forEach((file) => {
 });
 
 const config: ExpoConfig = {
-  name: 'Kwilt',
-  slug: 'Kwilt',
+  name: 'kwilt',
+  // Expo project slug (used for URLs and EAS) – keep lowercase.
+  slug: 'kwilt',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -45,14 +46,16 @@ const config: ExpoConfig = {
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.andrewwatanabe.lomo',
+    // New bundle identifier for the fresh kwilt app.
+    bundleIdentifier: 'com.andrewwatanabe.kwilt',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ['fetch', 'remote-notification'],
     },
   },
   android: {
-    package: 'com.andrewwatanabe.lomo',
+    // New Android applicationId / package for kwilt.
+    package: 'com.andrewwatanabe.kwilt',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -66,7 +69,8 @@ const config: ExpoConfig = {
   plugins: ['expo-font', 'expo-image-picker'],
   extra: {
     eas: {
-      projectId: '278e7989-ae79-4c0b-8ee7-f4162e2b896f',
+      // Linked EAS project for the kwilt app (added manually for dynamic config).
+      projectId: '7717f04d-8327-47a9-8bb4-84c21dc8214f',
     },
     openAiApiKey: process.env.OPENAI_API_KEY,
   },

@@ -1,8 +1,8 @@
-## Kwilt AI Chat Architecture
+## kwilt AI Chat Architecture
 
 ### Overview
 
-Kwilt’s AI experiences are built around a **contextual helper** that lives in a bottom sheet, layered on top of the existing app shell and page canvas. Instead of a single generic chatbot, we treat each AI entry point as doing a specific job (a **mode**) with a well-defined set of **tools** it is allowed to call.
+kwilt’s AI experiences are built around a **contextual helper** that lives in a bottom sheet, layered on top of the existing app shell and page canvas. Instead of a single generic chatbot, we treat each AI entry point as doing a specific job (a **mode**) with a well-defined set of **tools** it is allowed to call.
 
 - **Surface**: `KwiltBottomSheet` hosting a chat-like interaction.
 - **Mode**: describes the job (e.g. `arcCreation`).
@@ -15,7 +15,7 @@ This keeps the UX tight and coaching-oriented while giving us a clean path to ri
 
 #### Chat modes
 
-Modes answer the question: **“What is Kwilt helping with right now?”**  
+Modes answer the question: **“What is kwilt helping with right now?”**  
 Each mode has:
 
 - a **stable identifier** (e.g. `'arcCreation'`),
@@ -42,7 +42,7 @@ Key fields on a tool:
 - `description`: human-readable explanation (used in prompts and docs).
 - `kind`:
   - `internal_ai`: uses an AI model (e.g. OpenAI) to generate suggestions.
-  - `internal_store`: reads or writes Kwilt’s own data (arcs, goals, activities).
+  - `internal_store`: reads or writes kwilt’s own data (arcs, goals, activities).
   - `external_integration`: calls 3rd-party services (e.g. calendar).
 - `requiresAuth`: whether the tool depends on the user having connected a 3rd-party account.
 - `serverOperation`: logical server-side operation or endpoint name, so a future agent/orchestrator can map tools to real capabilities.
@@ -122,7 +122,7 @@ In concrete terms:
 
 ### How this evolves to scheduling and 3rd-party tools
 
-Within ~6 months we expect users to ask Kwilt to **schedule Activities** and sync with the tools they already use (calendars, etc.). This architecture supports that by:
+Within ~6 months we expect users to ask kwilt to **schedule Activities** and sync with the tools they already use (calendars, etc.). This architecture supports that by:
 
 1. Treating scheduling as a **mode** (`goalActivities` or `weeklyPlanning`).
 2. Adding **external integration tools** to the registry:
@@ -130,7 +130,7 @@ Within ~6 months we expect users to ask Kwilt to **schedule Activities** and syn
    - `suggestScheduleForActivities` (internal_ai).
    - `scheduleActivitiesOnCalendar` (external_integration, requiresAuth).
 3. Implementing these tools as **server-side operations** that:
-   - read/write Kwilt’s store,
+   - read/write kwilt’s store,
    - call 3rd-party APIs using stored OAuth tokens,
    - and return structured results to the chat UI.
 

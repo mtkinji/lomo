@@ -457,7 +457,7 @@ export function GoalDetailScreen() {
         visible={showFirstGoalCelebration}
         onClose={handleDismissFirstGoalCelebration}
         title="You just set your first goal"
-        description="This goal is your starting point in Kwilt. Next, add a couple of concrete Activities so you always know the very next step."
+        description="This goal is your starting point in kwilt. Next, add a couple of concrete Activities so you always know the very next step."
         footer={
           <HStack space="sm" marginTop={spacing.lg}>
             <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>

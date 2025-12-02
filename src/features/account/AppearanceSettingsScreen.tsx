@@ -197,7 +197,7 @@ export function AppearanceSettingsScreen() {
     .filter(Boolean);
   let summaryDetail: string;
   if (summaryDetailLabels.length === 0) {
-    summaryDetail = 'Tap to choose the patterns Kwilt rotates through.';
+    summaryDetail = 'Tap to choose the patterns kwilt rotates through.';
   } else if (summaryDetailLabels.length > 3) {
     const visible = summaryDetailLabels.slice(0, 3).join(', ');
     const remaining = summaryDetailLabels.length - 3;
@@ -220,7 +220,7 @@ export function AppearanceSettingsScreen() {
         >
           <View style={styles.section}>
             <Text style={styles.sectionBody}>
-              Choose the patterns Kwilt cycles through on every arc thumbnail.
+              Choose the patterns kwilt cycles through on every arc thumbnail.
             </Text>
           </View>
 

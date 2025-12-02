@@ -112,7 +112,7 @@ export function DevToolsScreen() {
   const handleClearChatHistory = async () => {
     Alert.alert(
       'Clear chat history?',
-      'This will remove all locally stored Kwilt Coach dev history.',
+      'This will remove all locally stored kwilt Coach dev history.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -544,7 +544,7 @@ export function DevToolsScreen() {
                 </Button>
               </View>
               <Text style={styles.cardBody}>
-                Inspect recent Kwilt Coach conversations captured from this device. History is
+                Inspect recent kwilt Coach conversations captured from this device. History is
                 stored locally and only in development builds.
               </Text>
               {chatHistory.length === 0 ? (

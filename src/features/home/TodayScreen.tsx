@@ -132,7 +132,7 @@ export function TodayScreen() {
             <VStack space="xs" alignItems="center">
               <HStack alignItems="center" space="sm">
                 <Logo size={32} />
-                <Heading style={styles.brand}>Kwilt</Heading>
+                <Heading style={styles.brand}>kwilt</Heading>
               </HStack>
               <Text style={styles.subtitle}>
                 Planner · {greeting} · {prettyDate}

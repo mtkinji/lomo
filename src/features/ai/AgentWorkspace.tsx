@@ -54,7 +54,7 @@ export type AgentWorkspaceProps = {
   onComplete?: (outcome: unknown) => void;
   onDismiss?: () => void;
   /**
-   * When true, hide the Kwilt brand header inside the chat timeline.
+   * When true, hide the kwilt brand header inside the chat timeline.
    * Hosts that render their own header chrome (e.g., New Arc bottom sheet)
    * can use this to avoid duplicate branding.
    */

@@ -110,7 +110,7 @@ const getPreferredLocale = () => {
   }
 };
 
-const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
+const ARC_CREATION_DRAFT_STORAGE_KEY = 'kwilt-coach-draft:arcCreation:v1';
 
 const ARC_FEEDBACK_REASONS: { value: ArcProposalFeedbackReason; label: string }[] = [
   { value: 'too_generic', label: 'Too generic or vague' },
@@ -130,7 +130,7 @@ async function loadArcCreationDraft(): Promise<ChatDraft | null> {
     }
     return parsed;
   } catch (err) {
-    console.warn('Failed to load Kwilt Coach arc draft', err);
+    console.warn('Failed to load kwilt Coach arc draft', err);
     return null;
   }
 }
@@ -143,7 +143,7 @@ async function saveArcCreationDraft(draft: ChatDraft | null): Promise<void> {
     }
     await AsyncStorage.setItem(ARC_CREATION_DRAFT_STORAGE_KEY, JSON.stringify(draft));
   } catch (err) {
-    console.warn('Failed to save Kwilt Coach arc draft', err);
+    console.warn('Failed to save kwilt Coach arc draft', err);
   }
 }
 
@@ -265,7 +265,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     id: 'coach-intro-1',
     role: 'assistant',
     content:
-      "I'm your Kwilt Agent for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
+      "I'm your kwilt Agent for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
   },
 ];
 
@@ -482,7 +482,7 @@ export type AiChatPaneProps = {
    */
   stepCard?: ReactNode;
   /**
-   * When true, hide the Kwilt brand header row so hosts (like BottomDrawer
+   * When true, hide the kwilt brand header row so hosts (like BottomDrawer
    * sheets) can render their own mode header outside the chat timeline.
    */
   hideBrandHeader?: boolean;
@@ -1000,13 +1000,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
           },
         });
       } catch (err) {
-        console.error('Kwilt Coach initial chat failed', err);
+        console.error('kwilt Coach initial chat failed', err);
         if (cancelled) return;
         const errorMessage: ChatMessage = {
           id: `assistant-error-bootstrap-${Date.now()}`,
           role: 'assistant',
           content:
-            "I'm having trouble reaching Kwilt Coach right now. Check your connection or API key configuration, then try again.",
+            "I'm having trouble reaching kwilt Coach right now. Check your connection or API key configuration, then try again.",
         };
         setMessages((prev) => {
           const next = [...prev, errorMessage];
@@ -1140,12 +1140,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
         },
       });
     } catch (err) {
-      console.error('Kwilt Coach chat failed', err);
+      console.error('kwilt Coach chat failed', err);
       const errorMessage: ChatMessage = {
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
         content:
-          "I'm having trouble reaching Kwilt Coach right now. Try again in a moment, or adjust your connection.",
+          "I'm having trouble reaching kwilt Coach right now. Try again in a moment, or adjust your connection.",
       };
       setMessages((prev) => {
         const next = [...prev, errorMessage];
@@ -1224,7 +1224,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   <View style={styles.brandLockup}>
                     <Logo size={24} />
                     <View style={styles.brandTextBlock}>
-                      <Text style={styles.brandWordmark}>Kwilt</Text>
+                      <Text style={styles.brandWordmark}>kwilt</Text>
                     </View>
                   </View>
                   {isArcCreationMode && (

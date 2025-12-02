@@ -101,7 +101,8 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // renaming routes like "Arcs" -> "ArcsStack" or nesting a tab inside a stack).
 // This ensures we don't restore stale navigation state that can prevent certain
 // screens (like Arcs or Goals) from being reachable or animating correctly.
-const NAV_PERSISTENCE_KEY = 'lomo-nav-state-v4';
+// Prefix with "kwilt" so new installs don't carry any legacy LOMO state keys.
+const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v1';
 
 const navTheme: Theme = {
   ...DefaultTheme,

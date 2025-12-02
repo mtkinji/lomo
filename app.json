@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "LOMO",
-    "slug": "LOMO",
+    "name": "kwilt",
+    "slug": "kwilt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

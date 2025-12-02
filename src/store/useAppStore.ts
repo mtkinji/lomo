@@ -439,7 +439,8 @@ export const useAppStore = create(
         }),
     }),
     {
-      name: 'lomo-store',
+      // AsyncStorage namespace for the main kwilt app store.
+      name: 'kwilt-store',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => state,
       onRehydrateStorage: () => (state) => {

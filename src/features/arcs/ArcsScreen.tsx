@@ -34,7 +34,7 @@ import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { Logo } from '../../ui/Logo';
 
-const ARC_CREATION_DRAFT_STORAGE_KEY = 'lomo-coach-draft:arcCreation:v1';
+const ARC_CREATION_DRAFT_STORAGE_KEY = 'kwilt-coach-draft:arcCreation:v1';
 
 type ArcCoachDraftMeta = {
   id: string;
@@ -821,7 +821,7 @@ type NewArcModalProps = {
   visible: boolean;
   onClose: () => void;
   /**
-   * Optional workspace snapshot passed down to Kwilt Coach when launched
+   * Optional workspace snapshot passed down to kwilt Coach when launched
    * from the Arcs screen. This gives the coach full context on existing
    * arcs and goals so it can suggest complementary Arcs.
    */
@@ -921,7 +921,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
         <View style={styles.sheetHeaderRow}>
           <View style={styles.brandLockup}>
             <Logo size={24} />
-            <Text style={styles.brandWordmark}>Kwilt</Text>
+            <Text style={styles.brandWordmark}>kwilt</Text>
           </View>
 
           <View style={styles.headerSideRight}>
@@ -1083,7 +1083,7 @@ function ArcDraftSection({ draft, onResume, onDiscard }: ArcDraftSectionProps) {
           <Pressable onPress={onResume}>
             <Card style={styles.draftCard}>
               <Text style={styles.draftPreview}>
-                {draft.preview ?? 'Arc draft with Kwilt Coach'}
+                {draft.preview ?? 'Arc draft with kwilt Coach'}
               </Text>
               <View style={styles.draftMetaRow}>
                 <Text style={styles.draftMetaText}>{lastUpdatedLabel}</Text>

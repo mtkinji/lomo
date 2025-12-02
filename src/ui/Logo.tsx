@@ -11,7 +11,7 @@ type LogoProps = {
 };
 
 /**
- * Primary Kwilt logo mark, rendered from the app icon asset.
+ * Primary kwilt logo mark, rendered from the app icon asset.
  *
  * We use a raster app icon here instead of the original SVG path to avoid
  * depending on native SVG support in development. This keeps the FAB and
@@ -30,7 +30,7 @@ export function Logo({ size = 32, color }: LogoProps) {
       resizeMode="contain"
       accessibilityRole="image"
       accessible
-      accessibilityLabel="Kwilt"
+      accessibilityLabel="kwilt"
     />
   );
 }

@@ -1115,7 +1115,7 @@ function ActivityCoachDrawer({
         <View style={styles.sheetHeaderRow}>
           <View style={styles.brandLockup}>
             <Logo size={24} />
-            <Text style={styles.brandWordmark}>Kwilt</Text>
+            <Text style={styles.brandWordmark}>kwilt</Text>
           </View>
           <View style={styles.headerSideRight}>
             <View style={styles.segmentedControl}>

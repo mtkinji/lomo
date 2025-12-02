@@ -1,4 +1,4 @@
-// ShadCN-style primitive exports for Kwilt.
+// ShadCN-style primitive exports for kwilt.
 // These are the canonical UI building blocks (inspired by React Native Reusables)
 // that screens should depend on. Higher-level, app-specific components can compose
 // these primitives while preserving the app shell vs canvas layering.
