@@ -26,7 +26,7 @@ import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -548,7 +548,7 @@ export function GoalCoachDrawer({
         <View style={styles.sheetHeaderRow}>
           <View style={styles.brandLockup}>
             <Logo size={24} />
-            <Text style={styles.brandWordmark}>Takado</Text>
+            <Text style={styles.brandWordmark}>Kwilt</Text>
           </View>
           <View style={styles.headerSideRight}>
             <View style={styles.segmentedControl}>
@@ -751,7 +751,7 @@ export function GoalCoachDrawer({
             </ScrollView>
           </KeyboardAvoidingView>
       </View>
-      <TakadoBottomSheet
+      <KwiltBottomSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
         snapPoints={['55%']}
@@ -795,7 +795,7 @@ export function GoalCoachDrawer({
             </Button>
           </View>
         </View>
-      </TakadoBottomSheet>
+      </KwiltBottomSheet>
     </BottomDrawer>
   );
 }

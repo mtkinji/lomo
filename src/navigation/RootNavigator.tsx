@@ -194,7 +194,7 @@ export function RootNavigator() {
       }}
     >
       <Drawer.Navigator
-        drawerContent={(props) => <TakadoDrawerContent {...props} />}
+        drawerContent={(props) => <KwiltDrawerContent {...props} />}
         // Normalize drawer behavior so that tapping "Arcs" always lands on the
         // Arcs list root, even if the current nested screen is a deep detail
         // view like GoalDetail. This keeps the mental model of the primary
@@ -374,7 +374,7 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
   }
 }
 
-function TakadoDrawerContent(props: any) {
+function KwiltDrawerContent(props: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
 

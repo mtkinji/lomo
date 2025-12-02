@@ -151,8 +151,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
+    // TEMP: make Plan tab debugging unmistakable by using a louder style.
+    // If you see big red titles in the Goal → Plan tab, we know the
+    // ActivityListItem is being rendered with the expected props.
     ...typography.body,
-    color: colors.textPrimary,
+    color: 'red',
+    fontSize: typography.body.fontSize + 4,
   },
   titleCompleted: {
     color: colors.textSecondary,

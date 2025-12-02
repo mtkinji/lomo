@@ -12,7 +12,7 @@ import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
 import { VStack, HStack, Text, Heading, Textarea } from '../../ui/primitives';
 import { Dialog } from '../../ui/Dialog';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
@@ -112,7 +112,7 @@ export function DevToolsScreen() {
   const handleClearChatHistory = async () => {
     Alert.alert(
       'Clear chat history?',
-      'This will remove all locally stored Takado Coach dev history.',
+      'This will remove all locally stored Kwilt Coach dev history.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -423,7 +423,7 @@ export function DevToolsScreen() {
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>Bottom sheet</Text>
             <Text style={styles.gallerySectionDescription}>
-              Sliding panel built on the shared `TakadoBottomSheet` adapter.
+              Sliding panel built on the shared `KwiltBottomSheet` adapter.
             </Text>
             <Button variant="accent" onPress={() => setDemoSheetVisible(true)}>
               <Text style={styles.primaryButtonLabel}>Open bottom sheet</Text>
@@ -434,7 +434,7 @@ export function DevToolsScreen() {
           </View>
         </View>
 
-        <TakadoBottomSheet
+        <KwiltBottomSheet
           visible={demoSheetVisible}
           onClose={() => setDemoSheetVisible(false)}
           snapPoints={['40%']}
@@ -449,7 +449,7 @@ export function DevToolsScreen() {
               <Text style={styles.primaryButtonLabel}>Close sheet</Text>
             </Button>
           </View>
-        </TakadoBottomSheet>
+        </KwiltBottomSheet>
       </ScrollView>
     );
   };
@@ -544,7 +544,7 @@ export function DevToolsScreen() {
                 </Button>
               </View>
               <Text style={styles.cardBody}>
-                Inspect recent Takado Coach conversations captured from this device. History is
+                Inspect recent Kwilt Coach conversations captured from this device. History is
                 stored locally and only in development builds.
               </Text>
               {chatHistory.length === 0 ? (

@@ -16,7 +16,7 @@ import type {
   ActivitiesStackParamList,
   ActivityDetailRouteParams,
 } from '../../navigation/RootNavigator';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import { VStack, HStack } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -337,7 +337,7 @@ export function ActivityDetailScreen() {
         </VStack>
       </View>
 
-      <TakadoBottomSheet
+      <KwiltBottomSheet
         visible={reminderSheetVisible}
         onClose={() => setReminderSheetVisible(false)}
         snapPoints={['40%']}
@@ -350,9 +350,9 @@ export function ActivityDetailScreen() {
             <SheetOption label="Next Week" onPress={() => handleSelectReminder(7)} />
           </VStack>
         </View>
-      </TakadoBottomSheet>
+      </KwiltBottomSheet>
 
-      <TakadoBottomSheet
+      <KwiltBottomSheet
         visible={dueDateSheetVisible}
         onClose={() => setDueDateSheetVisible(false)}
         snapPoints={['40%']}
@@ -365,9 +365,9 @@ export function ActivityDetailScreen() {
             <SheetOption label="Next Week" onPress={() => handleSelectDueDate(7)} />
           </VStack>
         </View>
-      </TakadoBottomSheet>
+      </KwiltBottomSheet>
 
-      <TakadoBottomSheet
+      <KwiltBottomSheet
         visible={repeatSheetVisible}
         onClose={() => setRepeatSheetVisible(false)}
         snapPoints={['45%']}
@@ -382,7 +382,7 @@ export function ActivityDetailScreen() {
             <SheetOption label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
           </VStack>
         </View>
-      </TakadoBottomSheet>
+      </KwiltBottomSheet>
     </AppShell>
   );
 }

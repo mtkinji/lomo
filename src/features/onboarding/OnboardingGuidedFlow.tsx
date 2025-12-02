@@ -176,7 +176,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
             )}\n\nUse this context, but do not repeat it verbatim.`
           : '';
 
-      const renderedPrompt = `${step.promptTemplate.trim()}${collectedSummary}\n\nRespond as the Takado coach directly to the user in 1–3 short paragraphs. Keep it warm, concrete, and low-pressure.`;
+      const renderedPrompt = `${step.promptTemplate.trim()}${collectedSummary}\n\nRespond as the Kwilt coach directly to the user in 1–3 short paragraphs. Keep it warm, concrete, and low-pressure.`;
 
       const history: CoachChatTurn[] = controller.getHistory();
 
@@ -280,9 +280,9 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
           setLastOnboardingGoalId(goalId);
 
           displayContent =
-            'Takado uses AI to help you turn what you shared into a clear, short-term goal.\n\n' +
+            'Kwilt uses AI to help you turn what you shared into a clear, short-term goal.\n\n' +
             'I’ve created a first goal below for you to start from. You’ll be able to rename it or change it anytime once you’re in the app.\n\n' +
-            'Take a look at the goal below—when you’re ready, you can tap the card or the “Try this in Takado” button to try it out inside the app.';
+            'Take a look at the goal below—when you’re ready, you can tap the card or the “Try this in Kwilt” button to try it out inside the app.';
         }
 
         controller.streamAssistantReplyFromWorkflow(
@@ -1210,7 +1210,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                 onPress={handleContinue}
               />
               <Button style={styles.primaryButton} onPress={handleContinue}>
-                <Text style={styles.primaryButtonLabel}>Try this in Takado</Text>
+                <Text style={styles.primaryButtonLabel}>Try this in Kwilt</Text>
               </Button>
             </View>
           </Card>
@@ -1444,7 +1444,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
               <Text style={styles.stepTitle}>Focus areas</Text>
               <View style={styles.stepBody}>
               <Text style={styles.bodyText}>
-                Takado helps you organize your goals into clear paths, so you always know what to work
+                Kwilt helps you organize your goals into clear paths, so you always know what to work
                 on next.
               </Text>
               <Text style={styles.bodyText}>
@@ -1614,7 +1614,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
               <Text style={styles.stepTitle}>First Arc</Text>
               <View style={styles.stepBody}>
               <Text style={styles.bodyText}>
-                In Takado, your bigger goals live inside Arcs. An Arc is just a focused chapter of
+                In Kwilt, your bigger goals live inside Arcs. An Arc is just a focused chapter of
                 your life, like “Get fit for summer” or “Launch my side project.”
               </Text>
               <Text style={styles.bodyText}>
@@ -1754,7 +1754,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
                 things simple and focused as you go. 🌱
               </Text>
               <Button style={styles.primaryButton} onPress={handleCloseFlow}>
-                <Text style={styles.primaryButtonLabel}>Enter Takado</Text>
+                <Text style={styles.primaryButtonLabel}>Enter Kwilt</Text>
               </Button>
               </View>
             </Card>

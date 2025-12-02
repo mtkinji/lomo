@@ -214,7 +214,7 @@ export type CoachChatTurn = {
 };
 
 /**
- * Dev-only storage key for inspecting raw Takado Coach conversations from the
+ * Dev-only storage key for inspecting raw Kwilt Coach conversations from the
  * in-app DevTools screen. This is intentionally not used for any production
  * features and is gated by `__DEV__` so we don't accumulate unbounded history
  * in release builds.
@@ -487,7 +487,7 @@ async function requestOpenAiArcs(
 ): Promise<GeneratedArc[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are Takado Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
+    'You are Kwilt Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -629,7 +629,7 @@ async function requestOpenAiGoals(
 ): Promise<GoalDraft[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are Takado Coach, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
+    'You are Kwilt Coach, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
     'Return thoughtful goal drafts with title, description, status, forceIntent (values 0-3 for each canonical force), and optional suggestedActivities.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -830,8 +830,8 @@ async function requestOpenAiArcHeroImage(
 }
 
 /**
- * Generic Takado Coach chat endpoint backed by OpenAI's Chat Completions API.
- * This powers the free-form Takado Coach conversation in the bottom sheet.
+ * Generic Kwilt Coach chat endpoint backed by OpenAI's Chat Completions API.
+ * This powers the free-form Kwilt Coach conversation in the bottom sheet.
  */
 export async function sendCoachChat(
   messages: CoachChatTurn[],
@@ -852,7 +852,7 @@ export async function sendCoachChat(
   }
 
   const baseSystemPrompt =
-    'You are Takado Coach, a calm, practical life architecture coach. ' +
+    'You are Kwilt Coach, a calm, practical life architecture coach. ' +
     'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
     'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
 
@@ -919,7 +919,7 @@ export async function sendCoachChat(
       statusText: response.statusText,
       payloadPreview: previewText(errorText),
     });
-    throw new Error('Unable to reach Takado Coach');
+    throw new Error('Unable to reach Kwilt Coach');
   }
 
   const data = await response.json();
@@ -993,7 +993,7 @@ export async function sendCoachChat(
   if (!followupResponse.ok) {
     const errorText = await followupResponse.text();
     console.error('OpenAI coach follow-up error', errorText);
-    throw new Error('Unable to reach Takado Coach (follow-up)');
+    throw new Error('Unable to reach Kwilt Coach (follow-up)');
   }
 
   const followupData = await followupResponse.json();

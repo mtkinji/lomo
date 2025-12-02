@@ -159,7 +159,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         'In 1 short sentence, welcome the user to TAKADO, describe it as a place to bring clarity to their life one goal, one step, one chapter at a time, and explain that you will guide them through a short setup so they can begin with confidence.',
       renderMode: 'static',
       staticCopy:
-        '👋 Welcome to Takado.\n\nThis is where you turn vague ideas and "some day” goals into clear, actionable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
+        '👋 Welcome to Kwilt.\n\nThis is where you turn vague ideas and "some day” goals into clear, actionable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
       copyLength: 'one_sentence',
       validationHint:
         'No fields collected; keep the message short, warm, and specific about what will happen.',
@@ -274,10 +274,10 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Goal confirmation',
       collects: ['goalConfirmed'],
       prompt:
-        'In 1–2 short sentences, briefly acknowledge the saved goal, note that Takado will use it as their first goal, and remind them they can edit or change it anytime from the Goals view.',
+        'In 1–2 short sentences, briefly acknowledge the saved goal, note that Kwilt will use it as their first goal, and remind them they can edit or change it anytime from the Goals view.',
       renderMode: 'static',
       staticCopy:
-        'Great—let’s use this as your first goal in Takado. You can always rename it, tweak the wording, or change it from the Goals view once you’re in the app.',
+        'Great—let’s use this as your first goal in Kwilt. You can always rename it, tweak the wording, or change it from the Goals view once you’re in the app.',
       copyLength: 'short_paragraph',
       hideFreeformChatInput: true,
       validationHint:
@@ -306,12 +306,12 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Closing',
       prompt:
-        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in Takado, and remind them they can always refine it, add more goals, and design concrete plans once they are in the app.',
+        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in Kwilt, and remind them they can always refine it, add more goals, and design concrete plans once they are in the app.',
       renderMode: 'static',
       staticCopy:
         'Great—we’ve turned what you shared into a clear first goal to start from.\n\n' +
-        'This one isn’t meant to be perfect; it’s a simple starting point you can refine as you go. As you spend more time in Takado, you’ll be able to add more goals, break them into concrete steps, and design plans that actually fit your real life.\n\n' +
-        'From here, you can explore Takado, add your own goals, or start sketching a short plan around this one whenever you’re ready.',
+        'This one isn’t meant to be perfect; it’s a simple starting point you can refine as you go. As you spend more time in Kwilt, you’ll be able to add more goals, break them into concrete steps, and design plans that actually fit your real life.\n\n' +
+        'From here, you can explore Kwilt, add your own goals, or start sketching a short plan around this one whenever you’re ready.',
       copyLength: 'short_paragraph',
       validationHint:
         'No new fields; keep it concise, encouraging, and grounded. Avoid hype.',

@@ -326,7 +326,7 @@ export interface UserProfile {
    */
   identitySummary?: string;
   /**
-   * Optional longer-form context the user wants the Takado Agent to know about
+   * Optional longer-form context the user wants the Kwilt Agent to know about
    * them (pasted background, life story, etc). This can be several paragraphs
    * and is not passed to the model directly; instead it is summarized into
    * `coachContextSummary` for use in prompts.

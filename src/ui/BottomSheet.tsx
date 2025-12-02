@@ -9,7 +9,7 @@ import { colors, spacing } from '../theme';
 
 const DEFAULT_SNAP_POINTS: (string | number)[] = ['85%'];
 
-type TakadoBottomSheetProps = {
+type KwiltBottomSheetProps = {
   visible: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -27,7 +27,7 @@ type TakadoBottomSheetProps = {
   hideBackdrop?: boolean;
 } & Partial<BottomSheetModalProps>;
 
-export function TakadoBottomSheet({
+export function KwiltBottomSheet({
   visible,
   onClose,
   children,
@@ -35,7 +35,7 @@ export function TakadoBottomSheet({
   nonDismissable = false,
   hideBackdrop = false,
   ...rest
-}: TakadoBottomSheetProps) {
+}: KwiltBottomSheetProps) {
   const sheetRef = useRef<BottomSheetModal>(null);
   const points = useMemo<(string | number)[]>(
     () => snapPoints ?? DEFAULT_SNAP_POINTS,
@@ -58,7 +58,7 @@ export function TakadoBottomSheet({
   }, [visible, points]);
 
   const renderBackdrop: BottomSheetModalProps['backdropComponent'] = useCallback(
-    (backdropProps) =>
+    (backdropProps: Parameters<NonNullable<BottomSheetModalProps['backdropComponent']>>[0]) =>
       hideBackdrop ? null : (
         <BottomSheetBackdrop
           {...backdropProps}

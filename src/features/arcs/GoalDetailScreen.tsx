@@ -12,6 +12,7 @@ import {
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
+  Text as RNText,
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -24,7 +25,7 @@ import { Icon } from '../../ui/Icon';
 import { Dialog, VStack, Heading, Text, HStack } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle } from '../../domain/types';
-import { TakadoBottomSheet } from '../../ui/BottomSheet';
+import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ARC_MOSAIC_COLS,
@@ -456,7 +457,7 @@ export function GoalDetailScreen() {
         visible={showFirstGoalCelebration}
         onClose={handleDismissFirstGoalCelebration}
         title="You just set your first goal"
-        description="This goal is your starting point in Takado. Next, add a couple of concrete Activities so you always know the very next step."
+        description="This goal is your starting point in Kwilt. Next, add a couple of concrete Activities so you always know the very next step."
         footer={
           <HStack space="sm" marginTop={spacing.lg}>
             <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>
@@ -494,7 +495,7 @@ export function GoalDetailScreen() {
               <View style={styles.headerCenter}>
                 <HStack alignItems="center" justifyContent="center" space="xs">
                   <Icon name="goals" size={16} color={colors.textSecondary} />
-                  <Text style={styles.objectTypeLabel}>Goal</Text>
+                  <Text style={styles.objectTypeLabel}>Goal - DEV</Text>
                 </HStack>
               </View>
               <View style={styles.headerSideRight}>
@@ -839,8 +840,7 @@ export function GoalDetailScreen() {
             )}
 
             {activeTab === 'history' && (
-              <VStack
-                space="md"
+              <View
                 style={{
                   flex: 1,
                   paddingHorizontal: spacing.md,
@@ -848,29 +848,21 @@ export function GoalDetailScreen() {
                   paddingTop: spacing.md,
                 }}
               >
-                <Heading style={styles.sectionTitle}>History</Heading>
-                <VStack space="sm">
-                  <HStack style={styles.timeRow}>
-                    <VStack space="xs" style={styles.lifecycleColumn}>
-                      <Text style={styles.timeLabel}>Created</Text>
-                      <Text style={styles.timeText}>{createdAtLabel ?? 'Just now'}</Text>
-                    </VStack>
-                    <VStack space="xs" style={styles.lifecycleColumn}>
-                      <Text style={styles.timeLabel}>Last modified</Text>
-                      <Text style={styles.timeText}>{updatedAtLabel ?? 'Just now'}</Text>
-                    </VStack>
-                  </HStack>
-                  <Text style={styles.historyHintText}>
-                    This timeline will evolve to include key changes to your goal and related
-                    activities.
-                  </Text>
-                </VStack>
-              </VStack>
+                <RNText
+                  style={{
+                    fontSize: 28,
+                    color: 'blue',
+                    fontWeight: 'bold',
+                    marginTop: 80,
+                  }}
+                >
+                  HELLO FROM HISTORY DEBUG
+                </RNText>
+              </View>
             )}
 
             {activeTab === 'plan' && (
-              <VStack
-                space="md"
+              <View
                 style={{
                   flex: 1,
                   paddingHorizontal: spacing.md,
@@ -878,62 +870,17 @@ export function GoalDetailScreen() {
                   paddingTop: spacing.md,
                 }}
               >
-                <HStack justifyContent="space-between" alignItems="center">
-                  <Heading style={styles.sectionTitle}>Activities</Heading>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    accessibilityRole="button"
-                    accessibilityLabel="Add activity for this goal"
-                    onPress={() => setActivityComposerVisible(true)}
-                  >
-                    <HStack alignItems="center" space="xs">
-                      <Icon name="plus" size={14} color={colors.textPrimary} />
-                      <Text style={styles.addActivityLabel}>Add Activity</Text>
-                    </HStack>
-                  </Button>
-                </HStack>
-                {goalActivities.length === 0 ? (
-                  <VStack space="sm" style={styles.planEmptyState}>
-                    <Heading style={styles.planEmptyTitle}>No Activities yet</Heading>
-                    <Text style={styles.planEmptyBody}>
-                      Break this goal into a few small steps. Start with one quick win you can do in
-                      the next few days.
-                    </Text>
-                    <Text style={styles.planEmptyHint}>
-                      Use “Add Activity” to capture a concrete step. You can refine timing and
-                      details later from the Activities canvas.
-                    </Text>
-                  </VStack>
-                ) : (
-                  <VStack space="md">
-                    {goalActivities.map((activity) => (
-                      // TEMP: log activity titles to confirm data being rendered in Plan tab
-                      // eslint-disable-next-line no-console
-                      console.log('[GoalDetail] plan activity title', activity.title),
-                      <ActivityListItem
-                        key={activity.id}
-                        title={activity.title}
-                        meta={
-                          [
-                            activity.phase ?? undefined,
-                            // Mirror the Activities list by showing the parent goal title
-                            // under the activity. In this context we know the goal already,
-                            // so we can re-use its title directly.
-                            goal.title,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')
-                        }
-                        isCompleted={activity.status === 'done'}
-                        onToggleComplete={() => handleToggleActivityComplete(activity.id)}
-                        isPriorityOne={activity.priority === 1}
-                        onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
-                      />
-                    ))}
-                  </VStack>
-                )}
-              </VStack>
+                <RNText
+                  style={{
+                    fontSize: 28,
+                    color: 'red',
+                    fontWeight: 'bold',
+                    marginTop: 80,
+                  }}
+                >
+                  HELLO FROM PLAN DEBUG ({goalActivities.length})
+                </RNText>
+              </View>
             )}
           </VStack>
         </View>
@@ -960,7 +907,7 @@ export function GoalDetailScreen() {
         }}
       />
       {AgentWorkspaceSheet}
-      <TakadoBottomSheet
+      <KwiltBottomSheet
         visible={vectorsInfoVisible}
         onClose={() => setVectorsInfoVisible(false)}
         snapPoints={['40%']}
@@ -981,8 +928,8 @@ export function GoalDetailScreen() {
             </Button>
           </View>
         </VStack>
-      </TakadoBottomSheet>
-      <TakadoBottomSheet
+      </KwiltBottomSheet>
+      <KwiltBottomSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
         snapPoints={['55%']}
@@ -1026,7 +973,7 @@ export function GoalDetailScreen() {
             </Button>
           </HStack>
         </View>
-      </TakadoBottomSheet>
+      </KwiltBottomSheet>
       <GoalActivityComposerModal
         visible={activityComposerVisible}
         onClose={() => setActivityComposerVisible(false)}
@@ -1083,7 +1030,7 @@ function EditGoalModal({
   };
 
   return (
-    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
+    <KwiltBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -1171,7 +1118,7 @@ function EditGoalModal({
           </HStack>
         </View>
       </KeyboardAvoidingView>
-    </TakadoBottomSheet>
+    </KwiltBottomSheet>
   );
 }
 
@@ -1228,7 +1175,7 @@ function ArcSelectorModal({
   const hasSelectionChanged = selectedArcId !== currentArcId;
 
   return (
-    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['75%']}>
+    <KwiltBottomSheet visible={visible} onClose={onClose} snapPoints={['75%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -1323,7 +1270,7 @@ function ArcSelectorModal({
           </VStack>
         </View>
       </KeyboardAvoidingView>
-    </TakadoBottomSheet>
+    </KwiltBottomSheet>
   );
 }
 
@@ -1358,7 +1305,7 @@ function GoalActivityComposerModal({
   };
 
   return (
-    <TakadoBottomSheet visible={visible} onClose={onClose} snapPoints={['55%']}>
+    <KwiltBottomSheet visible={visible} onClose={onClose} snapPoints={['55%']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={[styles.modalOverlay, { paddingTop: insetTop }]}
@@ -1399,7 +1346,7 @@ function GoalActivityComposerModal({
           </HStack>
         </View>
       </KeyboardAvoidingView>
-    </TakadoBottomSheet>
+    </KwiltBottomSheet>
   );
 }
 
