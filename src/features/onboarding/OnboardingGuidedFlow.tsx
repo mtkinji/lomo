@@ -306,8 +306,10 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
-  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
-    const visuals = state.userProfile?.visuals;
+  const profileVisuals = useAppStore((state) => state.userProfile?.visuals);
+
+  const thumbnailStyles: ThumbnailStyle[] = useMemo(() => {
+    const visuals = profileVisuals;
     if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
       return visuals.thumbnailStyles;
     }
@@ -315,7 +317,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       return [visuals.thumbnailStyle];
     }
     return ['topographyDots'];
-  });
+  }, [profileVisuals?.thumbnailStyles, profileVisuals?.thumbnailStyle]);
   const [visibleSteps, setVisibleSteps] = useState<OnboardingStage[]>(['welcome']);
   const [completedSteps, setCompletedSteps] = useState<OnboardingStage[]>([]);
 

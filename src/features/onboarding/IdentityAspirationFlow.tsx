@@ -3,8 +3,8 @@ import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View } from
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
-import { Text } from '../../ui/primitives';
-import { colors, spacing, typography } from '../../theme';
+import { Heading, Text } from '../../ui/primitives';
+import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
 import { useAppStore } from '../../store/useAppStore';
@@ -65,19 +65,65 @@ type ChoiceOption = {
   id: string;
   label: string;
   tags?: IdentityTag[];
+  emoji?: string;
 };
 
 // Q1 – Domain of becoming (the arena)
 const DOMAIN_OPTIONS: ChoiceOption[] = [
-  { id: 'creativity_expression', label: 'Creativity & expression', tags: ['creative', 'expression', 'mastery'] },
-  { id: 'leadership_influence', label: 'Leadership & influence', tags: ['leadership', 'relationships'] },
-  { id: 'relationships_connection', label: 'Relationships & connection', tags: ['relationships', 'helping'] },
-  { id: 'discipline_consistency', label: 'Discipline & consistency', tags: ['discipline', 'consistency'] },
-  { id: 'courage_confidence', label: 'Courage & confidence', tags: ['courage', 'self_belief'] },
-  { id: 'skill_mastery', label: 'Skill & mastery', tags: ['mastery', 'strength'] },
-  { id: 'purpose_meaning', label: 'Purpose & meaning', tags: ['meaning', 'values'] },
-  { id: 'adventure_exploration', label: 'Adventure & exploration', tags: ['exploration', 'courage'] },
-  { id: 'making_building', label: 'Making & building', tags: ['making', 'creative', 'strength'] },
+  {
+    id: 'creativity_expression',
+    label: 'Creativity & expression',
+    emoji: '🎨',
+    tags: ['creative', 'expression', 'mastery'],
+  },
+  {
+    id: 'leadership_influence',
+    label: 'Leadership & influence',
+    emoji: '🌟',
+    tags: ['leadership', 'relationships'],
+  },
+  {
+    id: 'relationships_connection',
+    label: 'Relationships & connection',
+    emoji: '🤝',
+    tags: ['relationships', 'helping'],
+  },
+  {
+    id: 'discipline_consistency',
+    label: 'Discipline & consistency',
+    emoji: '📅',
+    tags: ['discipline', 'consistency'],
+  },
+  {
+    id: 'courage_confidence',
+    label: 'Courage & confidence',
+    emoji: '💪',
+    tags: ['courage', 'self_belief'],
+  },
+  {
+    id: 'skill_mastery',
+    label: 'Skill & mastery',
+    emoji: '🏅',
+    tags: ['mastery', 'strength'],
+  },
+  {
+    id: 'purpose_meaning',
+    label: 'Purpose & meaning',
+    emoji: '🌱',
+    tags: ['meaning', 'values'],
+  },
+  {
+    id: 'adventure_exploration',
+    label: 'Adventure & exploration',
+    emoji: '🧭',
+    tags: ['exploration', 'courage'],
+  },
+  {
+    id: 'making_building',
+    label: 'Making & building',
+    emoji: '🛠️',
+    tags: ['making', 'creative', 'strength'],
+  },
 ];
 
 // Q2 – Motivational style (their drive)
@@ -731,93 +777,96 @@ export function IdentityAspirationFlow({
     return [...primary, ...contrast];
   };
 
-  const handleConfirmDomain = () => {
-    if (domainIds.length === 0) return;
+  const handleConfirmDomain = (selectedDomain: string) => {
     if (workflowRuntime) {
-      workflowRuntime.completeStep('vibe_select', { domain });
+      workflowRuntime.completeStep('vibe_select', { domain: selectedDomain });
     }
-    appendChatUserMessage(domain);
+    appendChatUserMessage(selectedDomain);
     setError(null);
     advancePhase('motivation');
   };
 
-  const handleConfirmMotivation = () => {
-    if (motivationIds.length === 0) return;
+  const handleConfirmMotivation = (selectedMotivation: string) => {
     if (workflowRuntime) {
-      workflowRuntime.completeStep('social_mirror', { motivation });
+      workflowRuntime.completeStep('social_mirror', { motivation: selectedMotivation });
     }
-    appendChatUserMessage(motivation);
+    appendChatUserMessage(selectedMotivation);
     setError(null);
     advancePhase('trait');
   };
 
-  const handleConfirmTrait = () => {
-    if (signatureTraitIds.length === 0) return;
+  const handleConfirmTrait = (selectedTrait: string) => {
     if (workflowRuntime) {
-      workflowRuntime.completeStep('core_strength', { signatureTrait });
+      workflowRuntime.completeStep('core_strength', { signatureTrait: selectedTrait });
     }
-    appendChatUserMessage(signatureTrait);
+    appendChatUserMessage(selectedTrait);
     setError(null);
     advancePhase('growth');
   };
 
-  const handleConfirmGrowth = () => {
-    if (growthEdgeIds.length === 0) return;
+  const handleConfirmGrowth = (selectedGrowthEdge: string) => {
     if (workflowRuntime) {
-      workflowRuntime.completeStep('growth_edge', { growthEdge });
+      workflowRuntime.completeStep('growth_edge', { growthEdge: selectedGrowthEdge });
     }
-    appendChatUserMessage(growthEdge);
+    appendChatUserMessage(selectedGrowthEdge);
     setError(null);
     advancePhase('proudMoment');
   };
 
-  const handleConfirmProudMoment = () => {
-    if (proudMomentIds.length === 0) return;
+  const handleConfirmProudMoment = (selectedProudMoment: string) => {
     if (workflowRuntime) {
-      workflowRuntime.completeStep('everyday_moment', { proudMoment });
+      workflowRuntime.completeStep('everyday_moment', { proudMoment: selectedProudMoment });
     }
-    appendChatUserMessage(proudMoment);
+    appendChatUserMessage(selectedProudMoment);
     setError(null);
     advancePhase('nickname');
   };
 
   const renderDomain = () => (
-    <Card style={styles.stepCard}>
+    <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-        <Text style={styles.bodyText}>
+        <Text style={styles.questionTitle}>
           Which part of yourself are you most excited to grow right now?
         </Text>
-        <View style={styles.chipGrid}>
+        <View style={styles.fullWidthList}>
           {DOMAIN_OPTIONS.map((option) => {
             const selected = domainIds.includes(option.id);
             return (
               <Pressable
                 key={option.id}
-                style={[styles.chip, selected && styles.chipSelected]}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
                 onPress={() => {
-                  setDomainIds((current) => {
-                    const isSelected = current.includes(option.id);
-                    const nextSelected = !isSelected;
-                    updateSignatureForOption(option, nextSelected);
-                    return toggleIdInList(option.id, current);
-                  });
+                  // Single-select: clear previous selection contributions, then apply the new one
+                  const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
+                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                  updateSignatureForOption(option, true);
+                  setDomainIds([option.id]);
+                  handleConfirmDomain(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
+                <View style={styles.fullWidthOptionContent}>
+                  {option.emoji ? (
+                    <Text
+                      style={[
+                        styles.fullWidthOptionEmoji,
+                        selected && styles.fullWidthOptionEmojiSelected,
+                      ]}
+                    >
+                      {option.emoji}
+                    </Text>
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
-        </View>
-        <View style={styles.inlineActions}>
-          <Button
-            style={styles.primaryButton}
-            onPress={handleConfirmDomain}
-            disabled={domainIds.length === 0}
-          >
-            <Text style={styles.primaryButtonLabel}>Continue</Text>
-          </Button>
         </View>
       </View>
     </Card>
@@ -837,12 +886,13 @@ export function IdentityAspirationFlow({
                 key={option.id}
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
-                  setMotivationIds((current) => {
-                    const isSelected = current.includes(option.id);
-                    const nextSelected = !isSelected;
-                    updateSignatureForOption(option, nextSelected);
-                    return toggleIdInList(option.id, current);
-                  });
+                  const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
+                    motivationIds.includes(o.id)
+                  );
+                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                  updateSignatureForOption(option, true);
+                  setMotivationIds([option.id]);
+                  handleConfirmMotivation(option.label);
                 }}
               >
                 <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
@@ -851,15 +901,6 @@ export function IdentityAspirationFlow({
               </Pressable>
             );
           })}
-        </View>
-        <View style={styles.inlineActions}>
-          <Button
-            style={styles.primaryButton}
-            onPress={handleConfirmMotivation}
-            disabled={motivationIds.length === 0}
-          >
-            <Text style={styles.primaryButtonLabel}>Continue</Text>
-          </Button>
         </View>
       </View>
     </Card>
@@ -879,12 +920,13 @@ export function IdentityAspirationFlow({
                 key={option.id}
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
-                  setSignatureTraitIds((current) => {
-                    const isSelected = current.includes(option.id);
-                    const nextSelected = !isSelected;
-                    updateSignatureForOption(option, nextSelected);
-                    return toggleIdInList(option.id, current);
-                  });
+                  const previousSelected = SIGNATURE_TRAIT_OPTIONS.filter((o) =>
+                    signatureTraitIds.includes(o.id)
+                  );
+                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                  updateSignatureForOption(option, true);
+                  setSignatureTraitIds([option.id]);
+                  handleConfirmTrait(option.label);
                 }}
               >
                 <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
@@ -893,15 +935,6 @@ export function IdentityAspirationFlow({
               </Pressable>
             );
           })}
-        </View>
-        <View style={styles.inlineActions}>
-          <Button
-            style={styles.primaryButton}
-            onPress={handleConfirmTrait}
-            disabled={signatureTraitIds.length === 0}
-          >
-            <Text style={styles.primaryButtonLabel}>Continue</Text>
-          </Button>
         </View>
       </View>
     </Card>
@@ -919,12 +952,13 @@ export function IdentityAspirationFlow({
                 key={option.id}
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
-                  setGrowthEdgeIds((current) => {
-                    const isSelected = current.includes(option.id);
-                    const nextSelected = !isSelected;
-                    updateSignatureForOption(option, nextSelected);
-                    return toggleIdInList(option.id, current);
-                  });
+                  const previousSelected = GROWTH_EDGE_OPTIONS.filter((o) =>
+                    growthEdgeIds.includes(o.id)
+                  );
+                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                  updateSignatureForOption(option, true);
+                  setGrowthEdgeIds([option.id]);
+                  handleConfirmGrowth(option.label);
                 }}
               >
                 <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
@@ -933,15 +967,6 @@ export function IdentityAspirationFlow({
               </Pressable>
             );
           })}
-        </View>
-        <View style={styles.inlineActions}>
-          <Button
-            style={styles.primaryButton}
-            onPress={handleConfirmGrowth}
-            disabled={growthEdgeIds.length === 0}
-          >
-            <Text style={styles.primaryButtonLabel}>Continue</Text>
-          </Button>
         </View>
       </View>
     </Card>
@@ -961,12 +986,13 @@ export function IdentityAspirationFlow({
                 key={option.id}
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
-                  setProudMomentIds((current) => {
-                    const isSelected = current.includes(option.id);
-                    const nextSelected = !isSelected;
-                    updateSignatureForOption(option, nextSelected);
-                    return toggleIdInList(option.id, current);
-                  });
+                  const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
+                    proudMomentIds.includes(o.id)
+                  );
+                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                  updateSignatureForOption(option, true);
+                  setProudMomentIds([option.id]);
+                  handleConfirmProudMoment(option.label);
                 }}
               >
                 <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
@@ -975,15 +1001,6 @@ export function IdentityAspirationFlow({
               </Pressable>
             );
           })}
-        </View>
-        <View style={styles.inlineActions}>
-          <Button
-            style={styles.primaryButton}
-            onPress={handleConfirmProudMoment}
-            disabled={proudMomentIds.length === 0}
-          >
-            <Text style={styles.primaryButtonLabel}>Continue</Text>
-          </Button>
         </View>
       </View>
     </Card>
@@ -1017,6 +1034,7 @@ export function IdentityAspirationFlow({
         />
         <View style={styles.inlineActions}>
           <Button
+            variant="accent"
             style={styles.primaryButton}
             onPress={() => {
               if (workflowRuntime) {
@@ -1075,7 +1093,7 @@ export function IdentityAspirationFlow({
           <Text style={styles.bodyText}>{aspiration.aspirationSentence}</Text>
           <Text style={styles.bodyText}>{aspiration.nextSmallStep}</Text>
           <View style={styles.inlineActions}>
-            <Button style={styles.primaryButton} onPress={handleConfirmAspiration}>
+            <Button variant="accent" style={styles.primaryButton} onPress={handleConfirmAspiration}>
               <Text style={styles.primaryButtonLabel}>Yes, this feels like me</Text>
             </Button>
             <Button
@@ -1118,6 +1136,7 @@ export function IdentityAspirationFlow({
         </View>
         <View style={styles.inlineActions}>
           <Button
+            variant="accent"
             style={styles.primaryButton}
             onPress={() => {
               if (!selectedTweak) return;
@@ -1143,20 +1162,31 @@ export function IdentityAspirationFlow({
   );
 
   const renderResearchExplainer = () => (
-    <Card style={styles.stepCard}>
+    <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
+        <Heading style={styles.researchHeading} variant="sm" tone="default">
+          The science behind your plan
+        </Heading>
         <Text style={styles.bodyText}>
-          Kwilt is built on ideas from motivation science, positive psychology, and identity
-          development research. These fields study how people actually grow—how they build
-          confidence, form strong habits, and become the kind of person they want to be.
+          Kwilt is based on research in{' '}
+          <Text style={styles.bodyStrong}>
+            motivation science, positive psychology, and identity development
+          </Text>
+          . These fields study how people actually grow—how they build confidence, stick with new
+          habits, and become more like the kind of person they want to be.
         </Text>
         <Text style={styles.bodyText}>
-          We use proven concepts like “possible selves” (imagining who you’re becoming),
-          strength-based growth, and tiny, doable actions to help you stay motivated and make real
-          progress. Nothing complicated—just science that helps your plan fit you. 🌱
+          We use ideas like{' '}
+          <Text style={styles.bodyItalic}>“possible selves”</Text> (imagining who you’re becoming),{' '}
+          <Text style={styles.bodyStrong}>strength-based growth</Text>, and{' '}
+          <Text style={styles.bodyStrong}>tiny, doable actions</Text> that fit your real life so you
+          can stay motivated and make real progress.{' '}
+          <Text style={styles.bodyStrong}>Nothing complicated</Text>—just science that helps your
+          plan fit you. 🌱
         </Text>
-        <View style={styles.inlineActions}>
+        <View style={[styles.inlineActions, styles.researchActions]}>
           <Button
+            variant="accent"
             style={styles.primaryButton}
             onPress={() => {
               setShowResearchExplainer(false);
@@ -1275,16 +1305,35 @@ const styles = StyleSheet.create({
     elevation: 4,
     gap: spacing.md,
   },
+  researchCard: {
+    paddingHorizontal: spacing['xl'],
+    paddingVertical: spacing['xl'],
+  },
   stepBody: {
     gap: spacing.md,
+  },
+  researchHeading: {
+    marginBottom: spacing.sm,
+    color: colors.primary,
+  },
+  bodyStrong: {
+    fontWeight: '700',
+  },
+  bodyItalic: {
+    fontStyle: 'italic',
   },
   bodyText: {
     ...typography.body,
     color: colors.textPrimary,
   },
+  questionTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    paddingBottom: spacing.md,
+  },
   primaryButton: {
-    alignSelf: 'center',
-    minWidth: 220,
+    alignSelf: 'stretch',
   },
   primaryButtonLabel: {
     ...typography.bodySm,
@@ -1322,10 +1371,49 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
+  fullWidthList: {
+    flexDirection: 'column',
+    gap: spacing.xs,
+  },
+  fullWidthOption: {
+    borderRadius: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.shell,
+  },
+  fullWidthOptionSelected: {
+    borderColor: colors.accent,
+    backgroundColor: '#DCFCE7',
+  },
+  fullWidthOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  fullWidthOptionEmoji: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  fullWidthOptionEmojiSelected: {
+    color: colors.accent,
+  },
+  fullWidthOptionLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  fullWidthOptionLabelSelected: {
+    color: colors.accent,
+    fontWeight: '600',
+  },
   inlineActions: {
     flexDirection: 'column',
     gap: spacing.sm,
     alignItems: 'center',
+  },
+  researchActions: {
+    paddingTop: spacing.xl,
   },
   loadingRow: {
     flexDirection: 'row',
