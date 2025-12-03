@@ -11,6 +11,8 @@ import {
 import { AiChatPane, type AiChatPaneController } from './AiChatScreen';
 import { WorkflowRuntimeContext } from './WorkflowRuntimeContext';
 import { OnboardingGuidedFlow } from '../onboarding/OnboardingGuidedFlow';
+import { IdentityAspirationFlow } from '../onboarding/IdentityAspirationFlow';
+import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -235,10 +237,22 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return undefined;
     }
 
-    // Any workflow that uses the firstTimeOnboarding chatMode is hosted by the
-    // shared OnboardingGuidedFlow presenter. The presenter inspects the
-    // workflow definition ID to branch between v1 and v2 behavior.
+    // Any workflow that uses the firstTimeOnboarding chatMode is hosted by a
+    // shared onboarding presenter. For the v2 identity-Arc FTUE we use a
+    // dedicated, tap-first flow; any future legacy flows can continue to use
+    // the older OnboardingGuidedFlow presenter.
     if (workflowDefinition.chatMode === 'firstTimeOnboarding') {
+      if (workflowDefinition.id === FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID) {
+        return (
+          <IdentityAspirationFlow
+            onComplete={() => {
+              onComplete?.(workflowInstance?.collectedData ?? {});
+            }}
+            chatControllerRef={chatPaneRef}
+          />
+        );
+      }
+
       return (
         <OnboardingGuidedFlow
           onComplete={() => {

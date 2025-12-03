@@ -68,6 +68,10 @@ export function FirstTimeUxFlow() {
               <>
                 <Pressable style={styles.devMenuOverlay} onPress={() => setShowDevMenu(false)} />
                 <View style={[styles.devMenu, { top: insets.top + 44 }]}>
+                  <View style={styles.devMenuHeader}>
+                    <Text style={styles.devMenuHeaderTitle}>Onboarding</Text>
+                    <Text style={styles.devMenuHeaderSubtitle}>Developer tools</Text>
+                  </View>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => {
@@ -103,6 +107,7 @@ export function FirstTimeUxFlow() {
                       <Text style={styles.devMenuItemLabel}>Autofill and skip to last step</Text>
                     </View>
                   </Pressable>
+                  <View style={styles.devMenuSeparator} />
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => {
@@ -115,8 +120,8 @@ export function FirstTimeUxFlow() {
                     ]}
                   >
                     <View style={styles.devMenuItemContent}>
-                      <Icon name="close" size={16} color={colors.textPrimary} />
-                      <Text style={styles.devMenuItemLabel}>Exit onboarding</Text>
+                      <Icon name="close" size={16} color={colors.destructive} />
+                      <Text style={styles.devMenuDestructiveLabel}>Exit onboarding</Text>
                     </View>
                   </Pressable>
                 </View>
@@ -166,6 +171,8 @@ const styles = StyleSheet.create({
   devExitButton: {
     backgroundColor: '#EA580C',
     borderColor: '#EA580C',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   devMenuOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -174,22 +181,38 @@ const styles = StyleSheet.create({
   devMenu: {
     position: 'absolute',
     right: 12,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: colors.canvas,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-    gap: 0,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minWidth: 224,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
     zIndex: 2,
   },
+  devMenuHeader: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  devMenuHeaderTitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  devMenuHeaderSubtitle: {
+    ...typography.bodyXs,
+    color: colors.muted,
+  },
   devMenuItem: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 6,
+    minHeight: 44,
   },
   devMenuItemContent: {
     flexDirection: 'row',
@@ -202,6 +225,16 @@ const styles = StyleSheet.create({
   devMenuItemLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  devMenuSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+    marginHorizontal: 0,
+  },
+  devMenuDestructiveLabel: {
+    ...typography.body,
+    color: colors.destructive,
   },
 });
 

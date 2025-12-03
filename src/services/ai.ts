@@ -488,6 +488,7 @@ async function requestOpenAiArcs(
   const model = resolveChatModel();
   const baseSystemPrompt =
     'You are kwilt Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
+    'Arcs should follow the gold-standard identity model described in our product docs (domain of becoming, motivational style, signature trait, growth edge, and everyday proud moment) so `name` and `narrative` feel specific and personal, not generic. ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -936,6 +937,26 @@ export async function sendCoachChat(
       throw new Error('OpenAI coach chat response missing content');
     }
     devLog('coachChat:parsed', { contentPreview: previewText(content) });
+
+    // In development builds, persist a snapshot of this turn so it can be
+    // inspected from the DevTools screen. For non-tool calls we log the
+    // direct assistant content here before returning.
+    void appendDevCoachChatHistory({
+      timestamp: new Date().toISOString(),
+      mode: options?.mode,
+      workflowDefinitionId: options?.workflowDefinitionId,
+      workflowInstanceId: options?.workflowInstanceId,
+      workflowStepId: options?.workflowStepId,
+      launchContextSummary: options?.launchContextSummary,
+      messages: [
+        ...messages,
+        {
+          role: 'assistant',
+          content: String(content),
+        },
+      ],
+    });
+
     return content as string;
   }
 

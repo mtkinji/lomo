@@ -45,6 +45,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
+    buildNumber: '2',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ['fetch', 'remote-notification'],

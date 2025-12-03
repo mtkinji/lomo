@@ -295,7 +295,7 @@ const CHAT_COLORS = {
 const markdownStyles = StyleSheet.create({
   body: {
     ...typography.body,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
   },
   paragraph: {
     marginTop: 0,
@@ -303,20 +303,20 @@ const markdownStyles = StyleSheet.create({
   },
   heading1: {
     ...typography.titleLg,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   heading2: {
     ...typography.titleSm,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   heading3: {
     ...typography.body,
     fontWeight: '600',
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
     marginTop: spacing.sm,
     marginBottom: spacing.xs / 2,
   },
@@ -331,7 +331,11 @@ const markdownStyles = StyleSheet.create({
     marginBottom: spacing.xs / 2,
   },
   strong: {
+    // Make bold text in Markdown clearly stand out inside assistant bubbles
+    // without looking like a clickable affordance.
+    fontFamily: fonts.semibold,
     fontWeight: '600',
+    color: CHAT_COLORS.textPrimary,
   },
   em: {
     fontStyle: 'italic',
@@ -359,7 +363,7 @@ const markdownStyles = StyleSheet.create({
     borderLeftColor: CHAT_COLORS.border,
     paddingLeft: spacing.md,
     marginVertical: spacing.xs,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
   },
 });
 
@@ -918,7 +922,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
 
       if (index < totalLength) {
-        const delay = crossedPause ? 800 : 30;
+        const delay = crossedPause ? 800 : 40;
         setTimeout(step, delay);
       } else {
         opts?.onDone?.();
@@ -1222,7 +1226,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
               {!hideBrandHeader && (
                 <View style={styles.brandHeaderRow}>
                   <View style={styles.brandLockup}>
-                    <Logo size={24} />
+                    <Logo size={32} />
                     <View style={styles.brandTextBlock}>
                       <Text style={styles.brandWordmark}>kwilt</Text>
                     </View>
@@ -1262,9 +1266,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         <Markdown style={markdownStyles}>{message.content}</Markdown>
                       </View>
                     ) : (
-                      <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
-                        <Text style={styles.userText}>{message.content}</Text>
-                      </View>
+                      <UserMessageBubble key={message.id} content={message.content} />
                     ),
                   )}
                 {isArcCreationMode && arcProposal && (
@@ -1790,6 +1792,41 @@ export function AiChatScreen() {
   );
 }
 
+function UserMessageBubble({ content }: { content: string }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(8)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, translateY]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
+      <View style={[styles.messageBubble, styles.userBubble]}>
+        <Text style={styles.userText}>{content}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
@@ -1822,13 +1859,13 @@ const styles = StyleSheet.create({
   brandLockup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   brandTextBlock: {
     flexDirection: 'column',
   },
   brandWordmark: {
-    ...typography.titleSm,
+    ...typography.titleMd,
     fontFamily: fonts.logo,
     color: CHAT_COLORS.textPrimary,
   },
@@ -1911,7 +1948,7 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     ...typography.body,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
   },
   thinkingBubble: {
     paddingHorizontal: spacing.md,

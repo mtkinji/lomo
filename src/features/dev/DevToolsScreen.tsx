@@ -511,7 +511,7 @@ export function DevToolsScreen() {
                 Launches the first-time experience overlay immediately, even if it was already
                 completed.
               </Text> */}
-              <Button onPress={handleTriggerFirstTimeUx}>
+              <Button variant="accent" onPress={handleTriggerFirstTimeUx}>
                 <Text style={styles.primaryButtonLabel}>Trigger first-time UX</Text>
               </Button>
               {isFlowActive && (

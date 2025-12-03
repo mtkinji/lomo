@@ -24,6 +24,8 @@ AI should appear as inline helpers (“Ask LOMO”, suggestions, rewrites), not 
 
 ### 1. First-Run Experience
 
+> **Note:** The detailed, identity-first FTUE that creates a single onboarding Arc from five tap-only identity questions is specified in `docs/arc-aspiration-ftue.md`. Treat that document as the source of truth for the current FTUE question set and Arc synthesis model; this section remains a higher-level, earlier sketch of the overall flow.
+
 #### 1.1 Welcome & Lightweight Profile
 
 - **Canvas content**

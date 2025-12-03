@@ -90,6 +90,7 @@ When implementing a new screen or refactoring an existing one:
    - Buttons: `Button` / `IconButton` (`variant`, `size`).
    - Surfaces: `Card`, `Dialog`, `Sheet`, `DropdownMenu`, `Badge`.
    - Form controls: `Input` (or `Textarea` alias), plus RN components for very custom inputs when needed.
+  - For agent-hosted onboarding flows that create identity Arcs, the step cards rendered in the canvas should follow the FTUE spec in `docs/arc-aspiration-ftue.md` (five tap-only questions leading to a synthesized Arc).
 
 4. **Use `Text` / `Heading` for all on‑canvas copy**
    - Choose a `variant` that matches the design (`body`, `bodySm`, `label`, or `xl`/`lg`/`md`/`sm` for headings).
