@@ -172,14 +172,14 @@ const MOTIVATION_OPTIONS: ChoiceOption[] = [
 
 // Q3 – Signature trait (their flavor)
 const SIGNATURE_TRAIT_OPTIONS: ChoiceOption[] = [
-  { id: 'curiosity', label: 'Your curiosity', tags: ['curiosity', 'exploration'] },
-  { id: 'imagination', label: 'Your imagination', tags: ['imagination', 'creative'] },
-  { id: 'loyalty', label: 'Your loyalty', tags: ['loyalty', 'relationships'] },
-  { id: 'competitiveness', label: 'Your competitiveness', tags: ['competitiveness', 'excellence'] },
-  { id: 'humor', label: 'Your sense of humor', tags: ['humor', 'relationships'] },
-  { id: 'calm', label: 'Your calm', tags: ['calm'] },
-  { id: 'intensity', label: 'Your intensity', tags: ['intensity'] },
-  { id: 'empathy', label: 'Your empathy', tags: ['empathy', 'helping'] },
+  { id: 'curiosity', label: 'Curiosity', tags: ['curiosity', 'exploration'] },
+  { id: 'imagination', label: 'Imagination', tags: ['imagination', 'creative'] },
+  { id: 'loyalty', label: 'Loyalty', tags: ['loyalty', 'relationships'] },
+  { id: 'competitiveness', label: 'Competitiveness', tags: ['competitiveness', 'excellence'] },
+  { id: 'humor', label: 'Sense of humor', tags: ['humor', 'relationships'] },
+  { id: 'calm', label: 'Calm', tags: ['calm'] },
+  { id: 'intensity', label: 'Intensity', tags: ['intensity'] },
+  { id: 'empathy', label: 'Empathy', tags: ['empathy', 'helping'] },
 ];
 
 // Q4 – Growth edge (their tension)
@@ -777,11 +777,11 @@ export function IdentityAspirationFlow({
     return [...primary, ...contrast];
   };
 
-  const handleConfirmDomain = (selectedDomain: string) => {
+  const handleConfirmDomain = (selectedDomain: string, displayLabel?: string) => {
     if (workflowRuntime) {
       workflowRuntime.completeStep('vibe_select', { domain: selectedDomain });
     }
-    appendChatUserMessage(selectedDomain);
+    appendChatUserMessage(displayLabel ?? selectedDomain);
     setError(null);
     advancePhase('motivation');
   };
@@ -831,6 +831,7 @@ export function IdentityAspirationFlow({
         <View style={styles.fullWidthList}>
           {DOMAIN_OPTIONS.map((option) => {
             const selected = domainIds.includes(option.id);
+            const labelWithEmoji = option.emoji ? `${option.emoji} ${option.label}` : option.label;
             return (
               <Pressable
                 key={option.id}
@@ -841,7 +842,7 @@ export function IdentityAspirationFlow({
                   previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                   updateSignatureForOption(option, true);
                   setDomainIds([option.id]);
-                  handleConfirmDomain(option.label);
+                  handleConfirmDomain(option.label, labelWithEmoji);
                 }}
               >
                 <View style={styles.fullWidthOptionContent}>
@@ -873,18 +874,19 @@ export function IdentityAspirationFlow({
   );
 
   const renderMotivation = () => (
-    <Card style={styles.stepCard}>
+    <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-        <Text style={styles.bodyText}>
-          When future-you is really in their zone here, what motivates them the most?
+        <Text style={styles.questionTitle}>
+          Thinking about that future version of you, what do you think would motivate them the most
+          here?
         </Text>
-        <View style={styles.chipGrid}>
+        <View style={styles.fullWidthList}>
           {getAdaptiveOptions(MOTIVATION_OPTIONS, 5).map((option) => {
             const selected = motivationIds.includes(option.id);
             return (
               <Pressable
                 key={option.id}
-                style={[styles.chip, selected && styles.chipSelected]}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
                 onPress={() => {
                   const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
                     motivationIds.includes(o.id)
@@ -895,9 +897,26 @@ export function IdentityAspirationFlow({
                   handleConfirmMotivation(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
+                <View style={styles.fullWidthOptionContent}>
+                  {option.emoji ? (
+                    <Text
+                      style={[
+                        styles.fullWidthOptionEmoji,
+                        selected && styles.fullWidthOptionEmojiSelected,
+                      ]}
+                    >
+                      {option.emoji}
+                    </Text>
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
@@ -907,10 +926,11 @@ export function IdentityAspirationFlow({
   );
 
   const renderTrait = () => (
-    <Card style={styles.stepCard}>
+    <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-        <Text style={styles.bodyText}>
-          Future-you is still you, just more you. Which part of you do they lean into even more?
+        <Text style={styles.questionTitle}>
+          Future-you will still be you—just more grown up and confident. For that future version of
+          you, which of these strengths would you most want them to have?
         </Text>
         <View style={styles.chipGrid}>
           {getAdaptiveOptions(SIGNATURE_TRAIT_OPTIONS, 5).map((option) => {
@@ -941,9 +961,12 @@ export function IdentityAspirationFlow({
   );
 
   const renderGrowth = () => (
-    <Card style={styles.stepCard}>
+    <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-        <Text style={styles.bodyText}>Every good story has a challenge. Which one feels most real?</Text>
+        <Text style={styles.questionTitle}>
+          Every good story has a challenge. Which of these challenges feels most real for you right
+          now?
+        </Text>
         <View style={styles.chipGrid}>
           {getAdaptiveOptions(GROWTH_EDGE_OPTIONS, 5).map((option) => {
             const selected = growthEdgeIds.includes(option.id);
@@ -973,10 +996,11 @@ export function IdentityAspirationFlow({
   );
 
   const renderProudMoment = () => (
-    <Card style={styles.stepCard}>
+    <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-        <Text style={styles.bodyText}>
-          On a normal day in the future—not a big moment—what would make you feel quietly proud?
+        <Text style={styles.questionTitle}>
+          On a normal day in that future—not a big moment—what could you do that would make you
+          feel quietly proud of yourself?
         </Text>
         <View style={styles.chipGrid}>
           {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 5).map((option) => {
@@ -1350,6 +1374,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+    justifyContent: 'center',
   },
   chip: {
     borderRadius: 999,
