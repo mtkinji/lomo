@@ -111,7 +111,8 @@ const styles = StyleSheet.create({
   title: {
     ...typography.titleSm,
     color: colors.textPrimary,
-    fontWeight: '700'
+    fontWeight: '700',
+    marginBottom: spacing.lg,
   },
   description: {
     marginTop: 0,

@@ -1038,7 +1038,7 @@ function EditGoalModal({
         <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
           <Heading style={styles.modalTitle}>Edit Goal</Heading>
           <Text style={styles.modalBody}>
-            Update the goal details and rebalance the forces to better match this season.
+            Update the goal details and rebalance the forces to better match where you are right now.
           </Text>
 
           <Text style={styles.modalLabel}>Title</Text>

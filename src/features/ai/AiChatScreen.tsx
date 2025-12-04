@@ -116,7 +116,7 @@ const ARC_FEEDBACK_REASONS: { value: ArcProposalFeedbackReason; label: string }[
   { value: 'too_generic', label: 'Too generic or vague' },
   { value: 'project_not_identity', label: 'Feels like a project, not an identity' },
   { value: 'wrong_domain', label: 'Wrong domain of life' },
-  { value: 'tone_off', label: 'Tone feels off for my season' },
+  { value: 'tone_off', label: 'Tone feels off for where I am right now' },
   { value: 'does_not_feel_like_me', label: 'Does not feel like me' },
 ];
 
@@ -265,7 +265,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     id: 'coach-intro-1',
     role: 'assistant',
     content:
-      "I'm your kwilt Agent for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
+      "I'm your kwilt Agent. Think of me as a smart friend who can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
   },
 ];
 

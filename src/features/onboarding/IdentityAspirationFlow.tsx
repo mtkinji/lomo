@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { Input } from '../../ui/Input';
 import { Heading, Text } from '../../ui/primitives';
+import { Input } from '../../ui/Input';
+import { Dialog } from '../../ui/Dialog';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
@@ -78,6 +79,12 @@ const DOMAIN_OPTIONS: ChoiceOption[] = [
     tags: ['creative', 'expression', 'mastery'],
   },
   {
+    id: 'craft_skill_building',
+    label: 'Craft, skill & building',
+    emoji: '🛠️',
+    tags: ['mastery', 'making', 'strength'],
+  },
+  {
     id: 'leadership_influence',
     label: 'Leadership & influence',
     emoji: '🌟',
@@ -90,10 +97,10 @@ const DOMAIN_OPTIONS: ChoiceOption[] = [
     tags: ['relationships', 'helping'],
   },
   {
-    id: 'discipline_consistency',
-    label: 'Discipline & consistency',
-    emoji: '📅',
-    tags: ['discipline', 'consistency'],
+    id: 'purpose_meaning_contribution',
+    label: 'Purpose, meaning & contribution',
+    emoji: '🌱',
+    tags: ['meaning', 'values', 'helping', 'making_meaningful'],
   },
   {
     id: 'courage_confidence',
@@ -102,16 +109,10 @@ const DOMAIN_OPTIONS: ChoiceOption[] = [
     tags: ['courage', 'self_belief'],
   },
   {
-    id: 'skill_mastery',
-    label: 'Skill & mastery',
-    emoji: '🏅',
-    tags: ['mastery', 'strength'],
-  },
-  {
-    id: 'purpose_meaning',
-    label: 'Purpose & meaning',
-    emoji: '🌱',
-    tags: ['meaning', 'values'],
+    id: 'habits_discipline_energy',
+    label: 'Habits, discipline & energy',
+    emoji: '📅',
+    tags: ['discipline', 'consistency', 'strength'],
   },
   {
     id: 'adventure_exploration',
@@ -120,10 +121,10 @@ const DOMAIN_OPTIONS: ChoiceOption[] = [
     tags: ['exploration', 'courage'],
   },
   {
-    id: 'making_building',
-    label: 'Making & building',
-    emoji: '🛠️',
-    tags: ['making', 'creative', 'strength'],
+    id: 'inner_life_mindset',
+    label: 'Inner life & mindset',
+    emoji: '🧘',
+    tags: ['calm', 'emotion_regulation', 'meaning'],
   },
 ];
 
@@ -176,7 +177,11 @@ const SIGNATURE_TRAIT_OPTIONS: ChoiceOption[] = [
   { id: 'curiosity', label: 'Curiosity', tags: ['curiosity', 'exploration'] },
   { id: 'imagination', label: 'Imagination', tags: ['imagination', 'creative'] },
   { id: 'loyalty', label: 'Loyalty', tags: ['loyalty', 'relationships'] },
-  { id: 'competitiveness', label: 'Competitiveness', tags: ['competitiveness', 'excellence'] },
+  {
+    id: 'competitiveness',
+    label: 'Competitive drive',
+    tags: ['competitiveness', 'excellence'],
+  },
   { id: 'humor', label: 'Sense of humor', tags: ['humor', 'relationships'] },
   { id: 'calm', label: 'Calm', tags: ['calm'] },
   { id: 'intensity', label: 'Intensity', tags: ['intensity'] },
@@ -213,6 +218,193 @@ const PROUD_MOMENT_OPTIONS: ChoiceOption[] = [
   { id: 'being_honest_or_brave', label: 'Being honest or brave', tags: ['honesty_bravery', 'values', 'courage'] },
   { id: 'improving_a_skill', label: 'Improving a skill', tags: ['skill_improvement', 'mastery'] },
   { id: 'supporting_a_friend', label: 'Supporting a friend', tags: ['friend_support', 'relationships', 'helping'] },
+  {
+    id: 'caring_for_energy',
+    label: 'Taking care of your body & energy',
+    tags: ['calm', 'discipline', 'strength'],
+  },
+];
+
+// Q6 – Source of meaning
+const MEANING_OPTIONS: ChoiceOption[] = [
+  {
+    id: 'creating_things_that_last',
+    label: 'Creating things that last',
+    tags: ['making_meaningful', 'making', 'mastery'],
+  },
+  {
+    id: 'growing_deep_relationships',
+    label: 'Growing deep relationships',
+    tags: ['relationships', 'friend_support', 'helping'],
+  },
+  {
+    id: 'mastering_skills',
+    label: 'Mastering skills',
+    tags: ['skill_improvement', 'mastery', 'discipline'],
+  },
+  {
+    id: 'helping_others_thrive',
+    label: 'Helping others thrive',
+    tags: ['helping', 'relationships', 'values'],
+  },
+  {
+    id: 'achieving_something_proud_of',
+    label: 'Achieving something you’re proud of',
+    tags: ['excellence', 'competitiveness', 'strength'],
+  },
+  {
+    id: 'bringing_beauty_or_insight',
+    label: 'Bringing beauty or insight into the world',
+    tags: ['creative', 'imagination', 'new_thinking'],
+  },
+  {
+    id: 'faith_or_bigger_story',
+    label: 'Living your faith and values in everyday life',
+    tags: ['meaning', 'values', 'calm'],
+  },
+  {
+    id: 'becoming_strongest_self',
+    label: 'Becoming your strongest self',
+    tags: ['strength', 'self_belief'],
+  },
+];
+
+// Q7 – Desired impact on others
+const IMPACT_OPTIONS: ChoiceOption[] = [
+  {
+    id: 'impact_clarity',
+    label: 'Bringing clarity or understanding',
+    tags: ['new_thinking', 'problem_solving'],
+  },
+  {
+    id: 'impact_easier_lives',
+    label: 'Making people’s lives easier',
+    tags: ['helping', 'problem_solving'],
+  },
+  {
+    id: 'impact_seen_supported',
+    label: 'Helping people feel seen or supported',
+    tags: ['empathy', 'friend_support', 'relationships'],
+  },
+  {
+    id: 'impact_creativity',
+    label: 'Inspiring creativity or imagination',
+    tags: ['creative', 'imagination', 'expression'],
+  },
+  {
+    id: 'impact_solving_problems',
+    label: 'Solving meaningful problems',
+    tags: ['problem_solving', 'mastery'],
+  },
+  {
+    id: 'impact_peace',
+    label: 'Bringing more peace into the world',
+    tags: ['calm', 'meaning'],
+  },
+  {
+    id: 'impact_integrity',
+    label: 'Standing for integrity or honesty',
+    tags: ['values', 'honesty_bravery'],
+  },
+];
+
+// Q8 – Core values orientation
+const VALUES_OPTIONS: ChoiceOption[] = [
+  { id: 'value_honesty', label: 'Honesty', tags: ['honesty_bravery', 'values'] },
+  { id: 'value_courage', label: 'Courage', tags: ['courage', 'values'] },
+  { id: 'value_care', label: 'Care', tags: ['helping', 'relationships'] },
+  { id: 'value_wisdom', label: 'Wisdom & insight', tags: ['meaning', 'new_thinking'] },
+  { id: 'value_discipline', label: 'Discipline', tags: ['discipline', 'consistency'] },
+  { id: 'value_curiosity', label: 'Curiosity', tags: ['curiosity', 'exploration'] },
+  {
+    id: 'value_stewardship',
+    label: 'Stewardship & responsibility',
+    tags: ['making_meaningful', 'values'],
+  },
+  { id: 'value_simplicity', label: 'Simplicity', tags: ['calm', 'values'] },
+];
+
+// Q9 – Life philosophy / approach
+const PHILOSOPHY_OPTIONS: ChoiceOption[] = [
+  {
+    id: 'philosophy_clarity_intention',
+    label: 'With clarity and intention',
+    tags: ['meaning', 'focus'],
+  },
+  {
+    id: 'philosophy_creativity_experimentation',
+    label: 'With creativity and experimentation',
+    tags: ['creative', 'imagination'],
+  },
+  {
+    id: 'philosophy_calm_steadiness',
+    label: 'With calm and steadiness',
+    tags: ['calm', 'consistency'],
+  },
+  {
+    id: 'philosophy_passion_boldness',
+    label: 'With passion and boldness',
+    tags: ['intensity', 'courage'],
+  },
+  {
+    id: 'philosophy_humility_learning',
+    label: 'With humility and learning',
+    tags: ['curiosity', 'new_thinking'],
+  },
+  {
+    id: 'philosophy_integrity_long_term',
+    label: 'With integrity and long-term thinking',
+    tags: ['values', 'making_meaningful'],
+  },
+  {
+    id: 'philosophy_service_generosity',
+    label: 'With service and generosity',
+    tags: ['helping', 'friend_support'],
+  },
+];
+
+// Q10 – Vocational / creative orientation
+const VOCATION_OPTIONS: ChoiceOption[] = [
+  {
+    id: 'voc_making_building',
+    label: 'Making or building things',
+    tags: ['making', 'creative', 'strength'],
+  },
+  {
+    id: 'voc_designing_simple',
+    label: 'Designing simple, elegant solutions',
+    tags: ['problem_solving', 'discipline'],
+  },
+  {
+    id: 'voc_leading',
+    label: 'Leading or organizing people',
+    tags: ['leadership', 'relationships'],
+  },
+  {
+    id: 'voc_exploring_ideas',
+    label: 'Exploring ideas or research',
+    tags: ['exploration', 'curiosity', 'new_thinking'],
+  },
+  {
+    id: 'voc_creating_art',
+    label: 'Creating art, experiences, or stories',
+    tags: ['creative', 'expression', 'imagination'],
+  },
+  {
+    id: 'voc_solving_complex',
+    label: 'Solving complex problems',
+    tags: ['problem_solving', 'mastery'],
+  },
+  {
+    id: 'voc_helping_teaching',
+    label: 'Helping or teaching others',
+    tags: ['helping', 'friend_support'],
+  },
+  {
+    id: 'voc_starting_ventures',
+    label: 'Starting ventures or initiatives',
+    tags: ['starting', 'making', 'values'],
+  },
 ];
 
 const TWEAK_OPTIONS: ChoiceOption[] = [
@@ -223,7 +415,21 @@ const TWEAK_OPTIONS: ChoiceOption[] = [
   { id: 'simpler_language', label: 'Simpler language' },
 ];
 
-type Phase = 'domain' | 'motivation' | 'trait' | 'growth' | 'proudMoment' | 'nickname' | 'generating' | 'reveal' | 'tweak';
+type Phase =
+  | 'domain'
+  | 'motivation'
+  | 'trait'
+  | 'growth'
+  | 'proudMoment'
+  | 'meaning'
+  | 'impact'
+  | 'values'
+  | 'philosophy'
+  | 'vocation'
+  | 'dreams'
+  | 'generating'
+  | 'reveal'
+  | 'tweak';
 
 type AspirationPayload = {
   arcName: string;
@@ -253,8 +459,12 @@ export function IdentityAspirationFlow({
   const [signatureTraitIds, setSignatureTraitIds] = useState<string[]>([]);
   const [growthEdgeIds, setGrowthEdgeIds] = useState<string[]>([]);
   const [proudMomentIds, setProudMomentIds] = useState<string[]>([]);
+  const [meaningIds, setMeaningIds] = useState<string[]>([]);
+  const [impactIds, setImpactIds] = useState<string[]>([]);
+  const [valueIds, setValueIds] = useState<string[]>([]);
+  const [philosophyIds, setPhilosophyIds] = useState<string[]>([]);
+  const [vocationIds, setVocationIds] = useState<string[]>([]);
   const [nickname, setNickname] = useState('');
-  const [nicknameTouched, setNicknameTouched] = useState(false);
 
   const [aspiration, setAspiration] = useState<AspirationPayload | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -264,6 +474,9 @@ export function IdentityAspirationFlow({
     {} as Record<IdentityTag, number>
   );
   const [showResearchExplainer, setShowResearchExplainer] = useState(false);
+  const [openQuestionInfoKey, setOpenQuestionInfoKey] = useState<string | null>(null);
+  const [personalDreams, setPersonalDreams] = useState<string[]>([]);
+  const [dreamInput, setDreamInput] = useState('');
 
   const appendChatUserMessage = useCallback(
     (content: string) => {
@@ -293,16 +506,30 @@ export function IdentityAspirationFlow({
   const signatureTrait = formatSelectionLabels(signatureTraitIds, SIGNATURE_TRAIT_OPTIONS);
   const growthEdge = formatSelectionLabels(growthEdgeIds, GROWTH_EDGE_OPTIONS);
   const proudMoment = formatSelectionLabels(proudMomentIds, PROUD_MOMENT_OPTIONS);
+  const meaning = formatSelectionLabels(meaningIds, MEANING_OPTIONS);
+  const impact = formatSelectionLabels(impactIds, IMPACT_OPTIONS);
+  const valueOrientation = formatSelectionLabels(valueIds, VALUES_OPTIONS);
+  const philosophy = formatSelectionLabels(philosophyIds, PHILOSOPHY_OPTIONS);
+  const vocation = formatSelectionLabels(vocationIds, VOCATION_OPTIONS);
 
   const canGenerate =
     domainIds.length > 0 &&
     motivationIds.length > 0 &&
     signatureTraitIds.length > 0 &&
     growthEdgeIds.length > 0 &&
-    proudMomentIds.length > 0;
+    proudMomentIds.length > 0 &&
+    meaningIds.length > 0 &&
+    impactIds.length > 0 &&
+    valueIds.length > 0 &&
+    philosophyIds.length > 0 &&
+    vocationIds.length > 0;
 
   const advancePhase = (next: Phase) => {
     setPhase(next);
+  };
+
+  const toggleQuestionInfo = (key: string) => {
+    setOpenQuestionInfoKey((current) => (current === key ? null : key));
   };
 
   const buildNextSmallStep = (): string => {
@@ -360,7 +587,18 @@ export function IdentityAspirationFlow({
   };
 
   const buildLocalAspirationFallback = (): AspirationPayload | null => {
-    if (!domain || !motivation || !signatureTrait || !growthEdge || !proudMoment) {
+    if (
+      !domain ||
+      !motivation ||
+      !signatureTrait ||
+      !growthEdge ||
+      !proudMoment ||
+      !meaning ||
+      !impact ||
+      !valueOrientation ||
+      !philosophy ||
+      !vocation
+    ) {
       return null;
     }
 
@@ -369,6 +607,15 @@ export function IdentityAspirationFlow({
     const traitLabel = signatureTrait || 'a strength that already feels like you';
     const growthEdgeLabel = growthEdge || 'a real challenge you are working on';
     const proudMomentLabel = proudMoment || 'a small way you show up on ordinary days';
+    const meaningLabel = meaning || 'a source of meaning that feels true for you';
+    const impactLabel = impact || 'a way you want your life to touch others';
+    const valueLabel = valueOrientation || 'a core value';
+    const philosophyLabel = philosophy || 'a way of moving through life';
+    const vocationLabel = vocation || 'a kind of work that feels like home';
+    const dreamsLabel =
+      personalDreams.length > 0
+        ? personalDreams.join('; ')
+        : 'one or two concrete things you’d love to bring to life someday';
 
     const baseNameParts: string[] = [];
     if (domainLabel) {
@@ -386,7 +633,11 @@ export function IdentityAspirationFlow({
     const aspirationSentence = [
       `You’re the kind of person who is growing in **${domainLabel.toLowerCase()}**, powered by ${motivationLabel.toLowerCase()}.`,
       `Your ${traitLabel.toLowerCase()} is already a real strength, and this next chapter keeps building on it while you face ${growthEdgeLabel.toLowerCase()} with honesty.`,
-      `On normal days, that often looks like ${proudMomentLabel.toLowerCase()}.`,
+      `Underneath it all is ${meaningLabel.toLowerCase()}, a desire to ${impactLabel.toLowerCase()}, and a commitment to ${valueLabel.toLowerCase()} lived ${philosophyLabel.toLowerCase()}.`,
+      `On normal days, that often looks like ${proudMomentLabel.toLowerCase()} in the way you approach ${vocationLabel.toLowerCase()}.`,
+      personalDreams.length > 0
+        ? `Along the way, you’re drawn to big things like ${dreamsLabel.toLowerCase()}, which give this Arc a tangible shape in your life.`
+        : '',
     ].join(' ');
 
     const nextSmallStep = buildNextSmallStep();
@@ -455,6 +706,14 @@ export function IdentityAspirationFlow({
         `- signature trait: ${signatureTrait || 'unknown'}`,
         `- growth edge: ${growthEdge || 'unknown'}`,
         `- everyday proud moment: ${proudMoment || 'unknown'}`,
+        `- source of meaning: ${meaning || 'unknown'}`,
+        `- desired impact: ${impact || 'unknown'}`,
+        `- core values: ${valueOrientation || 'unknown'}`,
+        `- life philosophy: ${philosophy || 'unknown'}`,
+        `- vocational orientation: ${vocation || 'unknown'}`,
+        `- concrete big things they’d love to bring to life: ${
+          personalDreams.length > 0 ? personalDreams.join('; ') : 'none named'
+        }`,
         '',
         `Candidate Arc name: ${candidate.arcName}`,
         `Candidate Arc narrative: ${candidate.aspirationSentence}`,
@@ -505,7 +764,20 @@ export function IdentityAspirationFlow({
         return null;
       }
     },
-    [domain, motivation, signatureTrait, growthEdge, proudMoment, workflowRuntime]
+    [
+      domain,
+      motivation,
+      signatureTrait,
+      growthEdge,
+      proudMoment,
+      meaning,
+      impact,
+      valueOrientation,
+      philosophy,
+      vocation,
+      personalDreams,
+      workflowRuntime,
+    ]
   );
 
   const generateAspiration = useCallback(
@@ -523,7 +795,19 @@ export function IdentityAspirationFlow({
         `signature trait: ${signatureTrait}`,
         `growth edge: ${growthEdge}`,
         `everyday proud moment: ${proudMoment}`,
+        `source of meaning: ${meaning}`,
+        `desired impact: ${impact}`,
+        `core values: ${valueOrientation}`,
+        `life philosophy: ${philosophy}`,
+        `vocational orientation: ${vocation}`,
       ];
+      if (personalDreams.length > 0) {
+        inputsSummaryLines.push(
+          `concrete big things the user would love to bring to life (treat these as high-priority identity imagery, not task lists): ${personalDreams.join(
+            '; '
+          )}`
+        );
+      }
       if (nickname.trim()) {
         inputsSummaryLines.push(
           `typed nickname (treat this as a high-priority anchor for the Arc Name and description): ${nickname.trim()}`
@@ -682,6 +966,11 @@ export function IdentityAspirationFlow({
       signatureTrait,
       growthEdge,
       proudMoment,
+      meaning,
+      impact,
+      valueOrientation,
+      philosophy,
+      vocation,
       nickname,
       workflowRuntime,
       scoreAspirationQuality,
@@ -731,13 +1020,13 @@ export function IdentityAspirationFlow({
 
     const messages: string[] = [
       // Message 1 (big-picture promise)
-      'Hey, I’d love to help you name the big **Arc** your life is moving through.',
-      // Message 2 (what this is)
-      'Think of this like a really good **personality quiz** about Future You — not a test, just a way to capture the story you’re in.',
-      // Message 3 (length + payoff)
-      'I’m going to ask you a handful of quick, tap-only questions. It should take about a minute, and your answers help me create an Arc that feels specific, grounded, and actually like you.',
-      // Message 4 (lead-in to the tap-only identity questions)
-      'Once we’re done, I’ll weave everything you chose into a single Identity Arc — a short description of who you’re becoming that we can build goals and plans around.',
+      'Hello 👋 and welcome to **kwilt** — I’m here to help you design a future you’d actually be proud to live in, then make it feel doable with clear goals and daily activities.',
+      // Message 2 (introduce Arcs, lightly hint at Goals + Activities)
+      'We’ll start by sketching a short **identity Arc** that captures the kind of **person you want to become**.\n\nThen kwilt can use that Arc to shape better **Goals** and small everyday **Activities**, so your effort lines up with a purpose that feels real to you.',
+      // Message 3 (light research grounding)
+      'Under the hood I’m borrowing from **research-backed psychology**, so the plan we build actually **fits you**—not someone else’s idea of who you should be.',
+      // Message 4 (lead-in to the two-part flow: taps + one short free-response step)
+      'To do that well, we’ll go in **two quick parts**: first a personality‑quiz‑style set of **about 10 quick, tap-only questions**, then one short follow-up where you can name a big thing you’d love to bring to life in your own words. All together it should still only take a few minutes, and it helps me surface a future version of you you’d genuinely want to grow into.',
     ];
 
     const queue = messages.length > 0 ? messages : [fallback];
@@ -853,7 +1142,7 @@ export function IdentityAspirationFlow({
     [{ id: 'makes_sense', label: '✅ Got it' }],
     [
       { id: 'love_that', label: '🧠 Sounds smart!' },
-      { id: 'just_work', label: 'What research? 🤨' },
+      { id: 'just_work', label: 'Tell me about the research 🤓' },
     ],
   ];
 
@@ -863,7 +1152,9 @@ export function IdentityAspirationFlow({
       controller.appendUserMessage(label);
     }
 
-    const isResearchQuestion = label.toLowerCase().startsWith('what research');
+    const normalized = label.toLowerCase();
+    const isResearchQuestion =
+      normalized.includes('research') && !normalized.includes('sounds smart');
     if (isResearchQuestion) {
       setShowResearchExplainer(true);
     }
@@ -985,95 +1276,637 @@ export function IdentityAspirationFlow({
     }
     appendChatUserMessage(selectedProudMoment);
     setError(null);
-    advancePhase('nickname');
+    advancePhase('meaning');
+  };
+
+  const handleConfirmMeaning = (selectedMeaning: string) => {
+    appendChatUserMessage(selectedMeaning);
+    setError(null);
+    advancePhase('impact');
+  };
+
+  const handleConfirmImpact = (selectedImpact: string) => {
+    appendChatUserMessage(selectedImpact);
+    setError(null);
+    advancePhase('values');
+  };
+
+  const handleConfirmValues = (selectedValue: string) => {
+    appendChatUserMessage(selectedValue);
+    setError(null);
+    advancePhase('philosophy');
+  };
+
+  const handleConfirmPhilosophy = (selectedPhilosophy: string) => {
+    appendChatUserMessage(selectedPhilosophy);
+    setError(null);
+    advancePhase('vocation');
+  };
+
+  const handleConfirmVocation = (selectedVocation: string) => {
+    appendChatUserMessage(selectedVocation);
+    setError(null);
+    setError(null);
+    setPhase('dreams');
   };
 
   const renderDomain = () => (
-    <Card style={[styles.stepCard, styles.researchCard]}>
-      <View style={styles.stepBody}>
-        <Text style={styles.questionTitle}>
-          Which part of yourself are you most excited to grow right now?
-        </Text>
-        <View style={styles.fullWidthList}>
-          {DOMAIN_OPTIONS.map((option) => {
-            const selected = domainIds.includes(option.id);
-            const labelWithEmoji = option.emoji ? `${option.emoji} ${option.label}` : option.label;
-            return (
-              <Pressable
-                key={option.id}
-                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                onPress={() => {
-                  // Single-select: clear previous selection contributions, then apply the new one
-                  const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
-                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                  updateSignatureForOption(option, true);
-                  setDomainIds([option.id]);
-                  handleConfirmDomain(option.label, labelWithEmoji);
-                }}
-              >
-                <View style={styles.fullWidthOptionContent}>
-                  {option.emoji ? (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            Which part of yourself are you most excited to grow right now?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('domain')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.fullWidthList}>
+            {DOMAIN_OPTIONS.map((option) => {
+              const selected = domainIds.includes(option.id);
+              const labelWithEmoji = option.emoji ? `${option.emoji} ${option.label}` : option.label;
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  onPress={() => {
+                    // Single-select: clear previous selection contributions, then apply the new one
+                    const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setDomainIds([option.id]);
+                    handleConfirmDomain(option.label, labelWithEmoji);
+                  }}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    {option.emoji ? (
+                      <Text
+                        style={[
+                          styles.fullWidthOptionEmoji,
+                          selected && styles.fullWidthOptionEmojiSelected,
+                        ]}
+                      >
+                        {option.emoji}
+                      </Text>
+                    ) : null}
                     <Text
                       style={[
-                        styles.fullWidthOptionEmoji,
-                        selected && styles.fullWidthOptionEmojiSelected,
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
                       ]}
                     >
-                      {option.emoji}
+                      {option.label}
                     </Text>
-                  ) : null}
-                  <Text
-                    style={[
-                      styles.fullWidthOptionLabel,
-                      selected && styles.fullWidthOptionLabelSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-      </View>
-    </Card>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'domain'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This first choice helps me understand which part of you most wants to grow so I can anchor your Identity Arc there."
+      >
+        <Text style={styles.bodyText}>
+          The options are based on research in motivation and values. Each one is a different growth
+          lane—creativity, craft, leadership, relationships, contribution, courage, habits, adventure,
+          or inner life—so your choice gives a strong signal about which future self to focus your Arc
+          around.
+        </Text>
+      </Dialog>
+    </>
   );
 
   const renderMotivation = () => (
-    <Card style={[styles.stepCard, styles.researchCard]}>
-      <View style={styles.stepBody}>
-        <Text style={styles.questionTitle}>
-          Thinking about that future version of you, what do you think would motivate them the most
-          here?
-        </Text>
-        <View style={styles.fullWidthList}>
-          {getAdaptiveOptions(MOTIVATION_OPTIONS, 5).map((option) => {
-            const selected = motivationIds.includes(option.id);
-            return (
-              <Pressable
-                key={option.id}
-                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                onPress={() => {
-                  const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
-                    motivationIds.includes(o.id)
-                  );
-                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                  updateSignatureForOption(option, true);
-                  setMotivationIds([option.id]);
-                  handleConfirmMotivation(option.label);
-                }}
-              >
-                <View style={styles.fullWidthOptionContent}>
-                  {option.emoji ? (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            Thinking about that future version of you, what do you think would motivate them the most
+            here?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('motivation')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.fullWidthList}>
+            {getAdaptiveOptions(MOTIVATION_OPTIONS, 5).map((option) => {
+              const selected = motivationIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  onPress={() => {
+                    const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
+                      motivationIds.includes(o.id)
+                    );
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setMotivationIds([option.id]);
+                    handleConfirmMotivation(option.label);
+                  }}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    {option.emoji ? (
+                      <Text
+                        style={[
+                          styles.fullWidthOptionEmoji,
+                          selected && styles.fullWidthOptionEmojiSelected,
+                        ]}
+                      >
+                        {option.emoji}
+                      </Text>
+                    ) : null}
                     <Text
                       style={[
-                        styles.fullWidthOptionEmoji,
-                        selected && styles.fullWidthOptionEmojiSelected,
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
                       ]}
                     >
-                      {option.emoji}
+                      {option.label}
                     </Text>
-                  ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'motivation'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question looks past today’s mood and focuses on what really fuels that future version of you in this area."
+      >
+        <Text style={styles.bodyText}>
+          Motivation science—especially work on intrinsic motivation and Self‑Determination Theory
+          (Deci & Ryan)—shows people stick with change longer when their goals match their deeper
+          drives, like caring for others, mastering hard things, or bringing new ideas into the world.
+          Your choice here is a quick way of capturing those drives so your Identity Arc reflects why
+          you do things, not just what you do.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderTrait = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            Future-you will still be you—just more grown up and confident. For that future version of
+            you, which of these strengths would you most want them to have?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('trait')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.chipGrid}>
+            {getAdaptiveOptions(SIGNATURE_TRAIT_OPTIONS, 5).map((option) => {
+              const selected = signatureTraitIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => {
+                    const previousSelected = SIGNATURE_TRAIT_OPTIONS.filter((o) =>
+                      signatureTraitIds.includes(o.id)
+                    );
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setSignatureTraitIds([option.id]);
+                    handleConfirmTrait(option.label);
+                  }}
+                >
+                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'trait'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question captures the 'flavor' of Future You—the trait you most want to lean into."
+      >
+        <Text style={styles.bodyText}>
+          Positive psychology and identity research—from work on character strengths (Peterson &amp;
+          Seligman’s VIA) to strengths-based coaching tools like CliftonStrengths—shows people change
+          more sustainably when growth builds on real strengths instead of fighting their nature.
+          Picking a signature strength here gives me a concrete, research-backed trait to anchor in
+          your Identity Arc, so it sounds like you at your best, not a totally different person.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderGrowth = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            Every good story has a challenge. Which of these challenges feels most real for you right
+            now?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('growth')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.chipGrid}>
+            {getAdaptiveOptions(GROWTH_EDGE_OPTIONS, 5).map((option) => {
+              const selected = growthEdgeIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => {
+                    const previousSelected = GROWTH_EDGE_OPTIONS.filter((o) =>
+                      growthEdgeIds.includes(o.id)
+                    );
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setGrowthEdgeIds([option.id]);
+                    handleConfirmGrowth(option.label);
+                  }}
+                >
+                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'growth'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question surfaces the real tension in your story right now."
+      >
+        <Text style={styles.bodyText}>
+          Narrative identity research (McAdams and others) shows that how we frame our challenges
+          shapes the story we tell about who we are. Naming one core growth edge lets your Identity Arc
+          acknowledge reality without turning into a list of problems or advice, so the future you
+          imagine still feels believable.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderProudMoment = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            On a normal day in that future—not a big moment—what could you do that would make you feel
+            quietly proud of yourself?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('proud')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.chipGrid}>
+            {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 5).map((option) => {
+              const selected = proudMomentIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => {
+                    const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
+                      proudMomentIds.includes(o.id)
+                    );
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setProudMomentIds([option.id]);
+                    handleConfirmProudMoment(option.label);
+                  }}
+                >
+                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'proud'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question turns your future identity into something you can picture on an ordinary day."
+      >
+        <Text style={styles.bodyText}>
+          Research on habits and identity—from implementation intentions to tiny‑habits work
+          (Gollwitzer, Fogg, and others)—suggests that small, repeatable actions do more to change who
+          we are than occasional big wins. That includes things like caring for your body and energy,
+          following through on a small promise, or quietly helping someone. Choosing a 'quietly proud'
+          moment helps your Identity Arc translate into daily behavior, not just an inspiring headline.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderMeaning = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            When you imagine your future, what makes life feel truly meaningful to you?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('meaning')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.fullWidthList}>
+            {MEANING_OPTIONS.map((option) => {
+              const selected = meaningIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  onPress={() => {
+                    const previousSelected = MEANING_OPTIONS.filter((o) =>
+                      meaningIds.includes(o.id)
+                    );
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setMeaningIds([option.id]);
+                    handleConfirmMeaning(option.label);
+                  }}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    <Text
+                      style={[
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'meaning'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question asks where your sense of meaning really comes from."
+      >
+        <Text style={styles.bodyText}>
+          Work on meaning and narrative identity (Frankl, McAdams, and contemporary meaning-in-life
+          research) shows people stay committed to change when it connects to what feels deeply
+          worthwhile—whether that’s relationships, craft, service, or living out your faith and core
+          values. Your answer here helps the Identity Arc include a 'why' behind your growth, not just
+          traits and goals.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderImpact = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            How do you hope your life will impact other people?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('impact')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.chipGrid}>
+            {IMPACT_OPTIONS.map((option) => {
+              const selected = impactIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => {
+                    const previousSelected = IMPACT_OPTIONS.filter((o) => impactIds.includes(o.id));
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setImpactIds([option.id]);
+                    handleConfirmImpact(option.label);
+                  }}
+                >
+                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'impact'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question brings in the 'for others' side of your identity."
+      >
+        <Text style={styles.bodyText}>
+          Purpose research (e.g., Damon and colleagues) finds that many people experience their
+          strongest sense of direction in how they affect others—through support, creativity, or
+          solving real problems. Naming your hoped-for impact helps the Identity Arc capture not just
+          who you are, but what you’re trying to offer to the people around you.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderValues = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            Which value feels most core to who you want to be?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('values')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.chipGrid}>
+            {VALUES_OPTIONS.map((option) => {
+              const selected = valueIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.chip, selected && styles.chipSelected]}
+                  onPress={() => {
+                    const previousSelected = VALUES_OPTIONS.filter((o) => valueIds.includes(o.id));
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setValueIds([option.id]);
+                    handleConfirmValues(option.label);
+                  }}
+                >
+                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'values'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question anchors your future identity in one clear value."
+      >
+        <Text style={styles.bodyText}>
+          Values act like a compass—research on self-concordant goals and values clarification
+          (Sheldon, Kasser, and others) shows people are more persistent and satisfied when their
+          actions line up with what they care about most. Choosing one value here gives your Identity
+          Arc a strong through-line to organize around.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderPhilosophy = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            How do you want to move through life—what&apos;s the overall approach?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('philosophy')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.fullWidthList}>
+            {PHILOSOPHY_OPTIONS.map((option) => {
+              const selected = philosophyIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  onPress={() => {
+                    const previousSelected = PHILOSOPHY_OPTIONS.filter((o) =>
+                      philosophyIds.includes(o.id)
+                    );
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setPhilosophyIds([option.id]);
+                    handleConfirmPhilosophy(option.label);
+                  }}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    <Text
+                      style={[
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'philosophy'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question captures the way you want to move through the world, not just what you do."
+      >
+        <Text style={styles.bodyText}>
+          Research on mindsets and worldviews (Dweck’s mindset work, meaning-making, and narrative
+          identity) shows that the lens you use to interpret life affects how you respond to setbacks
+          and make choices. Including this in your Identity Arc lets it speak to your worldview and
+          tone, not only your goals.
+        </Text>
+      </Dialog>
+    </>
+  );
+
+  const renderVocation = () => (
+    <>
+      <Card style={[styles.stepCard, styles.researchCard]}>
+        <View style={styles.stepBody}>
+          <Text style={styles.questionTitle}>
+            And which kind of work or creation feels closest to Future You?{' '}
+            <Text
+              style={styles.questionInfoTrigger}
+              accessibilityRole="button"
+              accessibilityLabel="Why this question?"
+              onPress={() => toggleQuestionInfo('vocation')}
+            >
+              ⓘ
+            </Text>
+          </Text>
+          <View style={styles.fullWidthList}>
+            {VOCATION_OPTIONS.map((option) => {
+              const selected = vocationIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  onPress={() => {
+                    const previousSelected = VOCATION_OPTIONS.filter((o) =>
+                      vocationIds.includes(o.id)
+                    );
+                    previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                    updateSignatureForOption(option, true);
+                    setVocationIds([option.id]);
+                    handleConfirmVocation(option.label);
+                  }}
+                >
                   <Text
                     style={[
                       styles.fullWidthOptionLabel,
@@ -1082,181 +1915,146 @@ export function IdentityAspirationFlow({
                   >
                     {option.label}
                   </Text>
-                </View>
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-      </View>
-    </Card>
-  );
-
-  const renderTrait = () => (
-    <Card style={[styles.stepCard, styles.researchCard]}>
-      <View style={styles.stepBody}>
-        <Text style={styles.questionTitle}>
-          Future-you will still be you—just more grown up and confident. For that future version of
-          you, which of these strengths would you most want them to have?
-        </Text>
-        <View style={styles.chipGrid}>
-          {getAdaptiveOptions(SIGNATURE_TRAIT_OPTIONS, 5).map((option) => {
-            const selected = signatureTraitIds.includes(option.id);
-            return (
-              <Pressable
-                key={option.id}
-                style={[styles.chip, selected && styles.chipSelected]}
-                onPress={() => {
-                  const previousSelected = SIGNATURE_TRAIT_OPTIONS.filter((o) =>
-                    signatureTraitIds.includes(o.id)
-                  );
-                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                  updateSignatureForOption(option, true);
-                  setSignatureTraitIds([option.id]);
-                  handleConfirmTrait(option.label);
-                }}
-              >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    </Card>
-  );
-
-  const renderGrowth = () => (
-    <Card style={[styles.stepCard, styles.researchCard]}>
-      <View style={styles.stepBody}>
-        <Text style={styles.questionTitle}>
-          Every good story has a challenge. Which of these challenges feels most real for you right
-          now?
-        </Text>
-        <View style={styles.chipGrid}>
-          {getAdaptiveOptions(GROWTH_EDGE_OPTIONS, 5).map((option) => {
-            const selected = growthEdgeIds.includes(option.id);
-            return (
-              <Pressable
-                key={option.id}
-                style={[styles.chip, selected && styles.chipSelected]}
-                onPress={() => {
-                  const previousSelected = GROWTH_EDGE_OPTIONS.filter((o) =>
-                    growthEdgeIds.includes(o.id)
-                  );
-                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                  updateSignatureForOption(option, true);
-                  setGrowthEdgeIds([option.id]);
-                  handleConfirmGrowth(option.label);
-                }}
-              >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    </Card>
-  );
-
-  const renderProudMoment = () => (
-    <Card style={[styles.stepCard, styles.researchCard]}>
-      <View style={styles.stepBody}>
-        <Text style={styles.questionTitle}>
-          On a normal day in that future—not a big moment—what could you do that would make you
-          feel quietly proud of yourself?
-        </Text>
-        <View style={styles.chipGrid}>
-          {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 5).map((option) => {
-            const selected = proudMomentIds.includes(option.id);
-            return (
-              <Pressable
-                key={option.id}
-                style={[styles.chip, selected && styles.chipSelected]}
-                onPress={() => {
-                  const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
-                    proudMomentIds.includes(o.id)
-                  );
-                  previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                  updateSignatureForOption(option, true);
-                  setProudMomentIds([option.id]);
-                  handleConfirmProudMoment(option.label);
-                }}
-              >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    </Card>
-  );
-
-  const renderNickname = () => (
-    <Card style={styles.stepCard}>
-      <View style={styles.stepBody}>
+      </Card>
+      <Dialog
+        visible={openQuestionInfoKey === 'vocation'}
+        onClose={() => setOpenQuestionInfoKey(null)}
+        title="Why this question matters"
+        description="This question gives your Arc a concrete creative or vocational arena."
+      >
         <Text style={styles.bodyText}>
-          If that future-you had a nickname, what would it be? You can skip this if nothing comes
-          to mind.
+          Possible-selves research (Markus &amp; Nurius and later work) suggests people engage more
+          when they can picture the kinds of work or creation their future identity might live inside.
+          Choosing a lane here helps the Identity Arc hint at where your gifts might show up—in
+          ventures, craft, teaching, ideas, or something else.
         </Text>
-        <Input
-          value={nickname}
-          onChangeText={(text) => {
-            setNicknameTouched(true);
-            setNickname(text);
-          }}
-          placeholder="e.g., The Builder, The Quiet Genius"
-          autoCapitalize="words"
-          returnKeyType="done"
-          onSubmitEditing={() => {
-            if (workflowRuntime) {
-              workflowRuntime.completeStep('nickname_optional', {
-                nickname: nickname.trim() || null,
-              });
-            }
-            setPhase('generating');
-            void generateAspiration();
-          }}
-        />
-        <View style={styles.inlineActions}>
-          <Button
-            variant="accent"
-            style={styles.primaryButton}
-            onPress={() => {
-              if (workflowRuntime) {
-                workflowRuntime.completeStep('nickname_optional', {
-                  nickname: nickname.trim() || null,
-                });
-              }
-              setPhase('generating');
-              void generateAspiration();
-            }}
-          >
-            <Text style={styles.primaryButtonLabel}>
-              {nicknameTouched && nickname.trim() ? 'Use this nickname' : 'Continue'}
-            </Text>
-          </Button>
-          <Button
-            variant="ghost"
-            onPress={() => {
-              setNickname('');
-              if (workflowRuntime) {
-                workflowRuntime.completeStep('nickname_optional', { nickname: null });
-              }
-              setPhase('generating');
-              void generateAspiration();
-            }}
-          >
-            <Text style={styles.linkLabel}>Skip</Text>
-          </Button>
-        </View>
-      </View>
-    </Card>
+      </Dialog>
+    </>
   );
+
+  const startGeneratingFromDreams = () => {
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('nickname_optional', { nickname: null });
+    }
+    setPhase('generating');
+    void generateAspiration();
+  };
+
+  const renderDreams = () => {
+    const hasAnyDreams = personalDreams.length > 0;
+    const maxDreamsReached = personalDreams.length >= 3;
+
+    return (
+      <Card style={styles.stepCard}>
+        <View style={styles.stepBody}>
+          <Text style={styles.bodyText}>
+            {hasAnyDreams
+              ? 'You’ve already named at least one big thing you’d love to bring to life. Want to add another, or head straight to your Identity Arc?'
+              : 'Part 2 of 2: Let’s name one big thing you’d love to bring to life so your Identity Arc can include something concrete and personal.'}
+          </Text>
+          {!hasAnyDreams ? (
+            <Text style={styles.bodyText}>
+              If you could fast-forward 5–10 years and feel deeply proud, what’s one big thing you’d
+              love to have brought to life? It could be rewilding land, building a small home,
+              restoring something old, starting a retreat, recording an album—whatever actually tugs at
+              you.
+            </Text>
+          ) : null}
+          {hasAnyDreams ? (
+            <View style={styles.dreamList}>
+              {personalDreams.map((dream, index) => (
+                <Text key={index} style={styles.dreamListItem}>
+                  • {dream}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          {!maxDreamsReached ? (
+            <Input
+              value={dreamInput}
+              onChangeText={setDreamInput}
+              placeholder={
+                hasAnyDreams
+                  ? 'Add one more big thing (optional)'
+                  : 'e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home.'
+              }
+              autoCapitalize="sentences"
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                const trimmed = dreamInput.trim();
+                if (!trimmed) return;
+                setPersonalDreams((prev) => [...prev, trimmed]);
+                setDreamInput('');
+              }}
+            />
+          ) : null}
+          <View style={styles.inlineActions}>
+            {!hasAnyDreams ? (
+              <>
+                <Button
+                  variant="accent"
+                  style={styles.primaryButton}
+                  disabled={!dreamInput.trim()}
+                  onPress={() => {
+                    const trimmed = dreamInput.trim();
+                    if (!trimmed) return;
+                    setPersonalDreams([trimmed]);
+                    setDreamInput('');
+                  }}
+                >
+                  <Text style={styles.primaryButtonLabel}>Use this big thing</Text>
+                </Button>
+                <Button
+                  variant="ghost"
+                  onPress={() => {
+                    setPersonalDreams([]);
+                    setDreamInput('');
+                    startGeneratingFromDreams();
+                  }}
+                >
+                  <Text style={styles.linkLabel}>I’m not sure yet</Text>
+                </Button>
+              </>
+            ) : (
+              <>
+                {!maxDreamsReached ? (
+                  <Button
+                    variant="accent"
+                    style={styles.primaryButton}
+                    disabled={!dreamInput.trim()}
+                    onPress={() => {
+                      const trimmed = dreamInput.trim();
+                      if (!trimmed) return;
+                      setPersonalDreams((prev) => [...prev, trimmed]);
+                      setDreamInput('');
+                      if (personalDreams.length + 1 >= 3) {
+                        startGeneratingFromDreams();
+                      }
+                    }}
+                  >
+                    <Text style={styles.primaryButtonLabel}>Add this big thing</Text>
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  onPress={() => {
+                    startGeneratingFromDreams();
+                  }}
+                >
+                  <Text style={styles.linkLabel}>That’s enough for now</Text>
+                </Button>
+              </>
+            )}
+          </View>
+        </View>
+      </Card>
+    );
+  };
 
   const renderGenerating = () => (
     <Card style={styles.stepCard}>
@@ -1471,10 +2269,28 @@ export function IdentityAspirationFlow({
     return renderProudMoment();
   }
 
-  if (phase === 'nickname') {
-    // Nickname step is currently unchanged from the earlier FTUE and remains
-    // as an optional enhancement on top of the 5 identity questions.
-    return renderNickname();
+  if (phase === 'meaning') {
+    return renderMeaning();
+  }
+
+  if (phase === 'impact') {
+    return renderImpact();
+  }
+
+  if (phase === 'values') {
+    return renderValues();
+  }
+
+  if (phase === 'philosophy') {
+    return renderPhilosophy();
+  }
+
+  if (phase === 'vocation') {
+    return renderVocation();
+  }
+
+  if (phase === 'dreams') {
+    return renderDreams();
   }
 
   if (phase === 'reveal') {
@@ -1529,6 +2345,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     paddingBottom: spacing.md,
   },
+  questionInfoTrigger: {
+    paddingLeft: spacing.xs,
+  },
   primaryButton: {
     alignSelf: 'stretch',
   },
@@ -1542,6 +2361,14 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.accent,
     fontWeight: '600',
+  },
+  dreamList: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  dreamListItem: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   chipGrid: {
     flexDirection: 'row',

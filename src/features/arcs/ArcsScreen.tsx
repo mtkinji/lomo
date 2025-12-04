@@ -839,12 +839,13 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
       <Text style={styles.infoTitle}>What is an Arc?</Text>
       <Text style={styles.infoBody}>
         An Arc is a long-horizon identity direction—like Discipleship, Craft, or Family Stewardship.
-        Each Arc anchors the season you&apos;re in, guides your goals, and keeps your activities
-        accountable to who you&apos;re becoming.
+        It names a future version of you that feels worth becoming, then gives your goals and
+        activities something meaningful to aim at.
       </Text>
       <Text style={styles.infoBody}>
-        Capture a few Arcs to frame the next few months. You can add or archive them as your story
-        shifts.
+        When your goals and daily actions sit inside a clear Arc, your effort stops feeling random
+        and starts feeling like real progress toward a life that fits you. Capture a few Arcs to
+        frame the next few months—you can add or archive them as your story shifts.
       </Text>
       <Button style={{ marginTop: spacing.lg }} onPress={onClose}>
         <Text style={styles.buttonText}>Got it</Text>
