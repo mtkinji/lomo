@@ -1,4 +1,6 @@
 import type { AgeRange } from '../domain/types';
+import { getGiphyApiKey } from '../utils/getEnv';
+import { useAppStore } from '../store/useAppStore';
 
 export type MediaRole = 'celebration' | 'instruction';
 
@@ -26,6 +28,51 @@ export type FetchCelebrationGifParams = {
   stylePreference?: CelebrationStylePreference;
 };
 
+const EXCLUDED_KEYWORDS = ['pride', 'gay', 'lgbt', 'nsfw', 'sexy'];
+
+function isUnder18(ageRange: AgeRange | undefined): boolean {
+  return ageRange === 'under-18';
+}
+
+function containsExcludedKeyword(text: string | undefined): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return EXCLUDED_KEYWORDS.some((keyword) => lower.includes(keyword));
+}
+
+function buildGiphyQuery(params: FetchCelebrationGifParams): string {
+  const { role, kind, stylePreference, ageRange } = params;
+
+  // Base term from role/kind – keep queries upbeat and generic enough to avoid
+  // specific holidays or identity themes.
+  if (role === 'celebration' && kind === 'firstArc') {
+    return 'hooray yes you did it celebration';
+  }
+  if (role === 'celebration' && kind === 'firstGoal') {
+    // Lean slightly into a playful soccer metaphor while keeping things broad.
+    return 'small win you did it yes goal soccer goallll celebration';
+  }
+  if (kind === 'streak') {
+    return 'you did it keep going celebration';
+  }
+
+  let base = 'celebration';
+
+  // Optional tone tweaks based on style preference
+  if (stylePreference === 'cute') {
+    base = 'cute wholesome celebration';
+  } else if (stylePreference === 'minimal') {
+    base = 'simple subtle celebration';
+  }
+
+  // Age-based soft nudge toward gentler queries
+  if (ageRange === 'under-18') {
+    base = `kid friendly ${base}`;
+  }
+
+  return base;
+}
+
 /**
  * Lightweight, app-facing entry point for celebration GIFs.
  *
@@ -40,25 +87,100 @@ export type FetchCelebrationGifParams = {
 export async function fetchCelebrationGif(
   params: FetchCelebrationGifParams,
 ): Promise<CelebrationGif | null> {
-  const _debug = params;
-  // TODO: Wire this up to a real provider such as GIPHY.
-  //
-  // Sketch for a future implementation:
-  //
-  // 1. Map (kind, ageRange, stylePreference) → a curated list of search terms.
-  // 2. Call the provider's search endpoint, e.g.:
-  //    GET https://api.giphy.com/v1/gifs/search
-  //      ?api_key=YOUR_API_KEY
-  //      &q=encodedQuery
-  //      &rating=pg
-  //      &limit=1
-  // 3. Pick a single GIF (or random from top N), normalize to { id, url }.
-  // 4. Respect timeouts / offline by returning null on error.
-  //
-  // Call sites MUST be prepared for the `null` case and render a static
-  // fallback illustration or no GIF at all.
-  void _debug;
-  return null;
+  const state = useAppStore.getState();
+  const blockedIds = new Set(state.blockedCelebrationGifIds ?? []);
+
+  // 1) Prefer locally liked GIFs for this role/kind to avoid unnecessary API
+  // calls and give the user a sense of continuity with favorites.
+  const likedForContext = (state.likedCelebrationGifs ?? []).filter(
+    (entry) =>
+      entry.role === params.role &&
+      entry.kind === params.kind &&
+      !blockedIds.has(entry.id),
+  );
+  if (likedForContext.length > 0) {
+    const pick = likedForContext[Math.floor(Math.random() * likedForContext.length)];
+    return { id: pick.id, url: pick.url };
+  }
+
+  const apiKey = getGiphyApiKey();
+  if (!apiKey) {
+    return null;
+  }
+
+  const query = buildGiphyQuery(params);
+
+  const ageRange = params.ageRange;
+  const rating = isUnder18(ageRange) ? 'g' : 'pg';
+
+  const searchParams = new URLSearchParams({
+    api_key: apiKey,
+    q: query,
+    rating,
+    limit: '10',
+    lang: 'en',
+  });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const res = await fetch(`https://api.giphy.com/v1/gifs/search?${searchParams.toString()}`, {
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const json = (await res.json()) as {
+      data?: Array<{
+        id: string;
+        rating?: string;
+        title?: string;
+        slug?: string;
+        images?: { downsized_medium?: { url?: string } };
+      }>;
+    };
+
+    const candidates = (json.data ?? []).filter((item) => {
+      if (blockedIds.has(item.id)) return false;
+
+      const itemRating = (item.rating ?? '').toLowerCase();
+      if (rating === 'g' && itemRating && itemRating !== 'g') {
+        return false;
+      }
+
+      if (containsExcludedKeyword(item.title) || containsExcludedKeyword(item.slug)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const url = pick.images?.downsized_medium?.url;
+
+    if (!url) {
+      return null;
+    }
+
+    if (__DEV__) {
+      // Temporary debug logging for QA / tuning.
+      // eslint-disable-next-line no-console
+      console.log('[giphy]', { query, id: pick.id, url, rating, itemRating: pick.rating });
+    }
+
+    return { id: pick.id, url };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 

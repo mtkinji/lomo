@@ -88,7 +88,8 @@ export function Dialog({ visible, onClose, title, description, children, footer 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)', // translucent shell scrim
+    // Dark, neutral scrim shared across overlays.
+    backgroundColor: colors.scrimStrong,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
@@ -98,21 +99,19 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     borderRadius: 28,
     backgroundColor: colors.canvas,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    padding: spacing.xl,
     shadowColor: '#0F172A',
     shadowOpacity: 0.16,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: 0,
   },
   title: {
     ...typography.titleSm,
     color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: spacing.xl,
+    fontWeight: '700'
   },
   description: {
     marginTop: 0,

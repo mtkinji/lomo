@@ -30,6 +30,9 @@ export const colors = {
   schedulePink: '#FBE7F1',
   scheduleYellow: '#FEF3C7',
   scheduleBlue: '#E0F2FE',
+  // Global overlay / scrim tokens for dialogs, sheets, and modals.
+  scrim: 'rgba(15,23,42,0.5)',
+  scrimStrong: 'rgba(15,23,42,0.7)',
 };
 
 

@@ -57,6 +57,26 @@ interface AppState {
    * the "default" view entry in `activityViews`.
    */
   activeActivityViewId: string | null;
+  /**
+   * Per-user denylist of celebration GIF ids that should never be shown again.
+   * Populated via lightweight "Not quite right" feedback controls.
+   */
+  blockedCelebrationGifIds: string[];
+  /**
+   * Per-user cache of specifically liked celebration GIFs so we can reuse
+   * them without hitting the network every time.
+   */
+  likedCelebrationGifs: {
+    id: string;
+    url: string;
+    role: MediaRole;
+    kind: CelebrationKind;
+  }[];
+  /**
+   * Per-user denylist of celebration GIF ids that should never be shown again.
+   * Populated via lightweight "Not quite right" feedback controls.
+   */
+  blockedCelebrationGifIds: string[];
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -82,6 +102,9 @@ interface AppState {
   addActivityView: (view: ActivityView) => void;
   updateActivityView: (viewId: string, updater: Updater<ActivityView>) => void;
   removeActivityView: (viewId: string) => void;
+  blockCelebrationGif: (gifId: string) => void;
+  likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
+  blockCelebrationGif: (gifId: string) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
@@ -96,6 +119,9 @@ const buildDefaultUserProfile = (): UserProfile => {
     updatedAt: timestamp,
     communication: {},
     visuals: {},
+    preferences: {
+      showCelebrationMedia: true,
+    },
   };
 };
 
@@ -282,6 +308,7 @@ export const useAppStore = create(
       activeActivityViewId: 'default',
       goalRecommendations: {},
       arcFeedback: [],
+      blockedCelebrationGifIds: [],
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
       lastOnboardingArcId: null,
@@ -407,6 +434,27 @@ export const useAppStore = create(
             activeActivityViewId: nextActiveId,
           };
         }),
+      blockCelebrationGif: (gifId) =>
+        set((state) => {
+          if (state.blockedCelebrationGifIds.includes(gifId)) {
+            return state;
+          }
+          return {
+            blockedCelebrationGifIds: [...state.blockedCelebrationGifIds, gifId],
+          };
+        }),
+      likeCelebrationGif: (gif) =>
+        set((state) => {
+          const existing = state.likedCelebrationGifs ?? [];
+          if (existing.some((entry) => entry.id === gif.id)) {
+            return state;
+          }
+          const maxEntries = 50;
+          const next = [...existing, gif];
+          const trimmed =
+            next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
+          return { likedCelebrationGifs: trimmed };
+        }),
       setUserProfile: (profile) =>
         set(() => ({
           userProfile: {
@@ -464,6 +512,8 @@ export const useAppStore = create(
           lastOnboardingGoalId: null,
           hasSeenFirstGoalCelebration: false,
           hasSeenFirstArcCelebration: false,
+          blockedCelebrationGifIds: [],
+          likedCelebrationGifs: [],
         }),
     }),
     {

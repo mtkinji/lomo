@@ -71,6 +71,7 @@ const config: ExpoConfig = {
       projectId: '7717f04d-8327-47a9-8bb4-84c21dc8214f',
     },
     openAiApiKey: process.env.OPENAI_API_KEY,
+    giphyApiKey: process.env.GIPHY_API_KEY,
   },
 };
 

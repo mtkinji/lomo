@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { ActivityIndicator, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { colors, spacing, typography } from '../theme';
+import { Text } from './Typography';
+import { Icon } from './Icon';
 import type { AgeRange } from '../domain/types';
 import {
   fetchCelebrationGif,
@@ -8,6 +10,7 @@ import {
   type CelebrationStylePreference,
   type MediaRole,
 } from '../services/gifs';
+import { useAppStore } from '../store/useAppStore';
 
 type CelebrationGifProps = {
   role?: MediaRole;
@@ -31,17 +34,52 @@ export function CelebrationGif({
   size = 'sm',
   stylePreference,
 }: CelebrationGifProps) {
+  const showCelebrations =
+    useAppStore((s) => s.userProfile?.preferences?.showCelebrationMedia) ?? true;
+
+  if (!showCelebrations) {
+    return null;
+  }
+
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const [gifId, setGifId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const userAgeRange = useAppStore((s) => s.userProfile?.ageRange ?? ageRange);
+  const blockCelebrationGif = useAppStore((s) => s.blockCelebrationGif);
+  const likeCelebrationGif = useAppStore((s) => s.likeCelebrationGif);
 
   useEffect(() => {
     let cancelled = false;
 
     setIsLoading(true);
-    void fetchCelebrationGif({ role, kind, ageRange, stylePreference })
+    void fetchCelebrationGif({ role, kind, ageRange: userAgeRange, stylePreference })
       .then((result) => {
         if (cancelled) return;
-        setUrl(result?.url ?? null);
+        const nextUrl = result?.url ?? null;
+        const nextId = result?.id ?? null;
+        setUrl(nextUrl);
+        setGifId(nextId);
+
+        if (nextUrl) {
+          Image.getSize(
+            nextUrl,
+            (width, height) => {
+              if (cancelled) return;
+              if (width > 0 && height > 0) {
+                setAspectRatio(width / height);
+              }
+            },
+            () => {
+              if (cancelled) return;
+              setAspectRatio(null);
+            }
+          );
+        } else {
+          setAspectRatio(null);
+        }
       })
       .finally(() => {
         if (cancelled) return;
@@ -51,27 +89,87 @@ export function CelebrationGif({
     return () => {
       cancelled = true;
     };
-  }, [role, kind, ageRange, stylePreference]);
+  }, [role, kind, userAgeRange, stylePreference, refreshKey]);
 
-  const height = size === 'md' ? 180 : 140;
+  const handleNotQuiteRight = () => {
+    if (!gifId) return;
+    blockCelebrationGif(gifId);
+    setGifId(null);
+    setUrl(null);
+    setAspectRatio(null);
+    setRefreshKey((key) => key + 1);
+  };
+
+  const handleRefresh = () => {
+    // Soft refresh without blocking the current GIF id so it can appear again
+    // in the future if it passes filters.
+    setGifId(null);
+    setUrl(null);
+    setAspectRatio(null);
+    setRefreshKey((key) => key + 1);
+  };
+
+  const handleLike = () => {
+    if (!gifId || !url) return;
+    likeCelebrationGif({ id: gifId, url, role, kind });
+  };
+
+  const fallbackHeight = size === 'md' ? 180 : 140;
 
   return (
-    <View style={[styles.frame, { height }]}>
-      {isLoading ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator color={colors.accent} />
+    <View>
+      <View
+        style={[
+          styles.frame,
+          aspectRatio ? { aspectRatio } : { height: fallbackHeight },
+        ]}
+      >
+        {isLoading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : url ? (
+          <Image source={{ uri: url }} style={styles.image} resizeMode="contain" />
+        ) : (
+          <View style={styles.fallback}>
+            {/* Simple fallback shimmer; hosts still provide the main copy. */}
+          </View>
+        )}
+      </View>
+      {url ? (
+        <View style={styles.attributionRow}>
+          <View style={styles.iconsRow}>
+            <TouchableOpacity
+              onPress={handleRefresh}
+              accessibilityRole="button"
+              accessibilityLabel="Show a different GIF"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.iconButton}
+            >
+              <Icon name="refresh" size={12} color={colors.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleLike}
+              accessibilityRole="button"
+              accessibilityLabel="Save this GIF as a favorite"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.iconButton}
+            >
+              <Icon name="thumbsUp" size={12} color={colors.muted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleNotQuiteRight}
+              accessibilityRole="button"
+              accessibilityLabel="This GIF is not quite right"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.iconButton}
+            >
+              <Icon name="thumbsDown" size={12} color={colors.muted} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.attributionText}>GIFS BY GIPHY</Text>
         </View>
-      ) : url ? (
-        <Image
-          source={{ uri: url }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={styles.fallback}>
-          {/* Simple fallback shimmer; hosts still provide the main copy. */}
-        </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -81,7 +179,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
     backgroundColor: colors.shellAlt,
   },
   loadingState: {
@@ -96,6 +194,25 @@ const styles = StyleSheet.create({
   fallback: {
     flex: 1,
     backgroundColor: colors.shell,
+  },
+  attributionRow: {
+    marginTop: spacing.xs / 2,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  iconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    marginRight: spacing.md,
+  },
+  attributionText: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 10,
   },
 });
 

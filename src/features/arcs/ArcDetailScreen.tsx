@@ -207,7 +207,6 @@ export function ArcDetailScreen() {
             🎉 You created your first <Text style={{ fontWeight: 'bold' }}>Arc</Text>!
           </>
         }
-        description="This Arc is your personal storyline in kwilt. Next, look for “Turn this Arc into clear goals” in the Goals section below to get started."
         footer={
           <Button
             variant="accent"
@@ -228,6 +227,10 @@ export function ArcDetailScreen() {
         }
       >
         <CelebrationGif role="celebration" kind="firstArc" size="sm" />
+        <Text style={styles.firstArcBody}>
+          This Arc is your personal storyline in kwilt. Next, look for “Turn this Arc into clear
+          goals” in the Goals section below to get started.
+        </Text>
       </Dialog>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.screen}>
@@ -1228,9 +1231,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   firstArcBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+    ...typography.body,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
   },
   forceIntentRow: {
     flexWrap: 'wrap',
@@ -1248,7 +1251,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: colors.scrimStrong,
     paddingHorizontal: spacing.xl,
     justifyContent: 'center',
   },

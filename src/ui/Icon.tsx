@@ -50,6 +50,8 @@ const iconMap: Record<string, FeatherName> = {
   star: 'star',
   funnel: 'filter',
   sort: 'sliders',
+  thumbsDown: 'thumbs-down',
+  thumbsUp: 'thumbs-up',
 };
 
 export type IconName = keyof typeof iconMap;
