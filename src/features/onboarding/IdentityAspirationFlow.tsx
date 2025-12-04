@@ -10,6 +10,7 @@ import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../
 import { useAppStore } from '../../store/useAppStore';
 import type { Arc } from '../../domain/types';
 import type { AiChatPaneController } from '../ai/AiChatScreen';
+import { ArcListCard } from '../../ui/ArcListCard';
 
 type IdentityAspirationFlowProps = {
   onComplete?: () => void;
@@ -236,6 +237,7 @@ export function IdentityAspirationFlow({
 }: IdentityAspirationFlowProps) {
   const workflowRuntime = useWorkflowRuntime();
   const addArc = useAppStore((state) => state.addArc);
+  const setLastOnboardingArcId = useAppStore((state) => state.setLastOnboardingArcId);
 
   const [phase, setPhase] = useState<Phase>('domain');
   const [introPlayed, setIntroPlayed] = useState(false);
@@ -257,7 +259,6 @@ export function IdentityAspirationFlow({
   const [aspiration, setAspiration] = useState<AspirationPayload | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTweak, setSelectedTweak] = useState<string | null>(null);
 
   const [identitySignature, setIdentitySignature] = useState<Record<IdentityTag, number>>(
     {} as Record<IdentityTag, number>
@@ -304,6 +305,27 @@ export function IdentityAspirationFlow({
     setPhase(next);
   };
 
+  const buildNextSmallStep = (): string => {
+    let nextSmallStep = 'Your next small step: Practice what matters for just 5 minutes.';
+    if (proudMomentIds.includes('improving_a_skill')) {
+      nextSmallStep =
+        'Your next small step: Set a 10-minute timer to practice one small piece of something you care about.';
+    } else if (
+      proudMomentIds.includes('helping_someone') ||
+      proudMomentIds.includes('supporting_a_friend')
+    ) {
+      nextSmallStep =
+        'Your next small step: Reach out to one person today and offer one simple, concrete help.';
+    } else if (proudMomentIds.includes('making_something_meaningful')) {
+      nextSmallStep =
+        'Your next small step: Make a tiny version of something you care about—no pressure to finish it.';
+    } else if (proudMomentIds.includes('showing_up_when_hard')) {
+      nextSmallStep =
+        'Your next small step: Pick one small way to show up today, even if your energy is low.';
+    }
+    return nextSmallStep;
+  };
+
   const parseAspirationFromReply = (reply: string): AspirationPayload | null => {
     try {
       const startIdx = reply.indexOf('{');
@@ -316,17 +338,21 @@ export function IdentityAspirationFlow({
       const parsed = JSON.parse(jsonText) as {
         arcName?: string;
         aspirationSentence?: string;
-        nextSmallStep?: string;
+        nextSmallStep?: string | null;
       };
 
-      if (!parsed.arcName || !parsed.aspirationSentence || !parsed.nextSmallStep) {
+      if (!parsed.arcName || !parsed.aspirationSentence) {
         return null;
       }
+
+      const nextSmallStep = parsed.nextSmallStep && parsed.nextSmallStep.trim().length > 0
+        ? parsed.nextSmallStep
+        : buildNextSmallStep();
 
       return {
         arcName: parsed.arcName,
         aspirationSentence: parsed.aspirationSentence,
-        nextSmallStep: parsed.nextSmallStep,
+        nextSmallStep,
       };
     } catch {
       return null;
@@ -358,21 +384,12 @@ export function IdentityAspirationFlow({
       'Growing into your next version';
 
     const aspirationSentence = [
-      `You’re becoming someone who is growing in **${domainLabel.toLowerCase()}**, driven by ${motivationLabel.toLowerCase()}.`,
-      `Your ${traitLabel.toLowerCase()} is a real strength, and this next chapter is about working with ${growthEdgeLabel.toLowerCase()} instead of avoiding it.`,
-      `On normal days, that looks like ${proudMomentLabel.toLowerCase()}.`,
+      `You’re the kind of person who is growing in **${domainLabel.toLowerCase()}**, powered by ${motivationLabel.toLowerCase()}.`,
+      `Your ${traitLabel.toLowerCase()} is already a real strength, and this next chapter keeps building on it while you face ${growthEdgeLabel.toLowerCase()} with honesty.`,
+      `On normal days, that often looks like ${proudMomentLabel.toLowerCase()}.`,
     ].join(' ');
 
-    let nextSmallStep = 'Your next small step: Practice what matters for just 5 minutes.';
-    if (proudMomentIds.includes('improving_a_skill')) {
-      nextSmallStep = 'Your next small step: Set a 10-minute timer to practice one small piece of something you care about.';
-    } else if (proudMomentIds.includes('helping_someone') || proudMomentIds.includes('supporting_a_friend')) {
-      nextSmallStep = 'Your next small step: Reach out to one person today and offer one simple, concrete help.';
-    } else if (proudMomentIds.includes('making_something_meaningful')) {
-      nextSmallStep = 'Your next small step: Make a tiny version of something you care about—no pressure to finish it.';
-    } else if (proudMomentIds.includes('showing_up_when_hard')) {
-      nextSmallStep = 'Your next small step: Pick one small way to show up today, even if your energy is low.';
-    }
+    const nextSmallStep = buildNextSmallStep();
 
     return {
       arcName,
@@ -421,7 +438,9 @@ export function IdentityAspirationFlow({
         `everyday proud moment: ${proudMoment}`,
       ];
       if (nickname.trim()) {
-        inputsSummaryLines.push(`nickname: ${nickname.trim()}`);
+        inputsSummaryLines.push(
+          `typed nickname (treat this as a high-priority anchor for the Arc Name and description): ${nickname.trim()}`
+        );
       }
       if (tweakHint) {
         inputsSummaryLines.push(`user tweak preference: ${tweakHint}`);
@@ -430,26 +449,51 @@ export function IdentityAspirationFlow({
       const inputsSummary = inputsSummaryLines.join('\n- ');
 
       const prompt = [
-        'You are helping a teen user define a simple, identity-first Arc in their life.',
+        '🌟 KWILT ARC GENERATION — SYSTEM PROMPT',
         '',
-        'Using the inputs below—[domain of becoming], [motivational style], [signature trait], [growth edge], [everyday proud moment], optional [nickname]—create a short identity snapshot.',
+        'You are generating a short Identity Arc for a user based on their answers to five multiple-choice questions.',
         '',
-        'Respond ONLY with a single JSON object in this exact shape (no backticks, no extra text):',
+        'An Identity Arc is:',
+        '- a brief, vivid description of the kind of person they are growing toward,',
+        '- framed as recognition, not correction,',
+        '- a future-self identity, not a personality summary,',
+        '- motivating, warm, and easy to understand for ages 13–45,',
+        '- only 2–4 sentences,',
+        '- anchored in a single, memorable identity noun (e.g., "The Imaginative Builder"),',
+        '- focused on identity, not behavior, tasks, or self-improvement.',
+        '',
+        'Rules — NEVER break these:',
+        '1. Do NOT use “You’re becoming…”, “You’re growing into…”, or any phrasing that implies the user is not yet enough.',
+        '2. Do NOT use first-person (“I”, “my”).',
+        '3. Do NOT include “growth edges,” “improvement areas,” or anything like “you need to work on…”.',
+        '4. Do NOT include goals, steps, tasks, or advice.',
+        '5. Do NOT sound like therapy or self-help.',
+        '6. Do NOT sound like a list of traits or a résumé.',
+        '7. NEVER mention multiple-choice questions, inputs, or how the arc was constructed.',
+        '',
+        'Tone to maintain:',
+        '- Clear, warm, aspirational, confidence-building, non-judgmental.',
+        '- Youth-friendly without being childish; adult-safe without being corporate.',
+        '',
+        'Identity Arc structure:',
+        '1) Arc Name: a single line with an identity noun (e.g., "The Imaginative Builder", "The Quiet Explorer").',
+        '   - If a nickname input is provided in the inputs, treat it as a high-priority inspiration for the Arc Name: keep its core idea and reuse one or two of its most important words, unless the nickname is clearly unsafe or unusable.',
+        '   - Do NOT use bare generic nouns like "Leader" or "Helper" without a modifier.',
+        '2) Arc Description: 2–4 sentences.',
+        '   - Start with identity-claiming language such as "You’re the kind of person who...", "You bring...", "You create...", "You move through the world with...".',
+        '   - Make it vivid and cinematic; avoid lists. Tie everything to one unifying thread.',
+        '   - Describe the emotional resonance or inner reward of this identity.',
+        '   - End with an uplifting, identity-rooted truth — NOT an instruction.',
+        '',
+        'Your task now:',
+        '- Using the inputs below, generate an Identity Arc that follows all of the rules above.',
+        '- Do not talk about the inputs directly; only express the underlying identity.',
+        '',
+        'Output format (JSON only, no backticks, no extra commentary):',
         '{',
         '  "arcName": string,',
-        '  "aspirationSentence": string,',
-        '  "nextSmallStep": string',
+        '  "aspirationSentence": string',
         '}',
-        '',
-        'Rules:',
-        '- arcName: 2–5 words, tappable, age-appropriate (e.g., "Calm Creator", "Quiet Leader", "Steady Friend"). Prefer using the nickname if one is provided, cleaned up.',
-        '- aspirationSentence: 3–6 short sentences that together describe:',
-        '  1) who they are becoming in that domain,',
-        '  2) how their signature trait is a strength,',
-        '  3) what their real growth edge is (named gently), and',
-        '  4) what this looks like on a normal day (using the proud moment).',
-        '  Avoid generic language; keep it concrete, believable, and specific to these inputs.',
-        '- nextSmallStep: ONE sentence starting with "Your next small step: " that suggests a tiny, doable behavior that matches their growth edge and proud moment.',
         '',
         'Inputs:',
         `- ${inputsSummary}`,
@@ -539,6 +583,7 @@ export function IdentityAspirationFlow({
     };
 
     addArc(arc);
+    setLastOnboardingArcId(arc.id);
     if (workflowRuntime) {
       workflowRuntime.completeStep('aspiration_confirm', { confirmed: true });
       workflowRuntime.completeStep('closing_arc');
@@ -571,7 +616,7 @@ export function IdentityAspirationFlow({
       // Message 3 (light research grounding)
       'Everything is based on **research-backed psychology**, so your plan actually **fits you**—not someone else’s idea of who you should be.',
       // Message 4 (lead-in to the tap-only identity questions)
-      'Great! Now let’s figure out the **kind of person you’re becoming**—so we can help you grow into someone you’re proud of.\n\nI’m going to ask you **5 quick questions**. Just tap what fits. No typing needed. This should only take about a minute.',
+      'Great! Now let’s get clearer on the **kind of person you want to be**—so we can name that identity and build around it.\n\nI’m going to ask you **5 quick questions**. Just tap what fits. No typing needed. This should only take about a minute.',
     ];
 
     const queue = messages.length > 0 ? messages : [fallback];
@@ -686,7 +731,7 @@ export function IdentityAspirationFlow({
     [{ id: 'sounds_good', label: 'I\'m here for that! 👍' }],
     [{ id: 'makes_sense', label: '✅ Got it' }],
     [
-      { id: 'love_that', label: 'I ❤️ science' },
+      { id: 'love_that', label: '🧠 Sounds smart!' },
       { id: 'just_work', label: 'What research? 🤨' },
     ],
   ];
@@ -1107,82 +1152,89 @@ export function IdentityAspirationFlow({
     </Card>
   );
 
+  const renderArcPreview = () => {
+    if (!aspiration) return null;
+
+    const nowIso = new Date().toISOString();
+    const previewArc: Arc = {
+      id: 'arc-onboarding-preview',
+      name: aspiration.arcName,
+      narrative: aspiration.aspirationSentence,
+      status: 'active',
+      startDate: nowIso,
+      endDate: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    return <ArcListCard arc={previewArc} narrativeTone="strong" showFullNarrative />;
+  };
+
   const renderReveal = () => {
     if (!aspiration) return null;
 
     return (
-      <Card style={styles.stepCard}>
-        <View style={styles.stepBody}>
-          <Text style={styles.bodyText}>You’re becoming someone who…</Text>
-          <Text style={styles.bodyText}>{aspiration.aspirationSentence}</Text>
-          <Text style={styles.bodyText}>{aspiration.nextSmallStep}</Text>
-          <View style={styles.inlineActions}>
-            <Button variant="accent" style={styles.primaryButton} onPress={handleConfirmAspiration}>
-              <Text style={styles.primaryButtonLabel}>Yes, this feels like me</Text>
-            </Button>
-            <Button
-              variant="ghost"
-              onPress={() => {
-                setSelectedTweak(null);
-                setPhase('tweak');
-              }}
-            >
-              <Text style={styles.linkLabel}>Close but tweak it</Text>
-            </Button>
-          </View>
+      <>
+        <View style={styles.revealIntroText}>
+          <Text style={styles.bodyText}>
+            Based on what you tapped, here’s a draft Arc that fits what you picked. You can rename
+            this Arc or edit the description later from your Arcs list.
+          </Text>
         </View>
-      </Card>
+        <View style={styles.arcPreviewContainer}>{renderArcPreview()}</View>
+        <Card style={[styles.stepCard, styles.revealStepCard]}>
+          <View style={styles.stepBody}>
+            <View style={[styles.inlineActions, styles.revealInlineActions]}>
+              <Button
+                variant="accent"
+                style={styles.primaryButton}
+                onPress={handleConfirmAspiration}
+              >
+                <Text style={styles.primaryButtonLabel}>🤩 Yes! I'd love to become like this</Text>
+              </Button>
+              <Button
+                variant="ghost"
+                onPress={() => {
+                  setPhase('tweak');
+                }}
+              >
+                <Text style={styles.linkLabel}>Close but tweak it</Text>
+              </Button>
+            </View>
+          </View>
+        </Card>
+      </>
     );
   };
 
   const renderTweak = () => (
-    <Card style={styles.stepCard}>
-      <View style={styles.stepBody}>
-        <Text style={styles.bodyText}>
-          What should this lean more toward? Pick one option below and I’ll quietly adjust the
-          wording to fit you better.
-        </Text>
-        <View style={styles.chipGrid}>
-          {TWEAK_OPTIONS.map((option) => {
-            const selected = selectedTweak === option.id;
-            return (
-              <Pressable
-                key={option.id}
-                style={[styles.chip, selected && styles.chipSelected]}
-                onPress={() => setSelectedTweak(option.id)}
-              >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+    <>
+      <View style={styles.arcPreviewContainer}>{renderArcPreview()}</View>
+      <Card style={styles.stepCard}>
+        <View style={styles.stepBody}>
+          <Text style={styles.bodyText}>
+            What should this lean more toward? Pick one option below and I’ll quietly adjust the
+            wording to fit you better.
+          </Text>
+          <View style={styles.chipGrid}>
+            {TWEAK_OPTIONS.map((option) => {
+              return (
+                <Pressable
+                  key={option.id}
+                  style={styles.chip}
+                  onPress={() => {
+                    setPhase('generating');
+                    void generateAspiration(option.id);
+                  }}
+                >
+                  <Text style={styles.chipLabel}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-        <View style={styles.inlineActions}>
-          <Button
-            variant="accent"
-            style={styles.primaryButton}
-            onPress={() => {
-              if (!selectedTweak) return;
-              setPhase('generating');
-              void generateAspiration(selectedTweak);
-            }}
-            disabled={!selectedTweak}
-          >
-            <Text style={styles.primaryButtonLabel}>Update it</Text>
-          </Button>
-          <Button
-            variant="ghost"
-            onPress={() => {
-              setSelectedTweak(null);
-              setPhase('reveal');
-            }}
-          >
-            <Text style={styles.linkLabel}>Go back</Text>
-          </Button>
-        </View>
-      </View>
-    </Card>
+      </Card>
+    </>
   );
 
   const renderResearchExplainer = () => (
@@ -1472,6 +1524,20 @@ const styles = StyleSheet.create({
     color: colors.secondaryForeground,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  revealIntroText: {
+    marginBottom: spacing.lg,
+  },
+  arcPreviewContainer: {
+    marginBottom: spacing.lg,
+  },
+  revealStepCard: {
+    // Use the same white card surface and padding as other choice cards; no
+    // custom background so it doesn't look like a separate gray panel.
+    backgroundColor: colors.card,
+  },
+  revealInlineActions: {
+    marginTop: spacing.md,
   },
 });
 

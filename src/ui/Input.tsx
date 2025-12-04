@@ -64,8 +64,6 @@ const InputBase = forwardRef<TextInput, Props>(
       undefined,
     );
     const hasError = Boolean(errorText);
-
-    const statusColor = hasError ? colors.destructive : focused ? colors.accent : colors.border;
     const iconColor = hasError ? colors.destructive : colors.textSecondary;
 
     return (
@@ -76,10 +74,7 @@ const InputBase = forwardRef<TextInput, Props>(
             styles.inputContainer,
             variantStyles[variant],
             size === 'sm' ? styles.sizeSm : styles.sizeMd,
-            {
-              borderColor: statusColor,
-              opacity: editable ? 1 : 0.6,
-            },
+            { opacity: editable ? 1 : 0.6 },
             containerStyle,
           ]}
         >
@@ -169,15 +164,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
-    borderWidth: 1,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
-  },
-  inputContainerFocused: {
-    shadowColor: colors.accent,
+    // Tighter, darker contact shadow so the edge reads clearly on white.
+    shadowColor: '#000000',
     shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
     elevation: 2,
   },
   sizeMd: {
@@ -193,6 +186,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: typography.bodySm.fontFamily,
     fontSize: typography.bodySm.fontSize,
+    lineHeight: typography.bodySm.lineHeight,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -225,21 +219,15 @@ const styles = StyleSheet.create({
 
 const variantStyles: Record<InputVariant, ViewStyle> = {
   surface: {
-    // Default input background: neutral card surface with a subtle shadow
-    backgroundColor: colors.card,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 1,
+    // Default input background: solid white, no border
+    backgroundColor: colors.canvas,
   },
   outline: {
-    // Transparent fill with clear border, closer to classic shadcn outline
+    // Outline variant reuses the same base background; callers can add borders if needed.
     backgroundColor: colors.canvas,
   },
   ghost: {
     backgroundColor: 'transparent',
-    borderColor: 'transparent',
   },
 };
 

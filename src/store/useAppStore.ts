@@ -30,12 +30,23 @@ interface AppState {
   arcFeedback: ArcProposalFeedback[];
   userProfile: UserProfile | null;
   llmModel: LlmModel;
+  /**
+   * When set, this is the Arc that was most recently created by the
+   * first-time onboarding flow so we can land the user directly on it and
+   * show a one-time celebration.
+   */
+  lastOnboardingArcId: string | null;
   lastOnboardingGoalId: string | null;
   /**
    * One-time flag so we only show the "first goal created" celebration
    * the first time the user lands on the onboarding-created goal.
    */
   hasSeenFirstGoalCelebration: boolean;
+  /**
+   * One-time flag so we only show the "first Arc created" celebration the
+   * first time the user lands on the onboarding-created Arc.
+   */
+  hasSeenFirstArcCelebration: boolean;
   /**
    * Saved configurations for the Activities list. Includes both system views
    * like "Default view" and user-created custom views.
@@ -63,6 +74,8 @@ interface AppState {
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
   setLlmModel: (model: LlmModel) => void;
+  setLastOnboardingArcId: (arcId: string | null) => void;
+  setHasSeenFirstArcCelebration: (seen: boolean) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
   setActiveActivityViewId: (viewId: string | null) => void;
@@ -271,7 +284,9 @@ export const useAppStore = create(
       arcFeedback: [],
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
+      lastOnboardingArcId: null,
       lastOnboardingGoalId: null,
+      hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
@@ -354,6 +369,14 @@ export const useAppStore = create(
             next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
           return { arcFeedback: trimmed };
         }),
+      setLastOnboardingArcId: (arcId) =>
+        set(() => ({
+          lastOnboardingArcId: arcId,
+        })),
+      setHasSeenFirstArcCelebration: (seen) =>
+        set(() => ({
+          hasSeenFirstArcCelebration: seen,
+        })),
       setLastOnboardingGoalId: (goalId) =>
         set(() => ({
           lastOnboardingGoalId: goalId,
@@ -418,12 +441,13 @@ export const useAppStore = create(
               notifications: undefined,
               updatedAt: now(),
             },
+            lastOnboardingArcId: null,
             lastOnboardingGoalId: null,
             // When we explicitly reset onboarding answers (typically from dev
-            // tooling), also reset the one-time "first goal created"
-            // celebration flag so the overlay can be exercised again on the
-            // next onboarding-created goal.
+            // tooling), also reset the one-time celebrations so the overlays
+            // can be exercised again on the next onboarding-created Arc/Goal.
             hasSeenFirstGoalCelebration: false,
+            hasSeenFirstArcCelebration: false,
           };
         }),
       resetStore: () =>
@@ -436,6 +460,10 @@ export const useAppStore = create(
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,
           activeActivityViewId: 'default',
+          lastOnboardingArcId: null,
+          lastOnboardingGoalId: null,
+          hasSeenFirstGoalCelebration: false,
+          hasSeenFirstArcCelebration: false,
         }),
     }),
     {

@@ -161,21 +161,25 @@ const styles = StyleSheet.create({
   },
   textareaWrapper: {
     borderRadius: 12,
-    // Default state: same white as cards, but with lower opacity so
-    // long-form copy feels softer until you tap to edit.
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    // Match root inputs: solid white, borderless, with a subtle contact shadow.
+    backgroundColor: colors.canvas,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     minHeight: spacing['2xl'] * 2,
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 2,
   },
   textareaWrapperError: {
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.destructive,
   },
   textareaWrapperFocused: {
-    borderColor: colors.accent,
-    backgroundColor: colors.card,
+    // Slightly stronger shadow on edit without introducing a border.
+    shadowOpacity: 0.16,
+    shadowRadius: 4,
   },
   textareaWrapperExpanded: {
     // Extra height while editing so the inline AI button

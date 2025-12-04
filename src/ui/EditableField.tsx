@@ -169,22 +169,26 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    // Default state: same white as cards, but with lower opacity so it
-    // sits back slightly until focused.
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    // Match root inputs: solid white, borderless, with a subtle contact shadow.
+    backgroundColor: colors.canvas,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 44,
     justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 2,
   },
   inputWrapperError: {
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.destructive,
   },
   inputWrapperFocused: {
-    borderColor: colors.accent,
-    backgroundColor: colors.card,
+    // Slightly stronger shadow on edit without introducing a border.
+    shadowOpacity: 0.16,
+    shadowRadius: 4,
   },
   input: {
     ...typography.body,

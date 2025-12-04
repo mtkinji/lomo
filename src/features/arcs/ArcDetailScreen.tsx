@@ -27,7 +27,7 @@ import { useAppStore } from '../../store/useAppStore';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Sheet, VStack, Heading, HStack } from '../../ui/primitives';
+import { Sheet, VStack, Heading, HStack, Dialog, CelebrationGif } from '../../ui/primitives';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
 import { AgentFab } from '../../ui/AgentFab';
@@ -77,6 +77,7 @@ export function ArcDetailScreen() {
   const navigation = useNavigation<ArcDetailNavigationProp>();
   const { arcId, openGoalCreation } = route.params;
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -85,6 +86,13 @@ export function ArcDetailScreen() {
   const removeArc = useAppStore((state) => state.removeArc);
   const updateArc = useAppStore((state) => state.updateArc);
   const addGoal = useAppStore((state) => state.addGoal);
+  const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
+  const hasSeenFirstArcCelebration = useAppStore(
+    (state) => state.hasSeenFirstArcCelebration
+  );
+  const setHasSeenFirstArcCelebration = useAppStore(
+    (state) => state.setHasSeenFirstArcCelebration
+  );
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
@@ -109,6 +117,8 @@ export function ArcDetailScreen() {
   const [isNarrativeEditorVisible, setIsNarrativeEditorVisible] = useState(false);
   const [isGoalCoachVisible, setIsGoalCoachVisible] = useState(false);
   const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] = useState(false);
+  const [showFirstArcCelebration, setShowFirstArcCelebration] = useState(false);
+  const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
 
@@ -135,6 +145,16 @@ export function ArcDetailScreen() {
       navigation.navigate('ArcsList');
     }
   }, [navigation]);
+
+  useEffect(() => {
+    if (
+      arc &&
+      arc.id === lastOnboardingArcId &&
+      !hasSeenFirstArcCelebration
+    ) {
+      setShowFirstArcCelebration(true);
+    }
+  }, [arc, lastOnboardingArcId, hasSeenFirstArcCelebration]);
 
   if (!arc) {
     return (
@@ -176,6 +196,39 @@ export function ArcDetailScreen() {
 
   return (
     <AppShell backgroundVariant="arcGradient">
+      <Dialog
+        visible={showFirstArcCelebration}
+        onClose={() => {
+          setShowFirstArcCelebration(false);
+          setHasSeenFirstArcCelebration(true);
+        }}
+        title={
+          <>
+            🎉 You created your first <Text style={{ fontWeight: 'bold' }}>Arc</Text>!
+          </>
+        }
+        description="This Arc is your personal storyline in kwilt. Next, look for “Turn this Arc into clear goals” in the Goals section below to get started."
+        footer={
+          <Button
+            variant="accent"
+            style={styles.dialogPrimaryCta}
+            onPress={() => {
+              setShowFirstArcCelebration(false);
+              setHasSeenFirstArcCelebration(true);
+              if (scrollRef.current) {
+                scrollRef.current.scrollTo({
+                  y: Math.max(goalsSectionOffset - spacing.lg, 0),
+                  animated: true,
+                });
+              }
+            }}
+          >
+            <Text style={styles.primaryCtaText}>See goals section</Text>
+          </Button>
+        }
+      >
+        <CelebrationGif role="celebration" kind="firstArc" size="sm" />
+      </Dialog>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.screen}>
           <View style={styles.paddedSection}>
@@ -186,7 +239,7 @@ export function ArcDetailScreen() {
                   onPress={handleBackToArcs}
                   accessibilityLabel="Back to Arcs"
                 >
-                  <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+                  <Icon name="arrowLeft" size={20} color={colors.canvas} />
                 </IconButton>
               </View>
               <View style={styles.headerCenter}>
@@ -236,6 +289,7 @@ export function ArcDetailScreen() {
           </View>
 
           <ScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -326,7 +380,12 @@ export function ArcDetailScreen() {
                 <View style={styles.sectionDivider} />
               </View>
 
-              <View style={styles.goalsSection}>
+              <View
+                style={styles.goalsSection}
+                onLayout={(event) => {
+                  setGoalsSectionOffset(event.nativeEvent.layout.y);
+                }}
+              >
                 <View
                   style={[
                     styles.goalsDrawerInner,
@@ -347,9 +406,20 @@ export function ArcDetailScreen() {
                   </View>
 
                   {arcGoals.length === 0 ? (
-                    <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
-                      No goals yet for this Arc.
-                    </Text>
+                    <View style={styles.goalsEmptyStateContainer}>
+                      <Text style={styles.goalsEmptyTitle}>Turn this Arc into clear goals</Text>
+                      <Text style={styles.goalsEmptyBody}>
+                        Start by adding 3–5 goals that live inside this Arc so kwilt knows what
+                        “success” looks like here.
+                      </Text>
+                      <Button
+                        variant="accent"
+                        style={styles.goalsEmptyPrimaryButton}
+                        onPress={() => setIsGoalCoachVisible(true)}
+                      >
+                        <Text style={styles.goalsEmptyPrimaryLabel}>Create goals for this Arc</Text>
+                      </Button>
+                    </View>
                   ) : (
                     <View style={styles.goalsScrollContent}>
                       <View style={{ gap: spacing.sm }}>
@@ -1063,6 +1133,13 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.canvas,
   },
+  primaryCtaText: {
+    ...typography.body,
+    color: colors.canvas,
+  },
+  dialogPrimaryCta: {
+    width: '100%',
+  },
   goalCard: {
     ...cardSurfaceStyle,
     padding: spacing.lg,
@@ -1096,6 +1173,38 @@ const styles = StyleSheet.create({
   goalsScrollContent: {
     paddingBottom: spacing.lg,
   },
+  goalsEmptyStateContainer: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.canvas,
+    shadowColor: cardSurfaceStyle.shadowColor,
+    shadowOpacity: cardSurfaceStyle.shadowOpacity,
+    shadowRadius: cardSurfaceStyle.shadowRadius,
+    shadowOffset: cardSurfaceStyle.shadowOffset,
+    elevation: (cardSurfaceStyle as any).elevation,
+    borderWidth: cardSurfaceStyle.borderWidth,
+    borderColor: cardSurfaceStyle.borderColor,
+  },
+  goalsEmptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  goalsEmptyBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  goalsEmptyPrimaryButton: {
+    width: '100%',
+  },
+  goalsEmptyPrimaryLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    textAlign: 'center',
+  },
   goalsEmptyImageWrapper: {
     alignSelf: 'center',
     width: 120,
@@ -1117,6 +1226,11 @@ const styles = StyleSheet.create({
   recommendationCard: {
     ...cardSurfaceStyle,
     padding: spacing.lg,
+  },
+  firstArcBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   forceIntentRow: {
     flexWrap: 'wrap',

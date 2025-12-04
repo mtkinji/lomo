@@ -16,9 +16,27 @@ type ArcListCardProps = {
    */
   goalCount?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Optional tone override for the narrative text. The default matches the
+   * Arcs canvas (secondary text). A "strong" tone uses the primary text
+   * color, which is helpful for onboarding reveals where the Arc description
+   * is the main content.
+   */
+  narrativeTone?: 'default' | 'strong';
+  /**
+   * When true, render the full narrative without truncation. Defaults to a
+   * compact two-line snippet for list views.
+   */
+  showFullNarrative?: boolean;
 };
 
-export function ArcListCard({ arc, goalCount, style }: ArcListCardProps) {
+export function ArcListCard({
+  arc,
+  goalCount,
+  style,
+  narrativeTone = 'default',
+  showFullNarrative = false,
+}: ArcListCardProps) {
   const seed = buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
   const { colors: gradientColors, direction } = getArcGradient(seed);
 
@@ -60,7 +78,13 @@ export function ArcListCard({ arc, goalCount, style }: ArcListCardProps) {
             {arc.name}
           </Text>
           {arc.narrative ? (
-            <Text numberOfLines={2} style={styles.narrative}>
+            <Text
+              numberOfLines={showFullNarrative ? undefined : 2}
+              style={[
+                styles.narrative,
+                narrativeTone === 'strong' && styles.narrativeStrong,
+              ]}
+            >
               {arc.narrative}
             </Text>
           ) : null}
@@ -122,6 +146,9 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  narrativeStrong: {
+    color: colors.textPrimary,
   },
   metaRow: {
     marginTop: spacing.sm,

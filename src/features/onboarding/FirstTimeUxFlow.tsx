@@ -25,6 +25,7 @@ export function FirstTimeUxFlow() {
   );
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
   const insets = useSafeAreaInsets();
   const [showDevMenu, setShowDevMenu] = useState(false);
 
@@ -142,12 +143,20 @@ export function FirstTimeUxFlow() {
             onComplete={() => {
               completeFlow();
               dismissFlow();
-              const goalId = useAppStore.getState().lastOnboardingGoalId;
-              if (goalId && rootNavigationRef.isReady()) {
-                rootNavigationRef.navigate('ArcsStack', {
-                  screen: 'GoalDetail',
-                  params: { goalId, entryPoint: 'arcsStack' },
-                });
+              const { lastOnboardingArcId: arcId, lastOnboardingGoalId: goalId } =
+                useAppStore.getState();
+              if (rootNavigationRef.isReady()) {
+                if (arcId) {
+                  rootNavigationRef.navigate('ArcsStack', {
+                    screen: 'ArcDetail',
+                    params: { arcId },
+                  });
+                } else if (goalId) {
+                  rootNavigationRef.navigate('ArcsStack', {
+                    screen: 'GoalDetail',
+                    params: { goalId, entryPoint: 'arcsStack' },
+                  });
+                }
               }
             }}
           />

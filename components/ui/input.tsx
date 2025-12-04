@@ -9,7 +9,9 @@ function Input({
   return (
     <TextInput
       className={cn(
-        'dark:bg-input/30 border-input bg-background text-foreground flex h-10 w-full min-w-0 flex-row items-center rounded-md border px-3 py-1 text-base leading-5 shadow-sm shadow-black/5 sm:h-9',
+        // Root input: solid white background, tighter dark contact shadow, no border in default or focused states.
+        // Slightly taller height so descenders (g, y, p) never get clipped on iOS.
+        'bg-background text-foreground flex h-11 w-full min-w-0 flex-row items-center rounded-md px-3 py-2 text-base leading-5 shadow-[0_1px_2px_rgba(15,23,42,0.32)] sm:h-9',
         props.editable === false &&
           cn(
             'opacity-50',
@@ -17,9 +19,7 @@ function Input({
           ),
         Platform.select({
           web: cn(
-            'placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground outline-none transition-[color,box-shadow] md:text-sm',
-            'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-            'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
+            'placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground outline-none md:text-sm'
           ),
           native: 'placeholder:text-muted-foreground/50',
         }),
