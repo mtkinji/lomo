@@ -46,16 +46,26 @@ export function CelebrationGif({
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [gifId, setGifId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const userAgeRange = useAppStore((s) => s.userProfile?.ageRange ?? ageRange);
   const blockCelebrationGif = useAppStore((s) => s.blockCelebrationGif);
   const likeCelebrationGif = useAppStore((s) => s.likeCelebrationGif);
+  const likedCelebrationGifs = useAppStore((s) => s.likedCelebrationGifs ?? []);
+  const isLiked = gifId ? likedCelebrationGifs.some((entry) => entry.id === gifId) : false;
 
   useEffect(() => {
     let cancelled = false;
 
     setIsLoading(true);
-    void fetchCelebrationGif({ role, kind, ageRange: userAgeRange, stylePreference })
+    const skipLikedCache = refreshKey > 0;
+    void fetchCelebrationGif({
+      role,
+      kind,
+      ageRange: userAgeRange,
+      stylePreference,
+      skipLikedCache,
+    })
       .then((result) => {
         if (cancelled) return;
         const nextUrl = result?.url ?? null;
@@ -91,6 +101,14 @@ export function CelebrationGif({
     };
   }, [role, kind, userAgeRange, stylePreference, refreshKey]);
 
+  useEffect(() => {
+    if (!feedbackMessage) return;
+    const timeoutId = setTimeout(() => {
+      setFeedbackMessage(null);
+    }, 2200);
+    return () => clearTimeout(timeoutId);
+  }, [feedbackMessage]);
+
   const handleNotQuiteRight = () => {
     if (!gifId) return;
     blockCelebrationGif(gifId);
@@ -98,6 +116,7 @@ export function CelebrationGif({
     setUrl(null);
     setAspectRatio(null);
     setRefreshKey((key) => key + 1);
+    setFeedbackMessage("Got it — we'll avoid GIFs like this.");
   };
 
   const handleRefresh = () => {
@@ -111,7 +130,12 @@ export function CelebrationGif({
 
   const handleLike = () => {
     if (!gifId || !url) return;
+    if (isLiked) {
+      setFeedbackMessage('Already saved as a favorite.');
+      return;
+    }
     likeCelebrationGif({ id: gifId, url, role, kind });
+    setFeedbackMessage('Saved as a favorite for future celebrations.');
   };
 
   const fallbackHeight = size === 'md' ? 180 : 140;
@@ -137,37 +161,46 @@ export function CelebrationGif({
         )}
       </View>
       {url ? (
-        <View style={styles.attributionRow}>
-          <View style={styles.iconsRow}>
-            <TouchableOpacity
-              onPress={handleRefresh}
-              accessibilityRole="button"
-              accessibilityLabel="Show a different GIF"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.iconButton}
-            >
-              <Icon name="refresh" size={12} color={colors.muted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleLike}
-              accessibilityRole="button"
-              accessibilityLabel="Save this GIF as a favorite"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.iconButton}
-            >
-              <Icon name="thumbsUp" size={12} color={colors.muted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleNotQuiteRight}
-              accessibilityRole="button"
-              accessibilityLabel="This GIF is not quite right"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.iconButton}
-            >
-              <Icon name="thumbsDown" size={12} color={colors.muted} />
-            </TouchableOpacity>
+        <View>
+          <View style={styles.attributionRow}>
+            <View style={styles.iconsRow}>
+              <TouchableOpacity
+                onPress={handleRefresh}
+                accessibilityRole="button"
+                accessibilityLabel="Show a different GIF"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.iconButton}
+              >
+                <Icon name="refresh" size={12} color={colors.muted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleLike}
+                accessibilityRole="button"
+                accessibilityLabel="Save this GIF as a favorite"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.iconButton}
+              >
+                <Icon
+                  name="thumbsUp"
+                  size={12}
+                  color={isLiked ? colors.accent : colors.muted}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleNotQuiteRight}
+                accessibilityRole="button"
+                accessibilityLabel="This GIF is not quite right"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.iconButton}
+              >
+                <Icon name="thumbsDown" size={12} color={colors.muted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.attributionText}>GIFS BY GIPHY</Text>
           </View>
-          <Text style={styles.attributionText}>GIFS BY GIPHY</Text>
+          {feedbackMessage ? (
+            <Text style={styles.feedbackMessage}>{feedbackMessage}</Text>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -213,6 +246,11 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.muted,
     fontSize: 10,
+  },
+  feedbackMessage: {
+    marginTop: spacing.xs,
+    ...typography.bodySm,
+    color: colors.muted,
   },
 });
 

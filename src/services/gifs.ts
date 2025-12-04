@@ -26,6 +26,11 @@ export type FetchCelebrationGifParams = {
   kind: CelebrationKind;
   ageRange?: AgeRange;
   stylePreference?: CelebrationStylePreference;
+  /**
+   * When true, bypasses the liked-GIFs cache and always calls the remote API.
+   * Useful for explicit "refresh" actions where the user wants something new.
+   */
+  skipLikedCache?: boolean;
 };
 
 const EXCLUDED_KEYWORDS = ['pride', 'gay', 'lgbt', 'nsfw', 'sexy'];
@@ -89,18 +94,21 @@ export async function fetchCelebrationGif(
 ): Promise<CelebrationGif | null> {
   const state = useAppStore.getState();
   const blockedIds = new Set(state.blockedCelebrationGifIds ?? []);
+  const useLikedCache = !params.skipLikedCache;
 
   // 1) Prefer locally liked GIFs for this role/kind to avoid unnecessary API
   // calls and give the user a sense of continuity with favorites.
-  const likedForContext = (state.likedCelebrationGifs ?? []).filter(
-    (entry) =>
-      entry.role === params.role &&
-      entry.kind === params.kind &&
-      !blockedIds.has(entry.id),
-  );
-  if (likedForContext.length > 0) {
-    const pick = likedForContext[Math.floor(Math.random() * likedForContext.length)];
-    return { id: pick.id, url: pick.url };
+  if (useLikedCache) {
+    const likedForContext = (state.likedCelebrationGifs ?? []).filter(
+      (entry) =>
+        entry.role === params.role &&
+        entry.kind === params.kind &&
+        !blockedIds.has(entry.id),
+    );
+    if (likedForContext.length > 0) {
+      const pick = likedForContext[Math.floor(Math.random() * likedForContext.length)];
+      return { id: pick.id, url: pick.url };
+    }
   }
 
   const apiKey = getGiphyApiKey();
