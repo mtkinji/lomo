@@ -60,10 +60,11 @@ const InputBase = forwardRef<TextInput, Props>(
     ref,
   ) => {
     const [focused, setFocused] = useState(false);
-    const [multilineHeight, setMultilineHeight] = useState<number | undefined>(
-      undefined,
-    );
+    const [multilineHeight, setMultilineHeight] = useState<number | undefined>(undefined);
     const hasError = Boolean(errorText);
+    // Keep border color consistent between default and focused states;
+    // only errors get a different color.
+    const statusColor = hasError ? colors.destructive : colors.border;
     const iconColor = hasError ? colors.destructive : colors.textSecondary;
 
     return (
@@ -74,7 +75,10 @@ const InputBase = forwardRef<TextInput, Props>(
             styles.inputContainer,
             variantStyles[variant],
             size === 'sm' ? styles.sizeSm : styles.sizeMd,
-            { opacity: editable ? 1 : 0.6 },
+            {
+              borderColor: statusColor,
+              opacity: editable ? 1 : 0.6,
+            },
             containerStyle,
           ]}
         >
@@ -164,14 +168,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
+    borderWidth: 1,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
-    // Tighter, darker contact shadow so the edge reads clearly on white.
-    shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
-    elevation: 2,
   },
   sizeMd: {
     minHeight: 44,

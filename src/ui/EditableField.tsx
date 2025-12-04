@@ -169,26 +169,23 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     borderRadius: 12,
-    // Match root inputs: solid white, borderless, with a subtle contact shadow.
+    // Match root inputs: solid white with a subtle neutral border.
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     backgroundColor: colors.canvas,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 44,
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
-    elevation: 2,
   },
   inputWrapperError: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.destructive,
   },
   inputWrapperFocused: {
-    // Slightly stronger shadow on edit without introducing a border.
-    shadowOpacity: 0.16,
-    shadowRadius: 4,
+    // Use the same neutral border color on focus; rely on caret and context
+    // rather than a stronger ring to signal edit state.
+    borderColor: colors.border,
   },
   input: {
     ...typography.body,

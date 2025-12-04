@@ -9,9 +9,9 @@ function Input({
   return (
     <TextInput
       className={cn(
-        // Root input: solid white background, tighter dark contact shadow, no border in default or focused states.
+        // Root input: solid white background with a subtle neutral border.
         // Slightly taller height so descenders (g, y, p) never get clipped on iOS.
-        'bg-background text-foreground flex h-11 w-full min-w-0 flex-row items-center rounded-md px-3 py-2 text-base leading-5 shadow-[0_1px_2px_rgba(15,23,42,0.32)] sm:h-9',
+        'bg-background text-foreground flex h-11 w-full min-w-0 flex-row items-center rounded-md border border-input px-3 py-2 text-base leading-5 sm:h-9',
         props.editable === false &&
           cn(
             'opacity-50',

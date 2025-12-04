@@ -421,6 +421,93 @@ export function IdentityAspirationFlow({
     );
   };
 
+  const scoreAspirationQuality = useCallback(
+    async (candidate: AspirationPayload): Promise<number | null> => {
+      // Ask the onboarding agent to act as a lightweight judge for the
+      // synthesized Identity Arc so we can avoid showing very weak drafts.
+      const judgePrompt = [
+        'You are evaluating the quality of an Identity Arc generated for a user.',
+        '',
+        'Rate it on a 0–2 scale for each dimension:',
+        '1) specificity – how clearly it reflects this particular user rather than anyone.',
+        '2) coherence – how well the sentences hang together around one clear identity thread.',
+        '3) depth – whether it includes values, meaning, or worldview (not just traits).',
+        '4) voice – whether the tone fits a thoughtful, identity-focused app (not corporate or therapy-like).',
+        '5) constraint_adherence – whether it follows the requested structure and avoids advice, steps, or “you should” language.',
+        '',
+        'Return JSON only in this shape (no extra commentary, no markdown):',
+        '{',
+        '  "scores": {',
+        '    "specificity": 0,',
+        '    "coherence": 0,',
+        '    "depth": 0,',
+        '    "voice": 0,',
+        '    "constraint_adherence": 0',
+        '  },',
+        '  "total_score": 0,',
+        '  "regenerate_recommended": false,',
+        '  "notes": "one or two short sentences of feedback"',
+        '}',
+        '',
+        'User identity signals (high-level):',
+        `- domain of becoming: ${domain || 'unknown'}`,
+        `- motivational style: ${motivation || 'unknown'}`,
+        `- signature trait: ${signatureTrait || 'unknown'}`,
+        `- growth edge: ${growthEdge || 'unknown'}`,
+        `- everyday proud moment: ${proudMoment || 'unknown'}`,
+        '',
+        `Candidate Arc name: ${candidate.arcName}`,
+        `Candidate Arc narrative: ${candidate.aspirationSentence}`,
+      ].join('\n');
+
+      const messages: CoachChatTurn[] = [
+        {
+          role: 'user',
+          content: judgePrompt,
+        },
+      ];
+
+      const options: CoachChatOptions = {
+        mode: 'firstTimeOnboarding',
+        workflowDefinitionId: workflowRuntime?.definition?.id,
+        workflowInstanceId: workflowRuntime?.instance?.id,
+        workflowStepId: 'aspiration_quality_check',
+      };
+
+      try {
+        const reply = await sendCoachChat(messages, options);
+        const startIdx = reply.indexOf('{');
+        const endIdx = reply.lastIndexOf('}');
+        const jsonText =
+          startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
+            ? reply.slice(startIdx, endIdx + 1)
+            : reply;
+
+        const parsed = JSON.parse(jsonText) as {
+          total_score?: number;
+          totalScore?: number;
+        };
+
+        const total =
+          typeof parsed.total_score === 'number'
+            ? parsed.total_score
+            : typeof parsed.totalScore === 'number'
+            ? parsed.totalScore
+            : null;
+
+        if (total == null || Number.isNaN(total)) {
+          return null;
+        }
+
+        return total;
+      } catch (err) {
+        console.warn('[onboarding] Failed to score identity Arc quality', err);
+        return null;
+      }
+    },
+    [domain, motivation, signatureTrait, growthEdge, proudMoment, workflowRuntime]
+  );
+
   const generateAspiration = useCallback(
     async (tweakHint?: string) => {
       if (!canGenerate) {
@@ -449,41 +536,39 @@ export function IdentityAspirationFlow({
       const inputsSummary = inputsSummaryLines.join('\n- ');
 
       const prompt = [
-        '🌟 KWILT ARC GENERATION — SYSTEM PROMPT',
+        '🌟 KWILT DEEP ARC GENERATION — SYSTEM PROMPT',
         '',
-        'You are generating a short Identity Arc for a user based on their answers to five multiple-choice questions.',
+        'You are generating a deep Identity Arc for a user based on their answers to a short tap-only onboarding quiz.',
         '',
         'An Identity Arc is:',
-        '- a brief, vivid description of the kind of person they are growing toward,',
-        '- framed as recognition, not correction,',
-        '- a future-self identity, not a personality summary,',
-        '- motivating, warm, and easy to understand for ages 13–45,',
-        '- only 2–4 sentences,',
-        '- anchored in a single, memorable identity noun (e.g., "The Imaginative Builder"),',
-        '- focused on identity, not behavior, tasks, or self-improvement.',
+        '- a vivid, inspiring description of the user’s future self,',
+        '- grounded in identity, values, meaning, and creative/vocational orientation,',
+        '- written in 3–5 beautifully crafted sentences,',
+        '- emotionally resonant, metaphorically rich, and specific,',
+        '- powerful enough that the user feels seen and understood.',
         '',
-        'Rules — NEVER break these:',
-        '1. Do NOT use “You’re becoming…”, “You’re growing into…”, or any phrasing that implies the user is not yet enough.',
-        '2. Do NOT use first-person (“I”, “my”).',
-        '3. Do NOT include “growth edges,” “improvement areas,” or anything like “you need to work on…”.',
-        '4. Do NOT include goals, steps, tasks, or advice.',
-        '5. Do NOT sound like therapy or self-help.',
-        '6. Do NOT sound like a list of traits or a résumé.',
-        '7. NEVER mention multiple-choice questions, inputs, or how the arc was constructed.',
+        'Hard rules:',
+        '- Do NOT use “You’re becoming…” or “You’re growing into…”.',
+        '- Do NOT use first person (“I”).',
+        '- Do NOT give steps, advice, or growth edges.',
+        '- Do NOT list traits or sound like a résumé.',
+        '- Do NOT mention questions, options, or how the Arc was constructed.',
+        '- Do NOT use therapy language or corporate tone.',
         '',
-        'Tone to maintain:',
-        '- Clear, warm, aspirational, confidence-building, non-judgmental.',
-        '- Youth-friendly without being childish; adult-safe without being corporate.',
+        'Structure:',
+        '1) Arc Name: "The {Identity Noun}"',
+        '   - Identity noun should reflect their orientation (Maker, Explorer, Builder, Visionary, etc.), philosophy, values, and vocation/creation style.',
+        '   - Never use a bare generic noun (like just "Leader" or "Helper") without a modifier.',
+        '   - If a nickname input is provided, treat it as a high-priority inspiration for the Arc name unless clearly unsafe.',
         '',
-        'Identity Arc structure:',
-        '1) Arc Name: a single line with an identity noun (e.g., "The Imaginative Builder", "The Quiet Explorer").',
-        '   - If a nickname input is provided in the inputs, treat it as a high-priority inspiration for the Arc Name: keep its core idea and reuse one or two of its most important words, unless the nickname is clearly unsafe or unusable.',
-        '   - Do NOT use bare generic nouns like "Leader" or "Helper" without a modifier.',
-        '2) Arc Description: 2–4 sentences.',
-        '   - Start with identity-claiming language such as "You’re the kind of person who...", "You bring...", "You create...", "You move through the world with...".',
-        '   - Make it vivid and cinematic; avoid lists. Tie everything to one unifying thread.',
-        '   - Describe the emotional resonance or inner reward of this identity.',
-        '   - End with an uplifting, identity-rooted truth — NOT an instruction.',
+        '2) Description (3–5 sentences):',
+        '- Start with identity-claiming language such as "You’re the kind of person who...", "You bring...", or "You move through the world with...".',
+        '- Include their philosophy or worldview (clarity, service, integrity, simplicity, etc.).',
+        '- Include the impact or meaning they hope to create for others.',
+        '- Include how they tend to express their strengths in everyday life.',
+        '- End with an emotionally satisfying line that sums up the identity, not an instruction.',
+        '',
+        'Additionally, generate a single tiny next step that helps them live this Arc in a low-pressure way.',
         '',
         'Your task now:',
         '- Using the inputs below, generate an Identity Arc that follows all of the rules above.',
@@ -492,7 +577,8 @@ export function IdentityAspirationFlow({
         'Output format (JSON only, no backticks, no extra commentary):',
         '{',
         '  "arcName": string,',
-        '  "aspirationSentence": string',
+        '  "aspirationSentence": string, // 3–5 sentences',
+        '  "nextSmallStep": string      // one sentence starting with "Your next small step: "',
         '}',
         '',
         'Inputs:',
@@ -518,6 +604,31 @@ export function IdentityAspirationFlow({
         const parsed = parseAspirationFromReply(reply);
 
         if (parsed) {
+          // Run a lightweight quality check and only use clearly weak scores
+          // to trigger a local fallback so users never see obviously "junk"
+          // Arcs from the FTUE.
+          const qualityScore = await scoreAspirationQuality(parsed);
+
+          if (qualityScore != null && qualityScore < 8) {
+            console.warn(
+              '[onboarding] Identity Arc quality below threshold, using local fallback instead',
+              { qualityScore }
+            );
+            const fallback = buildLocalAspirationFallback();
+            if (fallback) {
+              setAspiration(fallback);
+              if (workflowRuntime) {
+                workflowRuntime.completeStep('aspiration_generate', {
+                  arcName: fallback.arcName,
+                  arcNarrative: fallback.aspirationSentence,
+                  nextSmallStep: fallback.nextSmallStep,
+                });
+              }
+              setPhase('reveal');
+              return;
+            }
+          }
+
           setAspiration(parsed);
           if (workflowRuntime) {
             workflowRuntime.completeStep('aspiration_generate', {
@@ -564,7 +675,17 @@ export function IdentityAspirationFlow({
         setIsGenerating(false);
       }
     },
-    [canGenerate, domain, motivation, signatureTrait, growthEdge, proudMoment, nickname, workflowRuntime]
+    [
+      canGenerate,
+      domain,
+      motivation,
+      signatureTrait,
+      growthEdge,
+      proudMoment,
+      nickname,
+      workflowRuntime,
+      scoreAspirationQuality,
+    ]
   );
 
   const handleConfirmAspiration = () => {
@@ -610,13 +731,13 @@ export function IdentityAspirationFlow({
 
     const messages: string[] = [
       // Message 1 (big-picture promise)
-      'Hello 👋 and welcome to **kwilt** — we’re here to help you design the **future you want**, then make it feel doable with clear goals and tiny next steps.',
-      // Message 2 (introduce Arcs, lightly hint at Goals + Activities)
-      'We’ll start by sketching a short **identity Arc** that captures the kind of **person you want to become**.\n\nLater, kwilt will help you translate that Arc into concrete **Goals** and small everyday **Activities** so it’s easy to act on.',
-      // Message 3 (light research grounding)
-      'Everything is based on **research-backed psychology**, so your plan actually **fits you**—not someone else’s idea of who you should be.',
+      'Hey, I’d love to help you name the big **Arc** your life is moving through.',
+      // Message 2 (what this is)
+      'Think of this like a really good **personality quiz** about Future You — not a test, just a way to capture the story you’re in.',
+      // Message 3 (length + payoff)
+      'I’m going to ask you a handful of quick, tap-only questions. It should take about a minute, and your answers help me create an Arc that feels specific, grounded, and actually like you.',
       // Message 4 (lead-in to the tap-only identity questions)
-      'Great! Now let’s get clearer on the **kind of person you want to be**—so we can name that identity and build around it.\n\nI’m going to ask you **5 quick questions**. Just tap what fits. No typing needed. This should only take about a minute.',
+      'Once we’re done, I’ll weave everything you chose into a single Identity Arc — a short description of who you’re becoming that we can build goals and plans around.',
     ];
 
     const queue = messages.length > 0 ? messages : [fallback];
@@ -1141,11 +1262,11 @@ export function IdentityAspirationFlow({
     <Card style={styles.stepCard}>
       <View style={styles.stepBody}>
         <Text style={styles.bodyText}>
-          I’m stitching what you chose into a short identity Arc and one tiny next step.
+          I’m weaving everything you tapped into a single Identity Arc and one tiny next step.
         </Text>
         <View style={styles.loadingRow}>
           <ActivityIndicator color={colors.textPrimary} />
-          <Text style={styles.bodyText}>This usually takes just a moment…</Text>
+          <Text style={styles.bodyText}>Give me a moment to pull the threads together…</Text>
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>

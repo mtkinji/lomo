@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { StyleSheet, View, Pressable, TextInput, Text } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 
@@ -36,7 +36,7 @@ export function EditableTextArea({
   onSubmit,
   placeholder,
   disabled,
-  maxCollapsedLines = 3,
+  maxCollapsedLines = 0,
   validate,
   enableAi,
   onRequestAiHelp,
@@ -71,10 +71,7 @@ export function EditableTextArea({
     });
   };
 
-  const labelStyle = [
-    styles.label,
-    disabled && styles.labelDisabled,
-  ];
+  const labelStyle = [styles.label, disabled && styles.labelDisabled];
 
   const effectiveNumberOfLines =
     typeof maxCollapsedLines === 'number' && maxCollapsedLines > 0
@@ -90,16 +87,12 @@ export function EditableTextArea({
         style={[
           styles.textareaWrapper,
           isEditing && styles.textareaWrapperFocused,
-          isEditing && styles.textareaWrapperExpanded,
           error && styles.textareaWrapperError,
         ]}
       >
         <TextInput
           ref={inputRef}
-          style={[
-            styles.textarea,
-            enableAi && isEditing && styles.textareaWithInlineButton,
-          ]}
+          style={styles.textarea}
           value={isEditing ? draft : value}
           onChangeText={setDraft}
           placeholder={placeholder || 'Tap to add details'}
@@ -124,15 +117,17 @@ export function EditableTextArea({
           // so React Native lets the textarea expand to fit the full content.
           numberOfLines={effectiveNumberOfLines}
         />
-        {enableAi && onRequestAiHelp && aiContext && isEditing ? (
+      </View>
+      {enableAi && onRequestAiHelp && aiContext && isEditing ? (
+        <View style={styles.aiFooter}>
           <Pressable onPress={handleRequestAi} style={styles.inlineAiButton}>
             <View style={styles.inlineAiContent}>
               <Icon name="sparkles" size={14} color={colors.primaryForeground} />
               <Text style={styles.inlineAiText}>Refine with AI</Text>
             </View>
           </Pressable>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
       {error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : null}
@@ -161,31 +156,25 @@ const styles = StyleSheet.create({
   },
   textareaWrapper: {
     borderRadius: 12,
-    // Match root inputs: solid white, borderless, with a subtle contact shadow.
+    // Match root inputs: solid white with a subtle neutral border.
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     backgroundColor: colors.canvas,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: spacing['2xl'] * 2,
-    shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
-    elevation: 2,
   },
   textareaWrapperError: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.destructive,
   },
   textareaWrapperFocused: {
-    // Slightly stronger shadow on edit without introducing a border.
-    shadowOpacity: 0.16,
-    shadowRadius: 4,
+    // Use the same neutral border color on focus; rely on caret and context
+    // rather than a stronger ring to signal edit state.
+    borderColor: colors.border,
   },
   textareaWrapperExpanded: {
-    // Extra height while editing so the inline AI button
-    // can sit comfortably on its own line below the text,
-    // with generous breathing room.
-    minHeight: spacing['2xl'] * 4,
+    // Deprecated: used by an earlier inline-button implementation.
   },
   textarea: {
     ...typography.body,
@@ -194,13 +183,13 @@ const styles = StyleSheet.create({
     minHeight: spacing['2xl'] * 1.5,
   },
   textareaWithInlineButton: {
-    paddingRight: spacing['2xl'],
-    paddingBottom: spacing.xl,
+    // Deprecated: no longer used now that the AI button lives in a footer row.
+  },
+  aiFooter: {
+    marginTop: spacing.sm,
+    alignItems: 'flex-end',
   },
   inlineAiButton: {
-    position: 'absolute',
-    right: spacing.sm,
-    bottom: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: 8,
