@@ -202,11 +202,7 @@ export function ArcDetailScreen() {
           setShowFirstArcCelebration(false);
           setHasSeenFirstArcCelebration(true);
         }}
-        title={
-          <>
-            🎉 You created your first <Text style={{ fontWeight: 'bold' }}>Arc</Text>!
-          </>
-        }
+        title="🚀 You're on your way!"
         footer={
           <Button
             variant="accent"
@@ -222,14 +218,15 @@ export function ArcDetailScreen() {
               }
             }}
           >
-            <Text style={styles.primaryCtaText}>See goals section</Text>
+            <Text style={styles.primaryCtaText}>Continue</Text>
           </Button>
         }
       >
         <CelebrationGif role="celebration" kind="firstArc" size="sm" />
         <Text style={styles.firstArcBody}>
-          This Arc is your personal storyline in kwilt. Next, look for “Turn this Arc into clear
-          goals” in the Goals section below to get started.
+          Now that we have a vision for who you want to become in the future,{' '}
+          <Text style={styles.firstArcBodyEmphasis}>let&apos;s add a goal</Text>{' '}
+          to help you plan out how to get there.
         </Text>
       </Dialog>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -1234,6 +1231,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     marginTop: spacing.sm,
+  },
+  firstArcBodyEmphasis: {
+    ...typography.body,
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
   },
   forceIntentRow: {
     flexWrap: 'wrap',
