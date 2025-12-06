@@ -34,6 +34,24 @@ const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
 const OPENAI_TIMEOUT_MS = 15000;
 const LOG_PREFIX = '[ai]';
 
+/**
+ * Central dev logging helper for AI-related traces.
+ *
+ * By default this keeps logs **very** quiet so normal FTUE runs only surface
+ * high-signal events (errors, summaries) instead of every network call.
+ *
+ * If you need to debug low-level chat/network behavior again, temporarily
+ * flip `AI_DEBUG_VERBOSE` to `true` while working locally.
+ */
+const AI_DEBUG_VERBOSE = false;
+
+const MUTED_CONTEXT_PREFIXES: string[] = [
+  // Chat + workflow flows can be quite verbose; keep their dev logs muted
+  // unless explicitly debugging.
+  'coachChat:',
+  'fetchWithTimeout:',
+];
+
 const previewText = (value?: string) => {
   if (!value) {
     return undefined;
@@ -65,12 +83,22 @@ const describeKey = (key?: string) =>
   key ? { present: true, length: key.length } : { present: false };
 
 const devLog = (context: string, details?: Record<string, unknown>) => {
-  if (!__DEV__) {
-    return;
+  if (!__DEV__) return;
+
+  if (!AI_DEBUG_VERBOSE) {
+    // In non-verbose mode, drop known-noisy debug contexts so FTUE logs stay
+    // focused on high-signal messages (like onboarding summaries and errors).
+    const shouldMute = MUTED_CONTEXT_PREFIXES.some((prefix) => context.startsWith(prefix));
+    if (shouldMute) {
+      return;
+    }
   }
+
   if (details) {
+    // eslint-disable-next-line no-console
     console.log(`${LOG_PREFIX} ${context}`, details);
   } else {
+    // eslint-disable-next-line no-console
     console.log(`${LOG_PREFIX} ${context}`);
   }
 };

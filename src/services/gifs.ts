@@ -193,9 +193,19 @@ export async function fetchCelebrationGif(
     }
 
     if (__DEV__) {
-      // Temporary debug logging for QA / tuning.
+      // Temporary debug logging for QA / tuning. Keep this human-readable and
+      // avoid logging the full media URL; the ID + title are enough to
+      // re‑locate a GIF when needed.
+      const title = pick.title && pick.title.trim().length > 0 ? pick.title : undefined;
       // eslint-disable-next-line no-console
-      console.log('[giphy]', { query, id: pick.id, url, rating, itemRating: pick.rating });
+      console.log('[giphy]', {
+        id: pick.id,
+        title,
+        slug: pick.slug,
+        query,
+        rating,
+        itemRating: pick.rating,
+      });
     }
 
     return { id: pick.id, url };
