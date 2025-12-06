@@ -22,7 +22,7 @@ import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
-import { Logo } from '../../ui/Logo';
+import { BrandLockup } from '../../ui/BrandLockup';
 import { CoachChatTurn, GeneratedArc, sendCoachChat, type CoachChatOptions } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
@@ -560,7 +560,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
   const shouldBootstrapAssistant = Boolean(modeConfig?.autoBootstrapFirstMessage);
-  const [isArcInfoVisible, setIsArcInfoVisible] = useState(false);
+  const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const userProfile = useAppStore((state) => state.userProfile);
@@ -658,6 +658,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
   const shouldShowSuggestionsRail =
     !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode;
+  const hasWorkflowContextMeta = Boolean(mode || workflowRuntime?.definition || hasContextMeta);
+  const modeLabel = modeConfig?.label;
+  const workflowLabel = workflowRuntime?.definition?.label;
+  const contextPillLabel = modeLabel ?? workflowLabel ?? (hasContextMeta ? 'AI workflow' : null);
 
   const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
     if (!isArcCreationMode) return;
@@ -1248,6 +1252,18 @@ export const AiChatPane = forwardRef(function AiChatPane(
     };
   }, []);
 
+  const workflowInfoTitle = modeLabel ?? workflowLabel ?? 'AI coach';
+  const workflowInfoSubtitle =
+    mode === 'goalCreation'
+      ? 'This coach helps you shape one clear 30–90 day goal inside your life architecture, using any Arc and Goal context the app has already collected.'
+      : mode === 'activityCreation'
+      ? 'This coach helps you turn your current goals and arcs into small, concrete activities you can actually do in the near term.'
+      : mode === 'firstTimeOnboarding'
+      ? 'This guide helps you define an initial identity direction and aspiration using quick, tap-first inputs.'
+      : isArcCreationMode
+      ? 'This coach helps you design one long‑term Arc for your life — not manage tasks or habits.'
+      : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
+
   return (
     <>
       <KeyboardAvoidingView style={styles.flex}>
@@ -1268,27 +1284,30 @@ export const AiChatPane = forwardRef(function AiChatPane(
               <View style={styles.timeline}>
               {!hideBrandHeader && (
                 <View style={styles.brandHeaderRow}>
-                  <View style={styles.brandLockup}>
-                    <Logo size={32} />
-                    <View style={styles.brandTextBlock}>
-                      <Text style={styles.brandWordmark}>kwilt</Text>
-                    </View>
-                  </View>
-                  {isArcCreationMode && (
+                  <BrandLockup logoSize={32} wordmarkSize="lg" />
+                  {hasWorkflowContextMeta && contextPillLabel && (
                     <Pressable
                       style={styles.modePill}
-                      onPress={() => setIsArcInfoVisible(true)}
+                      onPress={() => setIsWorkflowInfoVisible(true)}
                       accessibilityRole="button"
-                      accessibilityLabel="Learn about Arc creation and see context"
+                      accessibilityLabel="Learn about this AI workflow and see context"
                     >
                       <View style={styles.modePillLeft}>
                         <Icon
-                          name="arcs"
+                          name={
+                            mode === 'goalCreation'
+                              ? 'goals'
+                              : mode === 'activityCreation'
+                              ? 'activity'
+                              : mode === 'firstTimeOnboarding'
+                              ? 'sparkles'
+                              : 'arcs'
+                          }
                           size={14}
                           color={CHAT_COLORS.textSecondary}
                           style={styles.modePillIcon}
                         />
-                        <Text style={styles.modePillText}>Arc creation</Text>
+                        <Text style={styles.modePillText}>{contextPillLabel}</Text>
                       </View>
                       <Icon
                         name="info"
@@ -1547,93 +1566,92 @@ export const AiChatPane = forwardRef(function AiChatPane(
         </View>
       </KeyboardAvoidingView>
 
-    {isArcCreationMode && (
-      <Modal
-        visible={isArcInfoVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsArcInfoVisible(false)}
-      >
-        <View style={styles.arcInfoOverlay}>
-          <View style={styles.arcInfoCard}>
-            <View style={styles.arcInfoHeaderRow}>
-              <Text style={styles.arcInfoTitle}>Arc creation coach</Text>
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={() => setIsArcInfoVisible(false)}
-                accessibilityLabel="Close Arc creation info"
-                style={styles.arcInfoCloseButton}
+      {hasWorkflowContextMeta && (
+        <Modal
+          visible={isWorkflowInfoVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsWorkflowInfoVisible(false)}
+        >
+          <View style={styles.arcInfoOverlay}>
+            <View style={styles.arcInfoCard}>
+              <View style={styles.arcInfoHeaderRow}>
+                <Text style={styles.arcInfoTitle}>{workflowInfoTitle}</Text>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onPress={() => setIsWorkflowInfoVisible(false)}
+                  accessibilityLabel="Close workflow context info"
+                  style={styles.arcInfoCloseButton}
+                >
+                  <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
+                </Button>
+              </View>
+
+              <ScrollView
+                style={styles.arcInfoScroll}
+                contentContainerStyle={styles.arcInfoContent}
+                showsVerticalScrollIndicator={false}
               >
-                <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
-              </Button>
-            </View>
-
-            <ScrollView
-              style={styles.arcInfoScroll}
-              contentContainerStyle={styles.arcInfoContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.arcInfoHeader}>
-                <Text style={styles.arcInfoSubtitle}>
-                  This coach helps you design one long‑term Arc for your life — not manage tasks or
-                  habits.
-                </Text>
-              </View>
-
-              <View style={styles.arcInfoSection}>
-                <Text style={styles.arcInfoSectionLabel}>What’s an Arc?</Text>
-                <Text style={styles.arcInfoBody}>
-                  An Arc is a long‑term identity direction in a part of your life — a stable
-                  storyline you can hang future goals and activities on.
-                </Text>
-              </View>
-
-              {hasContextMeta && launchContext && parsedContext && (
-                <View style={styles.arcInfoSection}>
-                  <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
-
-                  {parsedContext.arcs.length > 0 && (
-                    <View style={styles.arcInfoSubSection}>
-                      {parsedContext.arcs.map((arc) => {
-                        const arcGoals = parsedContext.goals.filter(
-                          (goal) => goal.arcName === arc.name,
-                        );
-                        return (
-                          <View key={arc.name} style={styles.arcInfoContextCard}>
-                            <Text style={styles.arcInfoContextTitle}>{arc.name}</Text>
-                            {arcGoals.length > 0 && (
-                              <View style={styles.arcInfoGoalList}>
-                                <Text style={styles.arcInfoGoalsLabel}>Goals in this Arc</Text>
-                                {arcGoals.map((goal) => (
-                                  <Text key={goal.title} style={styles.arcInfoGoalText}>
-                                    • {goal.title}
-                                  </Text>
-                                ))}
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
+                <View style={styles.arcInfoHeader}>
+                  <Text style={styles.arcInfoSubtitle}>{workflowInfoSubtitle}</Text>
                 </View>
-              )}
-            </ScrollView>
 
-            <View style={styles.arcInfoFooter}>
-              <Button
-                variant="ghost"
-                onPress={() => setIsArcInfoVisible(false)}
-                accessibilityLabel="Close Arc creation info"
-              >
-                <Text style={styles.arcInfoCloseLabel}>Got it</Text>
-              </Button>
+                {isArcCreationMode && (
+                  <View style={styles.arcInfoSection}>
+                    <Text style={styles.arcInfoSectionLabel}>What’s an Arc?</Text>
+                    <Text style={styles.arcInfoBody}>
+                      An Arc is a long‑term identity direction in a part of your life — a stable
+                      storyline you can hang future goals and activities on.
+                    </Text>
+                  </View>
+                )}
+
+                {hasContextMeta && launchContext && parsedContext && (
+                  <View style={styles.arcInfoSection}>
+                    <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
+
+                    {parsedContext.arcs.length > 0 && (
+                      <View style={styles.arcInfoSubSection}>
+                        {parsedContext.arcs.map((arc) => {
+                          const arcGoals = parsedContext.goals.filter(
+                            (goal) => goal.arcName === arc.name,
+                          );
+                          return (
+                            <View key={arc.name} style={styles.arcInfoContextCard}>
+                              <Text style={styles.arcInfoContextTitle}>{arc.name}</Text>
+                              {arcGoals.length > 0 && (
+                                <View style={styles.arcInfoGoalList}>
+                                  <Text style={styles.arcInfoGoalsLabel}>Goals in this Arc</Text>
+                                  {arcGoals.map((goal) => (
+                                    <Text key={goal.title} style={styles.arcInfoGoalText}>
+                                      • {goal.title}
+                                    </Text>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </ScrollView>
+
+              <View style={styles.arcInfoFooter}>
+                <Button
+                  variant="ghost"
+                  onPress={() => setIsWorkflowInfoVisible(false)}
+                  accessibilityLabel="Close workflow context info"
+                >
+                  <Text style={styles.arcInfoCloseLabel}>Got it</Text>
+                </Button>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    )}
+        </Modal>
+      )}
 
     {isArcCreationMode && arcProposal && (
       <Modal
@@ -1882,6 +1900,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    backgroundColor: colors.shell,
   },
   scroll: {
     flex: 1,
@@ -1904,19 +1923,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  brandTextBlock: {
-    flexDirection: 'column',
-  },
-  brandWordmark: {
-    ...typography.titleMd,
-    fontFamily: fonts.logo,
-    color: CHAT_COLORS.textPrimary,
+    gap: spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',

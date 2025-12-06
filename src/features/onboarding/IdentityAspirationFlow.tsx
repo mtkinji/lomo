@@ -432,6 +432,76 @@ type Phase =
   | 'reveal'
   | 'tweak';
 
+type ArcIdentitySlices = {
+  identity: string;
+  why: string;
+  daily: string;
+};
+
+// Lightweight sentence splitter tailored for Arc narratives.
+// Assumes three declarative sentences but degrades gracefully:
+// - ignores decimal numbers like "2.0"
+// - ignores common short abbreviations ("e.g.", "i.e.", "Dr.", "Mr.", "Ms.")
+function splitAspirationNarrative(narrative?: string | null): ArcIdentitySlices | null {
+  if (!narrative) return null;
+  const text = narrative.trim();
+  if (!text) return null;
+
+  const abbreviations = new Set(['e.g.', 'i.e.', 'dr.', 'mr.', 'ms.']);
+  const sentences: string[] = [];
+  let start = 0;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const isTerminalPunctuation = ch === '.' || ch === '!' || ch === '?';
+    if (!isTerminalPunctuation) continue;
+
+    const prevChar = i > 0 ? text[i - 1] : '';
+    const nextChar = i + 1 < text.length ? text[i + 1] : '';
+
+    // Skip decimal numbers like "2.0"
+    if (ch === '.' && /\d/.test(prevChar) && /\d/.test(nextChar)) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    const windowStart = Math.max(0, i - 4);
+    const candidate = text.slice(windowStart, i + 1).toLowerCase();
+    if (abbreviations.has(candidate)) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    // Treat as sentence boundary only when followed by whitespace or end of string.
+    if (nextChar && !/\s/.test(nextChar)) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+
+    const rawSentence = text.slice(start, i + 1).trim();
+    if (rawSentence.length > 0) {
+      sentences.push(rawSentence);
+    }
+    start = i + 1;
+    if (sentences.length === 3) break;
+  }
+
+  // Capture any trailing text after the last punctuation as part of the final sentence.
+  if (sentences.length < 3 && start < text.length) {
+    const tail = text.slice(start).trim();
+    if (tail) {
+      sentences.push(tail);
+    }
+  }
+
+  if (sentences.length !== 3) {
+    return null;
+  }
+
+  const [identity, why, daily] = sentences;
+  return { identity, why, daily };
+}
+
 type AspirationPayload = {
   arcName: string;
   aspirationSentence: string;
@@ -582,9 +652,11 @@ export function IdentityAspirationFlow({
     // Split into words and take first 1-3 meaningful words
     const words = cleaned.split(/\s+/).filter((word) => {
       const lower = word.toLowerCase();
-      // Filter out common filler words
+      const hasLetter = /[a-z]/i.test(lower);
+      // Filter out common filler words and standalone symbols like "&"
       return (
         word.length > 0 &&
+        hasLetter &&
         !['to', 'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'for', 'of', 'with'].includes(lower) &&
         !lower.match(/^(i|you|we|they|it)$/)
       );
@@ -768,7 +840,7 @@ export function IdentityAspirationFlow({
       return 'Identity Growth';
     };
 
-    const arcName = generateArcName();
+    const arcName = sanitizeArcName(generateArcName());
 
     // Generate 3-sentence narrative following the new model:
     // Sentence 1: Start with "I want…", express identity direction
@@ -2850,10 +2922,7 @@ export function IdentityAspirationFlow({
     const raw = aspiration.aspirationSentence?.trim();
     if (!raw) return null;
 
-    // Split into sentences so we can lay them out as short paragraphs instead of
-    // a single dense block. This keeps the underlying stored narrative as-is
-    // while making the FTUE reveal easier to read.
-    const sentences = raw.match(/[^.?!]+[.?!]/g)?.map((s) => s.trim()) ?? [raw];
+    const slices = splitAspirationNarrative(raw);
 
     return (
       <ArcListCard
@@ -2861,15 +2930,45 @@ export function IdentityAspirationFlow({
         narrativeTone="strong"
         customNarrative={
           <View style={styles.revealNarrativeBlock}>
-            {sentences.map((sentence, index) => (
-              <Text
-                // eslint-disable-next-line react/no-array-index-key
-                key={index}
-                style={index === 0 ? styles.narrativeLeadText : styles.bodyText}
-              >
-                {sentence}
-              </Text>
-            ))}
+            {slices ? (
+              <>
+                <View style={styles.arcIdentityRow}>
+                  <View style={styles.arcIdentityLabelRow}>
+                    <Text
+                      style={styles.arcIdentityLabel}
+                      accessibilityLabel="Identity direction"
+                    >
+                      Identity direction
+                    </Text>
+                  </View>
+                  <Text style={styles.arcIdentitySentence}>{slices.identity}</Text>
+                </View>
+                <View style={styles.arcIdentityRow}>
+                  <View style={styles.arcIdentityLabelRow}>
+                    <Text
+                      style={styles.arcIdentityLabel}
+                      accessibilityLabel="Why this matters now"
+                    >
+                      Why this matters now
+                    </Text>
+                  </View>
+                  <Text style={styles.arcIdentitySentence}>{slices.why}</Text>
+                </View>
+                <View style={styles.arcIdentityRow}>
+                  <View style={styles.arcIdentityLabelRow}>
+                    <Text
+                      style={styles.arcIdentityLabel}
+                      accessibilityLabel="Daily practice"
+                    >
+                      Daily practice
+                    </Text>
+                  </View>
+                  <Text style={styles.arcIdentitySentence}>{slices.daily}</Text>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.bodyText}>{raw}</Text>
+            )}
           </View>
         }
       />
@@ -3278,7 +3377,31 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   revealNarrativeBlock: {
-    gap: spacing.sm,
+    marginTop: spacing.lg,
+    gap: spacing.md,
+  },
+  arcIdentityRow: {
+    gap: spacing.xs,
+  },
+  arcIdentityLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  arcIdentityIcon: {
+    opacity: 0.7,
+  },
+  arcIdentityLabel: {
+    // Match field micro-label styling so this feels like a structured identity field,
+    // not a section header.
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  arcIdentitySentence: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   narrativeLeadText: {
     ...typography.body,

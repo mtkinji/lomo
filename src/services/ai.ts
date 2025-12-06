@@ -675,6 +675,9 @@ User focus: ${params.prompt ?? 'not provided'}
 Time horizon: ${params.timeHorizon ?? 'not specified'}
 Constraints: ${params.constraints ?? 'none'}
 Return 2-3 distinctive goal drafts that respect the arc's heart.
+For each goal:
+- The title should be short and concrete.
+- The description must be a single, clear sentence (no more than about 160 characters) that explains why this is a good next step for the user.
 `;
 
   const body = {

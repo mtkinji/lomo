@@ -16,6 +16,8 @@ import {
   StyleProp,
   ViewStyle,
   Text,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +29,7 @@ import { useAppStore } from '../../store/useAppStore';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import type { IconName } from '../../ui/Icon';
 import { Sheet, VStack, Heading, HStack, Dialog, CelebrationGif } from '../../ui/primitives';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
@@ -70,6 +73,10 @@ const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => 
 
 type ArcDetailRouteProp = RouteProp<ArcsStackParamList, 'ArcDetail'>;
 type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'ArcDetail'>;
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
@@ -122,7 +129,6 @@ export function ArcDetailScreen() {
     'details',
   );
   const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
-  const [showInsightsPrompt, setShowInsightsPrompt] = useState(true);
   const [openInsightsSection, setOpenInsightsSection] = useState<
     'strengths' | 'growthEdges' | 'pitfalls' | null
   >(null);
@@ -223,19 +229,42 @@ export function ArcDetailScreen() {
       const isOpen = openInsightsSection === id;
       const hasBullets = bullets.length > 0;
       if (!hasBullets) return null;
+
+      let headerIcon: IconName;
+      let headerIconColor = colors.textSecondary;
+      if (id === 'strengths') {
+        headerIcon = 'thumbsUp';
+        headerIconColor = colors.success;
+      } else if (id === 'growthEdges') {
+        headerIcon = 'activity';
+        headerIconColor = colors.turmeric;
+      } else {
+        headerIcon = 'info';
+        headerIconColor = colors.warning;
+      }
+
+      const blockStyles: any[] = [styles.insightBlock];
+      if (isOpen) {
+        blockStyles.push(styles.insightBlockActive);
+      }
+
       return (
         <TouchableOpacity
           key={id}
           activeOpacity={0.85}
           onPress={() => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setOpenInsightsSection((current) => (current === id ? null : id));
           }}
-          style={styles.insightBlock}
+          style={blockStyles}
         >
           <View style={styles.insightHeaderRow}>
-            <Text style={styles.insightTitle}>{title}</Text>
+            <View style={styles.insightHeaderLeft}>
+              <Icon name={headerIcon} size={16} color={headerIconColor} />
+              <Text style={styles.insightTitle}>{title}</Text>
+            </View>
             <Icon
-              name={isOpen ? 'chevronDown' : 'chevronRight'}
+              name={isOpen ? 'chevronUp' : 'chevronDown'}
               size={18}
               color={colors.textSecondary}
             />
@@ -254,55 +283,15 @@ export function ArcDetailScreen() {
       );
     };
 
-    if (showInsightsPrompt) {
-      return (
-        <View style={styles.insightsPromptCard}>
-          <Text style={styles.insightsPromptTitle}>
-            Want to understand how people grow into this kind of Arc?
-          </Text>
-          <Text style={styles.insightsPromptBody}>
-            These short insights describe strengths, growth edges, and common pitfalls people on
-            this path often work with.
-          </Text>
-          <View style={styles.insightsPromptActions}>
-            <Button
-              variant="accent"
-              style={styles.insightsPrimaryButton}
-              onPress={() => {
-                setShowInsightsPrompt(false);
-                setOpenInsightsSection('strengths');
-              }}
-            >
-              <Text style={styles.insightsPrimaryLabel}>Show insights</Text>
-            </Button>
-            <Button
-              variant="ghost"
-              onPress={() => {
-                setShowInsightsPrompt(false);
-              }}
-            >
-              <Text style={styles.insightsSecondaryLabel}>Skip for now</Text>
-            </Button>
-          </View>
-        </View>
-      );
-    }
-
     return (
-      <View style={styles.insightsCard}>
+      <View style={styles.insightsSectionContainer}>
         <Text style={styles.insightsSectionLabel}>Arc Development Insights</Text>
-        <View style={styles.insightsBlocksStack}>
-          {renderBlock('strengths', 'Strengths that help people grow this Arc', strengths)}
-          {renderBlock(
-            'growthEdges',
-            'Growth edges people often develop on this path',
-            growthEdges,
-          )}
-          {renderBlock(
-            'pitfalls',
-            'Pitfalls people on this path learn to navigate',
-            pitfalls,
-          )}
+        <View style={styles.insightsCard}>
+          <View style={styles.insightsBlocksStack}>
+            {renderBlock('strengths', 'Strengths to build on', strengths)}
+            {renderBlock('growthEdges', 'Growth edges to work on', growthEdges)}
+            {renderBlock('pitfalls', 'Pitfalls to watch for', pitfalls)}
+          </View>
         </View>
       </View>
     );
@@ -331,6 +320,7 @@ export function ArcDetailScreen() {
                   animated: true,
                 });
               }
+              setIsGoalCoachVisible(true);
             }}
           >
             <Text style={styles.primaryCtaText}>Continue</Text>
@@ -542,7 +532,12 @@ export function ArcDetailScreen() {
                             updatedAt: new Date().toISOString(),
                           }));
                         }}
-                        onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                        onRequestAiHelp={({
+                          objectType,
+                          objectId,
+                          fieldId,
+                          currentText,
+                        }) => {
                           openForFieldContext({
                             objectType,
                             objectId,
@@ -1632,50 +1627,13 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     lineHeight: typography.body.lineHeight,
   },
-  insightsPromptCard: {
+  insightsSectionContainer: {
     marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
-    borderRadius: spacing.lg,
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: cardSurfaceStyle.shadowColor,
-    shadowOpacity: cardSurfaceStyle.shadowOpacity,
-    shadowRadius: cardSurfaceStyle.shadowRadius,
-    shadowOffset: cardSurfaceStyle.shadowOffset,
-    elevation: (cardSurfaceStyle as any).elevation,
-    gap: spacing.sm,
-  },
-  insightsPromptTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  insightsPromptBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  insightsPromptActions: {
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  insightsPrimaryButton: {
-    width: '100%',
-  },
-  insightsPrimaryLabel: {
-    ...typography.bodySm,
-    color: colors.canvas,
-    textAlign: 'center',
-  },
-  insightsSecondaryLabel: {
-    ...typography.bodySm,
-    color: colors.accent,
-    textAlign: 'center',
   },
   insightsCard: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderRadius: spacing.lg,
     backgroundColor: colors.canvas,
     borderWidth: 1,
@@ -1688,15 +1646,29 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   insightsSectionLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+    ...typography.label,
+    color: colors.muted,
   },
   insightsBlocksStack: {
-    marginTop: spacing.sm,
+    // Keep the inner stack vertically balanced inside the card: rely on the
+    // card's padding for top/bottom breathing room so spacing feels uniform.
+    marginTop: 0,
     gap: spacing.xs,
   },
   insightBlock: {
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    // Each section is its own rounded panel with even treatment top/bottom.
+    borderRadius: spacing.md,
+    backgroundColor: colors.canvas,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  insightBlockActive: {
+    // Keep the open panel on the same white background so the bullets feel
+    // continuous with the header; rely on motion and content instead of a
+    // different fill.
+    backgroundColor: colors.canvas,
   },
   insightHeaderRow: {
     flexDirection: 'row',
@@ -1704,10 +1676,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     columnGap: spacing.sm,
   },
+  insightHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    flex: 1,
+  },
   insightTitle: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
     flex: 1,
+    // Slightly stronger weight than standard body to give each panel header
+    // a clear anchor without jumping up to full title size.
+    fontFamily: fonts.medium,
   },
   insightBody: {
     marginTop: spacing.xs,
@@ -1719,12 +1700,12 @@ const styles = StyleSheet.create({
     columnGap: spacing.xs,
   },
   insightBulletGlyph: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textSecondary,
     marginTop: 1,
   },
   insightBulletText: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
     flex: 1,
   },

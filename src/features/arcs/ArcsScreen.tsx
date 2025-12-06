@@ -33,7 +33,7 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { ArcListCard } from '../../ui/ArcListCard';
-import { Logo } from '../../ui/Logo';
+import { BrandLockup } from '../../ui/BrandLockup';
 import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'kwilt-coach-draft:arcCreation:v1';
@@ -492,16 +492,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     flex: 1,
   },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  brandWordmark: {
-    ...typography.bodySm,
-    fontFamily: fonts.logo,
-    color: colors.accent,
-    marginLeft: spacing.xs,
-  },
   infoOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -938,10 +928,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
       <View style={styles.drawerKeyboardContainer}>
         <View style={styles.sheetHeaderRow}>
-          <View style={styles.brandLockup}>
-            <Logo size={24} />
-            <Text style={styles.brandWordmark}>kwilt</Text>
-          </View>
+          <BrandLockup logoSize={32} wordmarkSize="sm" />
 
           <View style={styles.headerSideRight}>
             <View style={styles.segmentedControl}>

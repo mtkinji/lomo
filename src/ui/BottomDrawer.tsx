@@ -182,7 +182,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   sheet: {
-    backgroundColor: colors.canvas,
+    // Use the shell background so Agent / coach surfaces match the onboarding
+    // workspace and feel like a continuous gray canvas instead of a white card.
+    backgroundColor: colors.shell,
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     // Keep a slim 16px gutter from the screen edge so the chat canvas can feel
