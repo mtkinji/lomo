@@ -24,6 +24,7 @@ import {
   type DevCoachChatLogEntry,
   type DevCoachChatFeedback,
 } from '../../services/ai';
+import { NotificationService } from '../../services/NotificationService';
 
 export function DevToolsScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
@@ -82,6 +83,18 @@ export function DevToolsScreen() {
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
     startFlow();
+  };
+
+  const handleDebugDailyShowUpNotification = () => {
+    void NotificationService.debugFireNotification('dailyShowUp');
+  };
+
+  const handleDebugStreakNotification = () => {
+    void NotificationService.debugFireNotification('streak');
+  };
+
+  const handleDebugReactivationNotification = () => {
+    void NotificationService.debugFireNotification('reactivation');
   };
 
   const handleShowFirstArcCelebration = () => {
@@ -561,6 +574,28 @@ export function DevToolsScreen() {
               <Text style={styles.meta}>
                 Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
                 {lastTriggeredLabel}
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Notifications (dev)</Text>
+              <Text style={styles.cardBody}>
+                Fire different notification types after a short delay to test deep links and OS
+                behavior. Make sure notifications are enabled in Settings → Notifications and in
+                system settings.
+              </Text>
+              <Button variant="secondary" onPress={handleDebugDailyShowUpNotification}>
+                <Text style={styles.secondaryButtonLabel}>Fire daily show-up (dev)</Text>
+              </Button>
+              <Button variant="secondary" onPress={handleDebugStreakNotification}>
+                <Text style={styles.secondaryButtonLabel}>Fire streak nudge (dev)</Text>
+              </Button>
+              <Button variant="secondary" onPress={handleDebugReactivationNotification}>
+                <Text style={styles.secondaryButtonLabel}>Fire reactivation (dev)</Text>
+              </Button>
+              <Text style={styles.meta}>
+                Each button schedules a local notification to fire in ~2 seconds using the same
+                deep-link routing as the real system.
               </Text>
             </View>
 

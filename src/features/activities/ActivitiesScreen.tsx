@@ -12,7 +12,7 @@ import type {
 } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { VStack, Heading, Text, HStack } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, Input, Textarea } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
@@ -945,6 +945,10 @@ const styles = StyleSheet.create({
   viewEditorToggleRow: {
     marginTop: spacing.lg,
   },
+  aiErrorFallbackRow: {
+    // Deprecated: manual fallback card is now rendered inside AiChatScreen.
+    display: 'none',
+  },
   viewEditorToggleLabel: {
     ...typography.bodySm,
     color: colors.textPrimary,
@@ -1077,9 +1081,12 @@ function ActivityCoachDrawer({
       goalId: null,
       title: '',
       notes: undefined,
+      steps: [],
       reminderAt: null,
       priority: undefined,
       estimateMinutes: null,
+      creationSource: 'manual',
+      planGroupId: null,
       scheduledDate: null,
       repeatRule: undefined,
       orderIndex: (activities.length || 0) + 1,
@@ -1107,6 +1114,115 @@ function ActivityCoachDrawer({
   const manualActivity = React.useMemo(
     () => (manualActivityId ? activities.find((a) => a.id === manualActivityId) ?? null : null),
     [activities, manualActivityId],
+  );
+
+  const handleSwitchToManual = React.useCallback(() => {
+    setActiveTab('manual');
+  }, []);
+
+  const handleAiComplete = React.useCallback(
+    (outcome: unknown) => {
+      const adoptedTitles = Array.isArray((outcome as any)?.adoptedActivityTitles)
+        ? (outcome as any).adoptedActivityTitles
+        : [];
+
+      if (!adoptedTitles || adoptedTitles.length === 0) {
+        return;
+      }
+
+      const baseIndex = activities.length;
+      adoptedTitles.forEach((rawTitle: unknown, idx: number) => {
+        if (typeof rawTitle !== 'string') return;
+        const trimmedTitle = rawTitle.trim();
+        if (!trimmedTitle) return;
+
+        const timestamp = new Date().toISOString();
+        const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const activity: Activity = {
+          id,
+          goalId: null,
+          title: trimmedTitle,
+          notes: undefined,
+          steps: [],
+          reminderAt: null,
+          priority: undefined,
+          estimateMinutes: null,
+          creationSource: 'ai',
+          planGroupId: null,
+          scheduledDate: null,
+          repeatRule: undefined,
+          orderIndex: baseIndex + idx + 1,
+          phase: null,
+          status: 'planned',
+          actualMinutes: null,
+          startedAt: null,
+          completedAt: null,
+          forceActual: defaultForceLevels(0),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+
+        addActivity(activity);
+      });
+    },
+    [activities.length, addActivity],
+  );
+
+  const handleAdoptActivitySuggestion = React.useCallback(
+    (suggestion: import('../ai/AiChatScreen').ActivitySuggestion) => {
+      const timestamp = new Date().toISOString();
+      const baseIndex = activities.length;
+      const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const steps =
+        suggestion.steps?.map((step, index) => ({
+          id: `step-${id}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+          title: step.title,
+          isOptional: step.isOptional ?? false,
+          completedAt: null,
+          orderIndex: index,
+        })) ?? [];
+
+      const activity: Activity = {
+        id,
+        goalId: null,
+        title: suggestion.title.trim(),
+        notes: suggestion.why,
+        steps,
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+        creationSource: 'ai',
+        planGroupId: null,
+        scheduledDate: null,
+        repeatRule: undefined,
+        orderIndex: baseIndex + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        aiPlanning: suggestion.timeEstimateMinutes || suggestion.energyLevel
+          ? {
+              estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+              difficulty:
+                suggestion.energyLevel === 'light'
+                  ? 'easy'
+                  : suggestion.energyLevel === 'focused'
+                  ? 'hard'
+                  : undefined,
+              lastUpdatedAt: timestamp,
+              source: 'full_context',
+            }
+          : undefined,
+        forceActual: defaultForceLevels(0),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      addActivity(activity);
+    },
+    [activities.length, addActivity],
   );
 
   return (
@@ -1182,6 +1298,9 @@ function ActivityCoachDrawer({
               resumeDraft={false}
               hideBrandHeader
               hidePromptSuggestions
+              onComplete={handleAiComplete}
+              onTransportError={handleSwitchToManual}
+              onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
             />
           </View>
         ) : (
@@ -1191,15 +1310,13 @@ function ActivityCoachDrawer({
           >
             <ScrollView
               style={styles.manualFormContainer}
-              contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+              contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.md }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.modalLabel}>Activity title</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Activity title"
                 placeholder="e.g., Clear the workbench"
-                placeholderTextColor={colors.textSecondary}
                 value={manualActivity?.title ?? ''}
                 onChangeText={(next) => {
                   if (!manualActivity) return;
@@ -1210,13 +1327,11 @@ function ActivityCoachDrawer({
                     updatedAt: timestamp,
                   }));
                 }}
+                variant="outline"
               />
-              <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Notes (optional)</Text>
-              <TextInput
-                style={[styles.input, styles.manualNarrativeInput]}
+              <Textarea
+                label="Notes (optional)"
                 placeholder="Add a short note or checklist for this activity."
-                placeholderTextColor={colors.textSecondary}
-                multiline
                 value={manualActivity?.notes ?? ''}
                 onChangeText={(next) => {
                   if (!manualActivity) return;
@@ -1227,6 +1342,7 @@ function ActivityCoachDrawer({
                     updatedAt: timestamp,
                   }));
                 }}
+                multiline
               />
             </ScrollView>
           </KeyboardAvoidingView>

@@ -1,31 +1,30 @@
 import { Image } from 'react-native';
-import { colors } from '../theme/colors';
 
 type LogoProps = {
   size?: number;
-  /**
-   * Optional override for the logo tint color. When omitted, uses the
-   * brand accent Pine green.
-   */
-  color?: string;
 };
 
+const LOGO_SOURCE = require('../../assets/icon.png');
+
 /**
- * Primary kwilt logo mark, rendered from the app icon asset.
+ * Primary kwilt logo mark, rendered directly from the app icon asset.
  *
  * We use a raster app icon here instead of the original SVG path to avoid
  * depending on native SVG support in development. This keeps the FAB and
  * other brand surfaces stable across platforms.
  */
-export function Logo({ size = 32, color }: LogoProps) {
+export function Logo({ size = 32 }: LogoProps) {
   return (
     <Image
-      source={require('../../assets/icon.png')}
+      source={LOGO_SOURCE}
       style={{
         width: size,
         height: size,
         borderRadius: size / 4,
-        tintColor: color ?? colors.accent,
+        // We rely on the app icon artwork itself for color & composition.
+        // Keeping this component as a thin wrapper around `Image` reduces
+        // the chances of regressions (e.g., over-tinting) and makes the
+        // logo render dependably anywhere it's used.
       }}
       resizeMode="contain"
       accessibilityRole="image"
@@ -34,5 +33,3 @@ export function Logo({ size = 32, color }: LogoProps) {
     />
   );
 }
-
-

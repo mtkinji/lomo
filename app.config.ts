@@ -58,13 +58,19 @@ const config: ExpoConfig = {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
+    notification: {
+      // Use a flat, monochrome logo for the small status-bar icon on Android.
+      // This should be a white glyph on a transparent background.
+      icon: './assets/icon.png',
+      color: '#1F5226',
+    },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
   },
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-font', 'expo-image-picker'],
+  plugins: ['expo-font', 'expo-image-picker', 'expo-notifications'],
   extra: {
     eas: {
       // Linked EAS project for the kwilt app (added manually for dynamic config).
@@ -72,6 +78,9 @@ const config: ExpoConfig = {
     },
     openAiApiKey: process.env.OPENAI_API_KEY,
     giphyApiKey: process.env.GIPHY_API_KEY,
+    // Expose the resolved environment to the app runtime so we can distinguish
+    // production installs from development/preview for things like demo data.
+    environment: NODE_ENV,
   },
 };
 

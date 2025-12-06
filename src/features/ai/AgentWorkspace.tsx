@@ -8,7 +8,7 @@ import {
   type WorkflowInstanceStatus,
   WORKFLOW_DEFINITIONS,
 } from '../../domain/workflows';
-import { AiChatPane, type AiChatPaneController } from './AiChatScreen';
+import { AiChatPane, type AiChatPaneController, type ActivitySuggestion } from './AiChatScreen';
 import { WorkflowRuntimeContext } from './WorkflowRuntimeContext';
 import { OnboardingGuidedFlow } from '../onboarding/OnboardingGuidedFlow';
 import { IdentityAspirationFlow } from '../onboarding/IdentityAspirationFlow';
@@ -66,6 +66,16 @@ export type AgentWorkspaceProps = {
    * chat pane so hosts can provide their own focused guidance.
    */
   hidePromptSuggestions?: boolean;
+  /**
+   * Optional hook fired when the underlying chat transport fails. Hosts can
+   * use this to surface manual fallbacks.
+   */
+  onTransportError?: () => void;
+  /**
+   * Optional hook fired when the user taps "Accept" on an AI-generated
+   * activity suggestion card in activityCreation mode.
+   */
+  onAdoptActivitySuggestion?: (suggestion: ActivitySuggestion) => void;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -340,6 +350,9 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         onConfirmArc={onConfirmArc}
         onComplete={onComplete}
         stepCard={workflowStepCard}
+        onTransportError={props.onTransportError}
+        onManualFallbackRequested={props.onTransportError}
+        onAdoptActivitySuggestion={props.onAdoptActivitySuggestion}
       />
     </WorkflowRuntimeContext.Provider>
   );

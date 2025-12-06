@@ -41,15 +41,8 @@ export function KwiltBottomSheet({
     () => snapPoints ?? DEFAULT_SNAP_POINTS,
     [snapPoints]
   );
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[bottomSheet] effect', {
-        visible,
-        hasRef: Boolean(sheetRef.current),
-        snapPoints: points,
-      });
-    }
 
+  useEffect(() => {
     if (visible) {
       sheetRef.current?.present();
     } else {

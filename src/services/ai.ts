@@ -31,7 +31,11 @@ export type GenerateArcHeroImageParams = {
 
 const OPENAI_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
+// Default network timeout for lighter, one-off OpenAI requests (arcs, goals, images).
 const OPENAI_TIMEOUT_MS = 15000;
+// More generous timeout for conversational coach chat, which sends larger context
+// payloads and can legitimately take longer to respond.
+const OPENAI_CHAT_TIMEOUT_MS = 45000;
 const LOG_PREFIX = '[ai]';
 
 /**
@@ -582,14 +586,18 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
   });
   const requestStartedAt = Date.now();
 
-  const response = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+  const response = await fetchWithTimeout(
+    OPENAI_COMPLETIONS_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+    OPENAI_CHAT_TIMEOUT_MS
+  );
   const responseRequestId =
     typeof response.headers?.get === 'function'
       ? response.headers.get('x-request-id')
@@ -928,14 +936,24 @@ export async function sendCoachChat(
   });
   const requestStartedAt = Date.now();
 
-  const response = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_CHAT_TIMEOUT_MS
+    );
+  } catch (err) {
+    logNetworkErrorDetails('coachChat', err);
+    throw err;
+  }
 
   const responseRequestId =
     typeof response.headers?.get === 'function'
@@ -1033,16 +1051,26 @@ export async function sendCoachChat(
   }
 
   const followupStartedAt = Date.now();
-  const followupResponse = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(followupBody),
-  });
+  let followupResponse: Response;
+  try {
+    followupResponse = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(followupBody),
+      },
+      OPENAI_CHAT_TIMEOUT_MS
+    );
+  } catch (err) {
+    logNetworkErrorDetails('coachChat', err);
+    throw err;
+  }
 
-    devLog('coachChat:followup:response', {
+  devLog('coachChat:followup:response', {
     status: followupResponse.status,
     ok: followupResponse.ok,
     durationMs: Date.now() - followupStartedAt,
@@ -1120,7 +1148,10 @@ async function fetchWithTimeout(
   }
 }
 
-function logNetworkErrorDetails(context: 'arcs' | 'goals' | 'images', err: unknown) {
+function logNetworkErrorDetails(
+  context: 'arcs' | 'goals' | 'images' | 'coachChat',
+  err: unknown
+) {
   if (!__DEV__) {
     return;
   }

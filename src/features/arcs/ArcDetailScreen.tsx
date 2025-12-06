@@ -102,6 +102,20 @@ export function ArcDetailScreen() {
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
+  const completedArcGoals = useMemo(
+    () => arcGoals.filter((goal) => goal.status === 'completed'),
+    [arcGoals],
+  );
+  const completedArcActivities = useMemo(
+    () =>
+      activities.filter(
+        (activity) =>
+          activity.goalId && arcGoals.some((goal) => goal.id === activity.goalId) &&
+          activity.status === 'done' &&
+          activity.completedAt,
+      ),
+    [activities, arcGoals],
+  );
   const activityCountByGoal = useMemo(
     () =>
       activities.reduce<Record<string, number>>((acc, activity) => {
@@ -211,6 +225,92 @@ export function ArcDetailScreen() {
     (arc.developmentStrengths && arc.developmentStrengths.length > 0) ||
     (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
     (arc.developmentPitfalls && arc.developmentPitfalls.length > 0);
+
+  type ArcHistoryEventKind = 'arcCreated' | 'goalCreated' | 'goalCompleted' | 'activityCompleted';
+
+  type ArcHistoryEvent = {
+    id: string;
+    kind: ArcHistoryEventKind;
+    timestamp: string;
+    title: string;
+    dateLabel: string;
+    meta?: string;
+  };
+
+  const arcHistoryEvents: ArcHistoryEvent[] = useMemo(() => {
+    const events: ArcHistoryEvent[] = [];
+
+    const formatDateLabel = (timestamp: string) =>
+      new Date(timestamp).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+    events.push({
+      id: `arc-created-${arc.id}`,
+      kind: 'arcCreated',
+      timestamp: arc.createdAt,
+      title: 'Arc created',
+      dateLabel: formatDateLabel(arc.createdAt),
+      meta: undefined,
+    });
+
+    arcGoals.forEach((goal) => {
+      events.push({
+        id: `goal-created-${goal.id}`,
+        kind: 'goalCreated',
+        timestamp: goal.createdAt,
+        title: `Goal created: ${goal.title}`,
+        dateLabel: formatDateLabel(goal.createdAt),
+        meta: undefined,
+      });
+
+      if (goal.status === 'completed') {
+        const completedTimestamp = goal.updatedAt ?? goal.createdAt;
+        events.push({
+          id: `goal-completed-${goal.id}`,
+          kind: 'goalCompleted',
+          timestamp: completedTimestamp,
+          title: `Goal completed: ${goal.title}`,
+          dateLabel: formatDateLabel(completedTimestamp),
+          meta: undefined,
+        });
+      }
+    });
+
+    completedArcActivities.forEach((activity) => {
+      if (!activity.completedAt) return;
+      const goalTitle = arcGoals.find((goal) => goal.id === activity.goalId)?.title;
+      const minutes = activity.actualMinutes ?? undefined;
+
+      const metaParts: string[] = [];
+      if (goalTitle) {
+        metaParts.push(goalTitle);
+      }
+      if (minutes && minutes > 0) {
+        const hours = minutes / 60;
+        if (hours >= 1) {
+          const rounded = Math.round(hours * 10) / 10;
+          metaParts.push(`${rounded} hr${rounded === 1 ? '' : 's'}`);
+        } else {
+          metaParts.push(`${minutes} min`);
+        }
+      }
+
+      events.push({
+        id: `activity-completed-${activity.id}`,
+        kind: 'activityCompleted',
+        timestamp: activity.completedAt,
+        title: activity.title || 'Activity completed',
+        dateLabel: formatDateLabel(activity.completedAt),
+        meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
+      });
+    });
+
+    return events.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+  }, [arc, arcGoals, completedArcActivities]);
+
 
   const renderInsightsSection = () => {
     if (!hasDevelopmentInsights) {
@@ -632,8 +732,36 @@ export function ArcDetailScreen() {
                 <View style={styles.historyTabPlaceholder}>
                   <Text style={styles.historyTabTitle}>History</Text>
                   <Text style={styles.historyTabBody}>
-                    A future update will show reflections and key changes for this Arc over time.
+                    See the key milestones and completed work inside this Arc over time.
                   </Text>
+
+                  {arcHistoryEvents.length === 0 ? (
+                    <View style={styles.historyEmptyCard}>
+                      <Text style={styles.historyEmptyTitle}>No history yet</Text>
+                      <Text style={styles.historyEmptyBody}>
+                        As you create and complete goals and activities in this Arc, a timeline
+                        of key moments will appear here.
+                      </Text>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      style={styles.historyScroll}
+                      contentContainerStyle={styles.historyScrollContent}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <VStack space="sm">
+                        {arcHistoryEvents.map((event) => (
+                          <View key={event.id} style={styles.historyEventCard}>
+                            <Text style={styles.historyEventDate}>{event.dateLabel}</Text>
+                            <Text style={styles.historyEventTitle}>{event.title}</Text>
+                            {event.meta ? (
+                              <Text style={styles.historyEventMeta}>{event.meta}</Text>
+                            ) : null}
+                          </View>
+                        ))}
+                      </VStack>
+                    </ScrollView>
+                  )}
                 </View>
               )}
             </View>
@@ -1753,6 +1881,45 @@ const styles = StyleSheet.create({
   historyTabBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  historyEmptyCard: {
+    ...cardSurfaceStyle,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+  },
+  historyEmptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  historyEmptyBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  historyScroll: {
+    marginTop: spacing.lg,
+  },
+  historyScrollContent: {
+    paddingBottom: spacing['2xl'],
+  },
+  historyEventCard: {
+    ...cardSurfaceStyle,
+    padding: spacing.md,
+    flex: 1,
+  },
+  historyEventDate: {
+    ...typography.label,
+    color: colors.muted,
+    marginBottom: spacing.xs / 2,
+  },
+  historyEventTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  historyEventMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs / 2,
   },
 });
 

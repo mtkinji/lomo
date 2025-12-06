@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -33,7 +33,8 @@ import type {
   ArcProposalFeedback,
   ArcProposalFeedbackReason,
 } from '../../domain/types';
-import { Text } from '../../ui/primitives';
+import { Text, VStack } from '../../ui/primitives';
+import { Card } from '@/components/ui/card';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 
@@ -159,6 +160,25 @@ type ParsedAssistantReply = {
 };
 
 const ARC_PROPOSAL_MARKER = 'ARC_PROPOSAL_JSON:';
+const ACTIVITY_SUGGESTIONS_MARKER = 'ACTIVITY_SUGGESTIONS_JSON:';
+
+export type ActivitySuggestion = {
+  id: string;
+  title: string;
+  why?: string;
+  timeEstimateMinutes?: number;
+  energyLevel?: 'light' | 'focused';
+  kind?: 'setup' | 'progress' | 'maintenance' | 'stretch';
+  steps?: {
+    title: string;
+    isOptional?: boolean;
+  }[];
+};
+
+type ParsedActivitySuggestions = {
+  displayContent: string;
+  suggestions: ActivitySuggestion[] | null;
+};
 
 function extractArcProposalFromAssistantMessage(content: string): ParsedAssistantReply {
   const markerIndex = content.indexOf(ARC_PROPOSAL_MARKER);
@@ -195,6 +215,52 @@ function extractArcProposalFromAssistantMessage(content: string): ParsedAssistan
     return {
       displayContent: content,
       arcProposal: null,
+    };
+  }
+}
+
+function extractActivitySuggestionsFromAssistantMessage(
+  content: string
+): ParsedActivitySuggestions {
+  const markerIndex = content.indexOf(ACTIVITY_SUGGESTIONS_MARKER);
+  if (markerIndex === -1) {
+    return {
+      displayContent: content,
+      suggestions: null,
+    };
+  }
+
+  const visiblePart = content.slice(0, markerIndex).trimEnd();
+  const afterMarker = content.slice(markerIndex + ACTIVITY_SUGGESTIONS_MARKER.length).trim();
+
+  if (!afterMarker) {
+    return {
+      displayContent: content,
+      suggestions: null,
+    };
+  }
+
+  // Treat everything after the marker as JSON so the model can pretty-print
+  // across multiple lines. We still trim leading/trailing whitespace and any
+  // stray code fences if present.
+  let jsonText = afterMarker.trim();
+  if (jsonText.startsWith('```')) {
+    // Strip leading and trailing code fences defensively.
+    jsonText = jsonText.replace(/^```[a-zA-Z0-9]*\s*/, '').replace(/```$/, '').trim();
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText) as { suggestions?: ActivitySuggestion[] };
+    const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : null;
+    return {
+      displayContent: visiblePart || content,
+      suggestions,
+    };
+  } catch (err) {
+    console.warn('Failed to parse Activity suggestions from assistant message', err);
+    return {
+      displayContent: content,
+      suggestions: null,
     };
   }
 }
@@ -486,6 +552,16 @@ export type AiChatPaneProps = {
    */
   stepCard?: ReactNode;
   /**
+   * Optional hook so hosts can react when the underlying network transport
+   * fails (for example, to surface a manual-creation fallback).
+   */
+  onTransportError?: () => void;
+  /**
+   * Optional hook so hosts can respond when the user taps a manual fallback
+   * card (for example, by switching to a manual creation tab).
+   */
+  onManualFallbackRequested?: () => void;
+  /**
    * When true, hide the kwilt brand header row so hosts (like BottomDrawer
    * sheets) can render their own mode header outside the chat timeline.
    */
@@ -496,6 +572,11 @@ export type AiChatPaneProps = {
    * want the surface to stay on-task without generic prompts.
    */
   hidePromptSuggestions?: boolean;
+  /**
+   * Optional hook fired when the user taps "Accept" on an AI-generated
+   * activity suggestion card in activityCreation mode.
+   */
+  onAdoptActivitySuggestion?: (suggestion: ActivitySuggestion) => void;
 };
 
 export type AiChatPaneController = {
@@ -536,6 +617,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
     stepCard,
     hideBrandHeader = false,
     hidePromptSuggestions = false,
+    onTransportError,
+    onManualFallbackRequested,
+    onAdoptActivitySuggestion,
   }: AiChatPaneProps,
   ref: Ref<AiChatPaneController>
 ) {
@@ -555,7 +639,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         currentWorkflowStep?.hideFreeformChatInput
     );
 
-  const shouldShowComposer = !shouldHideComposerForWorkflowStep;
+  const shouldShowComposer = !shouldHideComposerForWorkflowStep && mode !== 'activityCreation';
 
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
@@ -636,6 +720,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [arcProposal, setArcProposal] = useState<GeneratedArc | null>(null);
+  const [activitySuggestions, setActivitySuggestions] = useState<ActivitySuggestion[] | null>(
+    null
+  );
   const [arcDraftName, setArcDraftName] = useState('');
   const [arcDraftNarrative, setArcDraftNarrative] = useState('');
   const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
@@ -651,6 +738,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   );
   const [dictationError, setDictationError] = useState<string | null>(null);
   const [isDictationAvailable, setIsDictationAvailable] = useState(Boolean(iosSpeechModule));
+  const [hasTransportError, setHasTransportError] = useState(false);
 
   const hasInput = input.trim().length > 0;
   const canSend = hasInput && !sending;
@@ -992,7 +1080,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
           baseId = 'assistant-workflow',
           opts,
         ) => {
-          streamAssistantReply(fullText, baseId, opts);
+          if (mode === 'activityCreation') {
+            const parsed = extractActivitySuggestionsFromAssistantMessage(fullText);
+            if (parsed.suggestions && parsed.suggestions.length > 0) {
+              setActivitySuggestions(parsed.suggestions);
+            } else {
+              setActivitySuggestions(null);
+            }
+            streamAssistantReply(parsed.displayContent, baseId, opts);
+          } else {
+            streamAssistantReply(fullText, baseId, opts);
+          }
         },
         getHistory: () => {
           return messagesRef.current.map((m) => ({
@@ -1017,6 +1115,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
     const bootstrapConversation = async () => {
       try {
+        setHasTransportError(false);
         setThinking(true);
         const history: CoachChatTurn[] = messagesRef.current.map((m) => ({
           role: m.role,
@@ -1030,7 +1129,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
           launchContextSummary: launchContext,
         };
         const reply = await sendCoachChat(history, coachOptions);
-        const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
+
+        let baseContent = reply;
+        if (mode === 'activityCreation') {
+          const { displayContent, suggestions } =
+            extractActivitySuggestionsFromAssistantMessage(reply);
+          baseContent = displayContent;
+          if (!cancelled) {
+            setActivitySuggestions(
+              suggestions && suggestions.length > 0 ? suggestions : null
+            );
+          }
+        }
+
+        const { displayContent, arcProposal } =
+          extractArcProposalFromAssistantMessage(baseContent);
         if (arcProposal) {
           setArcProposal(arcProposal);
           setArcDraftName(arcProposal.name ?? '');
@@ -1046,19 +1159,24 @@ export const AiChatPane = forwardRef(function AiChatPane(
           },
         });
       } catch (err) {
+        // Any failure bootstrapping the initial reply should surface a friendly
+        // error message so the canvas is never left blank.
         console.error('kwilt Coach initial chat failed', err);
-        if (cancelled) return;
-        const errorMessage: ChatMessage = {
-          id: `assistant-error-bootstrap-${Date.now()}`,
-          role: 'assistant',
-          content:
-            "I'm having trouble reaching kwilt Coach right now. Check your connection or API key configuration, then try again.",
-        };
-        setMessages((prev) => {
-          const next = [...prev, errorMessage];
-          messagesRef.current = next;
-          return next;
-        });
+        if (!cancelled) {
+          setHasTransportError(true);
+          const errorMessage: ChatMessage = {
+            id: `assistant-error-bootstrap-${Date.now()}`,
+            role: 'assistant',
+            content:
+              'kwilt is having trouble loading right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
+          };
+          setMessages((prev) => {
+            const next = [...prev, errorMessage];
+            messagesRef.current = next;
+            return next;
+          });
+          onTransportError?.();
+        }
       } finally {
         if (!cancelled) {
           // In error cases we still mark as bootstrapped so we don’t loop.
@@ -1115,12 +1233,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
     };
   }, [isArcCreationMode, resumeDraft]);
 
-  const handleSend = async () => {
-    if (!canSend) {
-      return;
-    }
-
-    const trimmed = input.trim();
+  const sendMessageWithContent = async (rawContent: string) => {
+    const trimmed = rawContent.trim();
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -1135,7 +1249,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
       scheduleDraftSave(next, '');
       return next;
     });
-    setInput('');
 
     const isOnboardingWorkflow =
       workflowRuntime?.definition?.chatMode === 'firstTimeOnboarding';
@@ -1151,7 +1264,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       // advance through goal_draft -> goal_confirm -> arc_introduce without
       // triggering an extra generic coach reply, so the next assistant message
       // they see is the Arc introduction instead of a redundant confirmation.
-      workflowRuntime.completeStep('goal_draft');
+        workflowRuntime.completeStep('goal_draft');
       workflowRuntime.completeStep('goal_confirm', {
         goalConfirmed: trimmed,
       });
@@ -1173,12 +1286,31 @@ export const AiChatPane = forwardRef(function AiChatPane(
         launchContextSummary: launchContext,
       };
       const reply = await sendCoachChat(history, coachOptions);
+
       const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
       if (arcProposal) {
         setArcProposal(arcProposal);
         setArcDraftName(arcProposal.name ?? '');
         setArcDraftNarrative(arcProposal.narrative ?? '');
       }
+
+      if (mode === 'activityCreation') {
+        const activityParsed = extractActivitySuggestionsFromAssistantMessage(displayContent);
+        if (activityParsed.suggestions && activityParsed.suggestions.length > 0) {
+          setActivitySuggestions(activityParsed.suggestions);
+        } else {
+          setActivitySuggestions(null);
+        }
+        setHasTransportError(false);
+        streamAssistantReply(activityParsed.displayContent, 'assistant', {
+          onDone: () => {
+            setSending(false);
+            setThinking(false);
+          },
+        });
+        return;
+      }
+
       streamAssistantReply(displayContent, 'assistant', {
         onDone: () => {
           setSending(false);
@@ -1191,13 +1323,15 @@ export const AiChatPane = forwardRef(function AiChatPane(
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
         content:
-          "I'm having trouble reaching kwilt Coach right now. Try again in a moment, or adjust your connection.",
+          'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
       };
       setMessages((prev) => {
         const next = [...prev, errorMessage];
         messagesRef.current = next;
         return next;
       });
+      setHasTransportError(true);
+      onTransportError?.();
     } finally {
       // If the happy-path streaming already cleared `sending`, don’t
       // override it here; this mainly protects the error path.
@@ -1205,6 +1339,28 @@ export const AiChatPane = forwardRef(function AiChatPane(
       setThinking(false);
     }
   };
+
+  const handleSend = async () => {
+    if (!canSend) {
+      return;
+    }
+    await sendMessageWithContent(input);
+    setInput('');
+  };
+
+  const handleRegenerateActivitySuggestions = async () => {
+    await sendMessageWithContent(
+      'Let’s try a fresh set of concrete activity suggestions for this goal.'
+    );
+  };
+
+  const handleAcceptAllSuggestions = useCallback(() => {
+    if (!onAdoptActivitySuggestion) return;
+    if (!activitySuggestions || activitySuggestions.length === 0) return;
+    activitySuggestions.forEach((suggestion) => {
+      onAdoptActivitySuggestion(suggestion);
+    });
+  }, [activitySuggestions, onAdoptActivitySuggestion]);
 
   const scrollToLatest = () => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -1337,6 +1493,69 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       <UserMessageBubble key={message.id} content={message.content} />
                     ),
                   )}
+
+                {mode === 'activityCreation' && activitySuggestions && bootstrapped && (
+                  <View style={styles.activitySuggestionsStack}>
+                    <Text style={styles.activitySuggestionsLabel}>Suggested activities</Text>
+                    <VStack space="xs">
+                      {activitySuggestions.map((suggestion) => (
+                        <Card key={suggestion.id} style={styles.activitySuggestionCard}>
+                          <VStack space="sm">
+                            <Text style={styles.activitySuggestionTitle}>{suggestion.title}</Text>
+                            <View style={styles.activitySuggestionActionsRow}>
+                              <Button
+                                variant="outline"
+                                size="small"
+                                onPress={handleRegenerateActivitySuggestions}
+                              >
+                                <Text style={styles.activitySuggestionRegenerateLabel}>
+                                  Generate again
+                                </Text>
+                              </Button>
+                              <Button
+                                variant="accent"
+                                size="small"
+                                onPress={() => {
+                                  onAdoptActivitySuggestion?.(suggestion);
+                                }}
+                              >
+                                <Text style={styles.primaryButtonLabel}>Accept</Text>
+                              </Button>
+                            </View>
+                          </VStack>
+                        </Card>
+                      ))}
+                    </VStack>
+                    <View style={styles.activitySuggestionsFooterRow}>
+                      <Button
+                        variant="ai"
+                        size="small"
+                        onPress={handleAcceptAllSuggestions}
+                        disabled={!activitySuggestions || activitySuggestions.length === 0}
+                      >
+                        <Text style={styles.primaryButtonLabel}>Accept all</Text>
+                      </Button>
+                    </View>
+                  </View>
+                )}
+
+                {mode === 'activityCreation' && hasTransportError && (
+                  <View style={styles.manualFallbackCard}>
+                    <Text style={styles.manualFallbackTitle}>Add an activity manually</Text>
+                    <Text style={styles.manualFallbackBody}>
+                      If AI is having trouble loading, you can still add an activity yourself.
+                    </Text>
+                    <Button
+                      variant="outline"
+                      onPress={() => {
+                        onManualFallbackRequested?.();
+                      }}
+                    >
+                      <Text style={styles.manualFallbackButtonText}>Create manually instead</Text>
+                    </Button>
+                  </View>
+                )}
+
                 {isArcCreationMode && arcProposal && (
                   <View style={styles.arcDraftCard}>
                     <Text style={styles.arcDraftLabel}>Proposed Arc</Text>
@@ -1991,6 +2210,65 @@ const styles = StyleSheet.create({
     // like a distinct thread starting below the header.
     marginTop: spacing['2xl'],
   },
+  activitySuggestionsCard: {
+    borderRadius: 20,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  activitySuggestionsLabel: {
+    ...typography.label,
+    color: CHAT_COLORS.textSecondary,
+  },
+  activitySuggestionsStack: {
+    gap: spacing.sm,
+  },
+  activitySuggestionCard: {
+    marginHorizontal: 0,
+    marginVertical: 0,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  activitySuggestionTitle: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  activitySuggestionActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    columnGap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  activitySuggestionsFooterRow: {
+    marginTop: spacing.sm,
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  activitySuggestionRegenerateLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  manualFallbackCard: {
+    borderRadius: 20,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  manualFallbackTitle: {
+    ...typography.label,
+    color: CHAT_COLORS.textSecondary,
+  },
+  manualFallbackBody: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  manualFallbackButtonText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
   assistantMessage: {
     // Align assistant replies like a chat bubble on the left and prevent
     // them from stretching full-width so they read more like a message
@@ -2306,6 +2584,11 @@ const styles = StyleSheet.create({
   arcInfoCloseLabel: {
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
+  },
+  primaryButtonLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    fontWeight: '600',
   },
   ageQuestionCard: {
     borderRadius: 18,

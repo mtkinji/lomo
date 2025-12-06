@@ -14,6 +14,7 @@ const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 export function TodayScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const goalLookup = goals.reduce<Record<string, string>>((acc, goal) => {
     acc[goal.id] = goal.title;
     return acc;
@@ -137,6 +138,12 @@ export function TodayScreen() {
               <Text style={styles.subtitle}>
                 Planner · {greeting} · {prettyDate}
               </Text>
+              {currentShowUpStreak > 0 && (
+                <Text style={styles.streak}>
+                  You&apos;ve showed up {currentShowUpStreak} day
+                  {currentShowUpStreak === 1 ? '' : 's'} in a row.
+                </Text>
+              )}
             </VStack>
 
             <Card style={styles.heroCard}>
@@ -217,6 +224,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     ...typography.bodySm,
     color: colors.warning,
+  },
+  streak: {
+    marginTop: spacing.xs,
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   emptyState: {
     marginTop: spacing['2xl'],

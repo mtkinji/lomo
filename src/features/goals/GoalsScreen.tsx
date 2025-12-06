@@ -36,6 +36,7 @@ import { generateGoals } from '../../services/ai';
 import { Dialog } from '../../ui/Dialog';
 import { fonts } from '../../theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -598,78 +599,42 @@ export function GoalCoachDrawer({
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
       <View style={styles.goalCoachContainer}>
-        <View style={styles.sheetHeaderRow}>
-          <BrandLockup logoSize={32} wordmarkSize="sm" />
-          <View style={styles.headerSideRight}>
-            <View style={styles.segmentedControl}>
-              <Pressable
+        <AgentModeHeader
+          activeMode={activeTab}
+          onChangeMode={setActiveTab}
+          aiLabel={
+            <HStack space="xs" alignItems="center">
+              <Icon
+                name="sparkles"
+                size={14}
+                color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
+              />
+              <Text
                 style={[
-                  styles.segmentedOption,
-                  activeTab === 'ai' && styles.segmentedOptionActive,
+                  styles.segmentedOptionLabel,
+                  activeTab === 'ai' && styles.segmentedOptionLabelActive,
                 ]}
-                accessibilityRole="button"
-                accessibilityLabel="Create goal with AI"
-                onPress={() => setActiveTab('ai')}
               >
-                <View style={styles.segmentedOptionContent}>
-                  <Icon
-                    name="sparkles"
-                    size={14}
-                    color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.segmentedOptionLabel,
-                      activeTab === 'ai' && styles.segmentedOptionLabelActive,
-                    ]}
-                  >
-                    Goals AI
-                  </Text>
-                  <Pressable
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      setIsGoalAiInfoVisible(true);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Show context for Goals AI"
-                  >
-                    <Icon
-                      name="info"
-                      size={14}
-                      color={activeTab === 'ai' ? colors.textSecondary : colors.textSecondary}
-                      style={styles.goalModePillInfoIcon}
-                    />
-                  </Pressable>
-                </View>
-              </Pressable>
+                Goals AI
+              </Text>
               <Pressable
-                style={[
-                  styles.segmentedOption,
-                  activeTab === 'manual' && styles.segmentedOptionActive,
-                ]}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  setIsGoalAiInfoVisible(true);
+                }}
                 accessibilityRole="button"
-                accessibilityLabel="Create goal manually"
-                onPress={() => setActiveTab('manual')}
+                accessibilityLabel="Show context for Goals AI"
               >
-                <View style={styles.segmentedOptionContent}>
-                  <Icon
-                    name="edit"
-                    size={14}
-                    color={activeTab === 'manual' ? colors.textPrimary : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.segmentedOptionLabel,
-                      activeTab === 'manual' && styles.segmentedOptionLabelActive,
-                    ]}
-                  >
-                    Manual
-                  </Text>
-                </View>
+                <Icon
+                  name="info"
+                  size={14}
+                  color={colors.textSecondary}
+                  style={styles.goalModePillInfoIcon}
+                />
               </Pressable>
-            </View>
-          </View>
-        </View>
+            </HStack>
+          }
+        />
         {/* Keep both panes mounted so users can switch between AI and Manual without
             losing their place in either canvas. We toggle visibility via styles
             instead of mounting/unmounting children. */}
@@ -1122,7 +1087,7 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
                             style={styles.wizardDraftActions}
                             alignItems="center"
                             justifyContent="flex-end"
-                            space="xs"
+                            space="sm"
                           >
                             {recommended.length > 1 && (
                               <Button

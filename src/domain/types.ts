@@ -146,6 +146,57 @@ export interface GoalDraft {
 
 export type ActivityStatus = 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled';
 
+export type ActivityDifficulty = 'very_easy' | 'easy' | 'medium' | 'hard' | 'very_hard';
+
+export interface ActivityStep {
+  id: string;
+  title: string;
+  /**
+   * Optional micro-checklist items that are nice to do but not required for
+   * completing the activity.
+   */
+  isOptional?: boolean;
+  /**
+   * When set, the step has been checked off. Null or undefined means not done.
+   */
+  completedAt?: string | null;
+  /**
+   * Optional ordering hint when steps are rendered; the array order remains
+   * the canonical sequence.
+   */
+  orderIndex?: number | null;
+}
+
+export interface ActivityAiPlanning {
+  /**
+   * AI-suggested time estimate for this activity, in minutes.
+   * This is advisory only; the user-controlled canonical estimate lives
+   * on `Activity.estimateMinutes`.
+   */
+  estimateMinutes?: number | null;
+  /**
+   * AI-suggested difficulty bucket for this activity. This is rendered
+   * as a simple qualitative label (e.g., \"Easy\", \"Medium\", \"Hard\")
+   * and can be copied into the canonical `Activity.difficulty` field.
+   */
+  difficulty?: ActivityDifficulty;
+  /**
+   * Optional model-reported confidence from 0–1 for the suggestion.
+   * This is primarily useful for tuning UI (e.g., showing a softer
+   * copy tone on low-confidence estimates).
+   */
+  confidence?: number;
+  /**
+   * ISO timestamp for when this suggestion was last updated.
+   */
+  lastUpdatedAt?: string;
+  /**
+   * Lightweight source marker so we can distinguish between quick,
+   * inline suggestions and heavier-weight planning flows.
+   */
+  source?: 'quick_suggest' | 'full_context';
+}
+
 // Shared activity list view types so sort / filter modes can be reused across
 // screens and persisted in the app store.
 export type ActivityFilterMode = 'all' | 'priority1' | 'active' | 'completed';
@@ -168,6 +219,11 @@ export interface Activity {
   title: string;
   notes?: string;
   /**
+   * Small, ordered checklist that keeps a single activity concrete and
+   * executable in one sitting.
+   */
+  steps?: ActivityStep[];
+  /**
    * Optional timestamp for a reminder notification associated with this
    * activity (for example, "remind me tomorrow morning"). This is stored as an
    * ISO string in the user's local timezone and can be interpreted by
@@ -181,6 +237,23 @@ export interface Activity {
    */
   priority?: 1 | 2 | 3;
   estimateMinutes?: number | null;
+  /**
+   * User-facing difficulty bucket for this activity. This is the
+   * canonical field used by the app for filtering/sorting; AI writes
+   * only to `aiPlanning` and the user can choose to copy values into
+   * this field.
+   */
+  difficulty?: ActivityDifficulty;
+  /**
+   * Lightweight provenance marker so we can distinguish AI-created activities
+   * from manual ones and measure adoption.
+   */
+  creationSource?: 'ai' | 'manual';
+  /**
+   * Optional grouping key for AI-generated mini-plans. All activities that
+   * belong to the same plan share this id.
+   */
+  planGroupId?: string | null;
   scheduledDate?: string | null;
   /**
    * Optional recurrence rule for Activities that repeat on a cadence. This is
@@ -200,6 +273,12 @@ export interface Activity {
   actualMinutes?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;
+  /**
+   * Optional AI planning metadata for this activity. These fields
+   * are advisory and never override user-entered values unless the
+   * user explicitly applies them.
+   */
+  aiPlanning?: ActivityAiPlanning;
   forceActual: ActivityForceActual;
   createdAt: string;
   updatedAt: string;
