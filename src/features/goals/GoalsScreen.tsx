@@ -10,6 +10,7 @@ import {
   Platform,
   TextInput,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -30,7 +31,9 @@ import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
-import { Logo } from '../../ui/Logo';
+import { BrandLockup } from '../../ui/BrandLockup';
+import { generateGoals } from '../../services/ai';
+import { Dialog } from '../../ui/Dialog';
 import { fonts } from '../../theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -61,6 +64,15 @@ type GoalCreationDraft = GoalDraft & {
   thumbnailUrl?: string;
   thumbnailVariant?: number | null;
   heroImageMeta?: Goal['heroImageMeta'];
+};
+
+type GoalWizardStep = 'recommendations' | 'direction' | 'form' | 'scale' | 'timeframe' | 'review';
+
+type GoalWizardState = {
+  direction?: string;
+  form?: string;
+  scale?: 'small' | 'medium' | 'big';
+  timeframe?: 'month' | 'quarter' | 'year' | 'none';
 };
 
 const GOAL_FORCE_ORDER: Array<'force-activity' | 'force-connection' | 'force-mastery' | 'force-spirituality'> =
@@ -376,6 +388,11 @@ type GoalCoachDrawerProps = {
   navigateToGoalDetailOnCreate?: boolean;
 };
 
+type GoalWizardProps = {
+  arc: Arc;
+  onGoalCreated: (draft: GoalDraft) => void;
+};
+
 export function GoalCoachDrawer({
   visible,
   onClose,
@@ -403,6 +420,11 @@ export function GoalCoachDrawer({
   const addGoal = useAppStore((state) => state.addGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList>>();
+  const launchArc = React.useMemo(
+    () => arcs.find((candidate) => candidate.id === launchFromArcId),
+    [arcs, launchFromArcId]
+  );
+  const [isGoalAiInfoVisible, setIsGoalAiInfoVisible] = React.useState(false);
 
   const workspaceSnapshot = React.useMemo(
     () => buildArcCoachLaunchContext(arcs, goals),
@@ -542,14 +564,42 @@ export function GoalCoachDrawer({
     }
   };
 
+  const handleCreateGoalFromDraft = React.useCallback(
+    (arcId: string, goalDraft: GoalDraft) => {
+      const timestamp = new Date().toISOString();
+      const mergedForceIntent = { ...defaultForceLevels(0), ...goalDraft.forceIntent };
+
+      const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const goal: Goal = {
+        id,
+        arcId,
+        title: goalDraft.title,
+        description: goalDraft.description,
+        status: goalDraft.status,
+        forceIntent: mergedForceIntent,
+        metrics: [],
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      addGoal(goal);
+      onClose();
+      if (navigateToGoalDetailOnCreate) {
+        navigation.push('GoalDetail', {
+          goalId: id,
+          entryPoint: 'goalsTab',
+        });
+      }
+    },
+    [addGoal, navigateToGoalDetailOnCreate, navigation, onClose]
+  );
+
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
       <View style={styles.goalCoachContainer}>
         <View style={styles.sheetHeaderRow}>
-          <View style={styles.brandLockup}>
-            <Logo size={24} />
-            <Text style={styles.brandWordmark}>kwilt</Text>
-          </View>
+          <BrandLockup logoSize={32} wordmarkSize="sm" />
           <View style={styles.headerSideRight}>
             <View style={styles.segmentedControl}>
               <Pressable
@@ -573,8 +623,23 @@ export function GoalCoachDrawer({
                       activeTab === 'ai' && styles.segmentedOptionLabelActive,
                     ]}
                   >
-                    AI
+                    Goals AI
                   </Text>
+                  <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      setIsGoalAiInfoVisible(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Show context for Goals AI"
+                  >
+                    <Icon
+                      name="info"
+                      size={14}
+                      color={activeTab === 'ai' ? colors.textSecondary : colors.textSecondary}
+                      style={styles.goalModePillInfoIcon}
+                    />
+                  </Pressable>
                 </View>
               </Pressable>
               <Pressable
@@ -614,19 +679,39 @@ export function GoalCoachDrawer({
             activeTab !== 'ai' && { display: 'none' },
           ]}
         >
+          {launchArc ? (
+            <GoalWizard
+              arc={launchArc}
+              onGoalCreated={(draftGoal) => handleCreateGoalFromDraft(launchArc.id, draftGoal)}
+            />
+          ) : (
             <AgentWorkspace
               // Goal creation uses the dedicated Goal Creation Agent mode so the
               // conversation stays tightly focused on drafting one clear goal.
               mode="goalCreation"
               launchContext={launchContext}
               workspaceSnapshot={workspaceSnapshot}
-            // For now, we rely on keeping the workspace mounted to preserve state
-            // instead of resuming a persisted draft.
+              // For now, we rely on keeping the workspace mounted to preserve state
+              // instead of resuming a persisted draft.
               resumeDraft={false}
               hideBrandHeader
               hidePromptSuggestions
             />
+          )}
           </View>
+
+        <Dialog
+          visible={isGoalAiInfoVisible}
+          onClose={() => setIsGoalAiInfoVisible(false)}
+          title="Goals AI context"
+          description="This coach shapes one clear goal inside your Arc using your existing context."
+        >
+          {launchArc && (
+            <Text style={styles.modalBody}>
+              {`Arc: ${launchArc.name}\n\nI’m using your Arc’s narrative and focus to keep this goal aligned with the version of you you’re trying to grow into.`}
+            </Text>
+          )}
+        </Dialog>
           <KeyboardAvoidingView
           style={[
             styles.goalCoachBody,
@@ -800,6 +885,438 @@ export function GoalCoachDrawer({
   );
 }
 
+function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
+  const [step, setStep] = React.useState<GoalWizardStep>('recommendations');
+  const [state, setState] = React.useState<GoalWizardState>({});
+  const [recommended, setRecommended] = React.useState<GoalDraft[] | null>(null);
+  const [loadingRecommendations, setLoadingRecommendations] = React.useState(false);
+  const [recommendationsError, setRecommendationsError] = React.useState<string | null>(null);
+  const [draft, setDraft] = React.useState<GoalDraft | null>(null);
+  const [generating, setGenerating] = React.useState(false);
+  const [introLine1, setIntroLine1] = React.useState('');
+  const [introLine2, setIntroLine2] = React.useState('');
+  const [introDone, setIntroDone] = React.useState(false);
+  const [recommendedIndex, setRecommendedIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (recommended || loadingRecommendations || step !== 'recommendations') return;
+    setLoadingRecommendations(true);
+    setRecommendationsError(null);
+    void generateGoals({
+      arcName: arc.name,
+      arcNarrative: arc.narrative ?? undefined,
+      prompt: undefined,
+      timeHorizon: undefined,
+      constraints: undefined,
+    })
+      .then((goals) => {
+        setRecommended(goals);
+        setRecommendedIndex(0);
+        if (!goals || goals.length === 0) {
+          setStep('direction');
+        }
+      })
+      .catch(() => {
+        setRecommendationsError('Unable to load suggestions right now.');
+        setStep('direction');
+      })
+      .finally(() => {
+        setLoadingRecommendations(false);
+      });
+  }, [arc.name, arc.narrative, loadingRecommendations, recommended, step]);
+
+  React.useEffect(() => {
+    if (step !== 'recommendations') return;
+
+    const fullLine1 = `Let\u2019s add a goal to your ${arc.name} Arc.`;
+    const fullLine2 =
+      'Here’s one goal I’d recommend as a first step—you can try a different idea if this doesn’t feel right.';
+
+    let line1Index = 0;
+    let line2Index = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const typeLine2 = () => {
+      if (line2Index > fullLine2.length) {
+        setIntroDone(true);
+        return;
+      }
+      setIntroLine2(fullLine2.slice(0, line2Index));
+      line2Index += 1;
+      timeoutId = setTimeout(typeLine2, 18);
+    };
+
+    const typeLine1 = () => {
+      if (line1Index > fullLine1.length) {
+        timeoutId = setTimeout(typeLine2, 240);
+        return;
+      }
+      setIntroLine1(fullLine1.slice(0, line1Index));
+      line1Index += 1;
+      timeoutId = setTimeout(typeLine1, 18);
+    };
+
+    typeLine1();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [arc.name, step]);
+
+  const handleGenerateDraft = React.useCallback(
+    async (refinementHint?: string) => {
+      if (!state.direction || !state.form || !state.scale || !state.timeframe) {
+        return;
+      }
+      setGenerating(true);
+      const timeHorizonMap: Record<NonNullable<GoalWizardState['timeframe']>, string> = {
+        month: '1 month',
+        quarter: '3 months',
+        year: '12 months',
+        none: 'unspecified',
+      };
+      const promptParts = [
+        `Direction inside the arc: ${state.direction}.`,
+        `Goal form: ${state.form}.`,
+        `Scale: ${state.scale}.`,
+        `Timeframe: ${state.timeframe}.`,
+      ];
+      if (refinementHint) {
+        promptParts.push(`Refinement hint from user: ${refinementHint}.`);
+      }
+      const prompt = promptParts.join(' ');
+      try {
+        const goals = await generateGoals({
+          arcName: arc.name,
+          arcNarrative: arc.narrative ?? undefined,
+          prompt,
+          timeHorizon: timeHorizonMap[state.timeframe],
+          constraints: undefined,
+        });
+        if (goals && goals.length > 0) {
+          setDraft(goals[0]);
+          setStep('review');
+        }
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [arc.name, arc.narrative, state.direction, state.form, state.scale, state.timeframe]
+  );
+
+  const renderChipRow = (
+    options: string[],
+    selected: string | undefined,
+    onSelect: (value: string) => void
+  ) => (
+    <View style={styles.wizardChipRow}>
+      {options.map((option) => (
+        <Pressable
+          key={option}
+          onPress={() => onSelect(option)}
+          style={[
+            styles.wizardChip,
+            selected === option && styles.wizardChipSelected,
+          ]}
+          accessibilityRole="button"
+        >
+          <Text
+            style={[
+              styles.wizardChipLabel,
+              selected === option && styles.wizardChipLabelSelected,
+            ]}
+          >
+            {option}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  if (step === 'recommendations') {
+    return (
+      <ScrollView
+        style={styles.wizardScroll}
+        contentContainerStyle={styles.wizardContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {introLine1.length > 0 && (
+          <>
+            {(() => {
+              const text = introLine1;
+              const name = arc.name;
+              const idx = text.indexOf(name);
+              if (idx === -1) {
+                return <Text style={styles.wizardTitle}>{text}</Text>;
+              }
+              const before = text.slice(0, idx);
+              const namePart = text.slice(idx, idx + name.length);
+              const after = text.slice(idx + name.length);
+              return (
+                <Text style={styles.wizardTitle}>
+                  {before}
+                  <Text style={styles.wizardTitleEmphasis}>{namePart}</Text>
+                  {after}
+                </Text>
+              );
+            })()}
+            {introLine2.length > 0 && <Text style={styles.wizardBody}>{introLine2}</Text>}
+          </>
+        )}
+        {introDone && (
+          <View style={styles.wizardOuterCard}>
+            {loadingRecommendations && (
+              <View style={styles.wizardLoadingRow}>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={styles.wizardLoadingLabel}>Loading a goal suggestion…</Text>
+              </View>
+            )}
+            {recommendationsError && (
+              <Text style={styles.wizardErrorText}>{recommendationsError}</Text>
+            )}
+            {!loadingRecommendations &&
+              !recommendationsError &&
+              recommended &&
+              recommended.length > 0 && (
+                <View style={styles.wizardRecommendationCard}>
+                  {(() => {
+                    const draftGoal = recommended[recommendedIndex];
+                    if (!draftGoal) return null;
+                    const previewGoal: Goal = {
+                      id: `recommendation-${arc.id}-${recommendedIndex}`,
+                      arcId: arc.id,
+                      title: draftGoal.title,
+                      description: draftGoal.description,
+                      status: draftGoal.status,
+                      forceIntent: { ...defaultForceLevels(0), ...draftGoal.forceIntent },
+                      metrics: [],
+                      createdAt: 'draft',
+                      updatedAt: 'draft',
+                    };
+                    return (
+                      <GoalListCard
+                        goal={previewGoal}
+                        parentArc={arc}
+                        showThumbnail={false}
+                        showActivityMeta={false}
+                        compact
+                        headerLabel={
+                          <HStack
+                            space="xs"
+                            alignItems="center"
+                            style={styles.wizardRecommendationHeaderLabel}
+                          >
+                            <Icon name="sparkles" size={14} color={colors.textSecondary} />
+                            <Text style={styles.wizardRecommendationBadgeText}>AI recommendation</Text>
+                          </HStack>
+                        }
+                      >
+                        <VStack space="sm">
+                          {draftGoal.description && (
+                            <Text style={styles.wizardDraftBody}>{draftGoal.description}</Text>
+                          )}
+                          <HStack
+                            style={styles.wizardDraftActions}
+                            alignItems="center"
+                            justifyContent="flex-end"
+                            space="xs"
+                          >
+                            {recommended.length > 1 && (
+                              <Button
+                                variant="outline"
+                                onPress={() =>
+                                  setRecommendedIndex((current) =>
+                                    (current + 1) % (recommended.length || 1)
+                                  )
+                                }
+                              >
+                                <HStack space="xs" alignItems="center">
+                                  <Icon name="refresh" size={14} color={colors.textSecondary} />
+                                  <Text>Try again</Text>
+                                </HStack>
+                              </Button>
+                            )}
+                            <Button
+                              variant="accent"
+                              onPress={() => {
+                                const goal = recommended[recommendedIndex];
+                                if (goal) {
+                                  onGoalCreated(goal);
+                                }
+                              }}
+                            >
+                              <Text style={styles.primaryButtonLabel}>Accept</Text>
+                            </Button>
+                          </HStack>
+                        </VStack>
+                      </GoalListCard>
+                    );
+                  })()}
+                </View>
+              )}
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
+  if (step === 'direction') {
+    const options = [
+      'Learning the craft',
+      'Building a habit of consistency',
+      'Strengthening my courage',
+      'Improving my skills',
+      'Supporting others generously',
+      'Making something real',
+      'Something else',
+    ];
+    return (
+      <ScrollView
+        style={styles.wizardScroll}
+        contentContainerStyle={styles.wizardContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.wizardTitle}>
+          Which direction inside this Arc do you want to strengthen first?
+        </Text>
+        {renderChipRow(options, state.direction, (value) => {
+          setState((current) => ({ ...current, direction: value }));
+          setStep('form');
+        })}
+      </ScrollView>
+    );
+  }
+
+  if (step === 'form') {
+    const options = [
+      'Build a habit',
+      'Build a skill',
+      'Start a project',
+      'Finish a project',
+      'Reach a milestone',
+      'Make a decision',
+      'Explore something curious',
+    ];
+    return (
+      <ScrollView
+        style={styles.wizardScroll}
+        contentContainerStyle={styles.wizardContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.wizardTitle}>What type of goal is this?</Text>
+        {renderChipRow(options, state.form, (value) => {
+          setState((current) => ({ ...current, form: value }));
+          setStep('scale');
+        })}
+      </ScrollView>
+    );
+  }
+
+  if (step === 'scale') {
+    const labels: { key: GoalWizardState['scale']; label: string }[] = [
+      { key: 'small', label: 'Something small and steady' },
+      { key: 'medium', label: 'Something medium and meaningful' },
+      { key: 'big', label: 'Something big and challenging' },
+    ];
+    return (
+      <ScrollView
+        style={styles.wizardScroll}
+        contentContainerStyle={styles.wizardContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.wizardTitle}>What’s the scale of this goal?</Text>
+        {renderChipRow(
+          labels.map((entry) => entry.label),
+          labels.find((entry) => entry.key === state.scale)?.label,
+          (label) => {
+            const match = labels.find((entry) => entry.label === label);
+            setState((current) => ({ ...current, scale: match?.key }));
+            setStep('timeframe');
+          }
+        )}
+      </ScrollView>
+    );
+  }
+
+  if (step === 'timeframe') {
+    const labels: { key: NonNullable<GoalWizardState['timeframe']>; label: string }[] = [
+      { key: 'month', label: 'This month' },
+      { key: 'quarter', label: 'Next 3 months' },
+      { key: 'year', label: 'This year' },
+      { key: 'none', label: 'No specific timeframe' },
+    ];
+    return (
+      <ScrollView
+        style={styles.wizardScroll}
+        contentContainerStyle={styles.wizardContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.wizardTitle}>What timeframe do you imagine?</Text>
+        {renderChipRow(
+          labels.map((entry) => entry.label),
+          labels.find((entry) => entry.key === state.timeframe)?.label,
+          (label) => {
+            const match = labels.find((entry) => entry.label === label);
+            setState((current) => ({ ...current, timeframe: match?.key }));
+            void handleGenerateDraft();
+          }
+        )}
+        {generating && (
+          <View style={styles.wizardLoadingRow}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={styles.wizardLoadingLabel}>Shaping your goal…</Text>
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
+  // review
+  if (!draft) {
+    return (
+      <View style={styles.wizardContainer}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.wizardScroll}
+      contentContainerStyle={styles.wizardContainer}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.wizardTitle}>Here’s a goal that fits this Arc</Text>
+      <View style={styles.wizardDraftCard}>
+        <Text style={styles.wizardDraftTitle}>{draft.title}</Text>
+        {draft.description && (
+          <Text style={styles.wizardDraftBody}>{draft.description}</Text>
+        )}
+      </View>
+      <View style={styles.wizardFooterRow}>
+        <Button onPress={() => onGoalCreated(draft)}>
+          <Text>Yes, save this goal</Text>
+        </Button>
+        <Button
+          variant="outline"
+          onPress={() => handleGenerateDraft('Make it a little different')}
+          disabled={generating}
+        >
+          <Text>Tweak it</Text>
+        </Button>
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
@@ -850,22 +1367,13 @@ const styles = StyleSheet.create({
   },
   goalCoachContainer: {
     flex: 1,
+    backgroundColor: colors.shell,
   },
   sheetHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
-  },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  brandWordmark: {
-    ...typography.bodySm,
-    fontFamily: fonts.logo,
-    color: colors.accent,
-    marginLeft: spacing.xs,
   },
   goalCoachBody: {
     flex: 1,
@@ -913,6 +1421,159 @@ const styles = StyleSheet.create({
     // aligns with other canvases. We only add vertical spacing here.
     paddingHorizontal: 0,
     paddingTop: spacing.sm,
+  },
+  wizardContainer: {
+    // Let BottomDrawer's horizontal padding define the primary gutters so this
+    // canvas lines up with the rest of the Agent workspace surfaces.
+    paddingHorizontal: 0,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing['2xl'],
+    gap: spacing.sm,
+  },
+  wizardScroll: {
+    flex: 1,
+  },
+  wizardTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  wizardTitleEmphasis: {
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  wizardBody: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  wizardChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  wizardChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  wizardChipSelected: {
+    backgroundColor: colors.accentSubtle,
+    borderColor: colors.accent,
+  },
+  wizardChipLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  wizardChipLabelSelected: {
+    color: colors.accent,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  wizardDraftCard: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    gap: spacing.xs,
+  },
+  wizardOuterCard: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  wizardDraftTitle: {
+    ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  wizardDraftBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  wizardDraftActions: {
+    marginTop: spacing.sm,
+  },
+  wizardFooterRow: {
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: spacing.sm,
+  },
+  wizardLoadingRow: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  wizardLoadingLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  wizardErrorText: {
+    ...typography.bodySm,
+    color: colors.destructive,
+  },
+  goalModePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.canvas,
+    marginBottom: spacing.md,
+    alignSelf: 'flex-start',
+    gap: spacing.sm,
+  },
+  goalModePillLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  goalModePillIcon: {
+    marginRight: spacing.xs,
+  },
+  goalModePillInfoIcon: {
+    marginLeft: spacing.sm,
+  },
+  goalModePillText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  primaryButtonLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    fontWeight: '600',
+  },
+  wizardRecommendationCard: {
+    gap: spacing.sm,
+  },
+  wizardRecommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  wizardRecommendationBadgeText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  wizardRecommendationHeaderLabel: {
+    marginBottom: spacing.sm,
+  },
+  wizardRecommendationRefreshText: {
+    ...typography.bodySm,
+    color: colors.accent,
+  },
+  wizardLinkText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.semibold,
   },
   modalLabel: {
     ...typography.bodySm,

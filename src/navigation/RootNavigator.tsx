@@ -467,10 +467,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   searchContainer: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
   },
   drawerMain: {
     flex: 1,

@@ -56,6 +56,12 @@ type GoalListCardProps = {
    * card shell.
    */
   children?: ReactNode;
+  /**
+   * Optional label rendered inside the text column directly above the goal
+   * title. Used for lightweight annotations like "AI recommendation" while
+   * keeping the shared goal card shell.
+   */
+  headerLabel?: ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 };
@@ -71,6 +77,7 @@ export function GoalListCard({
   showThumbnail = true,
   compact = false,
   children,
+  headerLabel,
   style,
   onPress,
 }: GoalListCardProps) {
@@ -263,6 +270,7 @@ export function GoalListCard({
             </View>
           )}
           <VStack style={styles.goalTextContainer}>
+            {headerLabel}
             <Heading style={styles.goalTitle} numberOfLines={2} ellipsizeMode="tail">
               {goal.title}
             </Heading>

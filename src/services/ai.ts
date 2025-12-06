@@ -34,6 +34,24 @@ const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
 const OPENAI_TIMEOUT_MS = 15000;
 const LOG_PREFIX = '[ai]';
 
+/**
+ * Central dev logging helper for AI-related traces.
+ *
+ * By default this keeps logs **very** quiet so normal FTUE runs only surface
+ * high-signal events (errors, summaries) instead of every network call.
+ *
+ * If you need to debug low-level chat/network behavior again, temporarily
+ * flip `AI_DEBUG_VERBOSE` to `true` while working locally.
+ */
+const AI_DEBUG_VERBOSE = false;
+
+const MUTED_CONTEXT_PREFIXES: string[] = [
+  // Chat + workflow flows can be quite verbose; keep their dev logs muted
+  // unless explicitly debugging.
+  'coachChat:',
+  'fetchWithTimeout:',
+];
+
 const previewText = (value?: string) => {
   if (!value) {
     return undefined;
@@ -65,12 +83,22 @@ const describeKey = (key?: string) =>
   key ? { present: true, length: key.length } : { present: false };
 
 const devLog = (context: string, details?: Record<string, unknown>) => {
-  if (!__DEV__) {
-    return;
+  if (!__DEV__) return;
+
+  if (!AI_DEBUG_VERBOSE) {
+    // In non-verbose mode, drop known-noisy debug contexts so FTUE logs stay
+    // focused on high-signal messages (like onboarding summaries and errors).
+    const shouldMute = MUTED_CONTEXT_PREFIXES.some((prefix) => context.startsWith(prefix));
+    if (shouldMute) {
+      return;
+    }
   }
+
   if (details) {
+    // eslint-disable-next-line no-console
     console.log(`${LOG_PREFIX} ${context}`, details);
   } else {
+    // eslint-disable-next-line no-console
     console.log(`${LOG_PREFIX} ${context}`);
   }
 };
@@ -487,7 +515,10 @@ async function requestOpenAiArcs(
 ): Promise<GeneratedArc[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are kwilt Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
+    'You are an identity-development coach inside the Kwilt app. You help users generate a long-term identity direction called an Arc. ' +
+    'An Arc is a slow-changing identity arena where the user wants to grow, a direction for who they want to become, not a task list, project, personality label, or corporate-speak theme. ' +
+    'Arc.name must be 1–3 words (emoji prefix allowed), describe an identity direction or arena, feel stable over time, and reflect the user\'s inputs. ' +
+    'Arc.narrative MUST be exactly 3 sentences in one paragraph, 40–120 words, FIRST sentence must start with "I want…", use plain grounded language suitable for ages 14–50+, avoid guru-speak/cosmic language/therapy language/prescriptive "shoulds", and describe only who they want to become and why it matters now. ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -504,7 +535,7 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
 
   const body = {
     model,
-    temperature: 0.6,
+    temperature: 0.3,
     response_format: {
       type: 'json_schema',
       json_schema: {
@@ -644,6 +675,9 @@ User focus: ${params.prompt ?? 'not provided'}
 Time horizon: ${params.timeHorizon ?? 'not specified'}
 Constraints: ${params.constraints ?? 'none'}
 Return 2-3 distinctive goal drafts that respect the arc's heart.
+For each goal:
+- The title should be short and concrete.
+- The description must be a single, clear sentence (no more than about 160 characters) that explains why this is a good next step for the user.
 `;
 
   const body = {
@@ -872,9 +906,13 @@ export async function sendCoachChat(
 
   const model = resolveChatModel();
 
+  // Lower temperature for Arc generation to ensure more consistent, higher-quality output
+  const arcGenerationModes: ChatMode[] = ['arcCreation', 'firstTimeOnboarding'];
+  const temperature = arcGenerationModes.includes(options?.mode as ChatMode) ? 0.3 : 0.55;
+
   const body: Record<string, unknown> = {
     model,
-    temperature: 0.55,
+    temperature,
     messages: openAiMessages,
   };
 
@@ -936,6 +974,26 @@ export async function sendCoachChat(
       throw new Error('OpenAI coach chat response missing content');
     }
     devLog('coachChat:parsed', { contentPreview: previewText(content) });
+
+    // In development builds, persist a snapshot of this turn so it can be
+    // inspected from the DevTools screen. For non-tool calls we log the
+    // direct assistant content here before returning.
+    void appendDevCoachChatHistory({
+      timestamp: new Date().toISOString(),
+      mode: options?.mode,
+      workflowDefinitionId: options?.workflowDefinitionId,
+      workflowInstanceId: options?.workflowInstanceId,
+      workflowStepId: options?.workflowStepId,
+      launchContextSummary: options?.launchContextSummary,
+      messages: [
+        ...messages,
+        {
+          role: 'assistant',
+          content: String(content),
+        },
+      ],
+    });
+
     return content as string;
   }
 

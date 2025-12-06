@@ -52,7 +52,8 @@ This is a working checklist of tasks to get from the current prototype to a ship
   - Add “Ask LOMO for concrete goals” button on Arc detail.
   - For now, mock the AI response locally:
     - Generate example Goals and show the review/adjust UI.
-  - Later, wire this to the real AI backend (Phase 6).
+    - Ensure mocked Goals clearly express progress **inside the parent Arc’s identity direction**, using the 5-factor Arc model from `docs/arc-aspiration-ftue.md` as inspiration (domain, driver, trait, edge, everyday proud moment).
+  - Later, wire this to the real AI backend (Phase 6) with prompts that explicitly use the parent Arc narrative as the primary constraint.
 
 ---
 
@@ -66,6 +67,7 @@ This is a working checklist of tasks to get from the current prototype to a ship
   - Add “Generate Activities with AI” button.
   - Mock an AI-generated plan:
     - Multiple Activities with phases and estimates, editable before saving.
+    - Treat the parent Arc’s identity narrative (per `docs/arc-aspiration-ftue.md`) as the north star: Activities should read like concrete, repeatable ways of living that Arc, not generic todos.
 
 - **4.3 Today tab behavior**
   - Implement rule for which Activities appear in Today (e.g., scheduledDate = today + overdue).
@@ -109,6 +111,7 @@ This is a working checklist of tasks to get from the current prototype to a ship
 
 - **6.2 Prompt design**
   - Design prompts for each AI flow based on domain types and `ux-flow.md`.
+  - For any Arc-related prompts (FTUE identity onboarding, Arc Coach, Arc editing), follow the gold-standard Arc creation model defined in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment) so `Arc.name` and `Arc.narrative` stay consistent across surfaces.
   - Implement request/response validation (zod or similar).
 
 - **6.3 Wire mobile app to backend**

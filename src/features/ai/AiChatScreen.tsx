@@ -22,7 +22,7 @@ import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
-import { Logo } from '../../ui/Logo';
+import { BrandLockup } from '../../ui/BrandLockup';
 import { CoachChatTurn, GeneratedArc, sendCoachChat, type CoachChatOptions } from '../../services/ai';
 import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
@@ -116,7 +116,7 @@ const ARC_FEEDBACK_REASONS: { value: ArcProposalFeedbackReason; label: string }[
   { value: 'too_generic', label: 'Too generic or vague' },
   { value: 'project_not_identity', label: 'Feels like a project, not an identity' },
   { value: 'wrong_domain', label: 'Wrong domain of life' },
-  { value: 'tone_off', label: 'Tone feels off for my season' },
+  { value: 'tone_off', label: 'Tone feels off for where I am right now' },
   { value: 'does_not_feel_like_me', label: 'Does not feel like me' },
 ];
 
@@ -265,7 +265,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
     id: 'coach-intro-1',
     role: 'assistant',
     content:
-      "I'm your kwilt Agent for this season. I can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
+      "I'm your kwilt Agent. Think of me as a smart friend who can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
   },
 ];
 
@@ -295,7 +295,7 @@ const CHAT_COLORS = {
 const markdownStyles = StyleSheet.create({
   body: {
     ...typography.body,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
   },
   paragraph: {
     marginTop: 0,
@@ -303,20 +303,20 @@ const markdownStyles = StyleSheet.create({
   },
   heading1: {
     ...typography.titleLg,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   heading2: {
     ...typography.titleSm,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
   heading3: {
     ...typography.body,
     fontWeight: '600',
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
     marginTop: spacing.sm,
     marginBottom: spacing.xs / 2,
   },
@@ -331,7 +331,11 @@ const markdownStyles = StyleSheet.create({
     marginBottom: spacing.xs / 2,
   },
   strong: {
+    // Make bold text in Markdown clearly stand out inside assistant bubbles
+    // without looking like a clickable affordance.
+    fontFamily: fonts.semibold,
     fontWeight: '600',
+    color: CHAT_COLORS.textPrimary,
   },
   em: {
     fontStyle: 'italic',
@@ -359,7 +363,7 @@ const markdownStyles = StyleSheet.create({
     borderLeftColor: CHAT_COLORS.border,
     paddingLeft: spacing.md,
     marginVertical: spacing.xs,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
   },
 });
 
@@ -556,7 +560,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
   const shouldBootstrapAssistant = Boolean(modeConfig?.autoBootstrapFirstMessage);
-  const [isArcInfoVisible, setIsArcInfoVisible] = useState(false);
+  const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const userProfile = useAppStore((state) => state.userProfile);
@@ -641,6 +645,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const inputRef = useRef<TextInput | null>(null);
   const dictationBaseRef = useRef('');
+  const typingControllerRef = useRef<{ skip: () => void } | null>(null);
   const [dictationState, setDictationState] = useState<DictationState>(
     iosSpeechModule ? 'idle' : 'unavailable'
   );
@@ -653,6 +658,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
   const shouldShowSuggestionsRail =
     !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode;
+  const hasWorkflowContextMeta = Boolean(mode || workflowRuntime?.definition || hasContextMeta);
+  const modeLabel = modeConfig?.label;
+  const workflowLabel = workflowRuntime?.definition?.label;
+  const contextPillLabel = modeLabel ?? workflowLabel ?? (hasContextMeta ? 'AI workflow' : null);
 
   const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
     if (!isArcCreationMode) return;
@@ -836,12 +845,29 @@ export const AiChatPane = forwardRef(function AiChatPane(
     }));
   };
 
-  const streamAssistantReply = (
-    fullText: string,
-    baseId: string,
-    opts?: { onDone?: () => void }
-  ) => {
+  const streamAssistantReply = (fullText: string, baseId: string, opts?: { onDone?: () => void }) => {
     const messageId = `${baseId}-${Date.now()}`;
+
+    let finished = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      typingControllerRef.current = null;
+      opts?.onDone?.();
+    };
+
+    const revealFullMessage = () => {
+      setMessages((prev) => {
+        const next = prev.map((message) =>
+          message.id === messageId ? { ...message, content: fullText } : message
+        );
+        messagesRef.current = next;
+        scheduleDraftSave(next, input);
+        return next;
+      });
+    };
 
     // Seed an empty assistant message so the user sees something appear
     // immediately, then gradually reveal the full content.
@@ -861,7 +887,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
     const totalLength = fullText.length;
     if (totalLength === 0) {
-      opts?.onDone?.();
+      finish();
       return;
     }
 
@@ -877,7 +903,23 @@ export const AiChatPane = forwardRef(function AiChatPane(
     }
     paragraphPausePoints.sort((a, b) => a - b);
     let nextPauseIdx = 0;
+    typingControllerRef.current = {
+      skip: () => {
+        if (finished) return;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        revealFullMessage();
+        finish();
+      },
+    };
+
     const step = () => {
+      if (finished) {
+        return;
+      }
+
       const previousIndex = index;
 
       // Propose the next index based on the typing speed. Slightly slower so
@@ -918,43 +960,47 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
 
       if (index < totalLength) {
-        const delay = crossedPause ? 800 : 30;
-        setTimeout(step, delay);
+        const delay = crossedPause ? 800 : 40;
+        timeoutId = setTimeout(step, delay);
       } else {
-        opts?.onDone?.();
+        finish();
       }
     };
 
     // Kick off the first animation frame.
-    setTimeout(step, 20);
+    timeoutId = setTimeout(step, 20);
   };
 
   useImperativeHandle(
     ref,
     (): AiChatPaneController => ({
-      appendUserMessage: (content: string) => {
-        const userMessage: ChatMessage = {
-          id: `user-external-${Date.now()}`,
-          role: 'user',
-          content,
-        };
-        setMessages((prev) => {
-          const next = [...prev, userMessage];
-          messagesRef.current = next;
-          scheduleDraftSave(next, input);
-          return next;
-        });
-      },
-      streamAssistantReplyFromWorkflow: (fullText: string, baseId = 'assistant-workflow', opts) => {
-        streamAssistantReply(fullText, baseId, opts);
-      },
-      getHistory: () => {
-        return messagesRef.current.map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
-      },
-    }),
+        appendUserMessage: (content: string) => {
+          const userMessage: ChatMessage = {
+            id: `user-external-${Date.now()}`,
+            role: 'user',
+            content,
+          };
+          setMessages((prev) => {
+            const next = [...prev, userMessage];
+            messagesRef.current = next;
+            scheduleDraftSave(next, input);
+            return next;
+          });
+        },
+        streamAssistantReplyFromWorkflow: (
+          fullText: string,
+          baseId = 'assistant-workflow',
+          opts,
+        ) => {
+          streamAssistantReply(fullText, baseId, opts);
+        },
+        getHistory: () => {
+          return messagesRef.current.map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+        },
+      }),
     [input]
   );
 
@@ -1206,10 +1252,27 @@ export const AiChatPane = forwardRef(function AiChatPane(
     };
   }, []);
 
+  const workflowInfoTitle = modeLabel ?? workflowLabel ?? 'AI coach';
+  const workflowInfoSubtitle =
+    mode === 'goalCreation'
+      ? 'This coach helps you shape one clear 30–90 day goal inside your life architecture, using any Arc and Goal context the app has already collected.'
+      : mode === 'activityCreation'
+      ? 'This coach helps you turn your current goals and arcs into small, concrete activities you can actually do in the near term.'
+      : mode === 'firstTimeOnboarding'
+      ? 'This guide helps you define an initial identity direction and aspiration using quick, tap-first inputs.'
+      : isArcCreationMode
+      ? 'This coach helps you design one long‑term Arc for your life — not manage tasks or habits.'
+      : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
+
   return (
     <>
       <KeyboardAvoidingView style={styles.flex}>
-        <View style={styles.body}>
+        <View
+          style={styles.body}
+          onTouchEnd={() => {
+            typingControllerRef.current?.skip();
+          }}
+        >
           <ScrollView
             ref={scrollRef}
             style={styles.scroll}
@@ -1221,27 +1284,30 @@ export const AiChatPane = forwardRef(function AiChatPane(
               <View style={styles.timeline}>
               {!hideBrandHeader && (
                 <View style={styles.brandHeaderRow}>
-                  <View style={styles.brandLockup}>
-                    <Logo size={24} />
-                    <View style={styles.brandTextBlock}>
-                      <Text style={styles.brandWordmark}>kwilt</Text>
-                    </View>
-                  </View>
-                  {isArcCreationMode && (
+                  <BrandLockup logoSize={32} wordmarkSize="lg" />
+                  {hasWorkflowContextMeta && contextPillLabel && (
                     <Pressable
                       style={styles.modePill}
-                      onPress={() => setIsArcInfoVisible(true)}
+                      onPress={() => setIsWorkflowInfoVisible(true)}
                       accessibilityRole="button"
-                      accessibilityLabel="Learn about Arc creation and see context"
+                      accessibilityLabel="Learn about this AI workflow and see context"
                     >
                       <View style={styles.modePillLeft}>
                         <Icon
-                          name="arcs"
+                          name={
+                            mode === 'goalCreation'
+                              ? 'goals'
+                              : mode === 'activityCreation'
+                              ? 'activity'
+                              : mode === 'firstTimeOnboarding'
+                              ? 'sparkles'
+                              : 'arcs'
+                          }
                           size={14}
                           color={CHAT_COLORS.textSecondary}
                           style={styles.modePillIcon}
                         />
-                        <Text style={styles.modePillText}>Arc creation</Text>
+                        <Text style={styles.modePillText}>{contextPillLabel}</Text>
                       </View>
                       <Icon
                         name="info"
@@ -1258,13 +1324,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   .filter((message) => message.role !== 'system')
                   .map((message) =>
                     message.role === 'assistant' ? (
-                      <View key={message.id} style={styles.assistantMessage}>
+                      <Pressable
+                        key={message.id}
+                        style={styles.assistantMessage}
+                        onPress={() => typingControllerRef.current?.skip()}
+                        accessibilityRole="button"
+                        accessibilityLabel="Skip assistant typing and show full message"
+                      >
                         <Markdown style={markdownStyles}>{message.content}</Markdown>
-                      </View>
+                      </Pressable>
                     ) : (
-                      <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
-                        <Text style={styles.userText}>{message.content}</Text>
-                      </View>
+                      <UserMessageBubble key={message.id} content={message.content} />
                     ),
                   )}
                 {isArcCreationMode && arcProposal && (
@@ -1496,93 +1566,92 @@ export const AiChatPane = forwardRef(function AiChatPane(
         </View>
       </KeyboardAvoidingView>
 
-    {isArcCreationMode && (
-      <Modal
-        visible={isArcInfoVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsArcInfoVisible(false)}
-      >
-        <View style={styles.arcInfoOverlay}>
-          <View style={styles.arcInfoCard}>
-            <View style={styles.arcInfoHeaderRow}>
-              <Text style={styles.arcInfoTitle}>Arc creation coach</Text>
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={() => setIsArcInfoVisible(false)}
-                accessibilityLabel="Close Arc creation info"
-                style={styles.arcInfoCloseButton}
+      {hasWorkflowContextMeta && (
+        <Modal
+          visible={isWorkflowInfoVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsWorkflowInfoVisible(false)}
+        >
+          <View style={styles.arcInfoOverlay}>
+            <View style={styles.arcInfoCard}>
+              <View style={styles.arcInfoHeaderRow}>
+                <Text style={styles.arcInfoTitle}>{workflowInfoTitle}</Text>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onPress={() => setIsWorkflowInfoVisible(false)}
+                  accessibilityLabel="Close workflow context info"
+                  style={styles.arcInfoCloseButton}
+                >
+                  <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
+                </Button>
+              </View>
+
+              <ScrollView
+                style={styles.arcInfoScroll}
+                contentContainerStyle={styles.arcInfoContent}
+                showsVerticalScrollIndicator={false}
               >
-                <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
-              </Button>
-            </View>
-
-            <ScrollView
-              style={styles.arcInfoScroll}
-              contentContainerStyle={styles.arcInfoContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.arcInfoHeader}>
-                <Text style={styles.arcInfoSubtitle}>
-                  This coach helps you design one long‑term Arc for your life — not manage tasks or
-                  habits.
-                </Text>
-              </View>
-
-              <View style={styles.arcInfoSection}>
-                <Text style={styles.arcInfoSectionLabel}>What’s an Arc?</Text>
-                <Text style={styles.arcInfoBody}>
-                  An Arc is a long‑term identity direction in a part of your life — a stable
-                  storyline you can hang future goals and activities on.
-                </Text>
-              </View>
-
-              {hasContextMeta && launchContext && parsedContext && (
-                <View style={styles.arcInfoSection}>
-                  <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
-
-                  {parsedContext.arcs.length > 0 && (
-                    <View style={styles.arcInfoSubSection}>
-                      {parsedContext.arcs.map((arc) => {
-                        const arcGoals = parsedContext.goals.filter(
-                          (goal) => goal.arcName === arc.name,
-                        );
-                        return (
-                          <View key={arc.name} style={styles.arcInfoContextCard}>
-                            <Text style={styles.arcInfoContextTitle}>{arc.name}</Text>
-                            {arcGoals.length > 0 && (
-                              <View style={styles.arcInfoGoalList}>
-                                <Text style={styles.arcInfoGoalsLabel}>Goals in this Arc</Text>
-                                {arcGoals.map((goal) => (
-                                  <Text key={goal.title} style={styles.arcInfoGoalText}>
-                                    • {goal.title}
-                                  </Text>
-                                ))}
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
+                <View style={styles.arcInfoHeader}>
+                  <Text style={styles.arcInfoSubtitle}>{workflowInfoSubtitle}</Text>
                 </View>
-              )}
-            </ScrollView>
 
-            <View style={styles.arcInfoFooter}>
-              <Button
-                variant="ghost"
-                onPress={() => setIsArcInfoVisible(false)}
-                accessibilityLabel="Close Arc creation info"
-              >
-                <Text style={styles.arcInfoCloseLabel}>Got it</Text>
-              </Button>
+                {isArcCreationMode && (
+                  <View style={styles.arcInfoSection}>
+                    <Text style={styles.arcInfoSectionLabel}>What’s an Arc?</Text>
+                    <Text style={styles.arcInfoBody}>
+                      An Arc is a long‑term identity direction in a part of your life — a stable
+                      storyline you can hang future goals and activities on.
+                    </Text>
+                  </View>
+                )}
+
+                {hasContextMeta && launchContext && parsedContext && (
+                  <View style={styles.arcInfoSection}>
+                    <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
+
+                    {parsedContext.arcs.length > 0 && (
+                      <View style={styles.arcInfoSubSection}>
+                        {parsedContext.arcs.map((arc) => {
+                          const arcGoals = parsedContext.goals.filter(
+                            (goal) => goal.arcName === arc.name,
+                          );
+                          return (
+                            <View key={arc.name} style={styles.arcInfoContextCard}>
+                              <Text style={styles.arcInfoContextTitle}>{arc.name}</Text>
+                              {arcGoals.length > 0 && (
+                                <View style={styles.arcInfoGoalList}>
+                                  <Text style={styles.arcInfoGoalsLabel}>Goals in this Arc</Text>
+                                  {arcGoals.map((goal) => (
+                                    <Text key={goal.title} style={styles.arcInfoGoalText}>
+                                      • {goal.title}
+                                    </Text>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </ScrollView>
+
+              <View style={styles.arcInfoFooter}>
+                <Button
+                  variant="ghost"
+                  onPress={() => setIsWorkflowInfoVisible(false)}
+                  accessibilityLabel="Close workflow context info"
+                >
+                  <Text style={styles.arcInfoCloseLabel}>Got it</Text>
+                </Button>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    )}
+        </Modal>
+      )}
 
     {isArcCreationMode && arcProposal && (
       <Modal
@@ -1790,12 +1859,48 @@ export function AiChatScreen() {
   );
 }
 
+function UserMessageBubble({ content }: { content: string }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(8)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, translateY]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
+      <View style={[styles.messageBubble, styles.userBubble]}>
+        <Text style={styles.userText}>{content}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
   body: {
     flex: 1,
+    backgroundColor: colors.shell,
   },
   scroll: {
     flex: 1,
@@ -1818,19 +1923,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
-  },
-  brandTextBlock: {
-    flexDirection: 'column',
-  },
-  brandWordmark: {
-    ...typography.titleSm,
-    fontFamily: fonts.logo,
-    color: CHAT_COLORS.textPrimary,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1911,7 +2004,7 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     ...typography.body,
-    color: CHAT_COLORS.accent,
+    color: CHAT_COLORS.textPrimary,
   },
   thinkingBubble: {
     paddingHorizontal: spacing.md,

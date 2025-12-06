@@ -60,12 +60,11 @@ const InputBase = forwardRef<TextInput, Props>(
     ref,
   ) => {
     const [focused, setFocused] = useState(false);
-    const [multilineHeight, setMultilineHeight] = useState<number | undefined>(
-      undefined,
-    );
+    const [multilineHeight, setMultilineHeight] = useState<number | undefined>(undefined);
     const hasError = Boolean(errorText);
-
-    const statusColor = hasError ? colors.destructive : focused ? colors.accent : colors.border;
+    // Keep border color consistent between default and focused states;
+    // only errors get a different color.
+    const statusColor = hasError ? colors.destructive : colors.border;
     const iconColor = hasError ? colors.destructive : colors.textSecondary;
 
     return (
@@ -173,13 +172,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
-  inputContainerFocused: {
-    shadowColor: colors.accent,
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
-    elevation: 2,
-  },
   sizeMd: {
     minHeight: 44,
     paddingVertical: spacing.sm,
@@ -193,6 +185,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: typography.bodySm.fontFamily,
     fontSize: typography.bodySm.fontSize,
+    lineHeight: typography.bodySm.lineHeight,
     color: colors.textPrimary,
     paddingVertical: 0,
   },
@@ -225,21 +218,15 @@ const styles = StyleSheet.create({
 
 const variantStyles: Record<InputVariant, ViewStyle> = {
   surface: {
-    // Default input background: neutral card surface with a subtle shadow
-    backgroundColor: colors.card,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 1,
+    // Default input background: solid white, no border
+    backgroundColor: colors.canvas,
   },
   outline: {
-    // Transparent fill with clear border, closer to classic shadcn outline
+    // Outline variant reuses the same base background; callers can add borders if needed.
     backgroundColor: colors.canvas,
   },
   ghost: {
     backgroundColor: 'transparent',
-    borderColor: 'transparent',
   },
 };
 

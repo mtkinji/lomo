@@ -30,12 +30,23 @@ interface AppState {
   arcFeedback: ArcProposalFeedback[];
   userProfile: UserProfile | null;
   llmModel: LlmModel;
+  /**
+   * When set, this is the Arc that was most recently created by the
+   * first-time onboarding flow so we can land the user directly on it and
+   * show a one-time celebration.
+   */
+  lastOnboardingArcId: string | null;
   lastOnboardingGoalId: string | null;
   /**
    * One-time flag so we only show the "first goal created" celebration
    * the first time the user lands on the onboarding-created goal.
    */
   hasSeenFirstGoalCelebration: boolean;
+  /**
+   * One-time flag so we only show the "first Arc created" celebration the
+   * first time the user lands on the onboarding-created Arc.
+   */
+  hasSeenFirstArcCelebration: boolean;
   /**
    * Saved configurations for the Activities list. Includes both system views
    * like "Default view" and user-created custom views.
@@ -46,6 +57,26 @@ interface AppState {
    * the "default" view entry in `activityViews`.
    */
   activeActivityViewId: string | null;
+  /**
+   * Per-user denylist of celebration GIF ids that should never be shown again.
+   * Populated via lightweight "Not quite right" feedback controls.
+   */
+  blockedCelebrationGifIds: string[];
+  /**
+   * Per-user cache of specifically liked celebration GIFs so we can reuse
+   * them without hitting the network every time.
+   */
+  likedCelebrationGifs: {
+    id: string;
+    url: string;
+    role: MediaRole;
+    kind: CelebrationKind;
+  }[];
+  /**
+   * Per-user denylist of celebration GIF ids that should never be shown again.
+   * Populated via lightweight "Not quite right" feedback controls.
+   */
+  blockedCelebrationGifIds: string[];
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -63,12 +94,17 @@ interface AppState {
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
   setLlmModel: (model: LlmModel) => void;
+  setLastOnboardingArcId: (arcId: string | null) => void;
+  setHasSeenFirstArcCelebration: (seen: boolean) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
   setActiveActivityViewId: (viewId: string | null) => void;
   addActivityView: (view: ActivityView) => void;
   updateActivityView: (viewId: string, updater: Updater<ActivityView>) => void;
   removeActivityView: (viewId: string) => void;
+  blockCelebrationGif: (gifId: string) => void;
+  likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
+  blockCelebrationGif: (gifId: string) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
@@ -83,6 +119,9 @@ const buildDefaultUserProfile = (): UserProfile => {
     updatedAt: timestamp,
     communication: {},
     visuals: {},
+    preferences: {
+      showCelebrationMedia: true,
+    },
   };
 };
 
@@ -269,9 +308,12 @@ export const useAppStore = create(
       activeActivityViewId: 'default',
       goalRecommendations: {},
       arcFeedback: [],
+      blockedCelebrationGifIds: [],
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
+      lastOnboardingArcId: null,
       lastOnboardingGoalId: null,
+      hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
@@ -354,6 +396,14 @@ export const useAppStore = create(
             next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
           return { arcFeedback: trimmed };
         }),
+      setLastOnboardingArcId: (arcId) =>
+        set(() => ({
+          lastOnboardingArcId: arcId,
+        })),
+      setHasSeenFirstArcCelebration: (seen) =>
+        set(() => ({
+          hasSeenFirstArcCelebration: seen,
+        })),
       setLastOnboardingGoalId: (goalId) =>
         set(() => ({
           lastOnboardingGoalId: goalId,
@@ -383,6 +433,27 @@ export const useAppStore = create(
             activityViews: remainingViews,
             activeActivityViewId: nextActiveId,
           };
+        }),
+      blockCelebrationGif: (gifId) =>
+        set((state) => {
+          if (state.blockedCelebrationGifIds.includes(gifId)) {
+            return state;
+          }
+          return {
+            blockedCelebrationGifIds: [...state.blockedCelebrationGifIds, gifId],
+          };
+        }),
+      likeCelebrationGif: (gif) =>
+        set((state) => {
+          const existing = state.likedCelebrationGifs ?? [];
+          if (existing.some((entry) => entry.id === gif.id)) {
+            return state;
+          }
+          const maxEntries = 50;
+          const next = [...existing, gif];
+          const trimmed =
+            next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
+          return { likedCelebrationGifs: trimmed };
         }),
       setUserProfile: (profile) =>
         set(() => ({
@@ -418,12 +489,13 @@ export const useAppStore = create(
               notifications: undefined,
               updatedAt: now(),
             },
+            lastOnboardingArcId: null,
             lastOnboardingGoalId: null,
             // When we explicitly reset onboarding answers (typically from dev
-            // tooling), also reset the one-time "first goal created"
-            // celebration flag so the overlay can be exercised again on the
-            // next onboarding-created goal.
+            // tooling), also reset the one-time celebrations so the overlays
+            // can be exercised again on the next onboarding-created Arc/Goal.
             hasSeenFirstGoalCelebration: false,
+            hasSeenFirstArcCelebration: false,
           };
         }),
       resetStore: () =>
@@ -436,6 +508,12 @@ export const useAppStore = create(
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,
           activeActivityViewId: 'default',
+          lastOnboardingArcId: null,
+          lastOnboardingGoalId: null,
+          hasSeenFirstGoalCelebration: false,
+          hasSeenFirstArcCelebration: false,
+          blockedCelebrationGifIds: [],
+          likedCelebrationGifs: [],
         }),
     }),
     {

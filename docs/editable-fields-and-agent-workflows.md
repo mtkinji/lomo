@@ -240,6 +240,7 @@ These `launchContext` payloads are consumed by AgentWorkspace to:
     - Suggest creating/retiring related goals.
   - Field‑level AI:
     - Refine narrative phrasing, length, tone.
+    - When using AI to substantially reshape an Arc, prompts should follow the **gold-standard Arc model** in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment) so `Arc.name` and `Arc.narrative` stay aligned with the identity-first FTUE.
 
 #### 6.2 Goals
 

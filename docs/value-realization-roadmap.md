@@ -21,7 +21,7 @@ Throughout all phases, **preserve the app shell vs canvas structure** described 
 ### 1.1 Arc Creation (Agent‑First)
 
 - [ ] Define “happy path” Arc creation UX (from FTUE + Arcs tab), aligned with `ux-flow.md`.
-- [ ] Ensure the Agent can **propose starter Arcs** from a small amount of user input (onboarding flow).
+- [ ] Ensure the Agent can **propose starter Arcs** from a small amount of user input (onboarding flow), using the 5-factor identity model defined in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment).
 - [ ] Support **manual Arc creation/editing** (title, narrative, timeframe) in the canvas without the Agent.
 - [ ] Show created Arcs clearly in the Arcs tab canvas (cards, narrative preview, key stats).
 - [ ] Confirm telemetry exists for: Arc created, Arc edited, Arc deleted/archived.
@@ -29,7 +29,7 @@ Throughout all phases, **preserve the app shell vs canvas structure** described 
 ### 1.2 Goal Creation Under an Arc
 
 - [ ] Implement a clear **Goal creation canvas** within Arc detail (manual first, AI‑assisted second).
-- [ ] Wire **AI‑assisted Goal suggestions** (“Ask LOMO for concrete goals”) using the agent components catalog.
+- [ ] Wire **AI‑assisted Goal suggestions** (“Ask LOMO for concrete goals”) using the agent components catalog. Goal prompts should take the parent Arc as an identity anchor and respect the 5‑factor Arc model in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment), so suggested Goals clearly express progress inside that specific identity direction.
 - [ ] Ensure each Goal has: title, description, timeframe, forceIntent vector, status (planned / in progress / completed).
 - [ ] Verify Goals surface correctly in both Arc detail and any relevant Today/Chapter views.
 - [ ] Track metrics: Goals created per Arc, Goals completed, time from creation → first Activity logged.
@@ -37,7 +37,7 @@ Throughout all phases, **preserve the app shell vs canvas structure** described 
 ### 1.3 Activity Creation & Planning
 
 - [ ] Implement **manual Activity creation** under a Goal (atomic unit of doing).
-- [ ] Implement **AI‑generated Activity plans** (“Generate Activities with AI”) consistent with the Activity model (phase, estimate, order, force emphasis).
+- [ ] Implement **AI‑generated Activity plans** (“Generate Activities with AI”) consistent with the Activity model (phase, estimate, order, force emphasis), and ensure the AI uses the parent Arc’s identity narrative (per `docs/arc-aspiration-ftue.md`) so Activities feel like concrete ways of living out that Arc, not generic tasks.
 - [ ] Ensure Activities created under Goals can be scheduled and surfaced in Today.
 - [ ] Add a **quick‑add Activity** path from Today for “loose tasks” not yet tied to a Goal/Arc.
 - [ ] Confirm there is a single, coherent **Activity detail / logging surface** (even if lightweight).

@@ -12,6 +12,7 @@ export { DropdownMenu } from './DropdownMenu';
 export { Dialog } from './Dialog';
 export { VStack, HStack } from './Stack';
 export { Text, Heading } from './Typography';
+export { CelebrationGif } from './CelebrationGif';
 
 // Aliases for clarity in forms: Textarea is just Input with multiline enabled.
 export { Input as Textarea } from './Input';

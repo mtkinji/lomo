@@ -16,6 +16,8 @@ import {
   StyleProp,
   ViewStyle,
   Text,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,10 +29,10 @@ import { useAppStore } from '../../store/useAppStore';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Sheet, VStack, Heading, HStack } from '../../ui/primitives';
+import type { IconName } from '../../ui/Icon';
+import { Sheet, VStack, Heading, HStack, Dialog, CelebrationGif } from '../../ui/primitives';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
-import { AgentFab } from '../../ui/AgentFab';
 import { Text as UiText } from '@/components/ui/text';
 import {
   DropdownMenu,
@@ -72,11 +74,16 @@ const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => 
 type ArcDetailRouteProp = RouteProp<ArcsStackParamList, 'ArcDetail'>;
 type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'ArcDetail'>;
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
   const { arcId, openGoalCreation } = route.params;
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -85,6 +92,13 @@ export function ArcDetailScreen() {
   const removeArc = useAppStore((state) => state.removeArc);
   const updateArc = useAppStore((state) => state.updateArc);
   const addGoal = useAppStore((state) => state.addGoal);
+  const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
+  const hasSeenFirstArcCelebration = useAppStore(
+    (state) => state.hasSeenFirstArcCelebration
+  );
+  const setHasSeenFirstArcCelebration = useAppStore(
+    (state) => state.setHasSeenFirstArcCelebration
+  );
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
@@ -108,7 +122,16 @@ export function ArcDetailScreen() {
   }, [visuals]);
   const [isNarrativeEditorVisible, setIsNarrativeEditorVisible] = useState(false);
   const [isGoalCoachVisible, setIsGoalCoachVisible] = useState(false);
-  const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] = useState(false);
+  const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] =
+    useState(false);
+  const [showFirstArcCelebration, setShowFirstArcCelebration] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'goals' | 'history'>(
+    'details',
+  );
+  const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
+  const [openInsightsSection, setOpenInsightsSection] = useState<
+    'strengths' | 'growthEdges' | 'pitfalls' | null
+  >(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
 
@@ -135,6 +158,16 @@ export function ArcDetailScreen() {
       navigation.navigate('ArcsList');
     }
   }, [navigation]);
+
+  useEffect(() => {
+    if (
+      arc &&
+      arc.id === lastOnboardingArcId &&
+      !hasSeenFirstArcCelebration
+    ) {
+      setShowFirstArcCelebration(true);
+    }
+  }, [arc, lastOnboardingArcId, hasSeenFirstArcCelebration]);
 
   if (!arc) {
     return (
@@ -174,8 +207,133 @@ export function ArcDetailScreen() {
     );
   }, [arc.id, handleBackToArcs, removeArc]);
 
+  const hasDevelopmentInsights =
+    (arc.developmentStrengths && arc.developmentStrengths.length > 0) ||
+    (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
+    (arc.developmentPitfalls && arc.developmentPitfalls.length > 0);
+
+  const renderInsightsSection = () => {
+    if (!hasDevelopmentInsights) {
+      return null;
+    }
+
+    const strengths = arc.developmentStrengths ?? [];
+    const growthEdges = arc.developmentGrowthEdges ?? [];
+    const pitfalls = arc.developmentPitfalls ?? [];
+
+    const renderBlock = (
+      id: 'strengths' | 'growthEdges' | 'pitfalls',
+      title: string,
+      bullets: string[],
+    ) => {
+      const isOpen = openInsightsSection === id;
+      const hasBullets = bullets.length > 0;
+      if (!hasBullets) return null;
+
+      let headerIcon: IconName;
+      let headerIconColor = colors.textSecondary;
+      if (id === 'strengths') {
+        headerIcon = 'thumbsUp';
+        headerIconColor = colors.success;
+      } else if (id === 'growthEdges') {
+        headerIcon = 'activity';
+        headerIconColor = colors.turmeric;
+      } else {
+        headerIcon = 'info';
+        headerIconColor = colors.warning;
+      }
+
+      const blockStyles: any[] = [styles.insightBlock];
+      if (isOpen) {
+        blockStyles.push(styles.insightBlockActive);
+      }
+
+      return (
+        <TouchableOpacity
+          key={id}
+          activeOpacity={0.85}
+          onPress={() => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setOpenInsightsSection((current) => (current === id ? null : id));
+          }}
+          style={blockStyles}
+        >
+          <View style={styles.insightHeaderRow}>
+            <View style={styles.insightHeaderLeft}>
+              <Icon name={headerIcon} size={16} color={headerIconColor} />
+              <Text style={styles.insightTitle}>{title}</Text>
+            </View>
+            <Icon
+              name={isOpen ? 'chevronUp' : 'chevronDown'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </View>
+          {isOpen && (
+            <View style={styles.insightBody}>
+              {bullets.map((line) => (
+                <View key={line} style={styles.insightBulletRow}>
+                  <Text style={styles.insightBulletGlyph}>•</Text>
+                  <Text style={styles.insightBulletText}>{line}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    };
+
+    return (
+      <View style={styles.insightsSectionContainer}>
+        <Text style={styles.insightsSectionLabel}>Arc Development Insights</Text>
+        <View style={styles.insightsCard}>
+          <View style={styles.insightsBlocksStack}>
+            {renderBlock('strengths', 'Strengths to build on', strengths)}
+            {renderBlock('growthEdges', 'Growth edges to work on', growthEdges)}
+            {renderBlock('pitfalls', 'Pitfalls to watch for', pitfalls)}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
-    <AppShell backgroundVariant="arcGradient">
+    <AppShell>
+      <Dialog
+        visible={showFirstArcCelebration}
+        onClose={() => {
+          setShowFirstArcCelebration(false);
+          setHasSeenFirstArcCelebration(true);
+        }}
+        title="🚀 You're on your way!"
+        footer={
+          <Button
+            variant="accent"
+            style={styles.dialogPrimaryCta}
+            onPress={() => {
+              setShowFirstArcCelebration(false);
+              setActiveTab('goals');
+              setHasSeenFirstArcCelebration(true);
+              if (scrollRef.current) {
+                scrollRef.current.scrollTo({
+                  y: Math.max(goalsSectionOffset - spacing.lg, 0),
+                  animated: true,
+                });
+              }
+              setIsGoalCoachVisible(true);
+            }}
+          >
+            <Text style={styles.primaryCtaText}>Continue</Text>
+          </Button>
+        }
+      >
+        <CelebrationGif role="celebration" kind="firstArcCelebrate" size="sm" />
+        <Text style={styles.firstArcBody}>
+          Now that we have a vision for who you want to become in the future,{' '}
+          <Text style={styles.firstArcBodyEmphasis}>let&apos;s add a goal</Text>{' '}
+          to help you plan out how to get there.
+        </Text>
+      </Dialog>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.screen}>
           <View style={styles.paddedSection}>
@@ -186,7 +344,7 @@ export function ArcDetailScreen() {
                   onPress={handleBackToArcs}
                   accessibilityLabel="Back to Arcs"
                 >
-                  <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+                  <Icon name="arrowLeft" size={20} color={colors.canvas} />
                 </IconButton>
               </View>
               <View style={styles.headerCenter}>
@@ -236,6 +394,7 @@ export function ArcDetailScreen() {
           </View>
 
           <ScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -288,91 +447,195 @@ export function ArcDetailScreen() {
                       return null;
                     }}
                   />
-                  <View style={{ marginTop: spacing.sm }}>
-                    <EditableTextArea
-                      label="Description"
-                      value={arc.narrative ?? ''}
-                      placeholder="Add a short note about this Arc…"
-                      // For Arc narratives, always expose the full text instead of
-                      // truncating so longer descriptions remain fully readable.
-                      maxCollapsedLines={0}
-                      enableAi
-                      aiContext={{
-                        objectType: 'arc',
-                        objectId: arc.id,
-                        fieldId: 'narrative',
-                      }}
-                      onChange={(nextNarrative) => {
-                        const trimmed = nextNarrative.trim();
-                        updateArc(arc.id, (current) => ({
-                          ...current,
-                          narrative: trimmed.length === 0 ? undefined : trimmed,
-                          updatedAt: new Date().toISOString(),
-                        }));
-                      }}
-                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                        openForFieldContext({
+                  {/* Canvas mode toggle: Details vs Goals vs History */}
+                  <View style={styles.segmentedControlRow}>
+                    <View style={styles.segmentedControl}>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        accessibilityRole="button"
+                        accessibilityLabel="Show arc details"
+                        style={[
+                          styles.segmentedOption,
+                          activeTab === 'details' && styles.segmentedOptionActive,
+                        ]}
+                        onPress={() => setActiveTab('details')}
+                      >
+                        <Text
+                          style={[
+                            styles.segmentedOptionLabel,
+                            activeTab === 'details' && styles.segmentedOptionLabelActive,
+                          ]}
+                        >
+                          Details
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        accessibilityRole="button"
+                        accessibilityLabel="Show goals in this arc"
+                        style={[
+                          styles.segmentedOption,
+                          activeTab === 'goals' && styles.segmentedOptionActive,
+                        ]}
+                        onPress={() => setActiveTab('goals')}
+                      >
+                        <Text
+                          style={[
+                            styles.segmentedOptionLabel,
+                            activeTab === 'goals' && styles.segmentedOptionLabelActive,
+                          ]}
+                        >
+                          Goals
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        accessibilityRole="button"
+                        accessibilityLabel="Show arc history"
+                        style={[
+                          styles.segmentedOption,
+                          activeTab === 'history' && styles.segmentedOptionActive,
+                        ]}
+                        onPress={() => setActiveTab('history')}
+                      >
+                        <Text
+                          style={[
+                            styles.segmentedOptionLabel,
+                            activeTab === 'history' && styles.segmentedOptionLabelActive,
+                          ]}
+                        >
+                          History
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {activeTab === 'details' && (
+                    <View style={{ marginTop: spacing.sm }}>
+                      <EditableTextArea
+                        label="Description"
+                        value={arc.narrative ?? ''}
+                        placeholder="Add a short note about this Arc…"
+                        // For Arc narratives, always expose the full text instead of
+                        // truncating so longer descriptions remain fully readable.
+                        maxCollapsedLines={0}
+                        enableAi
+                        aiContext={{
+                          objectType: 'arc',
+                          objectId: arc.id,
+                          fieldId: 'narrative',
+                        }}
+                        onChange={(nextNarrative) => {
+                          const trimmed = nextNarrative.trim();
+                          updateArc(arc.id, (current) => ({
+                            ...current,
+                            narrative: trimmed.length === 0 ? undefined : trimmed,
+                            updatedAt: new Date().toISOString(),
+                          }));
+                        }}
+                        onRequestAiHelp={({
                           objectType,
                           objectId,
                           fieldId,
                           currentText,
-                          fieldLabel: 'Arc narrative',
-                        });
-                      }}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.sectionDivider} />
-              </View>
-
-              <View style={styles.goalsSection}>
-                <View
-                  style={[
-                    styles.goalsDrawerInner,
-                    { paddingBottom: spacing['2xl'] + insets.bottom },
-                  ]}
-                >
-                  <View style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}>
-                    <Text style={styles.sectionTitle}>
-                      Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-                    </Text>
-                    <IconButton
-                      style={styles.goalsExpandButton}
-                      onPress={() => setIsGoalCoachVisible(true)}
-                      accessibilityLabel="Create a new goal"
-                    >
-                      <Icon name="plus" size={18} color={colors.canvas} />
-                    </IconButton>
-                  </View>
-
-                  {arcGoals.length === 0 ? (
-                    <Text style={[styles.emptyBody, styles.goalsEmptyState]}>
-                      No goals yet for this Arc.
-                    </Text>
-                  ) : (
-                    <View style={styles.goalsScrollContent}>
-                      <View style={{ gap: spacing.sm }}>
-                        {arcGoals.map((goal) => (
-                          <GoalListCard
-                            key={goal.id}
-                            goal={goal}
-                            parentArc={arc}
-                            activityCount={activityCountByGoal[goal.id] ?? 0}
-                            thumbnailStyles={thumbnailStyles}
-                            onPress={() =>
-                              navigation.navigate('GoalDetail', {
-                                goalId: goal.id,
-                                entryPoint: 'arcsStack',
-                              })
-                            }
-                          />
-                        ))}
-                      </View>
+                        }) => {
+                          openForFieldContext({
+                            objectType,
+                            objectId,
+                            fieldId,
+                            currentText,
+                            fieldLabel: 'Arc narrative',
+                          });
+                        }}
+                      />
                     </View>
                   )}
                 </View>
               </View>
+              {activeTab === 'details' && (
+                <>
+                  {renderInsightsSection()}
+                  <View style={styles.sectionDivider} />
+                </>
+              )}
+
+              {activeTab === 'goals' && (
+                <View
+                  style={styles.goalsSection}
+                  onLayout={(event) => {
+                    setGoalsSectionOffset(event.nativeEvent.layout.y);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.goalsDrawerInner,
+                      { paddingBottom: spacing['2xl'] + insets.bottom },
+                    ]}
+                  >
+                    <View
+                      style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}
+                    >
+                      <Text style={styles.sectionTitle}>
+                        Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+                      </Text>
+                      <IconButton
+                        style={styles.goalsExpandButton}
+                        onPress={() => setIsGoalCoachVisible(true)}
+                        accessibilityLabel="Create a new goal"
+                      >
+                        <Icon name="plus" size={18} color={colors.canvas} />
+                      </IconButton>
+                    </View>
+
+                    {arcGoals.length === 0 ? (
+                      <View style={styles.goalsEmptyStateContainer}>
+                        <Text style={styles.goalsEmptyTitle}>Turn this Arc into clear goals</Text>
+                        <Text style={styles.goalsEmptyBody}>
+                          Start by adding 3–5 goals that live inside this Arc so kwilt knows what
+                          “success” looks like here.
+                        </Text>
+                        <Button
+                          variant="accent"
+                          style={styles.goalsEmptyPrimaryButton}
+                          onPress={() => setIsGoalCoachVisible(true)}
+                        >
+                          <Text style={styles.goalsEmptyPrimaryLabel}>
+                            Create goals for this Arc
+                          </Text>
+                        </Button>
+                      </View>
+                    ) : (
+                      <View style={styles.goalsScrollContent}>
+                        <View style={{ gap: spacing.sm }}>
+                          {arcGoals.map((goal) => (
+                            <GoalListCard
+                              key={goal.id}
+                              goal={goal}
+                              parentArc={arc}
+                              activityCount={activityCountByGoal[goal.id] ?? 0}
+                              thumbnailStyles={thumbnailStyles}
+                              onPress={() =>
+                                navigation.navigate('GoalDetail', {
+                                  goalId: goal.id,
+                                  entryPoint: 'arcsStack',
+                                })
+                              }
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {activeTab === 'history' && (
+                <View style={styles.historyTabPlaceholder}>
+                  <Text style={styles.historyTabTitle}>History</Text>
+                  <Text style={styles.historyTabBody}>
+                    A future update will show reflections and key changes for this Arc over time.
+                  </Text>
+                </View>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -385,12 +648,9 @@ export function ArcDetailScreen() {
         launchFromArcId={arc.id}
         navigateToGoalDetailOnCreate={false}
       />
-      {/* Floating AgentWorkspace entry; launches the shared Agent workspace for this Arc */}
-      <AgentFab
-        onPress={() => {
-          openForScreenContext({ objectType: 'arc', objectId: arc.id });
-        }}
-      />
+      {/* Agent FAB entry for Arc detail is temporarily disabled for MVP.
+          Once the tap-centric Agent entry is refined for object canvases,
+          we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
     </AppShell>
   );
@@ -701,7 +961,7 @@ function ArcNarrativeEditorSheet({
             style={styles.narrativeSheetTextInput}
             multiline
             textAlignVertical="top"
-            placeholder="Describe this Arc in your own words. What season are you in? What kind of work keeps you grounded here?"
+            placeholder="Describe this Arc in your own words. What future version of you is this chapter about, and how do you imagine it changing your goals and days?"
             placeholderTextColor={colors.textSecondary}
             value={draft}
             onChangeText={setDraft}
@@ -1063,6 +1323,13 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.canvas,
   },
+  primaryCtaText: {
+    ...typography.body,
+    color: colors.canvas,
+  },
+  dialogPrimaryCta: {
+    width: '100%',
+  },
   goalCard: {
     ...cardSurfaceStyle,
     padding: spacing.lg,
@@ -1096,6 +1363,38 @@ const styles = StyleSheet.create({
   goalsScrollContent: {
     paddingBottom: spacing.lg,
   },
+  goalsEmptyStateContainer: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.canvas,
+    shadowColor: cardSurfaceStyle.shadowColor,
+    shadowOpacity: cardSurfaceStyle.shadowOpacity,
+    shadowRadius: cardSurfaceStyle.shadowRadius,
+    shadowOffset: cardSurfaceStyle.shadowOffset,
+    elevation: (cardSurfaceStyle as any).elevation,
+    borderWidth: cardSurfaceStyle.borderWidth,
+    borderColor: cardSurfaceStyle.borderColor,
+  },
+  goalsEmptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  goalsEmptyBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  goalsEmptyPrimaryButton: {
+    width: '100%',
+  },
+  goalsEmptyPrimaryLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    textAlign: 'center',
+  },
   goalsEmptyImageWrapper: {
     alignSelf: 'center',
     width: 120,
@@ -1118,6 +1417,16 @@ const styles = StyleSheet.create({
     ...cardSurfaceStyle,
     padding: spacing.lg,
   },
+  firstArcBody: {
+    ...typography.body,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  firstArcBodyEmphasis: {
+    ...typography.body,
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
+  },
   forceIntentRow: {
     flexWrap: 'wrap',
     flexDirection: 'row',
@@ -1134,7 +1443,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: colors.scrimStrong,
     paddingHorizontal: spacing.xl,
     justifyContent: 'center',
   },
@@ -1317,6 +1626,133 @@ const styles = StyleSheet.create({
     fontFamily: typography.body.fontFamily,
     fontSize: typography.body.fontSize,
     lineHeight: typography.body.lineHeight,
+  },
+  insightsSectionContainer: {
+    marginTop: spacing.lg,
+  },
+  insightsCard: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: cardSurfaceStyle.shadowColor,
+    shadowOpacity: cardSurfaceStyle.shadowOpacity,
+    shadowRadius: cardSurfaceStyle.shadowRadius,
+    shadowOffset: cardSurfaceStyle.shadowOffset,
+    elevation: (cardSurfaceStyle as any).elevation,
+    gap: spacing.sm,
+  },
+  insightsSectionLabel: {
+    ...typography.label,
+    color: colors.muted,
+  },
+  insightsBlocksStack: {
+    // Keep the inner stack vertically balanced inside the card: rely on the
+    // card's padding for top/bottom breathing room so spacing feels uniform.
+    marginTop: 0,
+    gap: spacing.xs,
+  },
+  insightBlock: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    // Each section is its own rounded panel with even treatment top/bottom.
+    borderRadius: spacing.md,
+    backgroundColor: colors.canvas,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  insightBlockActive: {
+    // Keep the open panel on the same white background so the bullets feel
+    // continuous with the header; rely on motion and content instead of a
+    // different fill.
+    backgroundColor: colors.canvas,
+  },
+  insightHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: spacing.sm,
+  },
+  insightHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    flex: 1,
+  },
+  insightTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flex: 1,
+    // Slightly stronger weight than standard body to give each panel header
+    // a clear anchor without jumping up to full title size.
+    fontFamily: fonts.medium,
+  },
+  insightBody: {
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  insightBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    columnGap: spacing.xs,
+  },
+  insightBulletGlyph: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  insightBulletText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  segmentedControlRow: {
+    marginTop: 0,
+    marginBottom: spacing.lg,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    padding: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    alignSelf: 'flex-start',
+  },
+  segmentedOption: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  segmentedOptionActive: {
+    backgroundColor: colors.canvas,
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  segmentedOptionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  segmentedOptionLabelActive: {
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  historyTabPlaceholder: {
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing['2xl'],
+  },
+  historyTabTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  historyTabBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
 });
 

@@ -47,7 +47,6 @@ import {
 } from '../../ui/DropdownMenu';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
-import { AgentFab } from '../../ui/AgentFab';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
@@ -901,11 +900,9 @@ export function GoalDetailScreen() {
         onClose={() => setArcSelectorVisible(false)}
         onSubmit={handleUpdateArc}
       />
-      <AgentFab
-        onPress={() => {
-          openForScreenContext({ objectType: 'goal', objectId: goal.id });
-        }}
-      />
+      {/* Agent FAB entry for Goal detail is temporarily disabled for MVP.
+          Once the tap-centric Agent entry is refined for object canvases,
+          we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
       <KwiltBottomSheet
         visible={vectorsInfoVisible}
@@ -1038,7 +1035,7 @@ function EditGoalModal({
         <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
           <Heading style={styles.modalTitle}>Edit Goal</Heading>
           <Text style={styles.modalBody}>
-            Update the goal details and rebalance the forces to better match this season.
+            Update the goal details and rebalance the forces to better match where you are right now.
           </Text>
 
           <Text style={styles.modalLabel}>Title</Text>

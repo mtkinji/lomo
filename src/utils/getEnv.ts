@@ -14,4 +14,8 @@ export function getEnvVar<T = string>(key: string): T | undefined {
   return extras ? (extras[key] as T | undefined) : undefined;
 }
 
+export function getGiphyApiKey(): string | undefined {
+  return getEnvVar<string>('giphyApiKey');
+}
+
 

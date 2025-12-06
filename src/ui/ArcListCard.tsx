@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/card';
@@ -16,9 +16,35 @@ type ArcListCardProps = {
    */
   goalCount?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Optional tone override for the narrative text. The default matches the
+   * Arcs canvas (secondary text). A "strong" tone uses the primary text
+   * color, which is helpful for onboarding reveals where the Arc description
+   * is the main content.
+   */
+  narrativeTone?: 'default' | 'strong';
+  /**
+   * When true, render the full narrative without truncation. Defaults to a
+   * compact two-line snippet for list views.
+   */
+  showFullNarrative?: boolean;
+  /**
+   * Optional custom narrative renderer. When provided, this content is rendered
+   * in place of the default single Text block, but still inside the same card
+   * layout. Useful for onboarding reveals where we want multi-paragraph
+   * layouts or additional emphasis without changing the stored Arc text.
+   */
+  customNarrative?: ReactNode;
 };
 
-export function ArcListCard({ arc, goalCount, style }: ArcListCardProps) {
+export function ArcListCard({
+  arc,
+  goalCount,
+  style,
+  narrativeTone = 'default',
+  showFullNarrative = false,
+  customNarrative,
+}: ArcListCardProps) {
   const seed = buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
   const { colors: gradientColors, direction } = getArcGradient(seed);
 
@@ -59,11 +85,19 @@ export function ArcListCard({ arc, goalCount, style }: ArcListCardProps) {
           <Text numberOfLines={2} style={styles.title}>
             {arc.name}
           </Text>
-          {arc.narrative ? (
-            <Text numberOfLines={2} style={styles.narrative}>
-              {arc.narrative}
-            </Text>
-          ) : null}
+          {customNarrative
+            ? customNarrative
+            : arc.narrative && (
+                <Text
+                  numberOfLines={showFullNarrative ? undefined : 2}
+                  style={[
+                    styles.narrative,
+                    narrativeTone === 'strong' && styles.narrativeStrong,
+                  ]}
+                >
+                  {arc.narrative}
+                </Text>
+              )}
         </View>
 
         {(goalCountLabel || showStatusPill) && (
@@ -122,6 +156,9 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  narrativeStrong: {
+    color: colors.textPrimary,
   },
   metaRow: {
     marginTop: spacing.sm,

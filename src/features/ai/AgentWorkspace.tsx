@@ -11,6 +11,8 @@ import {
 import { AiChatPane, type AiChatPaneController } from './AiChatScreen';
 import { WorkflowRuntimeContext } from './WorkflowRuntimeContext';
 import { OnboardingGuidedFlow } from '../onboarding/OnboardingGuidedFlow';
+import { IdentityAspirationFlow } from '../onboarding/IdentityAspirationFlow';
+import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -151,6 +153,11 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     return createInitialWorkflowInstance(workflowDefinition, workflowInstanceId);
   });
 
+  // Track whether we've already logged a human-readable "workflow started"
+  // event for this AgentWorkspace mount. This keeps dev logs focused on
+  // high-signal transitions instead of repeating on every step change.
+  const hasLoggedWorkflowStartRef = useRef(false);
+
   // Track the most recent step completion so we can emit analytics events
   // after React has applied the state update.
   const lastStepEventRef = useRef<{
@@ -162,6 +169,18 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     nextStepId?: string;
   } | null>(null);
 
+  useEffect(() => {
+    if (!workflowDefinition) {
+      setWorkflowInstance(null);
+      return;
+    }
+    setWorkflowInstance((current) => {
+      if (current && current.definitionId === workflowDefinition.id) {
+        return current;
+      }
+      return createInitialWorkflowInstance(workflowDefinition, workflowInstanceId);
+    });
+  }, [workflowDefinition, workflowInstanceId]);
   useEffect(() => {
     if (!workflowDefinition) {
       setWorkflowInstance(null);
@@ -235,10 +254,22 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return undefined;
     }
 
-    // Any workflow that uses the firstTimeOnboarding chatMode is hosted by the
-    // shared OnboardingGuidedFlow presenter. The presenter inspects the
-    // workflow definition ID to branch between v1 and v2 behavior.
+    // Any workflow that uses the firstTimeOnboarding chatMode is hosted by a
+    // shared onboarding presenter. For the v2 identity-Arc FTUE we use a
+    // dedicated, tap-first flow; any future legacy flows can continue to use
+    // the older OnboardingGuidedFlow presenter.
     if (workflowDefinition.chatMode === 'firstTimeOnboarding') {
+      if (workflowDefinition.id === FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID) {
+        return (
+          <IdentityAspirationFlow
+            onComplete={() => {
+              onComplete?.(workflowInstance?.collectedData ?? {});
+            }}
+            chatControllerRef={chatPaneRef}
+          />
+        );
+      }
+
       return (
         <OnboardingGuidedFlow
           onComplete={() => {
@@ -255,6 +286,28 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   useEffect(() => {
     if (!workflowInstance) return;
 
+    if (workflowDefinition && !hasLoggedWorkflowStartRef.current) {
+      if (__DEV__ && workflowInstance.status === 'in_progress') {
+        const label = workflowDefinition.label || workflowDefinition.id;
+        const contextBits: string[] = [];
+        if (launchContext.source) {
+          contextBits.push(launchContext.source);
+        }
+        if (launchContext.intent) {
+          contextBits.push(launchContext.intent);
+        }
+        const fromClause =
+          contextBits.length > 0 ? ` from ${contextBits.join(' / ')}` : '';
+
+        // eslint-disable-next-line no-console
+        console.log(
+          '[workflow] User started',
+          `${label}${fromClause}`,
+        );
+        hasLoggedWorkflowStartRef.current = true;
+      }
+    }
+
     if (onWorkflowStatusChange) {
       onWorkflowStatusChange(workflowInstance);
     }
@@ -264,20 +317,6 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     onComplete(workflowInstance.outcome ?? workflowInstance.collectedData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowInstance, onWorkflowStatusChange]);
-
-  // In development, emit a lightweight trace so we can confirm which mode and
-  // workflow a given AgentWorkspace instance is running under.
-  useEffect(() => {
-    if (!__DEV__) return;
-    // eslint-disable-next-line no-console
-    console.log('[AgentWorkspace] mounted', {
-      mode: mode ?? 'default',
-      workflowDefinitionId: workflowDefinitionId ?? null,
-      workflowInstanceId: workflowInstanceId ?? null,
-      launchContext,
-      workflowInstance,
-    });
-  }, [mode, workflowDefinitionId, workflowInstanceId, workflowInstance, launchContext]);
 
   // For now, AgentWorkspace is a light orchestrator that forwards mode and a
   // structured launch context string into the existing AiChatPane. As we

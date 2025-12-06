@@ -22,6 +22,10 @@ const iconMap: Record<string, FeatherName> = {
   aiGuide: 'message-circle',
   activities: 'list',
   activity: 'activity',
+  // Arc identity narrative affordances
+  identity: 'user',
+  why: 'help-circle',
+  daily: 'clock',
   panelLeft: 'sidebar',
   menu: 'menu',
   paperclip: 'paperclip',
@@ -41,6 +45,7 @@ const iconMap: Record<string, FeatherName> = {
   close: 'x',
   chevronRight: 'chevron-right',
   chevronDown: 'chevron-down',
+  chevronUp: 'chevron-up',
   trash: 'trash-2',
   refresh: 'refresh-cw',
   check: 'check',
@@ -50,6 +55,8 @@ const iconMap: Record<string, FeatherName> = {
   star: 'star',
   funnel: 'filter',
   sort: 'sliders',
+  thumbsDown: 'thumbs-down',
+  thumbsUp: 'thumbs-up',
 };
 
 export type IconName = keyof typeof iconMap;

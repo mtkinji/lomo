@@ -98,6 +98,8 @@ An Arc is **not** a project, task category, or bucket of action — it is a **st
 - When generating Goals, always **anchor them clearly** in the Arc’s identity intention.
 - Use the Arc description to **set the tone and gravity** of the Goal.
 
+When creating or reshaping Arcs through onboarding or coach-led flows, follow the **gold-standard Arc creation model** defined in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, and everyday proud moment). That document specifies the tap-only FTUE question set and how `Arc.name` and `Arc.narrative` should be synthesized from those identity ingredients.
+
 ---
 
 ## 4. Goal

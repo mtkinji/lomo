@@ -169,22 +169,23 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     borderRadius: 12,
+    // Match root inputs: solid white with a subtle neutral border.
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    // Default state: same white as cards, but with lower opacity so it
-    // sits back slightly until focused.
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: colors.canvas,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 44,
     justifyContent: 'center',
   },
   inputWrapperError: {
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.destructive,
   },
   inputWrapperFocused: {
-    borderColor: colors.accent,
-    backgroundColor: colors.card,
+    // Use the same neutral border color on focus; rely on caret and context
+    // rather than a stronger ring to signal edit state.
+    borderColor: colors.border,
   },
   input: {
     ...typography.body,

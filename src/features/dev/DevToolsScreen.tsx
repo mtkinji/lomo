@@ -32,11 +32,17 @@ export function DevToolsScreen() {
   const isFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const triggerCount = useFirstTimeUxStore((state) => state.triggerCount);
   const lastTriggeredAt = useFirstTimeUxStore((state) => state.lastTriggeredAt);
+  const arcs = useAppStore((state) => state.arcs);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
   const goals = useAppStore((state) => state.goals);
+  const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const setLastOnboardingArcId = useAppStore((state) => state.setLastOnboardingArcId);
+  const setHasSeenFirstArcCelebration = useAppStore(
+    (state) => state.setHasSeenFirstArcCelebration
+  );
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
@@ -76,6 +82,33 @@ export function DevToolsScreen() {
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
     startFlow();
+  };
+
+  const handleShowFirstArcCelebration = () => {
+    // Prefer the explicit onboarding-created Arc when available so the
+    // celebration mirrors the real first-time flow. Otherwise, fall back to
+    // the most recently created Arc so the overlay can still be exercised in
+    // dev even without running onboarding first.
+    const targetArcId =
+      lastOnboardingArcId || (arcs.length > 0 ? arcs[arcs.length - 1].id : null);
+
+    if (!targetArcId) {
+      Alert.alert(
+        'No arcs available',
+        'Create an Arc first (or run onboarding) before testing the celebration overlay.'
+      );
+      return;
+    }
+
+    // Ensure the ArcDetail screen recognizes this Arc as the onboarding
+    // target and that the one-time flag does not suppress the overlay.
+    setLastOnboardingArcId(targetArcId);
+    setHasSeenFirstArcCelebration(false);
+
+    navigation.navigate('ArcsStack', {
+      screen: 'ArcDetail',
+      params: { arcId: targetArcId, openGoalCreation: false },
+    });
   };
 
   const handleShowFirstGoalCelebration = () => {
@@ -511,7 +544,7 @@ export function DevToolsScreen() {
                 Launches the first-time experience overlay immediately, even if it was already
                 completed.
               </Text> */}
-              <Button onPress={handleTriggerFirstTimeUx}>
+              <Button variant="accent" onPress={handleTriggerFirstTimeUx}>
                 <Text style={styles.primaryButtonLabel}>Trigger first-time UX</Text>
               </Button>
               {isFlowActive && (
@@ -519,6 +552,9 @@ export function DevToolsScreen() {
                   <Text style={styles.secondaryButtonLabel}>Force dismiss</Text>
                 </Button>
               )}
+              <Button variant="secondary" onPress={handleShowFirstArcCelebration}>
+                <Text style={styles.secondaryButtonLabel}>Show first-Arc celebration</Text>
+              </Button>
               <Button variant="secondary" onPress={handleShowFirstGoalCelebration}>
                 <Text style={styles.secondaryButtonLabel}>Show first-goal celebration</Text>
               </Button>

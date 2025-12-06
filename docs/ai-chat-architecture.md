@@ -26,6 +26,8 @@ Today we have:
 
 - `arcCreation`: an **Arc Coach** that helps the user draft new Arcs.
 
+All Arc-creation modes (including FTUE identity onboarding) should treat `docs/arc-aspiration-ftue.md` as the **gold-standard spec** for what a good Arc looks like (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment) and how `Arc.name` and `Arc.narrative` are synthesized from minimal input.
+
 Future examples:
 
 - `goalDesign`: help translate an Arc into concrete Goals.

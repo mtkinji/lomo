@@ -18,6 +18,18 @@ export interface Arc {
   name: string;
   narrative?: string;
   /**
+   * Optional, lightweight developmental insights attached to this Arc.
+   * These are short bullet-point lists generated during onboarding that
+   * help users understand how people typically grow into this kind of Arc.
+   *
+   * Each array is intentionally compact (2–3 items) and written in a
+   * grounded, non-diagnostic tone so they can be rendered as quick-scan
+   * bullets in the Arc detail view.
+   */
+  developmentStrengths?: string[];
+  developmentGrowthEdges?: string[];
+  developmentPitfalls?: string[];
+  /**
    * Optional thumbnail image for visually distinguishing this Arc in lists.
    * Can be a remote URL or a local asset URI.
    */
@@ -343,6 +355,14 @@ export interface UserProfile {
     remindersEnabled?: boolean;
   };
   timezone?: string;
+  preferences?: {
+    /**
+     * Soft toggle for GIFs and other celebration media. When false, the app
+     * should avoid showing celebration tiles like GIPHY-backed GIFs and rely
+     * on text/emoji instead.
+     */
+    showCelebrationMedia?: boolean;
+  };
   communication: {
     tone?: CommunicationTone;
     detailLevel?: DetailLevel;

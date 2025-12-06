@@ -1,5 +1,11 @@
 // High-level, business-friendly spec for the first-time onboarding v2 workflow.
 //
+// For the identity-first Arc model and the tap-only FTUE question set that this
+// workflow should implement, see `docs/arc-aspiration-ftue.md`. That doc
+// defines the gold-standard 5-factor model (domain of becoming, motivational
+// style, signature trait, growth edge, everyday proud moment) and how to
+// synthesize `Arc.name` and `Arc.narrative` from those answers.
+//
 // IMPORTANT: This file is the **source of truth** for the v2 onboarding flow.
 // - Product / business folks should primarily edit THIS file:
 //   - Add / remove / reorder steps in the `steps` array.
@@ -116,202 +122,198 @@ export type WorkflowSpec = {
 
 export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
   id: 'first_time_onboarding_v2',
-  label: 'First-time onboarding (v2 – first goal)',
+  label: 'First-time onboarding (v2 – identity Arc / aspiration)',
   version: 2,
   chatMode: 'firstTimeOnboarding',
   outcomeSchema: {
-    kind: 'first_time_onboarding_v2',
+    kind: 'first_time_onboarding_v2_arc',
     fields: {
-      name: 'string',
       /**
-       * Canonical birthdate captured during onboarding. Stored as a string so
-       * clients can choose their preferred formatting, but callers should
-       * normalize to ISO YYYY-MM-DD where possible.
+       * Lightweight identity inputs collected through tap-first cards.
+       * These are intentionally high-level; the synthesis step is responsible
+       * for mapping them into a concrete Arc (aspiration) record.
        */
-      birthdate: 'string',
+      vibe: 'string',
+      socialPresence: 'string',
+      coreStrength: 'string',
+      everydayAction: 'string',
+      nickname: 'string?',
       /**
-       * Approximate age derived from the birthdate at the time of onboarding.
-       * This is treated as a soft hint for tone/examples and may drift over
-       * time; the birthdate remains the source of truth.
+       * Synthesized identity Arc fields. The host maps these directly into
+       * an `Arc` object using `Arc.name` and `Arc.narrative` with no extra
+       * "aspiration" field on the Arc type.
        */
-      age: 'number',
-      desireSummary: 'string',
-      goal: {
-        title: 'string',
-        description: 'string',
-        timeHorizon: 'string',
-        forceIntent: {
-          'force-activity': 'ForceLevel',
-          'force-connection': 'ForceLevel',
-          'force-mastery': 'ForceLevel',
-          'force-spirituality': 'ForceLevel',
-        },
-      },
-      avatarUrl: 'string?',
+      arcName: 'string',
+      arcNarrative: 'string',
+      nextSmallStep: 'string',
+      /**
+       * Whether the user explicitly confirmed that the synthesized Arc feels
+       * like "future them". This is useful for analytics and future tuning
+       * but does not affect Arc creation semantics.
+       */
+      confirmed: 'boolean',
     },
   },
   steps: [
     {
-      id: 'welcome_orientation',
+      id: 'soft_start',
       kind: 'assistant_copy_only',
-      label: 'Welcome & priming',
+      label: 'Soft start',
       prompt:
-        'In 1 short sentence, welcome the user to TAKADO, describe it as a place to bring clarity to their life one goal, one step, one chapter at a time, and explain that you will guide them through a short setup so they can begin with confidence.',
+        'Welcome the user with one gentle line about uncovering the version of them that feels most themselves. Do not ask any questions or mention steps – just set a curious, low-pressure tone.',
       renderMode: 'static',
       staticCopy:
-        '👋 Welcome to kwilt.\n\nThis is where you turn vague ideas and "some day” goals into clear, actionable steps for your real life.\n\nI’ll walk with you through a quick setup so you can start moving on what matters.',
+        'Let’s uncover the version of you that feels the most you.',
       copyLength: 'one_sentence',
       validationHint:
-        'No fields collected; keep the message short, warm, and specific about what will happen.',
-      next: 'identity_intro',
+        'No fields collected; keep the message short, warm, and free of instructions or pressure.',
+      hideFreeformChatInput: true,
+      next: 'vibe_select',
     },
     {
-      id: 'identity_intro',
-      kind: 'assistant_copy_only',
-      label: 'Invite name and birthday',
-      prompt:
-        'Ask the user, in one short sentence, “What should I call you and when is your birthday?” and briefly note that you will also use their age to tune tone and examples. Keep the copy warm and concise.',
-      copyLength: 'one_sentence',
-      validationHint:
-        'No structured fields here; simply orient the user and invite them to share their preferred name and age.',
-      next: 'identity_basic',
-    },
-    {
-      id: 'identity_basic',
       kind: 'form',
-      label: 'Basic identity',
-      collects: ['name', 'birthdate', 'age'],
+      id: 'vibe_select',
+      label: 'Future self vibe',
+      collects: ['vibe'],
       hideFreeformChatInput: true,
       prompt:
-        'After the user has seen the identity_intro message and shared their name and birthday via the card, acknowledge them warmly in one short sentence (for example, “Good to meet you, {{name}}.”) and note that you’ll use what they shared to tune tone and examples. Do not ask any new questions.',
+        'The host will show a card that asks: “When you imagine your future self… what’s the vibe they give off?” with 6–8 single-tap options like calm, confident, kind, curious, strong, creative, focused. Once the user taps one, you do not need to say anything unless explicitly asked later; treat this as a silent capture of their dominant emotional signature.',
       copyLength: 'one_sentence',
       validationHint:
-        'Name should be non-empty. Birthdate should be a valid calendar date; if unclear, ask once for clarification and then move on.',
-      next: 'desire_invite',
+        'vibe should be one of the predefined options. It is a soft emotional anchor, not a clinical label.',
+      next: 'social_mirror',
       ui: {
-        fields: [
-          {
-            id: 'name',
-            label: 'Preferred name',
-            type: 'text',
-            placeholder: 'e.g., Maya or MJ',
-          },
-          {
-            id: 'birthdate',
-            label: 'Birthday',
-            type: 'text',
-            placeholder: 'YYYY-MM-DD',
-          },
-        ],
+        title: 'When you imagine your future self…',
+        description: 'What’s the vibe they give off?',
       },
     },
     {
-      id: 'desire_invite',
+      id: 'social_mirror',
       kind: 'form',
-      label: 'Invite a desire',
-      collects: ['desireSummary'],
+      label: 'Social mirror',
+      collects: ['socialPresence'],
       hideFreeformChatInput: true,
       prompt:
-        'Ask the user, in 1–2 short sentences, to share one thing they would like to make progress on right now. Emphasize that anything that matters to them is valid and low-pressure, and then point them to the box below to type it in.',
-      renderMode: 'static',
-      staticCopy:
-        'Thanks for sharing that. Now, I’d love to hear about one thing you’d like to make progress on right now. It can be anything that matters to you—big or small—there’s no pressure.',
-      copyLength: 'two_sentences',
+        'The host shows a card asking: “And how do people experience that future you?” with tap-only options like “someone people trust”, “someone who keeps their cool”, “someone who brings others together”, “someone who works hard”, “someone who surprises people”, “someone others want around”. You do not need to ask follow-up questions here; simply let the host store this as the social identity orientation.',
+      copyLength: 'one_sentence',
       validationHint:
-        'Expect a short free-text summary. If the user is unsure, offer 2–3 example categories like “health”, “creative work”, or “relationships”.',
-      next: 'goal_draft',
+        'socialPresence is a short phrase describing how others experience the hoped-for self. It should feel intuitive and relational, not clinical.',
+      next: 'core_strength',
       ui: {
-        fields: [
-          {
-            id: 'desireSummary',
-            label: '',
-            type: 'textarea',
-            placeholder: 'Describe one thing you’d like to make progress on.',
-          },
-        ],
+        title: 'And how do people experience that future you?',
       },
     },
     {
-      id: 'goal_draft',
+      id: 'core_strength',
+      kind: 'form',
+      label: 'Core strength',
+      collects: ['coreStrength'],
+      hideFreeformChatInput: true,
+      prompt:
+        'The host shows a card asking: “What kind of strength does future-you grow into?” with options like physical skill, thinking skill, creative skill, leadership skill, focus + discipline, supporting others, problem-solving. Capture the selection as a soft pointer toward competence and motivation, not a rigid category.',
+      copyLength: 'one_sentence',
+      validationHint:
+        'coreStrength should be a short noun phrase (e.g. “creative skill”, “leadership skill”) indicating where aspiration energy clusters.',
+      next: 'everyday_moment',
+      ui: {
+        title: 'What kind of strength does future-you grow into?',
+      },
+    },
+    {
+      id: 'everyday_moment',
+      kind: 'form',
+      label: 'Everyday proud moment',
+      collects: ['everydayAction'],
+      hideFreeformChatInput: true,
+      prompt:
+        'The host shows a card asking: “Picture future-you on a normal day—not a big moment. What are they doing that makes them feel proud?” with tap-only options like practicing a skill, helping someone, creating something, solving a tough problem, showing up consistently, trying something challenging, staying calm, improving. Treat this as a narrative-identity cue about how aspiration shows up in ordinary life.',
+      copyLength: 'short_paragraph',
+      validationHint:
+        'everydayAction should describe identity in action on a normal day (effort, service, creativity, mastery, steadiness).',
+      next: 'nickname_optional',
+      ui: {
+        title: 'On a normal day…',
+        description:
+          'Picture future-you on a normal day — not a big moment. What are they doing that makes them feel proud?',
+      },
+    },
+    {
+      id: 'nickname_optional',
+      kind: 'form',
+      label: 'One-word identity (optional)',
+      collects: ['nickname'],
+      hideFreeformChatInput: true,
+      prompt:
+        'The host will invite the user to optionally type a one- or two-word nickname for their future self (e.g., “The Builder”, “The Quiet Genius”, “The Reliable One”) and also let them skip with a tap. Do not pressure the user to type anything; a skip is a perfectly good outcome.',
+      copyLength: 'short_paragraph',
+      validationHint:
+        'nickname is optional and may be blank. When present, it is a very strong signal of the user’s internal metaphor; when absent, you should still be able to synthesize an aspiration.',
+      next: 'aspiration_generate',
+      ui: {
+        title: 'If future-you had a nickname…',
+        description: 'If that future-you had a nickname, what would it be? (Optional)',
+        fields: [
+          {
+            id: 'nickname',
+            label: 'Nickname (optional)',
+            type: 'text',
+            placeholder: 'e.g., The Builder, The Quiet Genius',
+          },
+        ],
+        primaryActionLabel: 'Continue',
+      },
+    },
+    {
+      id: 'aspiration_generate',
       kind: 'agent_generate',
-      label: 'Draft goal formation',
-      collects: ['goal'],
+      label: 'Synthesize identity aspiration',
+      collects: ['arcName', 'arcNarrative', 'nextSmallStep'],
       prompt:
-        'You are helping a new TAKADO user turn a single desire into a simple, realistic goal.\n\n' +
-        'Follow these Life Architecture goal guidelines:\n' +
-        '- The goal should express concrete progress in who they are becoming over the next 30–90 days.\n' +
-        '- It can be identity-anchored (who they are becoming) or outcome-based (what gets completed), but avoid heavy metrics unless they naturally fit.\n' +
-        '- Use natural, human language and avoid corporate or productivity jargon.\n\n' +
-        'Context you have about the user:\n' +
-        '- Name: {{name}}\n' +
-        '- Birthdate: {{birthdate}}\n' +
-        '- Approximate age (derived from birthdate): {{age}}\n' +
-        '- What they said they want to make progress on: {{desireSummary}}\n\n' +
-        'Using only this context, synthesize ONE short-term goal that feels achievable in roughly 30–90 days.\n' +
-        '- The goal **title** should be specific but not overwhelming (one short phrase).\n' +
-        '- The **description** should be 1–2 short sentences that reflect why this matters to them and what progress looks like, using their own language where possible.\n' +
-        '- The **timeHorizon** should be a natural-language range like "next 30 days", "next 6–8 weeks", or "next 3 months".\n\n' +
-        'Respond ONLY with a JSON object in our goal draft format, and no extra commentary:\n' +
-        '{\n' +
-        '  "title": string,\n' +
-        '  "description": string,\n' +
-        '  "timeHorizon": string,\n' +
-        '  "forceIntent": {\n' +
-        '    "force-activity": 0 | 1 | 2 | 3,\n' +
-        '    "force-connection": 0 | 1 | 2 | 3,\n' +
-        '    "force-mastery": 0 | 1 | 2 | 3,\n' +
-        '    "force-spirituality": 0 | 1 | 2 | 3\n' +
-        '  }\n' +
-        '}',
+        'Using the collected inputs — vibe, socialPresence, coreStrength, everydayAction, optional nickname, and any age/profile context the host has already provided in hidden system messages — generate an identity Arc with exactly 3 sentences plus a single gentle "next small step".\n\nQUALITY EXAMPLES (study these for tone and depth):\n\nExample 1 - Craft & Contribution:\nName: "🧠 Craft & Contribution"\nNarrative: "I want to become a product builder whose work is marked by clarity, compassion, and craftsmanship. This Arc is about developing the ability to see complexity clearly, to name problems honestly, and to build solutions that genuinely help people. It\'s the pursuit of excellence—not for ego, but because thoughtful work is a form of service."\n\nExample 2 - Making & Embodied Creativity:\nName: "🪚 Making & Embodied Creativity"\nNarrative: "I want to stay connected to the physical world through the work of my hands—building, shaping, repairing, and creating things that are tangible and lasting. Making reminds me that growth isn\'t only intellectual. It\'s slow, physical, patient, and grounded. It teaches me presence. It teaches me to notice details. It teaches me to treat materials with respect."\n\nExample 3 - Venture / Entrepreneurship:\nName: "🚀 Venture / Entrepreneurship"\nNarrative: "I want to build ventures that are principled, thoughtful, and genuinely helpful. Entrepreneurship is not about speed or hype for me—it\'s about stewarding ideas that could make people\'s lives more coherent, more peaceful, or more empowered. This Arc represents my desire to take responsibility for my creativity and see it through to real-world impact."\n\nKey qualities to match: specific concrete language, clear "I want" statements, natural flow, grounded in real scenes, reflects genuine identity direction.\n\nRespond ONLY with a JSON object in this shape (no extra commentary):\n{\n  "arcName": string, // 1–3 words (emoji prefix allowed), describing an identity direction or arena, stable over time, reflecting the user\'s inputs. Use patterns like Domain+Posture, Value+Domain, Two-noun frame, or canonical templates.\n  "aspirationSentence": string, // exactly 3 sentences in one paragraph, 40–120 words, FIRST sentence must start with "I want…", use plain grounded language suitable for ages 14–50+, avoid guru-speak/cosmic language/therapy language/prescriptive "shoulds". Sentence 1 expresses identity direction, Sentence 2 explains why it matters now, Sentence 3 gives one concrete ordinary-life scene. CRITICAL: All sentences must be grammatically complete and natural-sounding. Transform user inputs into proper prose rather than inserting raw phrases verbatim. Extract core concepts from user dreams/inputs and express them naturally.\n  "nextSmallStep": string // one sentence starting with "Your next small step: …"\n}\n\nThe Arc should focus on character, energy, and trajectory (who they want to become), not achievements or metrics. The nextSmallStep must be concrete but low-pressure (e.g., "Practice what matters for just 5 minutes.").',
       copyLength: 'short_paragraph',
       validationHint:
-        'Goal should feel doable within ~30–90 days, specific but not overwhelming. Use the user’s own language where possible.',
-      next: 'goal_confirm',
+        'arcName should be short and legible in a list (typically 2–5 words). aspirationSentence should be emotionally resonant but grounded. nextSmallStep must begin with “Your next small step: ” and describe one doable action.',
+      next: 'aspiration_reveal',
     },
     {
-      id: 'goal_confirm',
+      id: 'aspiration_reveal',
       kind: 'assistant_copy_only',
-      label: 'Goal confirmation',
-      collects: ['goalConfirmed'],
+      label: 'Reveal identity aspiration',
+      collects: [],
       prompt:
-        'In 1–2 short sentences, briefly acknowledge the saved goal, note that kwilt will use it as their first goal, and remind them they can edit or change it anytime from the Goals view.',
+        'Using the synthesized aspiration fields (arcName, arcNarrative / aspirationSentence, nextSmallStep), briefly introduce the reveal in 1–2 short sentences. The host will handle the actual card that shows the Arc; you do not need to restate the full aspiration inside chat unless explicitly asked.',
       renderMode: 'static',
       staticCopy:
-        'Great—let’s use this as your first goal in kwilt. You can always rename it, tweak the wording, or change it from the Goals view once you’re in the app.',
+        'Here’s a first snapshot of the identity you’re growing into, plus one tiny next step to help you live it.',
       copyLength: 'short_paragraph',
       hideFreeformChatInput: true,
       validationHint:
-        'No additional data; just confirm and reflect the goal back in natural language.',
-      next: 'profile_avatar',
+        'No additional data; keep the reveal introduction short and let the host surface the actual aspiration and next step.',
+      next: 'aspiration_confirm',
     },
     {
-      id: 'profile_avatar',
+      id: 'aspiration_confirm',
       kind: 'form',
-      label: 'Profile personalization',
-      collects: ['avatarUrl'],
+      label: 'Confirmation',
+      collects: ['confirmed'],
       prompt:
-        'Ask, in 1–2 short sentences, whether the user would like to add a photo or avatar now, and make it clear that skipping is completely fine.',
+        'The host asks: “Does this feel like the future you?” with two taps: Yes / Close but tweak it. Do not override that binary choice. Treat a “Yes” as confirmed=true and any other path as confirmed=false.',
       copyLength: 'two_sentences',
       validationHint:
-        'avatarUrl may be null. Do not pressure the user; this is optional seasoning, not a requirement.',
-      next: 'closing_v2',
-      ui: {
-        title: 'Profile image (optional)',
-        // Specific picker behavior is still implemented in the presenter;
-        // this just documents intent.
-      },
+        'confirmed is a boolean reflecting whether the user said the aspiration feels like their future self. The host may still allow a light “tweak” loop before finalizing; the final stored Arc should only represent a version the user said Yes to.',
+      next: 'closing_arc',
     },
     {
-      id: 'closing_v2',
+      id: 'closing_arc',
       kind: 'assistant_copy_only',
-      label: 'Closing',
+      label: 'Closing – Arc adopted',
       prompt:
-        'In 2–3 short sentences, congratulate the user by name, briefly recap that they now have a clear first goal saved in kwilt, and remind them they can always refine it, add more goals, and design concrete plans once they are in the app.',
+        'In 2–3 short sentences, congratulate the user, briefly recap that they now have a clear identity Arc saved in kwilt, and remind them they can always refine it or add more Arcs, goals, and activities once they are in the app. Emphasize that this Arc is a starting point, not a life sentence.',
       renderMode: 'static',
       staticCopy:
-        'Great—we’ve turned what you shared into a clear first goal to start from.\n\n' +
-        'This one isn’t meant to be perfect; it’s a simple starting point you can refine as you go. As you spend more time in kwilt, you’ll be able to add more goals, break them into concrete steps, and design plans that actually fit your real life.\n\n' +
-        'From here, you can explore kwilt, add your own goals, or start sketching a short plan around this one whenever you’re ready.',
+        'Great—we’ve turned what you shared into a clear identity Arc to start from.\n\n' +
+        'This isn’t meant to be a perfect definition of you; it’s a simple storyline you can grow into and refine as you go. As you spend more time in kwilt, you’ll be able to add more Arcs, attach goals and activities, and design concrete plans that actually fit your real life.\n\n' +
+        'From here, you can explore your new Arc, add your own goals, or just let this sit at the top of your identity layer while you get used to the app.',
       copyLength: 'short_paragraph',
       validationHint:
         'No new fields; keep it concise, encouraging, and grounded. Avoid hype.',

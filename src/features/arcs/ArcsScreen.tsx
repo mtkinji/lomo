@@ -27,12 +27,14 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import type { Arc, Goal } from '../../domain/types';
+import { scoreArcNarrative } from '../../domain/idealArcs';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { ArcListCard } from '../../ui/ArcListCard';
-import { Logo } from '../../ui/Logo';
+import { BrandLockup } from '../../ui/BrandLockup';
+import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'kwilt-coach-draft:arcCreation:v1';
 
@@ -490,16 +492,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     flex: 1,
   },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  brandWordmark: {
-    ...typography.bodySm,
-    fontFamily: fonts.logo,
-    color: colors.accent,
-    marginLeft: spacing.xs,
-  },
   infoOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -839,12 +831,13 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
       <Text style={styles.infoTitle}>What is an Arc?</Text>
       <Text style={styles.infoBody}>
         An Arc is a long-horizon identity direction—like Discipleship, Craft, or Family Stewardship.
-        Each Arc anchors the season you&apos;re in, guides your goals, and keeps your activities
-        accountable to who you&apos;re becoming.
+        It names a future version of you that feels worth becoming, then gives your goals and
+        activities something meaningful to aim at.
       </Text>
       <Text style={styles.infoBody}>
-        Capture a few Arcs to frame the next few months. You can add or archive them as your story
-        shifts.
+        When your goals and daily actions sit inside a clear Arc, your effort stops feeling random
+        and starts feeling like real progress toward a life that fits you. Capture a few Arcs to
+        frame the next few months—you can add or archive them as your story shifts.
       </Text>
       <Button style={{ marginTop: spacing.lg }} onPress={onClose}>
         <Text style={styles.buttonText}>Got it</Text>
@@ -871,6 +864,20 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
   }, [visible]);
 
   const handleConfirmArc = (proposal: GeneratedArc) => {
+    if (__DEV__) {
+      const judgement = scoreArcNarrative({
+        name: proposal.name,
+        narrative: proposal.narrative,
+      });
+      // eslint-disable-next-line no-console
+      console.log('[arcJudging] Generated Arc quality', {
+        name: proposal.name,
+        score: judgement.score,
+        scoreLabel: `${judgement.score}/10`,
+        components: judgement.components,
+      });
+    }
+
     const timestamp = new Date().toISOString();
     const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -886,6 +893,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
     };
 
     addArc(arc);
+    void ensureArcDevelopmentInsights(id);
     onClose();
     navigation.navigate('ArcDetail', { arcId: id });
   };
@@ -911,6 +919,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
     };
 
     addArc(arc);
+    void ensureArcDevelopmentInsights(id);
     onClose();
     navigation.navigate('ArcDetail', { arcId: id });
   };
@@ -919,10 +928,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
       <View style={styles.drawerKeyboardContainer}>
         <View style={styles.sheetHeaderRow}>
-          <View style={styles.brandLockup}>
-            <Logo size={24} />
-            <Text style={styles.brandWordmark}>kwilt</Text>
-          </View>
+          <BrandLockup logoSize={32} wordmarkSize="sm" />
 
           <View style={styles.headerSideRight}>
             <View style={styles.segmentedControl}>

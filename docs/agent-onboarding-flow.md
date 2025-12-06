@@ -4,6 +4,7 @@
 - Capture how the chat-based Agent surface orchestrates declarative components while keeping LOMO’s app shell + canvas hierarchy intact.
 - Provide a reference FTUE that engineering, design, and prompt authors can point to when wiring the onboarding experience.
 - Describe the **system design** for the shared Agent surface in a way that matches the current implementation (`AgentWorkspace`, workflows, and the agent component catalog).
+- Point to the **gold-standard identity Arc FTUE spec** in `docs/arc-aspiration-ftue.md` for what the onboarding flow should ultimately produce (a single, high-quality identity Arc).
 
 ### Agent Window as a Component-Orchestrated Surface
 - **Placement**: lives inside the canvas, under the persistent app shell (nav + contextual chrome). Never replaces the shell; instead, it occupies the canvas area that the user lands on after the splash.
@@ -44,6 +45,8 @@ The **component catalog** is represented in code by `AGENT_COMPONENT_CATALOG` in
 6. **Chaining**: sequence components deliberately (name → age → image, etc.), but treat each as its own conversational turn.
 
 ### FTUE Flow (First-Time User Experience)
+
+> **Note:** This section describes an earlier, profile-heavy FTUE sketch. For the **current identity-first FTUE that creates a single onboarding Arc from five tap-only identity questions**, see `docs/arc-aspiration-ftue.md`. When these conflict, treat `arc-aspiration-ftue.md` as the source of truth for FTUE content and use this doc for Agent window architecture only.
 
 In **v1 implementation**, the FTUE is driven by a workflow (`first_time_onboarding_v2`) authored in `src/domain/workflowSpecs/firstTimeOnboardingV2Spec.ts` and compiled into a `WorkflowDefinition`. `AgentWorkspace` hosts this workflow and surfaces a shared `OnboardingGuidedFlow` presenter as a **step card** beneath `AiChatPane`.
 

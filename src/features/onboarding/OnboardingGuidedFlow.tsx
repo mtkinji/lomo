@@ -34,6 +34,7 @@ import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
 import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 import type { ThumbnailStyle } from '../../domain/types';
 import type { AiChatPaneController } from '../ai/AiChatScreen';
+import { ensureArcDevelopmentInsights } from '../arcs/arcDevelopmentInsights';
 
 type OnboardingStage =
   | 'welcome'
@@ -306,8 +307,10 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
-  const thumbnailStyles = useAppStore((state): ThumbnailStyle[] => {
-    const visuals = state.userProfile?.visuals;
+  const profileVisuals = useAppStore((state) => state.userProfile?.visuals);
+
+  const thumbnailStyles: ThumbnailStyle[] = useMemo(() => {
+    const visuals = profileVisuals;
     if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
       return visuals.thumbnailStyles;
     }
@@ -315,7 +318,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
       return [visuals.thumbnailStyle];
     }
     return ['topographyDots'];
-  });
+  }, [profileVisuals?.thumbnailStyles, profileVisuals?.thumbnailStyle]);
   const [visibleSteps, setVisibleSteps] = useState<OnboardingStage[]>(['welcome']);
   const [completedSteps, setCompletedSteps] = useState<OnboardingStage[]>([]);
 
@@ -997,6 +1000,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const finalizeArc = (payload: { name: string; narrative?: string; status?: Arc['status'] }) => {
     const arc = buildArcRecord(payload);
     addArc(arc);
+    void ensureArcDevelopmentInsights(arc.id);
     setArcFinalized(true);
     setCreatedArcName(arc.name);
     const completionStep = arcChoice === 'manual' ? 'arcManual' : 'arcSuggestion';
