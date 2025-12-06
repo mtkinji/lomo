@@ -645,6 +645,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const inputRef = useRef<TextInput | null>(null);
   const dictationBaseRef = useRef('');
+  const typingControllerRef = useRef<{ skip: () => void } | null>(null);
   const [dictationState, setDictationState] = useState<DictationState>(
     iosSpeechModule ? 'idle' : 'unavailable'
   );
@@ -840,12 +841,29 @@ export const AiChatPane = forwardRef(function AiChatPane(
     }));
   };
 
-  const streamAssistantReply = (
-    fullText: string,
-    baseId: string,
-    opts?: { onDone?: () => void }
-  ) => {
+  const streamAssistantReply = (fullText: string, baseId: string, opts?: { onDone?: () => void }) => {
     const messageId = `${baseId}-${Date.now()}`;
+
+    let finished = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      typingControllerRef.current = null;
+      opts?.onDone?.();
+    };
+
+    const revealFullMessage = () => {
+      setMessages((prev) => {
+        const next = prev.map((message) =>
+          message.id === messageId ? { ...message, content: fullText } : message
+        );
+        messagesRef.current = next;
+        scheduleDraftSave(next, input);
+        return next;
+      });
+    };
 
     // Seed an empty assistant message so the user sees something appear
     // immediately, then gradually reveal the full content.
@@ -865,7 +883,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
     const totalLength = fullText.length;
     if (totalLength === 0) {
-      opts?.onDone?.();
+      finish();
       return;
     }
 
@@ -881,7 +899,23 @@ export const AiChatPane = forwardRef(function AiChatPane(
     }
     paragraphPausePoints.sort((a, b) => a - b);
     let nextPauseIdx = 0;
+    typingControllerRef.current = {
+      skip: () => {
+        if (finished) return;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        revealFullMessage();
+        finish();
+      },
+    };
+
     const step = () => {
+      if (finished) {
+        return;
+      }
+
       const previousIndex = index;
 
       // Propose the next index based on the typing speed. Slightly slower so
@@ -923,42 +957,46 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
       if (index < totalLength) {
         const delay = crossedPause ? 800 : 40;
-        setTimeout(step, delay);
+        timeoutId = setTimeout(step, delay);
       } else {
-        opts?.onDone?.();
+        finish();
       }
     };
 
     // Kick off the first animation frame.
-    setTimeout(step, 20);
+    timeoutId = setTimeout(step, 20);
   };
 
   useImperativeHandle(
     ref,
     (): AiChatPaneController => ({
-      appendUserMessage: (content: string) => {
-        const userMessage: ChatMessage = {
-          id: `user-external-${Date.now()}`,
-          role: 'user',
-          content,
-        };
-        setMessages((prev) => {
-          const next = [...prev, userMessage];
-          messagesRef.current = next;
-          scheduleDraftSave(next, input);
-          return next;
-        });
-      },
-      streamAssistantReplyFromWorkflow: (fullText: string, baseId = 'assistant-workflow', opts) => {
-        streamAssistantReply(fullText, baseId, opts);
-      },
-      getHistory: () => {
-        return messagesRef.current.map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
-      },
-    }),
+        appendUserMessage: (content: string) => {
+          const userMessage: ChatMessage = {
+            id: `user-external-${Date.now()}`,
+            role: 'user',
+            content,
+          };
+          setMessages((prev) => {
+            const next = [...prev, userMessage];
+            messagesRef.current = next;
+            scheduleDraftSave(next, input);
+            return next;
+          });
+        },
+        streamAssistantReplyFromWorkflow: (
+          fullText: string,
+          baseId = 'assistant-workflow',
+          opts,
+        ) => {
+          streamAssistantReply(fullText, baseId, opts);
+        },
+        getHistory: () => {
+          return messagesRef.current.map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+        },
+      }),
     [input]
   );
 
@@ -1213,7 +1251,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
   return (
     <>
       <KeyboardAvoidingView style={styles.flex}>
-        <View style={styles.body}>
+        <View
+          style={styles.body}
+          onTouchEnd={() => {
+            typingControllerRef.current?.skip();
+          }}
+        >
           <ScrollView
             ref={scrollRef}
             style={styles.scroll}
@@ -1262,9 +1305,15 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   .filter((message) => message.role !== 'system')
                   .map((message) =>
                     message.role === 'assistant' ? (
-                      <View key={message.id} style={styles.assistantMessage}>
+                      <Pressable
+                        key={message.id}
+                        style={styles.assistantMessage}
+                        onPress={() => typingControllerRef.current?.skip()}
+                        accessibilityRole="button"
+                        accessibilityLabel="Skip assistant typing and show full message"
+                      >
                         <Markdown style={markdownStyles}>{message.content}</Markdown>
-                      </View>
+                      </Pressable>
                     ) : (
                       <UserMessageBubble key={message.id} content={message.content} />
                     ),

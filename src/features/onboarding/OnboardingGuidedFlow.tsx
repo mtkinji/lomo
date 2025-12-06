@@ -34,6 +34,7 @@ import { FOCUS_AREA_OPTIONS, getFocusAreaLabel } from '../../domain/focusAreas';
 import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 import type { ThumbnailStyle } from '../../domain/types';
 import type { AiChatPaneController } from '../ai/AiChatScreen';
+import { ensureArcDevelopmentInsights } from '../arcs/arcDevelopmentInsights';
 
 type OnboardingStage =
   | 'welcome'
@@ -999,6 +1000,7 @@ export function OnboardingGuidedFlow({ onComplete, chatControllerRef }: Onboardi
   const finalizeArc = (payload: { name: string; narrative?: string; status?: Arc['status'] }) => {
     const arc = buildArcRecord(payload);
     addArc(arc);
+    void ensureArcDevelopmentInsights(arc.id);
     setArcFinalized(true);
     setCreatedArcName(arc.name);
     const completionStep = arcChoice === 'manual' ? 'arcManual' : 'arcSuggestion';

@@ -30,7 +30,6 @@ import { Icon } from '../../ui/Icon';
 import { Sheet, VStack, Heading, HStack, Dialog, CelebrationGif } from '../../ui/primitives';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
-import { AgentFab } from '../../ui/AgentFab';
 import { Text as UiText } from '@/components/ui/text';
 import {
   DropdownMenu,
@@ -116,9 +115,17 @@ export function ArcDetailScreen() {
   }, [visuals]);
   const [isNarrativeEditorVisible, setIsNarrativeEditorVisible] = useState(false);
   const [isGoalCoachVisible, setIsGoalCoachVisible] = useState(false);
-  const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] = useState(false);
+  const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] =
+    useState(false);
   const [showFirstArcCelebration, setShowFirstArcCelebration] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'goals' | 'history'>(
+    'details',
+  );
   const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
+  const [showInsightsPrompt, setShowInsightsPrompt] = useState(true);
+  const [openInsightsSection, setOpenInsightsSection] = useState<
+    'strengths' | 'growthEdges' | 'pitfalls' | null
+  >(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
 
@@ -194,8 +201,115 @@ export function ArcDetailScreen() {
     );
   }, [arc.id, handleBackToArcs, removeArc]);
 
+  const hasDevelopmentInsights =
+    (arc.developmentStrengths && arc.developmentStrengths.length > 0) ||
+    (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
+    (arc.developmentPitfalls && arc.developmentPitfalls.length > 0);
+
+  const renderInsightsSection = () => {
+    if (!hasDevelopmentInsights) {
+      return null;
+    }
+
+    const strengths = arc.developmentStrengths ?? [];
+    const growthEdges = arc.developmentGrowthEdges ?? [];
+    const pitfalls = arc.developmentPitfalls ?? [];
+
+    const renderBlock = (
+      id: 'strengths' | 'growthEdges' | 'pitfalls',
+      title: string,
+      bullets: string[],
+    ) => {
+      const isOpen = openInsightsSection === id;
+      const hasBullets = bullets.length > 0;
+      if (!hasBullets) return null;
+      return (
+        <TouchableOpacity
+          key={id}
+          activeOpacity={0.85}
+          onPress={() => {
+            setOpenInsightsSection((current) => (current === id ? null : id));
+          }}
+          style={styles.insightBlock}
+        >
+          <View style={styles.insightHeaderRow}>
+            <Text style={styles.insightTitle}>{title}</Text>
+            <Icon
+              name={isOpen ? 'chevronDown' : 'chevronRight'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </View>
+          {isOpen && (
+            <View style={styles.insightBody}>
+              {bullets.map((line) => (
+                <View key={line} style={styles.insightBulletRow}>
+                  <Text style={styles.insightBulletGlyph}>•</Text>
+                  <Text style={styles.insightBulletText}>{line}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    };
+
+    if (showInsightsPrompt) {
+      return (
+        <View style={styles.insightsPromptCard}>
+          <Text style={styles.insightsPromptTitle}>
+            Want to understand how people grow into this kind of Arc?
+          </Text>
+          <Text style={styles.insightsPromptBody}>
+            These short insights describe strengths, growth edges, and common pitfalls people on
+            this path often work with.
+          </Text>
+          <View style={styles.insightsPromptActions}>
+            <Button
+              variant="accent"
+              style={styles.insightsPrimaryButton}
+              onPress={() => {
+                setShowInsightsPrompt(false);
+                setOpenInsightsSection('strengths');
+              }}
+            >
+              <Text style={styles.insightsPrimaryLabel}>Show insights</Text>
+            </Button>
+            <Button
+              variant="ghost"
+              onPress={() => {
+                setShowInsightsPrompt(false);
+              }}
+            >
+              <Text style={styles.insightsSecondaryLabel}>Skip for now</Text>
+            </Button>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.insightsCard}>
+        <Text style={styles.insightsSectionLabel}>Arc Development Insights</Text>
+        <View style={styles.insightsBlocksStack}>
+          {renderBlock('strengths', 'Strengths that help people grow this Arc', strengths)}
+          {renderBlock(
+            'growthEdges',
+            'Growth edges people often develop on this path',
+            growthEdges,
+          )}
+          {renderBlock(
+            'pitfalls',
+            'Pitfalls people on this path learn to navigate',
+            pitfalls,
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
-    <AppShell backgroundVariant="arcGradient">
+    <AppShell>
       <Dialog
         visible={showFirstArcCelebration}
         onClose={() => {
@@ -209,6 +323,7 @@ export function ArcDetailScreen() {
             style={styles.dialogPrimaryCta}
             onPress={() => {
               setShowFirstArcCelebration(false);
+              setActiveTab('goals');
               setHasSeenFirstArcCelebration(true);
               if (scrollRef.current) {
                 scrollRef.current.scrollTo({
@@ -222,7 +337,7 @@ export function ArcDetailScreen() {
           </Button>
         }
       >
-        <CelebrationGif role="celebration" kind="firstArc" size="sm" />
+        <CelebrationGif role="celebration" kind="firstArcCelebrate" size="sm" />
         <Text style={styles.firstArcBody}>
           Now that we have a vision for who you want to become in the future,{' '}
           <Text style={styles.firstArcBodyEmphasis}>let&apos;s add a goal</Text>{' '}
@@ -342,107 +457,190 @@ export function ArcDetailScreen() {
                       return null;
                     }}
                   />
-                  <View style={{ marginTop: spacing.sm }}>
-                    <EditableTextArea
-                      label="Description"
-                      value={arc.narrative ?? ''}
-                      placeholder="Add a short note about this Arc…"
-                      // For Arc narratives, always expose the full text instead of
-                      // truncating so longer descriptions remain fully readable.
-                      maxCollapsedLines={0}
-                      enableAi
-                      aiContext={{
-                        objectType: 'arc',
-                        objectId: arc.id,
-                        fieldId: 'narrative',
-                      }}
-                      onChange={(nextNarrative) => {
-                        const trimmed = nextNarrative.trim();
-                        updateArc(arc.id, (current) => ({
-                          ...current,
-                          narrative: trimmed.length === 0 ? undefined : trimmed,
-                          updatedAt: new Date().toISOString(),
-                        }));
-                      }}
-                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                        openForFieldContext({
-                          objectType,
-                          objectId,
-                          fieldId,
-                          currentText,
-                          fieldLabel: 'Arc narrative',
-                        });
-                      }}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.sectionDivider} />
-              </View>
-
-              <View
-                style={styles.goalsSection}
-                onLayout={(event) => {
-                  setGoalsSectionOffset(event.nativeEvent.layout.y);
-                }}
-              >
-                <View
-                  style={[
-                    styles.goalsDrawerInner,
-                    { paddingBottom: spacing['2xl'] + insets.bottom },
-                  ]}
-                >
-                  <View style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}>
-                    <Text style={styles.sectionTitle}>
-                      Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-                    </Text>
-                    <IconButton
-                      style={styles.goalsExpandButton}
-                      onPress={() => setIsGoalCoachVisible(true)}
-                      accessibilityLabel="Create a new goal"
-                    >
-                      <Icon name="plus" size={18} color={colors.canvas} />
-                    </IconButton>
-                  </View>
-
-                  {arcGoals.length === 0 ? (
-                    <View style={styles.goalsEmptyStateContainer}>
-                      <Text style={styles.goalsEmptyTitle}>Turn this Arc into clear goals</Text>
-                      <Text style={styles.goalsEmptyBody}>
-                        Start by adding 3–5 goals that live inside this Arc so kwilt knows what
-                        “success” looks like here.
-                      </Text>
-                      <Button
-                        variant="accent"
-                        style={styles.goalsEmptyPrimaryButton}
-                        onPress={() => setIsGoalCoachVisible(true)}
+                  {/* Canvas mode toggle: Details vs Goals vs History */}
+                  <View style={styles.segmentedControlRow}>
+                    <View style={styles.segmentedControl}>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        accessibilityRole="button"
+                        accessibilityLabel="Show arc details"
+                        style={[
+                          styles.segmentedOption,
+                          activeTab === 'details' && styles.segmentedOptionActive,
+                        ]}
+                        onPress={() => setActiveTab('details')}
                       >
-                        <Text style={styles.goalsEmptyPrimaryLabel}>Create goals for this Arc</Text>
-                      </Button>
+                        <Text
+                          style={[
+                            styles.segmentedOptionLabel,
+                            activeTab === 'details' && styles.segmentedOptionLabelActive,
+                          ]}
+                        >
+                          Details
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        accessibilityRole="button"
+                        accessibilityLabel="Show goals in this arc"
+                        style={[
+                          styles.segmentedOption,
+                          activeTab === 'goals' && styles.segmentedOptionActive,
+                        ]}
+                        onPress={() => setActiveTab('goals')}
+                      >
+                        <Text
+                          style={[
+                            styles.segmentedOptionLabel,
+                            activeTab === 'goals' && styles.segmentedOptionLabelActive,
+                          ]}
+                        >
+                          Goals
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        accessibilityRole="button"
+                        accessibilityLabel="Show arc history"
+                        style={[
+                          styles.segmentedOption,
+                          activeTab === 'history' && styles.segmentedOptionActive,
+                        ]}
+                        onPress={() => setActiveTab('history')}
+                      >
+                        <Text
+                          style={[
+                            styles.segmentedOptionLabel,
+                            activeTab === 'history' && styles.segmentedOptionLabelActive,
+                          ]}
+                        >
+                          History
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  ) : (
-                    <View style={styles.goalsScrollContent}>
-                      <View style={{ gap: spacing.sm }}>
-                        {arcGoals.map((goal) => (
-                          <GoalListCard
-                            key={goal.id}
-                            goal={goal}
-                            parentArc={arc}
-                            activityCount={activityCountByGoal[goal.id] ?? 0}
-                            thumbnailStyles={thumbnailStyles}
-                            onPress={() =>
-                              navigation.navigate('GoalDetail', {
-                                goalId: goal.id,
-                                entryPoint: 'arcsStack',
-                              })
-                            }
-                          />
-                        ))}
-                      </View>
+                  </View>
+                  {activeTab === 'details' && (
+                    <View style={{ marginTop: spacing.sm }}>
+                      <EditableTextArea
+                        label="Description"
+                        value={arc.narrative ?? ''}
+                        placeholder="Add a short note about this Arc…"
+                        // For Arc narratives, always expose the full text instead of
+                        // truncating so longer descriptions remain fully readable.
+                        maxCollapsedLines={0}
+                        enableAi
+                        aiContext={{
+                          objectType: 'arc',
+                          objectId: arc.id,
+                          fieldId: 'narrative',
+                        }}
+                        onChange={(nextNarrative) => {
+                          const trimmed = nextNarrative.trim();
+                          updateArc(arc.id, (current) => ({
+                            ...current,
+                            narrative: trimmed.length === 0 ? undefined : trimmed,
+                            updatedAt: new Date().toISOString(),
+                          }));
+                        }}
+                        onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                          openForFieldContext({
+                            objectType,
+                            objectId,
+                            fieldId,
+                            currentText,
+                            fieldLabel: 'Arc narrative',
+                          });
+                        }}
+                      />
                     </View>
                   )}
                 </View>
               </View>
+              {activeTab === 'details' && (
+                <>
+                  {renderInsightsSection()}
+                  <View style={styles.sectionDivider} />
+                </>
+              )}
+
+              {activeTab === 'goals' && (
+                <View
+                  style={styles.goalsSection}
+                  onLayout={(event) => {
+                    setGoalsSectionOffset(event.nativeEvent.layout.y);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.goalsDrawerInner,
+                      { paddingBottom: spacing['2xl'] + insets.bottom },
+                    ]}
+                  >
+                    <View
+                      style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}
+                    >
+                      <Text style={styles.sectionTitle}>
+                        Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+                      </Text>
+                      <IconButton
+                        style={styles.goalsExpandButton}
+                        onPress={() => setIsGoalCoachVisible(true)}
+                        accessibilityLabel="Create a new goal"
+                      >
+                        <Icon name="plus" size={18} color={colors.canvas} />
+                      </IconButton>
+                    </View>
+
+                    {arcGoals.length === 0 ? (
+                      <View style={styles.goalsEmptyStateContainer}>
+                        <Text style={styles.goalsEmptyTitle}>Turn this Arc into clear goals</Text>
+                        <Text style={styles.goalsEmptyBody}>
+                          Start by adding 3–5 goals that live inside this Arc so kwilt knows what
+                          “success” looks like here.
+                        </Text>
+                        <Button
+                          variant="accent"
+                          style={styles.goalsEmptyPrimaryButton}
+                          onPress={() => setIsGoalCoachVisible(true)}
+                        >
+                          <Text style={styles.goalsEmptyPrimaryLabel}>
+                            Create goals for this Arc
+                          </Text>
+                        </Button>
+                      </View>
+                    ) : (
+                      <View style={styles.goalsScrollContent}>
+                        <View style={{ gap: spacing.sm }}>
+                          {arcGoals.map((goal) => (
+                            <GoalListCard
+                              key={goal.id}
+                              goal={goal}
+                              parentArc={arc}
+                              activityCount={activityCountByGoal[goal.id] ?? 0}
+                              thumbnailStyles={thumbnailStyles}
+                              onPress={() =>
+                                navigation.navigate('GoalDetail', {
+                                  goalId: goal.id,
+                                  entryPoint: 'arcsStack',
+                                })
+                              }
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {activeTab === 'history' && (
+                <View style={styles.historyTabPlaceholder}>
+                  <Text style={styles.historyTabTitle}>History</Text>
+                  <Text style={styles.historyTabBody}>
+                    A future update will show reflections and key changes for this Arc over time.
+                  </Text>
+                </View>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -455,12 +653,9 @@ export function ArcDetailScreen() {
         launchFromArcId={arc.id}
         navigateToGoalDetailOnCreate={false}
       />
-      {/* Floating AgentWorkspace entry; launches the shared Agent workspace for this Arc */}
-      <AgentFab
-        onPress={() => {
-          openForScreenContext({ objectType: 'arc', objectId: arc.id });
-        }}
-      />
+      {/* Agent FAB entry for Arc detail is temporarily disabled for MVP.
+          Once the tap-centric Agent entry is refined for object canvases,
+          we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
     </AppShell>
   );
@@ -1436,6 +1631,147 @@ const styles = StyleSheet.create({
     fontFamily: typography.body.fontFamily,
     fontSize: typography.body.fontSize,
     lineHeight: typography.body.lineHeight,
+  },
+  insightsPromptCard: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: cardSurfaceStyle.shadowColor,
+    shadowOpacity: cardSurfaceStyle.shadowOpacity,
+    shadowRadius: cardSurfaceStyle.shadowRadius,
+    shadowOffset: cardSurfaceStyle.shadowOffset,
+    elevation: (cardSurfaceStyle as any).elevation,
+    gap: spacing.sm,
+  },
+  insightsPromptTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  insightsPromptBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  insightsPromptActions: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  insightsPrimaryButton: {
+    width: '100%',
+  },
+  insightsPrimaryLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    textAlign: 'center',
+  },
+  insightsSecondaryLabel: {
+    ...typography.bodySm,
+    color: colors.accent,
+    textAlign: 'center',
+  },
+  insightsCard: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: cardSurfaceStyle.shadowColor,
+    shadowOpacity: cardSurfaceStyle.shadowOpacity,
+    shadowRadius: cardSurfaceStyle.shadowRadius,
+    shadowOffset: cardSurfaceStyle.shadowOffset,
+    elevation: (cardSurfaceStyle as any).elevation,
+    gap: spacing.sm,
+  },
+  insightsSectionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  insightsBlocksStack: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  insightBlock: {
+    paddingVertical: spacing.sm,
+  },
+  insightHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: spacing.sm,
+  },
+  insightTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  insightBody: {
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  insightBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    columnGap: spacing.xs,
+  },
+  insightBulletGlyph: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  insightBulletText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  segmentedControlRow: {
+    marginTop: 0,
+    marginBottom: spacing.lg,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    padding: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    alignSelf: 'flex-start',
+  },
+  segmentedOption: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  segmentedOptionActive: {
+    backgroundColor: colors.canvas,
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  segmentedOptionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  segmentedOptionLabelActive: {
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  historyTabPlaceholder: {
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing['2xl'],
+  },
+  historyTabTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  historyTabBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
 });
 

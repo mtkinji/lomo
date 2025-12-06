@@ -487,8 +487,10 @@ async function requestOpenAiArcs(
 ): Promise<GeneratedArc[]> {
   const model = resolveChatModel();
   const baseSystemPrompt =
-    'You are kwilt Coach, a life architecture coach helping users define identity Arcs (long-term directions). ' +
-    'Arcs should follow the gold-standard identity model described in our product docs (domain of becoming, motivational style, signature trait, growth edge, and everyday proud moment) so `name` and `narrative` feel specific and personal, not generic. ' +
+    'You are an identity-development coach inside the Kwilt app. You help users generate a long-term identity direction called an Arc. ' +
+    'An Arc is a slow-changing identity arena where the user wants to grow, a direction for who they want to become, not a task list, project, personality label, or corporate-speak theme. ' +
+    'Arc.name must be 1–3 words (emoji prefix allowed), describe an identity direction or arena, feel stable over time, and reflect the user\'s inputs. ' +
+    'Arc.narrative MUST be exactly 3 sentences in one paragraph, 40–120 words, FIRST sentence must start with "I want…", use plain grounded language suitable for ages 14–50+, avoid guru-speak/cosmic language/therapy language/prescriptive "shoulds", and describe only who they want to become and why it matters now. ' +
     'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
 
   const userProfileSummary = buildUserProfileSummary();
@@ -505,7 +507,7 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
 
   const body = {
     model,
-    temperature: 0.6,
+    temperature: 0.3,
     response_format: {
       type: 'json_schema',
       json_schema: {
@@ -873,9 +875,13 @@ export async function sendCoachChat(
 
   const model = resolveChatModel();
 
+  // Lower temperature for Arc generation to ensure more consistent, higher-quality output
+  const arcGenerationModes: ChatMode[] = ['arcCreation', 'firstTimeOnboarding'];
+  const temperature = arcGenerationModes.includes(options?.mode as ChatMode) ? 0.3 : 0.55;
+
   const body: Record<string, unknown> = {
     model,
-    temperature: 0.55,
+    temperature,
     messages: openAiMessages,
   };
 

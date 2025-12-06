@@ -24,6 +24,14 @@ export const colors = {
   // Complementary surfaces to the pine green accent
   accentRose: '#F9A8D4', // soft rose
   accentRoseStrong: '#EC4899', // brighter, high-saturation rose that still pairs with pine
+  // Kwilt Craft brand palette (Earthy + Handmade + Cross-Cultural)
+  indigo: '#1A2E3F', // Aizome Indigo – 深藍, deep, contemplative, protective
+  turmeric: '#C58B2A', // Kalo Turmeric – warm, diffuse, pan-Indian / SE Asian turmeric
+  madder: '#B35F4C', // Madder Rose – soft, earthy historical dye red
+  quiltBlue: '#6C8AA6', // Woad / weathered quilt blue, cool but worn-in
+  clay: '#D9C8B8', // Clay Slip – neutral, grounding, unbleached-cotton/ceramic slip
+  moss: '#4F5D47', // Moss Iron – vegetal green cut with soil
+  sumi: '#1C1A19', // Charred Sumi – sumi ink / charcoal
   warning: '#F97316',
   success: '#65A30D',
   infoSurface: '#F4F1FF',

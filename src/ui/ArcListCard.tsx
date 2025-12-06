@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '@/components/ui/card';
@@ -28,6 +28,13 @@ type ArcListCardProps = {
    * compact two-line snippet for list views.
    */
   showFullNarrative?: boolean;
+  /**
+   * Optional custom narrative renderer. When provided, this content is rendered
+   * in place of the default single Text block, but still inside the same card
+   * layout. Useful for onboarding reveals where we want multi-paragraph
+   * layouts or additional emphasis without changing the stored Arc text.
+   */
+  customNarrative?: ReactNode;
 };
 
 export function ArcListCard({
@@ -36,6 +43,7 @@ export function ArcListCard({
   style,
   narrativeTone = 'default',
   showFullNarrative = false,
+  customNarrative,
 }: ArcListCardProps) {
   const seed = buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
   const { colors: gradientColors, direction } = getArcGradient(seed);
@@ -77,17 +85,19 @@ export function ArcListCard({
           <Text numberOfLines={2} style={styles.title}>
             {arc.name}
           </Text>
-          {arc.narrative ? (
-            <Text
-              numberOfLines={showFullNarrative ? undefined : 2}
-              style={[
-                styles.narrative,
-                narrativeTone === 'strong' && styles.narrativeStrong,
-              ]}
-            >
-              {arc.narrative}
-            </Text>
-          ) : null}
+          {customNarrative
+            ? customNarrative
+            : arc.narrative && (
+                <Text
+                  numberOfLines={showFullNarrative ? undefined : 2}
+                  style={[
+                    styles.narrative,
+                    narrativeTone === 'strong' && styles.narrativeStrong,
+                  ]}
+                >
+                  {arc.narrative}
+                </Text>
+              )}
         </View>
 
         {(goalCountLabel || showStatusPill) && (

@@ -4,7 +4,17 @@ import { useAppStore } from '../store/useAppStore';
 
 export type MediaRole = 'celebration' | 'instruction';
 
-export type CelebrationKind = 'firstArc' | 'firstGoal' | 'streak' | 'milestone';
+export type CelebrationKind =
+  | 'firstArcCelebrate'
+  | 'firstArcDreamsPrompt'
+  | 'firstGoal'
+  | 'streak'
+  | 'milestone'
+  /**
+   * Legacy kind kept for backwards-compatibility with any persisted data.
+   * New call sites should prefer the more specific variants above.
+   */
+  | 'firstArc';
 
 export type CelebrationStylePreference = 'cute' | 'minimal' | 'surprise';
 
@@ -50,8 +60,13 @@ function buildGiphyQuery(params: FetchCelebrationGifParams): string {
 
   // Base term from role/kind – keep queries upbeat and generic enough to avoid
   // specific holidays or identity themes.
-  if (role === 'celebration' && kind === 'firstArc') {
-    return 'hooray yes you did it celebration';
+  if (role === 'celebration' && kind === 'firstArcCelebrate') {
+    // Big "you did it" confetti moment for the first Arc celebration dialog.
+    return 'you did it celebration confetti';
+  }
+  if (role === 'celebration' && kind === 'firstArcDreamsPrompt') {
+    // Softer "almost there, keep going" encouragement for the Part 2 dreams prompt.
+    return 'you got this keep going';
   }
   if (role === 'celebration' && kind === 'firstGoal') {
     // Lean slightly into a playful soccer metaphor while keeping things broad.

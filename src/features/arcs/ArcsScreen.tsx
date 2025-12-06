@@ -27,12 +27,14 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import { generateArcs, GeneratedArc } from '../../services/ai';
 import type { Arc, Goal } from '../../domain/types';
+import { scoreArcNarrative } from '../../domain/idealArcs';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ARC_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { Logo } from '../../ui/Logo';
+import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'kwilt-coach-draft:arcCreation:v1';
 
@@ -872,6 +874,20 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
   }, [visible]);
 
   const handleConfirmArc = (proposal: GeneratedArc) => {
+    if (__DEV__) {
+      const judgement = scoreArcNarrative({
+        name: proposal.name,
+        narrative: proposal.narrative,
+      });
+      // eslint-disable-next-line no-console
+      console.log('[arcJudging] Generated Arc quality', {
+        name: proposal.name,
+        score: judgement.score,
+        scoreLabel: `${judgement.score}/10`,
+        components: judgement.components,
+      });
+    }
+
     const timestamp = new Date().toISOString();
     const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -887,6 +903,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
     };
 
     addArc(arc);
+    void ensureArcDevelopmentInsights(id);
     onClose();
     navigation.navigate('ArcDetail', { arcId: id });
   };
@@ -912,6 +929,7 @@ function NewArcModal({ visible, onClose, workspaceSnapshot, resumeDraft = true }
     };
 
     addArc(arc);
+    void ensureArcDevelopmentInsights(id);
     onClose();
     navigation.navigate('ArcDetail', { arcId: id });
   };
