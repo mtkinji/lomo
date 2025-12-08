@@ -577,6 +577,12 @@ export type AiChatPaneProps = {
    * activity suggestion card in activityCreation mode.
    */
   onAdoptActivitySuggestion?: (suggestion: ActivitySuggestion) => void;
+  /**
+   * Optional hook allowing the pane to request that its host close the
+   * surrounding shell (for example, the Activities AI bottom sheet) when
+   * the user is done adopting suggestions.
+   */
+  onDismiss?: () => void;
 };
 
 export type AiChatPaneController = {
@@ -620,6 +626,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     onTransportError,
     onManualFallbackRequested,
     onAdoptActivitySuggestion,
+    onDismiss,
   }: AiChatPaneProps,
   ref: Ref<AiChatPaneController>
 ) {
@@ -1084,6 +1091,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
             const parsed = extractActivitySuggestionsFromAssistantMessage(fullText);
             if (parsed.suggestions && parsed.suggestions.length > 0) {
               setActivitySuggestions(parsed.suggestions);
+              setAdoptedActivityCount(0);
+              setShowActivitySummary(false);
             } else {
               setActivitySuggestions(null);
             }
@@ -1136,9 +1145,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
             extractActivitySuggestionsFromAssistantMessage(reply);
           baseContent = displayContent;
           if (!cancelled) {
-            setActivitySuggestions(
-              suggestions && suggestions.length > 0 ? suggestions : null
-            );
+            const nextSuggestions =
+              suggestions && suggestions.length > 0 ? suggestions : null;
+            setActivitySuggestions(nextSuggestions);
+            if (nextSuggestions) {
+              setAdoptedActivityCount(0);
+              setShowActivitySummary(false);
+            }
           }
         }
 
@@ -1298,6 +1311,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
         const activityParsed = extractActivitySuggestionsFromAssistantMessage(displayContent);
         if (activityParsed.suggestions && activityParsed.suggestions.length > 0) {
           setActivitySuggestions(activityParsed.suggestions);
+          setAdoptedActivityCount(0);
+          setShowActivitySummary(false);
         } else {
           setActivitySuggestions(null);
         }
@@ -1348,18 +1363,44 @@ export const AiChatPane = forwardRef(function AiChatPane(
     setInput('');
   };
 
+  const [adoptedActivityCount, setAdoptedActivityCount] = useState(0);
+  const [showActivitySummary, setShowActivitySummary] = useState(false);
+
   const handleRegenerateActivitySuggestions = async () => {
     await sendMessageWithContent(
       'Let’s try a fresh set of concrete activity suggestions for this goal.'
     );
   };
 
+  const handleAcceptSuggestion = useCallback(
+    (suggestion: ActivitySuggestion) => {
+      if (onAdoptActivitySuggestion) {
+        onAdoptActivitySuggestion(suggestion);
+      }
+      setAdoptedActivityCount((count) => count + 1);
+      setActivitySuggestions((current) => {
+        if (!current) return current;
+        const next = current.filter((entry) => entry.id !== suggestion.id);
+        return next.length === 0 ? null : next;
+      });
+      // When suggestions run out after adopting one, surface a short
+      // inline summary so the user has clear closure on what was added.
+      setShowActivitySummary((current) => (activitySuggestions && activitySuggestions.length > 1 ? current : true));
+    },
+    [onAdoptActivitySuggestion, activitySuggestions]
+  );
+
   const handleAcceptAllSuggestions = useCallback(() => {
-    if (!onAdoptActivitySuggestion) return;
-    if (!activitySuggestions || activitySuggestions.length === 0) return;
-    activitySuggestions.forEach((suggestion) => {
-      onAdoptActivitySuggestion(suggestion);
-    });
+    if (activitySuggestions && activitySuggestions.length > 0 && onAdoptActivitySuggestion) {
+      activitySuggestions.forEach((suggestion) => {
+        onAdoptActivitySuggestion(suggestion);
+      });
+      setAdoptedActivityCount((count) => count + activitySuggestions.length);
+    }
+    // Clear the suggestion rail and show the confirmation summary once
+    // everything has been adopted.
+    setActivitySuggestions(null);
+    setShowActivitySummary(true);
   }, [activitySuggestions, onAdoptActivitySuggestion]);
 
   const scrollToLatest = () => {
@@ -1494,50 +1535,107 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     ),
                   )}
 
-                {mode === 'activityCreation' && activitySuggestions && bootstrapped && (
-                  <View style={styles.activitySuggestionsStack}>
-                    <Text style={styles.activitySuggestionsLabel}>Suggested activities</Text>
-                    <VStack space="xs">
-                      {activitySuggestions.map((suggestion) => (
-                        <Card key={suggestion.id} style={styles.activitySuggestionCard}>
-                          <VStack space="sm">
-                            <Text style={styles.activitySuggestionTitle}>{suggestion.title}</Text>
-                            <View style={styles.activitySuggestionActionsRow}>
-                              <Button
-                                variant="outline"
-                                size="small"
-                                onPress={handleRegenerateActivitySuggestions}
-                              >
-                                <Text style={styles.activitySuggestionRegenerateLabel}>
-                                  Generate again
-                                </Text>
-                              </Button>
-                              <Button
-                                variant="accent"
-                                size="small"
-                                onPress={() => {
-                                  onAdoptActivitySuggestion?.(suggestion);
-                                }}
-                              >
-                                <Text style={styles.primaryButtonLabel}>Accept</Text>
-                              </Button>
-                            </View>
-                          </VStack>
-                        </Card>
-                      ))}
-                    </VStack>
-                    <View style={styles.activitySuggestionsFooterRow}>
-                      <Button
-                        variant="ai"
-                        size="small"
-                        onPress={handleAcceptAllSuggestions}
-                        disabled={!activitySuggestions || activitySuggestions.length === 0}
-                      >
-                        <Text style={styles.primaryButtonLabel}>Accept all</Text>
-                      </Button>
+                {mode === 'activityCreation' &&
+                  activitySuggestions &&
+                  bootstrapped &&
+                  !showActivitySummary && (
+                    <View style={styles.activitySuggestionsStack}>
+                      <Text style={styles.activitySuggestionsLabel}>Suggested activities</Text>
+                      {adoptedActivityCount > 0 && (
+                        <View style={styles.activityInlineConfirmationRow}>
+                          <Text style={styles.activityInlineConfirmationText}>
+                            {adoptedActivityCount === 1
+                              ? 'Added to Activities.'
+                              : `${adoptedActivityCount} activities added so far.`}
+                          </Text>
+                          {onDismiss && (
+                            <Button
+                              variant="ghost"
+                              size="small"
+                              onPress={onDismiss}
+                            >
+                              <Text style={styles.activityInlineConfirmationDismissLabel}>
+                                Close Activities AI
+                              </Text>
+                            </Button>
+                          )}
+                        </View>
+                      )}
+                      <VStack space="xs">
+                        {activitySuggestions.map((suggestion) => (
+                          <Card key={suggestion.id} style={styles.activitySuggestionCard}>
+                            <VStack space="sm">
+                              <Text style={styles.activitySuggestionTitle}>{suggestion.title}</Text>
+                              <View style={styles.activitySuggestionActionsRow}>
+                                <Button
+                                  variant="accent"
+                                  size="small"
+                                  onPress={() => {
+                                    handleAcceptSuggestion(suggestion);
+                                  }}
+                                >
+                                  <Text style={styles.primaryButtonLabel}>Accept</Text>
+                                </Button>
+                              </View>
+                            </VStack>
+                          </Card>
+                        ))}
+                      </VStack>
+                      <View style={styles.activitySuggestionsFooterRow}>
+                        <Button
+                          variant="outline"
+                          size="small"
+                          onPress={handleRegenerateActivitySuggestions}
+                        >
+                          <Text style={styles.activitySuggestionRegenerateLabel}>Generate again</Text>
+                        </Button>
+                        <Button
+                          variant="ai"
+                          size="small"
+                          onPress={handleAcceptAllSuggestions}
+                          disabled={!activitySuggestions || activitySuggestions.length === 0}
+                        >
+                          <Text style={styles.primaryButtonLabel}>Accept all</Text>
+                        </Button>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
+
+                {mode === 'activityCreation' &&
+                  showActivitySummary &&
+                  adoptedActivityCount > 0 && (
+                    <View style={styles.activitySummaryCard}>
+                      <Text style={styles.activitySummaryTitle}>Activities added</Text>
+                      <Text style={styles.activitySummaryBody}>
+                        {adoptedActivityCount === 1
+                          ? '1 activity was added to your list.'
+                          : `${adoptedActivityCount} activities were added to your list.`}
+                      </Text>
+                      <View style={styles.activitySummaryActionsRow}>
+                        <Button
+                          variant="outline"
+                          size="small"
+                          onPress={() => {
+                            setShowActivitySummary(false);
+                            void handleRegenerateActivitySuggestions();
+                          }}
+                        >
+                          <Text style={styles.activitySuggestionRegenerateLabel}>
+                            Get more ideas
+                          </Text>
+                        </Button>
+                        {onDismiss && (
+                          <Button
+                            variant="ai"
+                            size="small"
+                            onPress={onDismiss}
+                          >
+                            <Text style={styles.primaryButtonLabel}>Done for now</Text>
+                          </Button>
+                        )}
+                      </View>
+                    </View>
+                  )}
 
                 {mode === 'activityCreation' && hasTransportError && (
                   <View style={styles.manualFallbackCard}>
@@ -2245,10 +2343,52 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    columnGap: spacing.xs,
   },
   activitySuggestionRegenerateLabel: {
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
+  },
+  activityInlineConfirmationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  activityInlineConfirmationText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+    flexShrink: 1,
+    marginRight: spacing.sm,
+  },
+  activityInlineConfirmationDismissLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  activitySummaryCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  activitySummaryTitle: {
+    ...typography.body,
+    color: CHAT_COLORS.textPrimary,
+  },
+  activitySummaryBody: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  activitySummaryActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    columnGap: spacing.xs,
+    marginTop: spacing.sm,
   },
   manualFallbackCard: {
     borderRadius: 20,

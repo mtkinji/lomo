@@ -285,7 +285,11 @@ export function GoalDetailScreen() {
       })
     : undefined;
 
-  type GoalHistoryEventKind = 'goalCreated' | 'goalCompleted' | 'activityCompleted';
+  type GoalHistoryEventKind =
+    | 'goalCreated'
+    | 'goalCompleted'
+    | 'activityCreated'
+    | 'activityCompleted';
 
   type GoalHistoryEvent = {
     id: string;
@@ -329,6 +333,28 @@ export function GoalDetailScreen() {
       });
     }
 
+    // Activity added events
+    goalActivities.forEach((activity) => {
+      const createdAt = activity.createdAt;
+      if (!createdAt) {
+        return;
+      }
+
+      const metaParts: string[] = [];
+      if (activity.creationSource === 'ai') {
+        metaParts.push('Added from AI plan');
+      }
+
+      events.push({
+        id: `activity-created-${activity.id}`,
+        kind: 'activityCreated',
+        timestamp: createdAt,
+        title: activity.title || 'Activity added',
+        dateLabel: formatDateLabel(createdAt),
+        meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
+      });
+    });
+
     // Activity completion events
     completedGoalActivities.forEach((activity) => {
       if (!activity.completedAt) {
@@ -359,7 +385,7 @@ export function GoalDetailScreen() {
 
     // Newest first
     return events.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
-  }, [goal, completedGoalActivities]);
+  }, [goal, goalActivities, completedGoalActivities]);
 
   const handleShuffleGoalThumbnail = useCallback(() => {
     const timestamp = new Date().toISOString();
@@ -949,7 +975,7 @@ export function GoalDetailScreen() {
                     <View style={styles.historyEmptyCard}>
                       <Text style={styles.historyEmptyTitle}>No history yet</Text>
                       <Text style={styles.historyEmptyBody}>
-                        As you complete activities or change this goal, a timeline of key
+                        As you add or complete activities, or change this goal, a timeline of key
                         moments will appear here.
                       </Text>
                     </View>
@@ -966,6 +992,8 @@ export function GoalDetailScreen() {
                             <Text style={styles.historyEventTitle}>
                               {event.kind === 'activityCompleted'
                                 ? `Completed: ${event.title}`
+                                : event.kind === 'activityCreated'
+                                ? `Added: ${event.title}`
                                 : event.title}
                             </Text>
                             {event.meta ? (
@@ -1707,6 +1735,63 @@ function GoalActivityCoachDrawer({
     [activities.length, addActivity, focusGoalId]
   );
 
+  const handleAdoptActivitySuggestion = useCallback(
+    (suggestion: import('../ai/AiChatScreen').ActivitySuggestion) => {
+      const timestamp = new Date().toISOString();
+      const baseIndex = activities.length;
+      const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const steps =
+        suggestion.steps?.map((step, index) => ({
+          id: `step-${id}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+          title: step.title,
+          isOptional: step.isOptional ?? false,
+          completedAt: null,
+          orderIndex: index,
+        })) ?? [];
+
+      const nextActivity: Activity = {
+        id,
+        goalId: focusGoalId,
+        title: suggestion.title.trim(),
+        notes: suggestion.why,
+        steps,
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+        creationSource: 'ai',
+        planGroupId: null,
+        scheduledDate: null,
+        repeatRule: undefined,
+        orderIndex: baseIndex + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        aiPlanning: suggestion.timeEstimateMinutes || suggestion.energyLevel
+          ? {
+              estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+              difficulty:
+                suggestion.energyLevel === 'light'
+                  ? 'easy'
+                  : suggestion.energyLevel === 'focused'
+                  ? 'hard'
+                  : undefined,
+              lastUpdatedAt: timestamp,
+              source: 'full_context',
+            }
+          : undefined,
+        forceActual: defaultForceLevels(0),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      addActivity(nextActivity);
+    },
+    [activities.length, addActivity, focusGoalId]
+  );
+
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
       <View style={styles.activityCoachContainer}>
@@ -1770,6 +1855,8 @@ function GoalActivityCoachDrawer({
               hidePromptSuggestions
               onComplete={handleAiComplete}
               onTransportError={handleSwitchToManual}
+              onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
+              onDismiss={onClose}
             />
           </View>
         ) : (

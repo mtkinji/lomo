@@ -29,7 +29,8 @@ const config: ExpoConfig = {
   name: 'kwilt',
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
-  version: '1.0.1',
+  // Marketing version (visible in the App Store / Settings).
+  version: '1.0.2',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -45,7 +46,8 @@ const config: ExpoConfig = {
     supportsTablet: true,
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
-    buildNumber: '3',
+    // Internal build number for TestFlight/App Store (must be monotonically increasing).
+    buildNumber: '5',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ['fetch', 'remote-notification'],

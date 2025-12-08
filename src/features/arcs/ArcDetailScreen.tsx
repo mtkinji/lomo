@@ -183,27 +183,34 @@ export function ArcDetailScreen() {
     }
   }, [arc, lastOnboardingArcId, hasSeenFirstArcCelebration]);
 
-  if (!arc) {
-    return (
-      <AppShell>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={styles.emptyBody}>Arc not found.</Text>
-        </View>
-      </AppShell>
-    );
-  }
+  const heroSeed = useMemo(() => {
+    if (!arc) {
+      return null;
+    }
+    return buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
+  }, [arc]);
 
-  const heroSeed = useMemo(
-    () => buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant),
-    [arc.id, arc.name, arc.thumbnailVariant],
-  );
-
-  const { colors: headerGradientColors, direction: headerGradientDirection } = useMemo(
-    () => getArcGradient(heroSeed),
-    [heroSeed],
-  );
+  const {
+    colors: headerGradientColors,
+    direction: headerGradientDirection,
+  } = useMemo(() => {
+    if (!heroSeed) {
+      // Fallback visual so the hook can run safely even when the Arc is missing.
+      const fallbackSeed = buildArcThumbnailSeed(
+        String(arcId ?? 'missing-arc'),
+        'Missing Arc',
+        null,
+      );
+      return getArcGradient(fallbackSeed);
+    }
+    return getArcGradient(heroSeed);
+  }, [heroSeed, arcId]);
 
   const handleDeleteArc = useCallback(() => {
+    if (!arc) {
+      return;
+    }
+
     Alert.alert(
       'Delete arc?',
       'This will remove the arc and related goals.',
@@ -219,12 +226,13 @@ export function ArcDetailScreen() {
         },
       ],
     );
-  }, [arc.id, handleBackToArcs, removeArc]);
+  }, [arc, handleBackToArcs, removeArc]);
 
   const hasDevelopmentInsights =
-    (arc.developmentStrengths && arc.developmentStrengths.length > 0) ||
-    (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
-    (arc.developmentPitfalls && arc.developmentPitfalls.length > 0);
+    !!arc &&
+    ((arc.developmentStrengths && arc.developmentStrengths.length > 0) ||
+      (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
+      (arc.developmentPitfalls && arc.developmentPitfalls.length > 0));
 
   type ArcHistoryEventKind = 'arcCreated' | 'goalCreated' | 'goalCompleted' | 'activityCompleted';
 
@@ -238,6 +246,14 @@ export function ArcDetailScreen() {
   };
 
   const arcHistoryEvents: ArcHistoryEvent[] = useMemo(() => {
+    // When an Arc has been deleted (or the detail screen is mounted with a
+    // stale / missing `arcId`), avoid trying to build a history timeline.
+    // This keeps the hooks tree stable while letting the early-return
+    // "Arc not found" state render safely.
+    if (!arc) {
+      return [];
+    }
+
     const events: ArcHistoryEvent[] = [];
 
     const formatDateLabel = (timestamp: string) =>
@@ -310,6 +326,27 @@ export function ArcDetailScreen() {
 
     return events.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
   }, [arc, arcGoals, completedArcActivities]);
+
+  if (!arc) {
+    return (
+      <AppShell>
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyTitle}>Arc not found</Text>
+          <Text style={styles.emptyBody}>
+            This Arc may have been deleted or is no longer available. You can return to your
+            Arcs canvas and choose another Arc to open.
+          </Text>
+          <Button
+            variant="accent"
+            style={styles.emptyPrimaryButton}
+            onPress={handleBackToArcs}
+          >
+            <Text style={styles.emptyPrimaryLabel}>Back to Arcs</Text>
+          </Button>
+        </View>
+      </AppShell>
+    );
+  }
 
 
   const renderInsightsSection = () => {
@@ -1481,6 +1518,26 @@ const styles = StyleSheet.create({
   emptyBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  emptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  emptyPrimaryButton: {
+    marginTop: spacing.sm,
+    minWidth: 180,
+  },
+  emptyPrimaryLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    textAlign: 'center',
   },
   goalsEmptyState: {
     marginTop: spacing.lg,

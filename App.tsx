@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -21,6 +21,7 @@ import { useAppStore } from './src/store/useAppStore';
 import { NotificationService } from './src/services/NotificationService';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
+import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -42,6 +43,10 @@ export default function App() {
   const isFirstTimeFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
 
+  // Lightweight bootstrapping flag so we can show an in-app launch screen
+  // between the native splash and the main navigation shell.
+  const [isBootstrapped, setIsBootstrapped] = useState(false);
+
   useEffect(() => {
     // Kick off notifications initialization once per app lifetime.
     NotificationService.init().catch((error) => {
@@ -50,8 +55,10 @@ export default function App() {
       }
     });
 
-    const isFreshInstall = arcsCount === 0 && goalsCount === 0 && activitiesCount === 0;
-    if (isFreshInstall && !hasCompletedFirstTimeOnboarding && !isFirstTimeFlowActive) {
+    const shouldRunFtue =
+      !hasCompletedFirstTimeOnboarding && !isFirstTimeFlowActive;
+
+    if (shouldRunFtue) {
       startFirstTimeFlow();
     }
   }, [
@@ -63,8 +70,36 @@ export default function App() {
     startFirstTimeFlow,
   ]);
 
+  useEffect(() => {
+    if (!fontsLoaded) return;
+    // Defer bootstrapping to the next tick so initial effects (like FTUE
+    // trigger and notifications init) have a chance to run once.
+    const timeout = setTimeout(() => {
+      setIsBootstrapped(true);
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [
+    fontsLoaded,
+  ]);
+
   if (!fontsLoaded) {
     return null;
+  }
+
+  if (!isBootstrapped) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.shell }}>
+        <SafeAreaProvider>
+          <BottomSheetModalProvider>
+            <StatusBar style="dark" />
+            <Logo size={1} />
+            <LaunchScreen />
+            <PortalHost />
+          </BottomSheetModalProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
   }
 
   return (

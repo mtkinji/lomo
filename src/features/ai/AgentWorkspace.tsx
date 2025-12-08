@@ -353,6 +353,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         onTransportError={props.onTransportError}
         onManualFallbackRequested={props.onTransportError}
         onAdoptActivitySuggestion={props.onAdoptActivitySuggestion}
+        onDismiss={props.onDismiss}
       />
     </WorkflowRuntimeContext.Provider>
   );

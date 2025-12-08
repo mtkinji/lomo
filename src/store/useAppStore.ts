@@ -156,9 +156,14 @@ interface AppState {
 
 const now = () => new Date().toISOString();
 
+// Prefer the explicit `environment` value wired through `app.config.ts`. When that
+// isn't available at runtime (for example, in certain standalone/TestFlight builds),
+// fall back to the bundler dev flag so production installs don't accidentally pick
+// up demo data or dev-only defaults.
 const appEnvironment =
   (Constants.expoConfig?.extra as { environment?: string } | undefined)?.environment ??
-  'development';
+  (__DEV__ ? 'development' : 'production');
+
 const isProductionEnvironment = appEnvironment === 'production';
 
 const buildDefaultUserProfile = (): UserProfile => {
