@@ -1,7 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
   StyleSheet,
-  FlatList,
   View,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +11,7 @@ import {
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
-  Text as RNText,
+  Pressable,
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -24,7 +23,7 @@ import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Dialog, VStack, Heading, Text, HStack } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Arc, ForceLevel, ThumbnailStyle } from '../../domain/types';
+import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
 import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -51,6 +50,11 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import type { Activity } from '../../domain/types';
+import { BottomDrawer } from '../../ui/BottomDrawer';
+import { AgentWorkspace } from '../ai/AgentWorkspace';
+import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
+import { AgentModeHeader } from '../../ui/AgentModeHeader';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -100,6 +104,7 @@ export function GoalDetailScreen() {
   const [vectorsInfoVisible, setVectorsInfoVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
+  const [activityCoachVisible, setActivityCoachVisible] = useState(false);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
@@ -151,6 +156,14 @@ export function GoalDetailScreen() {
   const goalActivities = useMemo(
     () => activities.filter((activity) => activity.goalId === goalId),
     [activities, goalId]
+  );
+  const activeGoalActivities = useMemo(
+    () => goalActivities.filter((activity) => activity.status !== 'done'),
+    [goalActivities]
+  );
+  const completedGoalActivities = useMemo(
+    () => goalActivities.filter((activity) => activity.status === 'done'),
+    [goalActivities]
   );
 
   const handleToggleActivityComplete = useCallback(
@@ -271,6 +284,108 @@ export function GoalDetailScreen() {
         year: 'numeric',
       })
     : undefined;
+
+  type GoalHistoryEventKind =
+    | 'goalCreated'
+    | 'goalCompleted'
+    | 'activityCreated'
+    | 'activityCompleted';
+
+  type GoalHistoryEvent = {
+    id: string;
+    kind: GoalHistoryEventKind;
+    timestamp: string;
+    title: string;
+    dateLabel: string;
+    meta?: string;
+  };
+
+  const historyEvents: GoalHistoryEvent[] = useMemo(() => {
+    const events: GoalHistoryEvent[] = [];
+
+    const formatDateLabel = (timestamp: string) =>
+      new Date(timestamp).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+    // Goal created milestone
+    events.push({
+      id: `goal-created-${goal.id}`,
+      kind: 'goalCreated',
+      timestamp: goal.createdAt,
+      title: 'Goal created',
+      dateLabel: formatDateLabel(goal.createdAt),
+      meta: undefined,
+    });
+
+    // Goal completed milestone
+    if (goal.status === 'completed') {
+      const completedTimestamp = goal.updatedAt ?? goal.createdAt;
+      events.push({
+        id: `goal-completed-${goal.id}`,
+        kind: 'goalCompleted',
+        timestamp: completedTimestamp,
+        title: 'Goal marked complete',
+        dateLabel: formatDateLabel(completedTimestamp),
+        meta: undefined,
+      });
+    }
+
+    // Activity added events
+    goalActivities.forEach((activity) => {
+      const createdAt = activity.createdAt;
+      if (!createdAt) {
+        return;
+      }
+
+      const metaParts: string[] = [];
+      if (activity.creationSource === 'ai') {
+        metaParts.push('Added from AI plan');
+      }
+
+      events.push({
+        id: `activity-created-${activity.id}`,
+        kind: 'activityCreated',
+        timestamp: createdAt,
+        title: activity.title || 'Activity added',
+        dateLabel: formatDateLabel(createdAt),
+        meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
+      });
+    });
+
+    // Activity completion events
+    completedGoalActivities.forEach((activity) => {
+      if (!activity.completedAt) {
+        return;
+      }
+      const minutes = activity.actualMinutes ?? undefined;
+
+      const metaParts: string[] = [];
+      if (minutes && minutes > 0) {
+        const hours = minutes / 60;
+        if (hours >= 1) {
+          const rounded = Math.round(hours * 10) / 10;
+          metaParts.push(`${rounded} hr${rounded === 1 ? '' : 's'}`);
+        } else {
+          metaParts.push(`${minutes} min`);
+        }
+      }
+
+      events.push({
+        id: `activity-completed-${activity.id}`,
+        kind: 'activityCompleted',
+        timestamp: activity.completedAt,
+        title: activity.title || 'Activity completed',
+        dateLabel: formatDateLabel(activity.completedAt),
+        meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
+      });
+    });
+
+    // Newest first
+    return events.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+  }, [goal, goalActivities, completedGoalActivities]);
 
   const handleShuffleGoalThumbnail = useCallback(() => {
     const timestamp = new Date().toISOString();
@@ -399,23 +514,6 @@ export function GoalDetailScreen() {
     }));
   };
 
-  const renderActivity = ({ item }: { item: Activity }) => {
-    const phase = item.phase ?? undefined;
-    const metaParts = [phase].filter(Boolean);
-    const meta = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
-
-    return (
-      <ActivityListItem
-        title={item.title}
-        meta={meta}
-        isCompleted={item.status === 'done'}
-        onToggleComplete={() => handleToggleActivityComplete(item.id)}
-        isPriorityOne={item.priority === 1}
-        onTogglePriority={() => handleToggleActivityPriorityOne(item.id)}
-      />
-    );
-  };
-
   const handleCreateActivityFromPlan = (values: { title: string; notes?: string }) => {
     const trimmedTitle = values.title.trim();
     if (!trimmedTitle) {
@@ -430,9 +528,12 @@ export function GoalDetailScreen() {
       goalId: goal.id,
       title: trimmedTitle,
       notes: values.notes?.trim().length ? values.notes.trim() : undefined,
+      steps: [],
       reminderAt: null,
       priority: undefined,
       estimateMinutes: null,
+      creationSource: 'manual',
+      planGroupId: null,
       scheduledDate: null,
       repeatRule: undefined,
       orderIndex: (activities.length || 0) + 1,
@@ -480,7 +581,7 @@ export function GoalDetailScreen() {
       )}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={{ flex: 1 }}>
-          <VStack space="lg">
+          <VStack space="lg" flex={1}>
             <HStack alignItems="center">
               <View style={styles.headerSide}>
                 <IconButton
@@ -494,7 +595,7 @@ export function GoalDetailScreen() {
               <View style={styles.headerCenter}>
                 <HStack alignItems="center" justifyContent="center" space="xs">
                   <Icon name="goals" size={16} color={colors.textSecondary} />
-                  <Text style={styles.objectTypeLabel}>Goal - DEV</Text>
+                  <Text style={styles.objectTypeLabel}>Goal</Text>
                 </HStack>
               </View>
               <View style={styles.headerSideRight}>
@@ -839,46 +940,176 @@ export function GoalDetailScreen() {
             )}
 
             {activeTab === 'history' && (
-              <View
-                style={{
-                  flex: 1,
-                  paddingHorizontal: spacing.md,
-                  paddingBottom: spacing.lg,
-                  paddingTop: spacing.md,
-                }}
-              >
-                <RNText
-                  style={{
-                    fontSize: 28,
-                    color: 'blue',
-                    fontWeight: 'bold',
-                    marginTop: 80,
-                  }}
-                >
-                  HELLO FROM HISTORY DEBUG
-                </RNText>
+              <View style={styles.historyContainer}>
+                <VStack space="md">
+                  <View>
+                    <Text style={styles.historyTitle}>History</Text>
+                    <Text style={styles.historySubtitle}>
+                      See how this goal has evolved over time as you complete activities
+                      and make changes.
+                    </Text>
+                  </View>
+
+                  <View style={styles.historySummaryRow}>
+                    <VStack space="xs" style={styles.historySummaryColumn}>
+                      <Text style={styles.historySummaryLabel}>Created</Text>
+                      <Text style={styles.historySummaryValue}>
+                        {createdAtLabel ?? 'Unknown'}
+                      </Text>
+                    </VStack>
+                    <VStack space="xs" style={styles.historySummaryColumn}>
+                      <Text style={styles.historySummaryLabel}>Last modified</Text>
+                      <Text style={styles.historySummaryValue}>
+                        {updatedAtLabel ?? 'Just now'}
+                      </Text>
+                    </VStack>
+                    <VStack space="xs" style={styles.historySummaryColumn}>
+                      <Text style={styles.historySummaryLabel}>Activities done</Text>
+                      <Text style={styles.historySummaryValue}>
+                        {completedGoalActivities.length}
+                      </Text>
+                    </VStack>
+                  </View>
+
+                  {historyEvents.length === 0 ? (
+                    <View style={styles.historyEmptyCard}>
+                      <Text style={styles.historyEmptyTitle}>No history yet</Text>
+                      <Text style={styles.historyEmptyBody}>
+                        As you add or complete activities, or change this goal, a timeline of key
+                        moments will appear here.
+                      </Text>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      style={styles.historyScroll}
+                      contentContainerStyle={styles.historyScrollContent}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <VStack space="sm">
+                        {historyEvents.map((event) => (
+                          <View key={event.id} style={styles.historyEventCard}>
+                            <Text style={styles.historyEventDate}>{event.dateLabel}</Text>
+                            <Text style={styles.historyEventTitle}>
+                              {event.kind === 'activityCompleted'
+                                ? `Completed: ${event.title}`
+                                : event.kind === 'activityCreated'
+                                ? `Added: ${event.title}`
+                                : event.title}
+                            </Text>
+                            {event.meta ? (
+                              <Text style={styles.historyEventMeta}>{event.meta}</Text>
+                            ) : null}
+                          </View>
+                        ))}
+                      </VStack>
+                    </ScrollView>
+                  )}
+                </VStack>
               </View>
             )}
 
             {activeTab === 'plan' && (
-              <View
-                style={{
-                  flex: 1,
-                  paddingHorizontal: spacing.md,
-                  paddingBottom: spacing.lg,
-                  paddingTop: spacing.md,
-                }}
-              >
-                <RNText
-                  style={{
-                    fontSize: 28,
-                    color: 'red',
-                    fontWeight: 'bold',
-                    marginTop: 80,
+              <View style={{ flex: 1 }}>
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{
+                    paddingHorizontal: spacing.md,
+                    paddingBottom: spacing['2xl'],
+                    paddingTop: spacing.md,
                   }}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
                 >
-                  HELLO FROM PLAN DEBUG ({goalActivities.length})
-                </RNText>
+                  <VStack space="md">
+                    <HStack alignItems="center" justifyContent="space-between">
+                      <Heading style={styles.sectionTitle}>Activities</Heading>
+                      <IconButton
+                        style={styles.addActivityIconButton}
+                        onPress={() => setActivityCoachVisible(true)}
+                        accessibilityLabel="Generate activities with AI"
+                      >
+                        <Icon name="plus" size={18} color={colors.canvas} />
+                      </IconButton>
+                    </HStack>
+
+                    {goalActivities.length === 0 ? (
+                      <VStack space="sm" style={styles.planEmptyState}>
+                        <Heading style={styles.planEmptyTitle}>
+                          No activities for this goal yet
+                        </Heading>
+                        <Text style={styles.planEmptyBody}>
+                          Activities are the concrete steps that move this goal forward. Add a first
+                          activity so you always know the next thing to do.
+                        </Text>
+                        <Text style={styles.planEmptyHint}>
+                          You can also create activities from the main Activities canvas anytime.
+                        </Text>
+                      </VStack>
+                    ) : (
+                      <>
+                        {activeGoalActivities.length > 0 && (
+                          <VStack space="xs">
+                            {activeGoalActivities.map((activity) => {
+                              const phase = activity.phase ?? undefined;
+                              const metaParts = [phase].filter(Boolean);
+                              const meta =
+                                metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+
+                              return (
+                                <ActivityListItem
+                                  key={activity.id}
+                                  title={activity.title}
+                                  meta={meta}
+                                  isCompleted={activity.status === 'done'}
+                                  onToggleComplete={() =>
+                                    handleToggleActivityComplete(activity.id)
+                                  }
+                                  isPriorityOne={activity.priority === 1}
+                                  onTogglePriority={() =>
+                                    handleToggleActivityPriorityOne(activity.id)
+                                  }
+                                />
+                              );
+                            })}
+                          </VStack>
+                        )}
+
+                        {completedGoalActivities.length > 0 && (
+                          <VStack
+                            space="xs"
+                            style={{
+                              marginTop: spacing['2xl'],
+                            }}
+                          >
+                            <Heading style={styles.sectionTitle}>Completed</Heading>
+                            {completedGoalActivities.map((activity) => {
+                              const phase = activity.phase ?? undefined;
+                              const metaParts = [phase].filter(Boolean);
+                              const meta =
+                                metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+
+                              return (
+                                <ActivityListItem
+                                  key={activity.id}
+                                  title={activity.title}
+                                  meta={meta}
+                                  isCompleted={activity.status === 'done'}
+                                  onToggleComplete={() =>
+                                    handleToggleActivityComplete(activity.id)
+                                  }
+                                  isPriorityOne={activity.priority === 1}
+                                  onTogglePriority={() =>
+                                    handleToggleActivityPriorityOne(activity.id)
+                                  }
+                                />
+                              );
+                            })}
+                          </VStack>
+                        )}
+                      </>
+                    )}
+                  </VStack>
+                </ScrollView>
               </View>
             )}
           </VStack>
@@ -971,6 +1202,13 @@ export function GoalDetailScreen() {
           </HStack>
         </View>
       </KwiltBottomSheet>
+      <GoalActivityCoachDrawer
+        visible={activityCoachVisible}
+        onClose={() => setActivityCoachVisible(false)}
+        goals={goals}
+        activities={activities}
+        focusGoalId={goal.id}
+      />
       <GoalActivityComposerModal
         visible={activityComposerVisible}
         onClose={() => setActivityComposerVisible(false)}
@@ -1344,6 +1582,332 @@ function GoalActivityComposerModal({
         </View>
       </KeyboardAvoidingView>
     </KwiltBottomSheet>
+  );
+}
+
+type GoalActivityCoachDrawerProps = {
+  visible: boolean;
+  onClose: () => void;
+  goals: Goal[];
+  activities: Activity[];
+  focusGoalId: string;
+};
+
+function GoalActivityCoachDrawer({
+  visible,
+  onClose,
+  goals,
+  activities,
+  focusGoalId,
+}: GoalActivityCoachDrawerProps) {
+  const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
+  const [manualActivityId, setManualActivityId] = useState<string | null>(null);
+  const addActivity = useAppStore((state) => state.addActivity);
+  const updateActivity = useAppStore((state) => state.updateActivity);
+  const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = useState(false);
+
+  const workspaceSnapshot = useMemo(
+    () => buildActivityCoachLaunchContext(goals, activities),
+    [goals, activities]
+  );
+
+  const focusGoal = useMemo(
+    () => goals.find((candidate) => candidate.id === focusGoalId) ?? null,
+    [goals, focusGoalId]
+  );
+
+  const launchContext = useMemo(
+    () => ({
+      source: 'goalDetail' as const,
+      intent: 'activityCreation' as const,
+      entityRef: { type: 'goal', id: focusGoalId } as const,
+      objectType: 'goal' as const,
+      objectId: focusGoalId,
+    }),
+    [focusGoalId]
+  );
+
+  const handleCreateManualActivity = useCallback(() => {
+    if (manualActivityId) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const activity: Activity = {
+      id,
+      goalId: focusGoalId,
+      title: '',
+      notes: undefined,
+      steps: [],
+      reminderAt: null,
+      priority: undefined,
+      estimateMinutes: null,
+      creationSource: 'manual',
+      planGroupId: null,
+      scheduledDate: null,
+      repeatRule: undefined,
+      orderIndex: (activities.length || 0) + 1,
+      phase: null,
+      status: 'planned',
+      actualMinutes: null,
+      startedAt: null,
+      completedAt: null,
+      forceActual: defaultForceLevels(0),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    addActivity(activity);
+    setManualActivityId(id);
+  }, [activities.length, addActivity, focusGoalId, manualActivityId]);
+
+  useEffect(() => {
+    if (!visible) {
+      setActiveTab('ai');
+      setManualActivityId(null);
+      setIsActivityAiInfoVisible(false);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (activeTab !== 'manual') return;
+    if (manualActivityId) return;
+    handleCreateManualActivity();
+  }, [visible, activeTab, manualActivityId, handleCreateManualActivity]);
+
+  const manualActivity = useMemo(
+    () => (manualActivityId ? activities.find((a) => a.id === manualActivityId) ?? null : null),
+    [activities, manualActivityId]
+  );
+
+  const handleSwitchToManual = useCallback(() => {
+    setActiveTab('manual');
+  }, []);
+
+  const handleAiComplete = useCallback(
+    (outcome: unknown) => {
+      const adoptedTitles = Array.isArray((outcome as any)?.adoptedActivityTitles)
+        ? (outcome as any).adoptedActivityTitles
+        : [];
+
+      if (!adoptedTitles || adoptedTitles.length === 0) {
+        return;
+      }
+
+      const baseIndex = activities.length;
+      adoptedTitles.forEach((rawTitle: unknown, idx: number) => {
+        if (typeof rawTitle !== 'string') return;
+        const trimmedTitle = rawTitle.trim();
+        if (!trimmedTitle) return;
+
+        const timestamp = new Date().toISOString();
+        const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const nextActivity: Activity = {
+          id,
+          goalId: focusGoalId,
+          title: trimmedTitle,
+          notes: undefined,
+          steps: [],
+          reminderAt: null,
+          priority: undefined,
+          estimateMinutes: null,
+          creationSource: 'ai',
+          planGroupId: null,
+          scheduledDate: null,
+          repeatRule: undefined,
+          orderIndex: baseIndex + idx + 1,
+          phase: null,
+          status: 'planned',
+          actualMinutes: null,
+          startedAt: null,
+          completedAt: null,
+          forceActual: defaultForceLevels(0),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+
+        addActivity(nextActivity);
+      });
+    },
+    [activities.length, addActivity, focusGoalId]
+  );
+
+  const handleAdoptActivitySuggestion = useCallback(
+    (suggestion: import('../ai/AiChatScreen').ActivitySuggestion) => {
+      const timestamp = new Date().toISOString();
+      const baseIndex = activities.length;
+      const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const steps =
+        suggestion.steps?.map((step, index) => ({
+          id: `step-${id}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+          title: step.title,
+          isOptional: step.isOptional ?? false,
+          completedAt: null,
+          orderIndex: index,
+        })) ?? [];
+
+      const nextActivity: Activity = {
+        id,
+        goalId: focusGoalId,
+        title: suggestion.title.trim(),
+        notes: suggestion.why,
+        steps,
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+        creationSource: 'ai',
+        planGroupId: null,
+        scheduledDate: null,
+        repeatRule: undefined,
+        orderIndex: baseIndex + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        aiPlanning: suggestion.timeEstimateMinutes || suggestion.energyLevel
+          ? {
+              estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+              difficulty:
+                suggestion.energyLevel === 'light'
+                  ? 'easy'
+                  : suggestion.energyLevel === 'focused'
+                  ? 'hard'
+                  : undefined,
+              lastUpdatedAt: timestamp,
+              source: 'full_context',
+            }
+          : undefined,
+        forceActual: defaultForceLevels(0),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      addActivity(nextActivity);
+    },
+    [activities.length, addActivity, focusGoalId]
+  );
+
+  return (
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+      <View style={styles.activityCoachContainer}>
+        <AgentModeHeader
+          activeMode={activeTab}
+          onChangeMode={setActiveTab}
+          aiLabel={
+            <HStack space="xs" alignItems="center">
+              <Icon
+                name="sparkles"
+                size={14}
+                color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.segmentedOptionLabel,
+                  activeTab === 'ai' && styles.segmentedOptionLabelActive,
+                ]}
+              >
+                Activities AI
+              </Text>
+              <Pressable
+                onPress={(event) => {
+                  event.stopPropagation();
+                  setIsActivityAiInfoVisible(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Show context for Activities AI"
+              >
+                <Icon
+                  name="info"
+                  size={14}
+                  color={colors.textSecondary}
+                  style={styles.activityModePillInfoIcon}
+                />
+              </Pressable>
+            </HStack>
+          }
+        />
+        <Dialog
+          visible={isActivityAiInfoVisible}
+          onClose={() => setIsActivityAiInfoVisible(false)}
+          title="Activities AI context"
+          description="This coach proposes concrete activities using your existing goals and plans as context."
+        >
+          <Text style={styles.modalBody}>
+            {focusGoal
+              ? `Goal: ${focusGoal.title}\n\nI’m using this goal, plus your other goals and activities, to keep suggestions realistic, aligned, and non-duplicative.`
+              : 'I’m using your existing goals and activities to keep suggestions realistic, aligned, and non-duplicative.'}
+          </Text>
+        </Dialog>
+        {activeTab === 'ai' ? (
+          <View style={styles.activityCoachBody}>
+            <AgentWorkspace
+              mode="activityCreation"
+              launchContext={launchContext}
+              workspaceSnapshot={workspaceSnapshot}
+              workflowDefinitionId={ACTIVITY_CREATION_WORKFLOW_ID}
+              resumeDraft={false}
+              hideBrandHeader
+              hidePromptSuggestions
+              onComplete={handleAiComplete}
+              onTransportError={handleSwitchToManual}
+              onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
+              onDismiss={onClose}
+            />
+          </View>
+        ) : (
+          <KeyboardAvoidingView
+            style={styles.activityCoachBody}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              style={styles.manualFormContainer}
+              contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.modalLabel}>Activity title</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Clear the workbench"
+                placeholderTextColor={colors.textSecondary}
+                value={manualActivity?.title ?? ''}
+                onChangeText={(next) => {
+                  if (!manualActivity) return;
+                  const timestamp = new Date().toISOString();
+                  updateActivity(manualActivity.id, (prev) => ({
+                    ...prev,
+                    title: next,
+                    updatedAt: timestamp,
+                  }));
+                }}
+              />
+              <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Notes (optional)</Text>
+              <TextInput
+                style={[styles.input, styles.descriptionInput]}
+                placeholder="Add a short note or checklist for this activity."
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                value={manualActivity?.notes ?? ''}
+                onChangeText={(next) => {
+                  if (!manualActivity) return;
+                  const timestamp = new Date().toISOString();
+                  updateActivity(manualActivity.id, (prev) => ({
+                    ...prev,
+                    notes: next.trim().length > 0 ? next : undefined,
+                    updatedAt: timestamp,
+                  }));
+                }}
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+      </View>
+    </BottomDrawer>
   );
 }
 
@@ -1850,6 +2414,80 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textAlign: 'center',
   },
+  historyContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  historyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  historySubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  historySummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+  },
+  historySummaryColumn: {
+    flex: 1,
+  },
+  historySummaryLabel: {
+    ...typography.label,
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  historySummaryValue: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    marginTop: spacing.xs / 2,
+  },
+  historyEmptyCard: {
+    ...cardSurfaceStyle,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+  },
+  historyEmptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  historyEmptyBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  historyScroll: {
+    flex: 1,
+    marginTop: spacing.md,
+  },
+  historyScrollContent: {
+    paddingBottom: spacing['2xl'],
+  },
+  historyEventCard: {
+    ...cardSurfaceStyle,
+    padding: spacing.md,
+    flex: 1,
+  },
+  historyEventDate: {
+    ...typography.label,
+    color: colors.muted,
+    marginBottom: spacing.xs / 2,
+  },
+  historyEventTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  historyEventMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs / 2,
+  },
   segmentedControlRow: {
     marginTop: spacing.xs,
   },
@@ -1879,6 +2517,21 @@ const styles = StyleSheet.create({
   segmentedOptionLabelActive: {
     color: colors.textPrimary,
     fontFamily: typography.titleSm.fontFamily,
+  },
+  activityModePillInfoIcon: {
+    marginLeft: spacing.sm,
+  },
+  activityCoachContainer: {
+    flex: 1,
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  activityCoachBody: {
+    flex: 1,
   },
 });
 

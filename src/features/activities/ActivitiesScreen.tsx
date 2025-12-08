@@ -3,7 +3,15 @@ import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, TextInput } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  TextInput,
+} from 'react-native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import type {
@@ -12,7 +20,7 @@ import type {
 } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { VStack, Heading, Text, HStack } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, Input, Textarea } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
@@ -34,8 +42,11 @@ import type {
   ActivitySortMode,
   Goal,
   Arc,
+  ActivityStep,
 } from '../../domain/types';
 import { fonts } from '../../theme/typography';
+import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 type CompletedActivitySectionProps = {
   activities: Activity[];
@@ -905,6 +916,143 @@ const styles = StyleSheet.create({
     minHeight: 120,
     textAlignVertical: 'top',
   },
+  rowsCard: {
+    borderRadius: 20,
+    backgroundColor: colors.canvas,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  inputLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  sectionLabelRow: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  addStepButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  addStepButtonText: {
+    ...typography.label,
+    color: colors.primaryForeground,
+  },
+  stepsEmpty: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  stepRow: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  checkboxBase: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxPlanned: {
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  stepCheckbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1.5,
+  },
+  stepInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    paddingVertical: spacing.xs,
+  },
+  stepOptionalPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: colors.shell,
+  },
+  stepOptionalText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  stepOptionalTextActive: {
+    color: colors.accent,
+  },
+  removeStepButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rowPressed: {
+    backgroundColor: colors.shellAlt,
+  },
+  rowLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  rowLabelActive: {
+    color: colors.accent,
+  },
+  rowContent: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  rowValue: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  rowRight: {
+    flexShrink: 1,
+    paddingHorizontal: spacing.sm,
+  },
+  rowValueAi: {
+    color: colors.accent,
+  },
+  planningHeader: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  sheetContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  sheetTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  sheetRow: {
+    paddingVertical: spacing.sm,
+  },
+  sheetRowLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  datePickerContainer: {
+    marginTop: spacing.sm,
+  },
   viewEditorOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -944,6 +1092,10 @@ const styles = StyleSheet.create({
   },
   viewEditorToggleRow: {
     marginTop: spacing.lg,
+  },
+  aiErrorFallbackRow: {
+    // Deprecated: manual fallback card is now rendered inside AiChatScreen.
+    display: 'none',
   },
   viewEditorToggleLabel: {
     ...typography.bodySm,
@@ -1043,6 +1195,10 @@ function ActivityCoachDrawer({
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const [manualActivityId, setManualActivityId] = React.useState<string | null>(null);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const [reminderSheetVisible, setReminderSheetVisible] = React.useState(false);
+  const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
+  const [repeatSheetVisible, setRepeatSheetVisible] = React.useState(false);
+  const [isDueDatePickerVisible, setIsDueDatePickerVisible] = React.useState(false);
 
   const workspaceSnapshot = React.useMemo(
     () => buildActivityCoachLaunchContext(goals, activities),
@@ -1077,9 +1233,12 @@ function ActivityCoachDrawer({
       goalId: null,
       title: '',
       notes: undefined,
+      steps: [],
       reminderAt: null,
       priority: undefined,
       estimateMinutes: null,
+      creationSource: 'manual',
+      planGroupId: null,
       scheduledDate: null,
       repeatRule: undefined,
       orderIndex: (activities.length || 0) + 1,
@@ -1107,6 +1266,405 @@ function ActivityCoachDrawer({
   const manualActivity = React.useMemo(
     () => (manualActivityId ? activities.find((a) => a.id === manualActivityId) ?? null : null),
     [activities, manualActivityId],
+  );
+
+  const handleSwitchToManual = React.useCallback(() => {
+    setActiveTab('manual');
+  }, []);
+
+  const handleUpdateManualSteps = React.useCallback(
+    (updater: (steps: ActivityStep[]) => ActivityStep[]) => {
+      if (!manualActivity) return;
+      const timestamp = new Date().toISOString();
+      updateActivity(manualActivity.id, (prev) => {
+        const currentSteps = prev.steps ?? [];
+        const nextSteps = updater(currentSteps);
+        return {
+          ...prev,
+          steps: nextSteps,
+          updatedAt: timestamp,
+        };
+      });
+    },
+    [manualActivity, updateActivity],
+  );
+
+  const handleAddManualStep = React.useCallback(() => {
+    if (!manualActivity) return;
+    handleUpdateManualSteps((steps) => {
+      const nextIndex = steps.length;
+      const newStep: ActivityStep = {
+        id: `step-${manualActivity.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title: '',
+        completedAt: null,
+        isOptional: false,
+        orderIndex: nextIndex,
+      };
+      return [...steps, newStep];
+    });
+  }, [handleUpdateManualSteps, manualActivity]);
+
+  const handleChangeManualStepTitle = React.useCallback(
+    (stepId: string, title: string) => {
+      handleUpdateManualSteps((steps) =>
+        steps.map((step) => (step.id === stepId ? { ...step, title } : step)),
+      );
+    },
+    [handleUpdateManualSteps],
+  );
+
+  const handleToggleManualStepOptional = React.useCallback(
+    (stepId: string) => {
+      handleUpdateManualSteps((steps) =>
+        steps.map((step) =>
+          step.id === stepId ? { ...step, isOptional: !step.isOptional } : step,
+        ),
+      );
+    },
+    [handleUpdateManualSteps],
+  );
+
+  const handleRemoveManualStep = React.useCallback(
+    (stepId: string) => {
+      handleUpdateManualSteps((steps) => steps.filter((step) => step.id !== stepId));
+    },
+    [handleUpdateManualSteps],
+  );
+
+  const handleSelectManualReminder = React.useCallback(
+    (offsetDays: number) => {
+      if (!manualActivity) return;
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(9, 0, 0, 0);
+      const timestamp = new Date().toISOString();
+      updateActivity(manualActivity.id, (prev) => ({
+        ...prev,
+        reminderAt: date.toISOString(),
+        updatedAt: timestamp,
+      }));
+      setReminderSheetVisible(false);
+    },
+    [manualActivity, updateActivity],
+  );
+
+  const handleSelectManualDueDate = React.useCallback(
+    (offsetDays: number) => {
+      if (!manualActivity) return;
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(23, 0, 0, 0);
+      const timestamp = new Date().toISOString();
+      updateActivity(manualActivity.id, (prev) => ({
+        ...prev,
+        scheduledDate: date.toISOString(),
+        updatedAt: timestamp,
+      }));
+      setDueDateSheetVisible(false);
+    },
+    [manualActivity, updateActivity],
+  );
+
+  const handleClearManualDueDate = React.useCallback(() => {
+    if (!manualActivity) return;
+    const timestamp = new Date().toISOString();
+    updateActivity(manualActivity.id, (prev) => ({
+      ...prev,
+      scheduledDate: null,
+      updatedAt: timestamp,
+    }));
+    setDueDateSheetVisible(false);
+    setIsDueDatePickerVisible(false);
+  }, [manualActivity, updateActivity]);
+
+  const getInitialManualDueDateForPicker = React.useCallback(() => {
+    if (manualActivity?.scheduledDate) {
+      const parsed = new Date(manualActivity.scheduledDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  }, [manualActivity?.scheduledDate]);
+
+  const handleManualDueDateChange = React.useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      if (Platform.OS !== 'ios') {
+        setIsDueDatePickerVisible(false);
+      }
+
+      if (!manualActivity) return;
+      if (!date || event.type === 'dismissed') {
+        return;
+      }
+
+      const next = new Date(date);
+      next.setHours(23, 0, 0, 0);
+
+      const timestamp = new Date().toISOString();
+      updateActivity(manualActivity.id, (prev) => ({
+        ...prev,
+        scheduledDate: next.toISOString(),
+        updatedAt: timestamp,
+      }));
+      setDueDateSheetVisible(false);
+    },
+    [manualActivity, updateActivity],
+  );
+
+  const handleSelectManualRepeat = React.useCallback(
+    (rule: NonNullable<Activity['repeatRule']>) => {
+      if (!manualActivity) return;
+      const timestamp = new Date().toISOString();
+      updateActivity(manualActivity.id, (prev) => ({
+        ...prev,
+        repeatRule: rule,
+        updatedAt: timestamp,
+      }));
+      setRepeatSheetVisible(false);
+    },
+    [manualActivity, updateActivity],
+  );
+
+  const reminderLabel = React.useMemo(() => {
+    if (!manualActivity?.reminderAt) return 'None';
+    const date = new Date(manualActivity.reminderAt);
+    return date.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }, [manualActivity?.reminderAt]);
+
+  const dueDateLabel = React.useMemo(() => {
+    if (!manualActivity?.scheduledDate) return 'None';
+    const date = new Date(manualActivity.scheduledDate);
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }, [manualActivity?.scheduledDate]);
+
+  const repeatLabel = React.useMemo(() => {
+    if (!manualActivity?.repeatRule) return 'Off';
+    return manualActivity.repeatRule === 'weekdays'
+      ? 'Weekdays'
+      : manualActivity.repeatRule.charAt(0).toUpperCase() +
+          manualActivity.repeatRule.slice(1);
+  }, [manualActivity?.repeatRule]);
+
+  const formatMinutes = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`;
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) return `${hrs} hr${hrs === 1 ? '' : 's'}`;
+    return `${hrs} hr${hrs === 1 ? '' : 's'} ${mins} min`;
+  };
+
+  const {
+    timeEstimateLabel,
+    timeEstimateIsAi,
+    difficultyLabel,
+    difficultyIsAi,
+  } = React.useMemo(() => {
+    if (!manualActivity) {
+      return {
+        timeEstimateLabel: 'Add a rough time estimate',
+        timeEstimateIsAi: false,
+        difficultyLabel: 'Optional: how heavy does this feel?',
+        difficultyIsAi: false,
+      };
+    }
+
+    const manualMinutes = manualActivity.estimateMinutes ?? null;
+    const aiMinutes = manualActivity.aiPlanning?.estimateMinutes ?? null;
+
+    const pickMinutes = () => {
+      if (manualMinutes != null) {
+        return {
+          label: formatMinutes(manualMinutes),
+          isAi: false,
+        };
+      }
+      if (aiMinutes != null) {
+        return {
+          label: `${formatMinutes(aiMinutes)} · AI suggestion`,
+          isAi: true,
+        };
+      }
+      return {
+        label: 'Add a rough time estimate',
+        isAi: false,
+      };
+    };
+
+    const manualDifficulty = manualActivity.difficulty ?? null;
+    const aiDifficulty = manualActivity.aiPlanning?.difficulty ?? null;
+
+    const formatDifficulty = (value: string) => {
+      switch (value) {
+        case 'very_easy':
+          return 'Very easy';
+        case 'easy':
+          return 'Easy';
+        case 'medium':
+          return 'Medium';
+        case 'hard':
+          return 'Hard';
+        case 'very_hard':
+          return 'Very hard';
+        default:
+          return value;
+      }
+    };
+
+    const pickDifficulty = () => {
+      if (manualDifficulty) {
+        return {
+          label: formatDifficulty(manualDifficulty),
+          isAi: false,
+        };
+      }
+      if (aiDifficulty) {
+        return {
+          label: `${formatDifficulty(aiDifficulty)} · AI suggestion`,
+          isAi: true,
+        };
+      }
+      return {
+        label: 'Optional: how heavy does this feel?',
+        isAi: false,
+      };
+    };
+
+    const minutes = pickMinutes();
+    const difficulty = pickDifficulty();
+
+    return {
+      timeEstimateLabel: minutes.label,
+      timeEstimateIsAi: minutes.isAi,
+      difficultyLabel: difficulty.label,
+      difficultyIsAi: difficulty.isAi,
+    };
+  }, [manualActivity]);
+
+  const handleConfirmManualActivity = React.useCallback(() => {
+    if (!manualActivity) return;
+    const trimmedTitle = manualActivity.title.trim();
+    const timestamp = new Date().toISOString();
+    updateActivity(manualActivity.id, (prev) => ({
+      ...prev,
+      title: trimmedTitle || 'Untitled activity',
+      updatedAt: timestamp,
+    }));
+    onClose();
+  }, [manualActivity, onClose, updateActivity]);
+
+  const handleAiComplete = React.useCallback(
+    (outcome: unknown) => {
+      const adoptedTitles = Array.isArray((outcome as any)?.adoptedActivityTitles)
+        ? (outcome as any).adoptedActivityTitles
+        : [];
+
+      if (!adoptedTitles || adoptedTitles.length === 0) {
+        return;
+      }
+
+      const baseIndex = activities.length;
+      adoptedTitles.forEach((rawTitle: unknown, idx: number) => {
+        if (typeof rawTitle !== 'string') return;
+        const trimmedTitle = rawTitle.trim();
+        if (!trimmedTitle) return;
+
+        const timestamp = new Date().toISOString();
+        const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const activity: Activity = {
+          id,
+          goalId: null,
+          title: trimmedTitle,
+          notes: undefined,
+          steps: [],
+          reminderAt: null,
+          priority: undefined,
+          estimateMinutes: null,
+          creationSource: 'ai',
+          planGroupId: null,
+          scheduledDate: null,
+          repeatRule: undefined,
+          orderIndex: baseIndex + idx + 1,
+          phase: null,
+          status: 'planned',
+          actualMinutes: null,
+          startedAt: null,
+          completedAt: null,
+          forceActual: defaultForceLevels(0),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+
+        addActivity(activity);
+      });
+    },
+    [activities.length, addActivity],
+  );
+
+  const handleAdoptActivitySuggestion = React.useCallback(
+    (suggestion: import('../ai/AiChatScreen').ActivitySuggestion) => {
+      const timestamp = new Date().toISOString();
+      const baseIndex = activities.length;
+      const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const steps =
+        suggestion.steps?.map((step, index) => ({
+          id: `step-${id}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+          title: step.title,
+          isOptional: step.isOptional ?? false,
+          completedAt: null,
+          orderIndex: index,
+        })) ?? [];
+
+      const activity: Activity = {
+        id,
+        goalId: null,
+        title: suggestion.title.trim(),
+        notes: suggestion.why,
+        steps,
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+        creationSource: 'ai',
+        planGroupId: null,
+        scheduledDate: null,
+        repeatRule: undefined,
+        orderIndex: baseIndex + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        aiPlanning: suggestion.timeEstimateMinutes || suggestion.energyLevel
+          ? {
+              estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+              difficulty:
+                suggestion.energyLevel === 'light'
+                  ? 'easy'
+                  : suggestion.energyLevel === 'focused'
+                  ? 'hard'
+                  : undefined,
+              lastUpdatedAt: timestamp,
+              source: 'full_context',
+            }
+          : undefined,
+        forceActual: defaultForceLevels(0),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      addActivity(activity);
+    },
+    [activities.length, addActivity],
   );
 
   return (
@@ -1182,6 +1740,10 @@ function ActivityCoachDrawer({
               resumeDraft={false}
               hideBrandHeader
               hidePromptSuggestions
+              onComplete={handleAiComplete}
+              onTransportError={handleSwitchToManual}
+              onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
+              onDismiss={onClose}
             />
           </View>
         ) : (
@@ -1191,15 +1753,13 @@ function ActivityCoachDrawer({
           >
             <ScrollView
               style={styles.manualFormContainer}
-              contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+              contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.lg }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.modalLabel}>Activity title</Text>
-              <TextInput
-                style={styles.input}
+              <Input
+                label="Activity title"
                 placeholder="e.g., Clear the workbench"
-                placeholderTextColor={colors.textSecondary}
                 value={manualActivity?.title ?? ''}
                 onChangeText={(next) => {
                   if (!manualActivity) return;
@@ -1210,13 +1770,11 @@ function ActivityCoachDrawer({
                     updatedAt: timestamp,
                   }));
                 }}
+                variant="outline"
               />
-              <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Notes (optional)</Text>
-              <TextInput
-                style={[styles.input, styles.manualNarrativeInput]}
+              <Textarea
+                label="Notes (optional)"
                 placeholder="Add a short note or checklist for this activity."
-                placeholderTextColor={colors.textSecondary}
-                multiline
                 value={manualActivity?.notes ?? ''}
                 onChangeText={(next) => {
                   if (!manualActivity) return;
@@ -1227,12 +1785,314 @@ function ActivityCoachDrawer({
                     updatedAt: timestamp,
                   }));
                 }}
+                multiline
               />
+              <View>
+                <HStack
+                  alignItems="center"
+                  justifyContent="space-between"
+                  style={styles.sectionLabelRow}
+                >
+                  <Text style={styles.inputLabel}>STEPS</Text>
+                  <Pressable
+                    onPress={handleAddManualStep}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add a step to this activity"
+                    style={({ pressed }) => [styles.addStepButton, pressed && styles.rowPressed]}
+                  >
+                    <Icon name="plus" size={16} color={colors.primaryForeground} />
+                    <Text style={styles.addStepButtonText}>Add step</Text>
+                  </Pressable>
+                </HStack>
+                <View style={styles.rowsCard}>
+                  {(manualActivity?.steps?.length ?? 0) === 0 ? (
+                    <Text style={styles.stepsEmpty}>
+                      Add 2–6 small steps so this activity is crystal clear.
+                    </Text>
+                  ) : (
+                    <VStack space="xs">
+                      {manualActivity?.steps?.map((step) => (
+                        <HStack
+                          key={step.id}
+                          space="sm"
+                          alignItems="center"
+                          style={styles.stepRow}
+                        >
+                          <View
+                            style={[
+                              styles.checkboxBase,
+                              styles.checkboxPlanned,
+                              styles.stepCheckbox,
+                            ]}
+                          />
+                          <TextInput
+                            style={styles.stepInput}
+                            value={step.title}
+                            onChangeText={(text) => handleChangeManualStepTitle(step.id, text)}
+                            placeholder="Describe the step"
+                            placeholderTextColor={colors.muted}
+                            multiline
+                          />
+                          <Pressable
+                            onPress={() => handleToggleManualStepOptional(step.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              step.isOptional ? 'Mark step as required' : 'Mark step as optional'
+                            }
+                            style={({ pressed }) => [
+                              styles.stepOptionalPill,
+                              pressed && styles.rowPressed,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.stepOptionalText,
+                                step.isOptional && styles.stepOptionalTextActive,
+                              ]}
+                            >
+                              Optional
+                            </Text>
+                          </Pressable>
+                          <IconButton
+                            onPress={() => handleRemoveManualStep(step.id)}
+                            accessibilityLabel="Remove step"
+                            style={styles.removeStepButton}
+                          >
+                            <Icon name="close" size={14} color={colors.textSecondary} />
+                          </IconButton>
+                        </HStack>
+                      ))}
+                    </VStack>
+                  )}
+                </View>
+              </View>
+
+              <View>
+                <View style={styles.rowsCard}>
+                  <VStack space="xs">
+                    <VStack space="sm">
+                      <Pressable
+                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                        onPress={() => setReminderSheetVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit reminder"
+                      >
+                        <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                          <Icon name="daily" size={16} color={colors.textSecondary} />
+                          <Text
+                            style={[
+                              styles.rowValue,
+                              reminderLabel !== 'None' && styles.rowLabelActive,
+                            ]}
+                          >
+                            {reminderLabel === 'None' ? 'Add reminder' : reminderLabel}
+                          </Text>
+                        </HStack>
+                      </Pressable>
+                    </VStack>
+
+                    <VStack space="sm">
+                      <Pressable
+                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                        onPress={() => setDueDateSheetVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit due date"
+                      >
+                        <HStack
+                          space="sm"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          style={styles.rowContent}
+                        >
+                          <HStack space="sm" alignItems="center" flex={1}>
+                            <Icon name="today" size={16} color={colors.textSecondary} />
+                            <Text
+                              style={[
+                                styles.rowValue,
+                                manualActivity?.scheduledDate && styles.rowLabelActive,
+                              ]}
+                            >
+                              {manualActivity?.scheduledDate ? dueDateLabel : 'Add due date'}
+                            </Text>
+                          </HStack>
+                          {manualActivity?.scheduledDate ? (
+                            <Pressable
+                              onPress={(event) => {
+                                event.stopPropagation();
+                                handleClearManualDueDate();
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel="Clear due date"
+                              hitSlop={8}
+                            >
+                              <Icon name="close" size={16} color={colors.textSecondary} />
+                            </Pressable>
+                          ) : null}
+                        </HStack>
+                      </Pressable>
+                    </VStack>
+
+                    <VStack space="sm">
+                      <Pressable
+                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                        onPress={() => setRepeatSheetVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit repeat schedule"
+                      >
+                        <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                          <Icon name="refresh" size={16} color={colors.textSecondary} />
+                          <Text
+                            style={[
+                              styles.rowValue,
+                              repeatLabel !== 'Off' && styles.rowLabelActive,
+                            ]}
+                          >
+                            {repeatLabel === 'Off' ? 'Off' : repeatLabel}
+                          </Text>
+                        </HStack>
+                      </Pressable>
+                    </VStack>
+                  </VStack>
+                </View>
+              </View>
+
+              <View>
+                <View style={styles.rowsCard}>
+                  <VStack space="xs">
+                    <Text style={styles.planningHeader}>Planning</Text>
+                    <View style={styles.row}>
+                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                        <Icon name="time" size={16} color={colors.textSecondary} />
+                        <Text style={styles.rowLabel}>Time estimate</Text>
+                      </HStack>
+                      <View style={styles.rowRight}>
+                        <Text
+                          style={[
+                            styles.rowValue,
+                            timeEstimateIsAi && styles.rowValueAi,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {timeEstimateLabel}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.row}>
+                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                        <Icon name="signal" size={16} color={colors.textSecondary} />
+                        <Text style={styles.rowLabel}>Difficulty</Text>
+                      </HStack>
+                      <View style={styles.rowRight}>
+                        <Text
+                          style={[
+                            styles.rowValue,
+                            difficultyIsAi && styles.rowValueAi,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {difficultyLabel}
+                        </Text>
+                      </View>
+                    </View>
+                  </VStack>
+                </View>
+              </View>
+
+              <Button
+                onPress={handleConfirmManualActivity}
+                disabled={!manualActivity || !manualActivity.title.trim()}
+              >
+                <Text>Add activity</Text>
+              </Button>
             </ScrollView>
           </KeyboardAvoidingView>
         )}
       </View>
+      {activeTab === 'manual' && (
+        <>
+          <KwiltBottomSheet
+            visible={reminderSheetVisible}
+            onClose={() => setReminderSheetVisible(false)}
+            snapPoints={['40%']}
+          >
+            <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>Remind me</Text>
+              <VStack space="sm">
+                <SheetOption label="Later Today" onPress={() => handleSelectManualReminder(0)} />
+                <SheetOption label="Tomorrow" onPress={() => handleSelectManualReminder(1)} />
+                <SheetOption label="Next Week" onPress={() => handleSelectManualReminder(7)} />
+              </VStack>
+            </View>
+          </KwiltBottomSheet>
+
+          <KwiltBottomSheet
+            visible={dueDateSheetVisible}
+            onClose={() => {
+              setDueDateSheetVisible(false);
+              setIsDueDatePickerVisible(false);
+            }}
+            snapPoints={['40%']}
+          >
+            <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>Due</Text>
+              <VStack space="sm">
+                <SheetOption label="Today" onPress={() => handleSelectManualDueDate(0)} />
+                <SheetOption label="Tomorrow" onPress={() => handleSelectManualDueDate(1)} />
+                <SheetOption label="Next Week" onPress={() => handleSelectManualDueDate(7)} />
+                <SheetOption
+                  label="Pick a date…"
+                  onPress={() => setIsDueDatePickerVisible(true)}
+                />
+                <SheetOption label="Clear due date" onPress={handleClearManualDueDate} />
+              </VStack>
+              {isDueDatePickerVisible && (
+                <View style={styles.datePickerContainer}>
+                  <DateTimePicker
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    value={getInitialManualDueDateForPicker()}
+                    onChange={handleManualDueDateChange}
+                  />
+                </View>
+              )}
+            </View>
+          </KwiltBottomSheet>
+
+          <KwiltBottomSheet
+            visible={repeatSheetVisible}
+            onClose={() => setRepeatSheetVisible(false)}
+            snapPoints={['45%']}
+          >
+            <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>Repeat</Text>
+              <VStack space="sm">
+                <SheetOption label="Daily" onPress={() => handleSelectManualRepeat('daily')} />
+                <SheetOption label="Weekly" onPress={() => handleSelectManualRepeat('weekly')} />
+                <SheetOption
+                  label="Weekdays"
+                  onPress={() => handleSelectManualRepeat('weekdays')}
+                />
+                <SheetOption label="Monthly" onPress={() => handleSelectManualRepeat('monthly')} />
+                <SheetOption label="Yearly" onPress={() => handleSelectManualRepeat('yearly')} />
+              </VStack>
+            </View>
+          </KwiltBottomSheet>
+        </>
+      )}
     </BottomDrawer>
   );
 }
 
+type SheetOptionProps = {
+  label: string;
+  onPress: () => void;
+};
+
+function SheetOption({ label, onPress }: SheetOptionProps) {
+  return (
+    <Pressable style={styles.sheetRow} onPress={onPress}>
+      <Text style={styles.sheetRowLabel}>{label}</Text>
+    </Pressable>
+  );
+}

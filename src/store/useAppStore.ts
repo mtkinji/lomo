@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import {
   Activity,
   ActivityView,
@@ -23,6 +24,24 @@ interface AppState {
   goals: Goal[];
   activities: Activity[];
   /**
+   * App-level notification preferences and OS permission status.
+   * Used by the notifications service to decide what to schedule.
+   */
+  notificationPreferences: {
+    notificationsEnabled: boolean;
+    osPermissionStatus: 'notRequested' | 'authorized' | 'denied' | 'restricted';
+    allowActivityReminders: boolean;
+    allowDailyShowUp: boolean;
+    dailyShowUpTime: string | null;
+    allowStreakAndReactivation: boolean;
+  };
+  /**
+   * Simple engagement state for show-up streaks and recent activity.
+   */
+  lastShowUpDate: string | null;
+  currentShowUpStreak: number;
+  lastActiveDate: string | null;
+  /**
    * When set, this is the goal that was most recently created by the
    * first-time onboarding flow so we can land the user directly on it.
    */
@@ -30,6 +49,11 @@ interface AppState {
   arcFeedback: ArcProposalFeedback[];
   userProfile: UserProfile | null;
   llmModel: LlmModel;
+  /**
+   * One-time flag indicating that the user has completed the first-time
+   * onboarding flow. Used to avoid re-triggering FTUE on subsequent launches.
+   */
+  hasCompletedFirstTimeOnboarding: boolean;
   /**
    * When set, this is the Arc that was most recently created by the
    * first-time onboarding flow so we can land the user directly on it and
@@ -77,6 +101,26 @@ interface AppState {
    * Populated via lightweight "Not quite right" feedback controls.
    */
   blockedCelebrationGifIds: string[];
+  /**
+   * Update notification preferences in a single place so the notifications
+   * service and settings screens stay in sync.
+   */
+  setNotificationPreferences: (
+    updater:
+      | ((
+          current: AppState['notificationPreferences'],
+        ) => AppState['notificationPreferences'])
+      | AppState['notificationPreferences'],
+  ) => void;
+  /**
+   * Record that the user "showed up" today by visiting Today or completing
+   * an Activity. Updates streak and lastActiveDate.
+   */
+  recordShowUp: () => void;
+  /**
+   * Explicitly reset the show-up streak (used by future engagement flows).
+   */
+  resetShowUpStreak: () => void;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -105,11 +149,22 @@ interface AppState {
   blockCelebrationGif: (gifId: string) => void;
   likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
   blockCelebrationGif: (gifId: string) => void;
+  setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
 
 const now = () => new Date().toISOString();
+
+// Prefer the explicit `environment` value wired through `app.config.ts`. When that
+// isn't available at runtime (for example, in certain standalone/TestFlight builds),
+// fall back to the bundler dev flag so production installs don't accidentally pick
+// up demo data or dev-only defaults.
+const appEnvironment =
+  (Constants.expoConfig?.extra as { environment?: string } | undefined)?.environment ??
+  (__DEV__ ? 'development' : 'production');
+
+const isProductionEnvironment = appEnvironment === 'production';
 
 const buildDefaultUserProfile = (): UserProfile => {
   const timestamp = now();
@@ -278,6 +333,13 @@ const initialDemoActivities: Activity[] = [
   },
 ];
 
+// In production, we want fresh installs to start empty so the first-time
+// onboarding flow can create the user's initial Arcs, goals, and activities.
+// In development/preview, keep the demo data to make local flows easier to test.
+const initialArcs: Arc[] = isProductionEnvironment ? [] : [initialDemoArc];
+const initialGoals: Goal[] = isProductionEnvironment ? [] : [initialDemoGoal];
+const initialActivities: Activity[] = isProductionEnvironment ? [] : initialDemoActivities;
+
 const initialActivityViews: ActivityView[] = [
   {
     id: 'default',
@@ -301,9 +363,20 @@ export const useAppStore = create(
   persist<AppState>(
     (set, get) => ({
       forces: canonicalForces,
-      arcs: [initialDemoArc],
-      goals: [initialDemoGoal],
-      activities: initialDemoActivities,
+      arcs: initialArcs,
+      goals: initialGoals,
+      activities: initialActivities,
+      notificationPreferences: {
+        notificationsEnabled: false,
+        osPermissionStatus: 'notRequested',
+        allowActivityReminders: false,
+        allowDailyShowUp: false,
+        dailyShowUpTime: null,
+        allowStreakAndReactivation: false,
+      },
+      lastShowUpDate: null,
+      currentShowUpStreak: 0,
+      lastActiveDate: null,
       activityViews: initialActivityViews,
       activeActivityViewId: 'default',
       goalRecommendations: {},
@@ -311,6 +384,7 @@ export const useAppStore = create(
       blockedCelebrationGifIds: [],
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
+      hasCompletedFirstTimeOnboarding: false,
       lastOnboardingArcId: null,
       lastOnboardingGoalId: null,
       hasSeenFirstArcCelebration: false,
@@ -475,6 +549,68 @@ export const useAppStore = create(
         }),
       clearUserProfile: () => set({ userProfile: null }),
       setLlmModel: (model) => set({ llmModel: model }),
+      setHasCompletedFirstTimeOnboarding: (completed) =>
+        set(() => ({
+          hasCompletedFirstTimeOnboarding: completed,
+        })),
+      setNotificationPreferences: (updater) =>
+        set((state) => {
+          const next =
+            typeof updater === 'function'
+              ? (updater as (current: AppState['notificationPreferences']) => AppState['notificationPreferences'])(
+                  state.notificationPreferences,
+                )
+              : updater;
+          return { notificationPreferences: next };
+        }),
+      recordShowUp: () =>
+        set((state) => {
+          const nowDate = new Date();
+          const todayKey = nowDate.toISOString().slice(0, 10);
+          const prevKey = state.lastShowUpDate;
+          const prevStreak = state.currentShowUpStreak ?? 0;
+
+          if (prevKey === todayKey) {
+            // Already counted today.
+            return {
+              ...state,
+              lastActiveDate: state.lastActiveDate ?? nowDate.toISOString(),
+            };
+          }
+
+          let nextStreak = 1;
+          if (prevKey) {
+            const prevDate = new Date(prevKey);
+            const startOfPrev = new Date(
+              prevDate.getFullYear(),
+              prevDate.getMonth(),
+              prevDate.getDate(),
+            );
+            const startOfToday = new Date(
+              nowDate.getFullYear(),
+              nowDate.getMonth(),
+              nowDate.getDate(),
+            );
+            const diffMs = startOfToday.getTime() - startOfPrev.getTime();
+            const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+            if (diffDays === 1) {
+              nextStreak = prevStreak + 1;
+            }
+          }
+
+          return {
+            ...state,
+            lastShowUpDate: todayKey,
+            currentShowUpStreak: nextStreak,
+            lastActiveDate: nowDate.toISOString(),
+          };
+        }),
+      resetShowUpStreak: () =>
+        set((state) => ({
+          ...state,
+          lastShowUpDate: null,
+          currentShowUpStreak: 0,
+        })),
       resetOnboardingAnswers: () =>
         set((state) => {
           const base: UserProfile = state.userProfile ?? buildDefaultUserProfile();
@@ -514,6 +650,7 @@ export const useAppStore = create(
           hasSeenFirstArcCelebration: false,
           blockedCelebrationGifIds: [],
           likedCelebrationGifs: [],
+          hasCompletedFirstTimeOnboarding: false,
         }),
     }),
     {

@@ -8,10 +8,12 @@ import {
   Text,
   Pressable,
   TextInput,
+  Platform,
 } from 'react-native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import type { ActivityStatus, ActivityStep } from '../../domain/types';
 import type {
   ActivitiesStackParamList,
   ActivityDetailRouteParams,
@@ -26,7 +28,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 type ActivityDetailRouteProp = RouteProp<
   { ActivityDetail: ActivityDetailRouteParams },
@@ -47,6 +50,7 @@ export function ActivityDetailScreen() {
   const goals = useAppStore((state) => state.goals);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
 
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
@@ -62,10 +66,14 @@ export function ActivityDetailScreen() {
   const [reminderSheetVisible, setReminderSheetVisible] = useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = useState(false);
   const [repeatSheetVisible, setRepeatSheetVisible] = useState(false);
+  const [isDueDatePickerVisible, setIsDueDatePickerVisible] = useState(false);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(activity?.title ?? '');
   const titleInputRef = useRef<TextInput | null>(null);
+
+  const [notesDraft, setNotesDraft] = useState(activity?.notes ?? '');
+  const [stepsDraft, setStepsDraft] = useState<ActivityStep[]>(activity?.steps ?? []);
 
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
@@ -124,17 +132,141 @@ export function ActivityDetailScreen() {
     setIsEditingTitle(false);
   };
 
-  const handleToggleComplete = () => {
+  const commitNotes = () => {
+    const next = notesDraft.trim();
+    const current = activity.notes ?? '';
+    if (next === current) {
+      return;
+    }
     const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      notes: next.length ? next : undefined,
+      updatedAt: timestamp,
+    }));
+  };
+
+  const deriveStatusFromSteps = (
+    prevStatus: ActivityStatus,
+    nextSteps: ActivityStep[],
+    timestamp: string,
+    prevCompletedAt?: string | null
+  ) => {
+    if (nextSteps.length === 0) {
+      return { nextStatus: prevStatus, nextCompletedAt: prevCompletedAt ?? null };
+    }
+
+    const requiredSteps = nextSteps.filter((step) => !step.isOptional);
+    const allRequiredComplete = requiredSteps.length > 0 && requiredSteps.every((s) => !!s.completedAt);
+    const anyStepComplete = nextSteps.some((s) => !!s.completedAt);
+
+    let nextStatus: ActivityStatus = prevStatus;
+    if (allRequiredComplete) {
+      nextStatus = 'done';
+    } else if (anyStepComplete && prevStatus === 'planned') {
+      nextStatus = 'in_progress';
+    } else if (!anyStepComplete && prevStatus === 'in_progress') {
+      nextStatus = 'planned';
+    } else if (!anyStepComplete && prevStatus === 'done') {
+      nextStatus = 'in_progress';
+    }
+
+    const nextCompletedAt = nextStatus === 'done' ? prevCompletedAt ?? timestamp : null;
+
+    return { nextStatus, nextCompletedAt };
+  };
+
+  const applyStepUpdate = (updater: (current: ActivityStep[]) => ActivityStep[]) => {
+    const timestamp = new Date().toISOString();
+    let markedDone = false;
+    let nextLocalSteps: ActivityStep[] = [];
+
     updateActivity(activity.id, (prev) => {
-      const nextIsDone = prev.status !== 'done';
+      const currentSteps = prev.steps ?? [];
+      const nextSteps = updater(currentSteps);
+      nextLocalSteps = nextSteps;
+      const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
+        prev.status,
+        nextSteps,
+        timestamp,
+        prev.completedAt
+      );
+
+      if (prev.status !== 'done' && nextStatus === 'done') {
+        markedDone = true;
+      }
+
       return {
         ...prev,
+        steps: nextSteps,
+        status: nextStatus,
+        completedAt: nextCompletedAt ?? prev.completedAt ?? null,
+        updatedAt: timestamp,
+      };
+    });
+
+    setStepsDraft(nextLocalSteps);
+
+    if (markedDone) {
+      recordShowUp();
+    }
+  };
+
+  const handleToggleStepComplete = (stepId: string) => {
+    const completedAt = new Date().toISOString();
+    applyStepUpdate((steps) =>
+      steps.map((step) =>
+        step.id === stepId ? { ...step, completedAt: step.completedAt ? null : completedAt } : step
+      )
+    );
+  };
+
+  const handleChangeStepTitle = (stepId: string, title: string) => {
+    applyStepUpdate((steps) => steps.map((step) => (step.id === stepId ? { ...step, title } : step)));
+  };
+
+  const handleToggleStepOptional = (stepId: string) => {
+    applyStepUpdate((steps) =>
+      steps.map((step) => (step.id === stepId ? { ...step, isOptional: !step.isOptional } : step))
+    );
+  };
+
+  const handleRemoveStep = (stepId: string) => {
+    applyStepUpdate((steps) => steps.filter((step) => step.id !== stepId));
+  };
+
+  const handleAddStep = () => {
+    const newStep: ActivityStep = {
+      id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: '',
+      completedAt: null,
+      isOptional: false,
+      orderIndex: stepsDraft.length,
+    };
+    applyStepUpdate((steps) => [...steps, newStep]);
+  };
+
+  const handleToggleComplete = () => {
+    const timestamp = new Date().toISOString();
+    const wasCompleted = isCompleted;
+    updateActivity(activity.id, (prev) => {
+      const nextIsDone = prev.status !== 'done';
+      const nextSteps =
+        prev.steps?.map((step) =>
+          nextIsDone && !step.completedAt ? { ...step, completedAt: timestamp } : step
+        ) ?? prev.steps;
+      return {
+        ...prev,
+        steps: nextSteps,
         status: nextIsDone ? 'done' : 'planned',
         completedAt: nextIsDone ? timestamp : null,
         updatedAt: timestamp,
       };
     });
+    if (!wasCompleted) {
+      // Toggling from not-done to done counts as "showing up" for the day.
+      recordShowUp();
+    }
   };
 
   const handleSelectReminder = (offsetDays: number) => {
@@ -161,6 +293,51 @@ export function ActivityDetailScreen() {
       scheduledDate: date.toISOString(),
       updatedAt: timestamp,
     }));
+    setDueDateSheetVisible(false);
+  };
+
+  const handleClearDueDate = () => {
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      scheduledDate: null,
+      updatedAt: timestamp,
+    }));
+    setDueDateSheetVisible(false);
+    setIsDueDatePickerVisible(false);
+  };
+
+  const getInitialDueDateForPicker = () => {
+    if (activity.scheduledDate) {
+      const parsed = new Date(activity.scheduledDate);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  };
+
+  const handleDueDateChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== 'ios') {
+      setIsDueDatePickerVisible(false);
+    }
+
+    if (!date || event.type === 'dismissed') {
+      return;
+    }
+
+    const next = new Date(date);
+    // Treat due dates as "end of day" semantics.
+    next.setHours(23, 0, 0, 0);
+
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      scheduledDate: next.toISOString(),
+      updatedAt: timestamp,
+    }));
+
+    // Once a date is chosen, close the sheet to confirm the selection.
     setDueDateSheetVisible(false);
   };
 
@@ -201,6 +378,104 @@ export function ActivityDetailScreen() {
       : activity.repeatRule.charAt(0).toUpperCase() + activity.repeatRule.slice(1)
     : 'Off';
 
+  const completedStepsCount = useMemo(
+    () => (activity.steps ?? []).filter((step) => !!step.completedAt).length,
+    [activity.steps]
+  );
+  const totalStepsCount = activity.steps?.length ?? 0;
+
+  const formatMinutes = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`;
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) return `${hrs} hr${hrs === 1 ? '' : 's'}`;
+    return `${hrs} hr${hrs === 1 ? '' : 's'} ${mins} min`;
+  };
+
+  const {
+    timeEstimateLabel,
+    timeEstimateIsAi,
+    difficultyLabel,
+    difficultyIsAi,
+  } = useMemo(() => {
+    const manualMinutes = activity.estimateMinutes ?? null;
+    const aiMinutes = activity.aiPlanning?.estimateMinutes ?? null;
+
+    const pickMinutes = () => {
+      if (manualMinutes != null) {
+        return {
+          label: formatMinutes(manualMinutes),
+          isAi: false,
+        };
+      }
+      if (aiMinutes != null) {
+        return {
+          label: `${formatMinutes(aiMinutes)} · AI suggestion`,
+          isAi: true,
+        };
+      }
+      return {
+        label: 'Add a rough time estimate',
+        isAi: false,
+      };
+    };
+
+    const manualDifficulty = activity.difficulty ?? null;
+    const aiDifficulty = activity.aiPlanning?.difficulty ?? null;
+
+    const formatDifficulty = (value: string) => {
+      switch (value) {
+        case 'very_easy':
+          return 'Very easy';
+        case 'easy':
+          return 'Easy';
+        case 'medium':
+          return 'Medium';
+        case 'hard':
+          return 'Hard';
+        case 'very_hard':
+          return 'Very hard';
+        default:
+          return value;
+      }
+    };
+
+    const pickDifficulty = () => {
+      if (manualDifficulty) {
+        return {
+          label: formatDifficulty(manualDifficulty),
+          isAi: false,
+        };
+      }
+      if (aiDifficulty) {
+        return {
+          label: `${formatDifficulty(aiDifficulty)} · AI suggestion`,
+          isAi: true,
+        };
+      }
+      return {
+        label: 'Optional: how heavy does this feel?',
+        isAi: false,
+      };
+    };
+
+    const minutes = pickMinutes();
+    const difficulty = pickDifficulty();
+
+    return {
+      timeEstimateLabel: minutes.label,
+      timeEstimateIsAi: minutes.isAi,
+      difficultyLabel: difficulty.label,
+      difficultyIsAi: difficulty.isAi,
+    };
+  }, [activity.estimateMinutes, activity.aiPlanning, activity.difficulty]);
+
+  useEffect(() => {
+    setTitleDraft(activity.title ?? '');
+    setNotesDraft(activity.notes ?? '');
+    setStepsDraft(activity.steps ?? []);
+  }, [activity.title, activity.notes, activity.steps]);
+
   return (
     <AppShell>
       <View style={styles.screen}>
@@ -212,7 +487,7 @@ export function ActivityDetailScreen() {
                 onPress={handleBackToActivities}
                 accessibilityLabel="Back to Activities"
               >
-                <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+                <Icon name="arrowLeft" size={20} color={colors.canvas} />
               </IconButton>
             </View>
             <View style={styles.headerCenter}>
@@ -244,7 +519,7 @@ export function ActivityDetailScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.section}>
-              <VStack space="sm">
+              <VStack space="lg">
                 <View style={styles.activityHeaderRow}>
                   <Pressable
                     accessibilityRole="button"
@@ -307,31 +582,232 @@ export function ActivityDetailScreen() {
             <View style={styles.sectionDivider} />
 
             <View style={styles.section}>
-              <VStack space="sm">
-                <Pressable
-                  style={styles.row}
-                  onPress={() => setReminderSheetVisible(true)}
-                >
-                  <Text style={styles.rowLabel}>Remind me</Text>
-                  <Text style={styles.rowValue}>{reminderLabel}</Text>
-                </Pressable>
+              <Text style={styles.inputLabel}>NOTES</Text>
+              <View style={styles.rowsCard}>
+                <TextInput
+                  style={styles.notesInput}
+                  value={notesDraft}
+                  onChangeText={setNotesDraft}
+                  onBlur={commitNotes}
+                  placeholder="Add context or reminders for this activity."
+                  placeholderTextColor={colors.muted}
+                  multiline
+                  scrollEnabled={false}
+                  textAlignVertical="top"
+                />
+              </View>
+            </View>
 
+            <View style={styles.section}>
+              <HStack alignItems="center" justifyContent="space-between" style={styles.sectionLabelRow}>
+                <Text style={styles.inputLabel}>
+                  {`STEPS${totalStepsCount > 0 ? ` · ${completedStepsCount}/${totalStepsCount}` : ''}`}
+                </Text>
                 <Pressable
-                  style={styles.row}
-                  onPress={() => setDueDateSheetVisible(true)}
+                  onPress={handleAddStep}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add a step to this activity"
+                  style={({ pressed }) => [styles.addStepButton, pressed && styles.rowPressed]}
                 >
-                  <Text style={styles.rowLabel}>Add due date</Text>
-                  <Text style={styles.rowValue}>{dueDateLabel}</Text>
+                  <Icon name="plus" size={16} color={colors.primaryForeground} />
+                  <Text style={styles.addStepButtonText}>Add step</Text>
                 </Pressable>
+              </HStack>
+              <View style={styles.rowsCard}>
+                {stepsDraft.length === 0 ? (
+                  <Text style={styles.stepsEmpty}>
+                    Add 2–6 small steps so this activity is crystal clear.
+                  </Text>
+                ) : (
+                  <VStack space="xs">
+                    {stepsDraft.map((step) => {
+                      const isChecked = !!step.completedAt;
+                      return (
+                        <HStack key={step.id} space="sm" alignItems="center" style={styles.stepRow}>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={isChecked ? 'Mark step as not done' : 'Mark step as done'}
+                            hitSlop={8}
+                            onPress={() => handleToggleStepComplete(step.id)}
+                          >
+                            <View
+                              style={[
+                                styles.checkboxBase,
+                                isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
+                                styles.stepCheckbox,
+                              ]}
+                            >
+                              {isChecked ? (
+                                <Icon name="check" size={12} color={colors.primaryForeground} />
+                              ) : null}
+                            </View>
+                          </Pressable>
+                          <TextInput
+                            style={styles.stepInput}
+                            value={step.title}
+                            onChangeText={(text) => handleChangeStepTitle(step.id, text)}
+                            placeholder="Describe the step"
+                            placeholderTextColor={colors.muted}
+                            multiline
+                          />
+                          <Pressable
+                            onPress={() => handleToggleStepOptional(step.id)}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              step.isOptional ? 'Mark step as required' : 'Mark step as optional'
+                            }
+                            style={({ pressed }) => [styles.stepOptionalPill, pressed && styles.rowPressed]}
+                          >
+                            <Text style={[styles.stepOptionalText, step.isOptional && styles.stepOptionalTextActive]}>
+                              Optional
+                            </Text>
+                          </Pressable>
+                          <IconButton
+                            onPress={() => handleRemoveStep(step.id)}
+                            accessibilityLabel="Remove step"
+                            style={styles.removeStepButton}
+                          >
+                            <Icon name="close" size={14} color={colors.textSecondary} />
+                          </IconButton>
+                        </HStack>
+                      );
+                    })}
+                  </VStack>
+                )}
+              </View>
+            </View>
 
-                <Pressable
-                  style={styles.row}
-                  onPress={() => setRepeatSheetVisible(true)}
-                >
-                  <Text style={styles.rowLabel}>Repeat</Text>
-                  <Text style={styles.rowValue}>{repeatLabel}</Text>
-                </Pressable>
-              </VStack>
+            <View style={styles.section}>
+              <View style={styles.rowsCard}>
+                <VStack space="xs">
+                  <VStack space="sm">
+                    <Pressable
+                      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                      onPress={() => setReminderSheetVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit reminder"
+                    >
+                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                        <Icon name="daily" size={16} color={colors.textSecondary} />
+                        <Text
+                          style={[
+                            styles.rowValue,
+                            reminderLabel !== 'None' && styles.rowLabelActive,
+                          ]}
+                        >
+                          {reminderLabel === 'None' ? 'Add reminder' : reminderLabel}
+                        </Text>
+                      </HStack>
+                    </Pressable>
+                  </VStack>
+
+                  <VStack space="sm">
+                    <Pressable
+                      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                      onPress={() => setDueDateSheetVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit due date"
+                    >
+                      <HStack
+                        space="sm"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        style={styles.rowContent}
+                      >
+                        <HStack space="sm" alignItems="center" flex={1}>
+                          <Icon name="today" size={16} color={colors.textSecondary} />
+                          <Text
+                            style={[
+                              styles.rowValue,
+                              activity.scheduledDate && styles.rowLabelActive,
+                            ]}
+                          >
+                            {activity.scheduledDate ? dueDateLabel : 'Add due date'}
+                          </Text>
+                        </HStack>
+                        {activity.scheduledDate ? (
+                          <Pressable
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              handleClearDueDate();
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear due date"
+                            hitSlop={8}
+                          >
+                            <Icon name="close" size={16} color={colors.textSecondary} />
+                          </Pressable>
+                        ) : null}
+                      </HStack>
+                    </Pressable>
+                  </VStack>
+
+                  <VStack space="sm">
+                    <Pressable
+                      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                      onPress={() => setRepeatSheetVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit repeat schedule"
+                    >
+                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                        <Icon name="refresh" size={16} color={colors.textSecondary} />
+                        <Text
+                          style={[
+                            styles.rowValue,
+                            repeatLabel !== 'Off' && styles.rowLabelActive,
+                          ]}
+                        >
+                          {repeatLabel === 'Off' ? 'Off' : repeatLabel}
+                        </Text>
+                      </HStack>
+                    </Pressable>
+                  </VStack>
+                </VStack>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.rowsCard}>
+                <VStack space="xs">
+                  <Text style={styles.planningHeader}>Planning</Text>
+
+                  <View style={styles.row}>
+                    <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                      <Icon name="time" size={16} color={colors.textSecondary} />
+                      <Text style={styles.rowLabel}>Time estimate</Text>
+                    </HStack>
+                    <View style={styles.rowRight}>
+                      <Text
+                        style={[
+                          styles.rowValue,
+                          timeEstimateIsAi && styles.rowValueAi,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {timeEstimateLabel}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.row}>
+                    <HStack space="sm" alignItems="center" style={styles.rowContent}>
+                      <Icon name="signal" size={16} color={colors.textSecondary} />
+                      <Text style={styles.rowLabel}>Difficulty</Text>
+                    </HStack>
+                    <View style={styles.rowRight}>
+                      <Text
+                        style={[
+                          styles.rowValue,
+                          difficultyIsAi && styles.rowValueAi,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {difficultyLabel}
+                      </Text>
+                    </View>
+                  </View>
+                </VStack>
+              </View>
             </View>
           </ScrollView>
         </VStack>
@@ -354,7 +830,10 @@ export function ActivityDetailScreen() {
 
       <KwiltBottomSheet
         visible={dueDateSheetVisible}
-        onClose={() => setDueDateSheetVisible(false)}
+        onClose={() => {
+          setDueDateSheetVisible(false);
+          setIsDueDatePickerVisible(false);
+        }}
         snapPoints={['40%']}
       >
         <View style={styles.sheetContent}>
@@ -363,7 +842,22 @@ export function ActivityDetailScreen() {
             <SheetOption label="Today" onPress={() => handleSelectDueDate(0)} />
             <SheetOption label="Tomorrow" onPress={() => handleSelectDueDate(1)} />
             <SheetOption label="Next Week" onPress={() => handleSelectDueDate(7)} />
+            <SheetOption
+              label="Pick a date…"
+              onPress={() => setIsDueDatePickerVisible(true)}
+            />
+            <SheetOption label="Clear due date" onPress={handleClearDueDate} />
           </VStack>
+          {isDueDatePickerVisible && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialDueDateForPicker()}
+                onChange={handleDueDateChange}
+              />
+            </View>
+          )}
         </View>
       </KwiltBottomSheet>
 
@@ -477,15 +971,126 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
+  },
+  rowPressed: {
+    backgroundColor: colors.shellAlt,
   },
   rowLabel: {
     ...typography.body,
     color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  rowLabelActive: {
+    color: colors.accent,
+  },
+  rowContent: {
+    // Slightly taller than default row height without feeling oversized.
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  rowsCard: {
+    borderRadius: 20,
+    backgroundColor: colors.canvas,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  notesLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  notesInput: {
+    ...typography.body,
+    color: colors.textPrimary,
+    minHeight: 80,
+    paddingVertical: spacing.sm,
+  },
+  inputLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  sectionLabelRow: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  stepsHeaderRow: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  stepsHeaderLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+  },
+  addStepButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  addStepButtonText: {
+    ...typography.label,
+    color: colors.primaryForeground,
+  },
+  stepsEmpty: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  stepRow: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  stepCheckbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1.5,
+  },
+  stepInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    paddingVertical: spacing.xs,
+  },
+  stepOptionalPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: colors.shell,
+  },
+  stepOptionalText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  stepOptionalTextActive: {
+    color: colors.accent,
+  },
+  removeStepButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
   },
   rowValue: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  rowRight: {
+    flexShrink: 1,
+    paddingHorizontal: spacing.sm,
+  },
+  rowValueAi: {
+    color: colors.accent,
+  },
+  planningHeader: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
   sheetContent: {
     flex: 1,
@@ -503,6 +1108,9 @@ const styles = StyleSheet.create({
   sheetRowLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  datePickerContainer: {
+    marginTop: spacing.sm,
   },
   sectionDivider: {
     marginTop: spacing.lg,

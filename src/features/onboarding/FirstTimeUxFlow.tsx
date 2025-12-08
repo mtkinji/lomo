@@ -26,6 +26,9 @@ export function FirstTimeUxFlow() {
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
+  const setHasCompletedFirstTimeOnboarding = useAppStore(
+    (state) => state.setHasCompletedFirstTimeOnboarding
+  );
   const insets = useSafeAreaInsets();
   const [showDevMenu, setShowDevMenu] = useState(false);
 
@@ -143,6 +146,7 @@ export function FirstTimeUxFlow() {
             onComplete={() => {
               completeFlow();
               dismissFlow();
+              setHasCompletedFirstTimeOnboarding(true);
               const { lastOnboardingArcId: arcId, lastOnboardingGoalId: goalId } =
                 useAppStore.getState();
               if (rootNavigationRef.isReady()) {

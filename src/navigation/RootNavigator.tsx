@@ -28,6 +28,7 @@ import { ActivityDetailScreen } from '../features/activities/ActivityDetailScree
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
+import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
@@ -86,6 +87,7 @@ export type SettingsStackParamList = {
   SettingsAppearance: undefined;
   SettingsProfile: undefined;
   SettingsAiModel: undefined;
+  SettingsNotifications: undefined;
 };
 
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
@@ -351,6 +353,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsAiModel"
         component={require('../features/account/AiModelSettingsScreen').AiModelSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsNotifications"
+        component={NotificationsSettingsScreen}
       />
     </SettingsStack.Navigator>
   );
