@@ -174,9 +174,6 @@ const buildDefaultUserProfile = (): UserProfile => {
     updatedAt: timestamp,
     communication: {},
     visuals: {},
-    preferences: {
-      showCelebrationMedia: true,
-    },
   };
 };
 

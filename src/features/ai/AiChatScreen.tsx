@@ -361,6 +361,10 @@ const CHAT_COLORS = {
 const markdownStyles = StyleSheet.create({
   body: {
     ...typography.body,
+    // Slightly larger than the base body size so long-form coach copy feels
+    // like a native "article" body size on mobile (around iOS 17pt).
+    fontSize: 17,
+    lineHeight: 24,
     color: CHAT_COLORS.textPrimary,
   },
   paragraph: {
@@ -757,6 +761,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const modeLabel = modeConfig?.label;
   const workflowLabel = workflowRuntime?.definition?.label;
   const contextPillLabel = modeLabel ?? workflowLabel ?? (hasContextMeta ? 'AI workflow' : null);
+  // For first-time onboarding, we want the surface to feel like a focused,
+  // narrative-led chat without extra chrome. Hide the contextual mode pill so
+  // the greeting copy can stand on its own.
+  const shouldShowContextPill =
+    !isOnboardingMode && hasWorkflowContextMeta && Boolean(contextPillLabel);
 
   const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
     if (!isArcCreationMode) return;
@@ -1481,8 +1490,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
               <View style={styles.timeline}>
               {!hideBrandHeader && (
                 <View style={styles.brandHeaderRow}>
-                  <BrandLockup logoSize={32} wordmarkSize="lg" />
-                  {hasWorkflowContextMeta && contextPillLabel && (
+                  <BrandLockup logoSize={40} wordmarkSize="lg" />
+                  {shouldShowContextPill && contextPillLabel && (
                     <Pressable
                       style={styles.modePill}
                       onPress={() => setIsWorkflowInfoVisible(true)}
@@ -2240,6 +2249,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    // Ensure the entire lockup stack itself sits on the center line of the
+    // canvas, not just its internal contents.
+    alignSelf: 'center',
     gap: spacing.sm,
   },
   headerRow: {
@@ -2726,7 +2738,9 @@ const styles = StyleSheet.create({
     color: CHAT_COLORS.textPrimary,
   },
   primaryButtonLabel: {
-    ...typography.bodySm,
+    // Use full-size body text inside primary buttons so they feel like
+    // platform-standard CTAs (roughly 17pt on iOS).
+    ...typography.body,
     color: colors.canvas,
     fontWeight: '600',
   },

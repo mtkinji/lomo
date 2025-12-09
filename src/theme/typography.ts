@@ -32,8 +32,10 @@ export const typography = {
   },
   body: {
     fontFamily: fonts.regular,
-    fontSize: 16,
-    lineHeight: 22,
+    // Treat 17pt as the canonical body size so core copy and button labels
+    // feel aligned with native mobile defaults (e.g., iOS body text).
+    fontSize: 17,
+    lineHeight: 24,
   },
   bodySm: {
     fontFamily: fonts.regular,

@@ -39,7 +39,9 @@ export function Button({
     size === 'small' ? 'sm' : size === 'icon' ? 'icon' : 'default';
 
   const isSmall = size === 'small';
-  const baseMinHeight = isSmall ? 32 : 40;
+  // Match or exceed common platform tap-target guidelines (~44–48pt square on iOS)
+  // so primary buttons feel like "normal" mobile controls.
+  const baseMinHeight = isSmall ? 40 : 48;
   const basePaddingHorizontal = isSmall ? spacing.md : spacing.lg;
 
   const combinedStyle: StyleProp<ViewStyle> = [

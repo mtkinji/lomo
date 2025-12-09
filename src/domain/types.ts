@@ -435,12 +435,6 @@ export interface UserProfile {
   };
   timezone?: string;
   preferences?: {
-    /**
-     * Soft toggle for GIFs and other celebration media. When false, the app
-     * should avoid showing celebration tiles like GIPHY-backed GIFs and rely
-     * on text/emoji instead.
-     */
-    showCelebrationMedia?: boolean;
   };
   communication: {
     tone?: CommunicationTone;

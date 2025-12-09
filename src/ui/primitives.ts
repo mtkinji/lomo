@@ -11,7 +11,7 @@ export { Badge } from './Badge';
 export { DropdownMenu } from './DropdownMenu';
 export { Dialog } from './Dialog';
 export { VStack, HStack } from './Stack';
-export { Text, Heading } from './Typography';
+export { Text, Heading, ButtonLabel } from './Typography';
 export { CelebrationGif } from './CelebrationGif';
 
 // Aliases for clarity in forms: Textarea is just Input with multiline enabled.

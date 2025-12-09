@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Text } from '../../ui/primitives';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing, typography, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { GoalListCard } from '../../ui/GoalListCard';
@@ -1968,9 +1968,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   primaryButtonLabel: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.canvas,
-    fontWeight: '600',
+    // Use the dedicated bold font so the label actually renders stronger even
+    // with custom font families loaded.
+    fontFamily: fonts.bold,
   },
   outlineButtonLabel: {
     ...typography.body,

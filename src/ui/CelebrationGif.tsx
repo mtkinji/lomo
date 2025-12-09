@@ -34,13 +34,6 @@ export function CelebrationGif({
   size = 'sm',
   stylePreference,
 }: CelebrationGifProps) {
-  const showCelebrations =
-    useAppStore((s) => s.userProfile?.preferences?.showCelebrationMedia) ?? true;
-
-  if (!showCelebrations) {
-    return null;
-  }
-
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);

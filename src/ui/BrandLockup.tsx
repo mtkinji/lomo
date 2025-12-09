@@ -60,10 +60,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.logo,
     fontSize: 18,
     lineHeight: 22,
+    // Nudge the wordmark down slightly so its visual center aligns with
+    // the logo glyph rather than sitting a bit high on the baseline.
+    marginTop: 1,
   },
   wordmarkLg: {
     ...typography.titleMd,
     fontFamily: fonts.logo,
+    // Larger lockups need a slightly bigger adjustment to feel centered.
+    marginTop: 2,
   },
 });
 

@@ -1512,7 +1512,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   primaryButtonLabel: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.canvas,
     fontWeight: '600',
   },

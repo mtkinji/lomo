@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View } from
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Heading, Text } from '../../ui/primitives';
+import { ButtonLabel } from '../../ui/Typography';
 import { Input } from '../../ui/Input';
 import { CelebrationGif } from '../../ui/CelebrationGif';
 import { Dialog } from '../../ui/Dialog';
@@ -2349,8 +2350,10 @@ export function IdentityAspirationFlow({
           {getAdaptiveOptions(SIGNATURE_TRAIT_OPTIONS, 5).map((option) => {
             const selected = signatureTraitIds.includes(option.id);
             return (
-              <Pressable
+              <Button
                 key={option.id}
+                size="small"
+                variant="ghost"
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
                   const previousSelected = SIGNATURE_TRAIT_OPTIONS.filter((o) =>
@@ -2362,10 +2365,8 @@ export function IdentityAspirationFlow({
                   handleConfirmTrait(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
+                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+              </Button>
             );
           })}
         </View>
@@ -2409,8 +2410,10 @@ export function IdentityAspirationFlow({
           {getAdaptiveOptions(GROWTH_EDGE_OPTIONS, 5).map((option) => {
             const selected = growthEdgeIds.includes(option.id);
             return (
-              <Pressable
+              <Button
                 key={option.id}
+                size="small"
+                variant="ghost"
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
                   const previousSelected = GROWTH_EDGE_OPTIONS.filter((o) =>
@@ -2422,10 +2425,8 @@ export function IdentityAspirationFlow({
                   handleConfirmGrowth(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
+                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+              </Button>
             );
           })}
         </View>
@@ -2468,8 +2469,10 @@ export function IdentityAspirationFlow({
           {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 5).map((option) => {
             const selected = proudMomentIds.includes(option.id);
             return (
-              <Pressable
+              <Button
                 key={option.id}
+                size="small"
+                variant="ghost"
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
                   const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
@@ -2481,10 +2484,8 @@ export function IdentityAspirationFlow({
                   handleConfirmProudMoment(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
+                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+              </Button>
             );
           })}
         </View>
@@ -2656,8 +2657,10 @@ export function IdentityAspirationFlow({
             {VALUES_OPTIONS.map((option) => {
               const selected = valueIds.includes(option.id);
               return (
-                <Pressable
+                <Button
                   key={option.id}
+                  size="small"
+                  variant="ghost"
                   style={[styles.chip, selected && styles.chipSelected]}
                   onPress={() => {
                     const previousSelected = VALUES_OPTIONS.filter((o) => valueIds.includes(o.id));
@@ -2667,10 +2670,8 @@ export function IdentityAspirationFlow({
                     handleConfirmValues(option.label);
                   }}
                 >
-                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
+                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                </Button>
               );
             })}
           </View>
@@ -2880,7 +2881,9 @@ export function IdentityAspirationFlow({
                   startGeneratingFromDreams();
                 }}
               >
-                <Text style={styles.primaryButtonLabel}>Continue</Text>
+                <ButtonLabel size="md" tone="inverse">
+                  Continue
+                </ButtonLabel>
               </Button>
             </View>
           </View>
@@ -2995,7 +2998,9 @@ export function IdentityAspirationFlow({
                 style={styles.primaryButton}
                 onPress={handleConfirmAspiration}
               >
-                <Text style={styles.primaryButtonLabel}>🤩 Yes! I'd love to become like this</Text>
+                <ButtonLabel size="md" tone="inverse">
+                  🤩 Yes! I'd love to become like this
+                </ButtonLabel>
               </Button>
               <Button
                 variant="ghost"
@@ -3024,16 +3029,18 @@ export function IdentityAspirationFlow({
           <View style={styles.chipGrid}>
             {TWEAK_OPTIONS.map((option) => {
               return (
-                <Pressable
+                <Button
                   key={option.id}
+                  size="small"
+                  variant="ghost"
                   style={styles.chip}
                   onPress={() => {
                     setPhase('generating');
                     void generateAspiration(option.id);
                   }}
                 >
-                  <Text style={styles.chipLabel}>{option.label}</Text>
-                </Pressable>
+                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                </Button>
               );
             })}
           </View>
@@ -3078,7 +3085,9 @@ export function IdentityAspirationFlow({
               );
             }}
           >
-            <Text style={styles.primaryButtonLabel}>Got it</Text>
+            <ButtonLabel size="md" tone="inverse">
+              Got it
+            </ButtonLabel>
           </Button>
         </View>
       </View>
@@ -3125,7 +3134,7 @@ export function IdentityAspirationFlow({
                 variant="secondary"
                 onPress={() => handleIntroResponse(option.label)}
               >
-                <Text style={styles.introActionLabel}>{option.label}</Text>
+                <ButtonLabel size="md">{option.label}</ButtonLabel>
               </Button>
             ))}
           </Animated.View>
@@ -3209,7 +3218,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing['xl'],
   },
   stepBody: {
-    gap: spacing.md,
+    // Use a modest vertical gap between rows inside the question cards; the
+    // progress label + title manage their own tighter spacing.
+    gap: spacing.sm,
   },
   dreamsStack: {
     gap: spacing.lg,
@@ -3231,12 +3242,16 @@ const styles = StyleSheet.create({
   questionMeta: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    // Keep the progress label visually tied to the question header with a
+    // slightly tighter gap than the default body spacing.
+    marginBottom: 0,
   },
   questionTitle: {
-    ...typography.body,
+    // Slightly larger than core body copy so the question reads as a local
+    // heading within the card, without jumping all the way to a full page
+    // title size.
+    ...typography.titleSm,
     color: colors.textPrimary,
-    fontFamily: fonts.semibold,
     paddingBottom: spacing.md,
   },
   questionInfoTrigger: {
@@ -3244,12 +3259,6 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignSelf: 'stretch',
-  },
-  primaryButtonLabel: {
-    ...typography.bodySm,
-    color: colors.canvas,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   primaryButtonDisabled: {
     opacity: 0.5,
@@ -3307,14 +3316,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   fullWidthOptionEmoji: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
   },
   fullWidthOptionEmojiSelected: {
     color: colors.accent,
   },
   fullWidthOptionLabel: {
-    ...typography.bodySm,
+    // Use the same readable size as core body copy so options feel like
+    // first-class choices, not secondary metadata.
+    ...typography.body,
     color: colors.textPrimary,
   },
   fullWidthOptionLabelSelected: {
@@ -3355,12 +3366,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-  },
-  introActionLabel: {
-    ...typography.bodySm,
-    color: colors.secondaryForeground,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   revealIntroText: {
     marginBottom: spacing.lg,
