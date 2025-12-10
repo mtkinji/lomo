@@ -28,6 +28,7 @@ import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
 import { useAppStore } from '../../store/useAppStore';
 import { useWorkflowRuntime } from './WorkflowRuntimeContext';
 import type { ReactNode, Ref } from 'react';
+import type { AgentTimelineItem } from './agentRuntime';
 import type {
   AgeRange,
   ArcProposalFeedback,
@@ -610,6 +611,13 @@ export type AiChatPaneController = {
    * workflow presenters can call `sendCoachChat` with full context.
    */
   getHistory: () => CoachChatTurn[];
+  /**
+   * Snapshot the current visible timeline (messages + inline cards) in a
+   * normalized form. This is primarily intended for workflow presenters and
+   * future runtime layers that want to reason about the thread structure
+   * without coupling to AiChatPane's internal state.
+   */
+  getTimeline: () => AgentTimelineItem[];
 };
 
 /**
@@ -1086,46 +1094,61 @@ export const AiChatPane = forwardRef(function AiChatPane(
   useImperativeHandle(
     ref,
     (): AiChatPaneController => ({
-        appendUserMessage: (content: string) => {
-          const userMessage: ChatMessage = {
-            id: `user-external-${Date.now()}`,
-            role: 'user',
-            content,
-          };
-          setMessages((prev) => {
-            const next = [...prev, userMessage];
-            messagesRef.current = next;
-            scheduleDraftSave(next, input);
-            return next;
-          });
-        },
-        streamAssistantReplyFromWorkflow: (
-          fullText: string,
-          baseId = 'assistant-workflow',
-          opts,
-        ) => {
-          if (mode === 'activityCreation') {
-            const parsed = extractActivitySuggestionsFromAssistantMessage(fullText);
-            if (parsed.suggestions && parsed.suggestions.length > 0) {
-              setActivitySuggestions(parsed.suggestions);
-              setAdoptedActivityCount(0);
-              setShowActivitySummary(false);
-            } else {
-              setActivitySuggestions(null);
-            }
-            streamAssistantReply(parsed.displayContent, baseId, opts);
+      appendUserMessage: (content: string) => {
+        const userMessage: ChatMessage = {
+          id: `user-external-${Date.now()}`,
+          role: 'user',
+          content,
+        };
+        setMessages((prev) => {
+          const next = [...prev, userMessage];
+          messagesRef.current = next;
+          scheduleDraftSave(next, input);
+          return next;
+        });
+      },
+      streamAssistantReplyFromWorkflow: (
+        fullText: string,
+        baseId = 'assistant-workflow',
+        opts,
+      ) => {
+        if (mode === 'activityCreation') {
+          const parsed = extractActivitySuggestionsFromAssistantMessage(fullText);
+          if (parsed.suggestions && parsed.suggestions.length > 0) {
+            setActivitySuggestions(parsed.suggestions);
+            setAdoptedActivityCount(0);
+            setShowActivitySummary(false);
           } else {
-            streamAssistantReply(fullText, baseId, opts);
+            setActivitySuggestions(null);
           }
-        },
-        getHistory: () => {
-          return messagesRef.current.map((m) => ({
-            role: m.role,
+          streamAssistantReply(parsed.displayContent, baseId, opts);
+        } else {
+          streamAssistantReply(fullText, baseId, opts);
+        }
+      },
+      getHistory: () => {
+        return messagesRef.current.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+      },
+      getTimeline: () => {
+        // For now we expose the visible text transcript as timeline items.
+        // Workflow- and card-specific items can be layered in over time as
+        // we formalize the AgentTimelineItem model.
+        const baseTimestamp = Date.now();
+        return messagesRef.current
+          .filter((m) => m.role !== 'system')
+          .map<AgentTimelineItem>((m, index) => ({
+            id: m.id,
+            createdAt: new Date(baseTimestamp + index).toISOString(),
+            kind: m.role === 'assistant' ? 'assistantMessage' : 'userMessage',
+            role: m.role === 'assistant' ? 'assistant' : 'user',
             content: m.content,
           }));
-        },
-      }),
-    [input]
+      },
+    }),
+    [input, mode]
   );
 
   // For arcCreation mode, automatically ask the model for an initial

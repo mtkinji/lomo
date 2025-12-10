@@ -72,6 +72,12 @@ export type AgentWorkspaceProps = {
    */
   onTransportError?: () => void;
   /**
+   * Optional hook fired when the user chooses to fall back to a manual flow
+   * (for example, tapping "Create manually instead" in Activities AI). This is
+   * distinct from `onTransportError`, which represents a network failure.
+   */
+  onManualFallbackRequested?: () => void;
+  /**
    * Optional hook fired when the user taps "Accept" on an AI-generated
    * activity suggestion card in activityCreation mode.
    */
@@ -188,18 +194,6 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     nextStepId?: string;
   } | null>(null);
 
-  useEffect(() => {
-    if (!workflowDefinition) {
-      setWorkflowInstance(null);
-      return;
-    }
-    setWorkflowInstance((current) => {
-      if (current && current.definitionId === workflowDefinition.id) {
-        return current;
-      }
-      return createInitialWorkflowInstance(workflowDefinition, workflowInstanceId);
-    });
-  }, [workflowDefinition, workflowInstanceId]);
   useEffect(() => {
     if (!workflowDefinition) {
       setWorkflowInstance(null);
@@ -366,7 +360,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         onComplete={onComplete}
         stepCard={workflowStepCard}
         onTransportError={props.onTransportError}
-        onManualFallbackRequested={props.onTransportError}
+        onManualFallbackRequested={props.onManualFallbackRequested}
         onAdoptActivitySuggestion={props.onAdoptActivitySuggestion}
         onDismiss={props.onDismiss}
       />
