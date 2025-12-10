@@ -125,6 +125,15 @@ const createInitialWorkflowInstance = (
   };
 };
 
+/**
+ * Single host/orchestrator for all agent workflows.
+ *
+ * AgentWorkspace always lives inside the existing AppShell + canvas layers and
+ * never replaces them. It owns workflow state and forwards a single shared
+ * chat + cards timeline into AiChatPane; any workflow-specific UI should be
+ * provided as a `stepCard` rendered inside that pane, not as a separate chat
+ * surface or modal stack.
+ */
 export function AgentWorkspace(props: AgentWorkspaceProps) {
   const {
     mode,
@@ -259,6 +268,9 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     lastStepEventRef.current = null;
   }, [workflowInstance, workflowDefinition, onStepComplete]);
 
+  // Workflow-driven UI enters the chat surface as a generic `stepCard` node.
+  // Presenters like IdentityAspirationFlow render into this slot so that all
+  // cards still appear inside the shared AiChatPane timeline.
   const workflowStepCard = useMemo(() => {
     if (!workflowDefinition) {
       return undefined;
@@ -331,7 +343,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   // For now, AgentWorkspace is a light orchestrator that forwards mode and a
   // structured launch context string into the existing AiChatPane. As we
   // introduce real workflow instances and richer card rendering, this
-  // component will become the primary host for those concerns.
+  // component remains the primary host for all AI workflows and their single
+  // shared chat surface.
   return (
     <WorkflowRuntimeContext.Provider
       value={{
@@ -340,6 +353,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         completeStep,
       }}
     >
+      {/* All AI chat and cards go through this pane; no other chat surfaces
+          should exist elsewhere in the app. */}
       <AiChatPane
         ref={chatPaneRef}
         mode={mode}

@@ -613,7 +613,15 @@ export type AiChatPaneController = {
 };
 
 /**
- * Core chat pane to be rendered inside the coach bottom sheet.
+ * Core chat canvas for the agent: a single "thread + cards" surface that all
+ * AI workflows render into. AiChatPane owns the visible timeline (messages,
+ * cards, status) while hosts like AgentWorkspace choose the ChatMode and
+ * inject workflow-driven cards via the `stepCard` slot.
+ *
+ * Important policy: the `mode` / ChatMode is chosen at launch and this pane
+ * does not support mid-flight mode switching. Flows that need a different
+ * mode should close their AgentWorkspace host and launch a new one instead.
+ *
  * This component intentionally does NOT own global app padding or navigation
  * chrome – the sheet + AppShell handle those layers.
  */
@@ -1755,6 +1763,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 </View>
               )}
 
+              {/* Workflow-specific UI enters the chat as an inline card. The
+                  `stepCard` prop is a generic React node (often composed from
+                  Card, QuestionCard, etc.), not a special StepCard class. */}
               {stepCard && <View style={styles.stepCardHost}>{stepCard}</View>}
             </View>
           </ScrollView>

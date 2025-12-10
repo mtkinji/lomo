@@ -755,6 +755,13 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
 
         {activeTab === 'ai' ? (
           <View style={styles.drawerContent}>
+            {/* Current implementation mounts IdentityAspirationFlow directly.
+                The desired architecture is to host AgentWorkspace here instead
+                (in a bottom sheet), with mode="arcCreation",
+                workflowDefinitionId="arc_creation_v1", and a LaunchContext
+                that mirrors this New Arc entry – so all Arc creation runs
+                through the shared agent shell + AiChatPane rather than a
+                bespoke flow. */}
             <IdentityAspirationFlow
               mode="reuseIdentityForNewArc"
               onComplete={() => {

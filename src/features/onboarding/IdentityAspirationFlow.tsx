@@ -23,9 +23,14 @@ type IdentityAspirationFlowProps = {
   mode?: IdentityAspirationFlowMode;
   onComplete?: () => void;
   /**
-   * Optional handle to the shared chat surface. For this FTUE we keep AI work
-   * mostly "behind the scenes" and do not currently stream visible chat turns,
-   * but we keep the ref available for future refinement.
+   * Optional handle to the shared chat surface. This flow treats the
+   * AiChatPane controller as its only link to the chat thread: it can append
+   * synthetic user messages, stream assistant copy, and insert cards via the
+   * AgentWorkspace `stepCard` slot, but it never mounts its own chat surface.
+   *
+   * In the long run, this same presenter pattern should be reused for Arc
+   * creation from the Arcs list via an `arcCreation` workflow, instead of
+   * mounting IdentityAspirationFlow directly inside a New Arc modal.
    */
   chatControllerRef?: React.RefObject<AiChatPaneController | null>;
 };
@@ -553,6 +558,14 @@ type ArcDevelopmentInsights = {
   pitfalls: string[];
 };
 
+/**
+ * Workflow presenter for the identity/Arc FTUE (and reuseIdentityForNewArc).
+ *
+ * This component owns the tap-first card experience and talks to the agent
+ * runtime only through `WorkflowRuntimeContext` and the optional
+ * `chatControllerRef`, so that all visible messages and cards still flow
+ * through the shared AgentWorkspace + AiChatPane timeline.
+ */
 export function IdentityAspirationFlow({
   mode = 'firstTimeOnboarding',
   onComplete,
