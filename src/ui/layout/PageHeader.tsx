@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
+import { IconButton } from '../Button';
 
 type PageHeaderProps = {
   title: string;
@@ -56,23 +57,21 @@ export function PageHeader({
       <View style={styles.topRow}>
         <View style={styles.sideColumn}>
           {onPressBack ? (
-            <Pressable
-              accessibilityRole="button"
+            <IconButton
               accessibilityLabel={`Go back from ${title}`}
-              hitSlop={8}
               onPress={onPressBack}
+              style={styles.headerIconButton}
             >
-              <Icon name="arrowLeft" size={24} color={colors.textPrimary} />
-            </Pressable>
+              <Icon name="arrowLeft" size={18} color={colors.canvas} />
+            </IconButton>
           ) : onPressMenu ? (
-            <Pressable
-              accessibilityRole="button"
+            <IconButton
               accessibilityLabel="Open navigation menu"
-              hitSlop={8}
               onPress={onPressMenu}
+              style={[styles.headerIconButton, styles.headerIconButtonGhost]}
             >
               <MenuToggleIcon open={menuOpen} />
-            </Pressable>
+            </IconButton>
           ) : null}
         </View>
 
@@ -85,14 +84,13 @@ export function PageHeader({
             ) : null}
             <Text style={styles.title}>{title}</Text>
             {onPressInfo ? (
-              <Pressable
-                accessibilityRole="button"
+              <IconButton
                 accessibilityLabel={`Learn about ${title.toLowerCase()}`}
-                hitSlop={8}
                 onPress={onPressInfo}
+                style={styles.headerIconButton}
               >
-                <Icon name="info" size={22} color={colors.textSecondary} />
-              </Pressable>
+                <Icon name="info" size={18} color={colors.canvas} />
+              </IconButton>
             ) : null}
           </View>
         </View>
@@ -110,6 +108,14 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
+  },
+  headerIconButton: {
+    width: 32,
+    height: 32,
+  },
+  headerIconButtonGhost: {
+    // Menu toggle should appear as a bare icon (no filled background).
+    backgroundColor: 'transparent',
   },
   childrenContainer: {
     marginTop: spacing.md,

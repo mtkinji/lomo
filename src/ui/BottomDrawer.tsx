@@ -68,10 +68,12 @@ export function BottomDrawer({
     outputRange: [0, dismissDistance],
   });
 
-  // Backdrop opacity tracks how "open" the sheet feels.
+  // Backdrop opacity tracks how "open" the sheet feels. Keep it fully opaque
+  // through most of the gesture and only fade during the last ~25% of the
+  // close motion so the sheet doesn't appear to wash out too early.
   const backdropOpacity = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0],
+    inputRange: [0, 0.75, 1],
+    outputRange: [1, 1, 0],
   });
 
   const panResponder = useMemo(
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   sheet: {
-    // Use the shell background so Agent / coach surfaces match the onboarding
+    // Use the shell background so Agent and AI surfaces match the onboarding
     // workspace and feel like a continuous gray canvas instead of a white card.
     backgroundColor: colors.shell,
     borderTopLeftRadius: 40,

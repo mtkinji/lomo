@@ -55,6 +55,7 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
+import { SegmentedControl } from '../../ui/SegmentedControl';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -699,65 +700,15 @@ export function GoalDetailScreen() {
 
               {/* Canvas mode toggle: Details vs Plan vs History */}
               <View style={styles.segmentedControlRow}>
-                <View style={styles.segmentedControl}>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    accessibilityRole="button"
-                    accessibilityLabel="Show goal details"
-                    style={[
-                      styles.segmentedOption,
-                      activeTab === 'details' && styles.segmentedOptionActive,
-                    ]}
-                    onPress={() => setActiveTab('details')}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentedOptionLabel,
-                        activeTab === 'details' && styles.segmentedOptionLabelActive,
+                <SegmentedControl
+                  value={activeTab}
+                  onChange={setActiveTab}
+                  options={[
+                    { value: 'details', label: 'Details' },
+                    { value: 'plan', label: 'Plan' },
+                    { value: 'history', label: 'History' },
                       ]}
-                    >
-                      Details
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    accessibilityRole="button"
-                    accessibilityLabel="Show goal plan and activities"
-                    style={[
-                      styles.segmentedOption,
-                      activeTab === 'plan' && styles.segmentedOptionActive,
-                    ]}
-                    onPress={() => setActiveTab('plan')}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentedOptionLabel,
-                        activeTab === 'plan' && styles.segmentedOptionLabelActive,
-                      ]}
-                    >
-                      Plan
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    accessibilityRole="button"
-                    accessibilityLabel="Show goal history"
-                    style={[
-                      styles.segmentedOption,
-                      activeTab === 'history' && styles.segmentedOptionActive,
-                    ]}
-                    onPress={() => setActiveTab('history')}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentedOptionLabel,
-                        activeTab === 'history' && styles.segmentedOptionLabelActive,
-                      ]}
-                    >
-                      History
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                />
               </View>
             </VStack>
 
@@ -1798,44 +1749,15 @@ function GoalActivityCoachDrawer({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={setActiveTab}
-          aiLabel={
-            <HStack space="xs" alignItems="center">
-              <Icon
-                name="sparkles"
-                size={14}
-                color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.segmentedOptionLabel,
-                  activeTab === 'ai' && styles.segmentedOptionLabelActive,
-                ]}
-              >
-                Activities AI
-              </Text>
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  setIsActivityAiInfoVisible(true);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Show context for Activities AI"
-              >
-                <Icon
-                  name="info"
-                  size={14}
-                  color={colors.textSecondary}
-                  style={styles.activityModePillInfoIcon}
-                />
-              </Pressable>
-            </HStack>
-          }
+          objectLabel="Activities"
+          onPressInfo={() => setIsActivityAiInfoVisible(true)}
+          infoAccessibilityLabel="Show context for Activities AI"
         />
         <Dialog
           visible={isActivityAiInfoVisible}
           onClose={() => setIsActivityAiInfoVisible(false)}
           title="Activities AI context"
-          description="This coach proposes concrete activities using your existing goals and plans as context."
+          description="Activities AI proposes concrete activities using your existing goals and plans as context."
         >
           <Text style={styles.modalBody}>
             {focusGoal
@@ -2492,31 +2414,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   segmentedControl: {
-    flexDirection: 'row',
-    padding: spacing.xs / 2,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
-    alignSelf: 'flex-start',
+    // Deprecated: visual styles now provided by shared `SegmentedControl` primitive.
   },
   segmentedOption: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
+    // Deprecated: use `SegmentedControl` instead.
   },
   segmentedOptionActive: {
-    backgroundColor: colors.canvas,
-    shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    // Deprecated: use `SegmentedControl` instead.
   },
   segmentedOptionLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+    // Deprecated: use `SegmentedControl` instead.
   },
   segmentedOptionLabelActive: {
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
+    // Deprecated: use `SegmentedControl` instead.
   },
   activityModePillInfoIcon: {
     marginLeft: spacing.sm,

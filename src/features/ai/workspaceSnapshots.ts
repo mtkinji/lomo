@@ -3,7 +3,8 @@ import type { Arc, Goal, Activity } from '../../domain/types';
 /**
  * Shared helper for building a natural-language snapshot of the user's
  * existing Arcs and Goals. This is passed into AgentWorkspace as a hidden
- * context string so the coach can propose complementary Arcs or Goals.
+ * context string so the Arc / Goals AI surfaces can propose complementary
+ * Arcs or Goals.
  */
 export function buildArcCoachLaunchContext(
   arcs: Arc[],
@@ -53,7 +54,7 @@ export function buildArcCoachLaunchContext(
 /**
  * Helper for building a natural-language snapshot of the user's existing Goals
  * and Activities. This is passed into AgentWorkspace for activity creation so
- * the coach can keep suggestions realistic, non-duplicative, and complementary.
+ * Activities AI can keep suggestions realistic, non-duplicative, and complementary.
  */
 export function buildActivityCoachLaunchContext(
   goals: Goal[],

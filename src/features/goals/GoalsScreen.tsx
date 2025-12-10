@@ -18,7 +18,7 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { GoalListCard } from '../../ui/GoalListCard';
-import { Card } from '@/components/ui/card';
+import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
@@ -602,38 +602,9 @@ export function GoalCoachDrawer({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={setActiveTab}
-          aiLabel={
-            <HStack space="xs" alignItems="center">
-              <Icon
-                name="sparkles"
-                size={14}
-                color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.segmentedOptionLabel,
-                  activeTab === 'ai' && styles.segmentedOptionLabelActive,
-                ]}
-              >
-                Goals AI
-              </Text>
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  setIsGoalAiInfoVisible(true);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Show context for Goals AI"
-              >
-                <Icon
-                  name="info"
-                  size={14}
-                  color={colors.textSecondary}
-                  style={styles.goalModePillInfoIcon}
-                />
-              </Pressable>
-            </HStack>
-          }
+          objectLabel="Goals"
+          onPressInfo={() => setIsGoalAiInfoVisible(true)}
+          infoAccessibilityLabel="Show context for Goals AI"
         />
         {/* Keep both panes mounted so users can switch between AI and Manual without
             losing their place in either canvas. We toggle visibility via styles
@@ -1092,6 +1063,7 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
                             {recommended.length > 1 && (
                               <Button
                                 variant="outline"
+                                size="small"
                                 onPress={() =>
                                   setRecommendedIndex((current) =>
                                     (current + 1) % (recommended.length || 1)
@@ -1106,6 +1078,7 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
                             )}
                             <Button
                               variant="accent"
+                              size="small"
                               onPress={() => {
                                 const goal = recommended[recommendedIndex];
                                 if (goal) {

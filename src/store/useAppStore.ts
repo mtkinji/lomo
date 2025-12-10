@@ -620,6 +620,7 @@ export const useAppStore = create(
               focusAreas: undefined,
               avatarUrl: undefined,
               notifications: undefined,
+              identityProfile: undefined,
               updatedAt: now(),
             },
             lastOnboardingArcId: null,

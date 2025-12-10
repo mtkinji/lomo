@@ -32,9 +32,9 @@ import {
 } from '../../ui/DropdownMenu';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
-import { Logo } from '../../ui/Logo';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import type {
   Activity,
   ActivityView,
@@ -46,6 +46,7 @@ import type {
 } from '../../domain/types';
 import { fonts } from '../../theme/typography';
 import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 type CompletedActivitySectionProps = {
@@ -901,6 +902,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
+  modalBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -1199,6 +1204,7 @@ function ActivityCoachDrawer({
   const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
   const [repeatSheetVisible, setRepeatSheetVisible] = React.useState(false);
   const [isDueDatePickerVisible, setIsDueDatePickerVisible] = React.useState(false);
+  const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = React.useState(false);
 
   const workspaceSnapshot = React.useMemo(
     () => buildActivityCoachLaunchContext(goals, activities),
@@ -1670,66 +1676,24 @@ function ActivityCoachDrawer({
   return (
     <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
       <View style={styles.activityCoachContainer}>
-        <View style={styles.sheetHeaderRow}>
-          <View style={styles.brandLockup}>
-            <Logo size={24} />
-            <Text style={styles.brandWordmark}>kwilt</Text>
-          </View>
-          <View style={styles.headerSideRight}>
-            <View style={styles.segmentedControl}>
-              <Pressable
-                style={[
-                  styles.segmentedOption,
-                  activeTab === 'ai' && styles.segmentedOptionActive,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Create activities with AI"
-                onPress={() => setActiveTab('ai')}
-              >
-                <View style={styles.segmentedOptionContent}>
-                  <Icon
-                    name="sparkles"
-                    size={14}
-                    color={activeTab === 'ai' ? colors.accent : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.segmentedOptionLabel,
-                      activeTab === 'ai' && styles.segmentedOptionLabelActive,
-                    ]}
-                  >
-                    AI
-                  </Text>
-                </View>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.segmentedOption,
-                  activeTab === 'manual' && styles.segmentedOptionActive,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Create activity manually"
-                onPress={() => setActiveTab('manual')}
-              >
-                <View style={styles.segmentedOptionContent}>
-                  <Icon
-                    name="edit"
-                    size={14}
-                    color={activeTab === 'manual' ? colors.textPrimary : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.segmentedOptionLabel,
-                      activeTab === 'manual' && styles.segmentedOptionLabelActive,
-                    ]}
-                  >
-                    Manual
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+        <AgentModeHeader
+          activeMode={activeTab}
+          onChangeMode={setActiveTab}
+          objectLabel="Activities"
+          onPressInfo={() => setIsActivityAiInfoVisible(true)}
+          infoAccessibilityLabel="Show context for Activities AI"
+        />
+        <Dialog
+          visible={isActivityAiInfoVisible}
+          onClose={() => setIsActivityAiInfoVisible(false)}
+          title="Activities AI context"
+          description="Activities AI proposes concrete activities using your existing goals and plans as context."
+        >
+          <Text style={styles.modalBody}>
+            I’m using your existing goals and activities to keep suggestions realistic, aligned,
+            and non-duplicative.
+          </Text>
+        </Dialog>
         {activeTab === 'ai' ? (
           <View style={styles.activityCoachBody}>
             <AgentWorkspace

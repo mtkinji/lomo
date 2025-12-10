@@ -382,7 +382,6 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
 }
 
 function KwiltDrawerContent(props: any) {
-  const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
 
   // Hide the top-level Settings item from the drawer list while keeping the
@@ -426,6 +425,8 @@ function KwiltDrawerContent(props: any) {
         },
       ]}
     >
+      {/* Search is temporarily disabled until navigation search is implemented. */}
+      {/*
       <View style={styles.drawerHeader}>
         <Input
           value={searchQuery}
@@ -438,6 +439,7 @@ function KwiltDrawerContent(props: any) {
           containerStyle={styles.searchContainer}
         />
       </View>
+      */}
       <View style={styles.drawerMain}>
         <DrawerItemList
           {...props}

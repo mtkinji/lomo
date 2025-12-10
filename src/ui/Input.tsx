@@ -10,9 +10,8 @@ import {
   TextInput,
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
+  TextInputProps,
 } from 'react-native';
-import { Input as ReusableInput } from '@/components/ui/input';
-import type { TextInputProps } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 
@@ -87,11 +86,12 @@ const InputBase = forwardRef<TextInput, Props>(
               <Icon name={leadingIcon} size={16} color={iconColor} />
             </View>
           ) : null}
-          <ReusableInput
+          <TextInput
             {...rest}
-            ref={ref as any}
+            ref={ref}
             editable={editable}
             multiline={multiline}
+            placeholderTextColor={colors.muted}
             onContentSizeChange={(
               event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
             ) => {
@@ -113,7 +113,6 @@ const InputBase = forwardRef<TextInput, Props>(
               setFocused(false);
               onBlur?.(event);
             }}
-            className=""
             style={[
               styles.input,
               multiline && styles.multilineInput,
@@ -229,5 +228,3 @@ const variantStyles: Record<InputVariant, ViewStyle> = {
     backgroundColor: 'transparent',
   },
 };
-
-

@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { BrandLockup } from './BrandLockup';
 import { HStack, Text } from './primitives';
 import { colors, spacing, typography } from '../theme';
+import { SegmentedControl } from './SegmentedControl';
+import { Icon } from './Icon';
 
 export type AgentMode = 'ai' | 'manual';
 
@@ -10,10 +12,19 @@ type AgentModeHeaderProps = {
   activeMode: AgentMode;
   onChangeMode: (next: AgentMode) => void;
   /**
-   * Custom content for the AI side label, e.g. "{sparkles} Goals AI {info}".
-   * When omitted, a simple "AI" text label is used.
+   * Object label used to build the AI tab copy, e.g. "Arc", "Goals", "Activities".
+   * Rendered as "{objectLabel} AI" next to the lightning icon.
    */
-  aiLabel?: React.ReactNode;
+  objectLabel: string;
+  /**
+   * Optional handler for the info icon on the AI tab. When omitted, the info
+   * icon is hidden.
+   */
+  onPressInfo?: () => void;
+  /**
+   * Optional accessibility label for the info icon.
+   */
+  infoAccessibilityLabel?: string;
   /**
    * Optional override for the Manual tab label. Defaults to "Manual".
    */
@@ -23,21 +34,45 @@ type AgentModeHeaderProps = {
 export function AgentModeHeader({
   activeMode,
   onChangeMode,
-  aiLabel,
+  objectLabel,
+  onPressInfo,
+  infoAccessibilityLabel,
   manualLabel,
 }: AgentModeHeaderProps) {
-  const aiContent =
-    aiLabel ??
-    (
+  const aiContent = (
+    <>
+      <Icon
+        name="sparkles"
+        size={14}
+        color={activeMode === 'ai' ? colors.accent : colors.textSecondary}
+      />
       <Text
         style={[
           styles.segmentedOptionLabel,
           activeMode === 'ai' && styles.segmentedOptionLabelActive,
         ]}
       >
-        AI
+        {`${objectLabel} AI`}
       </Text>
-    );
+      {onPressInfo ? (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onPressInfo();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={infoAccessibilityLabel ?? `Show context for ${objectLabel} AI`}
+        >
+          <Icon
+            name="info"
+            size={14}
+            color={colors.textSecondary}
+            style={styles.infoIcon}
+          />
+        </Pressable>
+      ) : null}
+    </>
+  );
 
   const manualContent =
     manualLabel ??
@@ -56,36 +91,15 @@ export function AgentModeHeader({
     <View style={styles.headerRow}>
       <BrandLockup logoSize={32} wordmarkSize="sm" />
       <View style={styles.headerSideRight}>
-        <View style={styles.segmentedControl}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            accessibilityRole="button"
-            accessibilityLabel="Use AI mode"
-            style={[
-              styles.segmentedOption,
-              activeMode === 'ai' && styles.segmentedOptionActive,
-            ]}
-            onPress={() => onChangeMode('ai')}
-          >
-            <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">
-              {aiContent}
-            </HStack>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            accessibilityRole="button"
-            accessibilityLabel="Use manual mode"
-            style={[
-              styles.segmentedOption,
-              activeMode === 'manual' && styles.segmentedOptionActive,
-            ]}
-            onPress={() => onChangeMode('manual')}
-          >
-            <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">
-              {manualContent}
-            </HStack>
-          </TouchableOpacity>
-        </View>
+        <SegmentedControl
+          size="compact"
+          value={activeMode}
+          onChange={onChangeMode}
+          options={[
+            { value: 'ai', label: <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">{aiContent}</HStack> },
+            { value: 'manual', label: <HStack style={styles.segmentedOptionContent} alignItems="center" space="xs">{manualContent}</HStack> },
+          ]}
+        />
       </View>
     </View>
   );
@@ -104,24 +118,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     flex: 1,
   },
-  segmentedControl: {
-    flexDirection: 'row',
-    padding: spacing.xs / 2,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
-  },
-  segmentedOption: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  segmentedOptionActive: {
-    backgroundColor: colors.canvas,
-    shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
   segmentedOptionLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
@@ -134,6 +130,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: spacing.xs,
+  },
+  infoIcon: {
+    marginLeft: spacing.sm,
   },
 });
 

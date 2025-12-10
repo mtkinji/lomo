@@ -2,7 +2,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { Image, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card } from '@/components/ui/card';
+import { Card } from './Card';
 import { Icon } from './Icon';
 import { Badge } from './Badge';
 import { colors, spacing, typography } from '../theme';
@@ -308,8 +308,7 @@ const styles = StyleSheet.create({
   goalListCard: {
     marginHorizontal: 0,
     marginVertical: 0,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    padding: spacing.md,
   },
   goalListContent: {
     flexDirection: 'column',

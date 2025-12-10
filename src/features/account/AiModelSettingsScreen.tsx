@@ -10,6 +10,7 @@ import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore, type LlmModel } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Text, VStack, Textarea, Button } from '../../ui/primitives';
+import { SegmentedControl } from '../../ui/SegmentedControl';
 import { buildUserProfileSummary } from '../../services/ai';
 
 type AiModelSettingsNavigationProp = NativeStackNavigationProp<
@@ -130,40 +131,21 @@ export function AiModelSettingsScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
         >
-          <View style={styles.tabSwitcher}>
-            <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'contexts' && styles.tabActive,
-              ]}
-              onPress={handleSwitchToContexts}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  activeTab === 'contexts' && styles.tabLabelActive,
-                ]}
-              >
-                Contexts
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'models' && styles.tabActive,
-              ]}
-              onPress={handleSwitchToModels}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  activeTab === 'models' && styles.tabLabelActive,
-                ]}
-              >
-                Models
-              </Text>
-            </Pressable>
-          </View>
+          <SegmentedControl
+            style={styles.tabSwitcher}
+            value={activeTab}
+            onChange={(next) => {
+              if (next === 'contexts') {
+                handleSwitchToContexts();
+              } else {
+                handleSwitchToModels();
+              }
+            }}
+            options={[
+              { value: 'contexts', label: 'Contexts' },
+              { value: 'models', label: 'Models' },
+            ]}
+          />
 
           {activeTab === 'contexts' ? (
             <>
@@ -364,28 +346,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   tabSwitcher: {
-    flexDirection: 'row',
-    padding: spacing.xs,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
     alignSelf: 'center',
     marginBottom: spacing.md,
-  },
-  tab: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  tabActive: {
-    backgroundColor: colors.canvas,
-  },
-  tabLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  tabLabelActive: {
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
   },
   contextCard: {
     ...cardSurfaceStyle,

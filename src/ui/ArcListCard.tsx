@@ -1,7 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card } from '@/components/ui/card';
+import { Card } from './Card';
 import { Icon } from './Icon';
 import { colors, spacing, typography } from '../theme';
 import type { Arc } from '../domain/types';
@@ -124,6 +124,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 0,
     marginBottom: 0,
+    padding: spacing.md,
   },
   heroInner: {
     width: '100%',
@@ -143,6 +144,8 @@ const styles = StyleSheet.create({
     // meta row visually anchors to the bottom of the card.
     justifyContent: 'space-between',
     gap: spacing.sm,
+    // Inset the text and meta rows from the card edges while keeping the
+    // hero banner flush with the container above.
   },
   bodyContent: {
     gap: spacing.xs,

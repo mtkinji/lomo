@@ -34,7 +34,7 @@ import type {
   ArcProposalFeedbackReason,
 } from '../../domain/types';
 import { Text, VStack } from '../../ui/primitives';
-import { Card } from '@/components/ui/card';
+import { Card } from '../../ui/Card';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 
@@ -323,7 +323,7 @@ type ArcContextSummary = {
   goals: { title: string; arcName?: string }[];
 };
 
-// Default visual state: the user has not said anything yet, but the coach can
+// Default visual state: the user has not said anything yet, but the Agent can
 // open with guidance. This lets us show initial instructions while still
 // treating the canvas as "no user messages yet" for UI behaviors.
 const INITIAL_MESSAGES: ChatMessage[] = [
@@ -361,7 +361,7 @@ const CHAT_COLORS = {
 const markdownStyles = StyleSheet.create({
   body: {
     ...typography.body,
-    // Slightly larger than the base body size so long-form coach copy feels
+    // Slightly larger than the base body size so long-form AI copy feels
     // like a native "article" body size on mobile (around iOS 17pt).
     fontSize: 17,
     lineHeight: 24,

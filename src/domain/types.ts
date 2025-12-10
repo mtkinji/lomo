@@ -396,6 +396,30 @@ export type ThumbnailStyle =
   | 'pixelBlocks'
   | 'plainGradient';
 
+export interface IdentityProfileSlices {
+  identity: string;
+  why: string;
+  daily: string;
+}
+
+export interface IdentityProfile {
+  domainIds: string[];
+  motivationIds: string[];
+  signatureTraitIds: string[];
+  growthEdgeIds: string[];
+  proudMomentIds: string[];
+  meaningIds: string[];
+  impactIds: string[];
+  valueIds: string[];
+  philosophyIds: string[];
+  vocationIds: string[];
+  nickname?: string;
+  aspirationArcName?: string;
+  aspirationNarrative?: string;
+  aspirationSlices?: IdentityProfileSlices;
+  lastUpdatedAt: string;
+}
+
 export interface UserProfile {
   id: string;
   createdAt: string;
@@ -429,6 +453,14 @@ export interface UserProfile {
    * is the primary blob we include in prompts alongside structured fields.
    */
   coachContextSummary?: string;
+  /**
+   * Structured snapshot of the user's identity aspiration collected during the
+   * first-time onboarding Identity flow. This captures which part of
+   * themselves they most want to grow, the motivational style, proud moments,
+   * and the synthesized Arc narrative so later flows (like Arc creation) can
+   * quietly reuse that context without re-asking the 10-question sequence.
+   */
+  identityProfile?: IdentityProfile;
   focusAreas?: FocusAreaId[];
   notifications?: {
     remindersEnabled?: boolean;

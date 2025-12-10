@@ -10,9 +10,10 @@ import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
 import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
-import { VStack, HStack, Text, Heading, Textarea } from '../../ui/primitives';
+import { VStack, HStack, Text, Heading, Textarea, ButtonLabel } from '../../ui/primitives';
 import { Dialog } from '../../ui/Dialog';
 import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import { SegmentedControl } from '../../ui/SegmentedControl';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
@@ -310,37 +311,58 @@ export function DevToolsScreen() {
             <VStack space="sm">
               <HStack space="sm">
                 <Button variant="accent">
-                  <Text style={styles.primaryButtonLabel}>Primary</Text>
+                  <ButtonLabel size="md" tone="inverse">
+                    Primary
+                  </ButtonLabel>
                 </Button>
                 <Button variant="secondary">
-                  <Text style={styles.secondaryButtonLabel}>Secondary</Text>
+                  <ButtonLabel size="md">Secondary</ButtonLabel>
                 </Button>
                 <Button variant="outline">
-                  <Text style={styles.secondaryButtonLabel}>Outline</Text>
+                  <ButtonLabel size="md">Outline</ButtonLabel>
                 </Button>
               </HStack>
               <HStack space="sm">
                 <Button variant="destructive">
-                  <Text style={styles.primaryButtonLabel}>Destructive</Text>
+                  <ButtonLabel size="md" tone="inverse">
+                    Destructive
+                  </ButtonLabel>
                 </Button>
                 <Button variant="ghost">
-                  <Text style={styles.secondaryButtonLabel}>Ghost</Text>
+                  <ButtonLabel size="md">Ghost</ButtonLabel>
                 </Button>
               </HStack>
               <View style={styles.gallerySubsectionHeader}>
                 <Text style={styles.galleryFieldLabel}>Size variants</Text>
               </View>
-              <HStack space="sm">
+              <HStack space="sm" alignItems="flex-start">
+                <Button variant="accent" size="lg">
+                  <ButtonLabel size="lg" tone="inverse">
+                    Large
+                  </ButtonLabel>
+                </Button>
                 <Button variant="accent">
-                  <Text style={styles.primaryButtonLabel}>Default</Text>
+                  <ButtonLabel size="md" tone="inverse">
+                    Medium
+                  </ButtonLabel>
                 </Button>
                 <Button variant="accent" size="small">
-                  <Text style={styles.primaryButtonLabel}>Small</Text>
+                  <ButtonLabel size="sm" tone="inverse">
+                    Small
+                  </ButtonLabel>
                 </Button>
                 <IconButton accessibilityLabel="Icon button example">
                   <Icon name="more" size={18} color={colors.canvas} />
                 </IconButton>
               </HStack>
+              <View style={styles.gallerySubsectionHeader}>
+                <Text style={styles.galleryFieldLabel}>Full-width</Text>
+              </View>
+              <Button variant="accent" fullWidth>
+                <ButtonLabel size="md" tone="inverse">
+                  Full width action
+                </ButtonLabel>
+              </Button>
             </VStack>
           </View>
 
@@ -513,34 +535,15 @@ export function DevToolsScreen() {
             ? 'Preview shared UI primitives live on-device. Only visible in development builds.'
             : 'Utilities for testing and development. Only visible in development builds.'}
         </Text>
-        <View style={styles.tabSwitcher}>
-          <Pressable
-            style={[styles.tab, !isGallery && styles.tabActive]}
-            onPress={() => setViewMode('tools')}
-          >
-            <Text
-              style={[
-                styles.tabLabel,
-                !isGallery && styles.tabLabelActive,
-              ]}
-            >
-              Tools
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, isGallery && styles.tabActive]}
-            onPress={() => setViewMode('gallery')}
-          >
-            <Text
-              style={[
-                styles.tabLabel,
-                isGallery && styles.tabLabelActive,
-              ]}
-            >
-              Components
-            </Text>
-          </Pressable>
-        </View>
+        <SegmentedControl
+          style={styles.tabSwitcher}
+          value={viewMode}
+          onChange={(next) => setViewMode(next)}
+          options={[
+            { value: 'tools', label: 'Tools' },
+            { value: 'gallery', label: 'Components' },
+          ]}
+        />
       </PageHeader>
       {isGallery ? (
         renderComponentGallery()
@@ -557,19 +560,21 @@ export function DevToolsScreen() {
                 Launches the first-time experience overlay immediately, even if it was already
                 completed.
               </Text> */}
-              <Button variant="accent" onPress={handleTriggerFirstTimeUx}>
-                <Text style={styles.primaryButtonLabel}>Trigger first-time UX</Text>
+              <Button variant="accent" onPress={handleTriggerFirstTimeUx} style={styles.cardAction}>
+                <ButtonLabel size="md" tone="inverse">
+                  Trigger first-time UX
+                </ButtonLabel>
               </Button>
               {isFlowActive && (
-                <Button variant="secondary" onPress={dismissFlow}>
-                  <Text style={styles.secondaryButtonLabel}>Force dismiss</Text>
+                <Button variant="secondary" onPress={dismissFlow} style={styles.cardAction}>
+                  <ButtonLabel size="md">Force dismiss</ButtonLabel>
                 </Button>
               )}
-              <Button variant="secondary" onPress={handleShowFirstArcCelebration}>
-                <Text style={styles.secondaryButtonLabel}>Show first-Arc celebration</Text>
+              <Button variant="secondary" onPress={handleShowFirstArcCelebration} style={styles.cardAction}>
+                <ButtonLabel size="md">Show first-Arc celebration</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleShowFirstGoalCelebration}>
-                <Text style={styles.secondaryButtonLabel}>Show first-goal celebration</Text>
+              <Button variant="secondary" onPress={handleShowFirstGoalCelebration} style={styles.cardAction}>
+                <ButtonLabel size="md">Show first-goal celebration</ButtonLabel>
               </Button>
               <Text style={styles.meta}>
                 Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
@@ -584,14 +589,14 @@ export function DevToolsScreen() {
                 behavior. Make sure notifications are enabled in Settings → Notifications and in
                 system settings.
               </Text>
-              <Button variant="secondary" onPress={handleDebugDailyShowUpNotification}>
-                <Text style={styles.secondaryButtonLabel}>Fire daily show-up (dev)</Text>
+              <Button variant="secondary" onPress={handleDebugDailyShowUpNotification} style={styles.cardAction}>
+                <ButtonLabel size="md">Fire daily show-up (dev)</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleDebugStreakNotification}>
-                <Text style={styles.secondaryButtonLabel}>Fire streak nudge (dev)</Text>
+              <Button variant="secondary" onPress={handleDebugStreakNotification} style={styles.cardAction}>
+                <ButtonLabel size="md">Fire streak nudge (dev)</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleDebugReactivationNotification}>
-                <Text style={styles.secondaryButtonLabel}>Fire reactivation (dev)</Text>
+              <Button variant="secondary" onPress={handleDebugReactivationNotification} style={styles.cardAction}>
+                <ButtonLabel size="md">Fire reactivation (dev)</ButtonLabel>
               </Button>
               <Text style={styles.meta}>
                 Each button schedules a local notification to fire in ~2 seconds using the same
@@ -767,28 +772,8 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   tabSwitcher: {
-    flexDirection: 'row',
-    padding: spacing.xs,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
     alignSelf: 'center',
     marginTop: spacing.lg,
-  },
-  tab: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  tabActive: {
-    backgroundColor: colors.canvas,
-  },
-  tabLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  tabLabelActive: {
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
   },
   screenSubtitle: {
     ...typography.body,
@@ -836,6 +821,10 @@ const styles = StyleSheet.create({
   meta: {
     ...typography.bodySm,
     color: colors.muted,
+    marginTop: spacing.sm,
+  },
+  cardAction: {
+    alignSelf: 'flex-start',
     marginTop: spacing.sm,
   },
   historyList: {

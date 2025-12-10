@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 import { colors, typography, fonts } from '../theme';
+import { BUTTON_SIZE_TOKENS, type ButtonSizeToken } from './buttonTokens';
 
 type TextVariant = 'body' | 'bodySm' | 'label';
 type HeadingVariant = 'xl' | 'lg' | 'md' | 'sm';
 type Tone = 'default' | 'secondary' | 'muted' | 'accent' | 'destructive' | 'inverse';
-type ButtonSizeVariant = 'sm' | 'md' | 'lg';
 
 type BaseTextProps = RNTextProps & {
   children?: ReactNode;
@@ -26,7 +26,7 @@ export type ButtonLabelProps = BaseTextProps & {
    * Size key matches the button size tokens so labels stay in sync with
    * control sizing. Defaults to "md" which aligns with the core CTA size.
    */
-  size?: ButtonSizeVariant;
+  size?: ButtonSizeToken;
   tone?: Tone;
 };
 
@@ -115,25 +115,6 @@ export function Heading({
   );
 }
 
-const buttonLabelBySize: Record<ButtonSizeVariant, { fontFamily: string; fontSize: number; lineHeight: number }> =
-  {
-    sm: {
-      fontFamily: fonts.medium,
-      fontSize: 15,
-      lineHeight: 20,
-    },
-    md: {
-      fontFamily: fonts.medium,
-      fontSize: 17,
-      lineHeight: 22,
-    },
-    lg: {
-      fontFamily: fonts.medium,
-      fontSize: 18,
-      lineHeight: 24,
-    },
-  };
-
 /**
  * Canonical button label primitive. Use this for any text placed inside a
  * Button (or button-like surface) so size and weight stay consistent across
@@ -146,7 +127,7 @@ export function ButtonLabel({
   tone = 'default',
   ...rest
 }: ButtonLabelProps) {
-  const base = buttonLabelBySize[size] ?? buttonLabelBySize.md;
+  const base = BUTTON_SIZE_TOKENS[size ?? 'md'].text;
 
   return (
     <RNText

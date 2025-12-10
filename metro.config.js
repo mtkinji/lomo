@@ -1,11 +1,7 @@
-// Expo + NativeWind configuration for React Native Reusables.
-// See: https://reactnativereusables.com/docs/installation
-
+// Expo configuration
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const path = require('path');
 const { getDefaultConfig } = require('expo/metro-config');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
 
@@ -19,10 +15,4 @@ config.resolver.extraNodeModules = {
   'react-native-svg': path.resolve(__dirname, 'src/shims/react-native-svg'),
 };
 
-module.exports = withNativeWind(config, {
-  input: './global.css',
-  inlineRem: 16,
-});
-
-
-
+module.exports = config;

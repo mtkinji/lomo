@@ -33,7 +33,6 @@ import type { IconName } from '../../ui/Icon';
 import { Sheet, VStack, Heading, HStack, Dialog, CelebrationGif } from '../../ui/primitives';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
-import { Text as UiText } from '@/components/ui/text';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,6 +57,7 @@ import {
 } from './thumbnailVisuals';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
+import { SegmentedControl } from '../../ui/SegmentedControl';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -586,65 +586,15 @@ export function ArcDetailScreen() {
                   />
                   {/* Canvas mode toggle: Details vs Goals vs History */}
                   <View style={styles.segmentedControlRow}>
-                    <View style={styles.segmentedControl}>
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        accessibilityRole="button"
-                        accessibilityLabel="Show arc details"
-                        style={[
-                          styles.segmentedOption,
-                          activeTab === 'details' && styles.segmentedOptionActive,
-                        ]}
-                        onPress={() => setActiveTab('details')}
-                      >
-                        <Text
-                          style={[
-                            styles.segmentedOptionLabel,
-                            activeTab === 'details' && styles.segmentedOptionLabelActive,
+                    <SegmentedControl
+                      value={activeTab}
+                      onChange={setActiveTab}
+                      options={[
+                        { value: 'details', label: 'Details' },
+                        { value: 'goals', label: 'Goals' },
+                        { value: 'history', label: 'History' },
                           ]}
-                        >
-                          Details
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        accessibilityRole="button"
-                        accessibilityLabel="Show goals in this arc"
-                        style={[
-                          styles.segmentedOption,
-                          activeTab === 'goals' && styles.segmentedOptionActive,
-                        ]}
-                        onPress={() => setActiveTab('goals')}
-                      >
-                        <Text
-                          style={[
-                            styles.segmentedOptionLabel,
-                            activeTab === 'goals' && styles.segmentedOptionLabelActive,
-                          ]}
-                        >
-                          Goals
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        activeOpacity={0.9}
-                        accessibilityRole="button"
-                        accessibilityLabel="Show arc history"
-                        style={[
-                          styles.segmentedOption,
-                          activeTab === 'history' && styles.segmentedOptionActive,
-                        ]}
-                        onPress={() => setActiveTab('history')}
-                      >
-                        <Text
-                          style={[
-                            styles.segmentedOptionLabel,
-                            activeTab === 'history' && styles.segmentedOptionLabelActive,
-                          ]}
-                        >
-                          History
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                    />
                   </View>
                   {activeTab === 'details' && (
                     <View style={{ marginTop: spacing.sm }}>
