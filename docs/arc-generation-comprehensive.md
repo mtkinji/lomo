@@ -572,7 +572,7 @@ Forces are scored 0–3 to reflect intensity or relevance. When generating Arcs,
 - `src/domain/idealArcs.ts` - Ideal templates and scoring logic
 - `src/services/ai.ts` - Arc generation API calls
 - `src/features/ai/chatRegistry.ts` - Arc Creation Agent system prompt
-- `src/features/arcs/arcDevelopmentInsights.ts` - Insight generation
+- `src/features/arcs/arcDevelopmentInsights.ts` - Insight generationr
 - `docs/arc-aspiration-ftue.md` - Gold-standard FTUE model
 - `docs/life-architecture-model.md` - Core Arc philosophy
 

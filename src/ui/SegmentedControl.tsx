@@ -109,17 +109,20 @@ export function SegmentedControl<Value extends string>({
   );
 }
 
+const trackPadding = spacing.xs * 0.75;
+const segmentGap = trackPadding * 0.2;
+
 const styles = StyleSheet.create({
   outer: {
     flexDirection: 'row',
-    padding: spacing.xs,
+    padding: trackPadding,
     borderRadius: 999,
     backgroundColor: colors.shellAlt,
   },
   thumb: {
     position: 'absolute',
-    top: spacing.xs,
-    bottom: spacing.xs,
+    top: trackPadding,
+    bottom: trackPadding,
     borderRadius: 999,
     backgroundColor: colors.canvas,
   },
@@ -129,7 +132,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     // Horizontal padding defines the pill width around the label.
     paddingHorizontal: spacing.md,
-    marginHorizontal: spacing.xs / 2,
+    marginHorizontal: segmentGap,
   },
   segmentCompact: {
     paddingVertical: spacing.sm * 0.75,

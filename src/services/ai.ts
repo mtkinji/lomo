@@ -5,6 +5,7 @@ import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type LlmModel } from '../store/useAppStore';
 import type { ChatMode } from '../features/ai/chatRegistry';
+import { buildCoachChatContext } from '../features/ai/agentRuntime';
 
 type GenerateArcParams = {
   prompt: string;
@@ -903,12 +904,16 @@ export async function sendCoachChat(
     ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
     : baseSystemPrompt;
 
+  const { openAiMessages: historyMessages } = buildCoachChatContext({
+    mode: options?.mode,
+    launchContextSummary: options?.launchContextSummary,
+    workflowInstance: undefined,
+    history: messages,
+  });
+
   const openAiMessages = [
     { role: 'system' as const, content: systemPrompt },
-    ...messages.map((m) => ({
-      role: m.role === 'system' ? 'system' : m.role,
-      content: m.content,
-    })),
+    ...historyMessages,
   ];
   const tools = buildCoachToolsForMode(options?.mode);
 
