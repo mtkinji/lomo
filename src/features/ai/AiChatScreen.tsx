@@ -20,11 +20,12 @@ import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
+import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { CoachChatTurn, GeneratedArc, sendCoachChat, type CoachChatOptions } from '../../services/ai';
-import { CHAT_MODE_REGISTRY, type ChatMode } from './chatRegistry';
+import { WORKFLOW_REGISTRY, type ChatMode } from './workflowRegistry';
 import { useAppStore } from '../../store/useAppStore';
 import { useWorkflowRuntime } from './WorkflowRuntimeContext';
 import type { ReactNode, Ref } from 'react';
@@ -183,7 +184,28 @@ type ParsedActivitySuggestions = {
 
 function extractArcProposalFromAssistantMessage(content: string): ParsedAssistantReply {
   const markerIndex = content.indexOf(ARC_PROPOSAL_MARKER);
+
   if (markerIndex === -1) {
+    // Fallback: some prompts still instruct the model to return plain JSON
+    // without the ARC_PROPOSAL_JSON marker. When we receive what looks like a
+    // bare JSON object, treat it as a proposal and keep it out of the visible
+    // transcript so the user only sees the structured Arc card.
+    const trimmed = content.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed) as GeneratedArc;
+        return {
+          // Empty display content means we won't render a separate assistant
+          // bubble for this turn; the "Proposed Arc" card becomes the visible
+          // representation instead of a raw JSON blob.
+          displayContent: '',
+          arcProposal: parsed,
+        };
+      } catch (err) {
+        console.warn('Failed to parse bare Arc proposal JSON from assistant message', err);
+      }
+    }
+
     return {
       displayContent: content,
       arcProposal: null,
@@ -324,17 +346,11 @@ type ArcContextSummary = {
   goals: { title: string; arcName?: string }[];
 };
 
-// Default visual state: the user has not said anything yet, but the Agent can
-// open with guidance. This lets us show initial instructions while still
-// treating the canvas as "no user messages yet" for UI behaviors.
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: 'coach-intro-1',
-    role: 'assistant',
-    content:
-      "I'm your kwilt Agent. Think of me as a smart friend who can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?",
-  },
-];
+// Default assistant intro copy used when there is no mode-specific bootstrap.
+// We stream this into the timeline so it always appears with the same typing
+// animation as other assistant replies instead of popping in fully formed.
+const COACH_INTRO_TEXT =
+  "I'm your kwilt Agent. Think of me as a smart friend who can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?";
 
 const PROMPT_SUGGESTIONS = [
   'Best way to learn a new language',
@@ -438,8 +454,10 @@ const markdownStyles = StyleSheet.create({
   },
 });
 
-const INPUT_MIN_HEIGHT = typography.bodySm.lineHeight * 4;
-const INPUT_MAX_HEIGHT = typography.bodySm.lineHeight * 8;
+// Agent Workspace composer: start at a single line of body text and
+// grow up to ~10 lines before switching to internal scrolling.
+const INPUT_MIN_HEIGHT = typography.body.lineHeight * 1;
+const INPUT_MAX_HEIGHT = typography.body.lineHeight * 10;
 
 const AGE_RANGE_OPTIONS: { value: AgeRange; label: string }[] = [
   { value: 'under-18', label: 'Under 18' },
@@ -621,6 +639,18 @@ export type AiChatPaneController = {
 };
 
 /**
+ * Minimal controller contract that workflow presenters depend on.
+ *
+ * This abstracts the chat timeline API away from the full AiChatPane
+ * implementation so that flows like onboarding, Arc creation, and Goal
+ * creation can be written against a single, documented interface.
+ */
+export type ChatTimelineController = Pick<
+  AiChatPaneController,
+  'appendUserMessage' | 'streamAssistantReplyFromWorkflow' | 'getHistory' | 'getTimeline'
+>;
+
+/**
  * Core chat canvas for the agent: a single "thread + cards" surface that all
  * AI workflows render into. AiChatPane owns the visible timeline (messages,
  * cards, status) while hosts like AgentWorkspace choose the ChatMode and
@@ -660,30 +690,40 @@ export const AiChatPane = forwardRef(function AiChatPane(
   );
 
   const shouldHideComposerForWorkflowStep =
-    Boolean(
-      workflowRuntime &&
-        workflowRuntime.definition?.chatMode === 'firstTimeOnboarding' &&
-        currentWorkflowStep?.hideFreeformChatInput
-    );
+    Boolean(workflowRuntime && currentWorkflowStep?.hideFreeformChatInput);
 
-  const shouldShowComposer = !shouldHideComposerForWorkflowStep && mode !== 'activityCreation';
+  // During first-time onboarding, all user input is collected via structured
+  // step cards (tap-only questions plus one inline free-response field), so
+  // the global chat composer should remain hidden for the entire workflow.
+  const shouldShowComposer =
+    !shouldHideComposerForWorkflowStep && mode !== 'activityCreation' && !isOnboardingMode;
 
-  const modeConfig = mode ? CHAT_MODE_REGISTRY[mode] : undefined;
+  const modeConfig = mode ? WORKFLOW_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
   const shouldBootstrapAssistant = Boolean(modeConfig?.autoBootstrapFirstMessage);
   const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasStepCard = Boolean(stepCard);
+  const hasVisibleMessages = (messages ?? []).some((message) => message.role !== 'system');
 
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const arcFeedbackEntries = useAppStore((state) => state.arcFeedback);
   const addArcFeedback = useAppStore((state) => state.addArcFeedback);
   const hasAgeRange = Boolean(userProfile?.ageRange);
-  const shouldShowAgeQuestion = isArcCreationMode && !hasAgeRange;
+  // Arc creation previously asked for an age range inline, but this felt
+  // intrusive and overlapped with onboarding responsibilities. We now keep
+  // age handling in dedicated flows (like FTUE) and never surface the age
+  // question card in Arc AI.
+  const shouldShowAgeQuestion = false;
 
   const buildInitialMessages = (): ChatMessage[] => {
+    // When there is no explicit mode or launch context and we are not
+    // auto-bootstrapping an LLM reply, we start with an empty visible
+    // transcript and stream the default intro copy separately so it appears
+    // with the normal typing animation.
     if (!launchContext && !modeSystemPrompt && !shouldBootstrapAssistant) {
-      return INITIAL_MESSAGES;
+      return [];
     }
 
     const blocks: string[] = [];
@@ -728,13 +768,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
     }
 
     // For modes that bootstrap their first assistant reply automatically, we
-    // do not show the default intro message so the response comes directly
-    // from the mode-specific system prompt.
+    // do not seed any visible intro so the response comes directly from the
+    // mode-specific system prompt.
     if (shouldBootstrapAssistant) {
       return [systemMessage];
     }
 
-    return [systemMessage, ...INITIAL_MESSAGES];
+    // For non-bootstrap modes with a launch context or system prompt, we keep
+    // the contextual system message hidden in history and stream the visible
+    // intro separately so it still animates into the thread.
+    return [systemMessage];
   };
 
   const initialMessages = buildInitialMessages();
@@ -744,7 +787,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [sending, setSending] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [arcProposal, setArcProposal] = useState<GeneratedArc | null>(null);
   const [activitySuggestions, setActivitySuggestions] = useState<ActivitySuggestion[] | null>(
@@ -753,6 +795,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [arcDraftName, setArcDraftName] = useState('');
   const [arcDraftNarrative, setArcDraftNarrative] = useState('');
   const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
+  const [isUploadComingSoonVisible, setIsUploadComingSoonVisible] = useState(false);
   const [feedbackReasons, setFeedbackReasons] = useState<ArcProposalFeedbackReason[]>([]);
   const [feedbackNote, setFeedbackNote] = useState('');
   const scrollRef = useRef<ScrollView | null>(null);
@@ -1112,6 +1155,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
         baseId = 'assistant-workflow',
         opts,
       ) => {
+        // When a workflow presenter streams an assistant reply while the Goal
+        // Creation workflow is on its generation step, mark that step as
+        // completed but keep the workflow pinned to the same step so multiple
+        // generations remain possible.
+        if (
+          workflowRuntime?.definition?.chatMode === 'goalCreation' &&
+          workflowRuntime.instance?.currentStepId === 'agent_generate_goals'
+        ) {
+          workflowRuntime.completeStep(
+            'agent_generate_goals',
+            undefined,
+            'agent_generate_goals'
+          );
+        }
+
         if (mode === 'activityCreation') {
           const parsed = extractActivitySuggestionsFromAssistantMessage(fullText);
           if (parsed.suggestions && parsed.suggestions.length > 0) {
@@ -1120,6 +1178,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
             setShowActivitySummary(false);
           } else {
             setActivitySuggestions(null);
+          }
+          streamAssistantReply(parsed.displayContent, baseId, opts);
+        } else if (mode === 'arcCreation') {
+          const parsed = extractArcProposalFromAssistantMessage(fullText);
+          if (parsed.arcProposal) {
+            setArcProposal(parsed.arcProposal);
+            setArcDraftName(parsed.arcProposal.name ?? '');
+            setArcDraftNarrative(parsed.arcProposal.narrative ?? '');
           }
           streamAssistantReply(parsed.displayContent, baseId, opts);
         } else {
@@ -1148,7 +1214,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
           }));
       },
     }),
-    [input, mode]
+    [input, mode, workflowRuntime]
   );
 
   // For arcCreation mode, automatically ask the model for an initial
@@ -1192,6 +1258,15 @@ export const AiChatPane = forwardRef(function AiChatPane(
               setAdoptedActivityCount(0);
               setShowActivitySummary(false);
             }
+          }
+
+          if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
+            const suggestedCount = suggestions?.length ?? 0;
+            workflowRuntime.completeStep(
+              'agent_generate_activities',
+              { suggestedCount },
+              'agent_generate_activities'
+            );
           }
         }
 
@@ -1307,6 +1382,18 @@ export const AiChatPane = forwardRef(function AiChatPane(
       workflowRuntime?.definition?.chatMode === 'firstTimeOnboarding';
     const currentWorkflowStepId = workflowRuntime?.instance?.currentStepId;
 
+    // For activity creation, treat the first free-form message as satisfying the
+    // initial context collection step. We capture the user's description as
+    // the primary prompt and let the model infer finer-grained details.
+    if (
+      workflowRuntime?.definition?.chatMode === 'activityCreation' &&
+      currentWorkflowStepId === 'context_collect'
+    ) {
+      workflowRuntime.completeStep('context_collect', {
+        prompt: trimmed,
+      });
+    }
+
     // In first-time onboarding, some steps (like desire_clarify) use the user's
     // free-form answer purely as structured workflow data that feeds the next
     // agent_generate step. For these, we complete the workflow step but do NOT
@@ -1356,6 +1443,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
         } else {
           setActivitySuggestions(null);
         }
+
+        if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
+          const adoptedCount = activityParsed.suggestions?.length ?? 0;
+          workflowRuntime.completeStep(
+            'agent_generate_activities',
+            { suggestedCount: adoptedCount },
+            'agent_generate_activities'
+          );
+        }
+
         setHasTransportError(false);
         streamAssistantReply(activityParsed.displayContent, 'assistant', {
           onDone: () => {
@@ -1412,10 +1509,51 @@ export const AiChatPane = forwardRef(function AiChatPane(
     );
   };
 
+  // For non-bootstrap modes (like free-form coaching and Arc AI), stream a
+  // short assistant intro into the thread so the Agent always "arrives" via
+  // the same typing animation as other replies instead of popping in fully
+  // formed. We only do this when there are no existing non-system messages,
+  // when onboarding presenters are not in control of the opening copy, and
+  // when there is no dedicated stepCard mounted (for example, Arc / Goal
+  // creation context collectors). This ensures we never surface a global
+  // intro message at the same moment as a structured step card.
+  useEffect(() => {
+    if (shouldBootstrapAssistant) return;
+    if (isOnboardingMode) return;
+    if (bootstrapped) return;
+    if (hasStepCard) return;
+
+    const hasNonSystemMessages = messagesRef.current.some((m) => m.role !== 'system');
+    if (hasNonSystemMessages) return;
+
+    let cancelled = false;
+
+    streamAssistantReply(COACH_INTRO_TEXT, 'assistant-bootstrap', {
+      onDone: () => {
+        if (!cancelled) {
+          setBootstrapped(true);
+          setThinking(false);
+        }
+      },
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bootstrapped, hasStepCard, isOnboardingMode, shouldBootstrapAssistant]);
+
   const handleAcceptSuggestion = useCallback(
     (suggestion: ActivitySuggestion) => {
       if (onAdoptActivitySuggestion) {
         onAdoptActivitySuggestion(suggestion);
+      }
+      // Mark the confirm step as completed the first time the user adopts an
+      // suggestion, so the workflow instance reflects that at least one
+      // activity was chosen.
+      if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
+        workflowRuntime.completeStep('confirm_activities', {
+          adoptedActivityTitles: [suggestion.title],
+        });
       }
       setAdoptedActivityCount((count) => count + 1);
       setActivitySuggestions((current) => {
@@ -1425,23 +1563,34 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
       // When suggestions run out after adopting one, surface a short
       // inline summary so the user has clear closure on what was added.
-      setShowActivitySummary((current) => (activitySuggestions && activitySuggestions.length > 1 ? current : true));
+      setShowActivitySummary((current) =>
+        activitySuggestions && activitySuggestions.length > 1 ? current : true
+      );
     },
-    [onAdoptActivitySuggestion, activitySuggestions]
+    [onAdoptActivitySuggestion, activitySuggestions, workflowRuntime]
   );
 
   const handleAcceptAllSuggestions = useCallback(() => {
-    if (activitySuggestions && activitySuggestions.length > 0 && onAdoptActivitySuggestion) {
-      activitySuggestions.forEach((suggestion) => {
-        onAdoptActivitySuggestion(suggestion);
-      });
-      setAdoptedActivityCount((count) => count + activitySuggestions.length);
+    if (activitySuggestions && activitySuggestions.length > 0) {
+      if (onAdoptActivitySuggestion) {
+        activitySuggestions.forEach((suggestion) => {
+          onAdoptActivitySuggestion(suggestion);
+        });
+        setAdoptedActivityCount((count) => count + activitySuggestions.length);
+      }
+
+      if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
+        const adoptedActivityTitles = activitySuggestions.map((entry) => entry.title);
+        workflowRuntime.completeStep('confirm_activities', {
+          adoptedActivityTitles,
+        });
+      }
     }
     // Clear the suggestion rail and show the confirmation summary once
     // everything has been adopted.
     setActivitySuggestions(null);
     setShowActivitySummary(true);
-  }, [activitySuggestions, onAdoptActivitySuggestion]);
+  }, [activitySuggestions, onAdoptActivitySuggestion, workflowRuntime]);
 
   const scrollToLatest = () => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -1556,7 +1705,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   )}
                 </View>
               )}
-              <View style={styles.messagesStack}>
+              <View
+                style={[
+                  styles.messagesStack,
+                  hideBrandHeader && !hasVisibleMessages && styles.messagesStackCompact,
+                ]}
+              >
                 {messages
                   .filter((message) => message.role !== 'system')
                   .map((message) =>
@@ -1751,6 +1905,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
                           setArcProposal(finalized);
                           await saveArcCreationDraft(null);
+                          if (workflowRuntime?.definition?.chatMode === 'arcCreation') {
+                            workflowRuntime.completeStep('confirm_arc');
+                          }
                           if (onConfirmArc) {
                             onConfirmArc(finalized);
                           }
@@ -1835,29 +1992,27 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     <View style={styles.inputField}>
                       <TextInput
                         ref={inputRef}
-                        style={[styles.input, { height: inputHeight }]}
-                        placeholder="Ask anything"
-                        placeholderTextColor={CHAT_COLORS.textSecondary}
+                        style={styles.input}
+                        placeholder="Ask, Search or Chat…"
+                        placeholderTextColor={colors.muted}
                         value={input}
                         onChangeText={setInput}
                         multiline
                         textAlignVertical="top"
-                        scrollEnabled={inputHeight >= INPUT_MAX_HEIGHT}
                         returnKeyType="send"
                         onSubmitEditing={handleSend}
-                        onContentSizeChange={(event) => {
-                          const nextHeight = event.nativeEvent.contentSize.height;
-                          setInputHeight((current) => {
-                            const clamped = Math.min(
-                              INPUT_MAX_HEIGHT,
-                              Math.max(INPUT_MIN_HEIGHT, nextHeight)
-                            );
-                            return clamped === current ? current : clamped;
-                          });
-                        }}
                       />
                     </View>
                     <View style={styles.inputFooterRow}>
+                      <TouchableOpacity
+                        style={styles.composerSecondaryButton}
+                        onPress={() => setIsUploadComingSoonVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Upload files (coming soon)"
+                        activeOpacity={0.85}
+                      >
+                        <Icon name="plus" color={CHAT_COLORS.textSecondary} size={16} />
+                      </TouchableOpacity>
                       {hasInput ? (
                         <TouchableOpacity
                           style={[
@@ -2012,6 +2167,18 @@ export const AiChatPane = forwardRef(function AiChatPane(
           </View>
         </Modal>
       )}
+
+      <Dialog
+        visible={isUploadComingSoonVisible}
+        onClose={() => setIsUploadComingSoonVisible(false)}
+        title="File uploads coming soon"
+        description="Soon you’ll be able to attach files here so the agent can use them as context while it thinks and drafts with you."
+      >
+        <Text style={styles.feedbackBody}>
+          For now, you can paste key excerpts or notes directly into the composer and the agent will
+          treat them as part of the conversation.
+        </Text>
+      </Dialog>
 
     {isArcCreationMode && arcProposal && (
       <Modal
@@ -2354,6 +2521,13 @@ const styles = StyleSheet.create({
     // like a distinct thread starting below the header.
     marginTop: spacing['2xl'],
   },
+  messagesStackCompact: {
+    // When there is no brand header and no visible messages yet (for example,
+    // a workflow-only QuestionCard on first open), keep the stack closer to
+    // the top so it doesn't feel like space is being reserved for a hidden
+    // chat bubble.
+    marginTop: spacing.lg,
+  },
   activitySuggestionsCard: {
     borderRadius: 20,
     backgroundColor: CHAT_COLORS.surface,
@@ -2538,48 +2712,60 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     // ShadCN textarea–like: rectangular surface with gentle radius.
     backgroundColor: CHAT_COLORS.surface,
-    borderRadius: spacing.lg,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderRadius: spacing.xl,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    padding: spacing.sm,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
+    overflow: 'hidden',
   },
   inputShellRaised: {
     // When the keyboard is visible we tuck the composer closer to it and
     // reduce the exaggerated bottom radius so it visually docks to the top
     // of the keyboard, similar to ChatGPT.
-    borderBottomLeftRadius: spacing.lg,
-    borderBottomRightRadius: spacing.lg,
+    borderRadius: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
   },
   inputField: {
-    flex: 1,
     justifyContent: 'flex-start',
   },
   input: {
-    ...typography.bodySm,
+    // Slightly larger text than the rest of the chat body so
+    // composing feels comfortable and legible.
+    ...typography.body,
     color: CHAT_COLORS.textPrimary,
-    lineHeight: typography.bodySm.lineHeight,
+    lineHeight: typography.body.lineHeight,
     paddingTop: 0,
-    paddingBottom: spacing.xs,
+    paddingBottom: 0,
     textAlignVertical: 'top',
+    // Let the input grow naturally up to a comfortable height before it
+    // begins scrolling internally.
+    minHeight: INPUT_MIN_HEIGHT,
+    maxHeight: INPUT_MAX_HEIGHT,
   },
   inputFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: spacing.xs,
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
   },
   trailingIcon: {
     paddingHorizontal: spacing.sm,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  composerSecondaryButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: CHAT_COLORS.surface,
   },
   sendButton: {
     backgroundColor: '#18181B',

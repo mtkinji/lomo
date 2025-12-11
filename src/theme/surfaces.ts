@@ -40,7 +40,7 @@ export const cardElevation = {
 export const cardSurfaceStyle = {
   backgroundColor: colors.card,
   // ShadCN-style card radius – a bit larger than buttons so cards feel like containers
-  borderRadius: 16,
+  borderRadius: 18,
   borderWidth: 1,
   borderColor: colors.border,
   // Compose in the default soft elevation so existing callers keep the same look.

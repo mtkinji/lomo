@@ -48,6 +48,8 @@ export function ArcListCard({
   const seed = buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
   const { colors: gradientColors, direction } = getArcGradient(seed);
 
+  const isHeroHidden = arc.heroHidden;
+
   const showStatusPill = arc.status !== 'active';
   const statusLabel =
     arc.status === 'active' ? 'Active arc' : arc.status.replace('_', ' ');
@@ -64,7 +66,9 @@ export function ArcListCard({
       {/* Hero banner lives at the top of the Card and mirrors the card radius so
           gradients and thumbnails feel seamlessly inset into the container. */}
       <View style={styles.heroInner}>
-        {arc.thumbnailUrl ? (
+        {isHeroHidden ? (
+          <View style={styles.heroMinimal} />
+        ) : arc.thumbnailUrl ? (
           <Image
             source={{ uri: arc.thumbnailUrl }}
             style={styles.heroImage}
@@ -133,6 +137,10 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 1,
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  heroMinimal: {
+    flex: 1,
+    backgroundColor: colors.shellAlt,
   },
   heroImage: {
     width: '100%',

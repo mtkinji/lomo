@@ -74,6 +74,9 @@ export function ActivityDetailScreen() {
 
   const [notesDraft, setNotesDraft] = useState(activity?.notes ?? '');
   const [stepsDraft, setStepsDraft] = useState<ActivityStep[]>(activity?.steps ?? []);
+  const [newStepTitle, setNewStepTitle] = useState('');
+  const [isAddingStepInline, setIsAddingStepInline] = useState(false);
+  const newStepInputRef = useRef<TextInput | null>(null);
 
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
@@ -244,6 +247,34 @@ export function ActivityDetailScreen() {
       orderIndex: stepsDraft.length,
     };
     applyStepUpdate((steps) => [...steps, newStep]);
+  };
+
+  const beginAddStepInline = () => {
+    setIsAddingStepInline(true);
+    setNewStepTitle('');
+    requestAnimationFrame(() => {
+      newStepInputRef.current?.focus();
+    });
+  };
+
+  const commitInlineStep = () => {
+    const trimmed = newStepTitle.trim();
+    if (!trimmed) {
+      setIsAddingStepInline(false);
+      setNewStepTitle('');
+      return;
+    }
+
+    const newStep: ActivityStep = {
+      id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: trimmed,
+      completedAt: null,
+      isOptional: false,
+      orderIndex: stepsDraft.length,
+    };
+    applyStepUpdate((steps) => [...steps, newStep]);
+    setIsAddingStepInline(false);
+    setNewStepTitle('');
   };
 
   const handleToggleComplete = () => {
@@ -599,19 +630,10 @@ export function ActivityDetailScreen() {
             </View>
 
             <View style={styles.section}>
-              <HStack alignItems="center" justifyContent="space-between" style={styles.sectionLabelRow}>
+              <HStack alignItems="center" style={styles.sectionLabelRow}>
                 <Text style={styles.inputLabel}>
                   {`STEPS${totalStepsCount > 0 ? ` · ${completedStepsCount}/${totalStepsCount}` : ''}`}
                 </Text>
-                <Pressable
-                  onPress={handleAddStep}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add a step to this activity"
-                  style={({ pressed }) => [styles.addStepButton, pressed && styles.rowPressed]}
-                >
-                  <Icon name="plus" size={16} color={colors.primaryForeground} />
-                  <Text style={styles.addStepButtonText}>Add step</Text>
-                </Pressable>
               </HStack>
               <View style={styles.rowsCard}>
                 {stepsDraft.length === 0 ? (
@@ -623,10 +645,12 @@ export function ActivityDetailScreen() {
                     {stepsDraft.map((step) => {
                       const isChecked = !!step.completedAt;
                       return (
-                        <HStack key={step.id} space="sm" alignItems="center" style={styles.stepRow}>
+                        <HStack key={step.id} space="xs" alignItems="center" style={styles.stepRow}>
                           <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel={isChecked ? 'Mark step as not done' : 'Mark step as done'}
+                            accessibilityLabel={
+                              isChecked ? 'Mark step as not done' : 'Mark step as done'
+                            }
                             hitSlop={8}
                             onPress={() => handleToggleStepComplete(step.id)}
                           >
@@ -650,30 +674,58 @@ export function ActivityDetailScreen() {
                             placeholderTextColor={colors.muted}
                             multiline
                           />
-                          <Pressable
-                            onPress={() => handleToggleStepOptional(step.id)}
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              step.isOptional ? 'Mark step as required' : 'Mark step as optional'
-                            }
-                            style={({ pressed }) => [styles.stepOptionalPill, pressed && styles.rowPressed]}
-                          >
-                            <Text style={[styles.stepOptionalText, step.isOptional && styles.stepOptionalTextActive]}>
-                              Optional
-                            </Text>
-                          </Pressable>
-                          <IconButton
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            iconButtonSize={24}
                             onPress={() => handleRemoveStep(step.id)}
                             accessibilityLabel="Remove step"
                             style={styles.removeStepButton}
                           >
                             <Icon name="close" size={14} color={colors.textSecondary} />
-                          </IconButton>
+                          </Button>
                         </HStack>
                       );
                     })}
                   </VStack>
                 )}
+                <View style={styles.addStepInlineRow}>
+                  {isAddingStepInline ? (
+                    <HStack space="xs" alignItems="center" style={styles.stepRow}>
+                      <View
+                        style={[
+                          styles.checkboxBase,
+                          styles.checkboxPlanned,
+                          styles.stepCheckbox,
+                        ]}
+                      />
+                      <TextInput
+                        ref={newStepInputRef}
+                        style={styles.stepInput}
+                        value={newStepTitle}
+                        onChangeText={setNewStepTitle}
+                        placeholder="Add step"
+                        placeholderTextColor={colors.muted}
+                        multiline
+                        returnKeyType="done"
+                        blurOnSubmit
+                        onSubmitEditing={commitInlineStep}
+                        onBlur={commitInlineStep}
+                      />
+                    </HStack>
+                  ) : (
+                    <Pressable
+                      onPress={beginAddStepInline}
+                      accessibilityRole="button"
+                      accessibilityLabel="Add a step to this activity"
+                    >
+                      <HStack space="xs" alignItems="center">
+                        <Icon name="plus" size={16} color={colors.primary} />
+                        <Text style={styles.addStepInlineText}>Add step</Text>
+                      </HStack>
+                    </Pressable>
+                  )}
+                </View>
               </View>
             </View>
 
@@ -1044,7 +1096,7 @@ const styles = StyleSheet.create({
   },
   stepRow: {
     alignItems: 'center',
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xs / 2,
   },
   stepCheckbox: {
     width: 20,
@@ -1053,9 +1105,9 @@ const styles = StyleSheet.create({
   },
   stepInput: {
     flex: 1,
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.textPrimary,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xs / 2,
   },
   stepOptionalPill: {
     paddingHorizontal: spacing.sm,
@@ -1071,9 +1123,16 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   removeStepButton: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: 999,
+  },
+  addStepInlineRow: {
+    marginTop: spacing.xs,
+  },
+  addStepInlineText: {
+    ...typography.bodySm,
+    color: colors.primary,
   },
   rowValue: {
     ...typography.bodySm,

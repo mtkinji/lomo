@@ -14,7 +14,8 @@ import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
 import { useAppStore } from '../../store/useAppStore';
 import type { Arc } from '../../domain/types';
-import type { AiChatPaneController } from '../ai/AiChatScreen';
+import type { ChatTimelineController } from '../ai/AiChatScreen';
+import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
@@ -32,7 +33,7 @@ type IdentityAspirationFlowProps = {
    * creation from the Arcs list via an `arcCreation` workflow, instead of
    * mounting IdentityAspirationFlow directly inside a New Arc modal.
    */
-  chatControllerRef?: React.RefObject<AiChatPaneController | null>;
+  chatControllerRef?: React.RefObject<ChatTimelineController | null>;
 };
 
 type IdentityTag =
@@ -587,6 +588,9 @@ export function IdentityAspirationFlow({
   const introActionsOpacity = useRef(new Animated.Value(0)).current;
   const introActionsTranslateY = useRef(new Animated.Value(8)).current;
   const introActionsTranslateX = useRef(new Animated.Value(0)).current;
+  // Track which intro index (if any) is currently streaming so we don't start
+  // multiple overlapping streams of the same message when this effect re-runs.
+  const introStreamingIndexRef = useRef<number | null>(null);
   const [hasStreamedDreamsIntroCopy, setHasStreamedDreamsIntroCopy] = useState(false);
 
   const [domainIds, setDomainIds] = useState<string[]>([]);
@@ -618,6 +622,20 @@ export function IdentityAspirationFlow({
   const [openQuestionInfoKey, setOpenQuestionInfoKey] = useState<string | null>(null);
   const [dreamInput, setDreamInput] = useState('');
 
+  const callOnboardingAgentStep = useCallback(
+    async (stepId: string, messages: CoachChatTurn[]): Promise<string> => {
+      const options: CoachChatOptions = {
+        mode: 'firstTimeOnboarding',
+        workflowDefinitionId: workflowRuntime?.definition?.id,
+        workflowInstanceId: workflowRuntime?.instance?.id,
+        workflowStepId: stepId,
+      };
+
+      return sendCoachChat(messages, options);
+    },
+    [workflowRuntime]
+  );
+
   const appendChatUserMessage = useCallback(
     (content: string) => {
       const controller = chatControllerRef?.current;
@@ -626,6 +644,70 @@ export function IdentityAspirationFlow({
     },
     [chatControllerRef]
   );
+
+  /**
+   * Build a compact snapshot of the visible onboarding conversation so far,
+   * based on the shared Agent timeline. This gives the identity/aspiration
+   * prompts a lightweight sense of how the thread has unfolded without
+   * duplicating the structured identity signals we already send.
+   */
+  const buildConversationSnapshotFromTimeline = useCallback((): string | null => {
+    const controller = chatControllerRef?.current;
+    if (!controller || typeof controller.getTimeline !== 'function') {
+      return null;
+    }
+
+    try {
+      const timeline = controller.getTimeline() as AgentTimelineItem[];
+      if (!timeline || timeline.length === 0) {
+        return null;
+      }
+
+      const textItems = timeline.filter(
+        (item) => item.kind === 'assistantMessage' || item.kind === 'userMessage'
+      );
+
+      if (textItems.length === 0) {
+        return null;
+      }
+
+      const recent = textItems.slice(-4);
+      const lines = recent
+        .map((item) => {
+          const speaker = item.kind === 'assistantMessage' ? 'assistant' : 'user';
+          const rawContent = (item as AgentTimelineItem & { content?: unknown }).content;
+          const content =
+            typeof rawContent === 'string'
+              ? rawContent.trim()
+              : typeof (rawContent as { toString?: () => string })?.toString === 'function'
+              ? String(rawContent).trim()
+              : '';
+
+          if (!content) {
+            return null;
+          }
+
+          const truncated = content.length > 280 ? `${content.slice(0, 277)}…` : content;
+          return `${speaker}: ${truncated}`;
+        })
+        .filter((line): line is string => Boolean(line));
+
+      if (lines.length === 0) {
+        return null;
+      }
+
+      return lines.join('\n');
+    } catch (err) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[onboarding] Failed to build conversation snapshot from agent timeline',
+          err
+        );
+      }
+      return null;
+    }
+  }, [chatControllerRef]);
 
   const formatSelectionLabels = (ids: string[], options: ChoiceOption[]): string => {
     const labels = ids
@@ -1224,22 +1306,15 @@ export function IdentityAspirationFlow({
         `Candidate Arc narrative: ${candidate.aspirationSentence}`,
       ].join('\n');
 
-      const messages: CoachChatTurn[] = [
-        {
-          role: 'user',
-          content: judgePrompt,
-        },
-      ];
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'aspiration_quality_check',
-      };
-
       try {
-        const reply = await sendCoachChat(messages, options);
+        const messages: CoachChatTurn[] = [
+          {
+            role: 'user',
+            content: judgePrompt,
+          },
+        ];
+
+        const reply = await callOnboardingAgentStep('aspiration_quality_check', messages);
         const startIdx = reply.indexOf('{');
         const endIdx = reply.lastIndexOf('}');
         const jsonText =
@@ -1288,7 +1363,7 @@ export function IdentityAspirationFlow({
       philosophy,
       vocation,
       bigDreams,
-      workflowRuntime,
+      callOnboardingAgentStep,
     ]
   );
 
@@ -1344,22 +1419,15 @@ export function IdentityAspirationFlow({
         `- pitfalls: ${candidate.pitfalls.join(' | ')}`,
       ].join('\n');
 
-      const messages: CoachChatTurn[] = [
-        {
-          role: 'user',
-          content: judgePrompt,
-        },
-      ];
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'arc_insights_quality_check',
-      };
-
       try {
-        const reply = await sendCoachChat(messages, options);
+        const messages: CoachChatTurn[] = [
+          {
+            role: 'user',
+            content: judgePrompt,
+          },
+        ];
+
+        const reply = await callOnboardingAgentStep('arc_insights_quality_check', messages);
         const startIdx = reply.indexOf('{');
         const endIdx = reply.lastIndexOf('}');
         const jsonText =
@@ -1402,7 +1470,7 @@ export function IdentityAspirationFlow({
       philosophy,
       vocation,
       bigDreams,
-      workflowRuntime,
+      callOnboardingAgentStep,
     ]
   );
 
@@ -1478,20 +1546,6 @@ export function IdentityAspirationFlow({
         `- ${identitySignals}`,
       ].join('\n');
 
-      const messages: CoachChatTurn[] = [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ];
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'arc_insights_generate',
-      };
-
       // Try up to 3 candidates, using the quality judge to avoid very weak drafts.
       const QUALITY_THRESHOLD = 7.5;
 
@@ -1500,7 +1554,14 @@ export function IdentityAspirationFlow({
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-          const reply = await sendCoachChat(messages, options);
+          const messages: CoachChatTurn[] = [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ];
+
+          const reply = await callOnboardingAgentStep('arc_insights_generate', messages);
           const parsed = parseInsightsFromReply(reply);
           if (!parsed) {
             continue;
@@ -1548,7 +1609,7 @@ export function IdentityAspirationFlow({
       philosophy,
       vocation,
       bigDreams,
-      workflowRuntime,
+      callOnboardingAgentStep,
       scoreArcInsightQuality,
       buildLocalInsightsFallback,
     ]
@@ -1591,6 +1652,7 @@ export function IdentityAspirationFlow({
       const inputsSummary = inputsSummaryLines.join('\n- ');
 
       const buildPrompt = (judgeFeedback?: string) => {
+        const conversationSnapshot = buildConversationSnapshotFromTimeline();
         const lines: string[] = [
           'You are an identity-development coach inside the Kwilt app. You help users generate a long-term identity direction called an Arc.',
           '',
@@ -1722,6 +1784,14 @@ export function IdentityAspirationFlow({
           `- ${inputsSummary}`,
         ];
 
+        if (conversationSnapshot && conversationSnapshot.trim().length > 0) {
+          lines.push(
+            '',
+            'Recent visible conversation between you (the guide) and the user inside this onboarding thread. Use this only as extra nuance; the structured identity signals above remain the source of truth:',
+            conversationSnapshot
+          );
+        }
+
         if (judgeFeedback && judgeFeedback.trim().length > 0) {
           lines.push(
             '',
@@ -1732,13 +1802,6 @@ export function IdentityAspirationFlow({
         }
 
         return lines.join('\n');
-      };
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'aspiration_generate',
       };
 
       const QUALITY_THRESHOLD = 9;
@@ -1761,7 +1824,7 @@ export function IdentityAspirationFlow({
             },
           ];
 
-          const reply = await sendCoachChat(messages, options);
+          const reply = await callOnboardingAgentStep('aspiration_generate', messages);
           const parsed = parseAspirationFromReply(reply);
 
           if (!parsed) {
@@ -1917,6 +1980,7 @@ export function IdentityAspirationFlow({
       }
     },
     [
+      buildConversationSnapshotFromTimeline,
       canGenerate,
       draftArcId,
       domain,
@@ -2041,6 +2105,14 @@ export function IdentityAspirationFlow({
       return;
     }
 
+    // If we're already streaming this specific intro index, or we've already
+    // finished streaming it, don't start another overlapping stream. This
+    // prevents the same paragraph from appearing multiple times when React
+    // re-renders while the typing animation is in flight.
+    if (introStreamingIndexRef.current === introIndex || lastIntroStreamedIndex === introIndex) {
+      return;
+    }
+
     if (!controller) {
       // If we can’t stream into chat, fall back to immediately completing the
       // step so the cards remain usable, unless the user is currently viewing
@@ -2055,6 +2127,10 @@ export function IdentityAspirationFlow({
 
     let cancelled = false;
 
+    // Mark this intro index as actively streaming so we avoid duplicate
+    // streams until the current one has finished (or been skipped).
+    introStreamingIndexRef.current = introIndex;
+
     if (lastIntroStreamedIndex === introIndex) {
       return () => {
         cancelled = true;
@@ -2067,6 +2143,7 @@ export function IdentityAspirationFlow({
       {
         onDone: () => {
           if (cancelled) return;
+          introStreamingIndexRef.current = null;
           setLastIntroStreamedIndex(introIndex);
         },
       }
@@ -3496,7 +3573,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   dreamsStack: {
-    gap: spacing.lg,
+    // Keep the celebration GIF card visually connected to the free-response
+    // question that follows by using the smallest vertical gap between them.
+    // This avoids the GIF feeling isolated in its own section.
+    gap: spacing.xs,
   },
   researchHeading: {
     marginBottom: spacing.sm,

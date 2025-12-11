@@ -4,7 +4,7 @@ import { getFocusAreaLabel } from '../domain/focusAreas';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type LlmModel } from '../store/useAppStore';
-import type { ChatMode } from '../features/ai/chatRegistry';
+import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 
 type GenerateArcParams = {

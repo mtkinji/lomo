@@ -28,8 +28,15 @@ import type { Arc, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
+import { pickHeroForArc } from './arcHeroSelector';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
-import { IdentityAspirationFlow } from '../onboarding/IdentityAspirationFlow';
+import { EditableField } from '../../ui/EditableField';
+import { EditableTextArea } from '../../ui/EditableTextArea';
+import { AgentWorkspace } from '../ai/AgentWorkspace';
+import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
+import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { LinearGradient } from 'expo-linear-gradient';
+import { buildArcThumbnailSeed, getArcGradient } from './thumbnailVisuals';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -50,6 +57,11 @@ export function ArcsScreen() {
   const menuOpen = drawerStatus === 'open';
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
+
+  const arcCreationWorkflow = useMemo(
+    () => getWorkflowLaunchConfig('arcCreation'),
+    []
+  );
 
   const goalCountByArc = useMemo(
     () =>
@@ -505,6 +517,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
   },
+  manualFieldsStack: {
+    marginTop: spacing.sm,
+  },
+  manualPrimaryActionContainer: {
+    marginTop: spacing.xl,
+  },
   errorBubble: {
     backgroundColor: colors.schedulePink,
     borderRadius: 20,
@@ -668,8 +686,32 @@ const styles = StyleSheet.create({
   },
   manualFormContainer: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
+    // Let the BottomDrawer define the primary horizontal gutters so this form
+    // aligns with other canvases. Horizontal padding is handled by the sheet,
+    // not this ScrollView.
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
+  manualInner: {
+    // The inner wrapper exists only to provide vertical spacing so the Card
+    // can run full-width inside the sheet gutters.
     paddingTop: spacing.sm,
+  },
+  manualCard: {
+    width: '100%',
+  },
+  manualHeroContainer: {
+    // Let the Card's padding handle the top gutter so the hero banner has
+    // consistent spacing on all sides.
+    marginTop: 0,
+    marginBottom: spacing.sm,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  manualHeroImage: {
+    width: '100%',
+    aspectRatio: 3 / 1,
   },
 });
 
@@ -701,12 +743,35 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
 
 function NewArcModal({ visible, onClose }: NewArcModalProps) {
   const addArc = useAppStore((state) => state.addArc);
+  const arcs = useAppStore((state) => state.arcs);
+  const goals = useAppStore((state) => state.goals);
+  const userProfile = useAppStore((state) => state.userProfile);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
 
   const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
   const [manualName, setManualName] = useState('');
   const [manualNarrative, setManualNarrative] = useState('');
   const [isArcInfoVisible, setIsArcInfoVisible] = useState(false);
+
+  const arcCreationWorkflow = useMemo(
+    () => getWorkflowLaunchConfig('arcCreation'),
+    []
+  );
+
+  const workspaceSnapshot = useMemo(
+    () => buildArcCoachLaunchContext(arcs, goals),
+    [arcs, goals]
+  );
+
+  const heroSeed = useMemo(
+    () => buildArcThumbnailSeed('new-arc', manualName || 'New Arc', null),
+    [manualName]
+  );
+
+  const { colors: headerGradientColors, direction: headerGradientDirection } = useMemo(
+    () => getArcGradient(heroSeed),
+    [heroSeed]
+  );
 
   useEffect(() => {
     if (!visible) {
@@ -725,7 +790,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
     const timestamp = new Date().toISOString();
     const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    const arc: Arc = {
+    let arc: Arc = {
       id,
       name: trimmedName,
       narrative: trimmedNarrative.length > 0 ? trimmedNarrative : undefined,
@@ -735,6 +800,26 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
+
+    // Auto-pick a curated hero image (with gradient fallback) so every new Arc
+    // starts with a thoughtful visual without extra steps in the creation flow.
+    const heroSelection = pickHeroForArc(arc, {
+      userFocusAreas: userProfile?.focusAreas,
+    });
+
+    if (heroSelection.image) {
+      arc = {
+        ...arc,
+        thumbnailUrl: heroSelection.image.uri,
+        thumbnailVariant: arc.thumbnailVariant ?? 0,
+        heroImageMeta: {
+          source: 'curated',
+          prompt: undefined,
+          createdAt: timestamp,
+          curatedId: heroSelection.image.id,
+        },
+      };
+    }
 
     addArc(arc);
     void ensureArcDevelopmentInsights(id);
@@ -753,66 +838,127 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
           infoAccessibilityLabel="Show context for Arc AI"
         />
 
-        {activeTab === 'ai' ? (
-          <View style={styles.drawerContent}>
-            {/* Current implementation mounts IdentityAspirationFlow directly.
-                The desired architecture is to host AgentWorkspace here instead
-                (in a bottom sheet), with mode="arcCreation",
-                workflowDefinitionId="arc_creation_v1", and a LaunchContext
-                that mirrors this New Arc entry – so all Arc creation runs
-                through the shared agent shell + AiChatPane rather than a
-                bespoke flow. */}
-            <IdentityAspirationFlow
-              mode="reuseIdentityForNewArc"
-              onComplete={() => {
-                const { lastOnboardingArcId } = useAppStore.getState();
-                const arcId = lastOnboardingArcId;
-                onClose();
-                if (arcId) {
-                  navigation.navigate('ArcDetail', { arcId });
-                }
-              }}
-            />
-          </View>
-        ) : (
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        {/* Keep both panes mounted so switching between AI and Manual preserves state. */}
+        <View
+          style={[
+            styles.drawerContent,
+            activeTab !== 'ai' && { display: 'none' },
+          ]}
+        >
+          <AgentWorkspace
+            mode={arcCreationWorkflow.mode}
+            launchContext={{
+              source: 'arcsScreenNewArc',
+              intent: 'arcCreation',
+            }}
+            workspaceSnapshot={workspaceSnapshot}
+            workflowDefinitionId={arcCreationWorkflow.workflowDefinitionId}
+            // Object creation flows should always start from a clean thread
+            // instead of resuming any previously saved Arc draft.
+            resumeDraft={false}
+            hideBrandHeader
+            hidePromptSuggestions
+            onConfirmArc={(proposal) => {
+              const timestamp = new Date().toISOString();
+              const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+              let arc: Arc = {
+                id,
+                name: proposal.name.trim(),
+                narrative: proposal.narrative,
+                status: proposal.status ?? 'active',
+                startDate: timestamp,
+                endDate: null,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              };
+
+              const heroSelection = pickHeroForArc(arc, {
+                userFocusAreas: userProfile?.focusAreas,
+              });
+
+              if (heroSelection.image) {
+                arc = {
+                  ...arc,
+                  thumbnailUrl: heroSelection.image.uri,
+                  thumbnailVariant: arc.thumbnailVariant ?? 0,
+                  heroImageMeta: {
+                    source: 'curated',
+                    prompt: undefined,
+                    createdAt: timestamp,
+                    curatedId: heroSelection.image.id,
+                  },
+                };
+              }
+
+              addArc(arc);
+              void ensureArcDevelopmentInsights(id);
+              onClose();
+              navigation.navigate('ArcDetail', { arcId: id });
+            }}
+          />
+        </View>
+
+        <KeyboardAvoidingView
+          style={[
+            { flex: 1 },
+            activeTab !== 'manual' && { display: 'none' },
+          ]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            style={styles.manualFormContainer}
+            contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <ScrollView
-              style={styles.manualFormContainer}
-              contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={styles.modalLabel}>Arc name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Family Stewardship"
-                placeholderTextColor={colors.textSecondary}
-                value={manualName}
-                onChangeText={setManualName}
-              />
-              <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Short narrative</Text>
-              <TextInput
-                style={[styles.input, styles.manualNarrativeInput]}
-                placeholder="Describe the identity direction for this Arc."
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                value={manualNarrative}
-                onChangeText={setManualNarrative}
-              />
-              <View style={{ marginTop: spacing.xl }}>
-                <Button
-                  disabled={manualName.trim().length === 0}
-                  onPress={handleCreateManualArc}
-                >
-                  <Text style={styles.buttonText}>Create Arc</Text>
-                </Button>
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        )}
+            <View style={styles.manualInner}>
+              <Card padding="sm" style={styles.manualCard}>
+                <View style={styles.manualHeroContainer}>
+                  <LinearGradient
+                    colors={headerGradientColors}
+                    start={headerGradientDirection.start}
+                    end={headerGradientDirection.end}
+                    style={styles.manualHeroImage}
+                  />
+                </View>
+                <View style={styles.manualFieldsStack}>
+                  <EditableField
+                    label="Name"
+                    value={manualName}
+                    variant="title"
+                    autoFocusOnEdit={false}
+                    onChange={setManualName}
+                    placeholder="Name this Arc"
+                    validate={(next) => {
+                      if (!next.trim()) {
+                        return 'Name cannot be empty';
+                      }
+                      return null;
+                    }}
+                  />
+                  <View style={{ marginTop: spacing.sm }}>
+                    <EditableTextArea
+                      label="Description"
+                      value={manualNarrative}
+                      placeholder="Add a short note about this Arc…"
+                      maxCollapsedLines={0}
+                      onChange={setManualNarrative}
+                    />
+                  </View>
+                </View>
+                <View style={styles.manualPrimaryActionContainer}>
+                  <Button
+                    disabled={manualName.trim().length === 0}
+                    onPress={handleCreateManualArc}
+                  >
+                    <Text style={styles.buttonText}>Create Arc</Text>
+                  </Button>
+                </View>
+              </Card>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <ArcInfoModal
           visible={isArcInfoVisible}

@@ -14,9 +14,30 @@ type DialogProps = {
    * rendering actions inside `children`.
    */
   footer?: ReactNode;
+  /**
+   * Optional visual size for the dialog header. Use `md` for primary flows
+   * where the title should feel closer to a section heading, and `sm` for
+   * lighter confirmations / utility dialogs.
+   */
+  size?: 'sm' | 'md';
+  /**
+   * When true, renders a subtle divider under the header to separate it from
+   * the body content. Useful for denser dialogs with form fields or strong
+   * footers where the title should feel more structurally anchored.
+   */
+  showHeaderDivider?: boolean;
 };
 
-export function Dialog({ visible, onClose, title, description, children, footer }: DialogProps) {
+export function Dialog({
+  visible,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  size = 'sm',
+  showHeaderDivider = false,
+}: DialogProps) {
   // On native platforms, prefer a simple, reliable Modal-based implementation
   // so dialogs always render as a centered card with a dimmed backdrop on top
   // of the current app canvas.
@@ -35,9 +56,9 @@ export function Dialog({ visible, onClose, title, description, children, footer 
           >
             <View style={styles.card}>
               {(title || description) && (
-                <View style={styles.header}>
+                <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
                   {title ? (
-                    <Heading style={styles.title} variant="sm">
+                    <Heading style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
                       {title}
                     </Heading>
                   ) : null}
@@ -84,10 +105,19 @@ const styles = StyleSheet.create({
     // don't need to manage their own top margin.
     marginBottom: spacing.lg,
   },
-  title: {
+  headerDivider: {
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  titleSm: {
     ...typography.titleSm,
     color: colors.textPrimary,
-    fontWeight: '700'
+  },
+  titleMd: {
+    ...typography.titleMd,
+    color: colors.textPrimary,
   },
   description: {
     marginTop: 0,

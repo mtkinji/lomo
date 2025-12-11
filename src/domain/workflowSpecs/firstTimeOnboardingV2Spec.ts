@@ -11,9 +11,11 @@
 //   - Add / remove / reorder steps in the `steps` array.
 //   - Tighten the per-step `prompt` text to control what the agent says.
 //   - Adjust simple UI details for form steps (field labels, placeholders).
-// - The runtime never reads this directly. Instead, `src/domain/workflows.ts`
-//   compiles this spec into a `WorkflowDefinition` that AgentWorkspace +
-//   OnboardingGuidedFlow consume.
+// - The runtime does not currently read this file directly. Instead, the active
+//   FTUE implementation in `firstTimeOnboardingWorkflow.ts` and
+//   `IdentityAspirationFlow.tsx` mirrors this spec. Keep this spec as the
+//   product-facing source of truth, and update the runtime definitions to match
+//   when making significant changes.
 //
 // When creating a NEW workflow in the future:
 // 1. Create a new file next to this one, e.g.

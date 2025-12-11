@@ -10,9 +10,7 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
 import { Text } from '../../ui/primitives';
-import {
-  FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID,
-} from '../../domain/workflows';
+import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 
 export function FirstTimeUxFlow() {
   const isVisible = useFirstTimeUxStore((state) => state.isFlowActive);
@@ -45,6 +43,7 @@ export function FirstTimeUxFlow() {
   }
 
   const workspaceKey = `v2:${triggerCount}`;
+  const onboardingWorkflow = getWorkflowLaunchConfig('firstTimeOnboarding');
 
   return (
     <Modal
@@ -136,12 +135,12 @@ export function FirstTimeUxFlow() {
         <AppShell>
           <AgentWorkspace
             key={workspaceKey}
-            mode="firstTimeOnboarding"
+            mode={onboardingWorkflow.mode}
             launchContext={{
               source: 'firstTimeAppOpen',
               intent: 'firstTimeOnboarding',
             }}
-            workflowDefinitionId={FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID}
+            workflowDefinitionId={onboardingWorkflow.workflowDefinitionId}
             workflowInstanceId={workspaceKey}
             onComplete={() => {
               completeFlow();
@@ -153,7 +152,7 @@ export function FirstTimeUxFlow() {
                 if (arcId) {
                   rootNavigationRef.navigate('ArcsStack', {
                     screen: 'ArcDetail',
-                    params: { arcId },
+                    params: { arcId, showFirstArcCelebration: true },
                   });
                 } else if (goalId) {
                   rootNavigationRef.navigate('ArcsStack', {

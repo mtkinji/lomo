@@ -114,13 +114,30 @@ The first production use of this architecture is the **Arc Coach** launched from
   - A workspace snapshot summarizing Arcs/goals/activities.
   - These are combined into the `GenerateArcParams` passed to `generateArcs`.
 
-In concrete terms:
+In earlier versions, the UI drove most of the conversation imperatively and called
+`generateArcs` directly via `src/services/ai.ts`. As of the workflow‑driven
+AgentWorkspace refactor, **Arc Coach now runs as a first‑class workflow**:
 
-- The UI still drives the conversation and calls `generateArcs` via `src/services/ai.ts`.
-- The **registry** provides a single place to:
-  - name the mode (`arcCreation`),
-  - describe its tools,
-  - and hint at where those tools will live on the server.
+- `WorkflowDefinition.arcCreation` describes:
+  - the initial context collection step (`context_collect`),
+  - the agent generation step (`agent_generate_arc`),
+  - and the confirmation step (`confirm_arc`),
+  - plus light UI metadata (step titles, field labels, primary action copy).
+- `AgentWorkspace` owns a local `WorkflowInstance` and exposes a
+  `WorkflowRuntimeContext` that presenters (like `ArcCreationFlow`) can use to:
+  - complete steps with structured data,
+  - read the current step,
+  - and talk to the shared chat surface via `ChatTimelineController`.
+- `AiChatPane` is the single host for the **Agent Timeline**:
+  - user messages,
+  - assistant messages (streamed),
+  - inline cards (question cards, Arc proposal cards),
+  - and system events (loading / errors / workflow transitions).
+
+Presenters like `ArcCreationFlow` and `IdentityAspirationFlow` no longer mount
+their own chat UI or call `sendCoachChat` directly; they interact only through
+the timeline/controller surface. This keeps the UX consistent while allowing new
+workflows to reuse the same opinionated host.
 
 ### How this evolves to scheduling and 3rd-party tools
 
@@ -188,9 +205,22 @@ The chat surface is a simple **timeline of items**, not a special “step compon
   - `userMessage` – anything the user typed or tapped that should appear in the thread.
   - `card` – rich UI blocks (forms, suggestions, previews) rendered inline with the thread.
   - `systemEvent` – internal status items (errors, loading, workflow transitions) that may or may not be visible.
-- “Cards” are just **React nodes** slotted into the timeline:
-  - Usually composed from `Card`, `QuestionCard`, `EditableField`, etc.
-  - No dedicated `StepCard` primitive – the workflow decides _what_ to show, the timeline decides _where_ it lands.
+“Cards” are just **React nodes** slotted into the timeline:
+
+- Usually composed from `Card`, `QuestionCard`, `EditableField`, etc.
+- No dedicated `StepCard` primitive – the workflow decides _what_ to show, the
+  timeline decides _where_ it lands.
+
+Workflows can now also describe **standardised progress UI** for agent steps:
+
+- `agent_generate` steps carry hints about:
+  - whether to show a progress banner (e.g. “Shaping a first‑pass Arc…”),
+  - whether to render a skeleton card while a proposal is being generated,
+  - and which confirmation card should appear when the result arrives.
+- `AiChatPane` listens to workflow runtime events (`stepStarted`,
+  `agentCallStarted`, `agentCallCompleted`) and is responsible for inserting
+  these messages/cards into the timeline, instead of each presenter inventing
+  its own progress copy.
 
 This keeps the mental model as **“thread + cards”**: workflows talk in terms of messages and cards, and `AiChatPane` owns how they appear.
 
@@ -205,11 +235,13 @@ A workflow is a small contract that says: **“given this `chatMode`, these `ste
   - `outcomeSchema`: short description of the structured result the workflow produces.
 - Runtime:
   - `AgentWorkspace` looks up the `WorkflowDefinition` and tracks a local `WorkflowInstance`.
-  - Presenters like `IdentityAspirationFlow` plug into the flow via **`WorkflowRuntimeContext` + `AiChatPaneController`**:
-    - append synthetic user messages into the timeline,
-    - stream assistant replies into the same canvas,
-    - insert workflow-driven cards (via the `stepCard` slot),
-    - optionally hide or show the freeform composer for particular steps.
+- Presenters like `IdentityAspirationFlow` plug into the flow via **`WorkflowRuntimeContext` + `ChatTimelineController`**:
+    - `ChatTimelineController` is a small, exported interface in `AiChatScreen` that exposes just the timeline primitives workflows are allowed to use:
+      - `appendUserMessage` – mirror structured answers into the visible thread as user bubbles.
+      - `streamAssistantReplyFromWorkflow` – stream assistant copy into the canvas with the same typing animation as normal replies.
+      - `getHistory` – read the full hidden history (including system messages) to build prompts for `sendCoachChat`.
+      - `getTimeline` – read a normalized view of the visible thread (messages + cards) for lightweight summaries.
+    - Presenters treat this controller as their only link to the chat surface: they never mount their own chat UI or call `sendCoachChat` directly.
 
 The key rule is: **workflows never reach “around” the chat** – all visible UX goes through the shared timeline, even when most of the work is tap-first cards.
 

@@ -14,6 +14,8 @@ import { VStack, HStack, Text, Heading, Textarea, ButtonLabel } from '../../ui/p
 import { Dialog } from '../../ui/Dialog';
 import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import { SegmentedControl } from '../../ui/SegmentedControl';
+import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
+import { Logo } from '../../ui/Logo';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
@@ -26,6 +28,8 @@ import {
   type DevCoachChatFeedback,
 } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
+
+type InterstitialVariant = 'launch' | 'auth' | 'streak';
 
 export function DevToolsScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
@@ -55,9 +59,21 @@ export function DevToolsScreen() {
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'tools' | 'gallery'>('tools');
+  const [viewMode, setViewMode] = useState<'tools' | 'gallery' | 'typeColor'>('tools');
   const [demoDialogVisible, setDemoDialogVisible] = useState(false);
   const [demoSheetVisible, setDemoSheetVisible] = useState(false);
+  const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
+  const [isInterstitialFullScreenVisible, setIsInterstitialFullScreenVisible] = useState(false);
+  const [launchBody, setLaunchBody] = useState(
+    'Architect your time around arcs, goals, and gentle daily steps.'
+  );
+  const [authBody, setAuthBody] = useState(
+    'Save your arcs and sync your progress across devices.'
+  );
+  const [streakDays, setStreakDays] = useState('21');
+  const [streakBody, setStreakBody] = useState(
+    'You’ve shown up 21 days in a row. Keep the thread going with one small action.'
+  );
 
   const loadChatHistory = async () => {
     try {
@@ -295,6 +311,76 @@ export function DevToolsScreen() {
   };
 
   const isGallery = viewMode === 'gallery';
+  const isTypeAndColor = viewMode === 'typeColor';
+
+  const interstitialSegmentOptions: { value: InterstitialVariant; label: string }[] = [
+    { value: 'launch', label: 'Launch' },
+    { value: 'auth', label: 'Auth' },
+    { value: 'streak', label: 'Streak' },
+  ];
+
+  const renderInterstitialPreview = () => {
+    switch (interstitialVariant) {
+      case 'auth':
+        return (
+          <View style={styles.interstitialContent}>
+            <View style={styles.interstitialHeroBlock}>
+              <Text style={styles.interstitialTitle}>Sign in to continue</Text>
+              <Text style={styles.interstitialBody}>{authBody}</Text>
+            </View>
+            <View style={styles.interstitialAuthCard}>
+              <Input label="Email" placeholder="you@example.com" />
+              <Input label="Password" placeholder="••••••••" />
+              <Button variant="accent" fullWidth>
+                <ButtonLabel size="md" tone="inverse">
+                  Continue
+                </ButtonLabel>
+              </Button>
+              <Button variant="ghost" fullWidth>
+                <ButtonLabel size="md">Create an account</ButtonLabel>
+              </Button>
+            </View>
+          </View>
+        );
+      case 'streak':
+        return (
+          <View style={styles.interstitialContent}>
+            <View style={styles.streakHeroBlock}>
+              <Text style={styles.streakLabel}>Current streak</Text>
+              <Text style={styles.streakNumber}>{streakDays}</Text>
+              <Text style={styles.streakBody}>{streakBody}</Text>
+            </View>
+            <View style={styles.interstitialFooterBlock}>
+              <Button variant="accent" fullWidth>
+                <ButtonLabel size="md" tone="inverse">
+                  Plan today’s step
+                </ButtonLabel>
+              </Button>
+            </View>
+          </View>
+        );
+      case 'launch':
+      default:
+        return (
+          <View style={styles.interstitialContent}>
+            <View style={styles.interstitialHeroBlock}>
+              <View style={styles.launchBrandLockup}>
+                <Logo size={56} />
+                <Text style={styles.launchWordmark}>kwilt</Text>
+              </View>
+              <Text style={styles.interstitialBody}>{launchBody}</Text>
+            </View>
+            <View style={styles.interstitialFooterBlock}>
+              <Button variant="accent" fullWidth>
+                <ButtonLabel size="md" tone="inverse">
+                  Get started
+                </ButtonLabel>
+              </Button>
+            </View>
+          </View>
+        );
+    }
+  };
 
   const renderComponentGallery = () => {
     return (
@@ -500,6 +586,73 @@ export function DevToolsScreen() {
               On device, swipe down or tap the scrim to dismiss.
             </Text>
           </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Interstitials</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Full-screen guidance and celebration layouts that sit on top of the app shell.
+            </Text>
+            <SegmentedControl
+              style={styles.interstitialVariantTabs}
+              value={interstitialVariant}
+              onChange={(next) => setInterstitialVariant(next as InterstitialVariant)}
+              options={interstitialSegmentOptions}
+            />
+
+            {interstitialVariant === 'launch' && (
+              <VStack space="sm" style={styles.interstitialControls}>
+                <Textarea
+                  label="Body copy"
+                  placeholder="Launch message"
+                  value={launchBody}
+                  onChangeText={setLaunchBody}
+                  numberOfLines={3}
+                />
+              </VStack>
+            )}
+
+            {interstitialVariant === 'auth' && (
+              <VStack space="sm" style={styles.interstitialControls}>
+                <Textarea
+                  label="Supporting copy"
+                  placeholder="Explain why signing in matters"
+                  value={authBody}
+                  onChangeText={setAuthBody}
+                  numberOfLines={3}
+                />
+              </VStack>
+            )}
+
+            {interstitialVariant === 'streak' && (
+              <VStack space="sm" style={styles.interstitialControls}>
+                <Input
+                  label="Streak days"
+                  value={streakDays}
+                  keyboardType="number-pad"
+                  onChangeText={setStreakDays}
+                />
+                <Textarea
+                  label="Supporting copy"
+                  value={streakBody}
+                  onChangeText={setStreakBody}
+                  numberOfLines={3}
+                />
+              </VStack>
+            )}
+
+            <View style={styles.interstitialPreviewSurface}>{renderInterstitialPreview()}</View>
+
+            <Button
+              variant="accent"
+              fullWidth
+              style={styles.interstitialLaunchButton}
+              onPress={() => setIsInterstitialFullScreenVisible(true)}
+            >
+              <ButtonLabel size="md" tone="inverse">
+                Launch full-screen
+              </ButtonLabel>
+            </Button>
+          </View>
         </View>
 
         <KwiltBottomSheet
@@ -522,6 +675,132 @@ export function DevToolsScreen() {
     );
   };
 
+  const renderTypeAndColorGallery = () => {
+    const pineScale = [
+      { token: 'pine50', label: 'Pine 50', value: colors.pine50 },
+      { token: 'pine100', label: 'Pine 100', value: colors.pine100 },
+      { token: 'pine200', label: 'Pine 200', value: colors.pine200 },
+      { token: 'pine300', label: 'Pine 300', value: colors.pine300 },
+      { token: 'pine400', label: 'Pine 400', value: colors.pine400 },
+      { token: 'pine500', label: 'Pine 500', value: colors.pine500 },
+      { token: 'pine600', label: 'Pine 600', value: colors.pine600 },
+      { token: 'pine700', label: 'Pine 700', value: colors.pine700 },
+      { token: 'pine800', label: 'Pine 800', value: colors.pine800 },
+      { token: 'pine900', label: 'Pine 900', value: colors.pine900 },
+    ];
+
+    const grayScale = [
+      { token: 'gray50', label: 'Gray 50', value: colors.gray50 },
+      { token: 'gray100', label: 'Gray 100', value: colors.gray100 },
+      { token: 'gray200', label: 'Gray 200', value: colors.gray200 },
+      { token: 'gray300', label: 'Gray 300', value: colors.gray300 },
+      { token: 'gray400', label: 'Gray 400', value: colors.gray400 },
+      { token: 'gray500', label: 'Gray 500', value: colors.gray500 },
+      { token: 'gray600', label: 'Gray 600', value: colors.gray600 },
+      { token: 'gray700', label: 'Gray 700', value: colors.gray700 },
+      { token: 'gray800', label: 'Gray 800', value: colors.gray800 },
+      { token: 'gray900', label: 'Gray 900', value: colors.gray900 },
+    ];
+
+    const brandPalette = [
+      { token: 'accent', label: 'Accent', value: colors.accent },
+      { token: 'accentMuted', label: 'Accent muted', value: colors.accentMuted },
+      { token: 'accentRose', label: 'Accent rose', value: colors.accentRose },
+      {
+        token: 'accentRoseStrong',
+        label: 'Accent rose (strong)',
+        value: colors.accentRoseStrong,
+      },
+      { token: 'indigo', label: 'Indigo', value: colors.indigo },
+      { token: 'turmeric', label: 'Turmeric', value: colors.turmeric },
+      { token: 'madder', label: 'Madder', value: colors.madder },
+      { token: 'quiltBlue', label: 'Quilt blue', value: colors.quiltBlue },
+      { token: 'clay', label: 'Clay', value: colors.clay },
+      { token: 'moss', label: 'Moss', value: colors.moss },
+      { token: 'sumi', label: 'Sumi', value: colors.sumi },
+    ];
+
+    return (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.stack}>
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Typography tokens</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Inspect the base type ramp used across headings, body copy, and labels.
+            </Text>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Brand</Text>
+              <Text style={typography.brand}>kwilt</Text>
+            </View>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Title / MD</Text>
+              <Text style={typography.titleMd}>Architect your next arc</Text>
+            </View>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Body</Text>
+              <Text style={styles.typeTokenSample}>Gentle guidance and daily steps.</Text>
+            </View>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Label</Text>
+              <Text style={typography.label}>Label</Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Pine scale</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Primary brand green scale used by kwilt, aligned with the logo accent.
+            </Text>
+            {pineScale.map((swatch) => (
+              <View key={swatch.token} style={styles.colorRow}>
+                <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.colorLabel}>{swatch.label}</Text>
+                  <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Gray scale</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Neutral ramp used for canvas, borders, and text contrast.
+            </Text>
+            {grayScale.map((swatch) => (
+              <View key={swatch.token} style={styles.colorRow}>
+                <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.colorLabel}>{swatch.label}</Text>
+                  <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Brand accents</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Hero brand hues used for illustration, emphasis, and celebration moments.
+            </Text>
+            {brandPalette.map((swatch) => (
+              <View key={swatch.token} style={styles.colorRow}>
+                <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.colorLabel}>{swatch.label}</Text>
+                  <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
   return (
     <AppShell>
       <PageHeader
@@ -533,6 +812,8 @@ export function DevToolsScreen() {
         <Text style={[styles.screenSubtitle, { paddingTop: spacing.lg }]}>
           {isGallery
             ? 'Preview shared UI primitives live on-device. Only visible in development builds.'
+            : isTypeAndColor
+            ? 'Inspect base typography and color tokens that underpin the shared UI system.'
             : 'Utilities for testing and development. Only visible in development builds.'}
         </Text>
         <SegmentedControl
@@ -542,11 +823,29 @@ export function DevToolsScreen() {
           options={[
             { value: 'tools', label: 'Tools' },
             { value: 'gallery', label: 'Components' },
+            { value: 'typeColor', label: 'Type & Color' },
           ]}
         />
       </PageHeader>
       {isGallery ? (
-        renderComponentGallery()
+        <>
+          {renderComponentGallery()}
+          <FullScreenInterstitial
+            visible={isInterstitialFullScreenVisible}
+            onDismiss={() => setIsInterstitialFullScreenVisible(false)}
+            backgroundColor={
+              interstitialVariant === 'launch'
+                ? 'pine300'
+                : interstitialVariant === 'streak'
+                ? 'indigo'
+                : 'shell'
+            }
+          >
+            {renderInterstitialPreview()}
+          </FullScreenInterstitial>
+        </>
+      ) : isTypeAndColor ? (
+        renderTypeAndColorGallery()
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -852,7 +1151,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   historyTimestamp: {
-    ...typography.caption,
+    ...typography.bodySm,
     color: colors.muted,
   },
   historyTranscript: {
@@ -923,7 +1222,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs / 2,
   },
   feedbackMeta: {
-    ...typography.caption,
+    ...typography.bodySm,
     color: colors.muted,
   },
   feedbackNote: {
@@ -950,6 +1249,141 @@ const styles = StyleSheet.create({
   summaryText: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  typeTokenRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  typeTokenName: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginRight: spacing.md,
+    minWidth: 96,
+  },
+  typeTokenSample: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  colorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 18,
+    backgroundColor: colors.canvas,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    marginBottom: spacing.xs,
+  },
+  colorSwatch: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  colorLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  colorToken: {
+    ...typography.bodySm,
+    color: colors.muted,
+    marginTop: spacing.xs / 4,
+  },
+  interstitialTabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  interstitialPreviewSurface: {
+    borderRadius: 24,
+    backgroundColor: colors.pine100,
+    padding: spacing.lg,
+  },
+  interstitialContent: {
+    flexDirection: 'column',
+    rowGap: spacing['2xl'],
+  },
+  interstitialHeroBlock: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    rowGap: spacing.lg,
+  },
+  interstitialFooterBlock: {
+    marginTop: spacing.md,
+    rowGap: spacing.md,
+  },
+  interstitialTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  interstitialBody: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  interstitialAuthCard: {
+    borderRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.canvas,
+    rowGap: spacing.md,
+  },
+  streakHeroBlock: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    rowGap: spacing.md,
+  },
+  streakLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+  },
+  streakNumber: {
+    ...typography.titleXl,
+    fontSize: 56,
+    lineHeight: 60,
+    color: colors.canvas,
+  },
+  streakBody: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  interstitialVariantTabs: {
+    marginTop: spacing.sm,
+  },
+  interstitialControls: {
+    marginTop: spacing.md,
+  },
+  interstitialLaunchButton: {
+    marginTop: spacing.md,
+    alignSelf: 'stretch',
+  },
+  launchBrandLockup: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    rowGap: spacing.sm,
+  },
+  launchWordmark: {
+    ...typography.brand,
+    color: colors.pine700,
+    fontSize: 36,
+    lineHeight: 42,
+    textShadowColor: colors.pine800,
+    textShadowOffset: { width: 0.4, height: 0.4 },
+    textShadowRadius: 1,
   },
   gallerySectionDescription: {
     ...typography.bodySm,

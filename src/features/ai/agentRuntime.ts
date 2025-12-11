@@ -1,4 +1,4 @@
-import type { ChatMode } from './chatRegistry';
+import type { ChatMode } from './workflowRegistry';
 import type { WorkflowInstance } from '../../domain/workflows';
 
 /**

@@ -37,6 +37,7 @@ import { Dialog } from '../../ui/Dialog';
 import { fonts } from '../../theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
+import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -427,6 +428,11 @@ export function GoalCoachDrawer({
   );
   const [isGoalAiInfoVisible, setIsGoalAiInfoVisible] = React.useState(false);
 
+  const goalCreationWorkflow = React.useMemo(
+    () => getWorkflowLaunchConfig('goalCreation'),
+    []
+  );
+
   const workspaceSnapshot = React.useMemo(
     () => buildArcCoachLaunchContext(arcs, goals),
     [arcs, goals],
@@ -436,8 +442,8 @@ export function GoalCoachDrawer({
     () =>
       launchFromArcId
         ? {
-            source: 'arcDetail',
-            intent: 'goalCreation',
+            source: 'arcDetail' as const,
+            intent: 'goalCreation' as const,
             entityRef: { type: 'arc', id: launchFromArcId } as const,
             objectType: 'arc' as const,
             objectId: launchFromArcId,
@@ -624,9 +630,10 @@ export function GoalCoachDrawer({
             <AgentWorkspace
               // Goal creation uses the dedicated Goal Creation Agent mode so the
               // conversation stays tightly focused on drafting one clear goal.
-              mode="goalCreation"
+              mode={goalCreationWorkflow.mode}
               launchContext={launchContext}
               workspaceSnapshot={workspaceSnapshot}
+              workflowDefinitionId={goalCreationWorkflow.workflowDefinitionId}
               // For now, we rely on keeping the workspace mounted to preserve state
               // instead of resuming a persisted draft.
               resumeDraft={false}
@@ -634,7 +641,7 @@ export function GoalCoachDrawer({
               hidePromptSuggestions
             />
           )}
-          </View>
+        </View>
 
         <Dialog
           visible={isGoalAiInfoVisible}
@@ -649,10 +656,10 @@ export function GoalCoachDrawer({
           )}
         </Dialog>
           <KeyboardAvoidingView
-          style={[
-            styles.goalCoachBody,
-            activeTab !== 'manual' && { display: 'none' },
-          ]}
+            style={[
+              styles.goalCoachBody,
+              activeTab !== 'manual' && { display: 'none' },
+            ]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <ScrollView
@@ -661,114 +668,118 @@ export function GoalCoachDrawer({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-            <Text style={styles.modalLabel}>Thumbnail</Text>
-            <Pressable
-              style={styles.goalThumbnailSection}
-              accessibilityRole="button"
-              accessibilityLabel="Edit goal thumbnail"
-              onPress={() => setThumbnailSheetVisible(true)}
-            >
-              <View style={styles.goalThumbnailPreview}>
-                {draft.thumbnailUrl ? (
-                  <Image
-                    source={{ uri: draft.thumbnailUrl }}
-                    style={styles.goalThumbnailImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <LinearGradient
-                    colors={goalThumbnailColors}
-                    start={goalThumbnailDirection.start}
-                    end={goalThumbnailDirection.end}
-                    style={styles.goalThumbnailImage}
-                  />
-                )}
-              </View>
-            </Pressable>
-              <Text style={styles.modalLabel}>Goal title</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Build a Birdhouse"
-                placeholderTextColor={colors.textSecondary}
-                value={draft.title}
-                onChangeText={(next) =>
-                  setDraft((current) => ({
-                    ...current,
-                    title: next,
-                  }))
-                }
-              />
-              <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>Short description</Text>
-              <TextInput
-                style={[styles.input, styles.manualNarrativeInput]}
-                placeholder="Describe the concrete progress you want to make."
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                value={draft.description ?? ''}
-                onChangeText={(next) =>
-                  setDraft((current) => ({
-                    ...current,
-                    description: next,
-                  }))
-                }
-              />
-              <View style={{ marginTop: spacing.lg }}>
-                <Text style={styles.modalLabel}>Force intent (optional)</Text>
-                {GOAL_FORCE_ORDER.map((forceId) => {
-                  const level = (draft.forceIntent?.[forceId] ?? 0) as ForceLevel;
-                  return (
-                    <View key={forceId} style={styles.forceRow}>
-                      <View style={styles.forceHeaderRow}>
-                        <Text style={styles.forceLabel}>{GOAL_FORCE_LABELS[forceId]}</Text>
-                        <Text style={styles.forceValue}>{level}/3</Text>
-                      </View>
-                      <View style={styles.forceChipsRow}>
-                        {[0, 1, 2, 3].map((value) => {
-                          const isActive = level === value;
-                          return (
-                            <Pressable
-                              // eslint-disable-next-line react/no-array-index-key
-                              key={value}
-                              style={[
-                                styles.forceChip,
-                                isActive && styles.forceChipActive,
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Set ${GOAL_FORCE_LABELS[forceId]} to level ${value}`}
-                              onPress={() =>
-                                setDraft((current) => ({
-                                  ...current,
-                                  forceIntent: {
-                                    ...current.forceIntent,
-                                    [forceId]: value as ForceLevel,
-                                  },
-                                }))
-                              }
-                            >
-                              <Text
-                                style={[
-                                  styles.forceChipLabel,
-                                  isActive && styles.forceChipLabelActive,
-                                ]}
-                              >
-                                {value}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-              <View style={{ marginTop: spacing.xl }}>
-                <Button
-                  disabled={draft.title.trim().length === 0}
-                  onPress={handleCreateManualGoal}
+              <Card padding="sm" style={{ width: '100%' }}>
+                <Text style={styles.modalLabel}>Thumbnail</Text>
+                <Pressable
+                  style={styles.goalThumbnailSection}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit goal thumbnail"
+                  onPress={() => setThumbnailSheetVisible(true)}
                 >
-                  <Text style={styles.buttonText}>Create Goal</Text>
-                </Button>
-              </View>
+                  <View style={styles.goalThumbnailPreview}>
+                    {draft.thumbnailUrl ? (
+                      <Image
+                        source={{ uri: draft.thumbnailUrl }}
+                        style={styles.goalThumbnailImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={goalThumbnailColors}
+                        start={goalThumbnailDirection.start}
+                        end={goalThumbnailDirection.end}
+                        style={styles.goalThumbnailImage}
+                      />
+                    )}
+                  </View>
+                </Pressable>
+                <Text style={styles.modalLabel}>Goal title</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Build a Birdhouse"
+                  placeholderTextColor={colors.textSecondary}
+                  value={draft.title}
+                  onChangeText={(next) =>
+                    setDraft((current) => ({
+                      ...current,
+                      title: next,
+                    }))
+                  }
+                />
+                <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>
+                  Short description
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.manualNarrativeInput]}
+                  placeholder="Describe the concrete progress you want to make."
+                  placeholderTextColor={colors.textSecondary}
+                  multiline
+                  value={draft.description ?? ''}
+                  onChangeText={(next) =>
+                    setDraft((current) => ({
+                      ...current,
+                      description: next,
+                    }))
+                  }
+                />
+                <View style={{ marginTop: spacing.lg }}>
+                  <Text style={styles.modalLabel}>Force intent (optional)</Text>
+                  {GOAL_FORCE_ORDER.map((forceId) => {
+                    const level = (draft.forceIntent?.[forceId] ?? 0) as ForceLevel;
+                    return (
+                      <View key={forceId} style={styles.forceRow}>
+                        <View style={styles.forceHeaderRow}>
+                          <Text style={styles.forceLabel}>{GOAL_FORCE_LABELS[forceId]}</Text>
+                          <Text style={styles.forceValue}>{level}/3</Text>
+                        </View>
+                        <View style={styles.forceChipsRow}>
+                          {[0, 1, 2, 3].map((value) => {
+                            const isActive = level === value;
+                            return (
+                              <Pressable
+                                // eslint-disable-next-line react/no-array-index-key
+                                key={value}
+                                style={[
+                                  styles.forceChip,
+                                  isActive && styles.forceChipActive,
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Set ${GOAL_FORCE_LABELS[forceId]} to level ${value}`}
+                                onPress={() =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    forceIntent: {
+                                      ...current.forceIntent,
+                                      [forceId]: value as ForceLevel,
+                                    },
+                                  }))
+                                }
+                              >
+                                <Text
+                                  style={[
+                                    styles.forceChipLabel,
+                                    isActive && styles.forceChipLabelActive,
+                                  ]}
+                                >
+                                  {value}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+                <View style={{ marginTop: spacing.xl }}>
+                  <Button
+                    disabled={draft.title.trim().length === 0}
+                    onPress={handleCreateManualGoal}
+                  >
+                    <Text style={styles.buttonText}>Create Goal</Text>
+                  </Button>
+                </View>
+              </Card>
             </ScrollView>
           </KeyboardAvoidingView>
       </View>
@@ -1399,7 +1410,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   wizardChipSelected: {
-    backgroundColor: colors.accentSubtle,
+    backgroundColor: colors.secondary,
     borderColor: colors.accent,
   },
   wizardChipLabel: {
@@ -1610,7 +1621,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   goalThumbnailContourRing: {
-    position: 'absolute',
     borderWidth: 1,
     borderRadius: 999,
     borderColor: 'rgba(15,23,42,0.2)',
@@ -1681,6 +1691,14 @@ const styles = StyleSheet.create({
   goalThumbnailButtonLabel: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  modalBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  buttonText: {
+    ...typography.bodySm,
+    color: colors.canvas,
   },
   forceRow: {
     marginTop: spacing.sm,

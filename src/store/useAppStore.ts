@@ -348,7 +348,7 @@ const initialActivityViews: ActivityView[] = [
   },
   {
     id: 'priorityFocus',
-    name: 'Priority 1 focus',
+    name: 'Starred',
     filterMode: 'priority1',
     sortMode: 'priority',
     showCompleted: true,

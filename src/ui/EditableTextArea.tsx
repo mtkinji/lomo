@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 
 interface AiHelpContext {
@@ -27,6 +27,14 @@ export interface EditableTextAreaProps {
   enableAi?: boolean;
   onRequestAiHelp?: (args: AiHelpContext) => void;
   aiContext?: Omit<AiHelpContext, 'currentText'>;
+  /**
+   * Shadow treatment for the textarea wrapper. Mirrors the core `Input`
+   * primitive so card-based editors share the same visual affordances.
+   *
+   * - `elevated` (default): subtle soft shadow.
+   * - `flat`: no shadow.
+   */
+  elevation?: 'flat' | 'elevated';
 }
 
 export function EditableTextArea({
@@ -41,6 +49,7 @@ export function EditableTextArea({
   enableAi,
   onRequestAiHelp,
   aiContext,
+  elevation = 'elevated',
 }: EditableTextAreaProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -88,6 +97,7 @@ export function EditableTextArea({
           styles.textareaWrapper,
           isEditing && styles.textareaWrapperFocused,
           error && styles.textareaWrapperError,
+          elevation === 'elevated' ? cardElevation.soft : cardElevation.none,
         ]}
       >
         <TextInput

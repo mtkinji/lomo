@@ -41,10 +41,17 @@ export function CelebrationGif({
   const [refreshKey, setRefreshKey] = useState(0);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
-  const userAgeRange = useAppStore((s) => s.userProfile?.ageRange ?? ageRange);
+  // Read the stored age range from the global profile, then fall back to any
+  // explicit ageRange prop. Keeping the selector independent of props avoids
+  // subtle re-subscribe loops when parents also derive props from the store.
+  const storedAgeRange = useAppStore((s) => s.userProfile?.ageRange);
+  const userAgeRange = storedAgeRange ?? ageRange;
   const blockCelebrationGif = useAppStore((s) => s.blockCelebrationGif);
   const likeCelebrationGif = useAppStore((s) => s.likeCelebrationGif);
-  const likedCelebrationGifs = useAppStore((s) => s.likedCelebrationGifs ?? []);
+  // Return the store's liked GIFs slice directly from the selector so the
+  // snapshot remains stable between renders; apply any fallbacks outside the
+  // selector to avoid React's "getSnapshot should be cached" warning.
+  const likedCelebrationGifs = useAppStore((s) => s.likedCelebrationGifs) ?? [];
   const isLiked = gifId ? likedCelebrationGifs.some((entry) => entry.id === gifId) : false;
 
   useEffect(() => {

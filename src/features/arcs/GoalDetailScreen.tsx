@@ -53,7 +53,7 @@ import type { Activity } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
-import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
+import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 
@@ -181,6 +181,19 @@ export function GoalDetailScreen() {
       });
     },
     [updateActivity]
+  );
+
+  const handleOpenActivityDetail = useCallback(
+    (activityId: string) => {
+      const nav: any = navigation;
+      if (nav && typeof nav.navigate === 'function') {
+        nav.navigate('ActivityDetailFromGoal', {
+          activityId,
+          entryPoint: 'goalPlan',
+        });
+      }
+    },
+    [navigation],
   );
 
   const handleToggleActivityPriorityOne = useCallback(
@@ -431,6 +444,13 @@ export function GoalDetailScreen() {
     setHasSeenFirstGoalCelebration(true);
   };
 
+  const handleContinueFirstGoalCelebration = () => {
+    setShowFirstGoalCelebration(false);
+    setHasSeenFirstGoalCelebration(true);
+    setActiveTab('plan');
+    setActivityCoachVisible(true);
+  };
+
   const handleDeleteGoal = () => {
     Alert.alert(
       'Delete goal?',
@@ -561,8 +581,15 @@ export function GoalDetailScreen() {
         description="This goal is your starting point in kwilt. Next, add a couple of concrete Activities so you always know the very next step."
         footer={
           <HStack space="sm" marginTop={spacing.lg}>
-            <Button style={{ flex: 1 }} onPress={handleDismissFirstGoalCelebration}>
-              <Text style={styles.primaryCtaText}>Got it</Text>
+            <Button
+              variant="outline"
+              style={{ flex: 1 }}
+              onPress={handleDismissFirstGoalCelebration}
+            >
+              <Text style={styles.secondaryCtaText}>Maybe later</Text>
+            </Button>
+            <Button style={{ flex: 1 }} onPress={handleContinueFirstGoalCelebration}>
+              <Text style={styles.primaryCtaText}>Add activities</Text>
             </Button>
           </HStack>
         }
@@ -1019,6 +1046,7 @@ export function GoalDetailScreen() {
                                   onTogglePriority={() =>
                                     handleToggleActivityPriorityOne(activity.id)
                                   }
+                                  onPress={() => handleOpenActivityDetail(activity.id)}
                                 />
                               );
                             })}
@@ -1052,6 +1080,7 @@ export function GoalDetailScreen() {
                                   onTogglePriority={() =>
                                     handleToggleActivityPriorityOne(activity.id)
                                   }
+                                  onPress={() => handleOpenActivityDetail(activity.id)}
                                 />
                               );
                             })}
@@ -1557,6 +1586,11 @@ function GoalActivityCoachDrawer({
   const updateActivity = useAppStore((state) => state.updateActivity);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = useState(false);
 
+  const activityCreationWorkflow = useMemo(
+    () => getWorkflowLaunchConfig('activityCreation'),
+    []
+  );
+
   const workspaceSnapshot = useMemo(
     () => buildActivityCoachLaunchContext(goals, activities),
     [goals, activities]
@@ -1768,10 +1802,10 @@ function GoalActivityCoachDrawer({
         {activeTab === 'ai' ? (
           <View style={styles.activityCoachBody}>
             <AgentWorkspace
-              mode="activityCreation"
+              mode={activityCreationWorkflow.mode}
               launchContext={launchContext}
               workspaceSnapshot={workspaceSnapshot}
-              workflowDefinitionId={ACTIVITY_CREATION_WORKFLOW_ID}
+              workflowDefinitionId={activityCreationWorkflow.workflowDefinitionId}
               resumeDraft={false}
               hideBrandHeader
               hidePromptSuggestions

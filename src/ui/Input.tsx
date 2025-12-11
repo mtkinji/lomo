@@ -12,11 +12,12 @@ import {
   TextInputContentSizeChangeEventData,
   TextInputProps,
 } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 
 type InputVariant = 'surface' | 'outline' | 'ghost';
 type InputSize = 'md' | 'sm';
+type InputElevation = 'flat' | 'elevated';
 
 const MULTILINE_MIN_HEIGHT = 112;
 const MULTILINE_MAX_HEIGHT = 220;
@@ -33,6 +34,16 @@ type Props = TextInputProps & {
   inputStyle?: StyleProp<TextStyle>;
   size?: InputSize;
   variant?: InputVariant;
+  /**
+   * Shadow treatment for the input container.
+   *
+   * - `elevated`: subtle soft shadow + border, matches the refreshed
+   *   text-field spec.
+   * - `flat`: removes shadows entirely so the input sits flush on the canvas.
+   *
+   * Defaults to `elevated` so existing inputs adopt the new styling.
+   */
+  elevation?: InputElevation;
 };
 
 const InputBase = forwardRef<TextInput, Props>(
@@ -50,6 +61,7 @@ const InputBase = forwardRef<TextInput, Props>(
       size = 'md',
       variant = 'surface',
       editable = true,
+      elevation = 'elevated',
       onFocus,
       onBlur,
       multiline = false,
@@ -78,6 +90,9 @@ const InputBase = forwardRef<TextInput, Props>(
               borderColor: statusColor,
               opacity: editable ? 1 : 0.6,
             },
+            elevation === 'elevated'
+              ? (cardElevation.soft as ViewStyle)
+              : (cardElevation.none as ViewStyle),
             containerStyle,
           ]}
         >

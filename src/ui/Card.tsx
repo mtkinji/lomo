@@ -21,9 +21,9 @@ interface CardProps {
   /**
    * Standardized padding presets for card content.
    *
-   * Defaults to `none` to preserve existing layouts that manage their own
-   * internal padding. Opt in per-usage where you want the Card itself to
-   * provide spacing.
+   * Defaults to `md` so most cards feel like self-contained surfaces without
+   * requiring per-usage padding. Use `none` when you need to tightly control
+   * interior layout yourself.
    */
   padding?: CardPadding;
   /**
@@ -37,7 +37,7 @@ interface CardProps {
 export function Card({
   children,
   style,
-  padding = 'none',
+  padding = 'md',
   elevation = 'soft',
 }: CardProps) {
   const paddingStyle =

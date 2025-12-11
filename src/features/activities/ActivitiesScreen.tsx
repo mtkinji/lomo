@@ -5,10 +5,12 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   KeyboardAvoidingView,
+  LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  UIManager,
   View,
   TextInput,
 } from 'react-native';
@@ -20,7 +22,7 @@ import type {
 } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { VStack, Heading, Text, HStack, Input, Textarea } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, Input, Textarea, ButtonLabel, Card } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
@@ -65,6 +67,12 @@ function CompletedActivitySection({
   onPressActivity,
 }: CompletedActivitySectionProps) {
   const [expanded, setExpanded] = React.useState(false);
+
+  React.useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
 
   return (
     <VStack space="xs" style={styles.completedSection}>
@@ -138,6 +146,13 @@ export function ActivitiesScreen() {
   const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
   const [viewEditorName, setViewEditorName] = React.useState('');
   const [viewsMenuOpen, setViewsMenuOpen] = React.useState(false);
+
+  // Ensure the views dropdown closes whenever the editor dialog is shown.
+  React.useEffect(() => {
+    if (viewEditorVisible) {
+      setViewsMenuOpen(false);
+    }
+  }, [viewEditorVisible]);
 
   const activeView: ActivityView | undefined = React.useMemo(() => {
     const current =
@@ -243,6 +258,13 @@ export function ActivitiesScreen() {
   const handleToggleComplete = React.useCallback(
     (activityId: string) => {
       const timestamp = new Date().toISOString();
+      LayoutAnimation.configureNext(
+        LayoutAnimation.create(
+          220,
+          LayoutAnimation.Types.easeInEaseOut,
+          LayoutAnimation.Properties.opacity,
+        ),
+      );
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
         return {
@@ -312,17 +334,16 @@ export function ActivitiesScreen() {
   );
 
   const handleOpenCreateView = React.useCallback(() => {
+    // Close the dropdown menu before opening the editor.
+    setViewsMenuOpen(false);
     setViewEditorMode('create');
     setViewEditorTargetId(null);
     setViewEditorName('New view');
     setViewEditorVisible(true);
-  }, []);
+  }, [setViewsMenuOpen]);
 
   const handleOpenViewSettings = React.useCallback(
     (view: ActivityView) => {
-      if (view.isSystem) {
-        return;
-      }
       setViewEditorMode('settings');
       setViewEditorTargetId(view.id);
       setViewEditorName(view.name);
@@ -456,12 +477,17 @@ export function ActivitiesScreen() {
                       </HStack>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                    {activityViews.map((view) => (
-                      <DropdownMenuItem key={view.id} onPress={() => applyView(view.id)}>
-                        <HStack alignItems="center" justifyContent="space-between" space="sm">
-                          <Text style={styles.menuItemText}>{view.name}</Text>
-                          {!view.isSystem && (
+                  {!viewEditorVisible && (
+                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                      {activityViews.map((view) => (
+                        <DropdownMenuItem key={view.id} onPress={() => applyView(view.id)}>
+                          <HStack
+                            alignItems="center"
+                            justifyContent="space-between"
+                            space="sm"
+                            flex={1}
+                          >
+                            <Text style={styles.menuItemText}>{view.name}</Text>
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel={`View options for ${view.name}`}
@@ -472,17 +498,17 @@ export function ActivitiesScreen() {
                             >
                               <Icon name="more" size={16} color={colors.textSecondary} />
                             </Pressable>
-                          )}
+                          </HStack>
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuItem onPress={handleOpenCreateView}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="plus" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>New view</Text>
                         </HStack>
                       </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuItem onPress={handleOpenCreateView}>
-                      <HStack alignItems="center" space="xs">
-                        <Icon name="plus" size={14} color={colors.textSecondary} />
-                        <Text style={styles.menuItemText}>New view</Text>
-                      </HStack>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
+                    </DropdownMenuContent>
+                  )}
                 </DropdownMenu>
               </View>
 
@@ -670,23 +696,27 @@ export function ActivitiesScreen() {
         arcs={arcs}
         addActivity={addActivity}
       />
-      {viewEditorVisible && (
-        <View style={styles.viewEditorOverlay} pointerEvents="box-none">
-          <Pressable
-            style={styles.viewEditorBackdrop}
-            onPress={() => setViewEditorVisible(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss view editor"
-          />
-          <View style={styles.viewEditorCard}>
-            <Text style={styles.viewEditorTitle}>
-              {viewEditorMode === 'create' ? 'New view' : 'View settings'}
-            </Text>
-            <Text style={styles.viewEditorDescription}>
-              {viewEditorMode === 'create'
-                ? 'Give this view a short, memorable name.'
-                : 'Rename this view or manage its shortcuts.'}
-            </Text>
+      <Dialog
+        visible={viewEditorVisible}
+        onClose={() => setViewEditorVisible(false)}
+        title={viewEditorMode === 'create' ? 'New view' : 'View settings'}
+        size="md"
+        showHeaderDivider
+        footer={
+          <HStack style={styles.viewEditorActions} space="sm" alignItems="center">
+            <Button variant="ghost" size="small" onPress={() => setViewEditorVisible(false)}>
+              <ButtonLabel size="md">Cancel</ButtonLabel>
+            </Button>
+            <Button size="small" onPress={handleConfirmViewEdit}>
+              <ButtonLabel size="md" tone="inverse">
+                Save
+              </ButtonLabel>
+            </Button>
+          </HStack>
+        }
+      >
+        <VStack space="md">
+          <View>
             <Text style={styles.viewEditorFieldLabel}>View name</Text>
             <TextInput
               style={styles.input}
@@ -695,7 +725,10 @@ export function ActivitiesScreen() {
               value={viewEditorName}
               onChangeText={setViewEditorName}
             />
-            {viewEditorMode === 'settings' && (
+          </View>
+
+          {viewEditorMode === 'settings' && (
+            <>
               <HStack
                 style={styles.viewEditorToggleRow}
                 alignItems="center"
@@ -720,8 +753,7 @@ export function ActivitiesScreen() {
                   />
                 </Pressable>
               </HStack>
-            )}
-            {viewEditorMode === 'settings' && (
+
               <VStack style={styles.viewEditorShortcutsSection} space="xs">
                 <Text style={styles.viewEditorFieldLabel}>View actions</Text>
                 <HStack style={styles.viewEditorSecondaryActions} space="sm" alignItems="center">
@@ -751,18 +783,10 @@ export function ActivitiesScreen() {
                   </Button>
                 </HStack>
               </VStack>
-            )}
-            <HStack style={styles.viewEditorActions} space="sm" alignItems="center">
-              <Button variant="ghost" onPress={() => setViewEditorVisible(false)}>
-                <Text>Cancel</Text>
-              </Button>
-              <Button onPress={handleConfirmViewEdit}>
-                <Text>Save</Text>
-              </Button>
-            </HStack>
-          </View>
-        </View>
-      )}
+            </>
+          )}
+        </VStack>
+      </Dialog>
     </AppShell>
   );
 }
@@ -893,7 +917,9 @@ const styles = StyleSheet.create({
   },
   manualFormContainer: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
+    // Let the BottomDrawer define the horizontal gutters; the card inside this
+    // ScrollView will run full-width within those paddings.
+    paddingHorizontal: 0,
     paddingTop: spacing.sm,
   },
   modalLabel: {
@@ -920,6 +946,14 @@ const styles = StyleSheet.create({
   manualNarrativeInput: {
     minHeight: 120,
     textAlignVertical: 'top',
+  },
+  addStepInlineRow: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  addStepInlineText: {
+    ...typography.bodySm,
+    color: colors.accent,
   },
   rowsCard: {
     borderRadius: 20,
@@ -1200,11 +1234,15 @@ function ActivityCoachDrawer({
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const [manualActivityId, setManualActivityId] = React.useState<string | null>(null);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const removeActivity = useAppStore((state) => state.removeActivity);
   const [reminderSheetVisible, setReminderSheetVisible] = React.useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
   const [repeatSheetVisible, setRepeatSheetVisible] = React.useState(false);
   const [isDueDatePickerVisible, setIsDueDatePickerVisible] = React.useState(false);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = React.useState(false);
+  const [isAddingStepInline, setIsAddingStepInline] = React.useState(false);
+  const [newStepTitle, setNewStepTitle] = React.useState('');
+  const newStepInputRef = React.useRef<TextInput | null>(null);
 
   const workspaceSnapshot = React.useMemo(
     () => buildActivityCoachLaunchContext(goals, activities),
@@ -1221,10 +1259,38 @@ function ActivityCoachDrawer({
 
   React.useEffect(() => {
     if (!visible) {
+      // When the drawer closes, clean up any empty "scratch" Activity that was
+      // created for the Manual tab but never meaningfully edited. This prevents
+      // a new object from lingering in the store every time someone opens the
+      // create flow and immediately bails.
+      if (manualActivityId && manualActivity) {
+        const title = manualActivity.title?.trim() ?? '';
+        const hasTitle = title.length > 0;
+        const hasNotes = (manualActivity.notes ?? '').trim().length > 0;
+        const hasSteps = (manualActivity.steps ?? []).length > 0;
+        const hasReminder = Boolean(manualActivity.reminderAt);
+        const hasScheduledDate = Boolean(manualActivity.scheduledDate);
+        const hasRepeatRule = Boolean(manualActivity.repeatRule);
+        const hasEstimate = manualActivity.estimateMinutes != null;
+
+        const isTriviallyEmpty =
+          !hasTitle &&
+          !hasNotes &&
+          !hasSteps &&
+          !hasReminder &&
+          !hasScheduledDate &&
+          !hasRepeatRule &&
+          !hasEstimate;
+
+        if (isTriviallyEmpty) {
+          removeActivity(manualActivity.id);
+        }
+      }
+
       setActiveTab('ai');
       setManualActivityId(null);
     }
-  }, [visible]);
+  }, [visible, manualActivityId, manualActivity, removeActivity]);
 
   const handleCreateManualActivity = React.useCallback(() => {
     if (manualActivityId) {
@@ -1309,6 +1375,43 @@ function ActivityCoachDrawer({
       return [...steps, newStep];
     });
   }, [handleUpdateManualSteps, manualActivity]);
+
+  const beginAddManualStepInline = React.useCallback(() => {
+    setIsAddingStepInline(true);
+    setNewStepTitle('');
+    requestAnimationFrame(() => {
+      newStepInputRef.current?.focus();
+    });
+  }, []);
+
+  const commitManualInlineStep = React.useCallback(() => {
+    if (!manualActivity) {
+      setIsAddingStepInline(false);
+      setNewStepTitle('');
+      return;
+    }
+
+    const trimmed = newStepTitle.trim();
+    if (!trimmed) {
+      setIsAddingStepInline(false);
+      setNewStepTitle('');
+      return;
+    }
+
+    handleUpdateManualSteps((steps) => {
+      const nextIndex = steps.length;
+      const newStep: ActivityStep = {
+        id: `step-${manualActivity.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title: trimmed,
+        completedAt: null,
+        isOptional: false,
+        orderIndex: nextIndex,
+      };
+      return [...steps, newStep];
+    });
+    setIsAddingStepInline(false);
+    setNewStepTitle('');
+  }, [handleUpdateManualSteps, manualActivity, newStepTitle]);
 
   const handleChangeManualStepTitle = React.useCallback(
     (stepId: string, title: string) => {
@@ -1694,33 +1797,42 @@ function ActivityCoachDrawer({
             and non-duplicative.
           </Text>
         </Dialog>
-        {activeTab === 'ai' ? (
-          <View style={styles.activityCoachBody}>
-            <AgentWorkspace
-              mode="activityCreation"
-              launchContext={launchContext}
-              workspaceSnapshot={workspaceSnapshot}
-              workflowDefinitionId={ACTIVITY_CREATION_WORKFLOW_ID}
-              resumeDraft={false}
-              hideBrandHeader
-              hidePromptSuggestions
-              onComplete={handleAiComplete}
-              onTransportError={handleSwitchToManual}
-              onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
-              onDismiss={onClose}
-            />
-          </View>
-        ) : (
-          <KeyboardAvoidingView
-            style={styles.activityCoachBody}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        {/* Keep both panes mounted so switching between AI and Manual preserves the AI thread state. */}
+        <View
+          style={[
+            styles.activityCoachBody,
+            activeTab !== 'ai' && { display: 'none' },
+          ]}
+        >
+          <AgentWorkspace
+            mode="activityCreation"
+            launchContext={launchContext}
+            workspaceSnapshot={workspaceSnapshot}
+            workflowDefinitionId={ACTIVITY_CREATION_WORKFLOW_ID}
+            resumeDraft={false}
+            hideBrandHeader
+            hidePromptSuggestions
+            onComplete={handleAiComplete}
+            onTransportError={handleSwitchToManual}
+            onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
+            onDismiss={onClose}
+          />
+        </View>
+
+        <KeyboardAvoidingView
+          style={[
+            styles.activityCoachBody,
+            activeTab !== 'manual' && { display: 'none' },
+          ]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            style={styles.manualFormContainer}
+            contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.lg }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <ScrollView
-              style={styles.manualFormContainer}
-              contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.lg }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
+            <Card padding="sm" style={{ width: '100%' }}>
               <Input
                 label="Activity title"
                 placeholder="e.g., Clear the workbench"
@@ -1752,21 +1864,8 @@ function ActivityCoachDrawer({
                 multiline
               />
               <View>
-                <HStack
-                  alignItems="center"
-                  justifyContent="space-between"
-                  style={styles.sectionLabelRow}
-                >
+                <HStack alignItems="center" style={styles.sectionLabelRow}>
                   <Text style={styles.inputLabel}>STEPS</Text>
-                  <Pressable
-                    onPress={handleAddManualStep}
-                    accessibilityRole="button"
-                    accessibilityLabel="Add a step to this activity"
-                    style={({ pressed }) => [styles.addStepButton, pressed && styles.rowPressed]}
-                  >
-                    <Icon name="plus" size={16} color={colors.primaryForeground} />
-                    <Text style={styles.addStepButtonText}>Add step</Text>
-                  </Pressable>
                 </HStack>
                 <View style={styles.rowsCard}>
                   {(manualActivity?.steps?.length ?? 0) === 0 ? (
@@ -1778,7 +1877,7 @@ function ActivityCoachDrawer({
                       {manualActivity?.steps?.map((step) => (
                         <HStack
                           key={step.id}
-                          space="sm"
+                          space="xs"
                           alignItems="center"
                           style={styles.stepRow}
                         >
@@ -1797,37 +1896,57 @@ function ActivityCoachDrawer({
                             placeholderTextColor={colors.muted}
                             multiline
                           />
-                          <Pressable
-                            onPress={() => handleToggleManualStepOptional(step.id)}
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              step.isOptional ? 'Mark step as required' : 'Mark step as optional'
-                            }
-                            style={({ pressed }) => [
-                              styles.stepOptionalPill,
-                              pressed && styles.rowPressed,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.stepOptionalText,
-                                step.isOptional && styles.stepOptionalTextActive,
-                              ]}
-                            >
-                              Optional
-                            </Text>
-                          </Pressable>
-                          <IconButton
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            iconButtonSize={24}
                             onPress={() => handleRemoveManualStep(step.id)}
                             accessibilityLabel="Remove step"
                             style={styles.removeStepButton}
                           >
                             <Icon name="close" size={14} color={colors.textSecondary} />
-                          </IconButton>
+                          </Button>
                         </HStack>
                       ))}
                     </VStack>
                   )}
+                  <View style={styles.addStepInlineRow}>
+                    {isAddingStepInline ? (
+                      <HStack space="xs" alignItems="center" style={styles.stepRow}>
+                        <View
+                          style={[
+                            styles.checkboxBase,
+                            styles.checkboxPlanned,
+                            styles.stepCheckbox,
+                          ]}
+                        />
+                        <TextInput
+                          ref={newStepInputRef}
+                          style={styles.stepInput}
+                          value={newStepTitle}
+                          onChangeText={setNewStepTitle}
+                          placeholder="Add step"
+                          placeholderTextColor={colors.muted}
+                          multiline
+                          returnKeyType="done"
+                          blurOnSubmit
+                          onSubmitEditing={commitManualInlineStep}
+                          onBlur={commitManualInlineStep}
+                        />
+                      </HStack>
+                    ) : (
+                      <Pressable
+                        onPress={beginAddManualStepInline}
+                        accessibilityRole="button"
+                        accessibilityLabel="Add a step to this activity"
+                      >
+                        <HStack space="xs" alignItems="center">
+                          <Icon name="plus" size={16} color={colors.primary} />
+                          <Text style={styles.addStepInlineText}>Add step</Text>
+                        </HStack>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               </View>
 
@@ -1969,9 +2088,9 @@ function ActivityCoachDrawer({
               >
                 <Text>Add activity</Text>
               </Button>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        )}
+            </Card>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
       {activeTab === 'manual' && (
         <>

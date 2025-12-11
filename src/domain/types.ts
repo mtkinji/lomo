@@ -45,13 +45,32 @@ export interface Arc {
    * the hero on the detail page and the thumbnail in lists.
    */
   heroImageMeta?: {
-    source: 'ai' | 'upload';
+    source: 'ai' | 'upload' | 'curated' | 'unsplash';
     /**
      * Free-form description or prompt used when generating the image.
      */
     prompt?: string;
     createdAt: string;
+    /**
+     * Identifier for curated images chosen from the built-in Arc hero library.
+     */
+    curatedId?: string;
+    /**
+     * When the hero image originates from Unsplash, capture the photo id and
+     * lightweight attribution details so we can render proper credit and
+     * reconstruct links.
+     */
+    unsplashPhotoId?: string;
+    unsplashAuthorName?: string;
+    unsplashAuthorLink?: string;
+    unsplashLink?: string;
   };
+  /**
+   * When true, hide the visual hero banner for this Arc and render a minimal
+   * header treatment instead. The underlying thumbnailUrl / hero metadata are
+   * preserved so the hero can be restored later.
+   */
+  heroHidden?: boolean;
   status: 'active' | 'paused' | 'archived';
   startDate?: string;
   endDate?: string | null;
@@ -120,12 +139,17 @@ export interface Goal {
    * the hero on the detail page and the thumbnail in lists.
    */
   heroImageMeta?: {
-    source: 'ai' | 'upload';
+    source: 'ai' | 'upload' | 'curated' | 'unsplash';
     /**
      * Free-form description or prompt used when generating the image.
      */
     prompt?: string;
     createdAt: string;
+    curatedId?: string;
+    unsplashPhotoId?: string;
+    unsplashAuthorName?: string;
+    unsplashAuthorLink?: string;
+    unsplashLink?: string;
   };
   status: 'planned' | 'in_progress' | 'completed' | 'archived';
   startDate?: string;

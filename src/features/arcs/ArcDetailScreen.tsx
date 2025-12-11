@@ -30,9 +30,10 @@ import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
-import { Sheet, VStack, Heading, HStack, Dialog, CelebrationGif } from '../../ui/primitives';
+import { VStack, Heading, HStack, CelebrationGif } from '../../ui/primitives';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
+import { Card } from '../../ui/Card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +56,8 @@ import {
   pickThumbnailStyle,
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
+import { ARC_HERO_LIBRARY, type ArcHeroImage } from './arcHeroLibrary';
+import { searchUnsplashPhotos, type UnsplashPhoto } from '../../services/unsplash';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -81,7 +84,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
-  const { arcId, openGoalCreation } = route.params;
+  const { arcId, openGoalCreation, showFirstArcCelebration: showCelebrationFromRoute } =
+    route.params;
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
 
@@ -138,7 +142,10 @@ export function ArcDetailScreen() {
   const [isGoalCoachVisible, setIsGoalCoachVisible] = useState(false);
   const [hasOpenedGoalCreationFromParam, setHasOpenedGoalCreationFromParam] =
     useState(false);
-  const [showFirstArcCelebration, setShowFirstArcCelebration] = useState(false);
+  const [showFirstArcCelebration, setShowFirstArcCelebration] = useState(
+    Boolean(showCelebrationFromRoute),
+  );
+  const [showGoalNextStepToast, setShowGoalNextStepToast] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'goals' | 'history'>(
     'details',
   );
@@ -173,7 +180,22 @@ export function ArcDetailScreen() {
     }
   }, [navigation]);
 
+  const handleDismissFirstArcCelebration = () => {
+    setShowFirstArcCelebration(false);
+    setHasSeenFirstArcCelebration(true);
+    // After the brief full-screen celebration, gently invite the user to
+    // create a goal without blocking the Arc canvas.
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowGoalNextStepToast(true);
+  };
+
   useEffect(() => {
+    // If the navigation explicitly requested the celebration (for example,
+    // immediately after onboarding), honor that first.
+    if (showCelebrationFromRoute) {
+      setShowFirstArcCelebration(true);
+      return;
+    }
     if (
       arc &&
       arc.id === lastOnboardingArcId &&
@@ -181,7 +203,36 @@ export function ArcDetailScreen() {
     ) {
       setShowFirstArcCelebration(true);
     }
-  }, [arc, lastOnboardingArcId, hasSeenFirstArcCelebration]);
+  }, [arc, lastOnboardingArcId, hasSeenFirstArcCelebration, showCelebrationFromRoute]);
+
+  // Auto-dismiss the full-screen celebration after a short beat so it feels
+  // like a transition moment rather than a blocking dialog.
+  useEffect(() => {
+    if (!showFirstArcCelebration) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      handleDismissFirstArcCelebration();
+    }, 2200);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [showFirstArcCelebration]);
+
+  // Let the toast linger long enough to be noticed, but disappear on its own
+  // so it never feels like a permanent overlay.
+  useEffect(() => {
+    if (!showGoalNextStepToast) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setShowGoalNextStepToast(false);
+    }, 9000);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [showGoalNextStepToast]);
 
   const heroSeed = useMemo(() => {
     if (!arc) {
@@ -206,6 +257,35 @@ export function ArcDetailScreen() {
     return getArcGradient(heroSeed);
   }, [heroSeed, arcId]);
 
+  const heroTopoSizes = useMemo(() => {
+    if (!heroSeed) {
+      return getArcTopoSizes('arc-topography');
+    }
+    return getArcTopoSizes(heroSeed);
+  }, [heroSeed]);
+
+  const heroThumbnailStyle: ThumbnailStyle = useMemo(() => {
+    if (!heroSeed) {
+      return DEFAULT_THUMBNAIL_STYLE;
+    }
+    return pickThumbnailStyle(heroSeed, thumbnailStyles);
+  }, [heroSeed, thumbnailStyles]);
+
+  const showTopography = heroThumbnailStyle === 'topographyDots';
+  const showGeoMosaic = heroThumbnailStyle === 'geoMosaic';
+
+  const [isHeroModalVisible, setIsHeroModalVisible] = useState(false);
+  const [heroImageLoading, setHeroImageLoading] = useState(false);
+  const [heroImageError, setHeroImageError] = useState('');
+
+  const isHeroHidden = arc?.heroHidden ?? false;
+
+  useEffect(() => {
+    logArcDetailDebug('heroModal:visibility-changed', {
+      isHeroModalVisible,
+    });
+  }, [isHeroModalVisible]);
+
   const handleDeleteArc = useCallback(() => {
     if (!arc) {
       return;
@@ -227,6 +307,121 @@ export function ArcDetailScreen() {
       ],
     );
   }, [arc, handleBackToArcs, removeArc]);
+
+  const handleShuffleHeroThumbnail = useCallback(() => {
+    if (!arc) {
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    updateArc(arc.id, (current) => ({
+      ...current,
+      thumbnailVariant: (current.thumbnailVariant ?? 0) + 1,
+      updatedAt: nowIso,
+    }));
+  }, [arc, updateArc]);
+
+  const handleClearHeroImage = useCallback(() => {
+    if (!arc) {
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    updateArc(arc.id, (current) => ({
+      ...current,
+      thumbnailUrl: undefined,
+      heroImageMeta: undefined,
+      updatedAt: nowIso,
+    }));
+  }, [arc, updateArc]);
+
+  const handleToggleHeroHidden = useCallback(() => {
+    if (!arc) {
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    updateArc(arc.id, (current) => ({
+      ...current,
+      heroHidden: !current.heroHidden,
+      updatedAt: nowIso,
+    }));
+  }, [arc, updateArc]);
+
+  const handleUploadHeroImage = useCallback(async () => {
+    if (!arc) return;
+    try {
+      setHeroImageLoading(true);
+      setHeroImageError('');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+
+      const nowIso = new Date().toISOString();
+      updateArc(arc.id, (current) => ({
+        ...current,
+        thumbnailUrl: asset.uri,
+        heroImageMeta: {
+          source: 'upload',
+          prompt: current.heroImageMeta?.prompt,
+          createdAt: nowIso,
+        },
+        heroHidden: false,
+        updatedAt: nowIso,
+      }));
+    } catch {
+      setHeroImageError('Unable to upload image right now.');
+    } finally {
+      setHeroImageLoading(false);
+    }
+  }, [arc, updateArc]);
+
+  const handleSelectCuratedHero = useCallback(
+    (image: ArcHeroImage) => {
+      if (!arc) return;
+      const nowIso = new Date().toISOString();
+      updateArc(arc.id, (current) => ({
+        ...current,
+        thumbnailUrl: image.uri,
+        thumbnailVariant: current.thumbnailVariant ?? 0,
+        heroImageMeta: {
+          source: 'curated',
+          prompt: current.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          curatedId: image.id,
+        },
+        heroHidden: false,
+        updatedAt: nowIso,
+      }));
+    },
+    [arc, updateArc]
+  );
+
+  const handleSelectUnsplashHero = useCallback(
+    (photo: UnsplashPhoto) => {
+      if (!arc) return;
+      const nowIso = new Date().toISOString();
+      updateArc(arc.id, (current) => ({
+        ...current,
+        thumbnailUrl: photo.urls.regular,
+        heroImageMeta: {
+          source: 'unsplash',
+          prompt: current.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          unsplashPhotoId: photo.id,
+          unsplashAuthorName: photo.user.name,
+          unsplashAuthorLink: photo.user.links.html,
+          unsplashLink: photo.links.html,
+        },
+        heroHidden: false,
+        updatedAt: nowIso,
+      }));
+    },
+    [arc, updateArc]
+  );
 
   const hasDevelopmentInsights =
     !!arc &&
@@ -436,41 +631,25 @@ export function ArcDetailScreen() {
 
   return (
     <AppShell>
-      <Dialog
-        visible={showFirstArcCelebration}
-        onClose={() => {
-          setShowFirstArcCelebration(false);
-          setHasSeenFirstArcCelebration(true);
-        }}
-        title="🚀 You're on your way!"
-        footer={
-          <Button
-            variant="accent"
-            style={styles.dialogPrimaryCta}
-            onPress={() => {
-              setShowFirstArcCelebration(false);
-              setActiveTab('goals');
-              setHasSeenFirstArcCelebration(true);
-              if (scrollRef.current) {
-                scrollRef.current.scrollTo({
-                  y: Math.max(goalsSectionOffset - spacing.lg, 0),
-                  animated: true,
-                });
-              }
-              setIsGoalCoachVisible(true);
-            }}
+      {showFirstArcCelebration && (
+        <View style={styles.firstArcOverlay} pointerEvents="box-none">
+          <TouchableWithoutFeedback
+            onPress={handleDismissFirstArcCelebration}
+            accessible={false}
           >
-            <Text style={styles.primaryCtaText}>Continue</Text>
-          </Button>
-        }
-      >
-        <CelebrationGif role="celebration" kind="firstArcCelebrate" size="sm" />
-        <Text style={styles.firstArcBody}>
-          Now that we have a vision for who you want to become in the future,{' '}
-          <Text style={styles.firstArcBodyEmphasis}>let&apos;s add a goal</Text>{' '}
-          to help you plan out how to get there.
-        </Text>
-      </Dialog>
+            <View style={styles.firstArcOverlayTapArea}>
+              <View style={styles.firstArcInterstitialCard}>
+                <Text style={styles.firstArcTitle}>🚀 You&apos;re on your way!</Text>
+                <CelebrationGif role="celebration" kind="firstArcCelebrate" size="md" />
+                <Text style={styles.firstArcInterstitialBody}>
+                  We’ve turned your vision into an Arc. Next, kwilt will help you choose a
+                  first goal so you know what to focus on.
+                </Text>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      )}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.screen}>
           <View style={styles.paddedSection}>
@@ -542,8 +721,21 @@ export function ArcDetailScreen() {
               <View>
                 <View style={[styles.paddedSection, styles.arcHeaderSection]}>
                   <View style={styles.heroContainer}>
-                    <View style={styles.heroImageWrapper}>
-                      {arc.thumbnailUrl ? (
+                    <TouchableOpacity
+                      style={styles.heroImageWrapper}
+                      onPress={() => {
+                        logArcDetailDebug('hero:pressed', {
+                          previousVisible: isHeroModalVisible,
+                        });
+                        setIsHeroModalVisible(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit Arc banner"
+                      activeOpacity={0.9}
+                    >
+                      {isHeroHidden ? (
+                        <View style={styles.heroMinimal} />
+                      ) : arc.thumbnailUrl ? (
                         <Image
                           source={{ uri: arc.thumbnailUrl }}
                           style={styles.heroImage}
@@ -557,7 +749,10 @@ export function ArcDetailScreen() {
                           style={styles.heroImage}
                         />
                       )}
-                    </View>
+                      <View style={styles.heroEditButton}>
+                        <Icon name="edit" size={16} color={colors.canvas} />
+                      </View>
+                    </TouchableOpacity>
                   </View>
 
                   <EditableField
@@ -755,6 +950,76 @@ export function ArcDetailScreen() {
           </ScrollView>
         </View>
       </TouchableWithoutFeedback>
+      {showGoalNextStepToast && (
+        <View
+          style={[
+            styles.goalNextStepToastContainer,
+            { bottom: insets.bottom + spacing.sm },
+          ]}
+          pointerEvents="box-none"
+        >
+          <Card style={styles.goalNextStepToast}>
+            <View style={styles.goalNextStepTextColumn}>
+              <Text style={styles.goalNextStepTitle}>Next step: create a goal</Text>
+              <Text style={styles.goalNextStepBody}>
+                Choose one concrete goal inside this Arc so kwilt knows what progress
+                matters most right now.
+              </Text>
+            </View>
+            <View style={styles.goalNextStepActionsRow}>
+              <Button
+                variant="accent"
+                size="small"
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setShowGoalNextStepToast(false);
+                  setActiveTab('goals');
+                  setIsGoalCoachVisible(true);
+                }}
+              >
+                <Text style={styles.goalNextStepCtaLabel}>Create goal</Text>
+              </Button>
+              <IconButton
+                variant="ghost"
+                accessibilityLabel="Dismiss"
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setShowGoalNextStepToast(false);
+                }}
+              >
+                <Icon name="close" size={16} color={colors.textSecondary} />
+              </IconButton>
+            </View>
+          </Card>
+        </View>
+      )}
+      <HeroImageModal
+        visible={isHeroModalVisible}
+        onClose={() => setIsHeroModalVisible(false)}
+        arcName={arc.name}
+        heroSeed={
+          heroSeed ??
+          buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant)
+        }
+        hasHero={Boolean(arc.thumbnailUrl)}
+        loading={heroImageLoading}
+        error={heroImageError}
+        thumbnailUrl={arc.thumbnailUrl}
+        heroGradientColors={headerGradientColors}
+        heroGradientDirection={headerGradientDirection}
+        heroTopoSizes={heroTopoSizes}
+        showTopography={showTopography}
+        showGeoMosaic={showGeoMosaic}
+        heroHidden={isHeroHidden}
+        onGenerate={handleShuffleHeroThumbnail}
+        onUpload={() => {
+          void handleUploadHeroImage();
+        }}
+        onRemove={handleClearHeroImage}
+        onToggleHeroHidden={handleToggleHeroHidden}
+        onSelectCurated={handleSelectCuratedHero}
+        onSelectUnsplash={handleSelectUnsplashHero}
+      />
       <GoalCoachDrawer
         visible={isGoalCoachVisible}
         onClose={() => setIsGoalCoachVisible(false)}
@@ -788,6 +1053,10 @@ type HeroImageModalProps = {
   onGenerate: () => void;
   onUpload: () => void;
   onRemove: () => void;
+   heroHidden: boolean;
+   onToggleHeroHidden: () => void;
+   onSelectCurated: (image: ArcHeroImage) => void;
+   onSelectUnsplash: (photo: UnsplashPhoto) => void;
 };
 
 type ArcNarrativeEditorSheetProps = {
@@ -801,6 +1070,7 @@ type ArcNarrativeEditorSheetProps = {
 function HeroImageModal({
   visible,
   onClose,
+  arcName,
   heroSeed,
   hasHero,
   loading,
@@ -814,14 +1084,53 @@ function HeroImageModal({
   onGenerate,
   onUpload,
   onRemove,
+  heroHidden,
+  onToggleHeroHidden,
+  onSelectCurated,
+  onSelectUnsplash,
 }: HeroImageModalProps) {
   const shouldShowTopography = showTopography && !thumbnailUrl;
   const shouldShowGeoMosaic = showGeoMosaic && !thumbnailUrl;
   const showRefreshAction = !thumbnailUrl;
 
+  const [unsplashQuery, setUnsplashQuery] = useState('');
+  const [unsplashLoading, setUnsplashLoading] = useState(false);
+  const [unsplashError, setUnsplashError] = useState<string | null>(null);
+  const [unsplashResults, setUnsplashResults] = useState<UnsplashPhoto[]>([]);
+
+  useEffect(() => {
+    logArcDetailDebug('heroModal:visible-prop-changed', { visible });
+    if (!visible) {
+      setUnsplashQuery('');
+      setUnsplashError(null);
+      setUnsplashResults([]);
+      setUnsplashLoading(false);
+    }
+  }, [visible]);
+
+  const handleSearchUnsplash = useCallback(async () => {
+    const query = unsplashQuery.trim() || arcName.trim();
+    if (!query) {
+      return;
+    }
+    try {
+      setUnsplashLoading(true);
+      setUnsplashError(null);
+      const results = await searchUnsplashPhotos(query, { perPage: 12, page: 1 });
+      if (!results || results.length === 0) {
+        setUnsplashError('No Unsplash results found for that query.');
+      }
+      setUnsplashResults(results ?? []);
+    } catch {
+      setUnsplashError('Unable to load Unsplash images right now.');
+    } finally {
+      setUnsplashLoading(false);
+    }
+  }, [arcName, unsplashQuery]);
+
   return (
-    <Sheet visible={visible} onClose={onClose} snapPoints={['90%']}>
-      <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
+    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.9}>
+      <View style={styles.modalContent}>
         <Heading style={styles.modalTitle}>Arc Thumbnail</Heading>
         <View style={styles.heroModalPreviewSection}>
           <View style={styles.heroModalPreviewColumn}>
@@ -994,8 +1303,100 @@ function HeroImageModal({
             </View>
           </View>
         </View>
+        <View style={{ marginTop: spacing.lg }}>
+          <Text style={styles.heroModalSupportText}>Curated banners</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingVertical: spacing.sm, columnGap: spacing.sm }}
+          >
+            {ARC_HERO_LIBRARY.map((image) => (
+              <TouchableOpacity
+                key={image.id}
+                style={styles.heroCuratedThumbnailWrapper}
+                activeOpacity={0.85}
+                onPress={() => {
+                  onSelectCurated(image);
+                  onClose();
+                }}
+              >
+                <Image
+                  source={{ uri: image.uri }}
+                  style={styles.heroCuratedThumbnailImage}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+        <View style={{ marginTop: spacing.lg }}>
+          <Text style={styles.heroModalSupportText}>Search Unsplash</Text>
+          <View style={styles.heroUnsplashSearchRow}>
+            <TextInput
+              style={styles.heroUnsplashInput}
+              placeholder={`Try \"${arcName}\" or \"sunrise\"…`}
+              placeholderTextColor={colors.textSecondary}
+              value={unsplashQuery}
+              onChangeText={setUnsplashQuery}
+            />
+            <Button
+              variant="outline"
+              size="small"
+              onPress={() => {
+                void handleSearchUnsplash();
+              }}
+              disabled={unsplashLoading}
+            >
+              {unsplashLoading ? (
+                <ActivityIndicator color={colors.textPrimary} />
+              ) : (
+                <Text style={styles.heroUnsplashSearchLabel}>Search</Text>
+              )}
+            </Button>
+          </View>
+          {unsplashError ? <Text style={styles.errorText}>{unsplashError}</Text> : null}
+          {unsplashResults.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingVertical: spacing.sm,
+                columnGap: spacing.sm,
+              }}
+            >
+              {unsplashResults.map((photo) => (
+                <TouchableOpacity
+                  key={photo.id}
+                  style={styles.heroCuratedThumbnailWrapper}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    onSelectUnsplash(photo);
+                    onClose();
+                  }}
+                >
+                  <Image
+                    source={{ uri: photo.urls.small }}
+                    style={styles.heroCuratedThumbnailImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+        <View style={{ marginTop: spacing.lg }}>
+          <Button
+            variant="outline"
+            onPress={onToggleHeroHidden}
+            style={styles.heroHideBannerButton}
+          >
+            <Text style={styles.heroHideBannerLabel}>
+              {heroHidden ? 'Show banner on this Arc' : 'Hide banner on this Arc'}
+            </Text>
+          </Button>
+        </View>
       </View>
-    </Sheet>
+    </BottomDrawer>
   );
 }
 
@@ -1145,6 +1546,11 @@ const styles = StyleSheet.create({
     // for content below.
     aspectRatio: 3 / 1,
   },
+  heroMinimal: {
+    width: '100%',
+    aspectRatio: 3 / 1,
+    backgroundColor: colors.shellAlt,
+  },
   buttonTextAlt: {
     ...typography.body,
     color: colors.textPrimary,
@@ -1203,7 +1609,6 @@ const styles = StyleSheet.create({
   heroModalSupportText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    textAlign: 'center',
   },
   heroModalUploadContainer: {
     width: '100%',
@@ -1211,14 +1616,57 @@ const styles = StyleSheet.create({
   heroModalUpload: {
     width: '100%',
   },
+  heroCuratedThumbnailWrapper: {
+    width: 96,
+    height: 64,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  heroCuratedThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroUnsplashSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  heroUnsplashInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    color: colors.textPrimary,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    minHeight: 40,
+  },
+  heroUnsplashSearchLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  heroHideBannerButton: {
+    alignSelf: 'stretch',
+  },
+  heroHideBannerLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
   heroEditButton: {
     position: 'absolute',
     right: spacing.sm,
-    top: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    bottom: spacing.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heroMetaText: {
     ...typography.bodySm,
@@ -1438,13 +1886,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.canvas,
   },
-  primaryCtaText: {
-    ...typography.body,
-    color: colors.canvas,
-  },
-  dialogPrimaryCta: {
-    width: '100%',
-  },
   goalCard: {
     ...cardSurfaceStyle,
     padding: spacing.lg,
@@ -1552,15 +1993,44 @@ const styles = StyleSheet.create({
     ...cardSurfaceStyle,
     padding: spacing.lg,
   },
-  firstArcBody: {
-    ...typography.body,
-    color: colors.textPrimary,
-    marginTop: spacing.sm,
+  firstArcOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    // Use the main shell background so the interstitial reads as a dedicated
+    // full-screen moment rather than a dialog layered on top of Arc detail.
+    backgroundColor: colors.shell,
+    zIndex: 10,
   },
-  firstArcBodyEmphasis: {
-    ...typography.body,
-    fontFamily: fonts.bold,
+  firstArcOverlayTapArea: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  firstArcInterstitialCard: {
+    width: '100%',
+    borderRadius: 32,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.canvas,
+    shadowColor: '#000000',
+    shadowOpacity: 0.14,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 10,
+    rowGap: spacing.md,
+  },
+  firstArcTitle: {
+    ...typography.titleSm,
     color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  firstArcInterstitialBody: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   forceIntentRow: {
     flexWrap: 'wrap',
@@ -1927,6 +2397,45 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     marginTop: spacing.xs / 2,
+  },
+  goalNextStepToastContainer: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    // `bottom` is injected at render time so we can respect safe area insets.
+    zIndex: 5,
+  },
+  goalNextStepToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 24,
+    // Let the shared Card primitive provide elevation and border styling so
+    // this banner visually matches other elevated surfaces.
+  },
+  goalNextStepTextColumn: {
+    flex: 1,
+    marginRight: spacing.sm,
+    rowGap: spacing.xs / 2,
+  },
+  goalNextStepTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  goalNextStepBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  goalNextStepActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  goalNextStepCtaLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
   },
 });
 
