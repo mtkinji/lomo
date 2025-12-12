@@ -25,7 +25,7 @@ import { Icon } from '../../ui/Icon';
 import { Dialog, VStack, Heading, Text, HStack } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
-import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
 import {
@@ -52,7 +52,6 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import type { Activity } from '../../domain/types';
-import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
@@ -173,7 +172,7 @@ export function GoalDetailScreen() {
     [activities, goalId]
   );
   const shouldShowOnboardingActivitiesGuide =
-    goal.id === lastOnboardingGoalId &&
+    goal?.id === lastOnboardingGoalId &&
     goalActivities.length === 0 &&
     !showFirstGoalCelebration &&
     !hasDismissedOnboardingActivitiesGuide;
@@ -257,7 +256,7 @@ export function GoalDetailScreen() {
             onPress={handleBack}
             accessibilityLabel="Back"
           >
-            <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+            <Icon name="arrowLeft" size={20} color={colors.canvas} />
           </Button>
           <Text style={styles.emptyBody}>Goal not found.</Text>
         </VStack>
@@ -738,7 +737,7 @@ export function GoalDetailScreen() {
                   onPress={handleBack}
                   accessibilityLabel="Back to Arc"
                 >
-                  <Icon name="arrowLeft" size={20} color={colors.canvas} strokeWidth={2.5} />
+                  <Icon name="arrowLeft" size={20} color={colors.canvas} />
                 </IconButton>
               </View>
               <View style={styles.headerCenter}>
@@ -1236,7 +1235,7 @@ export function GoalDetailScreen() {
           Once the tap-centric Agent entry is refined for object canvases,
           we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
-      <KwiltBottomSheet
+      <BottomDrawer
         visible={vectorsInfoVisible}
         onClose={() => setVectorsInfoVisible(false)}
         snapPoints={['40%']}
@@ -1257,8 +1256,8 @@ export function GoalDetailScreen() {
             </Button>
           </View>
         </VStack>
-      </KwiltBottomSheet>
-      <KwiltBottomSheet
+      </BottomDrawer>
+      <BottomDrawer
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
         snapPoints={['55%']}
@@ -1302,7 +1301,7 @@ export function GoalDetailScreen() {
             </Button>
           </HStack>
         </View>
-      </KwiltBottomSheet>
+      </BottomDrawer>
       <GoalActivityCoachDrawer
         visible={activityCoachVisible}
         onClose={() => setActivityCoachVisible(false)}
@@ -1366,7 +1365,17 @@ function EditGoalModal({
   };
 
   return (
-    <KwiltBottomSheet visible={visible} onClose={onClose} snapPoints={['70%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['70%']}
+      // This modal renders its own dimmed overlay + centered card; avoid double scrims.
+      hideBackdrop
+      // Hide handle so it reads as a focused modal card rather than a sheet.
+      handleContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
+      handleStyle={{ width: 0, height: 0, opacity: 0 }}
+      sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -1454,7 +1463,7 @@ function EditGoalModal({
           </HStack>
         </View>
       </KeyboardAvoidingView>
-    </KwiltBottomSheet>
+    </BottomDrawer>
   );
 }
 
@@ -1511,7 +1520,15 @@ function ArcSelectorModal({
   const hasSelectionChanged = selectedArcId !== currentArcId;
 
   return (
-    <KwiltBottomSheet visible={visible} onClose={onClose} snapPoints={['75%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['75%']}
+      hideBackdrop
+      handleContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
+      handleStyle={{ width: 0, height: 0, opacity: 0 }}
+      sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
@@ -1606,7 +1623,7 @@ function ArcSelectorModal({
           </VStack>
         </View>
       </KeyboardAvoidingView>
-    </KwiltBottomSheet>
+    </BottomDrawer>
   );
 }
 
@@ -1641,7 +1658,15 @@ function GoalActivityComposerModal({
   };
 
   return (
-    <KwiltBottomSheet visible={visible} onClose={onClose} snapPoints={['55%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['55%']}
+      hideBackdrop
+      handleContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
+      handleStyle={{ width: 0, height: 0, opacity: 0 }}
+      sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={[styles.modalOverlay, { paddingTop: insetTop }]}
@@ -1682,7 +1707,7 @@ function GoalActivityComposerModal({
           </HStack>
         </View>
       </KeyboardAvoidingView>
-    </KwiltBottomSheet>
+    </BottomDrawer>
   );
 }
 
@@ -1899,7 +1924,7 @@ function GoalActivityCoachDrawer({
   );
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
       <View style={styles.activityCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
@@ -2008,6 +2033,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+  },
+  addActivityIconButton: {
+    borderRadius: 999,
+    width: 36,
+    height: 36,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionsButton: {
     borderRadius: 999,
@@ -2214,6 +2247,11 @@ const styles = StyleSheet.create({
   secondaryCtaText: {
     ...typography.body,
     color: colors.accent,
+  },
+  linkLabel: {
+    ...typography.bodySm,
+    color: colors.accent,
+    marginTop: spacing.xs,
   },
   activityCard: {
     ...cardSurfaceStyle,
@@ -2596,6 +2634,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   activityCoachBody: {
+    flex: 1,
+  },
+  manualFormContainer: {
     flex: 1,
   },
 });

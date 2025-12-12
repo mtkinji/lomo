@@ -18,7 +18,7 @@ import type {
   ActivitiesStackParamList,
   ActivityDetailRouteParams,
 } from '../../navigation/RootNavigator';
-import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, HStack } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -865,7 +865,7 @@ export function ActivityDetailScreen() {
         </VStack>
       </View>
 
-      <KwiltBottomSheet
+      <BottomDrawer
         visible={reminderSheetVisible}
         onClose={() => setReminderSheetVisible(false)}
         snapPoints={['40%']}
@@ -878,9 +878,9 @@ export function ActivityDetailScreen() {
             <SheetOption label="Next Week" onPress={() => handleSelectReminder(7)} />
           </VStack>
         </View>
-      </KwiltBottomSheet>
+      </BottomDrawer>
 
-      <KwiltBottomSheet
+      <BottomDrawer
         visible={dueDateSheetVisible}
         onClose={() => {
           setDueDateSheetVisible(false);
@@ -911,9 +911,9 @@ export function ActivityDetailScreen() {
             </View>
           )}
         </View>
-      </KwiltBottomSheet>
+      </BottomDrawer>
 
-      <KwiltBottomSheet
+      <BottomDrawer
         visible={repeatSheetVisible}
         onClose={() => setRepeatSheetVisible(false)}
         snapPoints={['45%']}
@@ -928,7 +928,7 @@ export function ActivityDetailScreen() {
             <SheetOption label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
           </VStack>
         </View>
-      </KwiltBottomSheet>
+      </BottomDrawer>
     </AppShell>
   );
 }

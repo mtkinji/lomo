@@ -47,7 +47,6 @@ import type {
   ActivityStep,
 } from '../../domain/types';
 import { fonts } from '../../theme/typography';
-import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
@@ -145,14 +144,6 @@ export function ActivitiesScreen() {
   const [viewEditorMode, setViewEditorMode] = React.useState<'create' | 'settings'>('create');
   const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
   const [viewEditorName, setViewEditorName] = React.useState('');
-  const [viewsMenuOpen, setViewsMenuOpen] = React.useState(false);
-
-  // Ensure the views dropdown closes whenever the editor dialog is shown.
-  React.useEffect(() => {
-    if (viewEditorVisible) {
-      setViewsMenuOpen(false);
-    }
-  }, [viewEditorVisible]);
 
   const activeView: ActivityView | undefined = React.useMemo(() => {
     const current =
@@ -334,13 +325,11 @@ export function ActivitiesScreen() {
   );
 
   const handleOpenCreateView = React.useCallback(() => {
-    // Close the dropdown menu before opening the editor.
-    setViewsMenuOpen(false);
     setViewEditorMode('create');
     setViewEditorTargetId(null);
     setViewEditorName('New view');
     setViewEditorVisible(true);
-  }, [setViewsMenuOpen]);
+  }, []);
 
   const handleOpenViewSettings = React.useCallback(
     (view: ActivityView) => {
@@ -461,7 +450,7 @@ export function ActivitiesScreen() {
               justifyContent="space-between"
             >
               <View style={styles.toolbarButtonWrapper}>
-                <DropdownMenu open={viewsMenuOpen} onOpenChange={setViewsMenuOpen}>
+                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
@@ -488,19 +477,24 @@ export function ActivitiesScreen() {
                             flex={1}
                           >
                             <Text style={styles.menuItemText}>{view.name}</Text>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={`View options for ${view.name}`}
-                              onPress={() => {
-                                setViewsMenuOpen(false);
-                                handleOpenViewSettings(view);
-                              }}
-                            >
+                            {activeView?.id === view.id ? (
                               <Icon name="more" size={16} color={colors.textSecondary} />
-                            </Pressable>
+                            ) : null}
                           </HStack>
                         </DropdownMenuItem>
                       ))}
+                      <DropdownMenuItem
+                        disabled={!activeView}
+                        onPress={() => {
+                          if (!activeView) return;
+                          handleOpenViewSettings(activeView);
+                        }}
+                      >
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="more" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>View settings</Text>
+                        </HStack>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onPress={handleOpenCreateView}>
                         <HStack alignItems="center" space="xs">
                           <Icon name="plus" size={14} color={colors.textSecondary} />
@@ -1777,7 +1771,7 @@ function ActivityCoachDrawer({
   );
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
       <View style={styles.activityCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
@@ -2094,10 +2088,12 @@ function ActivityCoachDrawer({
       </View>
       {activeTab === 'manual' && (
         <>
-          <KwiltBottomSheet
+          <BottomDrawer
             visible={reminderSheetVisible}
             onClose={() => setReminderSheetVisible(false)}
             snapPoints={['40%']}
+            presentation="inline"
+            hideBackdrop
           >
             <View style={styles.sheetContent}>
               <Text style={styles.sheetTitle}>Remind me</Text>
@@ -2107,15 +2103,17 @@ function ActivityCoachDrawer({
                 <SheetOption label="Next Week" onPress={() => handleSelectManualReminder(7)} />
               </VStack>
             </View>
-          </KwiltBottomSheet>
+          </BottomDrawer>
 
-          <KwiltBottomSheet
+          <BottomDrawer
             visible={dueDateSheetVisible}
             onClose={() => {
               setDueDateSheetVisible(false);
               setIsDueDatePickerVisible(false);
             }}
             snapPoints={['40%']}
+            presentation="inline"
+            hideBackdrop
           >
             <View style={styles.sheetContent}>
               <Text style={styles.sheetTitle}>Due</Text>
@@ -2140,12 +2138,14 @@ function ActivityCoachDrawer({
                 </View>
               )}
             </View>
-          </KwiltBottomSheet>
+          </BottomDrawer>
 
-          <KwiltBottomSheet
+          <BottomDrawer
             visible={repeatSheetVisible}
             onClose={() => setRepeatSheetVisible(false)}
             snapPoints={['45%']}
+            presentation="inline"
+            hideBackdrop
           >
             <View style={styles.sheetContent}>
               <Text style={styles.sheetTitle}>Repeat</Text>
@@ -2160,7 +2160,7 @@ function ActivityCoachDrawer({
                 <SheetOption label="Yearly" onPress={() => handleSelectManualRepeat('yearly')} />
               </VStack>
             </View>
-          </KwiltBottomSheet>
+          </BottomDrawer>
         </>
       )}
     </BottomDrawer>

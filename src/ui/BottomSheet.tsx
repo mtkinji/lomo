@@ -8,6 +8,21 @@ import {
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { colors, spacing } from '../theme';
 
+/**
+ * @deprecated Prefer `BottomDrawer` (`src/ui/BottomDrawer.tsx`).
+ *
+ * KwiltBottomSheet is a thin adapter over `@gorhom/bottom-sheet`’s Modal API.
+ * It remains for legacy call sites, but new work should use our custom drawer
+ * primitive for a smaller, more predictable surface area and tighter UX control.
+ *
+ * Migration tracker (as of this change):
+ * - `src/features/dev/DevToolsScreen.tsx`
+ * - `src/features/arcs/GoalDetailScreen.tsx`
+ * - `src/features/goals/GoalsScreen.tsx`
+ * - `src/features/activities/ActivityDetailScreen.tsx`
+ * - `src/features/activities/ActivitiesScreen.tsx`
+ * - `src/features/account/SettingsHomeScreen.tsx`
+ */
 const DEFAULT_SNAP_POINTS: (string | number)[] = ['85%'];
 
 type KwiltBottomSheetProps = {

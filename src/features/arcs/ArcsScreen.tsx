@@ -722,7 +722,7 @@ type NewArcModalProps = {
 
 function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.55}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['55%']}>
       <Text style={styles.infoTitle}>What is an Arc?</Text>
       <Text style={styles.infoBody}>
         An Arc is a long-horizon identity direction—like Discipleship, Craft, or Family Stewardship.
@@ -811,7 +811,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   };
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
       <View style={styles.drawerKeyboardContainer}>
         <AgentModeHeader
           activeMode={activeTab}

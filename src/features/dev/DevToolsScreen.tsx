@@ -13,7 +13,7 @@ import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
 import { VStack, HStack, Text, Heading, Textarea, ButtonLabel } from '../../ui/primitives';
 import { Dialog } from '../../ui/Dialog';
-import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { Logo } from '../../ui/Logo';
@@ -623,7 +623,7 @@ export function DevToolsScreen() {
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>Bottom sheet</Text>
             <Text style={styles.gallerySectionDescription}>
-              Sliding panel built on the shared `KwiltBottomSheet` adapter.
+              Sliding panel built on the shared `BottomDrawer` primitive.
             </Text>
             <Button variant="accent" onPress={() => setDemoSheetVisible(true)}>
               <Text style={styles.primaryButtonLabel}>Open bottom sheet</Text>
@@ -689,7 +689,7 @@ export function DevToolsScreen() {
           </View>
         </View>
 
-        <KwiltBottomSheet
+        <BottomDrawer
           visible={demoSheetVisible}
           onClose={() => setDemoSheetVisible(false)}
           snapPoints={['40%']}
@@ -704,7 +704,7 @@ export function DevToolsScreen() {
               <Text style={styles.primaryButtonLabel}>Close sheet</Text>
             </Button>
           </View>
-        </KwiltBottomSheet>
+        </BottomDrawer>
       </ScrollView>
     );
   };
