@@ -62,7 +62,7 @@ export function ArcListCard({
       : null;
 
   return (
-    <Card style={[styles.card, style]}>
+    <Card padding="none" style={[styles.card, style]}>
       {/* Hero banner lives at the top of the Card and mirrors the card radius so
           gradients and thumbnails feel seamlessly inset into the container. */}
       <View style={styles.heroInner}>
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 0,
     marginBottom: 0,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   heroInner: {
     width: '100%',

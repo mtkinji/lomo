@@ -2,6 +2,7 @@ import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput } from 'react
 import { useEffect, useState } from 'react';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography, fonts } from '../../theme';
@@ -19,6 +20,7 @@ import { Logo } from '../../ui/Logo';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
+import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -34,11 +36,13 @@ type InterstitialVariant = 'launch' | 'auth' | 'streak';
 export function DevToolsScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
+  const insets = useSafeAreaInsets();
   const menuOpen = drawerStatus === 'open';
   const isFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const triggerCount = useFirstTimeUxStore((state) => state.triggerCount);
   const lastTriggeredAt = useFirstTimeUxStore((state) => state.lastTriggeredAt);
   const arcs = useAppStore((state) => state.arcs);
+  const addArc = useAppStore((state) => state.addArc);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
@@ -48,6 +52,9 @@ export function DevToolsScreen() {
   const setLastOnboardingArcId = useAppStore((state) => state.setLastOnboardingArcId);
   const setHasSeenFirstArcCelebration = useAppStore(
     (state) => state.setHasSeenFirstArcCelebration
+  );
+  const setHasDismissedOnboardingGoalGuide = useAppStore(
+    (state) => state.setHasDismissedOnboardingGoalGuide
   );
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const setHasSeenFirstGoalCelebration = useAppStore(
@@ -64,9 +71,7 @@ export function DevToolsScreen() {
   const [demoSheetVisible, setDemoSheetVisible] = useState(false);
   const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
   const [isInterstitialFullScreenVisible, setIsInterstitialFullScreenVisible] = useState(false);
-  const [launchBody, setLaunchBody] = useState(
-    'Architect your time around arcs, goals, and gentle daily steps.'
-  );
+  const [launchBody, setLaunchBody] = useState('Grow into the person you want to be.');
   const [authBody, setAuthBody] = useState(
     'Save your arcs and sync your progress across devices.'
   );
@@ -115,25 +120,30 @@ export function DevToolsScreen() {
   };
 
   const handleShowFirstArcCelebration = () => {
-    // Prefer the explicit onboarding-created Arc when available so the
-    // celebration mirrors the real first-time flow. Otherwise, fall back to
-    // the most recently created Arc so the overlay can still be exercised in
-    // dev even without running onboarding first.
-    const targetArcId =
-      lastOnboardingArcId || (arcs.length > 0 ? arcs[arcs.length - 1].id : null);
+    // Fast path for testing the "Arc just created" landing moment:
+    // create a fresh Arc in the store, mark it as the onboarding Arc,
+    // and navigate directly to its detail screen.
+    const nowIso = new Date().toISOString();
+    const targetArcId = `dev-onboarding-arc-${Date.now()}`;
+    const arc = {
+      id: targetArcId,
+      name: '🚀 Dev: First Arc',
+      narrative:
+        'This Arc exists to help test the onboarding Arc handoff UI without running the full flow.',
+      status: 'active',
+      startDate: nowIso,
+      endDate: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    } as const;
+    addArc(arc);
+    void ensureArcBannerPrefill(arc);
 
-    if (!targetArcId) {
-      Alert.alert(
-        'No arcs available',
-        'Create an Arc first (or run onboarding) before testing the celebration overlay.'
-      );
-      return;
-    }
-
-    // Ensure the ArcDetail screen recognizes this Arc as the onboarding
-    // target and that the one-time flag does not suppress the overlay.
+    // Ensure ArcDetail recognizes this Arc as the onboarding-created Arc and
+    // that the one-time flags do not suppress the handoff/guide UI.
     setLastOnboardingArcId(targetArcId);
     setHasSeenFirstArcCelebration(false);
+    setHasDismissedOnboardingGoalGuide(false);
 
     navigation.navigate('ArcsStack', {
       screen: 'ArcDetail',
@@ -319,11 +329,27 @@ export function DevToolsScreen() {
     { value: 'streak', label: 'Streak' },
   ];
 
-  const renderInterstitialPreview = () => {
+  const renderInterstitialPreview = (options?: { fullScreen?: boolean }) => {
+    const fullScreen = options?.fullScreen ?? false;
+
     switch (interstitialVariant) {
       case 'auth':
         return (
           <View style={styles.interstitialContent}>
+            {fullScreen && __DEV__ && (
+              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
+                <Button
+                  variant="accent"
+                  size="icon"
+                  iconButtonSize={28}
+                  onPress={() => setIsInterstitialFullScreenVisible(false)}
+                  accessibilityLabel="Close interstitial and return to Dev tools"
+                  style={styles.devExitButton}
+                >
+                  <Icon name="dev" color={colors.canvas} size={16} />
+                </Button>
+              </View>
+            )}
             <View style={styles.interstitialHeroBlock}>
               <Text style={styles.interstitialTitle}>Sign in to continue</Text>
               <Text style={styles.interstitialBody}>{authBody}</Text>
@@ -345,6 +371,20 @@ export function DevToolsScreen() {
       case 'streak':
         return (
           <View style={styles.interstitialContent}>
+            {fullScreen && __DEV__ && (
+              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
+                <Button
+                  variant="accent"
+                  size="icon"
+                  iconButtonSize={28}
+                  onPress={() => setIsInterstitialFullScreenVisible(false)}
+                  accessibilityLabel="Close interstitial and return to Dev tools"
+                  style={styles.devExitButton}
+                >
+                  <Icon name="dev" color={colors.canvas} size={16} />
+                </Button>
+              </View>
+            )}
             <View style={styles.streakHeroBlock}>
               <Text style={styles.streakLabel}>Current streak</Text>
               <Text style={styles.streakNumber}>{streakDays}</Text>
@@ -363,19 +403,25 @@ export function DevToolsScreen() {
       default:
         return (
           <View style={styles.interstitialContent}>
+            {fullScreen && __DEV__ && (
+              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
+                <Button
+                  variant="accent"
+                  size="icon"
+                  iconButtonSize={28}
+                  onPress={() => setIsInterstitialFullScreenVisible(false)}
+                  accessibilityLabel="Close interstitial and return to Dev tools"
+                  style={styles.devExitButton}
+                >
+                  <Icon name="dev" color={colors.canvas} size={16} />
+                </Button>
+              </View>
+            )}
             <View style={styles.interstitialHeroBlock}>
               <View style={styles.launchBrandLockup}>
-                <Logo size={56} />
+                <Logo size={72} />
                 <Text style={styles.launchWordmark}>kwilt</Text>
               </View>
-              <Text style={styles.interstitialBody}>{launchBody}</Text>
-            </View>
-            <View style={styles.interstitialFooterBlock}>
-              <Button variant="accent" fullWidth>
-                <ButtonLabel size="md" tone="inverse">
-                  Get started
-                </ButtonLabel>
-              </Button>
             </View>
           </View>
         );
@@ -599,18 +645,6 @@ export function DevToolsScreen() {
               options={interstitialSegmentOptions}
             />
 
-            {interstitialVariant === 'launch' && (
-              <VStack space="sm" style={styles.interstitialControls}>
-                <Textarea
-                  label="Body copy"
-                  placeholder="Launch message"
-                  value={launchBody}
-                  onChangeText={setLaunchBody}
-                  numberOfLines={3}
-                />
-              </VStack>
-            )}
-
             {interstitialVariant === 'auth' && (
               <VStack space="sm" style={styles.interstitialControls}>
                 <Textarea
@@ -754,15 +788,17 @@ export function DevToolsScreen() {
             <Text style={styles.gallerySectionDescription}>
               Primary brand green scale used by kwilt, aligned with the logo accent.
             </Text>
-            {pineScale.map((swatch) => (
-              <View key={swatch.token} style={styles.colorRow}>
-                <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.colorLabel}>{swatch.label}</Text>
-                  <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+            <View style={styles.colorList}>
+              {pineScale.map((swatch) => (
+                <View key={swatch.token} style={styles.colorRow}>
+                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colorLabel}>{swatch.label}</Text>
+                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
 
           <View style={styles.card}>
@@ -770,15 +806,17 @@ export function DevToolsScreen() {
             <Text style={styles.gallerySectionDescription}>
               Neutral ramp used for canvas, borders, and text contrast.
             </Text>
-            {grayScale.map((swatch) => (
-              <View key={swatch.token} style={styles.colorRow}>
-                <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.colorLabel}>{swatch.label}</Text>
-                  <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+            <View style={styles.colorList}>
+              {grayScale.map((swatch) => (
+                <View key={swatch.token} style={styles.colorRow}>
+                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colorLabel}>{swatch.label}</Text>
+                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
 
           <View style={styles.card}>
@@ -786,15 +824,17 @@ export function DevToolsScreen() {
             <Text style={styles.gallerySectionDescription}>
               Hero brand hues used for illustration, emphasis, and celebration moments.
             </Text>
-            {brandPalette.map((swatch) => (
-              <View key={swatch.token} style={styles.colorRow}>
-                <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.colorLabel}>{swatch.label}</Text>
-                  <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+            <View style={styles.colorList}>
+              {brandPalette.map((swatch) => (
+                <View key={swatch.token} style={styles.colorRow}>
+                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colorLabel}>{swatch.label}</Text>
+                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -833,6 +873,7 @@ export function DevToolsScreen() {
           <FullScreenInterstitial
             visible={isInterstitialFullScreenVisible}
             onDismiss={() => setIsInterstitialFullScreenVisible(false)}
+            progression={interstitialVariant === 'launch' ? 1500 : 'button'}
             backgroundColor={
               interstitialVariant === 'launch'
                 ? 'pine300'
@@ -841,7 +882,7 @@ export function DevToolsScreen() {
                 : 'shell'
             }
           >
-            {renderInterstitialPreview()}
+            {renderInterstitialPreview({ fullScreen: true })}
           </FullScreenInterstitial>
         </>
       ) : isTypeAndColor ? (
@@ -1068,10 +1109,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   stack: {
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
   tabSwitcher: {
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
     marginTop: spacing.lg,
   },
   screenSubtitle: {
@@ -1082,7 +1123,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderRadius: 28,
     padding: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.sm,
     shadowColor: '#0F172A',
     shadowOpacity: 0.08,
     shadowRadius: 24,
@@ -1093,7 +1134,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   cardEyebrow: {
     ...typography.label,
@@ -1124,11 +1165,11 @@ const styles = StyleSheet.create({
   },
   cardAction: {
     alignSelf: 'flex-start',
-    marginTop: spacing.sm,
+    marginTop: 0,
   },
   historyList: {
     marginTop: spacing.md,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   historyItem: {
     borderRadius: 16,
@@ -1279,7 +1320,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    marginBottom: spacing.xs,
+  },
+  colorList: {
+    gap: spacing.xs,
   },
   colorSwatch: {
     width: 40,
@@ -1310,6 +1353,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   interstitialContent: {
+    flex: 1,
     flexDirection: 'column',
     rowGap: spacing['2xl'],
   },
@@ -1320,7 +1364,7 @@ const styles = StyleSheet.create({
     rowGap: spacing.lg,
   },
   interstitialFooterBlock: {
-    marginTop: spacing.md,
+    marginTop: 'auto',
     rowGap: spacing.md,
   },
   interstitialTitle: {
@@ -1385,6 +1429,14 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0.4, height: 0.4 },
     textShadowRadius: 1,
   },
+  launchTagline: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    marginTop: spacing.lg,
+    maxWidth: 280,
+  },
   gallerySectionDescription: {
     ...typography.bodySm,
     color: colors.textSecondary,
@@ -1411,6 +1463,17 @@ const styles = StyleSheet.create({
   sheetBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  devExitRow: {
+    position: 'absolute',
+    right: 12,
+    zIndex: 2,
+  },
+  devExitButton: {
+    backgroundColor: '#EA580C',
+    borderColor: '#EA580C',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

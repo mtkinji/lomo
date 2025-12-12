@@ -115,6 +115,9 @@ const segmentGap = trackPadding * 0.2;
 const styles = StyleSheet.create({
   outer: {
     flexDirection: 'row',
+    // By default, hug content and align to the left edge of the parent
+    // (instead of stretching to full width and centering the pills).
+    alignSelf: 'flex-start',
     padding: trackPadding,
     borderRadius: 999,
     backgroundColor: colors.shellAlt,

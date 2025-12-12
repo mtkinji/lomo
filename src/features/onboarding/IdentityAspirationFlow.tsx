@@ -15,6 +15,7 @@ import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../
 import { useAppStore } from '../../store/useAppStore';
 import type { Arc } from '../../domain/types';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
+import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
 
@@ -466,6 +467,7 @@ type Phase =
   | 'trait'
   | 'growth'
   | 'proudMoment'
+  | 'nickname'
   | 'meaning'
   | 'whyNow'
   | 'impact'
@@ -2040,6 +2042,7 @@ export function IdentityAspirationFlow({
   }));
 
     addArc(arc);
+    void ensureArcBannerPrefill(arc);
     // Fire-and-forget: generate Arc Development Insights in the background so
     // they are ready (or gracefully fall back) by the time the user lands on
     // the Arc detail screen. This should never block the onboarding flow.
@@ -2388,9 +2391,58 @@ export function IdentityAspirationFlow({
     advancePhase('meaning');
   };
 
-  const handleConfirmMeaning = (selectedMeaning: string) => {
+  const handleContinueFromNickname = () => {
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('nickname_optional', {
+        nickname: nickname.trim().length ? nickname.trim() : null,
+      });
+    }
+    setPhase('generating');
+    void generateArc();
+  };
+
+  const renderNickname = () => {
+    return (
+      <QuestionCard title="If future-you had a nickname…">
+        <Text style={styles.bodyText}>Optional — one or two words. (You can skip.)</Text>
+        <Input
+          value={nickname}
+          onChangeText={setNickname}
+          placeholder="e.g., The Builder"
+          autoCapitalize="words"
+          returnKeyType="done"
+        />
+        <View style={styles.inlineActions}>
+          <Button
+            variant="outline"
+            style={[styles.primaryButton, { flex: 1 }]}
+            onPress={() => {
+              setNickname('');
+              handleContinueFromNickname();
+            }}
+          >
+            <ButtonLabel size="md">Skip</ButtonLabel>
+          </Button>
+          <Button
+            variant="accent"
+            style={[styles.primaryButton, { flex: 1 }]}
+            onPress={handleContinueFromNickname}
+          >
+            <ButtonLabel size="md" tone="inverse">
+              Continue
+            </ButtonLabel>
+          </Button>
+        </View>
+      </QuestionCard>
+    );
+  };
+
+  const handleConfirmMeaning = (selectedMeaning: string, optionId: string) => {
     appendChatUserMessage(selectedMeaning);
     setError(null);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('meaning', { meaning: optionId });
+    }
     // In the first-time FTUE we move directly into the impact question to
     // keep the flow fast. In the Arc creation flow launched from the Arcs
     // inventory, we insert a short "why now" check before continuing.
@@ -2419,26 +2471,38 @@ export function IdentityAspirationFlow({
     }
   };
 
-  const handleConfirmImpact = (selectedImpact: string) => {
+  const handleConfirmImpact = (selectedImpact: string, optionId: string) => {
     appendChatUserMessage(selectedImpact);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('impact', { impact: optionId });
+    }
     setError(null);
     advancePhase('values');
   };
 
-  const handleConfirmValues = (selectedValue: string) => {
+  const handleConfirmValues = (selectedValue: string, optionId: string) => {
     appendChatUserMessage(selectedValue);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('values', { values: optionId });
+    }
     setError(null);
     advancePhase('philosophy');
   };
 
-  const handleConfirmPhilosophy = (selectedPhilosophy: string) => {
+  const handleConfirmPhilosophy = (selectedPhilosophy: string, optionId: string) => {
     appendChatUserMessage(selectedPhilosophy);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('philosophy', { philosophy: optionId });
+    }
     setError(null);
     advancePhase('vocation');
   };
 
-  const handleConfirmVocation = (selectedVocation: string) => {
+  const handleConfirmVocation = (selectedVocation: string, optionId: string) => {
     appendChatUserMessage(selectedVocation);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('vocation', { vocation: optionId });
+    }
     setError(null);
     setPhase('dreams');
   };
@@ -2805,7 +2869,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setMeaningIds([option.id]);
-                    handleConfirmMeaning(option.label);
+                    handleConfirmMeaning(option.label, option.id);
                   }}
                 >
                   <View style={styles.fullWidthOptionContent}>
@@ -2899,7 +2963,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setImpactIds([option.id]);
-                    handleConfirmImpact(option.label);
+                    handleConfirmImpact(option.label, option.id);
                   }}
                 >
                 <View style={styles.fullWidthOptionContent}>
@@ -2964,7 +3028,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setValueIds([option.id]);
-                    handleConfirmValues(option.label);
+                    handleConfirmValues(option.label, option.id);
                   }}
                 >
                   <ButtonLabel size="sm">{option.label}</ButtonLabel>
@@ -3020,7 +3084,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setPhilosophyIds([option.id]);
-                    handleConfirmPhilosophy(option.label);
+                    handleConfirmPhilosophy(option.label, option.id);
                   }}
                 >
                   <View style={styles.fullWidthOptionContent}>
@@ -3085,7 +3149,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setVocationIds([option.id]);
-                    handleConfirmVocation(option.label);
+                    handleConfirmVocation(option.label, option.id);
                   }}
                 >
                   <Text
@@ -3129,7 +3193,7 @@ export function IdentityAspirationFlow({
     appendChatUserMessage(trimmed);
 
     if (workflowRuntime) {
-      workflowRuntime.completeStep('nickname_optional', { nickname: null });
+      workflowRuntime.completeStep('big_dream', { bigDream: trimmed });
     }
     if (mode === 'reuseIdentityForNewArc') {
       // In the Arc creation flow launched from the Arcs inventory, capture
@@ -3137,8 +3201,9 @@ export function IdentityAspirationFlow({
       // actually generating the Arc.
       setPhase('whyNow');
     } else {
-      setPhase('generating');
-      void generateArc();
+      // For first-time onboarding, keep the explicit optional nickname step
+      // before generating the Arc so the user can add a personal anchor.
+      setPhase('nickname');
     }
   };
 
@@ -3155,7 +3220,7 @@ export function IdentityAspirationFlow({
     return (
       <View style={styles.dreamsStack}>
         {mode === 'firstTimeOnboarding' && (
-          <Card style={styles.stepCard}>
+          <Card padding="none" style={[styles.stepCard, styles.dreamsGifCard]}>
             <View style={styles.stepBody}>
               <CelebrationGif kind="firstArcDreamsPrompt" size="md" />
             </View>
@@ -3213,6 +3278,7 @@ export function IdentityAspirationFlow({
       <ArcListCard
         arc={skeletonArc}
         narrativeTone="strong"
+        style={styles.arcPreviewCard}
         customNarrative={
           <View style={styles.revealNarrativeBlock}>
             <View style={styles.arcIdentityRow}>
@@ -3277,6 +3343,7 @@ export function IdentityAspirationFlow({
       <ArcListCard
         arc={previewArc}
         narrativeTone="strong"
+        style={styles.arcPreviewCard}
         customNarrative={
           <View style={styles.revealNarrativeBlock}>
             {slices ? (
@@ -3538,12 +3605,20 @@ export function IdentityAspirationFlow({
     return renderDreams();
   }
 
+  if (phase === 'nickname') {
+    return renderNickname();
+  }
+
   if (phase === 'reveal') {
     return renderReveal();
   }
 
   if (phase === 'tweak') {
     return renderTweak();
+  }
+
+  if (phase === 'generating') {
+    return renderGenerating();
   }
 
   return null;
@@ -3577,6 +3652,9 @@ const styles = StyleSheet.create({
     // question that follows by using the smallest vertical gap between them.
     // This avoids the GIF feeling isolated in its own section.
     gap: spacing.xs,
+  },
+  dreamsGifCard: {
+    padding: spacing.sm,
   },
   researchHeading: {
     marginBottom: spacing.sm,
@@ -3725,6 +3803,9 @@ const styles = StyleSheet.create({
   },
   arcPreviewContainer: {
     marginBottom: spacing.lg,
+  },
+  arcPreviewCard: {
+    padding: spacing.sm,
   },
   revealStepCard: {
     // Use the same white card surface and padding as other choice cards; no

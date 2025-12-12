@@ -1,3 +1,4 @@
+import { Image } from 'react-native';
 import type { FocusAreaId } from '../../domain/types';
 
 export type ArcHeroEnergy = 'calm' | 'focused' | 'celebratory' | 'playful';
@@ -33,74 +34,170 @@ export type ArcHeroImage = {
  */
 export const ARC_HERO_LIBRARY: ArcHeroImage[] = [
   {
-    id: 'health-sunrise-01',
-    uri: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=1200&q=80',
-    palette: ['#F97373', '#0F3C5D', '#FACC15'],
+    id: 'arc-sandstone-waves-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner1.png')
+    ).uri,
+    palette: ['#F5D6A1', '#D08B4A', '#A8642A'],
     tags: {
-      focusAreas: ['health_energy'],
+      focusAreas: ['health_energy', 'organizing_life'],
       energy: 'calm',
       timeHorizon: 'long_arc',
-      vibe: 'photo',
+      vibe: 'textured',
       brightness: 'medium',
     },
   },
   {
-    id: 'work-city-01',
-    uri: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80',
-    palette: ['#0F172A', '#38BDF8'],
+    id: 'arc-deep-graphite-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner2.png')
+    ).uri,
+    palette: ['#111827', '#4B5563'],
     tags: {
       focusAreas: ['work_career'],
       energy: 'focused',
-      timeHorizon: 'season',
-      vibe: 'photo',
+      timeHorizon: 'sprint',
+      vibe: 'minimal',
       brightness: 'dark',
     },
   },
   {
-    id: 'learning-desk-01',
-    uri: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80',
-    palette: ['#F59E0B', '#0F172A'],
+    id: 'arc-color-clouds-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner3.png')
+    ).uri,
+    palette: ['#F97316', '#16A34A', '#0EA5E9', '#6366F1'],
     tags: {
-      focusAreas: ['learning_skills'],
-      energy: 'focused',
+      focusAreas: ['learning_skills', 'creativity_hobbies'],
+      energy: 'playful',
       timeHorizon: 'season',
-      vibe: 'photo',
+      vibe: 'abstract',
       brightness: 'medium',
     },
   },
   {
-    id: 'relationships-home-01',
-    uri: 'https://images.unsplash.com/photo-1511895426328-dc8714191300?auto=format&fit=crop&w=1200&q=80',
-    palette: ['#F472B6', '#F97316'],
+    id: 'arc-vivid-palette-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner4.png')
+    ).uri,
+    palette: ['#EF4444', '#0EA5E9', '#FBBF24'],
     tags: {
-      focusAreas: ['relationships_family'],
+      focusAreas: ['creativity_hobbies'],
       energy: 'celebratory',
-      timeHorizon: 'long_arc',
-      vibe: 'photo',
+      timeHorizon: 'season',
+      vibe: 'textured',
       brightness: 'medium',
     },
   },
   {
-    id: 'creactivity-studio-01',
-    uri: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80',
-    palette: ['#22C55E', '#6366F1'],
+    id: 'arc-earth-patchwork-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner5.png')
+    ).uri,
+    palette: ['#92400E', '#F59E0B', '#374151', '#6B7280'],
+    tags: {
+      focusAreas: ['organizing_life', 'work_career'],
+      energy: 'focused',
+      timeHorizon: 'long_arc',
+      vibe: 'textured',
+      brightness: 'medium',
+    },
+  },
+  {
+    id: 'arc-warm-fog-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner6.png')
+    ).uri,
+    palette: ['#F59E0B', '#F97316', '#1F2937'],
+    tags: {
+      focusAreas: ['relationships_family', 'health_energy'],
+      energy: 'calm',
+      timeHorizon: 'season',
+      vibe: 'abstract',
+      brightness: 'medium',
+    },
+  },
+  {
+    id: 'arc-midnight-tide-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner7.png')
+    ).uri,
+    palette: ['#0EA5E9', '#1D4ED8', '#020617'],
+    tags: {
+      focusAreas: ['health_energy'],
+      energy: 'calm',
+      timeHorizon: 'sprint',
+      vibe: 'abstract',
+      brightness: 'dark',
+    },
+  },
+  {
+    id: 'arc-golden-flow-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner8.png')
+    ).uri,
+    palette: ['#F97316', '#EA580C', '#FACC15'],
     tags: {
       focusAreas: ['creativity_hobbies'],
       energy: 'playful',
-      timeHorizon: 'season',
-      vibe: 'photo',
+      timeHorizon: 'sprint',
+      vibe: 'abstract',
+      brightness: 'medium',
+    },
+  },
+  {
+    id: 'arc-dune-lines-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner 9.png')
+    ).uri,
+    palette: ['#F9FAFB', '#6B7280', '#111827'],
+    tags: {
+      focusAreas: ['organizing_life', 'work_career'],
+      energy: 'calm',
+      timeHorizon: 'long_arc',
+      vibe: 'minimal',
       brightness: 'dark',
     },
   },
   {
-    id: 'organizing-desk-01',
-    uri: 'https://images.unsplash.com/photo-1504274066651-8d31a536b11a?auto=format&fit=crop&w=1200&q=80',
-    palette: ['#0F3C5D', '#E5E7EB'],
+    id: 'arc-signal-grid-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner10.png')
+    ).uri,
+    palette: ['#1D4ED8', '#0F172A', '#F97316'],
     tags: {
-      focusAreas: ['organizing_life'],
-      energy: 'calm',
+      focusAreas: ['work_career', 'learning_skills'],
+      energy: 'focused',
+      timeHorizon: 'season',
+      vibe: 'abstract',
+      brightness: 'dark',
+    },
+  },
+  {
+    id: 'arc-dual-gradient-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/banner11.png')
+    ).uri,
+    palette: ['#0EA5E9', '#1F2937', '#F97316'],
+    tags: {
+      focusAreas: ['learning_skills'],
+      energy: 'focused',
       timeHorizon: 'sprint',
-      vibe: 'minimal',
+      vibe: 'abstract',
+      brightness: 'medium',
+    },
+  },
+  {
+    id: 'arc-soft-spectrum-01',
+    uri: Image.resolveAssetSource(
+      require('../../assets/arc-banners/Banner12.png')
+    ).uri,
+    palette: ['#38BDF8', '#A855F7', '#EC4899', '#F9FAFB'],
+    tags: {
+      focusAreas: ['relationships_family', 'creativity_hobbies'],
+      energy: 'celebratory',
+      timeHorizon: 'long_arc',
+      vibe: 'abstract',
       brightness: 'light',
     },
   },

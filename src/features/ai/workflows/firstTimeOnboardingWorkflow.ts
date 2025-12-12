@@ -26,10 +26,17 @@ export const firstTimeOnboardingWorkflow: WorkflowDefinition = {
   outcomeSchema: {
     kind: 'first_time_onboarding_v2_arc',
     fields: {
-      vibe: 'string',
-      socialPresence: 'string',
-      coreStrength: 'string',
-      everydayAction: 'string',
+      domain: 'string',
+      motivation: 'string',
+      signatureTrait: 'string',
+      growthEdge: 'string',
+      proudMoment: 'string',
+      meaning: 'string',
+      impact: 'string',
+      values: 'string',
+      philosophy: 'string',
+      vocation: 'string',
+      bigDream: 'string',
       nickname: 'string?',
       arcName: 'string',
       arcNarrative: 'string',
@@ -55,64 +62,179 @@ export const firstTimeOnboardingWorkflow: WorkflowDefinition = {
     {
       id: 'vibe_select',
       type: 'collect_fields',
-      label: 'Future self vibe',
-      fieldsCollected: ['vibe'],
+      label: 'Domain of becoming',
+      fieldsCollected: ['domain'],
       hideFreeformChatInput: true,
       promptTemplate:
-        "The host will show a card that asks: \"When you imagine your future self… what's the vibe they give off?\" with 6–8 single-tap options like calm, confident, kind, curious, strong, creative, focused. Once the user taps one, you do not need to say anything unless explicitly asked later; treat this as a silent capture of their dominant emotional signature. Keep your visible reply to a single short sentence.",
+        'The host shows a tap-only card asking which life domain this identity Arc is about (e.g., craft, family, health, learning, creativity, relationships, spirit). Treat the selection as the user’s “domain of becoming”. Keep your visible reply to a single short sentence.',
       validationHint:
-        'vibe should be one of the predefined options. It is a soft emotional anchor, not a clinical label.',
+        'domain should be one of the predefined options. It is a life arena, not a task list.',
       nextStepId: 'social_mirror',
       ui: {
-        title: 'When you imagine your future self…',
-        description: "What's the vibe they give off?",
+        title: 'Choose a direction',
+        description: 'What area of life does your future self most want to grow into right now?',
       },
     },
     {
       id: 'social_mirror',
       type: 'collect_fields',
-      label: 'Social mirror',
-      fieldsCollected: ['socialPresence'],
+      label: 'Motivational style',
+      fieldsCollected: ['motivation'],
       hideFreeformChatInput: true,
       promptTemplate:
-        'The host shows a card asking: "And how do people experience that future you?" with tap-only options like "someone people trust", "someone who keeps their cool", "someone who brings others together", "someone who works hard", "someone who surprises people", "someone others want around". You do not need to ask follow-up questions here; simply let the host store this as the social identity orientation. Keep your visible reply to a single short sentence.',
+        'The host shows a tap-only card that captures the user’s motivational posture (e.g., calm/steady, bold/energetic, relational, mastery-driven). Treat the selection as the user’s motivational style. Keep your visible reply to a single short sentence.',
       validationHint:
-        'socialPresence is a short phrase describing how others experience the hoped-for self. It should feel intuitive and relational, not clinical.',
+        'motivation is a short phrase capturing their motivational posture. It should feel intuitive, not clinical.',
       nextStepId: 'core_strength',
       ui: {
-        title: 'And how do people experience that future you?',
+        title: 'How do you want it to feel?',
       },
     },
     {
       id: 'core_strength',
       type: 'collect_fields',
-      label: 'Core strength',
-      fieldsCollected: ['coreStrength'],
+      label: 'Signature trait',
+      fieldsCollected: ['signatureTrait'],
       hideFreeformChatInput: true,
       promptTemplate:
-        'The host shows a card asking: "What kind of strength does future-you grow into?" with options like physical skill, thinking skill, creative skill, leadership skill, focus + discipline, supporting others, problem-solving. Capture the selection as a soft pointer toward competence and motivation, not a rigid category. Keep your visible reply to a single short sentence.',
+        'The host shows a tap-only card asking for the user’s signature trait (a strength they want to embody). Treat the selection as a “signatureTrait” signal. Keep your visible reply to a single short sentence.',
       validationHint:
-        'coreStrength should be a short noun phrase (e.g. "creative skill", "leadership skill") indicating where aspiration energy clusters.',
+        'signatureTrait should be a short phrase describing a strength they want to embody (e.g. “disciplined”, “creative”, “reliable”).',
+      nextStepId: 'growth_edge',
+      ui: {
+        title: 'What strength do you grow into?',
+      },
+    },
+    {
+      id: 'growth_edge',
+      type: 'collect_fields',
+      label: 'Growth edge',
+      fieldsCollected: ['growthEdge'],
+      hideFreeformChatInput: true,
+      promptTemplate:
+        'The host shows a tap-only card asking for the user’s growth edge (a weakness/pattern they want to outgrow or a skill they want to develop). Treat the selection as a “growthEdge” signal. Keep your visible reply to a single short sentence.',
+      validationHint:
+        'growthEdge should be a short phrase describing a growth edge (e.g. “procrastination”, “staying calm”, “follow-through”).',
       nextStepId: 'everyday_moment',
       ui: {
-        title: 'What kind of strength does future-you grow into?',
+        title: 'What do you outgrow?',
       },
     },
     {
       id: 'everyday_moment',
       type: 'collect_fields',
       label: 'Everyday proud moment',
-      fieldsCollected: ['everydayAction'],
+      fieldsCollected: ['proudMoment'],
       hideFreeformChatInput: true,
       promptTemplate:
-        'The host shows a card asking: "Picture future-you on a normal day—not a big moment. What are they doing that makes them feel proud?" with tap-only options like practicing a skill, helping someone, creating something, solving a tough problem, showing up consistently, trying something challenging, staying calm, improving. Treat this as a narrative-identity cue about how aspiration shows up in ordinary life. Keep your visible reply to one short paragraph (2–3 sentences).',
+        'The host shows a tap-only card asking what the user does on a normal day that makes them feel proud. Treat this as an “everyday proud moment” identity-in-action cue. Keep your visible reply to one short paragraph (2–3 sentences).',
       validationHint:
-        'everydayAction should describe identity in action on a normal day (effort, service, creativity, mastery, steadiness).',
+        'proudMoment should describe identity in action on a normal day (effort, service, creativity, mastery, steadiness).',
       nextStepId: 'nickname_optional',
       ui: {
         title: 'On a normal day…',
         description:
           'Picture future-you on a normal day — not a big moment. What are they doing that makes them feel proud?',
+      },
+    },
+    {
+      id: 'meaning',
+      type: 'collect_fields',
+      label: 'Source of meaning',
+      fieldsCollected: ['meaning'],
+      hideFreeformChatInput: true,
+      promptTemplate:
+        'The host shows a tap-only card asking what makes life feel meaningful. Capture the selection as “meaning”. Keep your visible reply to a single short sentence.',
+      validationHint:
+        'meaning is a short phrase describing where meaning comes from (craft, relationships, faith, service, creation, etc.).',
+      nextStepId: 'impact',
+      ui: {
+        title: 'What feels meaningful?',
+      },
+    },
+    {
+      id: 'impact',
+      type: 'collect_fields',
+      label: 'Desired impact',
+      fieldsCollected: ['impact'],
+      hideFreeformChatInput: true,
+      promptTemplate:
+        'The host shows a tap-only card asking how the user hopes their life impacts other people. Capture the selection as “impact”. Keep your visible reply to a single short sentence.',
+      validationHint:
+        'impact is a short phrase describing hoped-for impact on others.',
+      nextStepId: 'values',
+      ui: {
+        title: 'What impact do you hope to have?',
+      },
+    },
+    {
+      id: 'values',
+      type: 'collect_fields',
+      label: 'Core value',
+      fieldsCollected: ['values'],
+      hideFreeformChatInput: true,
+      promptTemplate:
+        'The host shows a tap-only card asking which value feels most core. Capture the selection as “values”. Keep your visible reply to a single short sentence.',
+      validationHint:
+        'values is a single selected value token that anchors the Arc.',
+      nextStepId: 'philosophy',
+      ui: {
+        title: 'What value is most core?',
+      },
+    },
+    {
+      id: 'philosophy',
+      type: 'collect_fields',
+      label: 'Life philosophy',
+      fieldsCollected: ['philosophy'],
+      hideFreeformChatInput: true,
+      promptTemplate:
+        'The host shows a tap-only card asking what overall approach the user wants to take through life. Capture the selection as “philosophy”. Keep your visible reply to a single short sentence.',
+      validationHint:
+        'philosophy is a short phrase describing life approach (gentle, disciplined, courageous, etc.).',
+      nextStepId: 'vocation',
+      ui: {
+        title: 'What’s your approach?',
+      },
+    },
+    {
+      id: 'vocation',
+      type: 'collect_fields',
+      label: 'Vocation / creation lane',
+      fieldsCollected: ['vocation'],
+      hideFreeformChatInput: true,
+      promptTemplate:
+        'The host shows a tap-only card asking which kind of work/creation is closest to the user’s future self. Capture the selection as “vocation”. Keep your visible reply to a single short sentence.',
+      validationHint:
+        'vocation is a short phrase describing a vocational/creative lane (craft, ventures, teaching, ideas, etc.).',
+      nextStepId: 'big_dream',
+      ui: {
+        title: 'What kind of work or creation?',
+      },
+    },
+    {
+      id: 'big_dream',
+      type: 'collect_fields',
+      label: 'Big dream (free response)',
+      fieldsCollected: ['bigDream'],
+      hideFreeformChatInput: true,
+      promptTemplate:
+        'The host will ask for one short free-response “big dream” the user would love to bring to life. Capture it as “bigDream”. Keep your visible reply to a single short sentence.',
+      validationHint:
+        'bigDream is a short free-response sentence or phrase. It should not be empty.',
+      nextStepId: 'nickname_optional',
+      ui: {
+        title: 'One big dream',
+        description: 'Looking ahead, what’s one big thing you’d love to bring to life?',
+        fields: [
+          {
+            id: 'bigDream',
+            label: 'Big dream',
+            type: 'textarea',
+            placeholder: 'e.g., Build a small timber-frame home',
+          },
+        ],
+        primaryActionLabel: 'Continue',
       },
     },
     {
@@ -194,5 +316,8 @@ export const firstTimeOnboardingWorkflow: WorkflowDefinition = {
     },
   ],
 };
+
+
+
 
 

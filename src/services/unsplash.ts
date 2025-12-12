@@ -2,6 +2,8 @@ import { getEnvVar } from '../utils/getEnv';
 
 export type UnsplashPhoto = {
   id: string;
+  width?: number;
+  height?: number;
   description?: string | null;
   alt_description?: string | null;
   urls: {
@@ -27,6 +29,20 @@ export type UnsplashSearchResponse = {
   results: UnsplashPhoto[];
 };
 
+export type UnsplashErrorCode = 'missing_access_key' | 'http_error' | 'invalid_response';
+
+export class UnsplashError extends Error {
+  code: UnsplashErrorCode;
+  status?: number;
+
+  constructor(code: UnsplashErrorCode, message: string, status?: number) {
+    super(message);
+    this.name = 'UnsplashError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
 const UNSPLASH_API_BASE = 'https://api.unsplash.com';
 
 function getUnsplashAccessKey(): string | undefined {
@@ -35,12 +51,18 @@ function getUnsplashAccessKey(): string | undefined {
 
 export async function searchUnsplashPhotos(
   query: string,
-  options: { perPage?: number; page?: number } = {}
+  options: {
+    perPage?: number;
+    page?: number;
+    orientation?: 'landscape' | 'portrait' | 'squarish';
+  } = {}
 ): Promise<UnsplashPhoto[]> {
   const accessKey = getUnsplashAccessKey();
   if (!accessKey) {
-    // When no key is configured, gracefully degrade by returning no results.
-    return [];
+    throw new UnsplashError(
+      'missing_access_key',
+      'Unsplash is not configured for this build (missing access key).'
+    );
   }
 
   const perPage = options.perPage ?? 12;
@@ -50,23 +72,44 @@ export async function searchUnsplashPhotos(
     query,
     per_page: String(perPage),
     page: String(page),
-    orientation: 'landscape',
     content_filter: 'high',
   });
+  if (options.orientation) {
+    params.set('orientation', options.orientation);
+  }
 
   const response = await fetch(`${UNSPLASH_API_BASE}/search/photos?${params.toString()}`, {
     headers: {
       Authorization: `Client-ID ${accessKey}`,
       Accept: 'application/json',
+      'Accept-Version': 'v1',
     },
   });
 
   if (!response.ok) {
-    // Swallow network / quota errors and surface an empty list; callers can
-    // choose to show a soft error message when appropriate.
-    return [];
+    // Attempt to surface a meaningful message from Unsplash.
+    let message = `Unsplash request failed (HTTP ${response.status}).`;
+    try {
+      const maybeJson = (await response.json()) as unknown;
+      if (
+        maybeJson &&
+        typeof maybeJson === 'object' &&
+        'errors' in maybeJson &&
+        Array.isArray((maybeJson as any).errors) &&
+        typeof (maybeJson as any).errors[0] === 'string'
+      ) {
+        message = (maybeJson as any).errors[0];
+      }
+    } catch {
+      // ignore parsing failures
+    }
+    throw new UnsplashError('http_error', message, response.status);
   }
 
-  const data: UnsplashSearchResponse = await response.json();
-  return data.results ?? [];
+  try {
+    const data: UnsplashSearchResponse = await response.json();
+    return data.results ?? [];
+  } catch {
+    throw new UnsplashError('invalid_response', 'Unable to parse Unsplash response.');
+  }
 }

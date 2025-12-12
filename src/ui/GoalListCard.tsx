@@ -2,7 +2,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { Image, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card } from './Card';
+import { Card, type CardPadding } from './Card';
 import { Icon } from './Icon';
 import { Badge } from './Badge';
 import { colors, spacing, typography } from '../theme';
@@ -24,6 +24,15 @@ type GoalListCardProps = {
   parentArc?: Arc | null;
   activityCount?: number;
   thumbnailStyles?: ThumbnailStyle[];
+  /**
+   * Card shell padding preset (delegated to the shared `Card` primitive).
+   */
+  padding?: CardPadding;
+  /**
+   * Visual density preset. `dense` compacts thumbnail, typography, and spacing
+   * for tighter object canvases.
+   */
+  density?: 'default' | 'dense';
   /**
    * Optional override for the left-side activity/meta label. When omitted,
    * the component falls back to "No activities yet" / "N activities".
@@ -71,6 +80,8 @@ export function GoalListCard({
   parentArc,
   activityCount = 0,
   thumbnailStyles,
+  padding = 'md',
+  density = 'default',
   activityMetaOverride,
   statusLabelOverride,
   showActivityMeta = true,
@@ -83,6 +94,7 @@ export function GoalListCard({
 }: GoalListCardProps) {
   const defaultStatusLabel = goal.status.replace('_', ' ');
   const statusLabel = statusLabelOverride ?? defaultStatusLabel;
+  const isDense = density === 'dense';
 
   const statusVariant =
     goal.status === 'in_progress'
@@ -121,15 +133,19 @@ export function GoalListCard({
   const shouldShowPixelBlocks = showPixelBlocks && !hasCustomThumbnail;
 
   const content = (
-    <Card style={[styles.goalListCard, style]}>
+    <Card padding={padding} style={[styles.goalListCard, style]}>
       <VStack
-        style={[styles.goalListContent, compact && styles.goalListContentCompact]}
+        style={[
+          styles.goalListContent,
+          compact && styles.goalListContentCompact,
+          isDense && styles.goalListContentDense,
+        ]}
         space="xs"
       >
-        <HStack style={styles.goalTopRow} space="md">
+        <HStack style={styles.goalTopRow} space={isDense ? 'sm' : 'md'}>
           {showThumbnail && (
-            <View style={styles.goalThumbnailWrapper}>
-              <View style={styles.goalThumbnailInner}>
+            <View style={[styles.goalThumbnailWrapper, isDense && styles.goalThumbnailWrapperDense]}>
+              <View style={[styles.goalThumbnailInner, isDense && styles.goalThumbnailInnerDense]}>
                 {goal.thumbnailUrl ? (
                   <Image
                     source={{ uri: goal.thumbnailUrl }}
@@ -271,7 +287,11 @@ export function GoalListCard({
           )}
           <VStack style={styles.goalTextContainer}>
             {headerLabel}
-            <Heading style={styles.goalTitle} numberOfLines={2} ellipsizeMode="tail">
+            <Heading
+              style={[styles.goalTitle, isDense && styles.goalTitleDense]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
               {goal.title}
             </Heading>
           </VStack>
@@ -279,16 +299,22 @@ export function GoalListCard({
 
         {showActivityMeta && (
           <HStack
-            space="md"
-            style={styles.goalMetaRow}
+            space={isDense ? 'sm' : 'md'}
+            style={[styles.goalMetaRow, isDense && styles.goalMetaRowDense]}
             alignItems="center"
             justifyContent="space-between"
           >
             <HStack space="xs" alignItems="center">
-              <Icon name="activities" size={14} color={colors.textSecondary} />
+              <Icon name="activities" size={isDense ? 12 : 14} color={colors.textSecondary} />
               <Text style={styles.goalActivityMeta}>{activityLabel}</Text>
             </HStack>
-            <Badge variant={statusVariant}>{statusLabel}</Badge>
+            <Badge
+              variant={statusVariant}
+              style={isDense ? styles.goalBadgeDense : undefined}
+              textStyle={isDense ? styles.goalBadgeTextDense : undefined}
+            >
+              {statusLabel}
+            </Badge>
           </HStack>
         )}
 
@@ -308,7 +334,6 @@ const styles = StyleSheet.create({
   goalListCard: {
     marginHorizontal: 0,
     marginVertical: 0,
-    padding: spacing.md,
   },
   goalListContent: {
     flexDirection: 'column',
@@ -316,6 +341,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   goalListContentCompact: {
+    minHeight: 0,
+  },
+  goalListContentDense: {
     minHeight: 0,
   },
   goalTopRow: {
@@ -330,12 +358,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.shellAlt,
     overflow: 'hidden',
   },
+  goalThumbnailWrapperDense: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
   goalThumbnailInner: {
     width: '100%',
     height: '100%',
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
+  },
+  goalThumbnailInnerDense: {
+    borderRadius: 10,
   },
   goalThumbnail: {
     width: '100%',
@@ -413,7 +449,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   goalContourRing: {
-    position: 'absolute',
     borderWidth: 1,
     borderRadius: 999,
     borderColor: 'rgba(15,23,42,0.2)',
@@ -447,8 +482,23 @@ const styles = StyleSheet.create({
     fontFamily: typography.titleSm.fontFamily,
     color: colors.textPrimary,
   },
+  goalTitleDense: {
+    ...typography.bodySm,
+    fontFamily: typography.titleSm.fontFamily,
+  },
   goalMetaRow: {
     marginTop: spacing.xs / 2,
+  },
+  goalMetaRowDense: {
+    marginTop: 0,
+  },
+  goalBadgeDense: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+  },
+  goalBadgeTextDense: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   goalStatus: {
     ...typography.bodySm,

@@ -45,6 +45,23 @@ export const colors = {
   indigo800: '#1B283A',
   indigo900: '#141C28',
 
+  /**
+   * Quilt Blue scale – a softer, weathered blue used for quilt-like surfaces.
+   * Note: intentionally aligned to the existing indigo scale so our “quilt blue”
+   * palette stays consistent with current usage (and preserves `quiltBlue` as the
+   * familiar mid-tone).
+   */
+  quiltBlue50: '#EEF3F8',
+  quiltBlue100: '#D8E2F0',
+  quiltBlue200: '#B3C5DE',
+  quiltBlue300: '#8AA2C7',
+  quiltBlue400: '#6C8AA6', // matches existing `quiltBlue`
+  quiltBlue500: '#4B6684',
+  quiltBlue600: '#324966',
+  quiltBlue700: '#24364E',
+  quiltBlue800: '#1B283A',
+  quiltBlue900: '#141C28',
+
   // ----------------------------------------------------------------------------
   // Legacy / semantic role tokens
   // ----------------------------------------------------------------------------
@@ -82,7 +99,18 @@ export const colors = {
 
   // Kwilt Craft brand palette (Earthy + Handmade + Cross-Cultural)
   indigo: '#1A2E3F', // Aizome Indigo – 深藍, deep, contemplative, protective
-  turmeric: '#C58B2A', // Kalo Turmeric – warm, diffuse, pan-Indian / SE Asian turmeric
+  // Turmeric scale (warm, diffuse, pan-Indian / SE Asian turmeric)
+  turmeric50: '#FBF3E5',
+  turmeric100: '#F6E6C8',
+  turmeric200: '#EED5A2',
+  turmeric300: '#E4C177',
+  turmeric400: '#D5A852',
+  turmeric500: '#C58B2A', // base turmeric
+  turmeric600: '#A97120',
+  turmeric700: '#8C5A18',
+  turmeric800: '#6F4512',
+  turmeric900: '#52320C',
+  turmeric: '#C58B2A', // alias for the base turmeric
   madder: '#B35F4C', // Madder Rose – soft, earthy historical dye red
   quiltBlue: '#6C8AA6', // Woad / weathered quilt blue, cool but worn-in
   clay: '#D9C8B8', // Clay Slip – neutral, grounding, unbleached-cotton/ceramic slip

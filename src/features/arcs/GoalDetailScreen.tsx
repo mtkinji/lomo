@@ -12,8 +12,9 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Pressable,
+  Share,
 } from 'react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
@@ -26,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
 import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BottomGuide } from '../../ui/BottomGuide';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -75,6 +77,16 @@ export function GoalDetailScreen() {
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const hasSeenOnboardingSharePrompt = useAppStore((state) => state.hasSeenOnboardingSharePrompt);
+  const setHasSeenOnboardingSharePrompt = useAppStore(
+    (state) => state.setHasSeenOnboardingSharePrompt
+  );
+  const hasDismissedOnboardingActivitiesGuide = useAppStore(
+    (state) => state.hasDismissedOnboardingActivitiesGuide
+  );
+  const setHasDismissedOnboardingActivitiesGuide = useAppStore(
+    (state) => state.setHasDismissedOnboardingActivitiesGuide
+  );
   const hasSeenFirstGoalCelebration = useAppStore(
     (state) => state.hasSeenFirstGoalCelebration
   );
@@ -102,6 +114,8 @@ export function GoalDetailScreen() {
     defaultForceLevels(0)
   );
   const [showFirstGoalCelebration, setShowFirstGoalCelebration] = useState(false);
+  const [showOnboardingSharePrompt, setShowOnboardingSharePrompt] = useState(false);
+  const onboardingSharePrevActivityCountRef = useRef(0);
   const [vectorsInfoVisible, setVectorsInfoVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
@@ -158,6 +172,11 @@ export function GoalDetailScreen() {
     () => activities.filter((activity) => activity.goalId === goalId),
     [activities, goalId]
   );
+  const shouldShowOnboardingActivitiesGuide =
+    goal.id === lastOnboardingGoalId &&
+    goalActivities.length === 0 &&
+    !showFirstGoalCelebration &&
+    !hasDismissedOnboardingActivitiesGuide;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -249,6 +268,32 @@ export function GoalDetailScreen() {
   useEffect(() => {
     setEditForceIntent({ ...defaultForceLevels(0), ...goal.forceIntent });
   }, [goal]);
+
+  useEffect(() => {
+    // Lightweight evangelism prompt: once the user creates their *first*
+    // onboarding activities, invite them to share for social accountability.
+    // Only trigger on the transition 0 → >0 activities.
+    // Note: we intentionally keep this non-blocking and skippable.
+    const prev = onboardingSharePrevActivityCountRef.current;
+    const next = goalActivities.length;
+    onboardingSharePrevActivityCountRef.current = next;
+
+    if (
+      prev === 0 &&
+      next > 0 &&
+      goal.id === lastOnboardingGoalId &&
+      !hasSeenOnboardingSharePrompt
+    ) {
+      setShowOnboardingSharePrompt(true);
+      setHasSeenOnboardingSharePrompt(true);
+    }
+  }, [
+    goalActivities.length,
+    goal.id,
+    lastOnboardingGoalId,
+    hasSeenOnboardingSharePrompt,
+    setHasSeenOnboardingSharePrompt,
+  ]);
 
   useEffect(() => {
     if (
@@ -600,6 +645,82 @@ export function GoalDetailScreen() {
           already have in mind.
         </Text>
       </Dialog>
+      <Dialog
+        visible={showOnboardingSharePrompt}
+        onClose={() => setShowOnboardingSharePrompt(false)}
+        title="Want an accountability buddy?"
+        description="Share your new goal with a friend so someone can cheer you on (or keep you honest)."
+        footer={
+          <HStack space="sm" marginTop={spacing.lg}>
+            <Button
+              variant="outline"
+              style={{ flex: 1 }}
+              onPress={() => setShowOnboardingSharePrompt(false)}
+            >
+              <Text style={styles.secondaryCtaText}>Not now</Text>
+            </Button>
+            <Button
+              style={{ flex: 1 }}
+              onPress={async () => {
+                try {
+                  const arcName = arc?.name ? ` (${arc.name})` : '';
+                  await Share.share({
+                    message: `I just set a new goal in kwilt${arcName}: “${goal.title}”. Want to be my accountability buddy?`,
+                  });
+                } catch {
+                  // Swallow share errors; this is a best-effort evangelism hook.
+                } finally {
+                  setShowOnboardingSharePrompt(false);
+                }
+              }}
+            >
+              <Text style={styles.primaryCtaText}>Invite a friend</Text>
+            </Button>
+          </HStack>
+        }
+      >
+        <Text style={styles.firstGoalBody}>
+          The fastest way to follow through is to let someone else see your intention.
+        </Text>
+      </Dialog>
+      <BottomGuide
+        visible={shouldShowOnboardingActivitiesGuide}
+        onClose={() => setHasDismissedOnboardingActivitiesGuide(true)}
+      >
+        <Heading variant="sm">Next step: add your first activities</Heading>
+        <Text style={styles.firstGoalBody}>
+          Activities are the concrete steps that move this goal forward. Add 1–3 so you always know
+          what to do next.
+        </Text>
+        <HStack space="sm" marginTop={spacing.sm}>
+          <Button
+            variant="outline"
+            style={{ flex: 1 }}
+            onPress={() => setHasDismissedOnboardingActivitiesGuide(true)}
+          >
+            <Text style={styles.secondaryCtaText}>Not now</Text>
+          </Button>
+          <Button
+            variant="accent"
+            style={{ flex: 1 }}
+            onPress={() => {
+              setActiveTab('plan');
+              setActivityCoachVisible(true);
+            }}
+          >
+            <Text style={styles.primaryCtaText}>Generate with AI</Text>
+          </Button>
+        </HStack>
+        <Button
+          variant="ghost"
+          onPress={() => {
+            setActiveTab('plan');
+            setActivityComposerVisible(true);
+          }}
+        >
+          <Text style={styles.linkLabel}>Add manually instead</Text>
+        </Button>
+      </BottomGuide>
       {editingForces && (
         <TouchableOpacity
           activeOpacity={1}

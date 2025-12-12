@@ -3,13 +3,14 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
 import { spacing } from '../theme/spacing';
 
-type CardPadding = 'none' | 'sm' | 'md' | 'lg';
+export type CardPadding = 'none' | 'xs' | 'sm' | 'md' | 'lg';
 
 type CardElevation = keyof typeof cardElevation;
 
 const paddingBySize: Record<Exclude<CardPadding, 'none'>, number> = {
   // For card interiors, use slightly larger gutters than raw spacing so
   // differences between sizes are visually meaningful.
+  xs: spacing.md, // 12
   sm: spacing.lg, // 16
   md: spacing.xl, // 24
   lg: spacing['2xl'], // 32

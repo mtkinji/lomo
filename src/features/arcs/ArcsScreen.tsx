@@ -28,7 +28,7 @@ import type { Arc, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
-import { pickHeroForArc } from './arcHeroSelector';
+import { ensureArcBannerPrefill } from './arcBannerPrefill';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
@@ -790,7 +790,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
     const timestamp = new Date().toISOString();
     const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    let arc: Arc = {
+    const arc: Arc = {
       id,
       name: trimmedName,
       narrative: trimmedNarrative.length > 0 ? trimmedNarrative : undefined,
@@ -801,27 +801,10 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
       updatedAt: timestamp,
     };
 
-    // Auto-pick a curated hero image (with gradient fallback) so every new Arc
-    // starts with a thoughtful visual without extra steps in the creation flow.
-    const heroSelection = pickHeroForArc(arc, {
-      userFocusAreas: userProfile?.focusAreas,
-    });
-
-    if (heroSelection.image) {
-      arc = {
-        ...arc,
-        thumbnailUrl: heroSelection.image.uri,
-        thumbnailVariant: arc.thumbnailVariant ?? 0,
-        heroImageMeta: {
-          source: 'curated',
-          prompt: undefined,
-          createdAt: timestamp,
-          curatedId: heroSelection.image.id,
-        },
-      };
-    }
-
     addArc(arc);
+    void ensureArcBannerPrefill(arc, {
+      fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
+    });
     void ensureArcDevelopmentInsights(id);
     onClose();
     navigation.navigate('ArcDetail', { arcId: id });
@@ -862,7 +845,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
               const timestamp = new Date().toISOString();
               const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-              let arc: Arc = {
+              const arc: Arc = {
                 id,
                 name: proposal.name.trim(),
                 narrative: proposal.narrative,
@@ -873,25 +856,10 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
                 updatedAt: timestamp,
               };
 
-              const heroSelection = pickHeroForArc(arc, {
-                userFocusAreas: userProfile?.focusAreas,
-              });
-
-              if (heroSelection.image) {
-                arc = {
-                  ...arc,
-                  thumbnailUrl: heroSelection.image.uri,
-                  thumbnailVariant: arc.thumbnailVariant ?? 0,
-                  heroImageMeta: {
-                    source: 'curated',
-                    prompt: undefined,
-                    createdAt: timestamp,
-                    curatedId: heroSelection.image.id,
-                  },
-                };
-              }
-
               addArc(arc);
+              void ensureArcBannerPrefill(arc, {
+                fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
+              });
               void ensureArcDevelopmentInsights(id);
               onClose();
               navigation.navigate('ArcDetail', { arcId: id });

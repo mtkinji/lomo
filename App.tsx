@@ -74,11 +74,11 @@ export default function App() {
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    // Defer bootstrapping to the next tick so initial effects (like FTUE
-    // trigger and notifications init) have a chance to run once.
+    // Hold the in-app launch screen briefly so the branded interstitial
+    // feels intentional between the native splash and main shell.
     const timeout = setTimeout(() => {
       setIsBootstrapped(true);
-    }, 0);
+    }, 900);
 
     return () => clearTimeout(timeout);
   }, [fontsLoaded]);

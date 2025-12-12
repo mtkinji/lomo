@@ -72,6 +72,22 @@ interface AppState {
    */
   hasSeenFirstArcCelebration: boolean;
   /**
+   * Dismissal flag for the post-onboarding "create your first goal" guide.
+   * This is intentionally separate from the celebration flags so users can
+   * dismiss guidance without losing celebrations (and vice versa).
+   */
+  hasDismissedOnboardingGoalGuide: boolean;
+  /**
+   * Dismissal flag for the post-onboarding "add activities" guide shown on the
+   * onboarding-created goal.
+   */
+  hasDismissedOnboardingActivitiesGuide: boolean;
+  /**
+   * One-time FTUE evangelism/share prompt. Triggered after the user creates
+   * their first onboarding Activities (social accountability + referral hook).
+   */
+  hasSeenOnboardingSharePrompt: boolean;
+  /**
    * Saved configurations for the Activities list. Includes both system views
    * like "Default view" and user-created custom views.
    */
@@ -142,6 +158,9 @@ interface AppState {
   setHasSeenFirstArcCelebration: (seen: boolean) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
+  setHasSeenOnboardingSharePrompt: (seen: boolean) => void;
+  setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
+  setHasDismissedOnboardingActivitiesGuide: (dismissed: boolean) => void;
   setActiveActivityViewId: (viewId: string | null) => void;
   addActivityView: (view: ActivityView) => void;
   updateActivityView: (viewId: string, updater: Updater<ActivityView>) => void;
@@ -386,6 +405,9 @@ export const useAppStore = create(
       lastOnboardingGoalId: null,
       hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
+      hasSeenOnboardingSharePrompt: false,
+      hasDismissedOnboardingGoalGuide: false,
+      hasDismissedOnboardingActivitiesGuide: false,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -482,6 +504,18 @@ export const useAppStore = create(
       setHasSeenFirstGoalCelebration: (seen) =>
         set(() => ({
           hasSeenFirstGoalCelebration: seen,
+        })),
+      setHasSeenOnboardingSharePrompt: (seen) =>
+        set(() => ({
+          hasSeenOnboardingSharePrompt: seen,
+        })),
+      setHasDismissedOnboardingGoalGuide: (dismissed) =>
+        set(() => ({
+          hasDismissedOnboardingGoalGuide: dismissed,
+        })),
+      setHasDismissedOnboardingActivitiesGuide: (dismissed) =>
+        set(() => ({
+          hasDismissedOnboardingActivitiesGuide: dismissed,
         })),
       setActiveActivityViewId: (viewId) =>
         set(() => ({
@@ -625,6 +659,9 @@ export const useAppStore = create(
             },
             lastOnboardingArcId: null,
             lastOnboardingGoalId: null,
+            hasSeenOnboardingSharePrompt: false,
+            hasDismissedOnboardingGoalGuide: false,
+            hasDismissedOnboardingActivitiesGuide: false,
             // When we explicitly reset onboarding answers (typically from dev
             // tooling), also reset the one-time celebrations so the overlays
             // can be exercised again on the next onboarding-created Arc/Goal.
@@ -646,6 +683,9 @@ export const useAppStore = create(
           lastOnboardingGoalId: null,
           hasSeenFirstGoalCelebration: false,
           hasSeenFirstArcCelebration: false,
+          hasSeenOnboardingSharePrompt: false,
+          hasDismissedOnboardingGoalGuide: false,
+          hasDismissedOnboardingActivitiesGuide: false,
           blockedCelebrationGifIds: [],
           likedCelebrationGifs: [],
           hasCompletedFirstTimeOnboarding: false,

@@ -388,6 +388,11 @@ type GoalCoachDrawerProps = {
    * manual creation. For Arc detail hosts we keep the user on the Arc canvas.
    */
   navigateToGoalDetailOnCreate?: boolean;
+  /**
+   * Optional callback fired after a Goal is created (manual or AI draft adopt).
+   * Useful for onboarding flows that want to route into the new Goal plan.
+   */
+  onGoalCreated?: (goalId: string) => void;
 };
 
 type GoalWizardProps = {
@@ -402,6 +407,7 @@ export function GoalCoachDrawer({
   goals,
   launchFromArcId,
   navigateToGoalDetailOnCreate = true,
+  onGoalCreated,
 }: GoalCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = React.useState(false);
@@ -562,6 +568,7 @@ export function GoalCoachDrawer({
     };
 
     addGoal(goal);
+    onGoalCreated?.(id);
     onClose();
     if (navigateToGoalDetailOnCreate) {
       navigation.push('GoalDetail', {
@@ -591,6 +598,7 @@ export function GoalCoachDrawer({
       };
 
       addGoal(goal);
+      onGoalCreated?.(id);
       onClose();
       if (navigateToGoalDetailOnCreate) {
         navigation.push('GoalDetail', {
@@ -599,7 +607,7 @@ export function GoalCoachDrawer({
         });
       }
     },
-    [addGoal, navigateToGoalDetailOnCreate, navigation, onClose]
+    [addGoal, navigateToGoalDetailOnCreate, navigation, onClose, onGoalCreated]
   );
 
   return (

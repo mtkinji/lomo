@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import {
   BottomSheetBackdrop,
@@ -38,18 +38,39 @@ export function KwiltBottomSheet({
   ...rest
 }: KwiltBottomSheetProps) {
   const sheetRef = useRef<BottomSheetModal>(null);
-  const points = useMemo<(string | number)[]>(
-    () => snapPoints ?? DEFAULT_SNAP_POINTS,
-    [snapPoints]
-  );
+  // Keep snapPoints stable across renders even when callers pass inline literals
+  // like `['35%']`. This prevents effect churn that can cancel a scheduled
+  // `present()` call before it fires.
+  const nextPoints = snapPoints ?? DEFAULT_SNAP_POINTS;
+  const pointsRef = useRef<(string | number)[]>(nextPoints);
+  if (!areSnapPointsEqual(pointsRef.current, nextPoints)) {
+    pointsRef.current = nextPoints;
+  }
+  const points = pointsRef.current;
+  const lastVisibleRef = useRef<boolean>(visible);
 
   useEffect(() => {
+    if (__DEV__ && lastVisibleRef.current !== visible) {
+      // eslint-disable-next-line no-console
+      console.log('[bottomSheet] visible-changed', {
+        visible,
+        hasRef: Boolean(sheetRef.current),
+        snapPoints: points,
+      });
+      lastVisibleRef.current = visible;
+    }
     if (visible) {
-      sheetRef.current?.present();
+      // Present on the next tick so navigation transitions/layout settle first.
+      // Without this, BottomSheetModal can occasionally fail to appear when a
+      // screen flips `visible` to true immediately on mount.
+      const timeoutId = setTimeout(() => {
+        sheetRef.current?.present();
+      }, 0);
+      return () => clearTimeout(timeoutId);
     } else {
       sheetRef.current?.dismiss();
     }
-  }, [visible, points]);
+  }, [visible]);
 
   const renderBackdrop: BottomSheetModalProps['backdropComponent'] = useCallback(
     (backdropProps: Parameters<NonNullable<BottomSheetModalProps['backdropComponent']>>[0]) =>

@@ -514,6 +514,104 @@ export async function generateArcHeroImage(
   }
 }
 
+export type ArcBannerVibeQueryInput = {
+  arcName: string;
+  arcNarrative?: string;
+  goalTitles?: string[];
+};
+
+/**
+ * Generate a short, "vibe"-based Unsplash search query for an Arc.
+ * Uses a cheap/fast chat model and returns a compact phrase (2–5 words).
+ */
+export async function generateArcBannerVibeQuery(
+  input: ArcBannerVibeQueryInput
+): Promise<string | null> {
+  const apiKey = resolveOpenAiApiKey();
+  const arcName = input.arcName?.trim() ?? '';
+  const narrative = input.arcNarrative?.trim() ?? '';
+  const goalTitles = (input.goalTitles ?? []).map((g) => g.trim()).filter(Boolean).slice(0, 8);
+
+  devLog('bannerVibe:init', {
+    arcName,
+    narrativePreview: previewText(narrative),
+    goalCount: goalTitles.length,
+    apiKey: describeKey(apiKey),
+  });
+
+  if (!apiKey) {
+    return null;
+  }
+
+  const model: LlmModel = 'gpt-4o-mini';
+  const systemPrompt =
+    'You generate short search queries for Unsplash images. ' +
+    'Return a single line containing ONLY a compact search phrase (2–5 words). ' +
+    'No quotes. No hashtags. No punctuation. No emojis. ' +
+    'Prefer concrete visual nouns + adjectives (e.g., "misty alpine sunrise", "cozy reading nook").';
+
+  const userPrompt = `
+Arc name: ${arcName || '(missing)'}
+Arc narrative: ${narrative || '(none)'}
+Goal titles: ${goalTitles.length > 0 ? goalTitles.join(' | ') : '(none)'}
+
+Return one Unsplash search phrase that matches the Arc's vibe.
+`;
+
+  const body = {
+    model,
+    temperature: 0.8,
+    max_tokens: 24,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+  };
+
+  const requestStartedAt = Date.now();
+  const response = await fetchWithTimeout(
+    OPENAI_COMPLETIONS_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+    OPENAI_TIMEOUT_MS
+  );
+
+  devLog('bannerVibe:response', {
+    status: response.status,
+    ok: response.ok,
+    durationMs: Date.now() - requestStartedAt,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    devLog('bannerVibe:response:error', { payloadPreview: previewText(errorText) });
+    return null;
+  }
+
+  const data = await response.json();
+  const content = (data?.choices?.[0]?.message?.content as string | undefined) ?? '';
+  const firstLine = content.split('\n')[0]?.trim() ?? '';
+  const cleaned = firstLine
+    .replace(/^["'`]+/, '')
+    .replace(/["'`]+$/, '')
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) {
+    return null;
+  }
+
+  // Keep it reasonably short for Unsplash search.
+  return cleaned.split(' ').slice(0, 5).join(' ');
+}
+
 async function requestOpenAiArcs(
   params: GenerateArcParams,
   apiKey: string
