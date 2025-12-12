@@ -1257,6 +1257,11 @@ function ActivityCoachDrawer({
     [],
   );
 
+  const manualActivity = React.useMemo(
+    () => (manualActivityId ? activities.find((a) => a.id === manualActivityId) ?? null : null),
+    [activities, manualActivityId],
+  );
+
   React.useEffect(() => {
     if (!visible) {
       // When the drawer closes, clean up any empty "scratch" Activity that was
@@ -1334,11 +1339,6 @@ function ActivityCoachDrawer({
     if (manualActivityId) return;
     handleCreateManualActivity();
   }, [visible, activeTab, manualActivityId, handleCreateManualActivity]);
-
-  const manualActivity = React.useMemo(
-    () => (manualActivityId ? activities.find((a) => a.id === manualActivityId) ?? null : null),
-    [activities, manualActivityId],
-  );
 
   const handleSwitchToManual = React.useCallback(() => {
     setActiveTab('manual');
