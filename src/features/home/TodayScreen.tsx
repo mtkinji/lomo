@@ -7,7 +7,7 @@ import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
 import { Logo } from '../../ui/Logo';
 import { Card } from '../../ui/Card';
-import { VStack, Heading, Text, HStack } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
 
 const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 
@@ -167,13 +167,11 @@ export function TodayScreen() {
           </VStack>
         }
         ListEmptyComponent={
-          <VStack space="sm" style={styles.emptyState}>
-            <Heading style={styles.emptyTitle}>No activities yet</Heading>
-            <Text style={styles.emptyBody}>
-              Start by creating an Arc, then a Goal, then the Activities that will shape this chapter of
-              your life.
-            </Text>
-          </VStack>
+          <EmptyState
+            title="No activities yet"
+            instructions="Create an Arc, then a Goal, then your first Activity."
+            style={styles.emptyState}
+          />
         }
         showsVerticalScrollIndicator={false}
       />

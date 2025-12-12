@@ -27,6 +27,7 @@ import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/R
 import type { Arc, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { ArcListCard } from '../../ui/ArcListCard';
+import { EmptyState } from '../../ui/primitives';
 import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 import { ensureArcBannerPrefill } from './arcBannerPrefill';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
@@ -116,6 +117,7 @@ export function ArcsScreen() {
             contentContainerStyle={[
               styles.listContent,
               { paddingTop: listTopPadding, paddingBottom: listBottomPadding },
+              arcs.length === 0 ? styles.listEmptyContent : null,
             ]}
             renderItem={({ item }) => (
               <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
@@ -123,6 +125,19 @@ export function ArcsScreen() {
               </Pressable>
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListEmptyComponent={
+              <EmptyState
+                title="No arcs yet"
+                instructions="Create an Arc to define a meaningful direction."
+                primaryAction={{
+                  label: 'Create Arc',
+                  variant: 'accent',
+                  onPress: () => setNewArcModalVisible(true),
+                  accessibilityLabel: 'Create a new Arc',
+                }}
+                style={styles.emptyState}
+              />
+            }
           />
         </View>
 

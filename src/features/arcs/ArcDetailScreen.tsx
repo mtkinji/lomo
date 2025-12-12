@@ -30,7 +30,7 @@ import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
-import { VStack, Heading, HStack, CelebrationGif } from '../../ui/primitives';
+import { VStack, Heading, HStack, CelebrationGif, EmptyState } from '../../ui/primitives';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { EditableField } from '../../ui/EditableField';
@@ -903,34 +903,34 @@ export function ArcDetailScreen() {
                     </View>
 
                     {arcGoals.length === 0 ? (
-                      <View style={styles.goalsEmptyStateContainer}>
-                        <Text style={styles.goalsEmptyTitle}>Turn this Arc into clear goals</Text>
-                        <Text style={styles.goalsEmptyBody}>
-                          Start by adding 3–5 goals that live inside this Arc so kwilt knows what
-                          “success” looks like here.
-                        </Text>
-                        <View
-                          ref={createGoalsButtonRef}
-                          collapsable={false}
-                          style={styles.goalsPrimaryButtonWrapper}
-                        >
-                          {shouldShowOnboardingGoalGuide ? (
-                            <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
-                          ) : null}
-                          <Button
-                            variant="accent"
-                            style={styles.goalsEmptyPrimaryButton}
-                            onPress={() => {
-                              setHasDismissedOnboardingGoalGuide(true);
-                              setIsGoalCoachVisible(true);
-                            }}
+                      <EmptyState
+                        title="Turn this Arc into clear goals"
+                        instructions="Add 3–5 goals so kwilt knows what “success” looks like here."
+                        style={styles.goalsEmptyStateContainer}
+                        actions={
+                          <View
+                            ref={createGoalsButtonRef}
+                            collapsable={false}
+                            style={styles.goalsPrimaryButtonWrapper}
                           >
-                            <Text style={styles.goalsEmptyPrimaryLabel}>
-                              Create goal
-                            </Text>
-                          </Button>
-                        </View>
-                      </View>
+                            {shouldShowOnboardingGoalGuide ? (
+                              <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
+                            ) : null}
+                            <Button
+                              variant="accent"
+                              style={styles.goalsEmptyPrimaryButton}
+                              onPress={() => {
+                                setHasDismissedOnboardingGoalGuide(true);
+                                setIsGoalCoachVisible(true);
+                              }}
+                            >
+                              <Text style={styles.goalsEmptyPrimaryLabel}>
+                                Create goal
+                              </Text>
+                            </Button>
+                          </View>
+                        }
+                      />
                     ) : (
                       <View style={styles.goalsScrollContent}>
                         <View style={{ gap: spacing.sm }}>

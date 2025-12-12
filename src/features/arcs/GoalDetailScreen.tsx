@@ -22,12 +22,15 @@ import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/
 import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Dialog, VStack, Heading, Text, HStack } from '../../ui/primitives';
+import { Dialog, VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
+import { Coachmark } from '../../ui/Coachmark';
+import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
+import { CelebrationGif } from '../../ui/CelebrationGif';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -119,6 +122,7 @@ export function GoalDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
+  const addActivitiesButtonRef = useRef<View>(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
@@ -176,6 +180,12 @@ export function GoalDetailScreen() {
     goalActivities.length === 0 &&
     !showFirstGoalCelebration &&
     !hasDismissedOnboardingActivitiesGuide;
+  const shouldShowOnboardingActivitiesCoachmark =
+    shouldShowOnboardingActivitiesGuide &&
+    activeTab === 'plan' &&
+    Boolean(addActivitiesButtonRef.current) &&
+    !activityCoachVisible &&
+    !activityComposerVisible;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -618,32 +628,42 @@ export function GoalDetailScreen() {
 
   return (
     <AppShell>
-      <Dialog
+      <FullScreenInterstitial
         visible={showFirstGoalCelebration}
-        onClose={handleDismissFirstGoalCelebration}
-        title="You just set your first goal"
-        description="This goal is your starting point in kwilt. Next, add a couple of concrete Activities so you always know the very next step."
-        footer={
-          <HStack space="sm" marginTop={spacing.lg}>
-            <Button
-              variant="outline"
-              style={{ flex: 1 }}
-              onPress={handleDismissFirstGoalCelebration}
-            >
-              <Text style={styles.secondaryCtaText}>Maybe later</Text>
-            </Button>
-            <Button style={{ flex: 1 }} onPress={handleContinueFirstGoalCelebration}>
-              <Text style={styles.primaryCtaText}>Add activities</Text>
-            </Button>
-          </HStack>
-        }
+        onDismiss={handleDismissFirstGoalCelebration}
+        progression="button"
+        backgroundColor="indigo"
+        contentStyle={{
+          paddingTop: insets.top + spacing['2xl'],
+          paddingBottom: insets.bottom + spacing['2xl'],
+          paddingHorizontal: spacing.lg,
+        }}
       >
-        <Text style={styles.firstGoalBadge}>🎉 First goal created</Text>
-        <Text style={styles.firstGoalBody}>
-          Use “Generate Activities with AI” for ideas, or “Add Activity manually” for something you
-          already have in mind.
-        </Text>
-      </Dialog>
+        <View style={{ flex: 1, justifyContent: 'space-between' }}>
+          <View>
+            <Text style={styles.celebrationBadge}>Goal created</Text>
+            <Text style={[styles.celebrationTitle, { marginTop: spacing.sm }]}>Nice work.</Text>
+            <Text style={[styles.celebrationSubtitle, { marginTop: spacing.sm }]}>
+              Your next step is simple: add a couple of Activities so you always know what to do next.
+            </Text>
+          </View>
+
+          <View style={styles.celebrationMediaSlot}>
+            <CelebrationGif kind="firstGoal" size="md" showControls={false} />
+          </View>
+
+          <View>
+            <Button
+              fullWidth
+              style={styles.celebrationContinueButton}
+              onPress={handleContinueFirstGoalCelebration}
+              accessibilityLabel="Continue to activities"
+            >
+              <Text style={styles.celebrationContinueLabel}>Continue</Text>
+            </Button>
+          </View>
+        </View>
+      </FullScreenInterstitial>
       <Dialog
         visible={showOnboardingSharePrompt}
         onClose={() => setShowOnboardingSharePrompt(false)}
@@ -683,7 +703,7 @@ export function GoalDetailScreen() {
         </Text>
       </Dialog>
       <BottomGuide
-        visible={shouldShowOnboardingActivitiesGuide}
+        visible={shouldShowOnboardingActivitiesGuide && activeTab !== 'plan'}
         onClose={() => setHasDismissedOnboardingActivitiesGuide(true)}
       >
         <Heading variant="sm">Next step: add your first activities</Heading>
@@ -720,6 +740,29 @@ export function GoalDetailScreen() {
           <Text style={styles.linkLabel}>Add manually instead</Text>
         </Button>
       </BottomGuide>
+      <Coachmark
+        visible={shouldShowOnboardingActivitiesCoachmark}
+        targetRef={addActivitiesButtonRef}
+        scrimToken="pineSubtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={18}
+        offset={spacing.xs}
+        highlightColor={colors.turmeric}
+        actionColor={colors.turmeric}
+        attentionPulse
+        attentionPulseDelayMs={2500}
+        attentionPulseDurationMs={15000}
+        title={<Text style={styles.goalCoachmarkTitle}>Add your first activity</Text>}
+        body={
+          <Text style={styles.goalCoachmarkBody}>
+            Tap the + to generate Activities with AI (or switch to Manual for something you already
+            know you should do next).
+          </Text>
+        }
+        onDismiss={() => setHasDismissedOnboardingActivitiesGuide(true)}
+        placement="below"
+      />
       {editingForces && (
         <TouchableOpacity
           activeOpacity={1}
@@ -1121,28 +1164,30 @@ export function GoalDetailScreen() {
                   <VStack space="md">
                     <HStack alignItems="center" justifyContent="space-between">
                       <Heading style={styles.sectionTitle}>Activities</Heading>
-                      <IconButton
-                        style={styles.addActivityIconButton}
-                        onPress={() => setActivityCoachVisible(true)}
-                        accessibilityLabel="Generate activities with AI"
-                      >
-                        <Icon name="plus" size={18} color={colors.canvas} />
-                      </IconButton>
+                      <View ref={addActivitiesButtonRef} collapsable={false}>
+                        <IconButton
+                          style={styles.addActivityIconButton}
+                          onPress={() => setActivityCoachVisible(true)}
+                          accessibilityLabel="Generate activities with AI"
+                        >
+                          <Icon name="plus" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </View>
                     </HStack>
 
                     {goalActivities.length === 0 ? (
-                      <VStack space="sm" style={styles.planEmptyState}>
-                        <Heading style={styles.planEmptyTitle}>
-                          No activities for this goal yet
-                        </Heading>
-                        <Text style={styles.planEmptyBody}>
-                          Activities are the concrete steps that move this goal forward. Add a first
-                          activity so you always know the next thing to do.
-                        </Text>
-                        <Text style={styles.planEmptyHint}>
-                          You can also create activities from the main Activities canvas anytime.
-                        </Text>
-                      </VStack>
+                      <EmptyState
+                        variant="compact"
+                        title="No activities for this goal yet"
+                        instructions="Add your first activity to move this goal forward."
+                        primaryAction={{
+                          label: 'Add activity',
+                          variant: 'accent',
+                          onPress: () => setActivityCoachVisible(true),
+                          accessibilityLabel: 'Add an activity to this goal',
+                        }}
+                        style={styles.planEmptyState}
+                      />
                     ) : (
                       <>
                         {activeGoalActivities.length > 0 && (
@@ -2041,6 +2086,42 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  celebrationBadge: {
+    ...typography.label,
+    color: colors.turmeric200,
+  },
+  celebrationTitle: {
+    ...typography.titleLg,
+    color: colors.primaryForeground,
+  },
+  celebrationSubtitle: {
+    ...typography.body,
+    color: colors.indigo100,
+  },
+  celebrationMediaSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+  },
+  celebrationContinueButton: {
+    backgroundColor: colors.quiltBlue200,
+    borderColor: colors.quiltBlue200,
+    borderRadius: 18,
+    paddingVertical: spacing.md,
+  },
+  celebrationContinueLabel: {
+    ...typography.titleSm,
+    color: colors.indigo900,
+  },
+  goalCoachmarkTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  goalCoachmarkBody: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   optionsButton: {
     borderRadius: 999,

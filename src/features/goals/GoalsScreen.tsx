@@ -26,7 +26,7 @@ import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../dom
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { VStack, Heading, Text, HStack } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -232,13 +232,17 @@ export function GoalsScreen() {
           })}
         </VStack>
       ) : (
-        <VStack space="sm" style={styles.emptyState}>
-          <Heading style={styles.emptyTitle}>No goals yet</Heading>
-          <Text style={styles.emptyBody}>
-            Goals live inside your arcs and express concrete progress. You can start with a
-            standalone goal now, then connect it to an Arc later.
-          </Text>
-        </VStack>
+        <EmptyState
+          title="No goals yet"
+          instructions="Create your first goal, then connect it to an Arc anytime."
+          primaryAction={{
+            label: 'Create goal',
+            variant: 'accent',
+            onPress: handlePressNewGoal,
+            accessibilityLabel: 'Create a new goal',
+          }}
+          style={styles.emptyState}
+        />
       )}
 
         {hasDrafts && (

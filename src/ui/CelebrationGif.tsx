@@ -18,6 +18,11 @@ type CelebrationGifProps = {
   ageRange?: AgeRange;
   size?: 'sm' | 'md';
   stylePreference?: CelebrationStylePreference;
+  /**
+   * When false, hides the refresh/like/thumbs-down controls + attribution row.
+   * Useful for full-screen celebration moments where controls would be distracting.
+   */
+  showControls?: boolean;
 };
 
 /**
@@ -33,6 +38,7 @@ export function CelebrationGif({
   ageRange,
   size = 'sm',
   stylePreference,
+  showControls = true,
 }: CelebrationGifProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -160,7 +166,7 @@ export function CelebrationGif({
           </View>
         )}
       </View>
-      {url ? (
+      {url && showControls ? (
         <View>
           <View style={styles.attributionRow}>
             <View style={styles.iconsRow}>

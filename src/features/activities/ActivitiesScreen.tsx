@@ -22,7 +22,7 @@ import type {
 } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { VStack, Heading, Text, HStack, Input, Textarea, ButtonLabel, Card } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, Input, Textarea, ButtonLabel, Card, EmptyState } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
@@ -673,13 +673,17 @@ export function ActivitiesScreen() {
             )}
           </>
         ) : (
-          <VStack space="sm" style={styles.emptyState}>
-            <Heading style={styles.emptyTitle}>No activities yet</Heading>
-            <Text style={styles.emptyBody}>
-              Activities are the concrete tasks that move your arcs and goals forward. You can
-              start by adding a single activity, then group and refine later.
-            </Text>
-      </VStack>
+          <EmptyState
+            title="No activities yet"
+            instructions="Add your first activity to start building momentum."
+            primaryAction={{
+              label: 'Add activity',
+              variant: 'accent',
+              onPress: () => setActivityCoachVisible(true),
+              accessibilityLabel: 'Add a new activity',
+            }}
+            style={styles.emptyState}
+          />
         )}
       </ScrollView>
       <ActivityCoachDrawer
