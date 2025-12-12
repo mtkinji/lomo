@@ -1,14 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Pressable as RNPressable,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  Pressable,
-} from 'react-native';
+import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, TouchableOpacity, View, Pressable } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -25,6 +16,7 @@ import type {
   RootDrawerParamList,
   SettingsStackParamList,
 } from '../../navigation/RootNavigator';
+import { ProfileAvatar } from '../../ui/ProfileAvatar';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -99,15 +91,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   },
 ];
 
-const getInitials = (name?: string) => {
-  if (!name) {
-    return 'YW';
-  }
-  const parts = name.trim().split(/\s+/);
-  const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '');
-  return initials.join('') || 'YW';
-};
-
 export function SettingsHomeScreen() {
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
@@ -142,7 +125,6 @@ export function SettingsHomeScreen() {
   const displayName = userProfile?.fullName?.trim() || 'Your profile';
   const profileSubtitle = userProfile?.email?.trim() || 'Add your email address';
   const avatarSource = userProfile?.avatarUrl ? { uri: userProfile.avatarUrl } : null;
-  const avatarInitials = getInitials(userProfile?.fullName);
 
   const updateAvatar = (uri?: string) => {
     updateUserProfile((current) => ({
@@ -241,13 +223,12 @@ export function SettingsHomeScreen() {
                 setAvatarSheetVisible(true);
               }}
             >
-              <View style={styles.profileAvatar}>
-                {avatarSource ? (
-                  <Image source={avatarSource} style={styles.profileAvatarImage} />
-                ) : (
-                  <Text style={styles.profileAvatarInitials}>{avatarInitials}</Text>
-                )}
-              </View>
+              <ProfileAvatar
+                name={userProfile?.fullName}
+                avatarUrl={userProfile?.avatarUrl}
+                size={64}
+                borderRadius={16}
+              />
             </RNPressable>
             <TouchableOpacity
               style={styles.profileInfoButton}
@@ -401,29 +382,12 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     borderRadius: 24,
   },
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: colors.shellAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
   profileInfoButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-  },
-  profileAvatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  profileAvatarInitials: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
   },
   profileInfo: {
     flex: 1,

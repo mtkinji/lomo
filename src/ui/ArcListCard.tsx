@@ -1,7 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card } from '@/components/ui/card';
+import { Card } from './Card';
 import { Icon } from './Icon';
 import { colors, spacing, typography } from '../theme';
 import type { Arc } from '../domain/types';
@@ -48,6 +48,8 @@ export function ArcListCard({
   const seed = buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant);
   const { colors: gradientColors, direction } = getArcGradient(seed);
 
+  const isHeroHidden = arc.heroHidden;
+
   const showStatusPill = arc.status !== 'active';
   const statusLabel =
     arc.status === 'active' ? 'Active arc' : arc.status.replace('_', ' ');
@@ -60,11 +62,13 @@ export function ArcListCard({
       : null;
 
   return (
-    <Card style={[styles.card, style]}>
+    <Card padding="none" style={[styles.card, style]}>
       {/* Hero banner lives at the top of the Card and mirrors the card radius so
           gradients and thumbnails feel seamlessly inset into the container. */}
       <View style={styles.heroInner}>
-        {arc.thumbnailUrl ? (
+        {isHeroHidden ? (
+          <View style={styles.heroMinimal} />
+        ) : arc.thumbnailUrl ? (
           <Image
             source={{ uri: arc.thumbnailUrl }}
             style={styles.heroImage}
@@ -124,6 +128,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 0,
     marginBottom: 0,
+    padding: spacing.sm,
   },
   heroInner: {
     width: '100%',
@@ -132,6 +137,10 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 1,
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  heroMinimal: {
+    flex: 1,
+    backgroundColor: colors.shellAlt,
   },
   heroImage: {
     width: '100%',
@@ -143,6 +152,8 @@ const styles = StyleSheet.create({
     // meta row visually anchors to the bottom of the card.
     justifyContent: 'space-between',
     gap: spacing.sm,
+    // Inset the text and meta rows from the card edges while keeping the
+    // hero banner flush with the container above.
   },
   bodyContent: {
     gap: spacing.xs,

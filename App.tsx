@@ -14,6 +14,7 @@ import {
   Inter_900Black,
 } from '@expo-google-fonts/inter';
 import { Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { Sriracha_400Regular } from '@expo-google-fonts/sriracha';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
 import { FirstTimeUxFlow } from './src/features/onboarding/FirstTimeUxFlow';
@@ -32,6 +33,7 @@ export default function App() {
     Inter_800ExtraBold,
     Inter_900Black,
     Poppins_700Bold,
+    Sriracha_400Regular,
   });
 
   const arcsCount = useAppStore((state) => state.arcs.length);
@@ -72,16 +74,14 @@ export default function App() {
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    // Defer bootstrapping to the next tick so initial effects (like FTUE
-    // trigger and notifications init) have a chance to run once.
+    // Hold the in-app launch screen briefly so the branded interstitial
+    // feels intentional between the native splash and main shell.
     const timeout = setTimeout(() => {
       setIsBootstrapped(true);
-    }, 0);
+    }, 900);
 
     return () => clearTimeout(timeout);
-  }, [
-    fontsLoaded,
-  ]);
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return null;
@@ -119,4 +119,3 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
-

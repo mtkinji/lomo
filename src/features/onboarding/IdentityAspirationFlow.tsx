@@ -3,25 +3,38 @@ import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View } from
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Heading, Text } from '../../ui/primitives';
+import { Icon } from '../../ui/Icon';
+import { ButtonLabel } from '../../ui/Typography';
 import { Input } from '../../ui/Input';
 import { CelebrationGif } from '../../ui/CelebrationGif';
 import { Dialog } from '../../ui/Dialog';
+import { QuestionCard } from '../../ui/QuestionCard';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
 import { useAppStore } from '../../store/useAppStore';
 import type { Arc } from '../../domain/types';
-import type { AiChatPaneController } from '../ai/AiChatScreen';
+import type { ChatTimelineController } from '../ai/AiChatScreen';
+import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
+import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
 
+type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
+
 type IdentityAspirationFlowProps = {
+  mode?: IdentityAspirationFlowMode;
   onComplete?: () => void;
   /**
-   * Optional handle to the shared chat surface. For this FTUE we keep AI work
-   * mostly "behind the scenes" and do not currently stream visible chat turns,
-   * but we keep the ref available for future refinement.
+   * Optional handle to the shared chat surface. This flow treats the
+   * AiChatPane controller as its only link to the chat thread: it can append
+   * synthetic user messages, stream assistant copy, and insert cards via the
+   * AgentWorkspace `stepCard` slot, but it never mounts its own chat surface.
+   *
+   * In the long run, this same presenter pattern should be reused for Arc
+   * creation from the Arcs list via an `arcCreation` workflow, instead of
+   * mounting IdentityAspirationFlow directly inside a New Arc modal.
    */
-  chatControllerRef?: React.RefObject<AiChatPaneController | null>;
+  chatControllerRef?: React.RefObject<ChatTimelineController | null>;
 };
 
 type IdentityTag =
@@ -270,6 +283,38 @@ const MEANING_OPTIONS: ChoiceOption[] = [
   },
 ];
 
+// Optional – "Why now" / turning point for the identity Arc.
+// Currently used in the Arc creation flow launched from the Arcs inventory
+// (reuseIdentityForNewArc mode) so we can tune the narrative around the
+// season the user is in without adding friction to the first-time FTUE.
+const WHY_NOW_OPTIONS: ChoiceOption[] = [
+  {
+    id: 'excited_and_serious',
+    label: "I’m excited about this and want to take it seriously.",
+    tags: ['making_meaningful', 'mastery'],
+  },
+  {
+    id: 'fits_future_me',
+    label: "It fits who I’m trying to become.",
+    tags: ['values', 'meaning'],
+  },
+  {
+    id: 'keeps_returning',
+    label: 'It keeps coming back to me.',
+    tags: ['new_thinking', 'exploration'],
+  },
+  {
+    id: 'change_for_good',
+    label: 'It would really change things in a good way.',
+    tags: ['making_meaningful'],
+  },
+  {
+    id: 'bigger_than_me',
+    label: 'It’s about more than just me.',
+    tags: ['meaning', 'values', 'making_meaningful'],
+  },
+];
+
 // Q7 – Desired impact on others
 const IMPACT_OPTIONS: ChoiceOption[] = [
   {
@@ -422,7 +467,9 @@ type Phase =
   | 'trait'
   | 'growth'
   | 'proudMoment'
+  | 'nickname'
   | 'meaning'
+  | 'whyNow'
   | 'impact'
   | 'values'
   | 'philosophy'
@@ -514,15 +561,28 @@ type ArcDevelopmentInsights = {
   pitfalls: string[];
 };
 
+/**
+ * Workflow presenter for the identity/Arc FTUE (and reuseIdentityForNewArc).
+ *
+ * This component owns the tap-first card experience and talks to the agent
+ * runtime only through `WorkflowRuntimeContext` and the optional
+ * `chatControllerRef`, so that all visible messages and cards still flow
+ * through the shared AgentWorkspace + AiChatPane timeline.
+ */
 export function IdentityAspirationFlow({
+  mode = 'firstTimeOnboarding',
   onComplete,
   chatControllerRef,
 }: IdentityAspirationFlowProps) {
   const workflowRuntime = useWorkflowRuntime();
   const addArc = useAppStore((state) => state.addArc);
   const setLastOnboardingArcId = useAppStore((state) => state.setLastOnboardingArcId);
+  const updateUserProfile = useAppStore((state) => state.updateUserProfile);
+  const userProfile = useAppStore((state) => state.userProfile);
 
-  const [phase, setPhase] = useState<Phase>('domain');
+  const [phase, setPhase] = useState<Phase>(
+    mode === 'reuseIdentityForNewArc' ? 'dreams' : 'domain',
+  );
   const [introPlayed, setIntroPlayed] = useState(false);
   const [introIndex, setIntroIndex] = useState(0);
   const [lastIntroStreamedIndex, setLastIntroStreamedIndex] = useState<number | null>(null);
@@ -530,6 +590,9 @@ export function IdentityAspirationFlow({
   const introActionsOpacity = useRef(new Animated.Value(0)).current;
   const introActionsTranslateY = useRef(new Animated.Value(8)).current;
   const introActionsTranslateX = useRef(new Animated.Value(0)).current;
+  // Track which intro index (if any) is currently streaming so we don't start
+  // multiple overlapping streams of the same message when this effect re-runs.
+  const introStreamingIndexRef = useRef<number | null>(null);
   const [hasStreamedDreamsIntroCopy, setHasStreamedDreamsIntroCopy] = useState(false);
 
   const [domainIds, setDomainIds] = useState<string[]>([]);
@@ -538,6 +601,7 @@ export function IdentityAspirationFlow({
   const [growthEdgeIds, setGrowthEdgeIds] = useState<string[]>([]);
   const [proudMomentIds, setProudMomentIds] = useState<string[]>([]);
   const [meaningIds, setMeaningIds] = useState<string[]>([]);
+  const [whyNowIds, setWhyNowIds] = useState<string[]>([]);
   const [impactIds, setImpactIds] = useState<string[]>([]);
   const [valueIds, setValueIds] = useState<string[]>([]);
   const [philosophyIds, setPhilosophyIds] = useState<string[]>([]);
@@ -560,6 +624,20 @@ export function IdentityAspirationFlow({
   const [openQuestionInfoKey, setOpenQuestionInfoKey] = useState<string | null>(null);
   const [dreamInput, setDreamInput] = useState('');
 
+  const callOnboardingAgentStep = useCallback(
+    async (stepId: string, messages: CoachChatTurn[]): Promise<string> => {
+      const options: CoachChatOptions = {
+        mode: 'firstTimeOnboarding',
+        workflowDefinitionId: workflowRuntime?.definition?.id,
+        workflowInstanceId: workflowRuntime?.instance?.id,
+        workflowStepId: stepId,
+      };
+
+      return sendCoachChat(messages, options);
+    },
+    [workflowRuntime]
+  );
+
   const appendChatUserMessage = useCallback(
     (content: string) => {
       const controller = chatControllerRef?.current;
@@ -568,6 +646,70 @@ export function IdentityAspirationFlow({
     },
     [chatControllerRef]
   );
+
+  /**
+   * Build a compact snapshot of the visible onboarding conversation so far,
+   * based on the shared Agent timeline. This gives the identity/aspiration
+   * prompts a lightweight sense of how the thread has unfolded without
+   * duplicating the structured identity signals we already send.
+   */
+  const buildConversationSnapshotFromTimeline = useCallback((): string | null => {
+    const controller = chatControllerRef?.current;
+    if (!controller || typeof controller.getTimeline !== 'function') {
+      return null;
+    }
+
+    try {
+      const timeline = controller.getTimeline() as AgentTimelineItem[];
+      if (!timeline || timeline.length === 0) {
+        return null;
+      }
+
+      const textItems = timeline.filter(
+        (item) => item.kind === 'assistantMessage' || item.kind === 'userMessage'
+      );
+
+      if (textItems.length === 0) {
+        return null;
+      }
+
+      const recent = textItems.slice(-4);
+      const lines = recent
+        .map((item) => {
+          const speaker = item.kind === 'assistantMessage' ? 'assistant' : 'user';
+          const rawContent = (item as AgentTimelineItem & { content?: unknown }).content;
+          const content =
+            typeof rawContent === 'string'
+              ? rawContent.trim()
+              : typeof (rawContent as { toString?: () => string })?.toString === 'function'
+              ? String(rawContent).trim()
+              : '';
+
+          if (!content) {
+            return null;
+          }
+
+          const truncated = content.length > 280 ? `${content.slice(0, 277)}…` : content;
+          return `${speaker}: ${truncated}`;
+        })
+        .filter((line): line is string => Boolean(line));
+
+      if (lines.length === 0) {
+        return null;
+      }
+
+      return lines.join('\n');
+    } catch (err) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[onboarding] Failed to build conversation snapshot from agent timeline',
+          err
+        );
+      }
+      return null;
+    }
+  }, [chatControllerRef]);
 
   const formatSelectionLabels = (ids: string[], options: ChoiceOption[]): string => {
     const labels = ids
@@ -589,6 +731,7 @@ export function IdentityAspirationFlow({
   const growthEdge = formatSelectionLabels(growthEdgeIds, GROWTH_EDGE_OPTIONS);
   const proudMoment = formatSelectionLabels(proudMomentIds, PROUD_MOMENT_OPTIONS);
   const meaning = formatSelectionLabels(meaningIds, MEANING_OPTIONS);
+  const whyNow = formatSelectionLabels(whyNowIds, WHY_NOW_OPTIONS);
   const impact = formatSelectionLabels(impactIds, IMPACT_OPTIONS);
   const valueOrientation = formatSelectionLabels(valueIds, VALUES_OPTIONS);
   const philosophy = formatSelectionLabels(philosophyIds, PHILOSOPHY_OPTIONS);
@@ -607,6 +750,66 @@ export function IdentityAspirationFlow({
     valueIds.length > 0 &&
     philosophyIds.length > 0 &&
     vocationIds.length > 0;
+
+  // When reusing identity context for a new Arc, hydrate the selection state
+  // from the stored identityProfile so we can skip re-asking questions 1–10.
+  const identityProfile = userProfile?.identityProfile;
+
+  useEffect(() => {
+    if (mode !== 'reuseIdentityForNewArc') return;
+    if (!identityProfile) return;
+
+    if (identityProfile.domainIds?.length) {
+      setDomainIds(identityProfile.domainIds);
+    }
+    if (identityProfile.motivationIds?.length) {
+      setMotivationIds(identityProfile.motivationIds);
+    }
+    if (identityProfile.signatureTraitIds?.length) {
+      setSignatureTraitIds(identityProfile.signatureTraitIds);
+    }
+    if (identityProfile.growthEdgeIds?.length) {
+      setGrowthEdgeIds(identityProfile.growthEdgeIds);
+    }
+    if (identityProfile.proudMomentIds?.length) {
+      setProudMomentIds(identityProfile.proudMomentIds);
+    }
+    if (identityProfile.meaningIds?.length) {
+      setMeaningIds(identityProfile.meaningIds);
+    }
+    if (identityProfile.impactIds?.length) {
+      setImpactIds(identityProfile.impactIds);
+    }
+    if (identityProfile.valueIds?.length) {
+      setValueIds(identityProfile.valueIds);
+    }
+    if (identityProfile.philosophyIds?.length) {
+      setPhilosophyIds(identityProfile.philosophyIds);
+    }
+    if (identityProfile.vocationIds?.length) {
+      setVocationIds(identityProfile.vocationIds);
+    }
+    if (identityProfile.nickname) {
+      setNickname(identityProfile.nickname);
+    }
+
+    // In the reuse flow we land directly on the big-dream question, then ask
+    // a short "why does this feel important?" follow-up before generating.
+    setPhase('dreams');
+  }, [
+    mode,
+    identityProfile,
+    setDomainIds,
+    setMotivationIds,
+    setSignatureTraitIds,
+    setGrowthEdgeIds,
+    setProudMomentIds,
+    setMeaningIds,
+    setImpactIds,
+    setValueIds,
+    setPhilosophyIds,
+    setVocationIds,
+  ]);
 
   const advancePhase = (next: Phase) => {
     setPhase(next);
@@ -761,6 +964,7 @@ export function IdentityAspirationFlow({
     const growthEdgeLabel = growthEdge || 'a real challenge you are working on';
     const proudMomentLabel = proudMoment || 'a small way you show up on ordinary days';
     const meaningLabel = meaning || 'a source of meaning that feels true for you';
+    const whyNowLabel = whyNow || '';
     const impactLabel = impact || 'a way you want your life to touch others';
     const valueLabel = valueOrientation || 'a core value';
     const philosophyLabel = philosophy || 'a way of moving through life';
@@ -770,8 +974,9 @@ export function IdentityAspirationFlow({
         ? bigDreams.join('; ')
         : "one or two concrete things you'd love to bring to life someday";
 
-    // Generate Arc name using allowed patterns: Domain+Posture, Value+Domain, Two-noun frame
-    // Must be 1-3 words (emoji prefix allowed)
+    // Generate Arc name using allowed patterns: primarily dream‑anchored, with
+    // Domain+Posture / Value+Domain / Two‑noun frame as graceful fallbacks.
+    // Must be 1‑3 words (emoji prefix allowed).
     const generateArcName = (): string => {
       // If nickname provided, use it (but ensure it's 1-3 words)
       if (nickname && nickname.trim()) {
@@ -783,7 +988,37 @@ export function IdentityAspirationFlow({
         return words.slice(0, 3).join(' ');
       }
 
-      // Extract key words from domain and trait for Domain+Posture or Two-noun patterns
+      // First, try to derive a compact identity name directly from the big dream.
+      // Example transformations:
+      // - "I want to build a tiny cabin in the woods" -> "Tiny Cabin"
+      // - "Record an honest folk album" -> "Honest Album"
+      if (bigDreams.length > 0) {
+        const firstDream = bigDreams[0].toLowerCase();
+        const dreamWords = firstDream
+          // Strip common scaffolding and filler so we keep the heart of the dream.
+          .replace(
+            /\b(i want to|i want|i'd like to|i'd like|i can|and|the|a|an|into|turn|build|make|create|start|launch|record|write|sell|profitable|lifestyle|business|product|physical|project|thing|something)\b/gi,
+            ''
+          )
+          .split(/\s+/)
+          .filter((word) => word.length > 2);
+
+        if (dreamWords.length > 0) {
+          const meaningfulDreamWords = dreamWords
+            .filter((word) => !['very', 'really', 'more', 'less', 'just'].includes(word))
+            .slice(0, 3);
+
+          if (meaningfulDreamWords.length > 0) {
+            const capitalized = meaningfulDreamWords
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+            return capitalized;
+          }
+        }
+      }
+
+      // If we can't get a clean identity phrase from the dream, fall back to
+      // domain‑driven patterns.
       const domainWord = domainLabel.split(' ')[0]?.toLowerCase() ?? '';
       const traitWord = traitLabel.replace(/^Your\s+/i, '').split(' ')[0]?.toLowerCase() ?? '';
       const valueWord = valueLabel.split(' ')[0]?.toLowerCase() ?? '';
@@ -809,26 +1044,6 @@ export function IdentityAspirationFlow({
           const capitalizedDomain = domainWord.charAt(0).toUpperCase() + domainWord.slice(1);
           const capitalizedVocation = vocationWord.charAt(0).toUpperCase() + vocationWord.slice(1);
           return `${capitalizedDomain} & ${capitalizedVocation}`;
-        }
-      }
-
-      // If we have a big dream, extract 1-2 key words from it
-      if (bigDreams.length > 0) {
-        const firstDream = bigDreams[0].toLowerCase();
-        // Remove common words and extract meaningful nouns
-        const meaningfulWords = firstDream
-          .replace(/\b(i want to|i want|i'd|i can|and|the|a|an|into|turn|build|make|create|sell|profitable|lifestyle|business|product|physical)\b/gi, '')
-          .split(/\s+/)
-          .filter((word) => word.length > 3)
-          .slice(0, 2);
-        
-        if (meaningfulWords.length > 0) {
-          const capitalized = meaningfulWords
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-          if (meaningfulWords.length <= 2) {
-            return capitalized;
-          }
         }
       }
 
@@ -861,11 +1076,31 @@ export function IdentityAspirationFlow({
     // Extract core domain concept (first meaningful word or phrase)
     const domainCore = domainLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'growth';
     const motivationCore = motivationLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'purpose';
-    const traitCore = traitLabel.replace(/^Your\s+/i, '').split(/[&,]/)[0]?.trim().toLowerCase() || 'strength';
-    
-    // Sentence 1: Identity direction
-    const sentence1 = `I want to grow into someone who cares deeply about ${domainCore}, powered by ${motivationCore}, and who leans on ${traitCore} as a real strength.`;
-    
+    const traitCore =
+      traitLabel.replace(/^Your\s+/i, '').split(/[&,]/)[0]?.trim().toLowerCase() || 'strength';
+
+    // Extract key concept from dreams (remove "I want" patterns and extract 2-4 key words)
+    let dreamPhrase = '';
+    if (bigDreams.length > 0) {
+      const firstDream = bigDreams[0].toLowerCase();
+      // Remove "I want" patterns and extract meaningful words
+      const meaningfulWords = firstDream
+        .replace(/\bi want to\b|\bi want\b|\bi'd\b|\bi can\b/gi, '')
+        .split(/\s+/)
+        .filter(
+          (word) => word.length > 3 && !['that', 'this', 'with', 'into', 'turn'].includes(word)
+        )
+        .slice(0, 6)
+        .join(' ');
+      dreamPhrase = meaningfulWords || 'what matters most';
+    }
+
+    // Sentence 1: Identity direction — explicitly anchored in the dream when present.
+    const sentence1 =
+      bigDreams.length > 0 && dreamPhrase
+        ? `I want to become the kind of person who can bring ${dreamPhrase} to life in a grounded way, rooted in ${domainCore} and powered by ${motivationCore} with ${traitCore} as a real strength.`
+        : `I want to grow into someone who cares deeply about ${domainCore}, powered by ${motivationCore}, and who leans on ${traitCore} as a real strength.`;
+
     // Sentence 2: Why it matters now - need to construct proper grammar
     const growthEdgeCore = growthEdgeLabel.toLowerCase().trim();
     // Fix incomplete phrases like "staying consistent" -> "I'm working on staying consistent"
@@ -875,25 +1110,13 @@ export function IdentityAspirationFlow({
       ? growthEdgeCore
       : `I'm learning to navigate ${growthEdgeCore}`;
     
-    // Extract key concept from dreams (remove "I want" patterns and extract 2-4 key words)
-    let dreamPhrase = '';
-    if (bigDreams.length > 0) {
-      const firstDream = bigDreams[0].toLowerCase();
-      // Remove "I want" patterns and extract meaningful words
-      const meaningfulWords = firstDream
-        .replace(/\bi want to\b|\bi want\b|\bi'd\b|\bi can\b/gi, '')
-        .split(/\s+/)
-        .filter((word) => word.length > 3 && !['that', 'this', 'with', 'into', 'turn'].includes(word))
-        .slice(0, 4)
-        .join(' ');
-      dreamPhrase = meaningfulWords || 'what matters most';
-    }
-    
     const valueCore = valueLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'integrity';
     
+    const tensionPhrase = (whyNowLabel || growthEdgePhrase).trim();
+
     const sentence2 = bigDreams.length > 0 && dreamPhrase
-      ? `This direction matters now because ${growthEdgePhrase}, and I'm learning to bring ${dreamPhrase} to life in a way that stays grounded, kind to my energy, and aligned with ${valueCore}.`
-      : `This direction matters now because ${growthEdgePhrase}, and I'm learning to move toward what matters at a pace that feels sustainable and true to ${valueCore}.`;
+      ? `This direction matters now because ${tensionPhrase}, and I'm learning to bring ${dreamPhrase} to life in a way that stays grounded, kind to my energy, and aligned with ${valueCore}.`
+      : `This direction matters now because ${tensionPhrase}, and I'm learning to move toward what matters at a pace that feels sustainable and true to ${valueCore}.`;
 
     // Sentence 3: Concrete everyday scene
     const proudMomentCore = proudMomentLabel.toLowerCase().trim();
@@ -1085,22 +1308,15 @@ export function IdentityAspirationFlow({
         `Candidate Arc narrative: ${candidate.aspirationSentence}`,
       ].join('\n');
 
-      const messages: CoachChatTurn[] = [
-        {
-          role: 'user',
-          content: judgePrompt,
-        },
-      ];
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'aspiration_quality_check',
-      };
-
       try {
-        const reply = await sendCoachChat(messages, options);
+        const messages: CoachChatTurn[] = [
+          {
+            role: 'user',
+            content: judgePrompt,
+          },
+        ];
+
+        const reply = await callOnboardingAgentStep('aspiration_quality_check', messages);
         const startIdx = reply.indexOf('{');
         const endIdx = reply.lastIndexOf('}');
         const jsonText =
@@ -1149,7 +1365,7 @@ export function IdentityAspirationFlow({
       philosophy,
       vocation,
       bigDreams,
-      workflowRuntime,
+      callOnboardingAgentStep,
     ]
   );
 
@@ -1205,22 +1421,15 @@ export function IdentityAspirationFlow({
         `- pitfalls: ${candidate.pitfalls.join(' | ')}`,
       ].join('\n');
 
-      const messages: CoachChatTurn[] = [
-        {
-          role: 'user',
-          content: judgePrompt,
-        },
-      ];
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'arc_insights_quality_check',
-      };
-
       try {
-        const reply = await sendCoachChat(messages, options);
+        const messages: CoachChatTurn[] = [
+          {
+            role: 'user',
+            content: judgePrompt,
+          },
+        ];
+
+        const reply = await callOnboardingAgentStep('arc_insights_quality_check', messages);
         const startIdx = reply.indexOf('{');
         const endIdx = reply.lastIndexOf('}');
         const jsonText =
@@ -1263,7 +1472,7 @@ export function IdentityAspirationFlow({
       philosophy,
       vocation,
       bigDreams,
-      workflowRuntime,
+      callOnboardingAgentStep,
     ]
   );
 
@@ -1339,20 +1548,6 @@ export function IdentityAspirationFlow({
         `- ${identitySignals}`,
       ].join('\n');
 
-      const messages: CoachChatTurn[] = [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ];
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'arc_insights_generate',
-      };
-
       // Try up to 3 candidates, using the quality judge to avoid very weak drafts.
       const QUALITY_THRESHOLD = 7.5;
 
@@ -1361,7 +1556,14 @@ export function IdentityAspirationFlow({
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-          const reply = await sendCoachChat(messages, options);
+          const messages: CoachChatTurn[] = [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ];
+
+          const reply = await callOnboardingAgentStep('arc_insights_generate', messages);
           const parsed = parseInsightsFromReply(reply);
           if (!parsed) {
             continue;
@@ -1409,18 +1611,14 @@ export function IdentityAspirationFlow({
       philosophy,
       vocation,
       bigDreams,
-      workflowRuntime,
+      callOnboardingAgentStep,
       scoreArcInsightQuality,
       buildLocalInsightsFallback,
     ]
   );
 
-  const generateAspiration = useCallback(
+  const generateArc = useCallback(
     async (tweakHint?: string) => {
-      if (!canGenerate) {
-        return;
-      }
-
       setIsGenerating(true);
       setError(null);
 
@@ -1431,6 +1629,7 @@ export function IdentityAspirationFlow({
         `growth edge: ${growthEdge}`,
         `everyday proud moment: ${proudMoment}`,
         `source of meaning: ${meaning}`,
+        `why this matters now / turning point: ${whyNow || 'not specified'}`,
         `desired impact: ${impact}`,
         `core values: ${valueOrientation}`,
         `life philosophy: ${philosophy}`,
@@ -1455,6 +1654,7 @@ export function IdentityAspirationFlow({
       const inputsSummary = inputsSummaryLines.join('\n- ');
 
       const buildPrompt = (judgeFeedback?: string) => {
+        const conversationSnapshot = buildConversationSnapshotFromTimeline();
         const lines: string[] = [
           'You are an identity-development coach inside the Kwilt app. You help users generate a long-term identity direction called an Arc.',
           '',
@@ -1483,17 +1683,24 @@ export function IdentityAspirationFlow({
           'ARC NAME — RULES',
           '-----------------------------------------',
           'Arc.name must:',
-          '- be 1–3 words (emoji prefix allowed),',
+          '- be 1–3 words (emoji allowed),',
           '- describe an identity direction or arena,',
           '- feel stable over years (can hold many goals),',
           '- reflect the user\'s inputs (domain + vibe + dream),',
-          '- when a concrete big dream is present, treat it as a primary naming anchor so the Arc name quietly points at that dream (or its essence),',
-          '- avoid personality types ("The Visionary", "The Genius"),',
+          '- when a concrete big dream is present, treat it as a **primary naming anchor** so the Arc name describes an aspirational identity of the kind of person who achieves that dream (or its essence),',
+          // '- avoid personality types ("The Visionary", "The Genius"),',
           '- avoid tasks ("Start My Business", "Get Fit This Year"),',
           '- avoid vague abstractions ("My Best Self", "Life Journey"),',
           '- avoid abstract noun combinations that don\'t form a coherent identity ("Creativity Curiosity", "Exploration Discovery", "Growth Learning").',
           '',
-          'Allowed name patterns (choose ONE and follow it exactly):',
+          'When the user has given a concrete big dream (e.g., record an album, build a cabin, start a small studio), first look for a short identity phrase that **codes that dream into who they are becoming**. Examples:',
+          '- Dream: "build a small, honest woodworking studio" → Name: "Woodshop Steward", "Honest Woodshop"',
+          '- Dream: "record a folk album with friends" → Name: "Folk Album Season", "Honest Album"',
+          '- Dream: "start a tiny design studio" → Name: "Studio Stewardship", "Tiny Studio"',
+          '',
+          'Avoid simply echoing the raw dream text as-is (e.g., "Build a cabin I can rent on Airbnb"). Your job is to convert the dream into an identity direction, not copy the sentence.',
+          '',
+          'If you cannot form a clean, identity-like phrase from the dream, fall back to the following patterns. Allowed name patterns (choose ONE and follow it exactly):',
           '- Domain + Posture: "Venture Stewardship", "Family Stewardship", "Relational Courage", "Creative Discipline"',
           '  * First word = life domain (Venture, Family, Relational, Creative)',
           '  * Second word = how you approach it (Stewardship, Courage, Discipline)',
@@ -1579,6 +1786,14 @@ export function IdentityAspirationFlow({
           `- ${inputsSummary}`,
         ];
 
+        if (conversationSnapshot && conversationSnapshot.trim().length > 0) {
+          lines.push(
+            '',
+            'Recent visible conversation between you (the guide) and the user inside this onboarding thread. Use this only as extra nuance; the structured identity signals above remain the source of truth:',
+            conversationSnapshot
+          );
+        }
+
         if (judgeFeedback && judgeFeedback.trim().length > 0) {
           lines.push(
             '',
@@ -1589,13 +1804,6 @@ export function IdentityAspirationFlow({
         }
 
         return lines.join('\n');
-      };
-
-      const options: CoachChatOptions = {
-        mode: 'firstTimeOnboarding',
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: 'aspiration_generate',
       };
 
       const QUALITY_THRESHOLD = 9;
@@ -1618,7 +1826,7 @@ export function IdentityAspirationFlow({
             },
           ];
 
-          const reply = await sendCoachChat(messages, options);
+          const reply = await callOnboardingAgentStep('aspiration_generate', messages);
           const parsed = parseAspirationFromReply(reply);
 
           if (!parsed) {
@@ -1774,6 +1982,7 @@ export function IdentityAspirationFlow({
       }
     },
     [
+      buildConversationSnapshotFromTimeline,
       canGenerate,
       draftArcId,
       domain,
@@ -1809,7 +2018,31 @@ export function IdentityAspirationFlow({
       updatedAt: nowIso,
     };
 
+  const slices = splitAspirationNarrative(aspiration.aspirationSentence);
+
+  updateUserProfile((current) => ({
+    ...current,
+    identityProfile: {
+      domainIds,
+      motivationIds,
+      signatureTraitIds,
+      growthEdgeIds,
+      proudMomentIds,
+      meaningIds,
+      impactIds,
+      valueIds,
+      philosophyIds,
+      vocationIds,
+      nickname: nickname.trim() || undefined,
+      aspirationArcName: aspiration.arcName,
+      aspirationNarrative: aspiration.aspirationSentence,
+      aspirationSlices: slices ?? undefined,
+      lastUpdatedAt: nowIso,
+    },
+  }));
+
     addArc(arc);
+    void ensureArcBannerPrefill(arc);
     // Fire-and-forget: generate Arc Development Insights in the background so
     // they are ready (or gracefully fall back) by the time the user lands on
     // the Arc detail screen. This should never block the onboarding flow.
@@ -1875,6 +2108,14 @@ export function IdentityAspirationFlow({
       return;
     }
 
+    // If we're already streaming this specific intro index, or we've already
+    // finished streaming it, don't start another overlapping stream. This
+    // prevents the same paragraph from appearing multiple times when React
+    // re-renders while the typing animation is in flight.
+    if (introStreamingIndexRef.current === introIndex || lastIntroStreamedIndex === introIndex) {
+      return;
+    }
+
     if (!controller) {
       // If we can’t stream into chat, fall back to immediately completing the
       // step so the cards remain usable, unless the user is currently viewing
@@ -1889,6 +2130,10 @@ export function IdentityAspirationFlow({
 
     let cancelled = false;
 
+    // Mark this intro index as actively streaming so we avoid duplicate
+    // streams until the current one has finished (or been skipped).
+    introStreamingIndexRef.current = introIndex;
+
     if (lastIntroStreamedIndex === introIndex) {
       return () => {
         cancelled = true;
@@ -1901,6 +2146,7 @@ export function IdentityAspirationFlow({
       {
         onDone: () => {
           if (cancelled) return;
+          introStreamingIndexRef.current = null;
           setLastIntroStreamedIndex(introIndex);
         },
       }
@@ -1991,8 +2237,7 @@ export function IdentityAspirationFlow({
       return;
     }
 
-    const copy =
-      'That gives me a really solid sketch of who **Future You** is becoming. 🎉';
+    const copy = 'That gives me a solid sketch of who your future self is becoming. 🎉';
 
     controller.streamAssistantReplyFromWorkflow(copy, 'assistant-dreams-intro', {
       onDone: () => {
@@ -2146,52 +2391,140 @@ export function IdentityAspirationFlow({
     advancePhase('meaning');
   };
 
-  const handleConfirmMeaning = (selectedMeaning: string) => {
-    appendChatUserMessage(selectedMeaning);
-    setError(null);
-    advancePhase('impact');
+  const handleContinueFromNickname = () => {
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('nickname_optional', {
+        nickname: nickname.trim().length ? nickname.trim() : null,
+      });
+    }
+    setPhase('generating');
+    void generateArc();
   };
 
-  const handleConfirmImpact = (selectedImpact: string) => {
+  const renderNickname = () => {
+    return (
+      <QuestionCard title="If future-you had a nickname…">
+        <Text style={styles.bodyText}>Optional — one or two words. (You can skip.)</Text>
+        <Input
+          value={nickname}
+          onChangeText={setNickname}
+          placeholder="e.g., The Builder"
+          autoCapitalize="words"
+          returnKeyType="done"
+        />
+        <View style={styles.inlineActions}>
+          <Button
+            variant="outline"
+            style={[styles.primaryButton, { flex: 1 }]}
+            onPress={() => {
+              setNickname('');
+              handleContinueFromNickname();
+            }}
+          >
+            <ButtonLabel size="md">Skip</ButtonLabel>
+          </Button>
+          <Button
+            variant="accent"
+            style={[styles.primaryButton, { flex: 1 }]}
+            onPress={handleContinueFromNickname}
+          >
+            <ButtonLabel size="md" tone="inverse">
+              Continue
+            </ButtonLabel>
+          </Button>
+        </View>
+      </QuestionCard>
+    );
+  };
+
+  const handleConfirmMeaning = (selectedMeaning: string, optionId: string) => {
+    appendChatUserMessage(selectedMeaning);
+    setError(null);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('meaning', { meaning: optionId });
+    }
+    // In the first-time FTUE we move directly into the impact question to
+    // keep the flow fast. In the Arc creation flow launched from the Arcs
+    // inventory, we insert a short "why now" check before continuing.
+    if (mode === 'reuseIdentityForNewArc') {
+      advancePhase('whyNow');
+    } else {
+      advancePhase('impact');
+    }
+  };
+
+  const handleConfirmWhyNow = (selectedWhyNow: string, optionId: string) => {
+    const trimmed = selectedWhyNow.trim();
+    if (!trimmed) return;
+
+    appendChatUserMessage(trimmed);
+    setWhyNowIds([optionId]);
+    setError(null);
+
+    if (mode === 'reuseIdentityForNewArc') {
+      // For Arc creation launched from the Arcs inventory, we move from the
+      // big dream → why now → generating the Arc.
+      setPhase('generating');
+      void generateArc();
+    } else {
+      advancePhase('impact');
+    }
+  };
+
+  const handleConfirmImpact = (selectedImpact: string, optionId: string) => {
     appendChatUserMessage(selectedImpact);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('impact', { impact: optionId });
+    }
     setError(null);
     advancePhase('values');
   };
 
-  const handleConfirmValues = (selectedValue: string) => {
+  const handleConfirmValues = (selectedValue: string, optionId: string) => {
     appendChatUserMessage(selectedValue);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('values', { values: optionId });
+    }
     setError(null);
     advancePhase('philosophy');
   };
 
-  const handleConfirmPhilosophy = (selectedPhilosophy: string) => {
+  const handleConfirmPhilosophy = (selectedPhilosophy: string, optionId: string) => {
     appendChatUserMessage(selectedPhilosophy);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('philosophy', { philosophy: optionId });
+    }
     setError(null);
     advancePhase('vocation');
   };
 
-  const handleConfirmVocation = (selectedVocation: string) => {
+  const handleConfirmVocation = (selectedVocation: string, optionId: string) => {
     appendChatUserMessage(selectedVocation);
+    if (workflowRuntime) {
+      workflowRuntime.completeStep('vocation', { vocation: optionId });
+    }
     setError(null);
     setPhase('dreams');
   };
 
   const renderDomain = () => (
     <>
-    <Card style={[styles.stepCard, styles.researchCard]}>
-      <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>1 of 10</Text>
-        <Text style={styles.questionTitle}>
+      <QuestionCard
+        stepLabel="1 of 10"
+        title={
+          <>
             Which part of yourself are you most excited to grow right now?{' '}
-            <Text
+            <Pressable
               style={styles.questionInfoTrigger}
               accessibilityRole="button"
               accessibilityLabel="Why this question?"
               onPress={() => toggleQuestionInfo('domain')}
             >
-              ⓘ
-            </Text>
-        </Text>
+              <Icon name="info" size={16} color={colors.textSecondary} />
+            </Pressable>
+          </>
+        }
+      >
         <View style={styles.fullWidthList}>
           {DOMAIN_OPTIONS.map((option) => {
             const selected = domainIds.includes(option.id);
@@ -2233,8 +2566,7 @@ export function IdentityAspirationFlow({
             );
           })}
         </View>
-      </View>
-    </Card>
+      </QuestionCard>
       <Dialog
         visible={openQuestionInfoKey === 'domain'}
         onClose={() => setOpenQuestionInfoKey(null)}
@@ -2349,8 +2681,10 @@ export function IdentityAspirationFlow({
           {getAdaptiveOptions(SIGNATURE_TRAIT_OPTIONS, 5).map((option) => {
             const selected = signatureTraitIds.includes(option.id);
             return (
-              <Pressable
+              <Button
                 key={option.id}
+                size="small"
+                variant="ghost"
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
                   const previousSelected = SIGNATURE_TRAIT_OPTIONS.filter((o) =>
@@ -2362,10 +2696,8 @@ export function IdentityAspirationFlow({
                   handleConfirmTrait(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
+                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+              </Button>
             );
           })}
         </View>
@@ -2409,8 +2741,10 @@ export function IdentityAspirationFlow({
           {getAdaptiveOptions(GROWTH_EDGE_OPTIONS, 5).map((option) => {
             const selected = growthEdgeIds.includes(option.id);
             return (
-              <Pressable
+              <Button
                 key={option.id}
+                size="small"
+                variant="ghost"
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
                   const previousSelected = GROWTH_EDGE_OPTIONS.filter((o) =>
@@ -2422,10 +2756,8 @@ export function IdentityAspirationFlow({
                   handleConfirmGrowth(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
+                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+              </Button>
             );
           })}
         </View>
@@ -2468,8 +2800,10 @@ export function IdentityAspirationFlow({
           {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 5).map((option) => {
             const selected = proudMomentIds.includes(option.id);
             return (
-              <Pressable
+              <Button
                 key={option.id}
+                size="small"
+                variant="ghost"
                 style={[styles.chip, selected && styles.chipSelected]}
                 onPress={() => {
                   const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
@@ -2481,10 +2815,8 @@ export function IdentityAspirationFlow({
                   handleConfirmProudMoment(option.label);
                 }}
               >
-                <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
+                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+              </Button>
             );
           })}
         </View>
@@ -2537,7 +2869,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setMeaningIds([option.id]);
-                    handleConfirmMeaning(option.label);
+                    handleConfirmMeaning(option.label, option.id);
                   }}
                 >
                   <View style={styles.fullWidthOptionContent}>
@@ -2573,6 +2905,36 @@ export function IdentityAspirationFlow({
     </>
   );
 
+  const renderWhyNow = () => (
+    <QuestionCard title="Why does this feel important to you?">
+      <View style={styles.fullWidthList}>
+        {WHY_NOW_OPTIONS.map((option) => (
+          <Pressable
+            key={option.id}
+            style={[
+              styles.fullWidthOption,
+              whyNowIds.includes(option.id) && styles.fullWidthOptionSelected,
+            ]}
+            onPress={() => {
+              handleConfirmWhyNow(option.label, option.id);
+            }}
+          >
+            <View style={styles.fullWidthOptionContent}>
+              <Text
+                style={[
+                  styles.fullWidthOptionLabel,
+                  whyNowIds.includes(option.id) && styles.fullWidthOptionLabelSelected,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </QuestionCard>
+  );
+
   const renderImpact = () => (
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
@@ -2601,7 +2963,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setImpactIds([option.id]);
-                    handleConfirmImpact(option.label);
+                    handleConfirmImpact(option.label, option.id);
                   }}
                 >
                 <View style={styles.fullWidthOptionContent}>
@@ -2656,21 +3018,21 @@ export function IdentityAspirationFlow({
             {VALUES_OPTIONS.map((option) => {
               const selected = valueIds.includes(option.id);
               return (
-                <Pressable
+                <Button
                   key={option.id}
+                  size="small"
+                  variant="ghost"
                   style={[styles.chip, selected && styles.chipSelected]}
                   onPress={() => {
                     const previousSelected = VALUES_OPTIONS.filter((o) => valueIds.includes(o.id));
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setValueIds([option.id]);
-                    handleConfirmValues(option.label);
+                    handleConfirmValues(option.label, option.id);
                   }}
                 >
-                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
+                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                </Button>
               );
             })}
           </View>
@@ -2722,7 +3084,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setPhilosophyIds([option.id]);
-                    handleConfirmPhilosophy(option.label);
+                    handleConfirmPhilosophy(option.label, option.id);
                   }}
                 >
                   <View style={styles.fullWidthOptionContent}>
@@ -2787,7 +3149,7 @@ export function IdentityAspirationFlow({
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
                     setVocationIds([option.id]);
-                    handleConfirmVocation(option.label);
+                    handleConfirmVocation(option.label, option.id);
                   }}
                 >
                   <Text
@@ -2831,11 +3193,18 @@ export function IdentityAspirationFlow({
     appendChatUserMessage(trimmed);
 
     if (workflowRuntime) {
-      workflowRuntime.completeStep('nickname_optional', { nickname: null });
+      workflowRuntime.completeStep('big_dream', { bigDream: trimmed });
     }
-
-    setPhase('generating');
-    void generateAspiration();
+    if (mode === 'reuseIdentityForNewArc') {
+      // In the Arc creation flow launched from the Arcs inventory, capture
+      // the big dream first, then ask "why does this feel important?" before
+      // actually generating the Arc.
+      setPhase('whyNow');
+    } else {
+      // For first-time onboarding, keep the explicit optional nickname step
+      // before generating the Arc so the user can add a personal anchor.
+      setPhase('nickname');
+    }
   };
 
   const renderDreams = () => {
@@ -2850,59 +3219,105 @@ export function IdentityAspirationFlow({
 
     return (
       <View style={styles.dreamsStack}>
-        <Card style={styles.stepCard}>
-          <View style={styles.stepBody}>
-            <CelebrationGif kind="firstArcDreamsPrompt" size="md" />
-          </View>
-        </Card>
-        <Card style={[styles.stepCard, styles.researchCard]}>
-          <View style={styles.stepBody}>
-            <Text style={styles.questionMeta}>Part 2 of 2</Text>
-            <Text style={styles.questionTitle}>
-              Looking 5–10 years ahead, what’s one big thing you’d love to have brought to life?
-            </Text>
-            <Input
-              value={dreamInput}
-              onChangeText={setDreamInput}
-              multiline
-              placeholder="e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home."
-              autoCapitalize="sentences"
-            />
-            <View style={styles.inlineActions}>
-              <Button
-                variant="accent"
-                style={[
-                  styles.primaryButton,
-                  !hasAnyDreams && styles.primaryButtonDisabled,
-                ]}
-                disabled={!hasAnyDreams}
-                onPress={() => {
-                  startGeneratingFromDreams();
-                }}
-              >
-                <Text style={styles.primaryButtonLabel}>Continue</Text>
-              </Button>
+        {mode === 'firstTimeOnboarding' && (
+          <Card padding="none" style={[styles.stepCard, styles.dreamsGifCard]}>
+            <View style={styles.stepBody}>
+              <CelebrationGif kind="firstArcDreamsPrompt" size="md" />
             </View>
+          </Card>
+        )}
+        <QuestionCard
+          title="Looking ahead, what’s one big thing you’d love to bring to life?"
+        >
+          <Input
+            value={dreamInput}
+            onChangeText={setDreamInput}
+            multiline
+            placeholder="e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home."
+            autoCapitalize="sentences"
+          />
+          <View style={styles.inlineActions}>
+            <Button
+              variant="accent"
+              style={[
+                styles.primaryButton,
+                !hasAnyDreams && styles.primaryButtonDisabled,
+              ]}
+              disabled={!hasAnyDreams}
+              onPress={() => {
+                startGeneratingFromDreams();
+              }}
+            >
+              <ButtonLabel size="md" tone="inverse">
+                Continue
+              </ButtonLabel>
+            </Button>
           </View>
-        </Card>
+        </QuestionCard>
       </View>
     );
   };
 
-  const renderGenerating = () => (
-    <Card style={styles.stepCard}>
-      <View style={styles.stepBody}>
-        <Text style={styles.bodyText}>
-          I’m weaving everything you tapped into a single Identity Arc and one tiny next step.
-        </Text>
-        <View style={styles.loadingRow}>
-          <ActivityIndicator color={colors.textPrimary} />
-          <Text style={styles.bodyText}>Give me a moment to pull the threads together…</Text>
-        </View>
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      </View>
-    </Card>
-  );
+  const renderGenerating = () => {
+    const nowIso = new Date().toISOString();
+    // Lightweight placeholder Arc so we can reuse the Arc preview shell while the
+    // real aspiration is generating. This keeps the canvas focused on the object
+    // (an Arc) instead of showing another question-style card.
+    const skeletonArc: Arc = {
+      id: draftArcId,
+      name: 'Shaping your Arc…',
+      narrative: '',
+      status: 'active',
+      startDate: nowIso,
+      endDate: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    return (
+      <ArcListCard
+        arc={skeletonArc}
+        narrativeTone="strong"
+        style={styles.arcPreviewCard}
+        customNarrative={
+          <View style={styles.revealNarrativeBlock}>
+            <View style={styles.arcIdentityRow}>
+              <View style={styles.arcIdentityLabelRow}>
+                <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
+              </View>
+              <View style={styles.skeletonSentenceBlockRow}>
+                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
+                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
+              </View>
+            </View>
+            <View style={styles.arcIdentityRow}>
+              <View style={styles.arcIdentityLabelRow}>
+                <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
+              </View>
+              <View style={styles.skeletonSentenceBlockRow}>
+                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
+                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
+              </View>
+            </View>
+            <View style={styles.arcIdentityRow}>
+              <View style={styles.arcIdentityLabelRow}>
+                <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
+              </View>
+              <View style={styles.skeletonSentenceBlockRow}>
+                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
+                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
+              </View>
+            </View>
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={colors.textPrimary} />
+              <Text style={styles.bodyText}>Pulling the threads together…</Text>
+            </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          </View>
+        }
+      />
+    );
+  };
 
   const renderArcPreview = () => {
     if (!aspiration) return null;
@@ -2928,6 +3343,7 @@ export function IdentityAspirationFlow({
       <ArcListCard
         arc={previewArc}
         narrativeTone="strong"
+        style={styles.arcPreviewCard}
         customNarrative={
           <View style={styles.revealNarrativeBlock}>
             {slices ? (
@@ -2995,7 +3411,9 @@ export function IdentityAspirationFlow({
                 style={styles.primaryButton}
                 onPress={handleConfirmAspiration}
               >
-                <Text style={styles.primaryButtonLabel}>🤩 Yes! I'd love to become like this</Text>
+                <ButtonLabel size="md" tone="inverse">
+                  🤩 Yes! I'd love to become like this
+                </ButtonLabel>
               </Button>
               <Button
                 variant="ghost"
@@ -3024,16 +3442,18 @@ export function IdentityAspirationFlow({
           <View style={styles.chipGrid}>
             {TWEAK_OPTIONS.map((option) => {
               return (
-                <Pressable
+                <Button
                   key={option.id}
+                  size="small"
+                  variant="ghost"
                   style={styles.chip}
                   onPress={() => {
                     setPhase('generating');
-                    void generateAspiration(option.id);
+                    void generateArc(option.id);
                   }}
                 >
-                  <Text style={styles.chipLabel}>{option.label}</Text>
-                </Pressable>
+                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                </Button>
               );
             })}
           </View>
@@ -3078,7 +3498,9 @@ export function IdentityAspirationFlow({
               );
             }}
           >
-            <Text style={styles.primaryButtonLabel}>Got it</Text>
+            <ButtonLabel size="md" tone="inverse">
+              Got it
+            </ButtonLabel>
           </Button>
         </View>
       </View>
@@ -3125,7 +3547,7 @@ export function IdentityAspirationFlow({
                 variant="secondary"
                 onPress={() => handleIntroResponse(option.label)}
               >
-                <Text style={styles.introActionLabel}>{option.label}</Text>
+                <ButtonLabel size="md">{option.label}</ButtonLabel>
               </Button>
             ))}
           </Animated.View>
@@ -3159,6 +3581,10 @@ export function IdentityAspirationFlow({
     return renderMeaning();
   }
 
+  if (phase === 'whyNow') {
+    return renderWhyNow();
+  }
+
   if (phase === 'impact') {
     return renderImpact();
   }
@@ -3179,12 +3605,20 @@ export function IdentityAspirationFlow({
     return renderDreams();
   }
 
+  if (phase === 'nickname') {
+    return renderNickname();
+  }
+
   if (phase === 'reveal') {
     return renderReveal();
   }
 
   if (phase === 'tweak') {
     return renderTweak();
+  }
+
+  if (phase === 'generating') {
+    return renderGenerating();
   }
 
   return null;
@@ -3209,10 +3643,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing['xl'],
   },
   stepBody: {
-    gap: spacing.md,
+    // Use a modest vertical gap between rows inside the question cards; the
+    // progress label + title manage their own tighter spacing.
+    gap: spacing.sm,
   },
   dreamsStack: {
-    gap: spacing.lg,
+    // Keep the celebration GIF card visually connected to the free-response
+    // question that follows by using the smallest vertical gap between them.
+    // This avoids the GIF feeling isolated in its own section.
+    gap: spacing.xs,
+  },
+  dreamsGifCard: {
+    padding: spacing.sm,
   },
   researchHeading: {
     marginBottom: spacing.sm,
@@ -3231,12 +3673,16 @@ const styles = StyleSheet.create({
   questionMeta: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    // Keep the progress label visually tied to the question header with a
+    // slightly tighter gap than the default body spacing.
+    marginBottom: 0,
   },
   questionTitle: {
-    ...typography.body,
+    // Slightly larger than core body copy so the question reads as a local
+    // heading within the card, without jumping all the way to a full page
+    // title size.
+    ...typography.titleSm,
     color: colors.textPrimary,
-    fontFamily: fonts.semibold,
     paddingBottom: spacing.md,
   },
   questionInfoTrigger: {
@@ -3244,12 +3690,6 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignSelf: 'stretch',
-  },
-  primaryButtonLabel: {
-    ...typography.bodySm,
-    color: colors.canvas,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   primaryButtonDisabled: {
     opacity: 0.5,
@@ -3307,14 +3747,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   fullWidthOptionEmoji: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
   },
   fullWidthOptionEmojiSelected: {
     color: colors.accent,
   },
   fullWidthOptionLabel: {
-    ...typography.bodySm,
+    // Use the same readable size as core body copy so options feel like
+    // first-class choices, not secondary metadata.
+    ...typography.body,
     color: colors.textPrimary,
   },
   fullWidthOptionLabelSelected: {
@@ -3356,17 +3798,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  introActionLabel: {
-    ...typography.bodySm,
-    color: colors.secondaryForeground,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   revealIntroText: {
     marginBottom: spacing.lg,
   },
   arcPreviewContainer: {
     marginBottom: spacing.lg,
+  },
+  arcPreviewCard: {
+    padding: spacing.sm,
   },
   revealStepCard: {
     // Use the same white card surface and padding as other choice cards; no
@@ -3407,6 +3846,28 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '600',
+  },
+  // Skeleton blocks for the Arc preview while the aspiration is generating.
+  skeletonBlock: {
+    backgroundColor: '#E5E7EB',
+    borderRadius: 999,
+  },
+  skeletonLabelBlock: {
+    width: 80,
+    height: 10,
+  },
+  skeletonSentenceBlockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  skeletonSentenceBlock: {
+    flex: 1,
+    height: 12,
+  },
+  skeletonSentenceBlockShort: {
+    flex: 0.4,
+    height: 12,
   },
 });
 

@@ -1,45 +1,83 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { AppShell } from '../../ui/layout/AppShell';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Logo } from '../../ui/Logo';
 import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
 
-/**
- * Simple in-app launch screen that appears after the native splash and
- * before the main navigation shell. Uses the kwilt Logo plus a vertical
- * lockup wordmark set in the Poppins brand font.
- *
- * This preserves the global AppShell (shell + canvas) structure while
- * avoiding any primary navigation affordances.
- */
 export function LaunchScreen() {
+  const insets = useSafeAreaInsets();
+  const introAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(introAnim, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [introAnim]);
+
+  const opacity = introAnim;
+  const translateY = introAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, 0],
+  });
+
   return (
-    <AppShell>
-      <View style={styles.container}>
-        <View style={styles.brandLockup}>
-          <Logo size={56} />
+    <LinearGradient
+      colors={[colors.pine200, colors.pine300, colors.pine400]}
+      style={[
+        styles.shell,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
+      <View style={styles.heroSurface}>
+        <Animated.View style={[styles.brandLockup, { opacity, transform: [{ translateY }] }]}>
+          <Logo size={72} />
           <Text style={styles.wordmark}>kwilt</Text>
-        </View>
+          <Text style={styles.tagline}>Design your future self—then live it in tiny steps.</Text>
+        </Animated.View>
       </View>
-    </AppShell>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  shell: {
+    flex: 1,
+  },
+  heroSurface: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
   },
   brandLockup: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    rowGap: spacing.sm,
   },
   wordmark: {
     ...typography.brand,
-    color: colors.accent,
+    color: colors.pine700,
+    fontSize: 36,
+    lineHeight: 42,
+    textShadowColor: colors.pine800,
+    textShadowOffset: { width: 0.4, height: 0.4 },
+    textShadowRadius: 1,
+  },
+  tagline: {
+    ...typography.bodySm,
+    color: colors.pine900,
+    opacity: 0.9,
+    textAlign: 'center',
+    maxWidth: 320,
+    marginTop: spacing.xs,
   },
 });
 

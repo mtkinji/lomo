@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from './AgentWorkspace';
-import type { ChatMode } from './chatRegistry';
+import type { ChatMode } from './workflowRegistry';
 import type { LaunchContext, LaunchContextObjectType } from '../../domain/workflows';
 
 type ObjectType = LaunchContextObjectType;

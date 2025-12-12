@@ -1,98 +1,237 @@
-import type { StyleProp, ViewStyle, TextStyle } from 'react-native';
-import { StyleSheet } from 'react-native';
+import * as DropdownMenuPrimitive from '@rn-primitives/dropdown-menu';
+import * as React from 'react';
 import {
-  DropdownMenu as ReusableDropdownMenu,
-  DropdownMenuCheckboxItem as ReusableDropdownMenuCheckboxItem,
-  DropdownMenuContent as ReusableDropdownMenuContent,
-  DropdownMenuGroup as ReusableDropdownMenuGroup,
-  DropdownMenuItem as ReusableDropdownMenuItem,
-  DropdownMenuLabel as ReusableDropdownMenuLabel,
-  DropdownMenuPortal as ReusableDropdownMenuPortal,
-  DropdownMenuRadioGroup as ReusableDropdownMenuRadioGroup,
-  DropdownMenuRadioItem as ReusableDropdownMenuRadioItem,
-  DropdownMenuSeparator as ReusableDropdownMenuSeparator,
-  DropdownMenuShortcut as ReusableDropdownMenuShortcut,
-  DropdownMenuSub as ReusableDropdownMenuSub,
-  DropdownMenuSubContent as ReusableDropdownMenuSubContent,
-  DropdownMenuSubTrigger as ReusableDropdownMenuSubTrigger,
-  DropdownMenuTrigger as ReusableDropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { colors, spacing, typography } from '../theme';
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+  type TextProps,
+} from 'react-native';
+import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+import { colors, spacing, typography, motion } from '../theme';
+import { Icon } from './Icon';
+import { NativeOnlyAnimatedView } from './NativeOnlyAnimatedView';
 
-export const DropdownMenu = ReusableDropdownMenu;
-export const DropdownMenuCheckboxItem = ReusableDropdownMenuCheckboxItem;
-export const DropdownMenuGroup = ReusableDropdownMenuGroup;
-export const DropdownMenuPortal = ReusableDropdownMenuPortal;
-export const DropdownMenuRadioGroup = ReusableDropdownMenuRadioGroup;
-export const DropdownMenuRadioItem = ReusableDropdownMenuRadioItem;
-export const DropdownMenuSeparator = ReusableDropdownMenuSeparator;
-export const DropdownMenuSub = ReusableDropdownMenuSub;
-export const DropdownMenuSubContent = ReusableDropdownMenuSubContent;
-export const DropdownMenuSubTrigger = ReusableDropdownMenuSubTrigger;
-export const DropdownMenuTrigger = ReusableDropdownMenuTrigger;
-export const DropdownMenuShortcut = ReusableDropdownMenuShortcut;
+const DropdownMenu = DropdownMenuPrimitive.Root;
+const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+const DropdownMenuGroup = DropdownMenuPrimitive.Group;
+const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
+const DropdownMenuSub = DropdownMenuPrimitive.Sub;
+const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-type DropdownMenuContentProps = React.ComponentProps<typeof ReusableDropdownMenuContent> & {
-  style?: StyleProp<ViewStyle>;
-};
+const FullWindowOverlay = Platform.OS === 'ios' ? RNFullWindowOverlay : React.Fragment;
 
-/**
- * App-level wrapper that guarantees the dropdown surface looks like a real
- * popover even if NativeWind / Tailwind styling is unavailable. This keeps
- * the "more" menu usable on native while still letting the Reusables
- * component handle positioning, animation, and theming.
- */
-export function DropdownMenuContent({ style, ...props }: DropdownMenuContentProps) {
+function DropdownMenuSubTrigger({
+  style,
+  children,
+  iconStyle,
+  inset,
+  ...props
+}: DropdownMenuPrimitive.SubTriggerProps & {
+  iconStyle?: StyleProp<TextStyle>;
+  inset?: boolean;
+}) {
+  const { open } = DropdownMenuPrimitive.useSubContext();
+  const iconName = Platform.OS === 'web' ? 'chevronRight' : open ? 'chevronUp' : 'chevronDown';
+  
   return (
-    <ReusableDropdownMenuContent
+    <DropdownMenuPrimitive.SubTrigger
+      style={[
+        styles.subTrigger,
+        inset && styles.inset,
+        open && styles.subTriggerActive,
+        style,
+      ]}
       {...props}
-      // Cast through `unknown` to satisfy the slightly narrower typing on the
-      // underlying component while still allowing standard RN style arrays.
-      style={[styles.content, style] as unknown as ViewStyle}
+    >
+      <>{children}</>
+      <Icon 
+        name={iconName} 
+        size={16} 
+        color={colors.textPrimary} 
+        style={[styles.subTriggerIcon, iconStyle]} 
+      />
+    </DropdownMenuPrimitive.SubTrigger>
+  );
+}
+
+function DropdownMenuSubContent({
+  style,
+  ...props
+}: DropdownMenuPrimitive.SubContentProps) {
+  return (
+    <NativeOnlyAnimatedView entering={motion.menu.entering} exiting={motion.menu.exiting}>
+      <DropdownMenuPrimitive.SubContent
+        style={[styles.content, style]}
+        {...props}
+      />
+    </NativeOnlyAnimatedView>
+  );
+}
+
+function DropdownMenuContent({
+  style,
+  overlayStyle,
+  portalHost,
+  side = 'bottom',
+  align = 'end',
+  sideOffset = 6,
+  ...props
+}: DropdownMenuPrimitive.ContentProps & {
+  overlayStyle?: StyleProp<ViewStyle>;
+  portalHost?: string;
+}) {
+  return (
+    <DropdownMenuPrimitive.Portal hostName={portalHost}>
+      <FullWindowOverlay>
+        <DropdownMenuPrimitive.Overlay
+          style={Platform.select({
+            web: overlayStyle ?? undefined,
+            native: overlayStyle
+              ? StyleSheet.flatten([
+                  StyleSheet.absoluteFill,
+                  overlayStyle as ViewStyle,
+                ])
+              : StyleSheet.absoluteFill,
+          })}
+        >
+          <NativeOnlyAnimatedView
+            entering={motion.menu.entering}
+            exiting={motion.menu.exiting}
+          >
+            <DropdownMenuPrimitive.Content
+              style={[styles.content, style]}
+              side={side}
+              align={align}
+              sideOffset={sideOffset}
+              {...props}
+            />
+          </NativeOnlyAnimatedView>
+        </DropdownMenuPrimitive.Overlay>
+      </FullWindowOverlay>
+    </DropdownMenuPrimitive.Portal>
+  );
+}
+
+function DropdownMenuItem({
+  style,
+  inset,
+  variant = 'default',
+  ...props
+}: DropdownMenuPrimitive.ItemProps & {
+  inset?: boolean;
+  variant?: 'default' | 'destructive';
+}) {
+  return (
+    <DropdownMenuPrimitive.Item
+      style={[
+        styles.item,
+        inset && styles.inset,
+        props.disabled && styles.disabled,
+        style,
+      ]}
+      {...props}
+    >
+      <View style={styles.itemContent}>
+        {/* We rely on the children (Text, Icon rows) to inherit colors or set them explicitly. 
+            Unlike NativeWind context, we can't easily inject text colors down, so we trust 
+            the caller to use <Text> or we could wrap children if strict coloring is needed. 
+            For now, simpler is better. */}
+        {props.children}
+      </View>
+    </DropdownMenuPrimitive.Item>
+  );
+}
+
+function DropdownMenuCheckboxItem({
+  style,
+  children,
+  checked,
+  ...props
+}: DropdownMenuPrimitive.CheckboxItemProps) {
+  return (
+    <DropdownMenuPrimitive.CheckboxItem
+      style={[styles.item, styles.checkboxItem, style]}
+      checked={checked}
+      {...props}
+    >
+      <View style={styles.itemIndicator}>
+        <DropdownMenuPrimitive.ItemIndicator>
+          <Icon name="check" size={16} color={colors.textPrimary} />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </View>
+      {children}
+    </DropdownMenuPrimitive.CheckboxItem>
+  );
+}
+
+function DropdownMenuRadioItem({
+  style,
+  children,
+  ...props
+}: DropdownMenuPrimitive.RadioItemProps) {
+  return (
+    <DropdownMenuPrimitive.RadioItem
+      style={[styles.item, styles.checkboxItem, style]}
+      {...props}
+    >
+      <View style={styles.itemIndicator}>
+        <DropdownMenuPrimitive.ItemIndicator>
+          <View style={styles.radioIndicator} />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </View>
+      {children}
+    </DropdownMenuPrimitive.RadioItem>
+  );
+}
+
+function DropdownMenuLabel({
+  style,
+  inset,
+  ...props
+}: DropdownMenuPrimitive.LabelProps & {
+  inset?: boolean;
+}) {
+  return (
+    <DropdownMenuPrimitive.Label
+      style={[styles.label, inset && styles.inset, style]}
+      {...props}
     />
   );
 }
 
-type DropdownMenuItemProps = React.ComponentProps<typeof ReusableDropdownMenuItem> & {
-  style?: StyleProp<ViewStyle>;
-};
-
-export function DropdownMenuItem({ style, ...props }: DropdownMenuItemProps) {
+function DropdownMenuSeparator({
+  style,
+  ...props
+}: DropdownMenuPrimitive.SeparatorProps) {
   return (
-    <ReusableDropdownMenuItem
+    <DropdownMenuPrimitive.Separator
+      style={[styles.separator, style]}
       {...props}
-      style={[styles.item, style] as unknown as ViewStyle}
     />
   );
 }
 
-type DropdownMenuLabelProps = React.ComponentProps<typeof ReusableDropdownMenuLabel> & {
-  style?: StyleProp<TextStyle>;
-};
-
-export function DropdownMenuLabel({ style, ...props }: DropdownMenuLabelProps) {
+function DropdownMenuShortcut({ style, ...props }: TextProps) {
   return (
-    <ReusableDropdownMenuLabel
+    <Text
+      style={[styles.shortcut, style]}
       {...props}
-      style={[styles.label, style] as unknown as TextStyle}
     />
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    // Provide a clear popover surface on native where Tailwind / CSS tokens
-    // can be too subtle against the app shell. Width is left to be driven by
-    // the intrinsic content (matching the web example) instead of being
-    // fixed, so the menu can grow slightly for longer labels.
     backgroundColor: colors.canvas,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
-    // Match the web example's `w-56` (≈224px) as a comfortable minimum width,
-    // while still allowing the menu to grow with longer labels.
     minWidth: 224,
     shadowColor: '#000000',
     shadowOpacity: 0.08,
@@ -101,17 +240,90 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   item: {
-    // Match the Reusables `px-2 py-2` spacing so row hit areas feel right.
     minHeight: 40,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  itemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  checkboxItem: {
+    paddingLeft: spacing.xl + spacing.sm, // Make room for indicator
+  },
+  itemIndicator: {
+    position: 'absolute',
+    left: spacing.sm,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.textPrimary,
   },
   label: {
-    // Light touch on the label: respect our type scale but don't fight the
-    // library's own colors/radius.
     ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xs,
+    marginHorizontal: -spacing.xs,
+  },
+  subTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  subTriggerActive: {
+    backgroundColor: colors.shellAlt,
+  },
+  subTriggerIcon: {
+    marginLeft: 'auto',
+  },
+  inset: {
+    paddingLeft: spacing.xl,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  shortcut: {
+    ...typography.bodySm,
+    fontSize: 12,
+    color: colors.muted,
+    marginLeft: 'auto',
+    letterSpacing: 1,
+  },
 });
 
+export {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuPortal,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+};

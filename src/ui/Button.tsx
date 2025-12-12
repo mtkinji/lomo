@@ -1,8 +1,12 @@
 import type { ReactNode } from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
-import { Button as ReusableButton } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { colors, spacing } from '../theme';
+import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { colors } from '../theme';
+import {
+  BUTTON_SIZE_TOKENS,
+  BUTTON_VARIANT_TOKENS,
+  type ButtonSizeToken,
+  type ButtonVariantToken,
+} from './buttonTokens';
 
 type ButtonVariant =
   | 'default'
@@ -13,102 +17,102 @@ type ButtonVariant =
   | 'accent'
   | 'ai'
   | 'destructive';
-type ButtonSize = 'default' | 'small' | 'icon';
+type ButtonSizeProp = 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
 
 type Props = {
   variant?: ButtonVariant;
-  size?: ButtonSize;
+  size?: ButtonSizeProp;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Optional className carried over from the previous Tailwind/ShadCN
+   * implementation. Kept for type compatibility but currently ignored.
+   */
+  className?: string;
   /**
    * Optional override for circular icon buttons.
    * When provided, sets width/height/borderRadius to this value.
    */
   iconButtonSize?: number;
-} & Omit<React.ComponentProps<typeof ReusableButton>, 'variant' | 'size'>;
+  /**
+   * When true, stretches the button to fill the horizontal space.
+   */
+  fullWidth?: boolean;
+} & Omit<React.ComponentProps<typeof Pressable>, 'style'>;
 
 export function Button({
   variant = 'default',
   size = 'default',
   style,
   iconButtonSize,
+  fullWidth,
   children,
+  className,
   ...rest
 }: Props) {
-  const mappedSize: 'default' | 'sm' | 'lg' | 'icon' =
-    size === 'small' ? 'sm' : size === 'icon' ? 'icon' : 'default';
+  const logicalSize: ButtonSizeToken =
+    size === 'sm' || size === 'small' ? 'sm' : size === 'lg' ? 'lg' : 'md';
+  const isIconOnly = size === 'icon' || Boolean(iconButtonSize);
 
-  const isSmall = size === 'small';
-  const baseMinHeight = isSmall ? 32 : 40;
-  const basePaddingHorizontal = isSmall ? spacing.md : spacing.lg;
+  const sizeTokens = BUTTON_SIZE_TOKENS[logicalSize];
 
-  const combinedStyle: StyleProp<ViewStyle> = [
-    // Minimal visual fallback so critical actions (e.g., destructive) still
-    // read as buttons even if Tailwind styling is unavailable.
-    // Skip these for explicit icon buttons so they can remain perfectly
-    // circular and rely on iconButtonSize overrides instead.
-    variant === 'destructive' && !iconButtonSize
-      ? {
-          backgroundColor: colors.destructive,
-          borderRadius: 8,
-          minHeight: baseMinHeight,
-          paddingHorizontal: basePaddingHorizontal,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }
-      : null,
-    // For non-destructive variants, ensure the control still looks like a
-    // tappable button (especially on native where Tailwind may be disabled),
-    // again only when we are *not* in the special circular icon mode.
-    variant !== 'destructive' && !iconButtonSize
-      ? {
-          borderRadius: 8,
-          minHeight: baseMinHeight,
-          paddingHorizontal: basePaddingHorizontal,
-          alignItems: 'center',
-          justifyContent: 'center',
-          ...(variant === 'outline'
-            ? {
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: colors.canvas,
-              }
-            : null),
-          // Treat both "accent" and "ai" as primary buttons that should read
-          // as solid pine even if Tailwind styles are unavailable.
-          ...(variant === 'ai' || variant === 'accent'
-            ? {
-                backgroundColor: colors.accent,
-              }
-            : null),
-        }
-      : null,
-    // Structural sizing only; all visual styling (colors, radius, borders)
-    // from iconButtonSize overrides for circular icon buttons.
-    iconButtonSize
-      ? {
-          width: iconButtonSize,
-          height: iconButtonSize,
-          borderRadius: iconButtonSize / 2,
-        }
-      : null,
-    style,
-  ];
+  const logicalVariant: ButtonVariantToken =
+    variant === 'secondary'
+      ? 'secondary'
+      : variant === 'outline'
+      ? 'outline'
+      : variant === 'ghost'
+      ? 'ghost'
+      : variant === 'link'
+      ? 'link'
+      : variant === 'destructive'
+      ? 'destructive'
+      : 'primary';
+
+  const variantTokens = BUTTON_VARIANT_TOKENS[logicalVariant];
 
   return (
-    <ReusableButton
+    <Pressable
       {...rest}
-      variant={variant === 'accent' || variant === 'ai' ? 'default' : variant}
-      size={mappedSize}
-      className={cn(
-        iconButtonSize && 'rounded-full'
-      )}
-      // Preserve support for legacy React Native `style` usage while letting
-      // NativeWind handle visual styling via `className`.
-      style={combinedStyle}
+      style={({ pressed }) => [
+        // Base shape + sizing
+        !isIconOnly && {
+          borderRadius: 12,
+          minHeight: sizeTokens.height,
+          paddingHorizontal: sizeTokens.paddingHorizontal,
+          paddingVertical: sizeTokens.paddingVertical,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        // Variant-specific backgrounds/borders
+        {
+          backgroundColor: variantTokens.backgroundColor,
+          borderWidth: variantTokens.borderWidth ?? 0,
+          borderColor: variantTokens.borderColor ?? 'transparent',
+          width: fullWidth ? '100%' : undefined,
+        },
+        // Icon-only circular buttons.
+        isIconOnly
+          ? {
+              width: iconButtonSize ?? 28,
+              height: iconButtonSize ?? 28,
+              borderRadius: (iconButtonSize ?? 28) / 2,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }
+          : null,
+        // Press feedback
+        pressed
+          ? {
+              opacity: 0.9,
+              transform: [{ scale: 0.97 }],
+            }
+          : null,
+        style,
+      ]}
     >
       {children}
-    </ReusableButton>
+    </Pressable>
   );
 }
 
@@ -118,24 +122,30 @@ type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
  * Canonical circular icon button: pine background, fully rounded, fixed icon
  * sizing. Intended for header actions and compact icon-only controls.
  */
-export function IconButton({ style, ...rest }: IconButtonProps) {
+export function IconButton({ style, children, className, ...rest }: IconButtonProps) {
   return (
-    <Button
+    <Pressable
       {...rest}
-      size="icon"
-      // Explicitly size + center the icon chip via React Native styles so it
-      // looks correct even if NativeWind classes aren't fully applied.
-      iconButtonSize={28}
-      style={[
+      style={({ pressed }) => [
         {
+          width: 32,
+          height: 32,
+          borderRadius: 16,
           backgroundColor: colors.accent,
-          borderRadius: 999,
           alignItems: 'center',
           justifyContent: 'center',
         },
+        pressed
+          ? {
+              opacity: 0.85,
+              transform: [{ scale: 0.95 }],
+            }
+          : null,
         style,
       ]}
-    />
+    >
+      {children}
+    </Pressable>
   );
 }
 

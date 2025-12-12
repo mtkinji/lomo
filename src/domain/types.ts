@@ -45,13 +45,32 @@ export interface Arc {
    * the hero on the detail page and the thumbnail in lists.
    */
   heroImageMeta?: {
-    source: 'ai' | 'upload';
+    source: 'ai' | 'upload' | 'curated' | 'unsplash';
     /**
      * Free-form description or prompt used when generating the image.
      */
     prompt?: string;
     createdAt: string;
+    /**
+     * Identifier for curated images chosen from the built-in Arc hero library.
+     */
+    curatedId?: string;
+    /**
+     * When the hero image originates from Unsplash, capture the photo id and
+     * lightweight attribution details so we can render proper credit and
+     * reconstruct links.
+     */
+    unsplashPhotoId?: string;
+    unsplashAuthorName?: string;
+    unsplashAuthorLink?: string;
+    unsplashLink?: string;
   };
+  /**
+   * When true, hide the visual hero banner for this Arc and render a minimal
+   * header treatment instead. The underlying thumbnailUrl / hero metadata are
+   * preserved so the hero can be restored later.
+   */
+  heroHidden?: boolean;
   status: 'active' | 'paused' | 'archived';
   startDate?: string;
   endDate?: string | null;
@@ -120,12 +139,17 @@ export interface Goal {
    * the hero on the detail page and the thumbnail in lists.
    */
   heroImageMeta?: {
-    source: 'ai' | 'upload';
+    source: 'ai' | 'upload' | 'curated' | 'unsplash';
     /**
      * Free-form description or prompt used when generating the image.
      */
     prompt?: string;
     createdAt: string;
+    curatedId?: string;
+    unsplashPhotoId?: string;
+    unsplashAuthorName?: string;
+    unsplashAuthorLink?: string;
+    unsplashLink?: string;
   };
   status: 'planned' | 'in_progress' | 'completed' | 'archived';
   startDate?: string;
@@ -396,6 +420,30 @@ export type ThumbnailStyle =
   | 'pixelBlocks'
   | 'plainGradient';
 
+export interface IdentityProfileSlices {
+  identity: string;
+  why: string;
+  daily: string;
+}
+
+export interface IdentityProfile {
+  domainIds: string[];
+  motivationIds: string[];
+  signatureTraitIds: string[];
+  growthEdgeIds: string[];
+  proudMomentIds: string[];
+  meaningIds: string[];
+  impactIds: string[];
+  valueIds: string[];
+  philosophyIds: string[];
+  vocationIds: string[];
+  nickname?: string;
+  aspirationArcName?: string;
+  aspirationNarrative?: string;
+  aspirationSlices?: IdentityProfileSlices;
+  lastUpdatedAt: string;
+}
+
 export interface UserProfile {
   id: string;
   createdAt: string;
@@ -429,18 +477,20 @@ export interface UserProfile {
    * is the primary blob we include in prompts alongside structured fields.
    */
   coachContextSummary?: string;
+  /**
+   * Structured snapshot of the user's identity aspiration collected during the
+   * first-time onboarding Identity flow. This captures which part of
+   * themselves they most want to grow, the motivational style, proud moments,
+   * and the synthesized Arc narrative so later flows (like Arc creation) can
+   * quietly reuse that context without re-asking the 10-question sequence.
+   */
+  identityProfile?: IdentityProfile;
   focusAreas?: FocusAreaId[];
   notifications?: {
     remindersEnabled?: boolean;
   };
   timezone?: string;
   preferences?: {
-    /**
-     * Soft toggle for GIFs and other celebration media. When false, the app
-     * should avoid showing celebration tiles like GIPHY-backed GIFs and rely
-     * on text/emoji instead.
-     */
-    showCelebrationMedia?: boolean;
   };
   communication: {
     tone?: CommunicationTone;

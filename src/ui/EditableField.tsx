@@ -9,9 +9,11 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { cardElevation, colors, spacing, typography } from '../theme';
 
 type EditableFieldVariant = 'title' | 'body' | 'meta';
+
+type EditableFieldElevation = 'flat' | 'elevated';
 
 export interface EditableFieldProps {
   label: string;
@@ -28,6 +30,14 @@ export interface EditableFieldProps {
    * alignment tweaks (e.g., reducing vertical padding next to a thumbnail).
    */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Shadow treatment for the field wrapper. Mirrors the core `Input`
+   * primitive so these inline editors visually align with other text fields.
+   *
+   * - `elevated` (default): subtle soft shadow used in the latest form spec.
+   * - `flat`: no shadow; field appears flush with the canvas.
+   */
+  elevation?: EditableFieldElevation;
 }
 
 export function EditableField({
@@ -41,6 +51,7 @@ export function EditableField({
   variant = 'body',
   autoFocusOnEdit = true,
   style,
+  elevation = 'elevated',
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -89,6 +100,7 @@ export function EditableField({
           styles.inputWrapper,
           isEditing && styles.inputWrapperFocused,
           error && styles.inputWrapperError,
+          elevation === 'elevated' ? cardElevation.soft : cardElevation.none,
         ]}
       >
         <TextInput

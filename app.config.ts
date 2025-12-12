@@ -80,6 +80,12 @@ const config: ExpoConfig = {
     },
     openAiApiKey: process.env.OPENAI_API_KEY,
     giphyApiKey: process.env.GIPHY_API_KEY,
+    // Unsplash Access Key (Client ID). Support a few common env var names so
+    // local/dev setups don't silently break.
+    unsplashAccessKey:
+      process.env.UNSPLASH_ACCESS_KEY ??
+      process.env.EXPO_PUBLIC_UNSPLASH_ACCESS_KEY ??
+      process.env.UNSPLASH_API_KEY,
     // Expose the resolved environment to the app runtime so we can distinguish
     // production installs from development/preview for things like demo data.
     environment: NODE_ENV,

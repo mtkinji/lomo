@@ -9,7 +9,7 @@ import {
   type NavigationState,
   createNavigationContainerRef,
 } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import {
   createDrawerNavigator,
   DrawerContentScrollView,
@@ -33,6 +33,8 @@ import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
 import { DevToolsScreen } from '../features/dev/DevToolsScreen';
+import { useAppStore } from '../store/useAppStore';
+import { ProfileAvatar } from '../ui/ProfileAvatar';
 
 export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
@@ -56,6 +58,12 @@ export type GoalDetailRouteParams = {
 
 export type ActivityDetailRouteParams = {
   activityId: string;
+  /**
+   * Optional hint about where the Activity detail screen was opened from.
+   * When set to "goalPlan", the back affordance should return to the
+   * originating Goal canvas instead of the Activities list.
+   */
+  entryPoint?: 'activitiesCanvas' | 'goalPlan';
 };
 
 export type ArcsStackParamList = {
@@ -68,13 +76,20 @@ export type ArcsStackParamList = {
      * inline button.
      */
     openGoalCreation?: boolean;
-   };
+    /**
+     * When true, ArcDetail should show the first-Arc celebration interstitial
+     * on first mount so the transition from onboarding feels intentional.
+     */
+    showFirstArcCelebration?: boolean;
+  };
   GoalDetail: GoalDetailRouteParams;
+  ActivityDetailFromGoal: ActivityDetailRouteParams;
 };
 
 export type GoalsStackParamList = {
   GoalsList: undefined;
   GoalDetail: GoalDetailRouteParams;
+  ActivityDetailFromGoal: ActivityDetailRouteParams;
 };
 
 export type ActivitiesStackParamList = {
@@ -105,6 +120,16 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // screens (like Arcs or Goals) from being reachable or animating correctly.
 // Prefix with "kwilt" so new installs don't carry any legacy LOMO state keys.
 const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v1';
+
+const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
+  headerShown: false,
+  // Use a consistent horizontal slide animation so all intra-stack transitions
+  // (e.g., list → detail) feel like part of the same flow, regardless of which
+  // top-level canvas the user is on.
+  animation: 'slide_from_right',
+  animationTypeForReplace: 'push',
+  fullScreenGestureEnabled: true,
+};
 
 const navTheme: Theme = {
   ...DefaultTheme,
@@ -198,22 +223,38 @@ export function RootNavigator() {
     >
       <Drawer.Navigator
         drawerContent={(props) => <KwiltDrawerContent {...props} />}
-        // Normalize drawer behavior so that tapping "Arcs" always lands on the
-        // Arcs list root, even if the current nested screen is a deep detail
-        // view like GoalDetail. This keeps the mental model of the primary
-        // nav items mapping to their top-level canvases.
+        // Normalize drawer behavior so that tapping a primary nav item always
+        // lands on its top-level canvas list, even if the current nested
+        // screen is a deep detail view like GoalDetail or ActivityDetail. This
+        // keeps the mental model of the primary nav items mapping to their
+        // root canvases.
         screenListeners={({ navigation, route }) => ({
           drawerItemPress: (event) => {
-            if (route.name !== 'ArcsStack') {
+            if (route.name === 'ArcsStack') {
+              // Override the default so we always jump to the ArcsList screen
+              // inside the Arcs stack instead of treating a tap on an already
+              // focused drawer item as a no-op.
+              event.preventDefault();
+              navigation.navigate('ArcsStack', {
+                screen: 'ArcsList',
+              });
               return;
             }
-            // Override the default so we always jump to the ArcsList screen
-            // inside the Arcs stack instead of treating a tap on an already
-            // focused drawer item as a no-op.
-            event.preventDefault();
-            navigation.navigate('ArcsStack', {
-              screen: 'ArcsList',
-            });
+
+            if (route.name === 'Goals') {
+              event.preventDefault();
+              navigation.navigate('Goals', {
+                screen: 'GoalsList',
+              });
+              return;
+            }
+
+            if (route.name === 'Activities') {
+              event.preventDefault();
+              navigation.navigate('Activities', {
+                screen: 'ActivitiesList',
+              });
+            }
           },
         })}
         screenOptions={({ route }) => ({
@@ -286,20 +327,11 @@ export function RootNavigator() {
 
 function ArcsStackNavigator() {
   return (
-    <ArcsStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        // Use a consistent horizontal slide animation so Arcs → ArcDetail →
-        // GoalDetail (and back) all feel like part of the same flow, whether
-        // you entered from the Arcs canvas or from the Goals list.
-        animation: 'slide_from_right',
-        animationTypeForReplace: 'push',
-        fullScreenGestureEnabled: true,
-      }}
-    >
+    <ArcsStack.Navigator screenOptions={STACK_SCREEN_OPTIONS}>
       <ArcsStack.Screen name="ArcsList" component={ArcsScreen} />
       <ArcsStack.Screen name="ArcDetail" component={ArcDetailScreen} />
       <ArcsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
+      <ArcsStack.Screen name="ActivityDetailFromGoal" component={ActivityDetailScreen} />
     </ArcsStack.Navigator>
   );
 }
@@ -307,31 +339,20 @@ function ArcsStackNavigator() {
 function GoalsStackNavigator() {
   return (
     <GoalsStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        // Mirror the Arcs stack so Goals → GoalDetail (and back) use the same
-        // horizontal slide transition semantics.
-        animation: 'slide_from_right',
-        animationTypeForReplace: 'push',
-        fullScreenGestureEnabled: true,
-      }}
+      // Mirror the Arcs stack so Goals → GoalDetail (and back) use the same
+      // horizontal slide transition semantics.
+      screenOptions={STACK_SCREEN_OPTIONS}
     >
       <GoalsStack.Screen name="GoalsList" component={GoalsScreen} />
       <GoalsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
+      <GoalsStack.Screen name="ActivityDetailFromGoal" component={ActivityDetailScreen} />
     </GoalsStack.Navigator>
   );
 }
 
 function ActivitiesStackNavigator() {
   return (
-    <ActivitiesStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-        animationTypeForReplace: 'push',
-        fullScreenGestureEnabled: true,
-      }}
-    >
+    <ActivitiesStack.Navigator screenOptions={STACK_SCREEN_OPTIONS}>
       <ActivitiesStack.Screen name="ActivitiesList" component={ActivitiesScreen} />
       <ActivitiesStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
     </ActivitiesStack.Navigator>
@@ -382,8 +403,9 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
 }
 
 function KwiltDrawerContent(props: any) {
-  const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
+  const userProfile = useAppStore((state) => state.userProfile);
+  const displayName = userProfile?.fullName?.trim() || 'Your profile';
 
   // Hide the top-level Settings item from the drawer list while keeping the
   // Settings screen available for navigation from the profile row.
@@ -426,6 +448,8 @@ function KwiltDrawerContent(props: any) {
         },
       ]}
     >
+      {/* Search is temporarily disabled until navigation search is implemented. */}
+      {/*
       <View style={styles.drawerHeader}>
         <Input
           value={searchQuery}
@@ -438,6 +462,7 @@ function KwiltDrawerContent(props: any) {
           containerStyle={styles.searchContainer}
         />
       </View>
+      */}
       <View style={styles.drawerMain}>
         <DrawerItemList
           {...props}
@@ -453,9 +478,15 @@ function KwiltDrawerContent(props: any) {
             props.navigation.navigate('Settings');
           }}
         >
-          <View style={styles.avatarPlaceholder} />
+          <ProfileAvatar
+            name={userProfile?.fullName}
+            avatarUrl={userProfile?.avatarUrl}
+            size={36}
+            borderRadius={18}
+            style={styles.avatarPlaceholder}
+          />
           <View>
-            <Text style={styles.profileName}>Andrew Watanabe</Text>
+            <Text style={styles.profileName}>{displayName}</Text>
             <Text style={styles.profileSubtitle}>View profile & settings</Text>
           </View>
         </Pressable>

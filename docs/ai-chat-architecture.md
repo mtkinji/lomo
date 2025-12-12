@@ -114,13 +114,30 @@ The first production use of this architecture is the **Arc Coach** launched from
   - A workspace snapshot summarizing Arcs/goals/activities.
   - These are combined into the `GenerateArcParams` passed to `generateArcs`.
 
-In concrete terms:
+In earlier versions, the UI drove most of the conversation imperatively and called
+`generateArcs` directly via `src/services/ai.ts`. As of the workflow‑driven
+AgentWorkspace refactor, **Arc Coach now runs as a first‑class workflow**:
 
-- The UI still drives the conversation and calls `generateArcs` via `src/services/ai.ts`.
-- The **registry** provides a single place to:
-  - name the mode (`arcCreation`),
-  - describe its tools,
-  - and hint at where those tools will live on the server.
+- `WorkflowDefinition.arcCreation` describes:
+  - the initial context collection step (`context_collect`),
+  - the agent generation step (`agent_generate_arc`),
+  - and the confirmation step (`confirm_arc`),
+  - plus light UI metadata (step titles, field labels, primary action copy).
+- `AgentWorkspace` owns a local `WorkflowInstance` and exposes a
+  `WorkflowRuntimeContext` that presenters (like `ArcCreationFlow`) can use to:
+  - complete steps with structured data,
+  - read the current step,
+  - and talk to the shared chat surface via `ChatTimelineController`.
+- `AiChatPane` is the single host for the **Agent Timeline**:
+  - user messages,
+  - assistant messages (streamed),
+  - inline cards (question cards, Arc proposal cards),
+  - and system events (loading / errors / workflow transitions).
+
+Presenters like `ArcCreationFlow` and `IdentityAspirationFlow` no longer mount
+their own chat UI or call `sendCoachChat` directly; they interact only through
+the timeline/controller surface. This keeps the UX consistent while allowing new
+workflows to reuse the same opinionated host.
 
 ### How this evolves to scheduling and 3rd-party tools
 
@@ -168,6 +185,85 @@ In addition to `ChatMode`, we now introduce **Workflows** and the shared **`Agen
 - **AgentWorkspace** (`src/features/ai/AgentWorkspace.tsx`)
   - Single, reusable host component for all agent UX.
   - Receives `mode`, `launchContext`, and optional workflow IDs and owns the chat + card timeline.
+
+#### AgentWorkspace shell
+
+`AgentWorkspace` is the **only host/orchestrator** for AI workflows. It is always mounted **inside the existing AppShell + page canvas layers** (never as its own full-screen shell), and it delegates all visible chat UI to `AiChatPane`:
+
+- **App shell**: navigation + primary gutters (`AppShell`).
+- **Agent shell**: `AgentWorkspace` sitting inside a screen or bottom sheet, configured with a `ChatMode`, `LaunchContext`, and optional workflow IDs.
+- **Chat canvas**: `AiChatPane`, which renders the thread, cards, and composer.
+
+Any workflow-specific visuals (identity cards, activity suggestions, etc.) should be rendered as **cards inside this canvas**, not as separate modal/screen stacks that bypass `AgentWorkspace`.
+
+#### Timeline + cards model
+
+The chat surface is a simple **timeline of items**, not a special “step component” system:
+
+- **AgentTimelineItem** (conceptual type, implemented inside `AiChatPane`):
+  - `assistantMessage` – model replies.
+  - `userMessage` – anything the user typed or tapped that should appear in the thread.
+  - `card` – rich UI blocks (forms, suggestions, previews) rendered inline with the thread.
+  - `systemEvent` – internal status items (errors, loading, workflow transitions) that may or may not be visible.
+“Cards” are just **React nodes** slotted into the timeline:
+
+- Usually composed from `Card`, `QuestionCard`, `EditableField`, etc.
+- No dedicated `StepCard` primitive – the workflow decides _what_ to show, the
+  timeline decides _where_ it lands.
+
+Workflows can now also describe **standardised progress UI** for agent steps:
+
+- `agent_generate` steps carry hints about:
+  - whether to show a progress banner (e.g. “Shaping a first‑pass Arc…”),
+  - whether to render a skeleton card while a proposal is being generated,
+  - and which confirmation card should appear when the result arrives.
+- `AiChatPane` listens to workflow runtime events (`stepStarted`,
+  `agentCallStarted`, `agentCallCompleted`) and is responsible for inserting
+  these messages/cards into the timeline, instead of each presenter inventing
+  its own progress copy.
+
+This keeps the mental model as **“thread + cards”**: workflows talk in terms of messages and cards, and `AiChatPane` owns how they appear.
+
+#### Workflow contract
+
+A workflow is a small contract that says: **“given this `chatMode`, these `steps`, and this `outcomeSchema`, drive the Agent through a job inside `AgentWorkspace`.”**
+
+- Shape (in `src/domain/workflows.ts`):
+  - `id`, `label`, `version`.
+  - `chatMode`: which `ChatMode` the flow runs under (e.g. `'firstTimeOnboarding'`, `'arcCreation'`).
+  - `steps`: ordered list of `WorkflowStep`s, including any metadata like `hideFreeformChatInput`.
+  - `outcomeSchema`: short description of the structured result the workflow produces.
+- Runtime:
+  - `AgentWorkspace` looks up the `WorkflowDefinition` and tracks a local `WorkflowInstance`.
+- Presenters like `IdentityAspirationFlow` plug into the flow via **`WorkflowRuntimeContext` + `ChatTimelineController`**:
+    - `ChatTimelineController` is a small, exported interface in `AiChatScreen` that exposes just the timeline primitives workflows are allowed to use:
+      - `appendUserMessage` – mirror structured answers into the visible thread as user bubbles.
+      - `streamAssistantReplyFromWorkflow` – stream assistant copy into the canvas with the same typing animation as normal replies.
+      - `getHistory` – read the full hidden history (including system messages) to build prompts for `sendCoachChat`.
+      - `getTimeline` – read a normalized view of the visible thread (messages + cards) for lightweight summaries.
+    - Presenters treat this controller as their only link to the chat surface: they never mount their own chat UI or call `sendCoachChat` directly.
+
+The key rule is: **workflows never reach “around” the chat** – all visible UX goes through the shared timeline, even when most of the work is tap-first cards.
+
+#### Mode switching & persistence
+
+`ChatMode` is **chosen at launch** and remains fixed for the lifetime of an `AgentWorkspace` instance:
+
+- We do **not** support mid-thread `ChatMode` switching inside `AiChatPane`.
+- To hand off between flows (for example, “finish identity FTUE, then open Arc creation”), we **close one `AgentWorkspace` host and open another** with a new `mode` and `LaunchContext`.
+
+Persistence is scoped to a specific workflow instance rather than a global thread list:
+
+- **Persisted today** (client-side only):
+  - Minimal “draft” state for Arc creation inside `AiChatPane` (chat messages + input).
+  - In-memory `WorkflowInstance` metadata while the app is running.
+- **Planned**:
+  - Store `WorkflowInstance` records and their timelines server-side.
+  - Allow a host screen to **resume a specific workflow instance** by ID, restoring:
+    - the workflow metadata (`currentStepId`, `collectedData`, `status`),
+    - the associated chat timeline for that flow.
+
+Even with persistence, we do **not** expose a global “AI thread inbox” in the UX. Hosts (Arcs, Goals, Activities, onboarding) remain the primary entry points; they simply gain the ability to re-open a focused workflow where the user left off.
 
 #### Adding a new workflow (current pattern)
 

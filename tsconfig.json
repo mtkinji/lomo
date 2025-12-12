@@ -8,7 +8,6 @@
       "@/*": ["./*"]
     },
     "types": [
-      "nativewind/types",
       "node"
     ]
   }

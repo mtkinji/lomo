@@ -103,7 +103,7 @@ Both flows ultimately generate an Arc, but they collect different inputs and use
 
 ### Generation Phase (`generating`)
 
-**Function**: `generateAspiration()` (lines 1340-1676)
+**Function**: `generateArc()` (lines 1340-1676)
 
 **Prompt Building Logic**:
 - Builds a massive prompt (~200 lines) with:

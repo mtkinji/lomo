@@ -428,6 +428,26 @@ export const NotificationService = {
   },
 
   /**
+   * Request OS notification permission without showing an in-app rationale alert.
+   * Use this when the current screen already explains the value (e.g. onboarding).
+   */
+  async requestOsPermission(): Promise<boolean> {
+    const currentStatus = (await syncOsPermissionStatus()) as OsPermissionStatus;
+    if (currentStatus === 'authorized') {
+      return true;
+    }
+    if (currentStatus === 'denied' || currentStatus === 'restricted') {
+      // OS-level denial/restriction: request won't show again; caller can direct to Settings.
+      return false;
+    }
+
+    const requested = await Notifications.requestPermissionsAsync();
+    const granted = requested.status === 'granted';
+    await syncOsPermissionStatus();
+    return granted;
+  },
+
+  /**
    * Explicitly schedule an Activity reminder for the given activity id.
    * In most cases, the store subscription should keep things in sync, but
    * this can be used for one-off flows if needed.

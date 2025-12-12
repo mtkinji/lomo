@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, type ViewStyle, type TextStyle } from 'react-native';
+import { View, Text, StyleSheet, Platform, type ViewStyle, type TextStyle } from 'react-native';
 import { Logo } from './Logo';
 import { colors } from '../theme/colors';
 import { typography, fonts } from '../theme/typography';
@@ -41,11 +41,24 @@ export function BrandLockup({
 }: BrandLockupProps) {
   const baseWordmarkStyle =
     wordmarkSize === 'lg' ? styles.wordmarkLg : styles.wordmarkSm;
+  // Optical alignment: the logo glyph reads slightly "lower" than the wordmark
+  // due to font ascent/descender metrics (especially on iOS). A small downward
+  // nudge keeps the lockup visually centered.
+  const iosWordmarkNudge = Platform.OS === 'ios' ? (wordmarkSize === 'lg' ? 2.5 : 1.5) : 0;
 
   return (
     <View style={[styles.root, style]}>
       <Logo size={logoSize} />
-      <Text style={[baseWordmarkStyle, { color }, wordmarkStyle]}>kwilt</Text>
+      <Text
+        style={[
+          baseWordmarkStyle,
+          iosWordmarkNudge ? { transform: [{ translateY: iosWordmarkNudge }] } : null,
+          { color },
+          wordmarkStyle,
+        ]}
+      >
+        kwilt
+      </Text>
     </View>
   );
 }
@@ -60,10 +73,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.logo,
     fontSize: 18,
     lineHeight: 22,
+    // Android adds extra top/bottom font padding by default which throws off
+    // optical vertical centering next to the logo mark.
+    includeFontPadding: false,
   },
   wordmarkLg: {
     ...typography.titleMd,
     fontFamily: fonts.logo,
+    includeFontPadding: false,
   },
 });
 

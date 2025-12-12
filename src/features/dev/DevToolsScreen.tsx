@@ -2,6 +2,7 @@ import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput } from 'react
 import { useEffect, useState } from 'react';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography, fonts } from '../../theme';
@@ -10,12 +11,16 @@ import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
 import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
-import { VStack, HStack, Text, Heading, Textarea } from '../../ui/primitives';
+import { VStack, HStack, Text, Heading, Textarea, ButtonLabel } from '../../ui/primitives';
 import { Dialog } from '../../ui/Dialog';
 import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import { SegmentedControl } from '../../ui/SegmentedControl';
+import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
+import { Logo } from '../../ui/Logo';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
+import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -26,14 +31,18 @@ import {
 } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
 
+type InterstitialVariant = 'launch' | 'auth' | 'streak';
+
 export function DevToolsScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
+  const insets = useSafeAreaInsets();
   const menuOpen = drawerStatus === 'open';
   const isFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const triggerCount = useFirstTimeUxStore((state) => state.triggerCount);
   const lastTriggeredAt = useFirstTimeUxStore((state) => state.lastTriggeredAt);
   const arcs = useAppStore((state) => state.arcs);
+  const addArc = useAppStore((state) => state.addArc);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
@@ -43,6 +52,9 @@ export function DevToolsScreen() {
   const setLastOnboardingArcId = useAppStore((state) => state.setLastOnboardingArcId);
   const setHasSeenFirstArcCelebration = useAppStore(
     (state) => state.setHasSeenFirstArcCelebration
+  );
+  const setHasDismissedOnboardingGoalGuide = useAppStore(
+    (state) => state.setHasDismissedOnboardingGoalGuide
   );
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const setHasSeenFirstGoalCelebration = useAppStore(
@@ -54,9 +66,19 @@ export function DevToolsScreen() {
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'tools' | 'gallery'>('tools');
+  const [viewMode, setViewMode] = useState<'tools' | 'gallery' | 'typeColor'>('tools');
   const [demoDialogVisible, setDemoDialogVisible] = useState(false);
   const [demoSheetVisible, setDemoSheetVisible] = useState(false);
+  const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
+  const [isInterstitialFullScreenVisible, setIsInterstitialFullScreenVisible] = useState(false);
+  const [launchBody, setLaunchBody] = useState('Grow into the person you want to be.');
+  const [authBody, setAuthBody] = useState(
+    'Save your arcs and sync your progress across devices.'
+  );
+  const [streakDays, setStreakDays] = useState('21');
+  const [streakBody, setStreakBody] = useState(
+    'You’ve shown up 21 days in a row. Keep the thread going with one small action.'
+  );
 
   const loadChatHistory = async () => {
     try {
@@ -98,25 +120,30 @@ export function DevToolsScreen() {
   };
 
   const handleShowFirstArcCelebration = () => {
-    // Prefer the explicit onboarding-created Arc when available so the
-    // celebration mirrors the real first-time flow. Otherwise, fall back to
-    // the most recently created Arc so the overlay can still be exercised in
-    // dev even without running onboarding first.
-    const targetArcId =
-      lastOnboardingArcId || (arcs.length > 0 ? arcs[arcs.length - 1].id : null);
+    // Fast path for testing the "Arc just created" landing moment:
+    // create a fresh Arc in the store, mark it as the onboarding Arc,
+    // and navigate directly to its detail screen.
+    const nowIso = new Date().toISOString();
+    const targetArcId = `dev-onboarding-arc-${Date.now()}`;
+    const arc = {
+      id: targetArcId,
+      name: '🚀 Dev: First Arc',
+      narrative:
+        'This Arc exists to help test the onboarding Arc handoff UI without running the full flow.',
+      status: 'active',
+      startDate: nowIso,
+      endDate: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    } as const;
+    addArc(arc);
+    void ensureArcBannerPrefill(arc);
 
-    if (!targetArcId) {
-      Alert.alert(
-        'No arcs available',
-        'Create an Arc first (or run onboarding) before testing the celebration overlay.'
-      );
-      return;
-    }
-
-    // Ensure the ArcDetail screen recognizes this Arc as the onboarding
-    // target and that the one-time flag does not suppress the overlay.
+    // Ensure ArcDetail recognizes this Arc as the onboarding-created Arc and
+    // that the one-time flags do not suppress the handoff/guide UI.
     setLastOnboardingArcId(targetArcId);
     setHasSeenFirstArcCelebration(false);
+    setHasDismissedOnboardingGoalGuide(false);
 
     navigation.navigate('ArcsStack', {
       screen: 'ArcDetail',
@@ -294,6 +321,112 @@ export function DevToolsScreen() {
   };
 
   const isGallery = viewMode === 'gallery';
+  const isTypeAndColor = viewMode === 'typeColor';
+
+  const interstitialSegmentOptions: { value: InterstitialVariant; label: string }[] = [
+    { value: 'launch', label: 'Launch' },
+    { value: 'auth', label: 'Auth' },
+    { value: 'streak', label: 'Streak' },
+  ];
+
+  const renderInterstitialPreview = (options?: { fullScreen?: boolean }) => {
+    const fullScreen = options?.fullScreen ?? false;
+
+    switch (interstitialVariant) {
+      case 'auth':
+        return (
+          <View style={styles.interstitialContent}>
+            {fullScreen && __DEV__ && (
+              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
+                <Button
+                  variant="accent"
+                  size="icon"
+                  iconButtonSize={28}
+                  onPress={() => setIsInterstitialFullScreenVisible(false)}
+                  accessibilityLabel="Close interstitial and return to Dev tools"
+                  style={styles.devExitButton}
+                >
+                  <Icon name="dev" color={colors.canvas} size={16} />
+                </Button>
+              </View>
+            )}
+            <View style={styles.interstitialHeroBlock}>
+              <Text style={styles.interstitialTitle}>Sign in to continue</Text>
+              <Text style={styles.interstitialBody}>{authBody}</Text>
+            </View>
+            <View style={styles.interstitialAuthCard}>
+              <Input label="Email" placeholder="you@example.com" />
+              <Input label="Password" placeholder="••••••••" />
+              <Button variant="accent" fullWidth>
+                <ButtonLabel size="md" tone="inverse">
+                  Continue
+                </ButtonLabel>
+              </Button>
+              <Button variant="ghost" fullWidth>
+                <ButtonLabel size="md">Create an account</ButtonLabel>
+              </Button>
+            </View>
+          </View>
+        );
+      case 'streak':
+        return (
+          <View style={styles.interstitialContent}>
+            {fullScreen && __DEV__ && (
+              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
+                <Button
+                  variant="accent"
+                  size="icon"
+                  iconButtonSize={28}
+                  onPress={() => setIsInterstitialFullScreenVisible(false)}
+                  accessibilityLabel="Close interstitial and return to Dev tools"
+                  style={styles.devExitButton}
+                >
+                  <Icon name="dev" color={colors.canvas} size={16} />
+                </Button>
+              </View>
+            )}
+            <View style={styles.streakHeroBlock}>
+              <Text style={styles.streakLabel}>Current streak</Text>
+              <Text style={styles.streakNumber}>{streakDays}</Text>
+              <Text style={styles.streakBody}>{streakBody}</Text>
+            </View>
+            <View style={styles.interstitialFooterBlock}>
+              <Button variant="accent" fullWidth>
+                <ButtonLabel size="md" tone="inverse">
+                  Plan today’s step
+                </ButtonLabel>
+              </Button>
+            </View>
+          </View>
+        );
+      case 'launch':
+      default:
+        return (
+          <View style={styles.interstitialContent}>
+            {fullScreen && __DEV__ && (
+              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
+                <Button
+                  variant="accent"
+                  size="icon"
+                  iconButtonSize={28}
+                  onPress={() => setIsInterstitialFullScreenVisible(false)}
+                  accessibilityLabel="Close interstitial and return to Dev tools"
+                  style={styles.devExitButton}
+                >
+                  <Icon name="dev" color={colors.canvas} size={16} />
+                </Button>
+              </View>
+            )}
+            <View style={styles.interstitialHeroBlock}>
+              <View style={styles.launchBrandLockup}>
+                <Logo size={72} />
+                <Text style={styles.launchWordmark}>kwilt</Text>
+              </View>
+            </View>
+          </View>
+        );
+    }
+  };
 
   const renderComponentGallery = () => {
     return (
@@ -310,37 +443,58 @@ export function DevToolsScreen() {
             <VStack space="sm">
               <HStack space="sm">
                 <Button variant="accent">
-                  <Text style={styles.primaryButtonLabel}>Primary</Text>
+                  <ButtonLabel size="md" tone="inverse">
+                    Primary
+                  </ButtonLabel>
                 </Button>
                 <Button variant="secondary">
-                  <Text style={styles.secondaryButtonLabel}>Secondary</Text>
+                  <ButtonLabel size="md">Secondary</ButtonLabel>
                 </Button>
                 <Button variant="outline">
-                  <Text style={styles.secondaryButtonLabel}>Outline</Text>
+                  <ButtonLabel size="md">Outline</ButtonLabel>
                 </Button>
               </HStack>
               <HStack space="sm">
                 <Button variant="destructive">
-                  <Text style={styles.primaryButtonLabel}>Destructive</Text>
+                  <ButtonLabel size="md" tone="inverse">
+                    Destructive
+                  </ButtonLabel>
                 </Button>
                 <Button variant="ghost">
-                  <Text style={styles.secondaryButtonLabel}>Ghost</Text>
+                  <ButtonLabel size="md">Ghost</ButtonLabel>
                 </Button>
               </HStack>
               <View style={styles.gallerySubsectionHeader}>
                 <Text style={styles.galleryFieldLabel}>Size variants</Text>
               </View>
-              <HStack space="sm">
+              <HStack space="sm" alignItems="flex-start">
+                <Button variant="accent" size="lg">
+                  <ButtonLabel size="lg" tone="inverse">
+                    Large
+                  </ButtonLabel>
+                </Button>
                 <Button variant="accent">
-                  <Text style={styles.primaryButtonLabel}>Default</Text>
+                  <ButtonLabel size="md" tone="inverse">
+                    Medium
+                  </ButtonLabel>
                 </Button>
                 <Button variant="accent" size="small">
-                  <Text style={styles.primaryButtonLabel}>Small</Text>
+                  <ButtonLabel size="sm" tone="inverse">
+                    Small
+                  </ButtonLabel>
                 </Button>
                 <IconButton accessibilityLabel="Icon button example">
                   <Icon name="more" size={18} color={colors.canvas} />
                 </IconButton>
               </HStack>
+              <View style={styles.gallerySubsectionHeader}>
+                <Text style={styles.galleryFieldLabel}>Full-width</Text>
+              </View>
+              <Button variant="accent" fullWidth>
+                <ButtonLabel size="md" tone="inverse">
+                  Full width action
+                </ButtonLabel>
+              </Button>
             </VStack>
           </View>
 
@@ -478,6 +632,61 @@ export function DevToolsScreen() {
               On device, swipe down or tap the scrim to dismiss.
             </Text>
           </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Interstitials</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Full-screen guidance and celebration layouts that sit on top of the app shell.
+            </Text>
+            <SegmentedControl
+              style={styles.interstitialVariantTabs}
+              value={interstitialVariant}
+              onChange={(next) => setInterstitialVariant(next as InterstitialVariant)}
+              options={interstitialSegmentOptions}
+            />
+
+            {interstitialVariant === 'auth' && (
+              <VStack space="sm" style={styles.interstitialControls}>
+                <Textarea
+                  label="Supporting copy"
+                  placeholder="Explain why signing in matters"
+                  value={authBody}
+                  onChangeText={setAuthBody}
+                  numberOfLines={3}
+                />
+              </VStack>
+            )}
+
+            {interstitialVariant === 'streak' && (
+              <VStack space="sm" style={styles.interstitialControls}>
+                <Input
+                  label="Streak days"
+                  value={streakDays}
+                  keyboardType="number-pad"
+                  onChangeText={setStreakDays}
+                />
+                <Textarea
+                  label="Supporting copy"
+                  value={streakBody}
+                  onChangeText={setStreakBody}
+                  numberOfLines={3}
+                />
+              </VStack>
+            )}
+
+            <View style={styles.interstitialPreviewSurface}>{renderInterstitialPreview()}</View>
+
+            <Button
+              variant="accent"
+              fullWidth
+              style={styles.interstitialLaunchButton}
+              onPress={() => setIsInterstitialFullScreenVisible(true)}
+            >
+              <ButtonLabel size="md" tone="inverse">
+                Launch full-screen
+              </ButtonLabel>
+            </Button>
+          </View>
         </View>
 
         <KwiltBottomSheet
@@ -500,6 +709,138 @@ export function DevToolsScreen() {
     );
   };
 
+  const renderTypeAndColorGallery = () => {
+    const pineScale = [
+      { token: 'pine50', label: 'Pine 50', value: colors.pine50 },
+      { token: 'pine100', label: 'Pine 100', value: colors.pine100 },
+      { token: 'pine200', label: 'Pine 200', value: colors.pine200 },
+      { token: 'pine300', label: 'Pine 300', value: colors.pine300 },
+      { token: 'pine400', label: 'Pine 400', value: colors.pine400 },
+      { token: 'pine500', label: 'Pine 500', value: colors.pine500 },
+      { token: 'pine600', label: 'Pine 600', value: colors.pine600 },
+      { token: 'pine700', label: 'Pine 700', value: colors.pine700 },
+      { token: 'pine800', label: 'Pine 800', value: colors.pine800 },
+      { token: 'pine900', label: 'Pine 900', value: colors.pine900 },
+    ];
+
+    const grayScale = [
+      { token: 'gray50', label: 'Gray 50', value: colors.gray50 },
+      { token: 'gray100', label: 'Gray 100', value: colors.gray100 },
+      { token: 'gray200', label: 'Gray 200', value: colors.gray200 },
+      { token: 'gray300', label: 'Gray 300', value: colors.gray300 },
+      { token: 'gray400', label: 'Gray 400', value: colors.gray400 },
+      { token: 'gray500', label: 'Gray 500', value: colors.gray500 },
+      { token: 'gray600', label: 'Gray 600', value: colors.gray600 },
+      { token: 'gray700', label: 'Gray 700', value: colors.gray700 },
+      { token: 'gray800', label: 'Gray 800', value: colors.gray800 },
+      { token: 'gray900', label: 'Gray 900', value: colors.gray900 },
+    ];
+
+    const brandPalette = [
+      { token: 'accent', label: 'Accent', value: colors.accent },
+      { token: 'accentMuted', label: 'Accent muted', value: colors.accentMuted },
+      { token: 'accentRose', label: 'Accent rose', value: colors.accentRose },
+      {
+        token: 'accentRoseStrong',
+        label: 'Accent rose (strong)',
+        value: colors.accentRoseStrong,
+      },
+      { token: 'indigo', label: 'Indigo', value: colors.indigo },
+      { token: 'turmeric', label: 'Turmeric', value: colors.turmeric },
+      { token: 'madder', label: 'Madder', value: colors.madder },
+      { token: 'quiltBlue', label: 'Quilt blue', value: colors.quiltBlue },
+      { token: 'clay', label: 'Clay', value: colors.clay },
+      { token: 'moss', label: 'Moss', value: colors.moss },
+      { token: 'sumi', label: 'Sumi', value: colors.sumi },
+    ];
+
+    return (
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.stack}>
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Typography tokens</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Inspect the base type ramp used across headings, body copy, and labels.
+            </Text>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Brand</Text>
+              <Text style={typography.brand}>kwilt</Text>
+            </View>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Title / MD</Text>
+              <Text style={typography.titleMd}>Architect your next arc</Text>
+            </View>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Body</Text>
+              <Text style={styles.typeTokenSample}>Gentle guidance and daily steps.</Text>
+            </View>
+            <View style={styles.typeTokenRow}>
+              <Text style={styles.typeTokenName}>Label</Text>
+              <Text style={typography.label}>Label</Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Pine scale</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Primary brand green scale used by kwilt, aligned with the logo accent.
+            </Text>
+            <View style={styles.colorList}>
+              {pineScale.map((swatch) => (
+                <View key={swatch.token} style={styles.colorRow}>
+                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colorLabel}>{swatch.label}</Text>
+                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Gray scale</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Neutral ramp used for canvas, borders, and text contrast.
+            </Text>
+            <View style={styles.colorList}>
+              {grayScale.map((swatch) => (
+                <View key={swatch.token} style={styles.colorRow}>
+                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colorLabel}>{swatch.label}</Text>
+                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>Brand accents</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Hero brand hues used for illustration, emphasis, and celebration moments.
+            </Text>
+            <View style={styles.colorList}>
+              {brandPalette.map((swatch) => (
+                <View key={swatch.token} style={styles.colorRow}>
+                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colorLabel}>{swatch.label}</Text>
+                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
   return (
     <AppShell>
       <PageHeader
@@ -511,39 +852,41 @@ export function DevToolsScreen() {
         <Text style={[styles.screenSubtitle, { paddingTop: spacing.lg }]}>
           {isGallery
             ? 'Preview shared UI primitives live on-device. Only visible in development builds.'
+            : isTypeAndColor
+            ? 'Inspect base typography and color tokens that underpin the shared UI system.'
             : 'Utilities for testing and development. Only visible in development builds.'}
         </Text>
-        <View style={styles.tabSwitcher}>
-          <Pressable
-            style={[styles.tab, !isGallery && styles.tabActive]}
-            onPress={() => setViewMode('tools')}
-          >
-            <Text
-              style={[
-                styles.tabLabel,
-                !isGallery && styles.tabLabelActive,
-              ]}
-            >
-              Tools
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, isGallery && styles.tabActive]}
-            onPress={() => setViewMode('gallery')}
-          >
-            <Text
-              style={[
-                styles.tabLabel,
-                isGallery && styles.tabLabelActive,
-              ]}
-            >
-              Components
-            </Text>
-          </Pressable>
-        </View>
+        <SegmentedControl
+          style={styles.tabSwitcher}
+          value={viewMode}
+          onChange={(next) => setViewMode(next)}
+          options={[
+            { value: 'tools', label: 'Tools' },
+            { value: 'gallery', label: 'Components' },
+            { value: 'typeColor', label: 'Type & Color' },
+          ]}
+        />
       </PageHeader>
       {isGallery ? (
-        renderComponentGallery()
+        <>
+          {renderComponentGallery()}
+          <FullScreenInterstitial
+            visible={isInterstitialFullScreenVisible}
+            onDismiss={() => setIsInterstitialFullScreenVisible(false)}
+            progression={interstitialVariant === 'launch' ? 1500 : 'button'}
+            backgroundColor={
+              interstitialVariant === 'launch'
+                ? 'pine300'
+                : interstitialVariant === 'streak'
+                ? 'indigo'
+                : 'shell'
+            }
+          >
+            {renderInterstitialPreview({ fullScreen: true })}
+          </FullScreenInterstitial>
+        </>
+      ) : isTypeAndColor ? (
+        renderTypeAndColorGallery()
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -557,19 +900,21 @@ export function DevToolsScreen() {
                 Launches the first-time experience overlay immediately, even if it was already
                 completed.
               </Text> */}
-              <Button variant="accent" onPress={handleTriggerFirstTimeUx}>
-                <Text style={styles.primaryButtonLabel}>Trigger first-time UX</Text>
+              <Button variant="accent" onPress={handleTriggerFirstTimeUx} style={styles.cardAction}>
+                <ButtonLabel size="md" tone="inverse">
+                  Trigger first-time UX
+                </ButtonLabel>
               </Button>
               {isFlowActive && (
-                <Button variant="secondary" onPress={dismissFlow}>
-                  <Text style={styles.secondaryButtonLabel}>Force dismiss</Text>
+                <Button variant="secondary" onPress={dismissFlow} style={styles.cardAction}>
+                  <ButtonLabel size="md">Force dismiss</ButtonLabel>
                 </Button>
               )}
-              <Button variant="secondary" onPress={handleShowFirstArcCelebration}>
-                <Text style={styles.secondaryButtonLabel}>Show first-Arc celebration</Text>
+              <Button variant="secondary" onPress={handleShowFirstArcCelebration} style={styles.cardAction}>
+                <ButtonLabel size="md">Show first-Arc celebration</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleShowFirstGoalCelebration}>
-                <Text style={styles.secondaryButtonLabel}>Show first-goal celebration</Text>
+              <Button variant="secondary" onPress={handleShowFirstGoalCelebration} style={styles.cardAction}>
+                <ButtonLabel size="md">Show first-goal celebration</ButtonLabel>
               </Button>
               <Text style={styles.meta}>
                 Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
@@ -584,14 +929,14 @@ export function DevToolsScreen() {
                 behavior. Make sure notifications are enabled in Settings → Notifications and in
                 system settings.
               </Text>
-              <Button variant="secondary" onPress={handleDebugDailyShowUpNotification}>
-                <Text style={styles.secondaryButtonLabel}>Fire daily show-up (dev)</Text>
+              <Button variant="secondary" onPress={handleDebugDailyShowUpNotification} style={styles.cardAction}>
+                <ButtonLabel size="md">Fire daily show-up (dev)</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleDebugStreakNotification}>
-                <Text style={styles.secondaryButtonLabel}>Fire streak nudge (dev)</Text>
+              <Button variant="secondary" onPress={handleDebugStreakNotification} style={styles.cardAction}>
+                <ButtonLabel size="md">Fire streak nudge (dev)</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleDebugReactivationNotification}>
-                <Text style={styles.secondaryButtonLabel}>Fire reactivation (dev)</Text>
+              <Button variant="secondary" onPress={handleDebugReactivationNotification} style={styles.cardAction}>
+                <ButtonLabel size="md">Fire reactivation (dev)</ButtonLabel>
               </Button>
               <Text style={styles.meta}>
                 Each button schedules a local notification to fire in ~2 seconds using the same
@@ -764,31 +1109,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   stack: {
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
   tabSwitcher: {
-    flexDirection: 'row',
-    padding: spacing.xs,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
     marginTop: spacing.lg,
-  },
-  tab: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  tabActive: {
-    backgroundColor: colors.canvas,
-  },
-  tabLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  tabLabelActive: {
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
   },
   screenSubtitle: {
     ...typography.body,
@@ -798,7 +1123,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderRadius: 28,
     padding: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.sm,
     shadowColor: '#0F172A',
     shadowOpacity: 0.08,
     shadowRadius: 24,
@@ -809,7 +1134,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   cardEyebrow: {
     ...typography.label,
@@ -838,9 +1163,13 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: spacing.sm,
   },
+  cardAction: {
+    alignSelf: 'flex-start',
+    marginTop: 0,
+  },
   historyList: {
     marginTop: spacing.md,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   historyItem: {
     borderRadius: 16,
@@ -863,7 +1192,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   historyTimestamp: {
-    ...typography.caption,
+    ...typography.bodySm,
     color: colors.muted,
   },
   historyTranscript: {
@@ -934,7 +1263,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs / 2,
   },
   feedbackMeta: {
-    ...typography.caption,
+    ...typography.bodySm,
     color: colors.muted,
   },
   feedbackNote: {
@@ -962,6 +1291,152 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
   },
+  typeTokenRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  typeTokenName: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginRight: spacing.md,
+    minWidth: 96,
+  },
+  typeTokenSample: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  colorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 18,
+    backgroundColor: colors.canvas,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  colorList: {
+    gap: spacing.xs,
+  },
+  colorSwatch: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  colorLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  colorToken: {
+    ...typography.bodySm,
+    color: colors.muted,
+    marginTop: spacing.xs / 4,
+  },
+  interstitialTabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  interstitialPreviewSurface: {
+    borderRadius: 24,
+    backgroundColor: colors.pine100,
+    padding: spacing.lg,
+  },
+  interstitialContent: {
+    flex: 1,
+    flexDirection: 'column',
+    rowGap: spacing['2xl'],
+  },
+  interstitialHeroBlock: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    rowGap: spacing.lg,
+  },
+  interstitialFooterBlock: {
+    marginTop: 'auto',
+    rowGap: spacing.md,
+  },
+  interstitialTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  interstitialBody: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  interstitialAuthCard: {
+    borderRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.canvas,
+    rowGap: spacing.md,
+  },
+  streakHeroBlock: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    rowGap: spacing.md,
+  },
+  streakLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+  },
+  streakNumber: {
+    ...typography.titleXl,
+    fontSize: 56,
+    lineHeight: 60,
+    color: colors.canvas,
+  },
+  streakBody: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  interstitialVariantTabs: {
+    marginTop: spacing.sm,
+  },
+  interstitialControls: {
+    marginTop: spacing.md,
+  },
+  interstitialLaunchButton: {
+    marginTop: spacing.md,
+    alignSelf: 'stretch',
+  },
+  launchBrandLockup: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    rowGap: spacing.sm,
+  },
+  launchWordmark: {
+    ...typography.brand,
+    color: colors.pine700,
+    fontSize: 36,
+    lineHeight: 42,
+    textShadowColor: colors.pine800,
+    textShadowOffset: { width: 0.4, height: 0.4 },
+    textShadowRadius: 1,
+  },
+  launchTagline: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    marginTop: spacing.lg,
+    maxWidth: 280,
+  },
   gallerySectionDescription: {
     ...typography.bodySm,
     color: colors.textSecondary,
@@ -988,6 +1463,17 @@ const styles = StyleSheet.create({
   sheetBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  devExitRow: {
+    position: 'absolute',
+    right: 12,
+    zIndex: 2,
+  },
+  devExitButton: {
+    backgroundColor: '#EA580C',
+    borderColor: '#EA580C',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

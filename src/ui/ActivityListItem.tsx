@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { Card } from './Card';
 import { HStack, VStack, Text } from './primitives';
 import { Icon } from './Icon';
 import { colors, spacing, typography } from '../theme';
+import { fonts } from '../theme/typography';
 
 type ActivityListItemProps = {
   title: string;
@@ -12,6 +13,11 @@ type ActivityListItemProps = {
    * parent goal name, phase, or light metadata.
    */
   meta?: string;
+  /**
+   * Optional leading icon for the metadata row. Typically used for a tiny
+   * due-date calendar icon.
+   */
+  metaLeadingIconName?: import('./Icon').IconName;
   /**
    * When true, renders the item as completed with a filled check and muted
    * text styling.
@@ -38,45 +44,115 @@ type ActivityListItemProps = {
 export function ActivityListItem({
   title,
   meta,
+  metaLeadingIconName,
   isCompleted = false,
   onToggleComplete,
   isPriorityOne = false,
   onTogglePriority,
   onPress,
 }: ActivityListItemProps) {
+  const completionAnim = React.useRef(new Animated.Value(0)).current;
+  const [isAnimatingComplete, setIsAnimatingComplete] = React.useState(false);
+
+  const handlePressComplete = () => {
+    if (!onToggleComplete) {
+      return;
+    }
+
+    // When marking as done, play a quick "burst" animation before we
+    // hand control back to the list (which will move the item into
+    // the Completed section).
+    if (!isCompleted) {
+      setIsAnimatingComplete(true);
+      completionAnim.setValue(0);
+      Animated.timing(completionAnim, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        // Give the burst a brief moment to settle before the
+        // list reflows into the Completed section.
+        setTimeout(() => {
+          setIsAnimatingComplete(false);
+          onToggleComplete();
+        }, 80);
+      });
+      return;
+    }
+
+    // For un-completing, just toggle immediately without the burst.
+    onToggleComplete();
+  };
+
+  const completionScale = completionAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.6, 1],
+  });
+
   const content = (
     <Card style={styles.card}>
       <HStack space="md" alignItems="center" justifyContent="space-between">
         <HStack space="md" alignItems="center" style={styles.leftCluster}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isCompleted ? 'Mark activity as not done' : 'Mark activity as done'}
-            hitSlop={8}
-            onPress={onToggleComplete}
-          >
-            <View
-              style={[
-                styles.checkboxBase,
-                isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
-              ]}
+          <View style={styles.checkboxWrapper}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isCompleted ? 'Mark activity as not done' : 'Mark activity as done'}
+              hitSlop={8}
+              onPress={handlePressComplete}
             >
-              {isCompleted ? <Icon name="check" size={14} color={colors.primaryForeground} /> : null}
-            </View>
-          </Pressable>
+              <View
+                style={[
+                  styles.checkboxBase,
+                  isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
+                ]}
+              >
+                {isCompleted ? (
+                  <Icon name="check" size={14} color={colors.primaryForeground} />
+                ) : null}
+              </View>
+            </Pressable>
+
+            {isAnimatingComplete && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.completionBurst,
+                  {
+                    transform: [{ scale: completionScale }],
+                  },
+                ]}
+              >
+                <View style={styles.completionBurstInner}>
+                  <Icon name="check" size={12} color={colors.primaryForeground} />
+                </View>
+              </Animated.View>
+            )}
+          </View>
 
           <VStack style={styles.textBlock} space="xs">
-            <Text
-              style={[styles.title, isCompleted && styles.titleCompleted]}
-            >
+            <Text style={[styles.title, isCompleted && styles.titleCompleted]}>
               {title}
             </Text>
             {meta ? (
-              <Text
-                numberOfLines={1}
-                style={[styles.meta, isCompleted && styles.metaCompleted]}
+              <HStack
+                space={4}
+                alignItems="center"
               >
-                {meta}
-              </Text>
+                {metaLeadingIconName ? (
+                  <Icon
+                    name={metaLeadingIconName}
+                    size={10}
+                    color={isCompleted ? colors.muted : colors.textSecondary}
+                  />
+                ) : null}
+                <Text
+                  numberOfLines={1}
+                  style={[styles.meta, isCompleted && styles.metaCompleted]}
+                >
+                  {meta}
+                </Text>
+              </HStack>
             ) : null}
           </VStack>
         </HStack>
@@ -84,16 +160,14 @@ export function ActivityListItem({
         {/* Importance / priority affordance */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={
-            isPriorityOne ? 'Remove Priority 1 flag from activity' : 'Mark activity as Priority 1'
-          }
+          accessibilityLabel={isPriorityOne ? 'Remove star from activity' : 'Star this activity'}
           hitSlop={8}
           onPress={onTogglePriority}
         >
           <Icon
-            name="star"
+            name={isPriorityOne ? 'starFilled' : 'star'}
             size={18}
-            color={isPriorityOne ? colors.accent : colors.textSecondary}
+            color={isPriorityOne ? colors.turmeric : colors.textSecondary}
           />
         </Pressable>
       </HStack>
@@ -131,6 +205,9 @@ const styles = StyleSheet.create({
   leftCluster: {
     flex: 1,
   },
+  checkboxWrapper: {
+    position: 'relative',
+  },
   checkboxBase: {
     width: 24,
     height: 24,
@@ -147,18 +224,42 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: colors.accent,
   },
+  completionBurst: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completionBurstInner: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   textBlock: {
     flex: 1,
   },
   title: {
     ...typography.body,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
     color: colors.textPrimary,
+    // Slightly tighter line height so the metadata row tucks closer
+    // to multi-line titles without feeling cramped.
+    lineHeight: 22,
   },
   titleCompleted: {
     color: colors.textSecondary,
   },
   meta: {
     ...typography.bodySm,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.textSecondary,
   },
   metaCompleted: {

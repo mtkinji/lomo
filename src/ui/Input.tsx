@@ -10,14 +10,14 @@ import {
   TextInput,
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
+  TextInputProps,
 } from 'react-native';
-import { Input as ReusableInput } from '@/components/ui/input';
-import type { TextInputProps } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 
 type InputVariant = 'surface' | 'outline' | 'ghost';
 type InputSize = 'md' | 'sm';
+type InputElevation = 'flat' | 'elevated';
 
 const MULTILINE_MIN_HEIGHT = 112;
 const MULTILINE_MAX_HEIGHT = 220;
@@ -34,6 +34,16 @@ type Props = TextInputProps & {
   inputStyle?: StyleProp<TextStyle>;
   size?: InputSize;
   variant?: InputVariant;
+  /**
+   * Shadow treatment for the input container.
+   *
+   * - `elevated`: subtle soft shadow + border, matches the refreshed
+   *   text-field spec.
+   * - `flat`: removes shadows entirely so the input sits flush on the canvas.
+   *
+   * Defaults to `elevated` so existing inputs adopt the new styling.
+   */
+  elevation?: InputElevation;
 };
 
 const InputBase = forwardRef<TextInput, Props>(
@@ -51,6 +61,7 @@ const InputBase = forwardRef<TextInput, Props>(
       size = 'md',
       variant = 'surface',
       editable = true,
+      elevation = 'elevated',
       onFocus,
       onBlur,
       multiline = false,
@@ -79,6 +90,9 @@ const InputBase = forwardRef<TextInput, Props>(
               borderColor: statusColor,
               opacity: editable ? 1 : 0.6,
             },
+            elevation === 'elevated'
+              ? (cardElevation.soft as ViewStyle)
+              : (cardElevation.none as ViewStyle),
             containerStyle,
           ]}
         >
@@ -87,11 +101,12 @@ const InputBase = forwardRef<TextInput, Props>(
               <Icon name={leadingIcon} size={16} color={iconColor} />
             </View>
           ) : null}
-          <ReusableInput
+          <TextInput
             {...rest}
-            ref={ref as any}
+            ref={ref}
             editable={editable}
             multiline={multiline}
+            placeholderTextColor={colors.muted}
             onContentSizeChange={(
               event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
             ) => {
@@ -113,7 +128,6 @@ const InputBase = forwardRef<TextInput, Props>(
               setFocused(false);
               onBlur?.(event);
             }}
-            className=""
             style={[
               styles.input,
               multiline && styles.multilineInput,
@@ -229,5 +243,3 @@ const variantStyles: Record<InputVariant, ViewStyle> = {
     backgroundColor: 'transparent',
   },
 };
-
-

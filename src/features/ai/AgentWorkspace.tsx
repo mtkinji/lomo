@@ -1,18 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ChatMode } from './chatRegistry';
-import type { GeneratedArc } from '../../services/ai';
+import type { ChatMode } from './workflowRegistry';
+import type { CoachChatTurn, CoachChatOptions, GeneratedArc } from '../../services/ai';
 import {
   type LaunchContext,
   type WorkflowDefinition,
   type WorkflowInstance,
   type WorkflowInstanceStatus,
-  WORKFLOW_DEFINITIONS,
 } from '../../domain/workflows';
-import { AiChatPane, type AiChatPaneController, type ActivitySuggestion } from './AiChatScreen';
-import { WorkflowRuntimeContext } from './WorkflowRuntimeContext';
-import { OnboardingGuidedFlow } from '../onboarding/OnboardingGuidedFlow';
+import { WORKFLOW_REGISTRY } from './workflowRegistry';
+import {
+  AiChatPane,
+  type AiChatPaneController,
+  type ActivitySuggestion,
+  type ChatTimelineController,
+} from './AiChatScreen';
+import { WorkflowRuntimeContext, type InvokeAgentStepParams } from './WorkflowRuntimeContext';
 import { IdentityAspirationFlow } from '../onboarding/IdentityAspirationFlow';
+import { ArcCreationFlow } from '../arcs/ArcCreationFlow';
+import { GoalCreationFlow } from '../goals/GoalCreationFlow';
 import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
+import { sendCoachChat } from '../../services/ai';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -72,6 +79,12 @@ export type AgentWorkspaceProps = {
    */
   onTransportError?: () => void;
   /**
+   * Optional hook fired when the user chooses to fall back to a manual flow
+   * (for example, tapping "Create manually instead" in Activities AI). This is
+   * distinct from `onTransportError`, which represents a network failure.
+   */
+  onManualFallbackRequested?: () => void;
+  /**
    * Optional hook fired when the user taps "Accept" on an AI-generated
    * activity suggestion card in activityCreation mode.
    */
@@ -125,6 +138,15 @@ const createInitialWorkflowInstance = (
   };
 };
 
+/**
+ * Single host/orchestrator for all agent workflows.
+ *
+ * AgentWorkspace always lives inside the existing AppShell + canvas layers and
+ * never replaces them. It owns workflow state and forwards a single shared
+ * chat + cards timeline into AiChatPane; any workflow-specific UI should be
+ * provided as a `stepCard` rendered inside that pane, not as a separate chat
+ * surface or modal stack.
+ */
 export function AgentWorkspace(props: AgentWorkspaceProps) {
   const {
     mode,
@@ -153,7 +175,10 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
 
   const workflowDefinition: WorkflowDefinition | undefined = useMemo(() => {
     if (!workflowDefinitionId) return undefined;
-    return WORKFLOW_DEFINITIONS[workflowDefinitionId];
+    // Look up by workflowDefinitionId in WORKFLOW_REGISTRY (keyed by ChatMode)
+    // or fall back to a future per-workflow-ID lookup if we add that layer.
+    // For now, workflowDefinitionId should match a ChatMode.
+    return (WORKFLOW_REGISTRY as Record<string, WorkflowDefinition>)[workflowDefinitionId];
   }, [workflowDefinitionId]);
 
   const [workflowInstance, setWorkflowInstance] = useState<WorkflowInstance | null>(() => {
@@ -191,18 +216,6 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return createInitialWorkflowInstance(workflowDefinition, workflowInstanceId);
     });
   }, [workflowDefinition, workflowInstanceId]);
-  useEffect(() => {
-    if (!workflowDefinition) {
-      setWorkflowInstance(null);
-      return;
-    }
-    setWorkflowInstance((current) => {
-      if (current && current.definitionId === workflowDefinition.id) {
-        return current;
-      }
-      return createInitialWorkflowInstance(workflowDefinition, workflowInstanceId);
-    });
-  }, [workflowDefinition, workflowInstanceId]);
 
   const completeStep = useCallback(
     (stepId: string, collected?: Record<string, unknown>, nextStepIdOverride?: string) => {
@@ -219,10 +232,25 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           ...(collected ?? {}),
         };
 
+        // For most workflows, reaching a step with no nextStepId means the
+        // workflow has completed. We intentionally skip auto-completing the
+        // first-time onboarding workflow so FTUE presenters stay in full
+        // control of lifecycle and host callbacks.
+        const shouldAutoCompleteOnTerminal =
+          workflowDefinition.chatMode !== 'firstTimeOnboarding';
+
+        const isTerminalStep = !nextStepId;
+
         const nextInstance: WorkflowInstance = {
           ...current,
           collectedData: nextCollectedData,
           currentStepId: nextStepId ?? current.currentStepId,
+          status:
+            shouldAutoCompleteOnTerminal && isTerminalStep ? ('completed' as WorkflowInstanceStatus) : current.status,
+          outcome:
+            shouldAutoCompleteOnTerminal && isTerminalStep
+              ? (nextCollectedData as Record<string, unknown>)
+              : current.outcome ?? null,
         };
 
         if (onStepComplete) {
@@ -242,6 +270,48 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     [workflowDefinition, onStepComplete]
   );
 
+  const invokeAgentStep = useCallback(
+    async ({ stepId }: InvokeAgentStepParams) => {
+      if (!workflowDefinition) return;
+      if (!workflowInstance) return;
+
+      const controller = chatPaneRef.current as ChatTimelineController | null;
+      if (!controller) return;
+
+      const history: CoachChatTurn[] = controller.getHistory();
+
+      const coachOptions: CoachChatOptions = {
+        mode: workflowDefinition.chatMode,
+        workflowDefinitionId: workflowDefinition.id,
+        workflowInstanceId: workflowInstance.id,
+        workflowStepId: stepId,
+        launchContextSummary: launchContextText,
+      };
+
+      // Surface any configured, step-specific loading message while the agent
+      // call is in flight so users always see that the workflow-specific AI is
+      // actively working.
+      const step = workflowDefinition.steps.find((s) => s.id === stepId);
+      const loadingMessage = step?.agentBehavior?.loadingMessage;
+      if (loadingMessage) {
+        const loadingId =
+          step?.agentBehavior?.loadingMessageId ?? `assistant-step-status-${stepId}`;
+        controller.streamAssistantReplyFromWorkflow(loadingMessage, loadingId);
+      }
+
+      try {
+        const reply = await sendCoachChat(history, coachOptions);
+        controller.streamAssistantReplyFromWorkflow(reply, 'assistant-workflow');
+      } catch (error) {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.error('[workflow] Failed to invoke agent step', stepId, error);
+        }
+      }
+    },
+    [launchContextText, workflowDefinition, workflowInstance]
+  );
+
   // Emit step-completion analytics after the instance state has been updated.
   useEffect(() => {
     if (!onStepComplete) return;
@@ -259,6 +329,9 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     lastStepEventRef.current = null;
   }, [workflowInstance, workflowDefinition, onStepComplete]);
 
+  // Workflow-driven UI enters the chat surface as a generic `stepCard` node.
+  // Presenters like IdentityAspirationFlow render into this slot so that all
+  // cards still appear inside the shared AiChatPane timeline.
   const workflowStepCard = useMemo(() => {
     if (!workflowDefinition) {
       return undefined;
@@ -266,32 +339,66 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
 
     // Any workflow that uses the firstTimeOnboarding chatMode is hosted by a
     // shared onboarding presenter. For the v2 identity-Arc FTUE we use a
-    // dedicated, tap-first flow; any future legacy flows can continue to use
-    // the older OnboardingGuidedFlow presenter.
+    // dedicated, tap-first flow rendered by IdentityAspirationFlow.
     if (workflowDefinition.chatMode === 'firstTimeOnboarding') {
+      // FTUE v2 – identity Arc / aspiration. This is the only active
+      // first-time onboarding workflow; legacy guided flows have been
+      // retired in favour of this presenter.
       if (workflowDefinition.id === FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID) {
         return (
           <IdentityAspirationFlow
             onComplete={() => {
               onComplete?.(workflowInstance?.collectedData ?? {});
             }}
-            chatControllerRef={chatPaneRef}
+            chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
           />
         );
       }
+    }
 
+    // Arc creation uses a lightweight presenter for the initial context step so
+    // the user sees a clear, structured entry point before continuing in the
+    // shared chat surface.
+    if (workflowDefinition.chatMode === 'arcCreation') {
       return (
-        <OnboardingGuidedFlow
-          onComplete={() => {
-            onComplete?.(workflowInstance?.collectedData ?? {});
-          }}
-          chatControllerRef={chatPaneRef}
+        <ArcCreationFlow
+          chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
+        />
+      );
+    }
+
+    if (workflowDefinition.chatMode === 'goalCreation') {
+      // Goal creation uses a lightweight, tap-first presenter for the initial
+      // context step, then hands off to the shared chat surface for the rest
+      // of the workflow.
+      return (
+        <GoalCreationFlow
+          chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
         />
       );
     }
 
     return undefined;
   }, [workflowDefinition, workflowInstance, onComplete]);
+
+  // In development, surface a gentle warning when a host accidentally pairs a
+  // ChatMode with a workflow whose chatMode does not match. This helps keep
+  // prompts, tools, and step graphs aligned.
+  useEffect(() => {
+    if (!__DEV__) return;
+    if (!workflowDefinition) return;
+    if (!mode) return;
+
+    if (workflowDefinition.chatMode !== mode) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[workflow] Mismatched mode / workflowDefinitionId:',
+        `mode=${mode}`,
+        `workflow.chatMode=${workflowDefinition.chatMode}`,
+        `workflow.id=${workflowDefinition.id}`
+      );
+    }
+  }, [mode, workflowDefinition]);
 
   useEffect(() => {
     if (!workflowInstance) return;
@@ -331,15 +438,19 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   // For now, AgentWorkspace is a light orchestrator that forwards mode and a
   // structured launch context string into the existing AiChatPane. As we
   // introduce real workflow instances and richer card rendering, this
-  // component will become the primary host for those concerns.
+  // component remains the primary host for all AI workflows and their single
+  // shared chat surface.
   return (
     <WorkflowRuntimeContext.Provider
       value={{
         definition: workflowDefinition,
         instance: workflowInstance,
         completeStep,
+        invokeAgentStep,
       }}
     >
+      {/* All AI chat and cards go through this pane; no other chat surfaces
+          should exist elsewhere in the app. */}
       <AiChatPane
         ref={chatPaneRef}
         mode={mode}
@@ -351,7 +462,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         onComplete={onComplete}
         stepCard={workflowStepCard}
         onTransportError={props.onTransportError}
-        onManualFallbackRequested={props.onTransportError}
+        onManualFallbackRequested={props.onManualFallbackRequested}
         onAdoptActivitySuggestion={props.onAdoptActivitySuggestion}
         onDismiss={props.onDismiss}
       />
