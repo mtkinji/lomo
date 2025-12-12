@@ -103,7 +103,7 @@ export function useAgentLauncher(workspaceSnapshot?: string) {
 
   const AgentWorkspaceSheet = useMemo(() => {
     return (
-      <BottomDrawer visible={visible} onClose={close} heightRatio={0.9}>
+      <BottomDrawer visible={visible} onClose={close} snapPoints={['90%']}>
         {state.launchContext ? (
           <AgentWorkspace
             mode={state.mode}

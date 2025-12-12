@@ -359,7 +359,7 @@ const PROMPT_SUGGESTIONS = [
 ];
 
 const CHAT_COLORS = {
-// When rendered inside the BottomDrawer or KwiltBottomSheet, the sheet surface
+// When rendered inside BottomDrawer, the sheet surface
   // already uses `colors.canvas` and horizontal gutters. This palette assumes
   // that outer shell and keeps inner elements focused on content hierarchy.
   background: colors.canvas,
@@ -2363,7 +2363,7 @@ function ThinkingBubble() {
 /**
  * Convenience wrapper when the chat is used as a full-screen screen instead of
  * inside a bottom sheet. This preserves the existing AppShell-based layout
- * while letting BottomDrawer / KwiltBottomSheet embed `AiChatPane` directly.
+ * while letting BottomDrawer embed `AiChatPane` directly.
  */
 export function AiChatScreen() {
   // Lazy-load AppShell and AgentWorkspace here to avoid coupling the pane

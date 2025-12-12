@@ -271,7 +271,7 @@ export function ArcBannerSheet({
   }, [hasHero, loading, onRemove]);
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
       <View style={styles.heroModalContainer}>
         <View style={styles.modalContent}>
           <Heading style={[styles.modalTitle, { marginBottom: spacing.md }]}>Arc Banner</Heading>

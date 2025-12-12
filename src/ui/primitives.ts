@@ -6,7 +6,7 @@
 export { Button, IconButton } from './Button';
 export { Card } from './Card';
 export { Input } from './Input';
-export { KwiltBottomSheet as Sheet } from './BottomSheet';
+export { BottomDrawer as Sheet } from './BottomDrawer';
 export { Badge } from './Badge';
 export { DropdownMenu } from './DropdownMenu';
 export { Dialog } from './Dialog';

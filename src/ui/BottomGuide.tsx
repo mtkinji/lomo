@@ -1,11 +1,34 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { spacing } from '../theme';
+import { colors, scrims, spacing } from '../theme';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
-import { KwiltBottomSheet } from './BottomSheet';
+import type { BottomDrawerSnapPoint } from './BottomDrawer';
+import { BottomDrawer } from './BottomDrawer';
 
 interface BottomGuideProps {
   visible: boolean;
+  /**
+   * Optional snap points override when a guide needs more vertical space.
+   * Defaults to a compact 35% guide height.
+   */
+  snapPoints?: BottomDrawerSnapPoint[];
+  /**
+   * Whether to dim the underlying canvas to make the guide more noticeable.
+   * - 'none' (default): no scrim; guide feels like a lightweight overlay.
+   * - 'light': subtle scrim to draw attention without feeling like a blocking modal.
+   */
+  scrim?: 'none' | 'light';
+  /**
+   * Layout style for the guide surface.
+   * - 'inset' (default): small horizontal gutter so the guide reads like a card.
+   * - 'fullWidth': edge-to-edge drawer surface.
+   */
+  layout?: 'inset' | 'fullWidth';
+  /**
+   * Accent color used for guide affordances (handle). Defaults to `colors.border`.
+   * This lets us unify the visual language across Coachmarks/Guides (e.g. turmeric).
+   */
+  guideColor?: string;
   /**
    * Optional callback when the guide is dismissed, either via a swipe gesture
    * or programmatically. When provided, callers should use this to flip
@@ -25,54 +48,90 @@ interface BottomGuideProps {
  * screen. Implemented as a "bottom-sheet-lite" so it slides up and down
  * from the bottom without fading opacity or dimming the underlying canvas.
  */
-export function BottomGuide({ visible, onClose, children }: BottomGuideProps) {
+export function BottomGuide({
+  visible,
+  snapPoints,
+  scrim = 'none',
+  layout = 'inset',
+  guideColor,
+  onClose,
+  children,
+}: BottomGuideProps) {
+  const scrimToken = scrim === 'light' ? 'pineSubtle' : 'default';
+  const shouldHideBackdrop = scrim === 'none';
+  const canDismiss = Boolean(onClose);
+  const accent = guideColor ?? colors.border;
+
   return (
-    <KwiltBottomSheet
+    <BottomDrawer
       visible={visible}
       onClose={onClose ?? (() => {})}
       // Let content define its own height so the guide feels like a compact,
       // anchored panel instead of a full-height sheet. Use a modest percentage
       // height so the guide remains compact and non-modal.
-      snapPoints={['35%']}
-      // Keep the app shell + canvas fully visible and interactive; this guide
-      // should feel like a foreground hint, not a blocking modal.
-      hideBackdrop
-      // Use a transparent modal surface so only the guide card itself is
-      // visible; the sheet's own background is handled by our card styling.
-      backgroundStyle={styles.sheetBackground}
+      snapPoints={snapPoints ?? ['35%']}
+      // Default guide is non-blocking. Allow an opt-in light scrim to increase salience.
+      hideBackdrop={shouldHideBackdrop}
+      scrimToken={scrimToken}
+      backdropMaxOpacity={scrim === 'light' ? scrims.pineSubtle.maxOpacity : undefined}
+      dismissOnBackdropPress={!shouldHideBackdrop && canDismiss}
+      dismissable={canDismiss}
+      // Guides should be easy to dismiss with a short swipe, otherwise the handle feels misleading.
+      dismissDragThresholdRatio={0.16}
+      // Render inline so the guide sits inside the current canvas layer and can
+      // remain non-blocking (underlying content stays interactive).
+      presentation="inline"
+      // Style the drawer surface itself as the guide card so it reads as a drawer
+      // (clear background + border + subtle handle), while still living in the
+      // canvas layer.
+      sheetStyle={[styles.sheetSurface, layout === 'fullWidth' && styles.sheetSurfaceFullWidth]}
+      handleContainerStyle={styles.handleContainer}
+      handleStyle={canDismiss ? [styles.handle, { backgroundColor: accent }] : styles.handleHidden}
+      // Let users swipe down anywhere on the guide card to dismiss.
+      enableContentPanningGesture={canDismiss}
     >
-      <View style={styles.container} pointerEvents="box-none">
-        <View style={styles.card}>{children}</View>
-      </View>
-    </KwiltBottomSheet>
+      <View style={styles.content}>{children}</View>
+    </BottomDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetBackground: {
-    backgroundColor: 'transparent',
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  container: {
-    justifyContent: 'flex-end',
-    alignItems: 'stretch',
-    // Keep a slim x-small gutter from the screen edges so the guide feels
-    // anchored to the shell without touching the phone bezels.
-    paddingHorizontal: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  card: {
-    // Start from the shared card surface so the guide feels like a hero
-    // overlay rather than inline content.
+  sheetSurface: {
+    // Start from our shared card surface so the guide reads as a foreground drawer.
     ...cardSurfaceStyle,
     ...cardElevation.raised,
-    width: '100%',
+    backgroundColor: colors.card,
     borderRadius: 28,
+    // Create a slim gutter from the screen edge so the guide doesn't touch bezels.
+    marginHorizontal: spacing.xs,
+    // Use roomy internal padding for the guide content.
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  sheetSurfaceFullWidth: {
+    marginHorizontal: 0,
+    borderRadius: 0,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  handleContainer: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  handle: {
+    width: 56,
+    height: 5,
+    borderRadius: 999,
+    alignSelf: 'center',
+    backgroundColor: colors.border,
+    opacity: 0.8,
+  },
+  handleHidden: {
+    width: 0,
+    height: 0,
+    opacity: 0,
+  },
+  content: {
     rowGap: spacing.sm,
   },
 });

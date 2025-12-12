@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Icon, IconName } from '../../ui/Icon';
-import { KwiltBottomSheet } from '../../ui/BottomSheet';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
@@ -303,7 +303,7 @@ export function SettingsHomeScreen() {
             </View>
           )}
         </ScrollView>
-        <KwiltBottomSheet
+        <BottomDrawer
           visible={avatarSheetVisible}
           onClose={() => {
             if (!isUpdatingAvatar) {
@@ -353,7 +353,7 @@ export function SettingsHomeScreen() {
               ) : null}
             </VStack>
           </View>
-        </KwiltBottomSheet>
+        </BottomDrawer>
       </View>
     </AppShell>
   );

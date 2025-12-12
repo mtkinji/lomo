@@ -32,6 +32,7 @@ import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
 import { VStack, Heading, HStack, CelebrationGif } from '../../ui/primitives';
 import { BottomGuide } from '../../ui/BottomGuide';
+import { Coachmark } from '../../ui/Coachmark';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
 import { Card } from '../../ui/Card';
@@ -90,6 +91,7 @@ export function ArcDetailScreen() {
     route.params;
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
+  const createGoalsButtonRef = useRef<View>(null);
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -154,6 +156,7 @@ export function ArcDetailScreen() {
   const [showOnboardingArcHandoff, setShowOnboardingArcHandoff] = useState(
     Boolean(showCelebrationFromRoute && !hasSeenFirstArcCelebration),
   );
+  const hasConsumedRouteCelebrationRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'details' | 'goals' | 'history'>(
     'details',
   );
@@ -191,16 +194,25 @@ export function ArcDetailScreen() {
   const handleDismissOnboardingArcHandoff = useCallback(() => {
     setShowOnboardingArcHandoff(false);
     setHasSeenFirstArcCelebration(true);
-    // The handoff includes the “create your first goal” guidance, so avoid
-    // immediately stacking a second BottomGuide right after dismissal.
-    setHasDismissedOnboardingGoalGuide(true);
-  }, [setHasSeenFirstArcCelebration, setHasDismissedOnboardingGoalGuide]);
+    // If this handoff was requested via navigation params, consume it so it
+    // doesn't re-open on app reload / navigation state restore.
+    if (showCelebrationFromRoute && !hasConsumedRouteCelebrationRef.current) {
+      hasConsumedRouteCelebrationRef.current = true;
+      navigation.setParams({ showFirstArcCelebration: false });
+    }
+  }, [navigation, setHasSeenFirstArcCelebration, showCelebrationFromRoute]);
 
   useEffect(() => {
     // If the navigation explicitly requested the celebration (for example,
     // immediately after onboarding), honor that first.
-    if (showCelebrationFromRoute && !hasSeenFirstArcCelebration) {
+    if (
+      showCelebrationFromRoute &&
+      !hasSeenFirstArcCelebration &&
+      !hasConsumedRouteCelebrationRef.current
+    ) {
       setShowOnboardingArcHandoff(true);
+      // Mark consumed so state restoration doesn't repeatedly trigger this.
+      hasConsumedRouteCelebrationRef.current = true;
       return;
     }
     if (
@@ -632,9 +644,11 @@ export function ArcDetailScreen() {
       <BottomGuide
         visible={showOnboardingArcHandoff}
         onClose={handleDismissOnboardingArcHandoff}
+        snapPoints={['40%']}
+        scrim="light"
+        guideColor={colors.turmeric}
       >
         <Heading variant="sm">🚀 Your first Arc is ready</Heading>
-        <CelebrationGif role="celebration" kind="firstArcCelebrate" size="sm" />
         <Text style={styles.onboardingGuideBody}>
           We turned your answers into an Arc. Pick one first goal so kwilt can help you plan tiny Activities.
         </Text>
@@ -648,18 +662,24 @@ export function ArcDetailScreen() {
           </Button>
           <Button
             variant="accent"
-            style={{ flex: 1 }}
+            style={{
+              flex: 1,
+              backgroundColor: colors.turmeric,
+              borderColor: colors.turmeric,
+            }}
             onPress={() => {
-              // Mark the handoff as complete so we don't re-open it due to
-              // navigation params or store flags, then open goal creation.
+              // Step 1: navigate to the Goals tab. The in-context callout there
+              // will guide the user to the "Create goals for this Arc" button.
               setShowOnboardingArcHandoff(false);
               setHasSeenFirstArcCelebration(true);
-              setHasDismissedOnboardingGoalGuide(true);
+              if (showCelebrationFromRoute && !hasConsumedRouteCelebrationRef.current) {
+                hasConsumedRouteCelebrationRef.current = true;
+                navigation.setParams({ showFirstArcCelebration: false });
+              }
               setActiveTab('goals');
-              setIsGoalCoachVisible(true);
             }}
           >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Create goal</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>Go to Goals</Text>
           </Button>
         </HStack>
       </BottomGuide>
@@ -872,7 +892,10 @@ export function ArcDetailScreen() {
                       </Text>
                       <IconButton
                         style={styles.goalsExpandButton}
-                        onPress={() => setIsGoalCoachVisible(true)}
+                        onPress={() => {
+                          setHasDismissedOnboardingGoalGuide(true);
+                          setIsGoalCoachVisible(true);
+                        }}
                         accessibilityLabel="Create a new goal"
                       >
                         <Icon name="plus" size={18} color={colors.canvas} />
@@ -886,15 +909,27 @@ export function ArcDetailScreen() {
                           Start by adding 3–5 goals that live inside this Arc so kwilt knows what
                           “success” looks like here.
                         </Text>
-                        <Button
-                          variant="accent"
-                          style={styles.goalsEmptyPrimaryButton}
-                          onPress={() => setIsGoalCoachVisible(true)}
+                        <View
+                          ref={createGoalsButtonRef}
+                          collapsable={false}
+                          style={styles.goalsPrimaryButtonWrapper}
                         >
-                          <Text style={styles.goalsEmptyPrimaryLabel}>
-                            Create goals for this Arc
-                          </Text>
-                        </Button>
+                          {shouldShowOnboardingGoalGuide ? (
+                            <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
+                          ) : null}
+                          <Button
+                            variant="accent"
+                            style={styles.goalsEmptyPrimaryButton}
+                            onPress={() => {
+                              setHasDismissedOnboardingGoalGuide(true);
+                              setIsGoalCoachVisible(true);
+                            }}
+                          >
+                            <Text style={styles.goalsEmptyPrimaryLabel}>
+                              Create goal
+                            </Text>
+                          </Button>
+                        </View>
                       </View>
                     ) : (
                       <View style={styles.goalsScrollContent}>
@@ -963,34 +998,6 @@ export function ArcDetailScreen() {
           </ScrollView>
         </View>
       </TouchableWithoutFeedback>
-      <BottomGuide
-        visible={shouldShowOnboardingGoalGuide}
-        onClose={() => setHasDismissedOnboardingGoalGuide(true)}
-      >
-        <Heading variant="sm">Next step: create your first goal</Heading>
-        <Text style={styles.onboardingGuideBody}>
-          Pick one concrete goal inside this Arc so kwilt can help you turn it into Activities.
-        </Text>
-        <HStack space="sm" marginTop={spacing.sm}>
-          <Button
-            variant="outline"
-            style={{ flex: 1 }}
-            onPress={() => setHasDismissedOnboardingGoalGuide(true)}
-          >
-            <Text style={styles.onboardingGuideSecondaryLabel}>Not now</Text>
-          </Button>
-          <Button
-            variant="accent"
-            style={{ flex: 1 }}
-            onPress={() => {
-              setActiveTab('goals');
-              setIsGoalCoachVisible(true);
-            }}
-          >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Create goal</Text>
-          </Button>
-        </HStack>
-      </BottomGuide>
       <ArcBannerSheet
         visible={isHeroModalVisible}
         onClose={() => setIsHeroModalVisible(false)}
@@ -1041,6 +1048,33 @@ export function ArcDetailScreen() {
           Once the tap-centric Agent entry is refined for object canvases,
           we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
+      <Coachmark
+        visible={Boolean(
+          activeTab === 'goals' &&
+            shouldShowOnboardingGoalGuide &&
+            arcGoals.length === 0 &&
+            createGoalsButtonRef.current,
+        )}
+        targetRef={createGoalsButtonRef}
+        scrimToken="pineSubtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={16}
+        offset={spacing.xs}
+        highlightColor={colors.turmeric}
+        actionColor={colors.turmeric}
+        attentionPulse
+        attentionPulseDelayMs={3000}
+        attentionPulseDurationMs={15000}
+        title={<Text style={styles.goalCoachmarkTitle}>Next step</Text>}
+        body={
+          <Text style={styles.goalCoachmarkBody}>
+            Tap “Create goal" to add your first goal.
+          </Text>
+        }
+        onDismiss={() => setHasDismissedOnboardingGoalGuide(true)}
+        placement="above"
+      />
     </AppShell>
   );
 }
@@ -1075,7 +1109,7 @@ function ArcNarrativeEditorSheet({
   };
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={0.9}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['90%']}>
       <View style={styles.narrativeSheetContent}>
         <View style={styles.narrativeSheetHeaderRow}>
           <View style={styles.narrativeSheetHeaderSide}>
@@ -1670,6 +1704,24 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.canvas,
     textAlign: 'center',
+  },
+  goalsPrimaryButtonWrapper: {
+    position: 'relative',
+    width: '100%',
+  },
+  goalsPrimaryButtonRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  goalCoachmarkTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  goalCoachmarkBody: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   goalsEmptyImageWrapper: {
     alignSelf: 'center',

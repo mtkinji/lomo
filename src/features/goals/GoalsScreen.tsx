@@ -27,7 +27,6 @@ import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
-import { KwiltBottomSheet } from '../../ui/BottomSheet';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -219,6 +218,7 @@ export function GoalsScreen() {
                   key={goal.id}
                   goal={goal}
                   parentArc={parentArc}
+                  padding="xs"
                   activityCount={activityCount}
                   thumbnailStyles={thumbnailStyles}
                   onPress={() =>
@@ -323,6 +323,8 @@ function GoalDraftSection({ entries, arcs, thumbnailStyles, onAdopt, onDismiss }
                 <GoalListCard
                   goal={draftGoal}
                   parentArc={parentArc}
+                  padding="xs"
+                  density="dense"
                   showThumbnail={false}
                   showActivityMeta={false}
                   compact
@@ -611,7 +613,7 @@ export function GoalCoachDrawer({
   );
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} heightRatio={1}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
       <View style={styles.goalCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
@@ -791,10 +793,14 @@ export function GoalCoachDrawer({
             </ScrollView>
           </KeyboardAvoidingView>
       </View>
-      <KwiltBottomSheet
+      <BottomDrawer
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
         snapPoints={['55%']}
+        // This drawer is nested inside a full-screen BottomDrawer; render inline and
+        // avoid an extra scrim layer.
+        presentation="inline"
+        hideBackdrop
       >
         <View style={styles.goalThumbnailSheetContent}>
           <Text style={styles.goalThumbnailSheetTitle}>Goal thumbnail</Text>
@@ -835,7 +841,7 @@ export function GoalCoachDrawer({
             </Button>
           </View>
         </View>
-      </KwiltBottomSheet>
+      </BottomDrawer>
     </BottomDrawer>
   );
 }
@@ -1055,6 +1061,8 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
                       <GoalListCard
                         goal={previewGoal}
                         parentArc={arc}
+                        padding="xs"
+                        density="dense"
                         showThumbnail={false}
                         showActivityMeta={false}
                         compact
