@@ -302,7 +302,6 @@ export function Coachmark({
     attentionPulseDelayMs,
     attentionPulseDurationMs,
     ripple,
-    ripple.value,
     reduceMotion,
     shouldShowRing,
     visible,

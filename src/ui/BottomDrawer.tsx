@@ -252,10 +252,6 @@ export function BottomDrawer({
     return hideBackdrop ? 0 : scrimMaxOpacity * (1 - t);
   }, [hideBackdrop, scrimMaxOpacity]);
 
-  const overlayStyle = useAnimatedStyle(() => {
-    return { opacity: hideBackdrop ? 1 : 1 };
-  }, [hideBackdrop]);
-
   const scrimStyle = useAnimatedStyle(() => {
     return { opacity: backdropOpacity.value };
   });
@@ -377,7 +373,7 @@ export function BottomDrawer({
   const body = (
     <BottomDrawerContext.Provider value={{ scrollY, setScrollableGesture }}>
       <Animated.View
-        style={[styles.overlay, overlayStyle]}
+        style={styles.overlay}
         pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
       >
         {!hideBackdrop && (
