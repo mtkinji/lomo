@@ -1,6 +1,7 @@
 import { Arc, GoalDraft, type AgeRange } from '../domain/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFocusAreaLabel } from '../domain/focusAreas';
+import { listIdealArcTemplates } from '../domain/idealArcs';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type LlmModel } from '../store/useAppStore';
@@ -15,6 +16,138 @@ type GenerateArcParams = {
 
 export type GeneratedArc = Pick<Arc, 'name' | 'narrative' | 'status'> & {
   suggestedForces?: string[];
+};
+
+const formatIdealArcExamplesForPrompt = (maxExamples = 4): string => {
+  const templates = listIdealArcTemplates();
+  const examples: string[] = [];
+
+  templates.slice(0, Math.max(0, maxExamples)).forEach((template) => {
+    const sentences = template.narrative
+      .split(/[.!?]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .slice(0, 3);
+
+    if (sentences.length >= 3) {
+      const exampleNarrative = sentences.join('. ') + '.';
+      examples.push(
+        `Example - ${template.name}:`,
+        `- name: "${template.name}"`,
+        `- narrative: "${exampleNarrative}"`,
+        '',
+      );
+    }
+  });
+
+  return examples.join('\n').trim();
+};
+
+const normalizeNarrative = (value: string): string =>
+  value.replace(/\s+/g, ' ').replace(/\n+/g, ' ').trim();
+
+const countWords = (value: string): number => {
+  const tokens = value
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return tokens.length;
+};
+
+const countSentences = (value: string): number => {
+  const normalized = normalizeNarrative(value);
+  const chunks = normalized
+    // Split on sentence-ending punctuation followed by whitespace/end.
+    .split(/[.!?]+(?:\s|$)+/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return chunks.length;
+};
+
+const countMeaningfulNameWords = (name: string): number => {
+  const tokens = name
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  // Count tokens that contain letters/numbers; ignore emoji/punctuation-only tokens.
+  return tokens.filter((t) => /[\p{L}\p{N}]/u.test(t)).length;
+};
+
+const validateGeneratedArc = (arc: GeneratedArc): { ok: boolean; reasons: string[] } => {
+  const reasons: string[] = [];
+  const name = (arc.name ?? '').trim();
+  const narrativeRaw = (arc.narrative ?? '').trim();
+  const narrative = normalizeNarrative(narrativeRaw);
+
+  if (!name) {
+    reasons.push('missing_name');
+  } else {
+    const meaningfulWords = countMeaningfulNameWords(name);
+    if (meaningfulWords < 1 || meaningfulWords > 3) {
+      reasons.push('name_not_1_to_3_words');
+    }
+    if (name.length > 42) {
+      reasons.push('name_too_long');
+    }
+  }
+
+  if (!narrative) {
+    reasons.push('missing_narrative');
+  } else {
+    if (!/^I want(?:\s|…)/.test(narrative)) {
+      reasons.push('narrative_missing_I_want_prefix');
+    }
+    const wordCount = countWords(narrative);
+    if (wordCount < 40 || wordCount > 120) {
+      reasons.push('narrative_word_count_out_of_bounds');
+    }
+    const sentenceCount = countSentences(narrative);
+    if (sentenceCount !== 3) {
+      reasons.push('narrative_not_3_sentences');
+    }
+    if (/\n/.test(narrativeRaw)) {
+      reasons.push('narrative_not_single_paragraph');
+    }
+  }
+
+  if (!arc.status) {
+    reasons.push('missing_status');
+  }
+
+  return { ok: reasons.length === 0, reasons };
+};
+
+const postProcessGeneratedArcs = (arcs: GeneratedArc[]) => {
+  const cleaned: GeneratedArc[] = arcs
+    .filter((arc) => arc && typeof arc === 'object')
+    .map((arc) => ({
+      ...arc,
+      name: (arc.name ?? '').trim(),
+      narrative: normalizeNarrative(String(arc.narrative ?? '')),
+      status: (arc.status ?? 'active') as Arc['status'],
+      suggestedForces: Array.isArray(arc.suggestedForces)
+        ? arc.suggestedForces.map((f) => String(f).trim()).filter(Boolean).slice(0, 4)
+        : arc.suggestedForces,
+    }))
+    .filter((arc) => arc.name.length > 0 && arc.narrative.length > 0);
+
+  const results: Array<GeneratedArc & { _reasons?: string[] }> = [];
+  cleaned.forEach((arc) => {
+    const verdict = validateGeneratedArc(arc);
+    if (verdict.ok) {
+      results.push(arc);
+    } else {
+      results.push({ ...arc, _reasons: verdict.reasons });
+    }
+  });
+
+  const valid = results.filter((arc) => !arc._reasons) as GeneratedArc[];
+  const invalid = results.filter((arc) => arc._reasons) as Array<GeneratedArc & { _reasons: string[] }>;
+
+  return { valid: valid.slice(0, 3), invalid };
 };
 
 type GenerateGoalParams = {
@@ -465,9 +598,44 @@ export async function generateArcs(params: GenerateArcParams): Promise<Generated
   }
 
   try {
-    const result = await requestOpenAiArcs(params, apiKey);
-    devLog('generateArcs:success', { suggestionCount: result.length });
-    return result;
+    const attempts: Array<{ attempt: number; arcs: GeneratedArc[]; invalidCount: number }> = [];
+    let lastInvalidSummary: string | null = null;
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const result = await requestOpenAiArcs(params, apiKey, {
+        attempt,
+        repairHint: lastInvalidSummary ?? undefined,
+      });
+      const { valid, invalid } = postProcessGeneratedArcs(result);
+      attempts.push({ attempt, arcs: valid, invalidCount: invalid.length });
+
+      if (valid.length >= 2 || (valid.length >= 1 && attempt === 2)) {
+        devLog('generateArcs:success', {
+          suggestionCount: valid.length,
+          attempt,
+          invalidCount: invalid.length,
+        });
+        return valid;
+      }
+
+      const invalidReasons = invalid
+        .flatMap((arc) => arc._reasons ?? [])
+        .reduce<Record<string, number>>((acc, reason) => {
+          acc[reason] = (acc[reason] ?? 0) + 1;
+          return acc;
+        }, {});
+      lastInvalidSummary = `Previous output violated constraints: ${Object.entries(invalidReasons)
+        .map(([key, count]) => `${key}(${count})`)
+        .join(', ')}. Regenerate with strict compliance.`;
+      devLog('generateArcs:retry', { attempt, invalidReasons });
+    }
+
+    // Should not reach here; fallback to last attempt if it did.
+    const last = attempts[attempts.length - 1];
+    if (last?.arcs?.length) {
+      return last.arcs;
+    }
+    return mockGenerateArcs(params);
   } catch (err) {
     console.warn('OpenAI request failed, falling back to mock arcs.', err);
     logNetworkErrorDetails('arcs', err);
@@ -614,31 +782,67 @@ Return one Unsplash search phrase that matches the Arc's vibe.
 
 async function requestOpenAiArcs(
   params: GenerateArcParams,
-  apiKey: string
+  apiKey: string,
+  meta?: { attempt?: number; repairHint?: string }
 ): Promise<GeneratedArc[]> {
   const model = resolveChatModel();
-  const baseSystemPrompt =
-    'You are an identity-development coach inside the Kwilt app. You help users generate a long-term identity direction called an Arc. ' +
-    'An Arc is a slow-changing identity arena where the user wants to grow, a direction for who they want to become, not a task list, project, personality label, or corporate-speak theme. ' +
-    'Arc.name must be 1–3 words (emoji prefix allowed), describe an identity direction or arena, feel stable over time, and reflect the user\'s inputs. ' +
-    'Arc.narrative MUST be exactly 3 sentences in one paragraph, 40–120 words, FIRST sentence must start with "I want…", use plain grounded language suitable for ages 14–50+, avoid guru-speak/cosmic language/therapy language/prescriptive "shoulds", and describe only who they want to become and why it matters now. ' +
-    'Always respond in JSON matching the provided schema. Each Arc must include name, narrative, status, and suggestedForces array.';
+  const idealExamples = formatIdealArcExamplesForPrompt(4);
+  const baseSystemPrompt = [
+    'You are an identity-development coach inside the Kwilt app.',
+    'You help users generate a long-term identity direction called an Arc.',
+    '',
+    'An Arc is:',
+    '- a slow-changing identity arena where the user wants to grow,',
+    '- a direction for who they want to become,',
+    '- not a task list, not a project, not a personality label, and not corporate-speak.',
+    '',
+    'ARC NAME RULES:',
+    '- 1–3 meaningful words (emoji/punctuation tokens are allowed but do not count as words),',
+    '- stable over years (can hold many goals),',
+    '- concrete identity direction, not a task.',
+    '',
+    'ARC NARRATIVE RULES (strict):',
+    '- exactly 3 sentences in ONE paragraph (no newlines),',
+    '- 40–120 words,',
+    '- FIRST sentence must start with: "I want…",',
+    '- grounded, plain language (ages 14–50+),',
+    '- avoid guru-speak/cosmic language/therapy language/prescriptive "shoulds",',
+    '- describe only who they want to become and why it matters now (not who they are today).',
+    '',
+    'Each Arc must include: name, narrative, status (default "active"), and suggestedForces (1–4 short strings).',
+    'Always respond with JSON matching the provided schema. Do not include any extra keys.',
+    '',
+    idealExamples
+      ? [
+          'STYLE EXAMPLES (follow the feel; do not copy):',
+          idealExamples,
+        ].join('\n')
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const userProfileSummary = buildUserProfileSummary();
   const systemPrompt = userProfileSummary
     ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
     : baseSystemPrompt;
 
-  const userPrompt = `
-User hunger for growth: ${params.prompt}
-Time horizon: ${params.timeHorizon ?? 'not specified'}
-Additional context / non-negotiables: ${params.additionalContext ?? 'none provided'}
-Return 2-3 Arc suggestions that feel distinctive. Status should default to "active".
-`;
+  const userPromptLines: string[] = [
+    `User hunger for growth: ${params.prompt}`,
+    `Time horizon: ${params.timeHorizon ?? 'not specified'}`,
+    `Additional context / non-negotiables: ${params.additionalContext ?? 'none provided'}`,
+    '',
+    'Return 2–3 Arc suggestions that feel distinctive.',
+    'Status should default to "active".',
+  ];
+  if (meta?.attempt && meta.attempt > 1) {
+    userPromptLines.push('', `Repair note: ${meta.repairHint ?? 'Previous output had constraint violations.'}`);
+  }
+  const userPrompt = userPromptLines.join('\n');
 
   const body = {
     model,
-    temperature: 0.3,
+    temperature: meta?.attempt && meta.attempt > 1 ? 0.2 : 0.3,
     response_format: {
       type: 'json_schema',
       json_schema: {
@@ -653,8 +857,8 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
               items: {
                 type: 'object',
                 properties: {
-                  name: { type: 'string' },
-                  narrative: { type: 'string' },
+                  name: { type: 'string', minLength: 1, maxLength: 42 },
+                  narrative: { type: 'string', minLength: 20, maxLength: 800 },
                   status: { type: 'string', enum: ['active', 'paused', 'archived'] },
                   suggestedForces: {
                     type: 'array',
@@ -663,7 +867,7 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
                     maxItems: 4,
                   },
                 },
-                required: ['name', 'narrative', 'status'],
+                required: ['name', 'narrative', 'status', 'suggestedForces'],
                 additionalProperties: false,
               },
             },
@@ -728,7 +932,11 @@ Return 2-3 Arc suggestions that feel distinctive. Status should default to "acti
 
   const parsed = JSON.parse(content);
   devLog('arcs:parsed', { arcsReturned: parsed.arcs?.length ?? 0 });
-  return parsed.arcs as GeneratedArc[];
+  const arcs = parsed?.arcs;
+  if (!Array.isArray(arcs)) {
+    throw new Error('OpenAI response schema mismatch');
+  }
+  return arcs as GeneratedArc[];
 }
 
 export async function generateGoals(params: GenerateGoalParams): Promise<GoalDraft[]> {
