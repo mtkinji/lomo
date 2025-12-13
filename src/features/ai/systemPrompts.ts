@@ -1,4 +1,5 @@
 import { listIdealArcTemplates } from '../../domain/idealArcs';
+import { buildHybridArcGuidelinesBlock } from '../../domain/arcHybridPrompt';
 
 /**
  * Formats ideal Arc templates for inclusion in prompts.
@@ -60,6 +61,8 @@ Your job is to generate:
 
 Your outputs must be readable and useful to both a 14-year-old and a 41-year-old.
 
+${buildHybridArcGuidelinesBlock()}
+
 -----------------------------------------
 ARC NAME — RULES
 -----------------------------------------
@@ -100,7 +103,7 @@ The Arc narrative MUST:
 Sentence roles:
 1. Sentence 1: Begin with "I want…", clearly expressing the identity direction within this Arc.
 2. Sentence 2: Explain why this direction matters now, using the user's signals (domain, vibe, social presence, strength, proud moment, dream).
-3. Sentence 3: Give one concrete, ordinary-life scene showing how this direction appears on a normal day. Use grounded images anchored in proud-moment and strength signals, not generic abstractions.
+3. Sentence 3: Give one concrete, ordinary-life scene AND one micro-behavior they could do this week that shows this direction on a normal day.
 
 Tone:
 - grounded, human, reflective,
@@ -339,6 +342,8 @@ ARC NARRATIVE RULES (when asked to generate an Arc):
 - 40–120 words
 - FIRST sentence must start with "I want…"
 - grounded, plain language (no guru/cosmic/therapy language, no "shoulds")
+- Sentence 3 must include (a) an ordinary-life scene AND (b) one micro-behavior the user could do this week.
+- Do NOT parrot the user’s raw phrases; translate inputs into natural identity language.
 `.trim();
 
 

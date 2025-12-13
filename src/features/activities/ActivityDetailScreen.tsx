@@ -9,17 +9,18 @@ import {
   Pressable,
   TextInput,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
-import type { ActivityStatus, ActivityStep } from '../../domain/types';
+import type { ActivityDifficulty, ActivityStatus, ActivityStep } from '../../domain/types';
 import type {
   ActivitiesStackParamList,
   ActivityDetailRouteParams,
 } from '../../navigation/RootNavigator';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { VStack, HStack } from '../../ui/primitives';
+import { VStack, HStack, Input, Textarea, ThreeColumnRow, Combobox } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import {
@@ -63,6 +64,26 @@ export function ActivityDetailScreen() {
     return goal?.title;
   }, [activity?.goalId, goals]);
 
+  const goalOptions = useMemo(
+    () =>
+      goals
+        .slice()
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map((g) => ({ value: g.id, label: g.title })),
+    [goals],
+  );
+
+  const difficultyOptions = useMemo(
+    () => [
+      { value: 'very_easy', label: 'Very easy' },
+      { value: 'easy', label: 'Easy' },
+      { value: 'medium', label: 'Medium' },
+      { value: 'hard', label: 'Hard' },
+      { value: 'very_hard', label: 'Very hard' },
+    ],
+    [],
+  );
+
   const [reminderSheetVisible, setReminderSheetVisible] = useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = useState(false);
   const [repeatSheetVisible, setRepeatSheetVisible] = useState(false);
@@ -77,6 +98,14 @@ export function ActivityDetailScreen() {
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isAddingStepInline, setIsAddingStepInline] = useState(false);
   const newStepInputRef = useRef<TextInput | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const inputFocusCountRef = useRef(0);
+  const [isAnyInputFocused, setIsAnyInputFocused] = useState(false);
+  const [goalComboboxOpen, setGoalComboboxOpen] = useState(false);
+  const [difficultyComboboxOpen, setDifficultyComboboxOpen] = useState(false);
+  const [estimateSheetVisible, setEstimateSheetVisible] = useState(false);
+  const [estimateHoursDraft, setEstimateHoursDraft] = useState('0');
+  const [estimateMinutesDraft, setEstimateMinutesDraft] = useState('0');
 
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
@@ -85,6 +114,15 @@ export function ActivityDetailScreen() {
       navigation.navigate('ActivitiesList');
     }
   };
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   if (!activity) {
     return (
@@ -100,6 +138,24 @@ export function ActivityDetailScreen() {
   }
 
   const isCompleted = activity.status === 'done';
+  const showDoneButton = isKeyboardVisible || isAnyInputFocused || isEditingTitle || isAddingStepInline;
+
+  const handleDoneEditing = () => {
+    // Prefer blurring the known inline inputs first so their onBlur commits fire.
+    titleInputRef.current?.blur();
+    newStepInputRef.current?.blur();
+    Keyboard.dismiss();
+  };
+
+  const handleAnyInputFocus = () => {
+    inputFocusCountRef.current += 1;
+    if (!isAnyInputFocused) setIsAnyInputFocused(true);
+  };
+
+  const handleAnyInputBlur = () => {
+    inputFocusCountRef.current = Math.max(0, inputFocusCountRef.current - 1);
+    if (inputFocusCountRef.current === 0) setIsAnyInputFocused(false);
+  };
 
   const handleDeleteActivity = () => {
     Alert.alert(
@@ -382,6 +438,16 @@ export function ActivityDetailScreen() {
     setRepeatSheetVisible(false);
   };
 
+  const handleClearReminder = () => {
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      reminderAt: null,
+      updatedAt: timestamp,
+    }));
+    setReminderSheetVisible(false);
+  };
+
   const reminderLabel = useMemo(() => {
     if (!activity.reminderAt) return 'None';
     const date = new Date(activity.reminderAt);
@@ -408,6 +474,16 @@ export function ActivityDetailScreen() {
       ? 'Weekdays'
       : activity.repeatRule.charAt(0).toUpperCase() + activity.repeatRule.slice(1)
     : 'Off';
+
+  const handleClearRepeatRule = () => {
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      repeatRule: undefined,
+      updatedAt: timestamp,
+    }));
+    setRepeatSheetVisible(false);
+  };
 
   const completedStepsCount = useMemo(
     () => (activity.steps ?? []).filter((step) => !!step.completedAt).length,
@@ -501,6 +577,66 @@ export function ActivityDetailScreen() {
     };
   }, [activity.estimateMinutes, activity.aiPlanning, activity.difficulty]);
 
+  const hasTimeEstimate =
+    activity.estimateMinutes != null || activity.aiPlanning?.estimateMinutes != null;
+  const hasDifficulty = activity.difficulty != null || activity.aiPlanning?.difficulty != null;
+
+  const handleClearTimeEstimate = () => {
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => {
+      // Prefer clearing the user-controlled canonical estimate first.
+      if (prev.estimateMinutes != null) {
+        return { ...prev, estimateMinutes: undefined, updatedAt: timestamp };
+      }
+      // Otherwise clear the AI suggestion (so the label can return to the empty state).
+      if (prev.aiPlanning?.estimateMinutes != null) {
+        return {
+          ...prev,
+          aiPlanning: { ...prev.aiPlanning, estimateMinutes: null },
+          updatedAt: timestamp,
+        };
+      }
+      return { ...prev, updatedAt: timestamp };
+    });
+  };
+
+  const handleClearDifficulty = () => {
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => {
+      if (prev.difficulty != null) {
+        return { ...prev, difficulty: undefined, updatedAt: timestamp };
+      }
+      if (prev.aiPlanning?.difficulty != null) {
+        const nextAi = { ...prev.aiPlanning };
+        delete nextAi.difficulty;
+        return { ...prev, aiPlanning: nextAi, updatedAt: timestamp };
+      }
+      return { ...prev, updatedAt: timestamp };
+    });
+  };
+
+  const openEstimateSheet = () => {
+    const minutes = activity.estimateMinutes ?? activity.aiPlanning?.estimateMinutes ?? 0;
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    setEstimateHoursDraft(String(hrs));
+    setEstimateMinutesDraft(String(mins));
+    setEstimateSheetVisible(true);
+  };
+
+  const commitEstimateDraft = () => {
+    const hours = Math.max(0, Number.parseInt(estimateHoursDraft || '0', 10) || 0);
+    const minutes = Math.max(0, Number.parseInt(estimateMinutesDraft || '0', 10) || 0);
+    const total = hours * 60 + minutes;
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      estimateMinutes: total > 0 ? total : undefined,
+      updatedAt: timestamp,
+    }));
+    setEstimateSheetVisible(false);
+  };
+
   useEffect(() => {
     setTitleDraft(activity.title ?? '');
     setNotesDraft(activity.notes ?? '');
@@ -528,18 +664,30 @@ export function ActivityDetailScreen() {
               </View>
             </View>
             <View style={styles.headerSideRight}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <IconButton style={styles.optionsButton} accessibilityLabel="Activity actions">
-                    <Icon name="more" size={18} color={colors.canvas} />
-                  </IconButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                  <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                    <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {showDoneButton ? (
+                <Pressable
+                  onPress={handleDoneEditing}
+                  accessibilityRole="button"
+                  accessibilityLabel="Done editing"
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </Pressable>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <IconButton style={styles.optionsButton} accessibilityLabel="Activity actions">
+                      <Icon name="more" size={18} color={colors.canvas} />
+                    </IconButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                    <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                      <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </View>
           </HStack>
 
@@ -549,29 +697,35 @@ export function ActivityDetailScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {/* Title + Steps bundle (task-style, no enclosing card) */}
             <View style={styles.section}>
-              <VStack space="lg">
-                <View style={styles.activityHeaderRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      isCompleted ? 'Mark activity as not done' : 'Mark activity as done'
-                    }
-                    hitSlop={8}
-                    onPress={handleToggleComplete}
-                  >
-                    <View
-                      style={[
-                        styles.checkboxBase,
-                        isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
-                      ]}
+              <View style={styles.titleStepsBundle}>
+                <ThreeColumnRow
+                  style={styles.titleRow}
+                  contentStyle={styles.titleRowContent}
+                  left={
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        isCompleted ? 'Mark activity as not done' : 'Mark activity as done'
+                      }
+                      hitSlop={8}
+                      onPress={handleToggleComplete}
                     >
-                      {isCompleted ? (
-                        <Icon name="check" size={14} color={colors.primaryForeground} />
-                      ) : null}
-                    </View>
-                  </Pressable>
-
+                      <View
+                        style={[
+                          styles.checkboxBase,
+                          isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
+                        ]}
+                      >
+                        {isCompleted ? (
+                          <Icon name="check" size={14} color={colors.primaryForeground} />
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  }
+                  right={null}
+                >
                   <Pressable
                     style={styles.titlePressable}
                     onPress={() => {
@@ -591,7 +745,11 @@ export function ActivityDetailScreen() {
                         onChangeText={setTitleDraft}
                         placeholder="Name this activity"
                         placeholderTextColor={colors.muted}
-                        onBlur={commitTitle}
+                        onFocus={handleAnyInputFocus}
+                        onBlur={() => {
+                          handleAnyInputBlur();
+                          commitTitle();
+                        }}
                         onSubmitEditing={commitTitle}
                         multiline
                         scrollEnabled={false}
@@ -602,136 +760,166 @@ export function ActivityDetailScreen() {
                       <Text style={styles.titleText}>{activity.title || 'Name this activity'}</Text>
                     )}
                   </Pressable>
-                </View>
+                </ThreeColumnRow>
 
-                {goalTitle ? (
-                  <Text style={styles.metaText}>Linked goal · {goalTitle}</Text>
-                ) : null}
-              </VStack>
-            </View>
+                {/* No divider between title and steps; treat as one continuous bundle. */}
 
-            <View style={styles.sectionDivider} />
-
-            <View style={styles.section}>
-              <Text style={styles.inputLabel}>NOTES</Text>
-              <View style={styles.rowsCard}>
-                <TextInput
-                  style={styles.notesInput}
-                  value={notesDraft}
-                  onChangeText={setNotesDraft}
-                  onBlur={commitNotes}
-                  placeholder="Add context or reminders for this activity."
-                  placeholderTextColor={colors.muted}
-                  multiline
-                  scrollEnabled={false}
-                  textAlignVertical="top"
-                />
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <HStack alignItems="center" style={styles.sectionLabelRow}>
-                <Text style={styles.inputLabel}>
-                  {`STEPS${totalStepsCount > 0 ? ` · ${completedStepsCount}/${totalStepsCount}` : ''}`}
-                </Text>
-              </HStack>
-              <View style={styles.rowsCard}>
-                {stepsDraft.length === 0 ? (
-                  <Text style={styles.stepsEmpty}>
-                    Add 2–6 small steps so this activity is crystal clear.
-                  </Text>
-                ) : (
+                {stepsDraft.length === 0 ? null : (
                   <VStack space="xs">
                     {stepsDraft.map((step) => {
                       const isChecked = !!step.completedAt;
                       return (
-                        <HStack key={step.id} space="xs" alignItems="center" style={styles.stepRow}>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              isChecked ? 'Mark step as not done' : 'Mark step as done'
+                        <View key={step.id}>
+                          <ThreeColumnRow
+                            style={styles.stepRow}
+                            contentStyle={styles.stepRowContent}
+                            left={
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={
+                                  isChecked ? 'Mark step as not done' : 'Mark step as done'
+                                }
+                                hitSlop={8}
+                                onPress={() => handleToggleStepComplete(step.id)}
+                              >
+                                <View
+                                  style={[
+                                    styles.checkboxBase,
+                                    isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
+                                    styles.stepCheckbox,
+                                  ]}
+                                >
+                                  {isChecked ? (
+                                    <Icon name="check" size={12} color={colors.primaryForeground} />
+                                  ) : null}
+                                </View>
+                              </Pressable>
                             }
-                            hitSlop={8}
-                            onPress={() => handleToggleStepComplete(step.id)}
+                            right={
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    iconButtonSize={24}
+                                    accessibilityLabel="Step actions"
+                                    style={styles.removeStepButton}
+                                  >
+                                    <Icon name="more" size={16} color={colors.textSecondary} />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                                  <DropdownMenuItem
+                                    onPress={() => handleRemoveStep(step.id)}
+                                    variant="destructive"
+                                  >
+                                    <Text style={styles.destructiveMenuRowText}>Delete step</Text>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            }
                           >
-                            <View
-                              style={[
-                                styles.checkboxBase,
-                                isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
-                                styles.stepCheckbox,
-                              ]}
-                            >
-                              {isChecked ? (
-                                <Icon name="check" size={12} color={colors.primaryForeground} />
-                              ) : null}
-                            </View>
-                          </Pressable>
-                          <TextInput
-                            style={styles.stepInput}
-                            value={step.title}
-                            onChangeText={(text) => handleChangeStepTitle(step.id, text)}
-                            placeholder="Describe the step"
-                            placeholderTextColor={colors.muted}
-                            multiline
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            iconButtonSize={24}
-                            onPress={() => handleRemoveStep(step.id)}
-                            accessibilityLabel="Remove step"
-                            style={styles.removeStepButton}
-                          >
-                            <Icon name="close" size={14} color={colors.textSecondary} />
-                          </Button>
-                        </HStack>
+                            <Input
+                              value={step.title}
+                              onChangeText={(text) => handleChangeStepTitle(step.id, text)}
+                              onFocus={handleAnyInputFocus}
+                              onBlur={handleAnyInputBlur}
+                              placeholder="Describe the step"
+                              size="sm"
+                              variant="inline"
+                              multiline={false}
+                              blurOnSubmit
+                              returnKeyType="done"
+                            />
+                          </ThreeColumnRow>
+                        </View>
                       );
                     })}
                   </VStack>
                 )}
-                <View style={styles.addStepInlineRow}>
+
+                <ThreeColumnRow
+                  left={<Icon name="plus" size={16} color={colors.accent} />}
+                  right={null}
+                  onPress={beginAddStepInline}
+                  accessibilityLabel="Add a step to this activity"
+                  style={styles.addStepRow}
+                >
                   {isAddingStepInline ? (
-                    <HStack space="xs" alignItems="center" style={styles.stepRow}>
-                      <View
-                        style={[
-                          styles.checkboxBase,
-                          styles.checkboxPlanned,
-                          styles.stepCheckbox,
-                        ]}
-                      />
-                      <TextInput
-                        ref={newStepInputRef}
-                        style={styles.stepInput}
-                        value={newStepTitle}
-                        onChangeText={setNewStepTitle}
-                        placeholder="Add step"
-                        placeholderTextColor={colors.muted}
-                        multiline
-                        returnKeyType="done"
-                        blurOnSubmit
-                        onSubmitEditing={commitInlineStep}
-                        onBlur={commitInlineStep}
-                      />
-                    </HStack>
+                    <Input
+                      ref={newStepInputRef}
+                      value={newStepTitle}
+                      onChangeText={setNewStepTitle}
+                      onFocus={handleAnyInputFocus}
+                      placeholder="Add step"
+                      size="sm"
+                      variant="inline"
+                      multiline={false}
+                      blurOnSubmit
+                      returnKeyType="done"
+                      onSubmitEditing={commitInlineStep}
+                      onBlur={() => {
+                        handleAnyInputBlur();
+                        commitInlineStep();
+                      }}
+                    />
                   ) : (
-                    <Pressable
-                      onPress={beginAddStepInline}
-                      accessibilityRole="button"
-                      accessibilityLabel="Add a step to this activity"
-                    >
-                      <HStack space="xs" alignItems="center">
-                        <Icon name="plus" size={16} color={colors.primary} />
-                        <Text style={styles.addStepInlineText}>Add step</Text>
-                      </HStack>
-                    </Pressable>
+                    <Text style={styles.addStepInlineText}>Add step</Text>
                   )}
-                </View>
+                </ThreeColumnRow>
               </View>
             </View>
 
+            {/* Linked goal */}
+            <View style={styles.section}>
+              <Text style={styles.fieldLabel}>Linked Goal</Text>
+              <Combobox
+                open={goalComboboxOpen}
+                onOpenChange={setGoalComboboxOpen}
+                value={activity.goalId ?? ''}
+                onValueChange={(nextGoalId) => {
+                  const timestamp = new Date().toISOString();
+                  updateActivity(activity.id, (prev) => ({
+                    ...prev,
+                    goalId: nextGoalId ? nextGoalId : null,
+                    updatedAt: timestamp,
+                  }));
+                }}
+                options={goalOptions}
+                title="Select goal…"
+                searchPlaceholder="Search goals…"
+                emptyText="No goals found."
+                allowDeselect
+                trigger={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Change linked goal"
+                    onPress={() => setGoalComboboxOpen(true)}
+                    style={styles.comboboxTrigger}
+                  >
+                    <View pointerEvents="none">
+                      <Input
+                        value={goalTitle ?? ''}
+                        placeholder="Select goal…"
+                        editable={false}
+                        variant="outline"
+                        elevation="flat"
+                        trailingIcon="chevronsUpDown"
+                        containerStyle={styles.comboboxValueContainer}
+                        inputStyle={styles.comboboxValueInput}
+                      />
+                    </View>
+                  </Pressable>
+                }
+              />
+            </View>
+
+            {/* 3) Reminder / Due date / Recurrence */}
             <View style={styles.section}>
               <View style={styles.rowsCard}>
-                <VStack space="xs">
+                <View style={styles.rowPadding}>
+                  <VStack space="xs">
+                  {/* Timing */}
                   <VStack space="sm">
                     <Pressable
                       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -739,17 +927,34 @@ export function ActivityDetailScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Edit reminder"
                     >
-                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                        <Icon name="daily" size={16} color={colors.textSecondary} />
+                      <ThreeColumnRow
+                        left={<Icon name="bell" size={16} color={colors.textSecondary} />}
+                        right={
+                          activity.reminderAt ? (
+                            <Pressable
+                              onPress={(event) => {
+                                event.stopPropagation();
+                                handleClearReminder();
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel="Clear reminder"
+                              hitSlop={8}
+                            >
+                              <Icon name="close" size={16} color={colors.textSecondary} />
+                            </Pressable>
+                          ) : null
+                        }
+                      >
                         <Text
                           style={[
                             styles.rowValue,
                             reminderLabel !== 'None' && styles.rowLabelActive,
                           ]}
+                          numberOfLines={1}
                         >
                           {reminderLabel === 'None' ? 'Add reminder' : reminderLabel}
                         </Text>
-                      </HStack>
+                      </ThreeColumnRow>
                     </Pressable>
                   </VStack>
 
@@ -760,37 +965,34 @@ export function ActivityDetailScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Edit due date"
                     >
-                      <HStack
-                        space="sm"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        style={styles.rowContent}
+                      <ThreeColumnRow
+                        left={<Icon name="today" size={16} color={colors.textSecondary} />}
+                        right={
+                          activity.scheduledDate ? (
+                            <Pressable
+                              onPress={(event) => {
+                                event.stopPropagation();
+                                handleClearDueDate();
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel="Clear due date"
+                              hitSlop={8}
+                            >
+                              <Icon name="close" size={16} color={colors.textSecondary} />
+                            </Pressable>
+                          ) : null
+                        }
                       >
-                        <HStack space="sm" alignItems="center" flex={1}>
-                          <Icon name="today" size={16} color={colors.textSecondary} />
-                          <Text
-                            style={[
-                              styles.rowValue,
-                              activity.scheduledDate && styles.rowLabelActive,
-                            ]}
-                          >
-                            {activity.scheduledDate ? dueDateLabel : 'Add due date'}
-                          </Text>
-                        </HStack>
-                        {activity.scheduledDate ? (
-                          <Pressable
-                            onPress={(event) => {
-                              event.stopPropagation();
-                              handleClearDueDate();
-                            }}
-                            accessibilityRole="button"
-                            accessibilityLabel="Clear due date"
-                            hitSlop={8}
-                          >
-                            <Icon name="close" size={16} color={colors.textSecondary} />
-                          </Pressable>
-                        ) : null}
-                      </HStack>
+                        <Text
+                          style={[
+                            styles.rowValue,
+                            activity.scheduledDate && styles.rowLabelActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {activity.scheduledDate ? dueDateLabel : 'Add due date'}
+                        </Text>
+                      </ThreeColumnRow>
                     </Pressable>
                   </VStack>
 
@@ -801,34 +1003,63 @@ export function ActivityDetailScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Edit repeat schedule"
                     >
-                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                        <Icon name="refresh" size={16} color={colors.textSecondary} />
+                      <ThreeColumnRow
+                        left={<Icon name="refresh" size={16} color={colors.textSecondary} />}
+                        right={
+                          activity.repeatRule ? (
+                            <Pressable
+                              onPress={(event) => {
+                                event.stopPropagation();
+                                handleClearRepeatRule();
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel="Clear repeat schedule"
+                              hitSlop={8}
+                            >
+                              <Icon name="close" size={16} color={colors.textSecondary} />
+                            </Pressable>
+                          ) : null
+                        }
+                      >
                         <Text
                           style={[
                             styles.rowValue,
                             repeatLabel !== 'Off' && styles.rowLabelActive,
                           ]}
+                          numberOfLines={1}
                         >
-                          {repeatLabel === 'Off' ? 'Off' : repeatLabel}
+                          {repeatLabel === 'Off' ? 'Repeat' : repeatLabel}
                         </Text>
-                      </HStack>
+                      </ThreeColumnRow>
                     </Pressable>
                   </VStack>
-                </VStack>
-              </View>
-            </View>
 
-            <View style={styles.section}>
-              <View style={styles.rowsCard}>
-                <VStack space="xs">
-                  <Text style={styles.planningHeader}>Planning</Text>
+                  <View style={styles.cardSectionDivider} />
 
+                  {/* Planning (no group label; treated as part of the same metadata card) */}
                   <View style={styles.row}>
-                    <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                      <Icon name="time" size={16} color={colors.textSecondary} />
-                      <Text style={styles.rowLabel}>Time estimate</Text>
-                    </HStack>
-                    <View style={styles.rowRight}>
+                    <ThreeColumnRow
+                      left={<Icon name="estimate" size={16} color={colors.textSecondary} />}
+                      right={
+                        hasTimeEstimate ? (
+                          <Pressable
+                            onPress={(event) => {
+                              event.stopPropagation();
+                              handleClearTimeEstimate();
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear time estimate"
+                            hitSlop={8}
+                          >
+                            <Icon name="close" size={16} color={colors.textSecondary} />
+                          </Pressable>
+                        ) : (
+                          <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                        )
+                      }
+                      onPress={openEstimateSheet}
+                      accessibilityLabel="Edit time estimate"
+                    >
                       <Text
                         style={[
                           styles.rowValue,
@@ -838,28 +1069,90 @@ export function ActivityDetailScreen() {
                       >
                         {timeEstimateLabel}
                       </Text>
-                    </View>
+                    </ThreeColumnRow>
                   </View>
 
-                  <View style={styles.row}>
-                    <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                      <Icon name="signal" size={16} color={colors.textSecondary} />
-                      <Text style={styles.rowLabel}>Difficulty</Text>
-                    </HStack>
-                    <View style={styles.rowRight}>
-                      <Text
-                        style={[
-                          styles.rowValue,
-                          difficultyIsAi && styles.rowValueAi,
-                        ]}
-                        numberOfLines={1}
+                  <Combobox
+                    open={difficultyComboboxOpen}
+                    onOpenChange={setDifficultyComboboxOpen}
+                    value={activity.difficulty ?? ''}
+                    onValueChange={(nextDifficulty) => {
+                      const timestamp = new Date().toISOString();
+                      updateActivity(activity.id, (prev) => ({
+                        ...prev,
+                        difficulty: (nextDifficulty || undefined) as ActivityDifficulty | undefined,
+                        updatedAt: timestamp,
+                      }));
+                    }}
+                    options={difficultyOptions}
+                    title="Difficulty"
+                    searchPlaceholder="Search difficulty…"
+                    emptyText="No difficulty options found."
+                    allowDeselect
+                    trigger={
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit difficulty"
+                        onPress={() => setDifficultyComboboxOpen(true)}
+                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                       >
-                        {difficultyLabel}
-                      </Text>
-                    </View>
-                  </View>
+                        <ThreeColumnRow
+                          left={<Icon name="difficulty" size={16} color={colors.textSecondary} />}
+                          right={
+                            hasDifficulty ? (
+                              <Pressable
+                                onPress={(event) => {
+                                  event.stopPropagation();
+                                  handleClearDifficulty();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel="Clear difficulty estimate"
+                                hitSlop={8}
+                              >
+                                <Icon name="close" size={16} color={colors.textSecondary} />
+                              </Pressable>
+                            ) : (
+                              <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                            )
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.rowValue,
+                              difficultyIsAi && styles.rowValueAi,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {difficultyLabel}
+                          </Text>
+                        </ThreeColumnRow>
+                      </Pressable>
+                    }
+                  />
                 </VStack>
+                </View>
               </View>
+            </View>
+
+            {/* 5) Notes */}
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>NOTES</Text>
+              <Textarea
+                value={notesDraft}
+                onChangeText={setNotesDraft}
+                onFocus={handleAnyInputFocus}
+                onBlur={() => {
+                  handleAnyInputBlur();
+                  commitNotes();
+                }}
+                placeholder="Add context or reminders for this activity."
+                multiline
+                variant="outline"
+                elevation="flat"
+                // Compact note field vs the larger default textarea spec.
+                multilineMinHeight={80}
+                multilineMaxHeight={180}
+              />
             </View>
           </ScrollView>
         </VStack>
@@ -929,6 +1222,62 @@ export function ActivityDetailScreen() {
           </VStack>
         </View>
       </BottomDrawer>
+
+      <BottomDrawer
+        visible={estimateSheetVisible}
+        onClose={() => setEstimateSheetVisible(false)}
+        snapPoints={['40%']}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Duration</Text>
+          <VStack space="md">
+            <HStack space="sm" alignItems="center" style={styles.estimateFieldsRow}>
+              <View style={styles.estimateField}>
+                <Text style={styles.estimateFieldLabel}>Hours</Text>
+                <Input
+                  value={estimateHoursDraft}
+                  onChangeText={setEstimateHoursDraft}
+                  placeholder="0"
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                  size="sm"
+                  variant="outline"
+                  elevation="flat"
+                />
+              </View>
+              <View style={styles.estimateField}>
+                <Text style={styles.estimateFieldLabel}>Minutes</Text>
+                <Input
+                  value={estimateMinutesDraft}
+                  onChangeText={setEstimateMinutesDraft}
+                  placeholder="0"
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                  size="sm"
+                  variant="outline"
+                  elevation="flat"
+                />
+              </View>
+            </HStack>
+
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  handleClearTimeEstimate();
+                  setEstimateSheetVisible(false);
+                }}
+              >
+                <Text style={styles.sheetRowLabel}>Clear</Text>
+              </Button>
+              <Button variant="primary" style={{ flex: 1 }} onPress={commitEstimateDraft}>
+                <Text style={styles.sheetRowLabel}>Save</Text>
+              </Button>
+            </HStack>
+          </VStack>
+        </View>
+      </BottomDrawer>
     </AppShell>
   );
 }
@@ -973,10 +1322,10 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingBottom: spacing['2xl'],
-    gap: spacing.lg,
+    gap: spacing.xs,
   },
   section: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   activityHeaderRow: {
     flexDirection: 'row',
@@ -984,9 +1333,32 @@ const styles = StyleSheet.create({
     columnGap: spacing.md,
     flexWrap: 'wrap',
   },
+  rowPadding: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  titleStepsBundle: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  bundleDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    borderRadius: 999,
+    marginVertical: 2,
+  },
   titlePressable: {
     flex: 1,
     flexShrink: 1,
+    justifyContent: 'center',
+  },
+  titleRow: {
+    paddingHorizontal: 0,
+    minHeight: 44,
+  },
+  titleRowContent: {
+    // Keep the title vertically centered against the (slightly larger) checkbox.
+    paddingVertical: spacing.xs,
   },
   titleText: {
     ...typography.titleSm,
@@ -998,8 +1370,36 @@ const styles = StyleSheet.create({
     padding: 0,
     flexShrink: 1,
   },
+  fieldLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    marginBottom: 2,
+  },
+  comboboxTrigger: {
+    width: '100%',
+  },
+    comboboxValueContainer: {
+      // `Input` dims non-editable fields by default. For combobox triggers, we want the
+      // selected value to use the standard dark text appearance like other inputs.
+      opacity: 1,
+    },
+    comboboxValueInput: {
+      // Improve vertical centering of single-line value text (icon is already centered).
+      color: colors.textPrimary,
+      paddingVertical: 0,
+      // Keep these explicit so we can safely override line metrics.
+      fontFamily: typography.bodySm.fontFamily,
+      fontSize: typography.bodySm.fontSize,
+      // Line-height strongly affects perceived vertical centering.
+      lineHeight: Platform.OS === 'ios' ? typography.bodySm.fontSize + 2 : typography.bodySm.lineHeight,
+      // Android-only props (harmless on iOS, but not relied upon there).
+      includeFontPadding: false,
+      textAlignVertical: 'center',
+      // iOS: very small baseline nudge upward (text tends to sit slightly low).
+      ...(Platform.OS === 'ios' ? { marginTop: -1 } : null),
+    },
   metaText: {
-    marginTop: spacing.sm,
     ...typography.bodySm,
     color: colors.textSecondary,
   },
@@ -1040,36 +1440,31 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
   },
+  cardSectionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    borderRadius: 999,
+    marginVertical: 2,
+  },
   rowsCard: {
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: colors.canvas,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-  },
-  notesLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  notesInput: {
-    ...typography.body,
-    color: colors.textPrimary,
-    minHeight: 80,
-    paddingVertical: spacing.sm,
   },
   inputLabel: {
     ...typography.label,
     color: colors.textSecondary,
     paddingHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   sectionLabelRow: {
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xs,
+    paddingBottom: 2,
   },
   stepsHeaderRow: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 2,
   },
   stepsHeaderLabel: {
     ...typography.label,
@@ -1092,11 +1487,14 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   stepRow: {
-    alignItems: 'center',
-    paddingVertical: spacing.xs / 2,
+    // Keep step content vertically centered against the checkbox.
+    minHeight: 40,
+  },
+  stepRowContent: {
+    paddingVertical: 0,
   },
   stepCheckbox: {
     width: 20,
@@ -1104,7 +1502,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   stepInput: {
-    flex: 1,
     ...typography.bodySm,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
@@ -1127,12 +1524,12 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 999,
   },
-  addStepInlineRow: {
-    marginTop: spacing.xs,
+  addStepRow: {
+    marginTop: 2,
   },
   addStepInlineText: {
     ...typography.bodySm,
-    color: colors.primary,
+    color: colors.accent,
   },
   rowValue: {
     ...typography.bodySm,
@@ -1145,12 +1542,6 @@ const styles = StyleSheet.create({
   rowValueAi: {
     color: colors.accent,
   },
-  planningHeader: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
   sheetContent: {
     flex: 1,
     paddingHorizontal: spacing.lg,
@@ -1161,6 +1552,17 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
+  estimateFieldsRow: {
+    width: '100%',
+  },
+  estimateField: {
+    flex: 1,
+  },
+  estimateFieldLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
   sheetRow: {
     paddingVertical: spacing.sm,
   },
@@ -1170,13 +1572,6 @@ const styles = StyleSheet.create({
   },
   datePickerContainer: {
     marginTop: spacing.sm,
-  },
-  sectionDivider: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.lg,
-    height: 1,
-    backgroundColor: colors.border,
-    borderRadius: 999,
   },
   emptyState: {
     flex: 1,
@@ -1221,6 +1616,20 @@ const styles = StyleSheet.create({
   destructiveMenuRowText: {
     ...typography.body,
     color: colors.destructive,
+  },
+  doneButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  doneButtonPressed: {
+    opacity: 0.75,
+  },
+  doneButtonText: {
+    fontFamily: fonts.medium,
+    fontSize: 18,
+    lineHeight: 22,
+    color: colors.textPrimary,
   },
 });
 

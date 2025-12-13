@@ -1,7 +1,9 @@
 import { Arc, GoalDraft, type AgeRange } from '../domain/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { getFocusAreaLabel } from '../domain/focusAreas';
 import { listIdealArcTemplates } from '../domain/idealArcs';
+import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
 import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type LlmModel } from '../store/useAppStore';
@@ -12,10 +14,52 @@ type GenerateArcParams = {
   prompt: string;
   timeHorizon?: string;
   additionalContext?: string;
+  /**
+   * Optional model override used by dev tooling (Arc testing) to compare outputs.
+   * This bypasses the persisted model selection in the app store.
+   */
+  modelOverride?: string;
 };
 
 export type GeneratedArc = Pick<Arc, 'name' | 'narrative' | 'status'> & {
   suggestedForces?: string[];
+};
+
+export type ArcRubricJudgeResult = {
+  // 0–10 scores
+  identityCoherence: number;
+  groundedness: number;
+  distinctiveness: number;
+  feltAccuracy: number; // does it "get" this user? feels personally relevant/true-to-inputs
+  readingEase: number; // can the target age band read it smoothly?
+  everydayConcreteness: number; // can you picture how it shows up day-to-day?
+  clarity: number;
+  constraintCompliance: number;
+  adoptionLikelihood: number;
+  confidence: number; // 0–1
+  notes: string[];
+};
+
+export type ArcComparisonRubricJudgeResult = {
+  results: Array<{
+    paradigmId: string;
+    paradigmName: string;
+    bestArcIndex: number; // 0-based
+    // 0–10 scores
+    identityCoherence: number;
+    groundedness: number;
+    distinctiveness: number;
+    feltAccuracy: number;
+    readingEase: number;
+    everydayConcreteness: number;
+    clarity: number;
+    constraintCompliance: number;
+    adoptionLikelihood: number;
+    nonParroting: number; // 0–10 (10 = transforms inputs; avoids copying)
+    overallRank: number; // 1 = best
+    confidence: number; // 0–1
+    notes: string[];
+  }>;
 };
 
 const formatIdealArcExamplesForPrompt = (maxExamples = 4): string => {
@@ -190,6 +234,200 @@ const MUTED_CONTEXT_PREFIXES: string[] = [
   'fetchWithTimeout:',
 ];
 
+// If the OpenAI account is out of quota, avoid spamming repeated failing calls.
+let OPENAI_QUOTA_EXCEEDED = false;
+let OPENAI_QUOTA_WARNING_EMITTED = false; // For the detailed quota error log
+let OPENAI_QUOTA_FALLBACK_WARNING_EMITTED = false; // For the "using mocks" fallback warning
+
+/**
+ * Reset the OpenAI quota exceeded flag (dev-only).
+ * Useful for testing after fixing quota issues without restarting the app.
+ */
+export function resetOpenAiQuotaFlag(): void {
+  if (!__DEV__) return;
+  OPENAI_QUOTA_EXCEEDED = false;
+  OPENAI_QUOTA_WARNING_EMITTED = false;
+  OPENAI_QUOTA_FALLBACK_WARNING_EMITTED = false;
+  console.log('[ai] OpenAI quota flag reset. New API calls will be attempted.');
+}
+
+/**
+ * Check if OpenAI quota is currently marked as exceeded (dev-only).
+ */
+export function getOpenAiQuotaExceededStatus(): boolean {
+  return OPENAI_QUOTA_EXCEEDED;
+}
+
+const isProductionEnvironment = (): boolean => {
+  const appEnvironment =
+    (Constants.expoConfig?.extra as { environment?: string } | undefined)?.environment ??
+    (__DEV__ ? 'development' : 'production');
+  return appEnvironment === 'production';
+};
+
+type OpenAiErrorDetails = {
+  message: string;
+  type?: string;
+  code?: string;
+  param?: string | null;
+  raw: string;
+};
+
+const parseOpenAiError = (errorText: string): OpenAiErrorDetails => {
+  try {
+    const parsed = JSON.parse(errorText);
+    const error = parsed?.error;
+    if (error && typeof error === 'object') {
+      return {
+        message: error.message ?? 'Unknown error',
+        type: error.type,
+        code: error.code,
+        param: error.param ?? null,
+        raw: errorText,
+      };
+    }
+  } catch {
+    // Not JSON, return as-is
+  }
+  return {
+    message: errorText || 'Unknown error',
+    raw: errorText,
+  };
+};
+
+const isOpenAiQuotaExceeded = (status: number, errorText: string): boolean => {
+  // 429 can be either rate limit OR quota exceeded - need to check the error details
+  if (status === 429) {
+    const error = parseOpenAiError(errorText);
+    const lowerMessage = error.message.toLowerCase();
+    const lowerCode = (error.code ?? '').toLowerCase();
+    // Quota exceeded has specific indicators
+    return (
+      lowerCode === 'insufficient_quota' ||
+      lowerMessage.includes('insufficient_quota') ||
+      lowerMessage.includes('exceeded your current quota') ||
+      lowerMessage.includes('quota')
+    );
+  }
+  // Non-429 errors can also indicate quota issues
+  const lower = (errorText ?? '').toLowerCase();
+  return lower.includes('insufficient_quota') || lower.includes('exceeded your current quota');
+};
+
+const isOpenAiRateLimited = (status: number, errorText: string): boolean => {
+  if (status !== 429) return false;
+  const error = parseOpenAiError(errorText);
+  const lowerMessage = error.message.toLowerCase();
+  const lowerCode = (error.code ?? '').toLowerCase();
+  // Rate limit (not quota) - temporary, can retry
+  return (
+    lowerCode === 'rate_limit_exceeded' ||
+    lowerMessage.includes('rate limit') ||
+    (status === 429 && !isOpenAiQuotaExceeded(status, errorText))
+  );
+};
+
+const markOpenAiQuotaExceeded = (
+  context: string,
+  status: number,
+  errorText: string,
+  apiKey?: string
+): boolean => {
+  if (!isOpenAiQuotaExceeded(status, errorText)) return false;
+  OPENAI_QUOTA_EXCEEDED = true;
+  const isProduction = isProductionEnvironment();
+  const error = parseOpenAiError(errorText);
+  
+  // Extract key identifier for troubleshooting
+  const keyInfo = apiKey ? describeKey(apiKey) : null;
+  
+  // Parse quota limit details from error message (e.g., "Rate limit reached for gpt-4o-mini... Limit: 10000 / min")
+  const quotaDetails: Record<string, string> = {};
+  const message = error.message;
+  
+  // Extract model name if mentioned
+  const modelMatch = message.match(/for\s+([a-z0-9.-]+)\s+/i);
+  if (modelMatch) quotaDetails.model = modelMatch[1]!;
+  
+  // Extract organization ID if mentioned
+  const orgMatch = message.match(/organization\s+([a-z0-9-]+)/i);
+  if (orgMatch) quotaDetails.organizationId = orgMatch[1]!;
+  
+  // Extract limit type and values (e.g., "Limit: 10000.000000 / min. Current: 10020.000000 / min")
+  const limitMatch = message.match(/Limit:\s*([0-9.]+)\s*\/([^.]*)/i);
+  if (limitMatch) {
+    quotaDetails.limitValue = limitMatch[1]!;
+    quotaDetails.limitUnit = limitMatch[2]!.trim();
+  }
+  
+  const currentMatch = message.match(/Current:\s*([0-9.]+)\s*\/([^.]*)/i);
+  if (currentMatch) {
+    quotaDetails.currentValue = currentMatch[1]!;
+    quotaDetails.currentUnit = currentMatch[2]!.trim();
+  }
+  
+  // Extract limit type (tokens per min, requests per min, etc.)
+  if (message.includes('tokens per min') || message.includes('TPM')) {
+    quotaDetails.limitType = 'tokens_per_minute';
+  } else if (message.includes('requests per min') || message.includes('RPM')) {
+    quotaDetails.limitType = 'requests_per_minute';
+  } else if (message.includes('tokens per day')) {
+    quotaDetails.limitType = 'tokens_per_day';
+  } else if (message.includes('requests per day')) {
+    quotaDetails.limitType = 'requests_per_day';
+  }
+  
+  if (!OPENAI_QUOTA_WARNING_EMITTED) {
+    OPENAI_QUOTA_WARNING_EMITTED = true;
+    if (isProduction) {
+      // In production, this is a critical error - log it prominently with full details
+      console.error(
+        `[CRITICAL] OpenAI quota exceeded in production (${context}). ` +
+          'This will cause user-facing failures. Check billing/quota immediately.'
+      );
+      console.error('[CRITICAL] OpenAI quota error details:', {
+        apiKey: keyInfo ? `${keyInfo.prefix}...${keyInfo.suffix}` : 'unknown',
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status,
+        context,
+        quotaDetails: Object.keys(quotaDetails).length > 0 ? quotaDetails : undefined,
+        fullResponse: error.raw,
+      });
+      // TODO: Add error reporting service integration here (e.g., Sentry, Bugsnag)
+    } else {
+      // In dev, provide helpful guidance with full error details
+      console.warn(
+        `\n${'='.repeat(80)}\n` +
+        `[QUOTA EXCEEDED] OpenAI quota exceeded (${context})\n` +
+        `${'='.repeat(80)}`
+      );
+      console.warn('API Key:', keyInfo ? `${keyInfo.prefix}...${keyInfo.suffix} (length: ${keyInfo.length})` : 'unknown');
+      console.warn('Error Message:', error.message);
+      console.warn('Error Type:', error.type);
+      console.warn('Error Code:', error.code);
+      console.warn('HTTP Status:', status);
+      if (Object.keys(quotaDetails).length > 0) {
+        console.warn('\nQuota Limit Details:');
+        Object.entries(quotaDetails).forEach(([key, value]) => {
+          console.warn(`  ${key}: ${value}`);
+        });
+      }
+      console.warn('\nFull Error Response:', error.raw);
+      console.warn(
+        `\nTo fix this:\n` +
+        `1. Go to https://platform.openai.com/settings/organization/limits\n` +
+        `2. Find the key matching: ${keyInfo ? `${keyInfo.prefix}...${keyInfo.suffix}` : 'your API key'}\n` +
+        `3. Check which limit was exceeded (see details above)\n` +
+        `4. Request an increase for that specific limit\n` +
+        `${'='.repeat(80)}\n`
+      );
+    }
+  }
+  return true;
+};
+
 const previewText = (value?: string) => {
   if (!value) {
     return undefined;
@@ -217,8 +455,13 @@ const calculateAgeFromBirthdate = (birthdate?: string): number | null => {
   return age;
 };
 
-const describeKey = (key?: string) =>
-  key ? { present: true, length: key.length } : { present: false };
+const describeKey = (key?: string) => {
+  if (!key) return { present: false };
+  // Show first 7 chars + last 4 for verification (e.g., "sk-proj-...xyz1")
+  const prefix = key.slice(0, 7);
+  const suffix = key.length > 11 ? key.slice(-4) : '****';
+  return { present: true, length: key.length, prefix, suffix };
+};
 
 const devLog = (context: string, details?: Record<string, unknown>) => {
   if (!__DEV__) return;
@@ -584,11 +827,46 @@ const runCoachTool = (tool: CoachToolCall) => {
 };
 
 export async function generateArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
+  if (OPENAI_QUOTA_EXCEEDED) {
+    // In production, quota issues should fail loudly, not silently degrade to mocks
+    if (isProductionEnvironment()) {
+      throw new Error(
+        'OpenAI API quota exceeded. Please check billing and quota limits. ' +
+          'This is a critical production issue that requires immediate attention.'
+      );
+    }
+    // In dev, fall back to mocks for easier testing, but log it so user knows what's happening
+    if (__DEV__) {
+      // Only log once per session to avoid spam, but make it visible
+      if (!OPENAI_QUOTA_FALLBACK_WARNING_EMITTED) {
+        console.warn(
+          `\n${'='.repeat(80)}\n` +
+          `[ai] ⚠️  OpenAI QUOTA EXCEEDED - Using MOCK responses\n` +
+          `${'='.repeat(80)}\n` +
+          `All Arc generation is falling back to mock arcs because the quota exceeded flag is set.\n` +
+          `This flag persists until you restart the app or call resetOpenAiQuotaFlag().\n\n` +
+          `To fix:\n` +
+          `  1. Check terminal logs above for the original quota error details\n` +
+          `  2. Fix the quota issue in OpenAI dashboard\n` +
+          `  3. Restart the app OR call resetOpenAiQuotaFlag() in dev console\n` +
+          `${'='.repeat(80)}\n`
+        );
+        OPENAI_QUOTA_FALLBACK_WARNING_EMITTED = true;
+      }
+      devLog('generateArcs:quota-exceeded-fallback', {
+        usingMocks: true,
+        reason: 'OPENAI_QUOTA_EXCEEDED flag is set from previous error',
+        note: 'Restart app or fix quota to get real AI-generated arcs',
+      });
+    }
+    return mockGenerateArcs(params);
+  }
   const apiKey = resolveOpenAiApiKey();
   devLog('generateArcs:init', {
     promptPreview: previewText(params.prompt),
     timeHorizon: params.timeHorizon ?? 'unspecified',
     additionalContextPreview: previewText(params.additionalContext),
+    modelOverride: params.modelOverride,
   });
   devLog('generateArcs:apiKey', describeKey(apiKey));
   if (!apiKey) {
@@ -605,6 +883,7 @@ export async function generateArcs(params: GenerateArcParams): Promise<Generated
       const result = await requestOpenAiArcs(params, apiKey, {
         attempt,
         repairHint: lastInvalidSummary ?? undefined,
+        modelOverride: params.modelOverride,
       });
       const { valid, invalid } = postProcessGeneratedArcs(result);
       attempts.push({ attempt, arcs: valid, invalidCount: invalid.length });
@@ -644,6 +923,383 @@ export async function generateArcs(params: GenerateArcParams): Promise<Generated
       name: err instanceof Error ? err.name : undefined,
     });
     return mockGenerateArcs(params);
+  }
+}
+
+type JudgeArcRubricParams = {
+  responseSummary: string;
+  ageBand?: string;
+  paradigmName: string;
+  arc: Pick<GeneratedArc, 'name' | 'narrative'>;
+  judgeModelOverride?: string;
+};
+
+/**
+ * AI judge for rubric scoring. Uses a small/cheap model by default (unless overridden)
+ * and returns strictly structured JSON scores.
+ */
+export async function judgeArcRubric(
+  params: JudgeArcRubricParams
+): Promise<ArcRubricJudgeResult | null> {
+  // Judge functions are dev-only (Arc Testing), so returning null is acceptable
+  if (OPENAI_QUOTA_EXCEEDED) {
+    return null;
+  }
+  const apiKey = resolveOpenAiApiKey();
+  if (!apiKey) {
+    return null;
+  }
+
+  const model: string = params.judgeModelOverride ?? 'gpt-4o-mini';
+  const systemPrompt =
+    'You are a strict evaluator for Kwilt Identity Arcs. ' +
+    'Score each dimension from 0 to 10, where 10 is excellent. ' +
+    'Be consistent across candidates. ' +
+    'Prefer grounded, concrete language; penalize cliché or generic self-help phrasing. ' +
+    'If ageBand indicates a teen, be stricter about readability and concreteness.';
+
+  const userPrompt = [
+    'Evaluate this Arc candidate using the rubric below. Return JSON only.',
+    '',
+    `Age band: ${params.ageBand ?? 'unknown'}`,
+    `Paradigm: ${params.paradigmName}`,
+    '',
+    'User signals summary:',
+    params.responseSummary,
+    '',
+    'Arc candidate:',
+    `- name: ${params.arc.name}`,
+    `- narrative: ${params.arc.narrative}`,
+    '',
+    'Rubric definitions:',
+    '- identityCoherence: single clear identity spine; stable over years; not a trait salad.',
+    '- groundedness: ordinary-life concrete scene; minimal abstraction; no guru/cosmic/corporate tone.',
+    '- distinctiveness: feels specific to this user; not interchangeable across people.',
+    '- feltAccuracy: feels true to the user signals; the user would say "yes, that’s me / that’s what I mean" (not generic).',
+    '- readingEase: easy to read for this age band; short sentences; minimal jargon.',
+    '- everydayConcreteness: you can picture it in daily life; specific verbs/contexts; not just abstractions.',
+    '- clarity: precise wording; avoids vague terms; name is legible and identity-like.',
+    '- constraintCompliance: obeys format constraints (name 1–3 words; narrative starts "I want"; exactly 3 sentences; 40–120 words; single paragraph).',
+    '- adoptionLikelihood: how likely a real user would tap "Yes, I’d love to become like this".',
+    '',
+    'Notes:',
+    '- Provide 2–5 short notes explaining major deductions (if any).',
+    '- confidence: 0–1 (how confident you are in the scoring given the inputs).',
+  ].join('\n');
+
+  const body = {
+    model,
+    temperature: 0.1,
+    max_tokens: 450,
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'arc_rubric_scores',
+        schema: {
+          type: 'object',
+          properties: {
+            identityCoherence: { type: 'number', minimum: 0, maximum: 10 },
+            groundedness: { type: 'number', minimum: 0, maximum: 10 },
+            distinctiveness: { type: 'number', minimum: 0, maximum: 10 },
+            feltAccuracy: { type: 'number', minimum: 0, maximum: 10 },
+            readingEase: { type: 'number', minimum: 0, maximum: 10 },
+            everydayConcreteness: { type: 'number', minimum: 0, maximum: 10 },
+            clarity: { type: 'number', minimum: 0, maximum: 10 },
+            constraintCompliance: { type: 'number', minimum: 0, maximum: 10 },
+            adoptionLikelihood: { type: 'number', minimum: 0, maximum: 10 },
+            confidence: { type: 'number', minimum: 0, maximum: 1 },
+            notes: {
+              type: 'array',
+              items: { type: 'string' },
+              minItems: 0,
+              maxItems: 6,
+            },
+          },
+          required: [
+            'identityCoherence',
+            'groundedness',
+            'distinctiveness',
+            'feltAccuracy',
+            'readingEase',
+            'everydayConcreteness',
+            'clarity',
+            'constraintCompliance',
+            'adoptionLikelihood',
+            'confidence',
+            'notes',
+          ],
+          additionalProperties: false,
+        },
+      },
+    },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+  };
+  
+  // Check quota right before making the request (in case flag was set by parallel requests)
+  if (OPENAI_QUOTA_EXCEEDED) {
+    return null;
+  }
+
+  const response = await fetchWithTimeout(
+    OPENAI_COMPLETIONS_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+    OPENAI_TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const error = parseOpenAiError(errorText);
+    
+    if (!markOpenAiQuotaExceeded('arcRubricJudge', response.status, errorText, apiKey)) {
+      const isRateLimit = isOpenAiRateLimited(response.status, errorText);
+      if (isRateLimit) {
+        console.warn('OpenAI rate limit (arcRubricJudge) - this is temporary:', {
+          message: error.message,
+          type: error.type,
+          code: error.code,
+          status: response.status,
+        });
+      } else {
+        console.warn('OpenAI error (arcRubricJudge):', {
+          message: error.message,
+          type: error.type,
+          code: error.code,
+          status: response.status,
+          fullResponse: error.raw,
+        });
+      }
+    }
+    return null;
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(content);
+    return parsed as ArcRubricJudgeResult;
+  } catch {
+    return null;
+  }
+}
+
+type JudgeArcComparisonRubricParams = {
+  responseSummary: string;
+  ageBand?: string;
+  candidates: Array<{
+    paradigmId: string;
+    paradigmName: string;
+    arcs: Array<Pick<GeneratedArc, 'name' | 'narrative'>>;
+  }>;
+  judgeModelOverride?: string;
+};
+
+/**
+ * Comparative AI judge for rubric scoring. Scores paradigms side-by-side to
+ * encourage separation (avoid score compression) and returns a rank ordering.
+ *
+ * This is intentionally "one call per response" so full-suite runs are feasible.
+ */
+export async function judgeArcComparisonRubric(
+  params: JudgeArcComparisonRubricParams
+): Promise<ArcComparisonRubricJudgeResult | null> {
+  // Judge functions are dev-only (Arc Testing), so returning null is acceptable
+  if (OPENAI_QUOTA_EXCEEDED) {
+    return null;
+  }
+  const apiKey = resolveOpenAiApiKey();
+  if (!apiKey) {
+    return null;
+  }
+
+  const model: string = params.judgeModelOverride ?? 'gpt-4o-mini';
+  const systemPrompt =
+    'You are a strict comparative evaluator for Kwilt Identity Arcs. ' +
+    'You will evaluate multiple paradigms side-by-side for the SAME user signals. ' +
+    'Important: avoid score compression. Use the full 0–10 range when warranted. ' +
+    'Ties are rare: if two are similar, separate them by at least 0.5 on the most relevant dimensions. ' +
+    'Prefer grounded, concrete, non-generic language. Penalize cliché and corporate-speak. ' +
+    'If ageBand indicates a teen, be stricter about readability and concreteness.';
+
+  const candidateBlock = params.candidates
+    .map((c) => {
+      const arcLines = c.arcs
+        .map((a, idx) => `  Arc ${idx}:\n    - name: ${a.name}\n    - narrative: ${a.narrative}`)
+        .join('\n');
+      return [`Paradigm: ${c.paradigmName} (id=${c.paradigmId})`, arcLines].join('\n');
+    })
+    .join('\n\n');
+
+  const userPrompt = [
+    'You will score EACH paradigm by selecting its BEST arc and rating it.',
+    '',
+    `Age band: ${params.ageBand ?? 'unknown'}`,
+    '',
+    'User signals summary:',
+    params.responseSummary,
+    '',
+    'Candidate arcs by paradigm:',
+    candidateBlock,
+    '',
+    'Rubric definitions (0–10 each):',
+    '- identityCoherence: one clear identity spine; stable over years; not a trait salad.',
+    '- groundedness: ordinary-life concrete language; minimal abstraction; no guru/cosmic/corporate tone.',
+    '- distinctiveness: feels specific to this user; not interchangeable.',
+    '- feltAccuracy: feels true to the user signals; user would say "that’s me / that’s what I mean" (not generic).',
+    '- readingEase: easy to understand for this age band; minimal jargon; not overly complex sentences.',
+    '- everydayConcreteness: you can picture it in daily life; tangible verbs; some context/scene.',
+    '- clarity: precise wording; avoids vague terms; name is legible and identity-like.',
+    '- constraintCompliance: name 1–3 words; narrative starts "I want"; exactly 3 sentences; 40–120 words; one paragraph.',
+    '- adoptionLikelihood: how likely a real user would tap "Yes, I’d love to become like this".',
+    '- nonParroting: transforms inputs into identity language; does NOT copy the user’s dream or phrases verbatim.',
+    '',
+    'Instructions:',
+    '- For each paradigm, choose bestArcIndex (0-based) among its arcs.',
+    '- Provide overallRank across paradigms (1=best). No ties.',
+    '- Notes: 2–6 short notes focusing on major deductions.',
+    '- confidence: 0–1.',
+    '',
+    'Return JSON only.',
+  ].join('\n');
+
+  const body = {
+    model,
+    temperature: 0.1,
+    max_tokens: 900,
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'arc_comparison_rubric_scores',
+        schema: {
+          type: 'object',
+          properties: {
+            results: {
+              type: 'array',
+              minItems: 1,
+              items: {
+                type: 'object',
+                properties: {
+                  paradigmId: { type: 'string', minLength: 1 },
+                  paradigmName: { type: 'string', minLength: 1 },
+                  bestArcIndex: { type: 'integer', minimum: 0, maximum: 10 },
+                  identityCoherence: { type: 'number', minimum: 0, maximum: 10 },
+                  groundedness: { type: 'number', minimum: 0, maximum: 10 },
+                  distinctiveness: { type: 'number', minimum: 0, maximum: 10 },
+                  feltAccuracy: { type: 'number', minimum: 0, maximum: 10 },
+                  readingEase: { type: 'number', minimum: 0, maximum: 10 },
+                  everydayConcreteness: { type: 'number', minimum: 0, maximum: 10 },
+                  clarity: { type: 'number', minimum: 0, maximum: 10 },
+                  constraintCompliance: { type: 'number', minimum: 0, maximum: 10 },
+                  adoptionLikelihood: { type: 'number', minimum: 0, maximum: 10 },
+                  nonParroting: { type: 'number', minimum: 0, maximum: 10 },
+                  overallRank: { type: 'integer', minimum: 1, maximum: 50 },
+                  confidence: { type: 'number', minimum: 0, maximum: 1 },
+                  notes: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    minItems: 0,
+                    maxItems: 8,
+                  },
+                },
+                required: [
+                  'paradigmId',
+                  'paradigmName',
+                  'bestArcIndex',
+                  'identityCoherence',
+                  'groundedness',
+                  'distinctiveness',
+                  'feltAccuracy',
+                  'readingEase',
+                  'everydayConcreteness',
+                  'clarity',
+                  'constraintCompliance',
+                  'adoptionLikelihood',
+                  'nonParroting',
+                  'overallRank',
+                  'confidence',
+                  'notes',
+                ],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ['results'],
+          additionalProperties: false,
+        },
+      },
+    },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+  };
+  
+  // Check quota right before making the request (in case flag was set by parallel requests)
+  if (OPENAI_QUOTA_EXCEEDED) {
+    return null;
+  }
+
+  const response = await fetchWithTimeout(
+    OPENAI_COMPLETIONS_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+    OPENAI_TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const error = parseOpenAiError(errorText);
+    
+    if (!markOpenAiQuotaExceeded('arcComparisonJudge', response.status, errorText, apiKey)) {
+      const isRateLimit = isOpenAiRateLimited(response.status, errorText);
+      if (isRateLimit) {
+        console.warn('OpenAI rate limit (arcComparisonJudge) - this is temporary:', {
+          message: error.message,
+          type: error.type,
+          code: error.code,
+          status: response.status,
+        });
+      } else {
+        console.warn('OpenAI error (arcComparisonJudge):', {
+          message: error.message,
+          type: error.type,
+          code: error.code,
+          status: response.status,
+          fullResponse: error.raw,
+        });
+      }
+    }
+    return null;
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(content);
+    return parsed as ArcComparisonRubricJudgeResult;
+  } catch {
+    return null;
   }
 }
 
@@ -758,7 +1414,14 @@ Return one Unsplash search phrase that matches the Arc's vibe.
 
   if (!response.ok) {
     const errorText = await response.text();
-    devLog('bannerVibe:response:error', { payloadPreview: previewText(errorText) });
+    const error = parseOpenAiError(errorText);
+    devLog('bannerVibe:response:error', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      status: response.status,
+      fullResponse: error.raw,
+    });
     return null;
   }
 
@@ -783,9 +1446,10 @@ Return one Unsplash search phrase that matches the Arc's vibe.
 async function requestOpenAiArcs(
   params: GenerateArcParams,
   apiKey: string,
-  meta?: { attempt?: number; repairHint?: string }
+  meta?: { attempt?: number; repairHint?: string; modelOverride?: string }
 ): Promise<GeneratedArc[]> {
-  const model = resolveChatModel();
+  // Allow dev tooling to override the model for head-to-head comparisons.
+  const model = meta?.modelOverride ?? resolveChatModel();
   const idealExamples = formatIdealArcExamplesForPrompt(4);
   const baseSystemPrompt = [
     'You are an identity-development coach inside the Kwilt app.',
@@ -796,20 +1460,12 @@ async function requestOpenAiArcs(
     '- a direction for who they want to become,',
     '- not a task list, not a project, not a personality label, and not corporate-speak.',
     '',
-    'ARC NAME RULES:',
-    '- 1–3 meaningful words (emoji/punctuation tokens are allowed but do not count as words),',
-    '- stable over years (can hold many goals),',
-    '- concrete identity direction, not a task.',
-    '',
-    'ARC NARRATIVE RULES (strict):',
-    '- exactly 3 sentences in ONE paragraph (no newlines),',
-    '- 40–120 words,',
-    '- FIRST sentence must start with: "I want…",',
-    '- grounded, plain language (ages 14–50+),',
-    '- avoid guru-speak/cosmic language/therapy language/prescriptive "shoulds",',
-    '- describe only who they want to become and why it matters now (not who they are today).',
+    // Hybrid paradigm: optimize specifically for felt accuracy + readability + everyday concreteness.
+    // We keep this in a shared helper so FTUE + Arc Creation stay aligned.
+    buildHybridArcGuidelinesBlock(),
     '',
     'Each Arc must include: name, narrative, status (default "active"), and suggestedForces (1–4 short strings).',
+    'suggestedForces must be short, concrete phrases (not abstract virtues-only lists).',
     'Always respond with JSON matching the provided schema. Do not include any extra keys.',
     '',
     idealExamples
@@ -832,7 +1488,13 @@ async function requestOpenAiArcs(
     `Time horizon: ${params.timeHorizon ?? 'not specified'}`,
     `Additional context / non-negotiables: ${params.additionalContext ?? 'none provided'}`,
     '',
-    'Return 2–3 Arc suggestions that feel distinctive.',
+    // Hybrid reminder: to get "felt accuracy" without extra questions in production,
+    // we ask the model to infer an "admired qualities" cluster from the signals
+    // and use it to sharpen the Arc voice—without name-dropping role models.
+    'Before writing, silently infer 2–3 admired qualities this person seems drawn to.',
+    'Use them to make the arcs feel specific and true-to-inputs (but do not list those qualities explicitly unless the user did).',
+    '',
+    'Return 2–3 Arc suggestions that feel genuinely different (not synonyms).',
     'Status should default to "active".',
   ];
   if (meta?.attempt && meta.attempt > 1) {
@@ -887,6 +1549,12 @@ async function requestOpenAiArcs(
     temperature: body.temperature,
     promptPreview: previewText(userPrompt),
   });
+  
+  // Check quota right before making the request (in case flag was set by parallel requests)
+  if (OPENAI_QUOTA_EXCEEDED) {
+    throw new Error('OpenAI quota exceeded');
+  }
+  
   const requestStartedAt = Date.now();
 
   const response = await fetchWithTimeout(
@@ -914,13 +1582,40 @@ async function requestOpenAiArcs(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('OpenAI error', errorText);
+    const error = parseOpenAiError(errorText);
+    
+    if (markOpenAiQuotaExceeded('arcs', response.status, errorText, apiKey)) {
+      throw new Error(`OpenAI quota exceeded: ${error.message}`);
+    }
+    
+    // Log full error details for debugging
+    const isRateLimit = isOpenAiRateLimited(response.status, errorText);
+    if (isRateLimit) {
+      console.warn('OpenAI rate limit (arcs) - this is temporary, consider retrying:', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: response.status,
+      });
+    } else {
+      console.warn('OpenAI error (arcs):', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: response.status,
+        fullResponse: error.raw,
+      });
+    }
+    
     devLog('arcs:response:error', {
       status: response.status,
       statusText: response.statusText,
-      payloadPreview: previewText(errorText),
+      errorMessage: error.message,
+      errorType: error.type,
+      errorCode: error.code,
+      fullResponse: error.raw,
     });
-    throw new Error('Unable to generate arcs');
+    throw new Error(`Unable to generate arcs: ${error.message}`);
   }
 
   const data = await response.json();
@@ -940,6 +1635,30 @@ async function requestOpenAiArcs(
 }
 
 export async function generateGoals(params: GenerateGoalParams): Promise<GoalDraft[]> {
+  if (OPENAI_QUOTA_EXCEEDED) {
+    // In production, quota issues should fail loudly, not silently degrade to mocks
+    if (isProductionEnvironment()) {
+      throw new Error(
+        'OpenAI API quota exceeded. Please check billing and quota limits. ' +
+          'This is a critical production issue that requires immediate attention.'
+      );
+    }
+    // In dev, fall back to mocks for easier testing, but log it so user knows what's happening
+    if (__DEV__) {
+      console.warn(
+        '[ai] generateGoals: Using MOCK goals because OpenAI quota exceeded flag is set.\n' +
+        '  → Restart the app or fix quota to get real AI-generated goals\n' +
+        '  → Check terminal logs for quota error details from when it was first detected'
+      );
+      devLog('generateGoals:quota-exceeded-fallback', {
+        usingMocks: true,
+        reason: 'OPENAI_QUOTA_EXCEEDED flag is set from previous error',
+        note: 'Restart app or fix quota to get real AI-generated goals',
+      });
+    }
+    return mockGenerateGoals(params);
+  }
+  
   const apiKey = resolveOpenAiApiKey();
   devLog('generateGoals:init', {
     arcName: params.arcName,
@@ -1058,6 +1777,12 @@ For each goal:
     temperature: body.temperature,
     promptPreview: previewText(userPrompt),
   });
+  
+  // Check quota right before making the request (in case flag was set by parallel requests)
+  if (OPENAI_QUOTA_EXCEEDED) {
+    throw new Error('OpenAI quota exceeded');
+  }
+  
   const requestStartedAt = Date.now();
 
   const response = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
@@ -1081,13 +1806,39 @@ For each goal:
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('OpenAI goal error', errorText);
+    const error = parseOpenAiError(errorText);
+    
+    if (markOpenAiQuotaExceeded('goals', response.status, errorText, apiKey)) {
+      throw new Error(`OpenAI quota exceeded: ${error.message}`);
+    }
+    
+    const isRateLimit = isOpenAiRateLimited(response.status, errorText);
+    if (isRateLimit) {
+      console.warn('OpenAI rate limit (goals) - this is temporary, consider retrying:', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: response.status,
+      });
+    } else {
+      console.warn('OpenAI error (goals):', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: response.status,
+        fullResponse: error.raw,
+      });
+    }
+    
     devLog('goals:response:error', {
       status: response.status,
       statusText: response.statusText,
-      payloadPreview: previewText(errorText),
+      errorMessage: error.message,
+      errorType: error.type,
+      errorCode: error.code,
+      fullResponse: error.raw,
     });
-    throw new Error('Unable to generate goals');
+    throw new Error(`Unable to generate goals: ${error.message}`);
   }
 
   const data = await response.json();
@@ -1139,6 +1890,11 @@ async function requestOpenAiArcHeroImage(
     size: body.size,
     promptPreview: previewText(prompt),
   });
+  
+  // Check quota right before making the request (in case flag was set by parallel requests)
+  if (OPENAI_QUOTA_EXCEEDED) {
+    throw new Error('OpenAI quota exceeded');
+  }
 
   const requestStartedAt = Date.now();
 
@@ -1159,13 +1915,25 @@ async function requestOpenAiArcHeroImage(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('OpenAI hero image error', errorText);
+    const error = parseOpenAiError(errorText);
+    
+    console.error('OpenAI hero image error:', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      status: response.status,
+      fullResponse: error.raw,
+    });
+    
     devLog('heroImage:response:error', {
       status: response.status,
       statusText: response.statusText,
-      payloadPreview: previewText(errorText),
+      errorMessage: error.message,
+      errorType: error.type,
+      errorCode: error.code,
+      fullResponse: error.raw,
     });
-    throw new Error('Unable to generate hero image');
+    throw new Error(`Unable to generate hero image: ${error.message}`);
   }
 
   const data = await response.json();
@@ -1186,6 +1954,20 @@ export async function sendCoachChat(
   messages: CoachChatTurn[],
   options?: CoachChatOptions
 ): Promise<string> {
+  if (OPENAI_QUOTA_EXCEEDED) {
+    // In production, quota issues should fail loudly
+    if (isProductionEnvironment()) {
+      throw new Error(
+        'OpenAI API quota exceeded. Please check billing and quota limits. ' +
+          'This is a critical production issue that requires immediate attention.'
+      );
+    }
+    // In dev, provide a helpful error message
+    throw new Error(
+      'OpenAI quota exceeded. Switch Arc Testing scoring to Heuristic, or add billing / a key with quota.'
+    );
+  }
+  
   const apiKey = resolveOpenAiApiKey();
   devLog('coachChat:init', {
     messageCount: messages.length,
@@ -1280,13 +2062,39 @@ export async function sendCoachChat(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('OpenAI coach chat error', errorText);
+    const error = parseOpenAiError(errorText);
+    
+    if (markOpenAiQuotaExceeded('coachChat', response.status, errorText, apiKey)) {
+      throw new Error(`OpenAI quota exceeded: ${error.message}`);
+    }
+    
+    const isRateLimit = isOpenAiRateLimited(response.status, errorText);
+    if (isRateLimit) {
+      console.warn('OpenAI rate limit (coachChat) - this is temporary, consider retrying:', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: response.status,
+      });
+    } else {
+      console.warn('OpenAI error (coachChat):', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: response.status,
+        fullResponse: error.raw,
+      });
+    }
+    
     devLog('coachChat:response:error', {
       status: response.status,
       statusText: response.statusText,
-      payloadPreview: previewText(errorText),
+      errorMessage: error.message,
+      errorType: error.type,
+      errorCode: error.code,
+      fullResponse: error.raw,
     });
-    throw new Error('Unable to reach kwilt Coach');
+    throw new Error(`Unable to reach kwilt Coach: ${error.message}`);
   }
 
   const data = await response.json();
@@ -1389,8 +2197,30 @@ export async function sendCoachChat(
 
   if (!followupResponse.ok) {
     const errorText = await followupResponse.text();
-    console.error('OpenAI coach follow-up error', errorText);
-    throw new Error('Unable to reach kwilt Coach (follow-up)');
+    const error = parseOpenAiError(errorText);
+    
+    if (markOpenAiQuotaExceeded('coachChat followup', followupResponse.status, errorText, apiKey)) {
+      throw new Error(`OpenAI quota exceeded: ${error.message}`);
+    }
+    
+    const isRateLimit = isOpenAiRateLimited(followupResponse.status, errorText);
+    if (isRateLimit) {
+      console.warn('OpenAI rate limit (coachChat followup) - this is temporary:', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: followupResponse.status,
+      });
+    } else {
+      console.warn('OpenAI error (coachChat followup):', {
+        message: error.message,
+        type: error.type,
+        code: error.code,
+        status: followupResponse.status,
+        fullResponse: error.raw,
+      });
+    }
+    throw new Error(`Unable to reach kwilt Coach (follow-up): ${error.message}`);
   }
 
   const followupData = await followupResponse.json();
@@ -1490,8 +2320,19 @@ function logNetworkErrorDetails(
   console.warn(`[debug:${context}] network error details`, details);
 }
 
+let OPENAI_KEY_LOGGED = false;
+
 function resolveOpenAiApiKey(): string | undefined {
-  return getEnvVar<string>('openAiApiKey');
+  const key = getEnvVar<string>('openAiApiKey');
+  // Log key prefix once at startup (for verification)
+  if (__DEV__ && key && !OPENAI_KEY_LOGGED) {
+    OPENAI_KEY_LOGGED = true;
+    const keyInfo = describeKey(key);
+    console.log(
+      `[ai] Using OpenAI API key: ${keyInfo.prefix}...${keyInfo.suffix} (length: ${keyInfo.length})`
+    );
+  }
+  return key;
 }
 
 function resolveChatModel(): LlmModel {

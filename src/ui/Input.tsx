@@ -15,7 +15,7 @@ import {
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 
-type InputVariant = 'surface' | 'outline' | 'ghost';
+type InputVariant = 'surface' | 'outline' | 'ghost' | 'inline';
 type InputSize = 'md' | 'sm';
 type InputElevation = 'flat' | 'elevated';
 
@@ -34,6 +34,13 @@ type Props = TextInputProps & {
   inputStyle?: StyleProp<TextStyle>;
   size?: InputSize;
   variant?: InputVariant;
+  /**
+   * Override the min/max height used when `multiline` is enabled.
+   * Useful for compact note fields that shouldn't default to the larger textarea
+   * spec.
+   */
+  multilineMinHeight?: number;
+  multilineMaxHeight?: number;
   /**
    * Shadow treatment for the input container.
    *
@@ -62,6 +69,8 @@ const InputBase = forwardRef<TextInput, Props>(
       variant = 'surface',
       editable = true,
       elevation = 'elevated',
+      multilineMinHeight,
+      multilineMaxHeight,
       onFocus,
       onBlur,
       multiline = false,
@@ -85,12 +94,16 @@ const InputBase = forwardRef<TextInput, Props>(
           style={[
             styles.inputContainer,
             variantStyles[variant],
-            size === 'sm' ? styles.sizeSm : styles.sizeMd,
+            // Inline variant should not inherit the default size paddings/minHeight;
+            // it is meant to sit flush inside list rows.
+            variant === 'inline' ? null : size === 'sm' ? styles.sizeSm : styles.sizeMd,
             {
               borderColor: statusColor,
               opacity: editable ? 1 : 0.6,
             },
-            elevation === 'elevated'
+            (variant === 'ghost' || variant === 'inline' || elevation === 'flat')
+              ? (cardElevation.none as ViewStyle)
+              : elevation === 'elevated'
               ? (cardElevation.soft as ViewStyle)
               : (cardElevation.none as ViewStyle),
             containerStyle,
@@ -111,10 +124,12 @@ const InputBase = forwardRef<TextInput, Props>(
               event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
             ) => {
               if (multiline) {
+                const minH = multilineMinHeight ?? MULTILINE_MIN_HEIGHT;
+                const maxH = multilineMaxHeight ?? MULTILINE_MAX_HEIGHT;
                 const nextHeight = event.nativeEvent.contentSize.height;
                 const clampedHeight = Math.max(
-                  MULTILINE_MIN_HEIGHT,
-                  Math.min(nextHeight, MULTILINE_MAX_HEIGHT),
+                  minH,
+                  Math.min(nextHeight, maxH),
                 );
                 setMultilineHeight(clampedHeight);
               }
@@ -132,9 +147,11 @@ const InputBase = forwardRef<TextInput, Props>(
               styles.input,
               multiline && styles.multilineInput,
               size === 'sm' && styles.inputSm,
+              variant === 'inline' && !multiline ? styles.inlineSingleLineInput : null,
               multiline && multilineHeight != null
                 ? { height: multilineHeight }
                 : null,
+              multiline && multilineMinHeight != null ? { minHeight: multilineMinHeight } : null,
               inputStyle,
             ]}
           />
@@ -203,6 +220,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingVertical: 0,
   },
+  inlineSingleLineInput: {
+    // Visual centering: iOS text baselines tend to sit slightly low next to circular
+    // checkboxes. Tighten lineHeight and nudge upward a hair for list-row usage.
+    lineHeight: 18,
+    marginTop: -1,
+  },
   inputSm: {
     fontFamily: typography.bodySm.fontFamily,
     fontSize: typography.bodySm.fontSize,
@@ -241,5 +264,12 @@ const variantStyles: Record<InputVariant, ViewStyle> = {
   },
   ghost: {
     backgroundColor: 'transparent',
+  },
+  inline: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    minHeight: undefined,
   },
 };

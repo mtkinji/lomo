@@ -30,7 +30,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
-import { CelebrationGif } from '../../ui/CelebrationGif';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -69,6 +68,8 @@ const FORCE_ORDER: Array<string> = [
   'force-mastery',
   'force-spirituality',
 ];
+
+const FIRST_GOAL_ILLUSTRATION = require('../../../assets/illustrations/goal-set.png');
 
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
@@ -649,7 +650,12 @@ export function GoalDetailScreen() {
           </View>
 
           <View style={styles.celebrationMediaSlot}>
-            <CelebrationGif kind="firstGoal" size="md" showControls={false} />
+            <Image
+              source={FIRST_GOAL_ILLUSTRATION as number}
+              style={{ width: '100%', maxWidth: 360, height: 280 }}
+              resizeMode="contain"
+              accessibilityLabel="Goal created illustration"
+            />
           </View>
 
           <View>

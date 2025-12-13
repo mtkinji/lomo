@@ -1,10 +1,12 @@
 import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput } from 'react-native';
 import { useEffect, useState } from 'react';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -30,11 +32,14 @@ import {
   type DevCoachChatFeedback,
 } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
+import { ArcTestingLauncher } from './ArcTestingLauncher';
 
 type InterstitialVariant = 'launch' | 'auth' | 'streak';
+type DevToolsRoute = RouteProp<RootDrawerParamList, 'DevTools'>;
 
 export function DevToolsScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
+  const route = useRoute<DevToolsRoute>();
   const drawerStatus = useDrawerStatus();
   const insets = useSafeAreaInsets();
   const menuOpen = drawerStatus === 'open';
@@ -62,12 +67,13 @@ export function DevToolsScreen() {
     (state) => state.setHasSeenFirstGoalCelebration
   );
 
+  const initialTab = route.params?.initialTab ?? 'tools';
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'tools' | 'gallery' | 'typeColor'>('tools');
+  const [viewMode, setViewMode] = useState<'tools' | 'gallery' | 'typeColor' | 'arcTesting'>(initialTab);
   const [demoDialogVisible, setDemoDialogVisible] = useState(false);
   const [demoSheetVisible, setDemoSheetVisible] = useState(false);
   const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
@@ -102,6 +108,12 @@ export function DevToolsScreen() {
   useEffect(() => {
     void loadChatHistory();
   }, []);
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setViewMode(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
 
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
@@ -369,6 +381,7 @@ export function DevToolsScreen() {
 
   const isGallery = viewMode === 'gallery';
   const isTypeAndColor = viewMode === 'typeColor';
+  const isArcTesting = viewMode === 'arcTesting';
 
   const interstitialSegmentOptions: { value: InterstitialVariant; label: string }[] = [
     { value: 'launch', label: 'Launch' },
@@ -477,10 +490,7 @@ export function DevToolsScreen() {
 
   const renderComponentGallery = () => {
     return (
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.stack}>
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>Buttons</Text>
@@ -752,7 +762,7 @@ export function DevToolsScreen() {
             </Button>
           </View>
         </BottomDrawer>
-      </ScrollView>
+      </CanvasScrollView>
     );
   };
 
@@ -802,10 +812,7 @@ export function DevToolsScreen() {
     ];
 
     return (
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.stack}>
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>Typography tokens</Text>
@@ -884,7 +891,7 @@ export function DevToolsScreen() {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </CanvasScrollView>
     );
   };
 
@@ -911,10 +918,13 @@ export function DevToolsScreen() {
             { value: 'tools', label: 'Tools' },
             { value: 'gallery', label: 'Components' },
             { value: 'typeColor', label: 'Type & Color' },
+            { value: 'arcTesting', label: 'Arc Testing' },
           ]}
         />
       </PageHeader>
-      {isGallery ? (
+      {isArcTesting ? (
+        <ArcTestingLauncher />
+      ) : isGallery ? (
         <>
           {renderComponentGallery()}
           <FullScreenInterstitial
@@ -935,10 +945,7 @@ export function DevToolsScreen() {
       ) : isTypeAndColor ? (
         renderTypeAndColorGallery()
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.stack}>
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>First-time UX</Text>
@@ -1145,7 +1152,7 @@ export function DevToolsScreen() {
               )}
             </View>
           </View>
-        </ScrollView>
+        </CanvasScrollView>
       )}
     </AppShell>
   );

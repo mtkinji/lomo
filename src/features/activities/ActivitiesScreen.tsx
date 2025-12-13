@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import type {
   ActivitiesStackParamList,
   RootDrawerParamList,
@@ -437,7 +438,7 @@ export function ActivitiesScreen() {
           </IconButton>
         }
       />
-      <ScrollView
+      <CanvasScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -685,7 +686,7 @@ export function ActivitiesScreen() {
             style={styles.emptyState}
           />
         )}
-      </ScrollView>
+      </CanvasScrollView>
       <ActivityCoachDrawer
         visible={activityCoachVisible}
         onClose={() => setActivityCoachVisible(false)}

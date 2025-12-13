@@ -10,6 +10,8 @@ import {
 
 type ButtonVariant =
   | 'default'
+  | 'cta'
+  | 'primary'
   | 'outline'
   | 'secondary'
   | 'ghost'
@@ -59,6 +61,8 @@ export function Button({
   const logicalVariant: ButtonVariantToken =
     variant === 'secondary'
       ? 'secondary'
+      : variant === 'primary'
+      ? 'primary'
       : variant === 'outline'
       ? 'outline'
       : variant === 'ghost'
@@ -67,7 +71,7 @@ export function Button({
       ? 'link'
       : variant === 'destructive'
       ? 'destructive'
-      : 'primary';
+      : 'cta';
 
   const variantTokens = BUTTON_VARIANT_TOKENS[logicalVariant];
 

@@ -229,10 +229,11 @@ export function BottomDrawer({
     if (!mounted) return;
     if (!visible) return;
     isAnimating.value = true;
-    // Reset any close translation and animate height into place.
-    translateY.value = 0;
+    // Animate from off-screen to reinforce the "drawer slides up" mental model.
+    translateY.value = closedOffset;
     const targetHeight = snapHeights[openToIndex] ?? maxSnapHeight;
-    sheetHeight.value = withTiming(targetHeight, { duration: 240 }, (finished) => {
+    sheetHeight.value = targetHeight;
+    translateY.value = withTiming(0, { duration: 240 }, (finished) => {
       isAnimating.value = false;
       if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
     });

@@ -426,6 +426,13 @@ export interface IdentityProfileSlices {
   daily: string;
 }
 
+import type {
+  ArchetypeAdmiredQualityId,
+  ArchetypeRoleModelTypeId,
+  ArchetypeRoleModelWhyId,
+  ArchetypeSpecificRoleModelId,
+} from './archetypeTaps';
+
 export interface IdentityProfile {
   domainIds: string[];
   motivationIds: string[];
@@ -437,6 +444,14 @@ export interface IdentityProfile {
   valueIds: string[];
   philosophyIds: string[];
   vocationIds: string[];
+  /**
+   * Tap-centric archetype signals captured during FTUE / Arc creation.
+   * These are optional; the hybrid model should still work if the user skips them.
+   */
+  roleModelTypeId?: ArchetypeRoleModelTypeId;
+  specificRoleModelId?: ArchetypeSpecificRoleModelId | 'none' | 'not_sure';
+  roleModelWhyId?: ArchetypeRoleModelWhyId;
+  admiredQualityIds?: ArchetypeAdmiredQualityId[];
   nickname?: string;
   aspirationArcName?: string;
   aspirationNarrative?: string;

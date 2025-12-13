@@ -27,10 +27,14 @@ const iconMap: Record<string, IconEntry> = {
   aiGuide: { library: 'feather', name: 'message-circle' },
   activities: { library: 'feather', name: 'list' },
   activity: { library: 'feather', name: 'activity' },
+  // Planning / metadata affordances
+  estimate: { library: 'feather', name: 'clock' },
+  difficulty: { library: 'feather', name: 'bar-chart-2' },
   // Arc identity narrative affordances
   identity: { library: 'feather', name: 'user' },
   why: { library: 'feather', name: 'help-circle' },
   daily: { library: 'feather', name: 'clock' },
+  bell: { library: 'feather', name: 'bell' },
   panelLeft: { library: 'feather', name: 'sidebar' },
   menu: { library: 'feather', name: 'menu' },
   paperclip: { library: 'feather', name: 'paperclip' },
@@ -51,6 +55,7 @@ const iconMap: Record<string, IconEntry> = {
   chevronRight: { library: 'feather', name: 'chevron-right' },
   chevronDown: { library: 'feather', name: 'chevron-down' },
   chevronUp: { library: 'feather', name: 'chevron-up' },
+  chevronsUpDown: { library: 'ion', name: 'chevron-expand' },
   trash: { library: 'feather', name: 'trash-2' },
   refresh: { library: 'feather', name: 'refresh-cw' },
   check: { library: 'feather', name: 'check' },

@@ -6,24 +6,70 @@ import { Logo } from '../../ui/Logo';
 import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
 
-export function LaunchScreen() {
+interface LaunchScreenProps {
+  onAnimationComplete?: () => void;
+}
+
+export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
+  // Keep this aligned with the desired "launch screen" duration in App.
+  const TOTAL_DURATION_MS = 2500;
+  const INTRO_DURATION_MS = 420;
+  const EXIT_DURATION_MS = 280;
+
   const insets = useSafeAreaInsets();
   const introAnim = React.useRef(new Animated.Value(0)).current;
+  const exitAnim = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
     Animated.timing(introAnim, {
       toValue: 1,
-      duration: 520,
+      duration: INTRO_DURATION_MS,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [introAnim]);
 
-  const opacity = introAnim;
-  const translateY = introAnim.interpolate({
+  React.useEffect(() => {
+    // Start exit animation so it *finishes* at TOTAL_DURATION_MS.
+    // Make it snappier and less linear: a strong ease-in (slow start → fast end).
+    const exitDelayMs = Math.max(0, TOTAL_DURATION_MS - EXIT_DURATION_MS);
+    const exitTimeout = setTimeout(() => {
+      Animated.timing(exitAnim, {
+        toValue: 0,
+        duration: EXIT_DURATION_MS,
+        easing: Easing.bezier(0.78, 0, 1, 1),
+        useNativeDriver: true,
+      }).start(() => {
+        onAnimationComplete?.();
+      });
+    }, exitDelayMs);
+
+    return () => clearTimeout(exitTimeout);
+  }, [EXIT_DURATION_MS, TOTAL_DURATION_MS, exitAnim, onAnimationComplete]);
+
+  // Opacity combines both animations - fades in, then fades out
+  const opacity = Animated.multiply(introAnim, exitAnim);
+  
+  // Intro: translate from 10px down to 0
+  const introTranslateY = introAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [10, 0],
   });
+  
+  // Exit: translate from 0 to -30px up (moves upward while fading)
+  const exitTranslateY = exitAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-30, 0],
+  });
+  
+  // Exit: scale from 1 to 0.85 (slight shrink effect)
+  const scale = exitAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.85, 1],
+  });
+
+  // Combine translateY values: intro brings it up, exit moves it further up
+  const translateY = Animated.add(introTranslateY, exitTranslateY);
 
   return (
     <LinearGradient
@@ -37,7 +83,15 @@ export function LaunchScreen() {
       ]}
     >
       <View style={styles.heroSurface}>
-        <Animated.View style={[styles.brandLockup, { opacity, transform: [{ translateY }] }]}>
+        <Animated.View
+          style={[
+            styles.brandLockup,
+            {
+              opacity,
+              transform: [{ translateY }, { scale }],
+            },
+          ]}
+        >
           <Logo size={72} />
           <Text style={styles.wordmark}>kwilt</Text>
           <Text style={styles.tagline}>Design your future self—then live it in tiny steps.</Text>

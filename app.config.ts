@@ -78,7 +78,8 @@ const config: ExpoConfig = {
       // Linked EAS project for the kwilt app (added manually for dynamic config).
       projectId: '7717f04d-8327-47a9-8bb4-84c21dc8214f',
     },
-    openAiApiKey: process.env.OPENAI_API_KEY,
+    // Prefer testing key if available (for Arc Testing dev tooling), otherwise fall back to main key
+    openAiApiKey: process.env.OPENAI_ARK_TESTING_KEY ?? process.env.OPENAI_API_KEY,
     giphyApiKey: process.env.GIPHY_API_KEY,
     // Unsplash Access Key (Client ID). Support a few common env var names so
     // local/dev setups don't silently break.
