@@ -191,7 +191,6 @@ export function BottomDrawer({
   const sheetHeight = useSharedValue(0);
   // translateY is used only for the close animation (slide down off-screen).
   const translateY = useSharedValue(0);
-  const activeIndex = useRef<number>(0);
   const isAnimating = useSharedValue(false);
 
   const setScrollableGesture = (gesture: ReturnType<typeof Gesture.Native> | null) => {
@@ -229,7 +228,6 @@ export function BottomDrawer({
   useEffect(() => {
     if (!mounted) return;
     if (!visible) return;
-    activeIndex.current = openToIndex;
     isAnimating.value = true;
     // Reset any close translation and animate height into place.
     translateY.value = 0;
@@ -326,7 +324,6 @@ export function BottomDrawer({
 
         const projectedHeight = clamp(currentHeight - vY * 0.15, minSnapHeight, maxSnapHeight);
         const idx = getClosestIndex({ snapY: projectedHeight, snapYs: snapHeights });
-        activeIndex.current = idx;
         isAnimating.value = true;
         sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, { duration: 220 }, (finished) => {
           isAnimating.value = false;

@@ -182,6 +182,39 @@ type ParsedActivitySuggestions = {
   suggestions: ActivitySuggestion[] | null;
 };
 
+function extractJsonCandidateFromHandoffBlock(raw: string): string | null {
+  let text = raw.trim();
+  if (!text) return null;
+
+  // Strip a single outer code-fence wrapper if present.
+  if (text.startsWith('```')) {
+    text = text.replace(/^```[a-zA-Z0-9]*\s*/, '').trim();
+    text = text.replace(/```$/, '').trim();
+  }
+
+  // Prefer the first "paragraph" only to avoid trailing assistant commentary.
+  const [firstBlock] = text.split(/\n\s*\n/);
+  text = (firstBlock ?? '').trim();
+  if (!text) return null;
+
+  // If the model emitted prose before the JSON, try to skip forward to the first JSON token.
+  const firstJsonIdx = text.search(/[\{\[]/);
+  if (firstJsonIdx === -1) return null;
+  text = text.slice(firstJsonIdx).trim();
+
+  // If there is trailing prose after the JSON, trim to the last closing brace/bracket.
+  const lastCloseIdx = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
+  if (lastCloseIdx !== -1 && lastCloseIdx < text.length - 1) {
+    text = text.slice(0, lastCloseIdx + 1).trim();
+  }
+
+  const looksLikeJsonObject = text.startsWith('{') && text.endsWith('}');
+  const looksLikeJsonArray = text.startsWith('[') && text.endsWith(']');
+  if (!looksLikeJsonObject && !looksLikeJsonArray) return null;
+
+  return text;
+}
+
 function extractArcProposalFromAssistantMessage(content: string): ParsedAssistantReply {
   const markerIndex = content.indexOf(ARC_PROPOSAL_MARKER);
 
@@ -263,13 +296,13 @@ function extractActivitySuggestionsFromAssistantMessage(
     };
   }
 
-  // Treat everything after the marker as JSON so the model can pretty-print
-  // across multiple lines. We still trim leading/trailing whitespace and any
-  // stray code fences if present.
-  let jsonText = afterMarker.trim();
-  if (jsonText.startsWith('```')) {
-    // Strip leading and trailing code fences defensively.
-    jsonText = jsonText.replace(/^```[a-zA-Z0-9]*\s*/, '').replace(/```$/, '').trim();
+  const jsonText = extractJsonCandidateFromHandoffBlock(afterMarker);
+  if (!jsonText) {
+    // Marker exists but the payload isn't usable JSON; fail quietly to avoid noisy warnings.
+    return {
+      displayContent: visiblePart || content,
+      suggestions: null,
+    };
   }
 
   try {
@@ -280,9 +313,8 @@ function extractActivitySuggestionsFromAssistantMessage(
       suggestions,
     };
   } catch (err) {
-    console.warn('Failed to parse Activity suggestions from assistant message', err);
     return {
-      displayContent: content,
+      displayContent: visiblePart || content,
       suggestions: null,
     };
   }
@@ -420,12 +452,19 @@ const markdownStyles = StyleSheet.create({
   strong: {
     // Make bold text in Markdown clearly stand out inside assistant bubbles
     // without looking like a clickable affordance.
+    ...typography.body,
     fontFamily: fonts.semibold,
     fontWeight: '600',
     color: CHAT_COLORS.textPrimary,
   },
   em: {
-    fontStyle: 'italic',
+    // We treat emphasis as "highlight" (bold) rather than italics so copy can
+    // safely use `*emphasis*` / `<em>` without shrinking or looking like a
+    // side-note.
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+    color: CHAT_COLORS.textPrimary,
   },
   link: {
     color: CHAT_COLORS.accent,

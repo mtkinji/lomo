@@ -43,6 +43,7 @@ export function DevToolsScreen() {
   const lastTriggeredAt = useFirstTimeUxStore((state) => state.lastTriggeredAt);
   const arcs = useAppStore((state) => state.arcs);
   const addArc = useAppStore((state) => state.addArc);
+  const addGoal = useAppStore((state) => state.addGoal);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
@@ -153,18 +154,64 @@ export function DevToolsScreen() {
 
   const handleShowFirstGoalCelebration = () => {
     // Prefer the explicit onboarding-created goal when available so the
-    // celebration mirrors the real first-time flow. Otherwise, fall back to
-    // the most recently created goal so the overlay can still be exercised in
-    // dev even without running onboarding first.
-    const targetGoalId =
-      lastOnboardingGoalId || (goals.length > 0 ? goals[goals.length - 1].id : null);
+    // celebration mirrors the real first-time flow.
+    //
+    // IMPORTANT: `lastOnboardingGoalId` can become stale if the user clears
+    // goals (or restores a different store snapshot). Validate it exists in the
+    // current store before navigating, otherwise fall back or create a dev goal.
+    const onboardingGoal =
+      lastOnboardingGoalId ? goals.find((g) => g.id === lastOnboardingGoalId) : undefined;
+
+    let targetGoalId: string | null =
+      onboardingGoal?.id ?? (goals.length > 0 ? goals[goals.length - 1].id : null);
 
     if (!targetGoalId) {
-      Alert.alert(
-        'No goals available',
-        'Create a goal first (or run onboarding) before testing the celebration overlay.'
-      );
-      return;
+      // Nothing to show yet: create a safe dev goal so this button always works.
+      const nowIso = new Date().toISOString();
+
+      // Attach the goal to an existing Arc when possible so the Goal detail
+      // screen has context, otherwise create a dev Arc.
+      let targetArcId =
+        lastOnboardingArcId && arcs.some((a) => a.id === lastOnboardingArcId)
+          ? lastOnboardingArcId
+          : arcs.length > 0
+            ? arcs[arcs.length - 1].id
+            : null;
+
+      if (!targetArcId) {
+        targetArcId = `dev-onboarding-arc-${Date.now()}`;
+        const arc = {
+          id: targetArcId,
+          name: '🚀 Dev: First Arc',
+          narrative:
+            'This Arc exists to help test the onboarding Goal handoff UI without running the full flow.',
+          status: 'active',
+          startDate: nowIso,
+          endDate: null,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        } as const;
+        addArc(arc);
+        void ensureArcBannerPrefill(arc);
+      }
+
+      const goalId = `dev-onboarding-goal-${Date.now()}`;
+      addGoal({
+        id: goalId,
+        arcId: targetArcId,
+        title: '🎉 Dev: First Goal',
+        description:
+          'This goal exists to test the “Goal created” celebration overlay without running onboarding.',
+        status: 'active',
+        startDate: nowIso,
+        targetDate: undefined,
+        forceIntent: {},
+        metrics: [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+
+      targetGoalId = goalId;
     }
 
     // Ensure the GoalDetail screen recognizes this goal as the onboarding

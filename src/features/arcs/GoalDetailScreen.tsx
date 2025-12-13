@@ -1773,6 +1773,7 @@ function GoalActivityCoachDrawer({
 }: GoalActivityCoachDrawerProps) {
   const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
   const [manualActivityId, setManualActivityId] = useState<string | null>(null);
+  const arcs = useAppStore((state) => state.arcs);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = useState(false);
@@ -1783,14 +1784,19 @@ function GoalActivityCoachDrawer({
   );
 
   const workspaceSnapshot = useMemo(
-    () => buildActivityCoachLaunchContext(goals, activities),
-    [goals, activities]
+    () => buildActivityCoachLaunchContext(goals, activities, focusGoalId, arcs),
+    [goals, activities, focusGoalId, arcs]
   );
 
   const focusGoal = useMemo(
     () => goals.find((candidate) => candidate.id === focusGoalId) ?? null,
     [goals, focusGoalId]
   );
+
+  const arc = useMemo(() => {
+    if (!focusGoal?.arcId) return null;
+    return arcs.find((candidate) => candidate.id === focusGoal.arcId) ?? null;
+  }, [arcs, focusGoal?.arcId]);
 
   const launchContext = useMemo(
     () => ({
@@ -1986,7 +1992,7 @@ function GoalActivityCoachDrawer({
         >
           <Text style={styles.modalBody}>
             {focusGoal
-              ? `Goal: ${focusGoal.title}\n\nI’m using this goal, plus your other goals and activities, to keep suggestions realistic, aligned, and non-duplicative.`
+              ? `Goal: ${focusGoal.title}${arc ? `\nArc: ${arc.name}` : ''}\n\nI’m using this goal${arc ? ' and its Arc' : ''}, plus your other goals and activities, to keep suggestions realistic, aligned, and non-duplicative.`
               : 'I’m using your existing goals and activities to keep suggestions realistic, aligned, and non-duplicative.'}
           </Text>
         </Dialog>

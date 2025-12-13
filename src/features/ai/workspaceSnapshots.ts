@@ -58,7 +58,9 @@ export function buildArcCoachLaunchContext(
  */
 export function buildActivityCoachLaunchContext(
   goals: Goal[],
-  activities: Activity[]
+  activities: Activity[],
+  focusGoalId?: string,
+  arcs?: Arc[]
 ): string | undefined {
   if (goals.length === 0 && activities.length === 0) {
     return undefined;
@@ -72,10 +74,70 @@ export function buildActivityCoachLaunchContext(
   lines.push(`Total goals: ${goals.length}. Total activities: ${activities.length}.`);
   lines.push('');
 
-  goals.forEach((goal) => {
+  const focusGoal =
+    focusGoalId ? goals.find((candidate) => candidate.id === focusGoalId) ?? null : null;
+  const orderedGoals = focusGoal
+    ? [focusGoal, ...goals.filter((g) => g.id !== focusGoal.id)]
+    : goals;
+
+  if (focusGoal) {
+    const focusArc =
+      arcs && focusGoal.arcId ? arcs.find((candidate) => candidate.id === focusGoal.arcId) ?? null : null;
+
+    lines.push(
+      'FOCUSED GOAL (this is the goal you must anchor recommendations to):',
+      `- ${focusGoal.title} (status: ${focusGoal.status}, id: ${focusGoal.id})`
+    );
+    if (focusGoal.description) {
+      const trimmedDescription =
+        focusGoal.description.length > 280
+          ? `${focusGoal.description.slice(0, 277)}…`
+          : focusGoal.description;
+      lines.push(`Description: ${trimmedDescription}`);
+    }
+
+    const focusActivities = activities.filter((activity) => activity.goalId === focusGoal.id);
+    if (focusActivities.length > 0) {
+      lines.push('Existing activities for the focused goal (avoid duplicates):');
+      focusActivities.forEach((activity) => {
+        lines.push(`- ${activity.title} (status: ${activity.status})`);
+      });
+    } else {
+      lines.push('No activities are currently attached to the focused goal.');
+    }
+
+    if (focusArc) {
+      lines.push('');
+      lines.push(
+        'FOCUSED ARC (this goal belongs to this arc; keep activities aligned to its storyline):',
+        `- ${focusArc.name} (status: ${focusArc.status}, id: ${focusArc.id})`
+      );
+      if (focusArc.narrative) {
+        const trimmedNarrative =
+          focusArc.narrative.length > 360 ? `${focusArc.narrative.slice(0, 357)}…` : focusArc.narrative;
+        lines.push(`Narrative: ${trimmedNarrative}`);
+      }
+
+      const siblingGoals = goals.filter((g) => g.arcId === focusArc.id && g.id !== focusGoal.id);
+      if (siblingGoals.length > 0) {
+        lines.push('Other goals in this arc (for coordination / avoiding overlap):');
+        siblingGoals.slice(0, 6).forEach((g) => {
+          lines.push(`- ${g.title} (status: ${g.status})`);
+        });
+        if (siblingGoals.length > 6) {
+          lines.push(`…and ${siblingGoals.length - 6} more.`);
+        }
+      }
+    }
+
+    lines.push(''); // spacer after focused goal
+  }
+
+  orderedGoals.forEach((goal) => {
     const goalActivities = activities.filter((activity) => activity.goalId === goal.id);
 
-    lines.push(`Goal: ${goal.title} (status: ${goal.status}).`);
+    const goalLabel = focusGoal && goal.id === focusGoal.id ? 'Goal (focused):' : 'Goal:';
+    lines.push(`${goalLabel} ${goal.title} (status: ${goal.status}).`);
     if (goal.description) {
       const trimmedDescription =
         goal.description.length > 200 ? `${goal.description.slice(0, 197)}…` : goal.description;
@@ -83,8 +145,12 @@ export function buildActivityCoachLaunchContext(
     }
 
     if (goalActivities.length > 0) {
-      lines.push('Activities for this goal:');
-      goalActivities.forEach((activity) => {
+      // For non-focused goals, keep this compact; the focused goal has a full
+      // section above that the agent should prioritise.
+      const shouldCompact = Boolean(focusGoal) && goal.id !== focusGoal?.id;
+      const shown = shouldCompact ? goalActivities.slice(0, 4) : goalActivities;
+      lines.push(shouldCompact ? 'Activities for this goal (sample):' : 'Activities for this goal:');
+      shown.forEach((activity) => {
         const base = `- ${activity.title} (status: ${activity.status})`;
         const notes =
           activity.notes && activity.notes.length > 160
@@ -92,6 +158,9 @@ export function buildActivityCoachLaunchContext(
             : activity.notes;
         lines.push(notes ? `${base} – ${notes}` : base);
       });
+      if (shouldCompact && goalActivities.length > shown.length) {
+        lines.push(`…and ${goalActivities.length - shown.length} more.`);
+      }
     } else {
       lines.push('No activities are currently attached to this goal.');
     }

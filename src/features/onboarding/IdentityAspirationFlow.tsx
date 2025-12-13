@@ -3661,9 +3661,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   bodyStrong: {
-    fontWeight: '700',
+    // Use the actual Inter semibold face instead of relying on `fontWeight`,
+    // which can cause React Native to fall back to a different font (and make
+    // the emphasized text appear smaller).
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
   },
   bodyItalic: {
+    // Ensure italics keep the same base font sizing/metrics.
+    fontFamily: fonts.regular,
     fontStyle: 'italic',
   },
   bodyText: {
