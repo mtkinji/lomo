@@ -561,6 +561,21 @@ type ArcDevelopmentInsights = {
   pitfalls: string[];
 };
 
+const BANNED_ARC_MUSH_PHRASES = [
+  'in a grounded way',
+  'rooted in',
+  'powered by',
+  'radiant',
+  'tapestry',
+  'essence',
+  'unlock',
+] as const;
+
+const containsArcMushPhrases = (text: string): boolean => {
+  const normalized = text.toLowerCase();
+  return BANNED_ARC_MUSH_PHRASES.some((phrase) => normalized.includes(phrase));
+};
+
 /**
  * Workflow presenter for the identity/Arc FTUE (and reuseIdentityForNewArc).
  *
@@ -847,20 +862,42 @@ export function IdentityAspirationFlow({
     let cleaned = name.trim();
     
     // Remove common prefixes that violate the pattern
-    cleaned = cleaned.replace(/^(toward|towards|becoming|i want to|i want|i'd|i can)\s+/i, '');
+    cleaned = cleaned.replace(
+      /^(toward|towards|becoming|i want to|i want|i['’]d love to|i['’]d like to|i would love to|i would like to|i['’]d|i can)\s+/i,
+      ''
+    );
     
     // Remove "I want" patterns that shouldn't be in the name
     cleaned = cleaned.replace(/\bi want\b/gi, '');
+    cleaned = cleaned.replace(/\bi['’]d\b/gi, '');
     
     // Split into words and take first 1-3 meaningful words
     const words = cleaned.split(/\s+/).filter((word) => {
       const lower = word.toLowerCase();
-      const hasLetter = /[a-z]/i.test(lower);
+      const hasLetter = /[\p{L}\p{N}]/u.test(lower);
       // Filter out common filler words and standalone symbols like "&"
       return (
         word.length > 0 &&
         hasLetter &&
-        !['to', 'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'for', 'of', 'with'].includes(lower) &&
+        ![
+          'to',
+          'a',
+          'an',
+          'the',
+          'and',
+          'or',
+          'but',
+          'in',
+          'on',
+          'at',
+          'for',
+          'of',
+          'with',
+          'love',
+          'like',
+          'want',
+          'would',
+        ].includes(lower) &&
         !lower.match(/^(i|you|we|they|it)$/)
       );
     });
@@ -872,7 +909,14 @@ export function IdentityAspirationFlow({
     }
     
     return meaningfulWords
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .map((word) => {
+        // Preserve internal capitalization for proper nouns (e.g., Kwilt) and acronyms.
+        const hasInternalCaps = /[A-Z]/.test(word.slice(1));
+        if (hasInternalCaps) {
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
       .join(' ');
   };
 
@@ -969,10 +1013,8 @@ export function IdentityAspirationFlow({
     const valueLabel = valueOrientation || 'a core value';
     const philosophyLabel = philosophy || 'a way of moving through life';
     const vocationLabel = vocation || 'a kind of work that feels like home';
-    const dreamsLabel =
-      bigDreams.length > 0
-        ? bigDreams.join('; ')
-        : "one or two concrete things you'd love to bring to life someday";
+    const dreamRaw = bigDreams.length > 0 ? String(bigDreams[0] ?? '').trim() : '';
+    const dreamHasKwilt = /\bkwilt\b/i.test(dreamRaw);
 
     // Generate Arc name using allowed patterns: primarily dream‑anchored, with
     // Domain+Posture / Value+Domain / Two‑noun frame as graceful fallbacks.
@@ -988,34 +1030,35 @@ export function IdentityAspirationFlow({
         return words.slice(0, 3).join(' ');
       }
 
-      // First, try to derive a compact identity name directly from the big dream.
-      // Example transformations:
-      // - "I want to build a tiny cabin in the woods" -> "Tiny Cabin"
-      // - "Record an honest folk album" -> "Honest Album"
-      if (bigDreams.length > 0) {
-        const firstDream = bigDreams[0].toLowerCase();
-        const dreamWords = firstDream
-          // Strip common scaffolding and filler so we keep the heart of the dream.
-          .replace(
-            /\b(i want to|i want|i'd like to|i'd like|i can|and|the|a|an|into|turn|build|make|create|start|launch|record|write|sell|profitable|lifestyle|business|product|physical|project|thing|something)\b/gi,
-            ''
-          )
-          .split(/\s+/)
-          .filter((word) => word.length > 2);
+      // Prefer stable identity-direction names, not the raw dream text.
+      // Detect high-level domain signals from the dream + domain/vocation labels.
+      const signalText = `${domainLabel} ${vocationLabel} ${dreamRaw}`.toLowerCase();
+      const isVenture =
+        /\b(venture|startup|entrepreneur|business|company|app|product|studio|initiative|launch)\b/.test(
+          signalText
+        );
+      const isCreative =
+        /\b(creative|design|write|music|album|art|maker|making|build|craft)\b/.test(signalText);
+      const isRelational =
+        /\b(relationship|friend|friends|community|partner|family|parent|kids|home)\b/.test(signalText);
 
-        if (dreamWords.length > 0) {
-          const meaningfulDreamWords = dreamWords
-            .filter((word) => !['very', 'really', 'more', 'less', 'just'].includes(word))
-            .slice(0, 3);
+      const inferredDomain = isVenture
+        ? 'Venture'
+        : isRelational
+          ? 'Relational'
+          : isCreative
+            ? 'Creative'
+            : 'Identity';
 
-          if (meaningfulDreamWords.length > 0) {
-            const capitalized = meaningfulDreamWords
-              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
-            return capitalized;
-          }
-        }
-      }
+      const postureSignalText = `${motivationLabel} ${traitLabel} ${growthEdgeLabel} ${valueLabel} ${philosophyLabel}`.toLowerCase();
+      const inferredPosture =
+        /\b(discipline|disciplined|consistent|follow[- ]?through)\b/.test(postureSignalText)
+          ? 'Discipline'
+          : /\b(courage|brave|bold)\b/.test(postureSignalText)
+            ? 'Courage'
+            : 'Stewardship';
+
+      return `${inferredDomain} ${inferredPosture}`;
 
       // If we can't get a clean identity phrase from the dream, fall back to
       // domain‑driven patterns.
@@ -1057,78 +1100,35 @@ export function IdentityAspirationFlow({
 
     const arcName = sanitizeArcName(generateArcName());
 
-    // Generate 3-sentence narrative following the new model:
-    // Sentence 1: Start with "I want…", express identity direction
-    // Sentence 2: Why this direction matters now (using signals)
-    // Sentence 3: One concrete ordinary-life scene (grounded in proud moment + strength + values)
-    
-    // Helper to clean and format user inputs for natural sentence insertion
-    const cleanPhrase = (phrase: string): string => {
-      if (!phrase) return '';
-      // Remove "I want" patterns that shouldn't appear in the narrative
-      let cleaned = phrase.toLowerCase().replace(/\bi want to\b|\bi want\b|\bi'd\b|\bi can\b/gi, '').trim();
-      // Remove leading articles if they create awkward grammar
-      cleaned = cleaned.replace(/^(a|an|the)\s+/i, '');
-      // Capitalize first letter for sentence start or keep lowercase for mid-sentence
-      return cleaned;
-    };
+    // Generate a clean 3-sentence narrative (no mush phrases, no lowercase word-salad).
+    const oneLine = (value: string) => value.replace(/\s+/g, ' ').trim();
+    const short = (value: string) => oneLine(value).replace(/[.?!]+$/g, '');
 
-    // Extract core domain concept (first meaningful word or phrase)
-    const domainCore = domainLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'growth';
-    const motivationCore = motivationLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'purpose';
-    const traitCore =
-      traitLabel.replace(/^Your\s+/i, '').split(/[&,]/)[0]?.trim().toLowerCase() || 'strength';
+    const valuesCore = short(valueLabel);
+    const philosophyCore = short(philosophyLabel);
+    const meaningCore = short(meaningLabel);
+    const impactCore = short(impactLabel);
+    const proudMomentCore = short(proudMomentLabel).toLowerCase();
+    const whyCore = short(whyNowLabel || '').trim();
+    const growthCore = short(growthEdgeLabel).toLowerCase();
 
-    // Extract key concept from dreams (remove "I want" patterns and extract 2-4 key words)
-    let dreamPhrase = '';
-    if (bigDreams.length > 0) {
-      const firstDream = bigDreams[0].toLowerCase();
-      // Remove "I want" patterns and extract meaningful words
-      const meaningfulWords = firstDream
-        .replace(/\bi want to\b|\bi want\b|\bi'd\b|\bi can\b/gi, '')
-        .split(/\s+/)
-        .filter(
-          (word) => word.length > 3 && !['that', 'this', 'with', 'into', 'turn'].includes(word)
-        )
-        .slice(0, 6)
-        .join(' ');
-      dreamPhrase = meaningfulWords || 'what matters most';
-    }
+    const dreamClause = (() => {
+      if (dreamHasKwilt) return 'build Kwilt into something real and useful';
+      if (dreamRaw) return 'bring that dream to life';
+      return `grow in ${short(domainLabel).toLowerCase()}`;
+    })();
 
-    // Sentence 1: Identity direction — explicitly anchored in the dream when present.
-    const sentence1 =
-      bigDreams.length > 0 && dreamPhrase
-        ? `I want to become the kind of person who can bring ${dreamPhrase} to life in a grounded way, rooted in ${domainCore} and powered by ${motivationCore} with ${traitCore} as a real strength.`
-        : `I want to grow into someone who cares deeply about ${domainCore}, powered by ${motivationCore}, and who leans on ${traitCore} as a real strength.`;
+    const tensionClause = whyCore
+      ? whyCore
+      : growthCore
+        ? `I'm working on ${growthCore}`
+        : "I'm learning to follow through on what matters";
 
-    // Sentence 2: Why it matters now - need to construct proper grammar
-    const growthEdgeCore = growthEdgeLabel.toLowerCase().trim();
-    // Fix incomplete phrases like "staying consistent" -> "I'm working on staying consistent"
-    const growthEdgePhrase = growthEdgeCore.match(/^(staying|being|becoming|learning|working)/i)
-      ? `I'm working on ${growthEdgeCore}`
-      : growthEdgeCore.startsWith('i ') || growthEdgeCore.startsWith('i\'m ')
-      ? growthEdgeCore
-      : `I'm learning to navigate ${growthEdgeCore}`;
-    
-    const valueCore = valueLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'integrity';
-    
-    const tensionPhrase = (whyNowLabel || growthEdgePhrase).trim();
+    const sentence1 = `I want to ${dreamClause}, and do it with ${valuesCore.toLowerCase()} and ${philosophyCore.toLowerCase()}.`;
+    const sentence2 = `This matters now because ${tensionClause}, and I want my energy to go toward ${meaningCore.toLowerCase()} and ${impactCore.toLowerCase()}.`;
+    const sentence3 = `On normal days, I see this when I’m ${proudMomentCore}, then taking one small step and calling it done.`;
 
-    const sentence2 = bigDreams.length > 0 && dreamPhrase
-      ? `This direction matters now because ${tensionPhrase}, and I'm learning to bring ${dreamPhrase} to life in a way that stays grounded, kind to my energy, and aligned with ${valueCore}.`
-      : `This direction matters now because ${tensionPhrase}, and I'm learning to move toward what matters at a pace that feels sustainable and true to ${valueCore}.`;
-
-    // Sentence 3: Concrete everyday scene
-    const proudMomentCore = proudMomentLabel.toLowerCase().trim();
-    const vocationCore = vocationLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'work';
-    
-    // Fix philosophy phrase - handle "with clarity and intention" -> "clarity and intention"
-    let philosophyPhrase = philosophyLabel.toLowerCase().trim();
-    philosophyPhrase = philosophyPhrase.replace(/^(with|through|by|via)\s+/i, '');
-    
-    const sentence3 = `On normal days, that often looks like ${proudMomentCore} in the way I move through ${vocationCore}, staying true to my approach of ${philosophyPhrase || 'thoughtful intention'}.`;
-
-    const aspirationSentence = `${sentence1} ${sentence2} ${sentence3}`;
+    const aspirationSentence = oneLine(`${sentence1} ${sentence2} ${sentence3}`);
 
     const nextSmallStep = buildNextSmallStep();
 
@@ -1282,6 +1282,7 @@ export function IdentityAspirationFlow({
         '- final_score = (grammatical_correctness * 0.3) + (input_fidelity * 0.3) + ((identity_spine + concrete_imagery + why_now_tension + tone_voice) * 0.4 / 4).',
         '- Clamp final_score to the 0–10 range.',
         '- CRITICAL: If grammatical_correctness is below 5, automatically cap the final_score at 6.0 maximum, regardless of other scores.',
+        '- CRITICAL: If the narrative uses obvious “LLM mush” phrasing like "in a grounded way", "rooted in", or "powered by", cap final_score at 6.0 maximum.',
         '',
         'Return ONLY a JSON object (no markdown, no surrounding text) in this shape:',
         '{',
@@ -1836,6 +1837,12 @@ export function IdentityAspirationFlow({
 
           // Pre-filter: Check for obvious grammatical errors before quality scoring
           const narrative = parsed.aspirationSentence.toLowerCase();
+          const name = parsed.arcName;
+          const nameLooksLikeAStarterPhrase =
+            /\b(i['’]d|i would|i want|i can|love|like)\b/i.test(name) || containsArcMushPhrases(name);
+          if (nameLooksLikeAStarterPhrase) {
+            continue;
+          }
           // Check for raw user input patterns - verbatim insertion without proper transformation
           // Pattern: "bring build physical product sell" or "bring [verb] [noun] [verb]" without proper gerund/participle
           const hasRawInputPattern = 
@@ -1847,13 +1854,15 @@ export function IdentityAspirationFlow({
           
           // Check for word salad - multiple verbs/nouns in sequence without proper structure
           const wordSaladPattern = /\b(build|make|create|start|sell|turn)\s+\w+\s+(build|make|create|start|sell|turn|physical|product|business)\s+\w+\s+(sell|turn|can|i|physical|product)\b/i.test(narrative);
+          const hasMushPhrases = containsArcMushPhrases(narrative);
           
-          if (hasRawInputPattern || wordSaladPattern) {
+          if (hasRawInputPattern || wordSaladPattern || hasMushPhrases) {
             // Skip this candidate - it has obvious grammatical errors
             if (__DEV__) {
               console.warn('[onboarding] Skipping candidate with grammatical errors:', {
                 hasRawInputPattern,
                 wordSaladPattern,
+                hasMushPhrases,
                 narrativePreview: parsed.aspirationSentence.slice(0, 150),
               });
             }
