@@ -1,7 +1,6 @@
 import React from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Logo } from '../../ui/Logo';
 import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
@@ -72,8 +71,7 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
   const translateY = Animated.add(introTranslateY, exitTranslateY);
 
   return (
-    <LinearGradient
-      colors={[colors.pine200, colors.pine300, colors.pine400]}
+    <View
       style={[
         styles.shell,
         {
@@ -94,16 +92,16 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
         >
           <Logo size={72} />
           <Text style={styles.wordmark}>kwilt</Text>
-          <Text style={styles.tagline}>Design your future self—then live it in tiny steps.</Text>
         </Animated.View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
+    backgroundColor: colors.pine300,
   },
   heroSurface: {
     flex: 1,
@@ -124,14 +122,6 @@ const styles = StyleSheet.create({
     textShadowColor: colors.pine800,
     textShadowOffset: { width: 0.4, height: 0.4 },
     textShadowRadius: 1,
-  },
-  tagline: {
-    ...typography.bodySm,
-    color: colors.pine900,
-    opacity: 0.9,
-    textAlign: 'center',
-    maxWidth: 320,
-    marginTop: spacing.xs,
   },
 });
 

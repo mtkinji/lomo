@@ -477,6 +477,12 @@ const TWEAK_OPTIONS: ChoiceOption[] = [
 type Phase =
   | 'domain'
   | 'motivation'
+  // NOTE: The original FTUE collected a richer 10-question identity snapshot.
+  // The Hybrid-Minimal model intentionally uses a smaller set:
+  //   Domain + Vibe + Proud moment + Big dream
+  // …then optional Archetype taps to boost felt accuracy without typing.
+  // We keep the legacy phases in the type for now to avoid a large delete diff,
+  // but the first-time onboarding path no longer routes through them.
   | 'trait'
   | 'growth'
   | 'proudMoment'
@@ -490,8 +496,6 @@ type Phase =
   | 'dreams'
   // Hybrid archetype taps (optional, tap-centric)
   | 'roleModelType'
-  | 'roleModelSpecific'
-  | 'roleModelWhy'
   | 'admiredQualities'
   | 'generating'
   | 'reveal'
@@ -782,14 +786,9 @@ export function IdentityAspirationFlow({
   const canGenerate =
     domainIds.length > 0 &&
     motivationIds.length > 0 &&
-    signatureTraitIds.length > 0 &&
-    growthEdgeIds.length > 0 &&
     proudMomentIds.length > 0 &&
-    meaningIds.length > 0 &&
-    impactIds.length > 0 &&
-    valueIds.length > 0 &&
-    philosophyIds.length > 0 &&
-    vocationIds.length > 0;
+    // Minimal variant uses a single free-response big dream as the last required input.
+    dreamInput.trim().length > 0;
 
   // When reusing identity context for a new Arc, hydrate the selection state
   // from the stored identityProfile so we can skip re-asking questions 1–10.
@@ -1664,18 +1663,15 @@ export function IdentityAspirationFlow({
       setIsGenerating(true);
       setError(null);
 
+      // HYBRID-MINIMAL INPUT SUMMARY:
+      // We intentionally keep the required input set small:
+      // - Domain, Vibe, Proud moment, Big dream
+      // …then optionally add Archetype taps (role models + admired qualities) to increase felt accuracy.
       const inputsSummaryLines = [
         `domain of becoming: ${domain}`,
-        `motivational style: ${motivation}`,
-        `signature trait: ${signatureTrait}`,
-        `growth edge: ${growthEdge}`,
+        `motivational style / vibe: ${motivation}`,
         `everyday proud moment: ${proudMoment}`,
-        `source of meaning: ${meaning}`,
-        `why this matters now / turning point: ${whyNow || 'not specified'}`,
-        `desired impact: ${impact}`,
-        `core values: ${valueOrientation}`,
-        `life philosophy: ${philosophy}`,
-        `vocational orientation: ${vocation}`,
+        `big dream (primary anchor): ${bigDreams.length > 0 ? bigDreams.join('; ') : 'not provided'}`,
       ];
       // Hybrid archetype taps: include any explicit role model signals in the prompt so the model
       // can improve felt accuracy without adding more free-text.
@@ -1704,17 +1700,9 @@ export function IdentityAspirationFlow({
           inputsSummaryLines.push(`admired qualities (tap): ${labels.join('; ')}`);
         }
       }
-      if (bigDreams.length > 0) {
-        inputsSummaryLines.push(
-          `concrete big things the user would love to bring to life (treat these as high-priority identity imagery, not task lists): ${bigDreams.join(
-            '; '
-          )}`
-        );
-      }
+      // Optional: nickname still supported, but not part of the minimal required set.
       if (nickname.trim()) {
-        inputsSummaryLines.push(
-          `typed nickname (treat this as a high-priority anchor for the Arc Name and description): ${nickname.trim()}`
-        );
+        inputsSummaryLines.push(`optional nickname: ${nickname.trim()}`);
       }
       if (tweakHint) {
         inputsSummaryLines.push(`user tweak preference: ${tweakHint}`);
@@ -2185,8 +2173,8 @@ export function IdentityAspirationFlow({
       'We’ll start by sketching a short **identity Arc** that captures the kind of **person you want to become**.\n\nThen kwilt can use that Arc to shape better **Goals** and small everyday **Activities**, so your effort lines up with a purpose that feels real to you.',
       // Message 3 (light research grounding)
       'Under the hood I’m borrowing from **research-backed psychology**, so the plan we build actually **fits you**—not someone else’s idea of who you should be.',
-      // Message 4 (lead-in to the two-part flow: taps + one short free-response step)
-      'To do that well, we’ll go in **two quick parts**: first a personality‑quiz‑style set of **about 10 quick, tap-only questions**, then one short follow-up where you can name a big thing you’d love to bring to life in your own words. All together it should still only take a few minutes, and it helps me surface a future version of you you’d genuinely want to grow into.',
+      // Message 4 (lead-in to the minimal + archetype flow)
+      'To do that well, we’ll keep it **simple and fast**: **4 quick questions** (tap‑based + one short free response), then a **quick personalization step** about who you admire (taps only). You can skip any of that personalization if nothing comes to mind. All together it should take just a few minutes, and it helps me surface a future version of you you’d genuinely want to grow into.',
     ];
 
     const queue = messages.length > 0 ? messages : [fallback];
@@ -2449,7 +2437,8 @@ export function IdentityAspirationFlow({
     }
     appendChatUserMessage(selectedMotivation);
     setError(null);
-    advancePhase('trait');
+    // Hybrid-Minimal: go directly to the everyday proud-moment question.
+    advancePhase('proudMoment');
   };
 
   const handleConfirmTrait = (selectedTrait: string) => {
@@ -2476,7 +2465,8 @@ export function IdentityAspirationFlow({
     }
     appendChatUserMessage(selectedProudMoment);
     setError(null);
-    advancePhase('meaning');
+    // Hybrid-Minimal: go directly to the big-dream question.
+    advancePhase('dreams');
   };
 
   const handleContinueFromNickname = () => {
@@ -2485,8 +2475,7 @@ export function IdentityAspirationFlow({
         nickname: nickname.trim().length ? nickname.trim() : null,
       });
     }
-    // Hybrid archetype taps: optional, but materially improves "felt accuracy".
-    // We ask these as tap-only follow-ups to avoid forcing users (especially teens) to type.
+    // Hybrid-Minimal: role model type + admired qualities are required steps now.
     setPhase('roleModelType');
   };
 
@@ -2498,248 +2487,122 @@ export function IdentityAspirationFlow({
     return options.find((o) => o.id === id)?.label ?? null;
   };
 
+  const renderRadioIndicator = (selected: boolean) => (
+    <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+      {selected ? <View style={styles.radioInner} /> : null}
+    </View>
+  );
+
+  const renderCheckboxIndicator = (selected: boolean) => (
+    <View style={[styles.checkboxOuter, selected && styles.checkboxOuterSelected]}>
+      {selected ? <Icon name="check" size={14} color={colors.canvas} /> : null}
+    </View>
+  );
+
   const renderRoleModelType = () => {
     return (
-      <Card style={[styles.stepCard, styles.researchCard]}>
-        <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>11 of 14</Text>
-          <Text style={styles.questionTitle}>
-            Optional — what kind of people do you look up to?
-          </Text>
-          <View style={styles.chipGrid}>
-            {ARCHETYPE_ROLE_MODEL_TYPES.map((option) => {
-              const selected = roleModelTypeId === option.id;
-              return (
-                <Button
-                  key={option.id}
-                  size="small"
-                  variant="ghost"
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => {
-                    setRoleModelTypeId(option.id);
-                    appendChatUserMessage(`People I look up to: ${option.label}`);
-                    setPhase('roleModelSpecific');
-                  }}
-                >
-                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
-                </Button>
-              );
-            })}
-          </View>
-
-          <View style={styles.inlineActions}>
-            <Button
-              variant="outline"
-              style={[styles.primaryButton, { flex: 1 }]}
-              onPress={() => {
-                // Skip all archetype questions.
-                setRoleModelTypeId(null);
-                setSpecificRoleModelId(null);
-                setRoleModelWhyId(null);
-                setAdmiredQualityIds([]);
-                setPhase('generating');
-                void generateArc();
-              }}
-            >
-              <ButtonLabel size="md">Skip</ButtonLabel>
-            </Button>
-          </View>
+      <QuestionCard stepLabel="5 of 6" title="What kind of people do you look up to?">
+        <View style={styles.fullWidthList}>
+          {ARCHETYPE_ROLE_MODEL_TYPES.map((option) => {
+            const selected = roleModelTypeId === option.id;
+            return (
+              <Pressable
+                key={option.id}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  setRoleModelTypeId(option.id);
+                  appendChatUserMessage(`People I look up to: ${option.label}`);
+                  // Minimal + Archetype: jump straight to admired qualities.
+                  setPhase('admiredQualities');
+                }}
+              >
+                <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
-      </Card>
-    );
-  };
-
-  const renderRoleModelSpecific = () => {
-    const hasType = Boolean(roleModelTypeId);
-    return (
-      <Card style={[styles.stepCard, styles.researchCard]}>
-        <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>12 of 14</Text>
-          <Text style={styles.questionTitle}>
-            Optional — anyone specific? (You can skip.)
-          </Text>
-          {hasType ? (
-            <Text style={styles.bodyText}>
-              Type selected: {labelForArchetype(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId) ?? '—'}
-            </Text>
-          ) : null}
-
-          <View style={styles.chipGrid}>
-            <Button
-              size="small"
-              variant="ghost"
-              style={[styles.chip, specificRoleModelId === 'none' && styles.chipSelected]}
-              onPress={() => {
-                setSpecificRoleModelId('none');
-                appendChatUserMessage('Specific role model: No one specific');
-                setPhase('roleModelWhy');
-              }}
-            >
-              <ButtonLabel size="sm">No one specific</ButtonLabel>
-            </Button>
-            <Button
-              size="small"
-              variant="ghost"
-              style={[styles.chip, specificRoleModelId === 'not_sure' && styles.chipSelected]}
-              onPress={() => {
-                setSpecificRoleModelId('not_sure');
-                appendChatUserMessage('Specific role model: Not sure');
-                setPhase('roleModelWhy');
-              }}
-            >
-              <ButtonLabel size="sm">Not sure</ButtonLabel>
-            </Button>
-            {ARCHETYPE_SPECIFIC_ROLE_MODELS.map((option) => {
-              const selected = specificRoleModelId === option.id;
-              return (
-                <Button
-                  key={option.id}
-                  size="small"
-                  variant="ghost"
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => {
-                    setSpecificRoleModelId(option.id);
-                    appendChatUserMessage(`Specific role model: ${option.label}`);
-                    setPhase('roleModelWhy');
-                  }}
-                >
-                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
-                </Button>
-              );
-            })}
-          </View>
-
-          <View style={styles.inlineActions}>
-            <Button
-              variant="outline"
-              style={[styles.primaryButton, { flex: 1 }]}
-              onPress={() => {
-                // Skip this question only.
-                setSpecificRoleModelId(null);
-                setPhase('roleModelWhy');
-              }}
-            >
-              <ButtonLabel size="md">Skip</ButtonLabel>
-            </Button>
-          </View>
-        </View>
-      </Card>
-    );
-  };
-
-  const renderRoleModelWhy = () => {
-    return (
-      <Card style={[styles.stepCard, styles.researchCard]}>
-        <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>13 of 14</Text>
-          <Text style={styles.questionTitle}>
-            Optional — why did you pick them?
-          </Text>
-          <View style={styles.chipGrid}>
-            {ARCHETYPE_ROLE_MODEL_WHY.map((option) => {
-              const selected = roleModelWhyId === option.id;
-              return (
-                <Button
-                  key={option.id}
-                  size="small"
-                  variant="ghost"
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => {
-                    setRoleModelWhyId(option.id);
-                    appendChatUserMessage(`Why I picked them: ${option.label}`);
-                    setPhase('admiredQualities');
-                  }}
-                >
-                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
-                </Button>
-              );
-            })}
-          </View>
-          <View style={styles.inlineActions}>
-            <Button
-              variant="outline"
-              style={[styles.primaryButton, { flex: 1 }]}
-              onPress={() => {
-                setRoleModelWhyId(null);
-                setPhase('admiredQualities');
-              }}
-            >
-              <ButtonLabel size="md">Skip</ButtonLabel>
-            </Button>
-          </View>
-        </View>
-      </Card>
+      </QuestionCard>
     );
   };
 
   const renderAdmiredQualities = () => {
     return (
-      <Card style={[styles.stepCard, styles.researchCard]}>
-        <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>14 of 14</Text>
-          <Text style={styles.questionTitle}>
-            Optional — what do you admire? (Pick 1–3)
-          </Text>
-          <View style={styles.chipGrid}>
-            {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
-              const selected = admiredQualityIds.includes(option.id);
-              return (
-                <Button
-                  key={option.id}
-                  size="small"
-                  variant="ghost"
-                  style={[styles.chip, selected && styles.chipSelected]}
-                  onPress={() => {
-                    const next = toggleIdInList(option.id, admiredQualityIds);
-                    setAdmiredQualityIds(next as ArchetypeAdmiredQualityId[]);
-                  }}
-                >
-                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
-                </Button>
-              );
-            })}
-          </View>
-
-          <View style={styles.inlineActions}>
-            <Button
-              variant="outline"
-              style={[styles.primaryButton, { flex: 1 }]}
-              onPress={() => {
-                setAdmiredQualityIds([]);
-                setPhase('generating');
-                void generateArc();
-              }}
-            >
-              <ButtonLabel size="md">Skip</ButtonLabel>
-            </Button>
-            <Button
-              variant="accent"
-              style={[styles.primaryButton, { flex: 1 }]}
-              onPress={() => {
-                if (admiredQualityIds.length > 0) {
-                  const labels = admiredQualityIds
-                    .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
-                    .filter((l): l is string => Boolean(l));
-                  appendChatUserMessage(`I admire: ${labels.join(', ')}`);
-                }
-                setPhase('generating');
-                void generateArc();
-              }}
-            >
-              <ButtonLabel size="md" tone="inverse">
-                Continue
-              </ButtonLabel>
-            </Button>
-          </View>
+      <QuestionCard stepLabel="6 of 6" title="What qualities do you admire in them? (Pick 1–3)">
+        <View style={styles.fullWidthList}>
+          {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
+            const selected = admiredQualityIds.includes(option.id);
+            return (
+              <Pressable
+                key={option.id}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selected }}
+                onPress={() => {
+                  const next = toggleIdInList(option.id, admiredQualityIds);
+                  // Enforce 1–3 selection to keep signal crisp (and keep this truly "quick").
+                  if (next.length > 3) return;
+                  setAdmiredQualityIds(next as ArchetypeAdmiredQualityId[]);
+                }}
+              >
+                <View style={styles.fullWidthOptionContent}>
+                  {renderCheckboxIndicator(selected)}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
-      </Card>
+
+        <View style={styles.inlineActions}>
+          <Button
+            variant="accent"
+            style={[
+              styles.primaryButton,
+              { flex: 1 },
+              admiredQualityIds.length === 0 && styles.primaryButtonDisabled,
+            ]}
+            disabled={admiredQualityIds.length === 0}
+            onPress={() => {
+              const labels = admiredQualityIds
+                .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
+                .filter((l): l is string => Boolean(l));
+              appendChatUserMessage(`I admire: ${labels.join(', ')}`);
+              setPhase('generating');
+              void generateArc();
+            }}
+          >
+            <ButtonLabel size="md" tone="inverse">
+              Continue
+            </ButtonLabel>
+          </Button>
+        </View>
+      </QuestionCard>
     );
   };
 
   const renderNickname = () => {
     return (
       <QuestionCard title="If future-you had a nickname…">
-        <Text style={styles.bodyText}>Optional — one or two words. (You can skip.)</Text>
+        <Text style={styles.bodyText}>One or two words. (You can skip.)</Text>
         <Input
           value={nickname}
           onChangeText={setNickname}
@@ -2854,7 +2717,7 @@ export function IdentityAspirationFlow({
   const renderDomain = () => (
     <>
       <QuestionCard
-        stepLabel="1 of 14"
+        stepLabel="1 of 6"
         title={
           <>
             Which part of yourself are you most excited to grow right now?{' '}
@@ -2877,6 +2740,8 @@ export function IdentityAspirationFlow({
               <Pressable
                 key={option.id}
                 style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
                 onPress={() => {
                   // Single-select: clear previous selection contributions, then apply the new one
                   const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
@@ -2887,6 +2752,7 @@ export function IdentityAspirationFlow({
                 }}
               >
                 <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
                   {option.emoji ? (
                     <Text
                       style={[
@@ -2931,7 +2797,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>2 of 14</Text>
+          <Text style={styles.questionMeta}>2 of 6</Text>
         <Text style={styles.questionTitle}>
           Thinking about that future version of you, what do you think would motivate them the most
             here?{' '}
@@ -2951,6 +2817,8 @@ export function IdentityAspirationFlow({
               <Pressable
                 key={option.id}
                 style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
                 onPress={() => {
                   const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
                     motivationIds.includes(o.id)
@@ -2962,6 +2830,7 @@ export function IdentityAspirationFlow({
                 }}
               >
                 <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
                   {option.emoji ? (
                     <Text
                       style={[
@@ -3008,7 +2877,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>3 of 14</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
         <Text style={styles.questionTitle}>
           Future-you will still be you—just more grown up and confident. For that future version of
             you, which of these strengths would you most want them to have?{' '}
@@ -3068,7 +2937,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>4 of 14</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
         <Text style={styles.questionTitle}>
           Every good story has a challenge. Which of these challenges feels most real for you right
             now?{' '}
@@ -3127,7 +2996,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>5 of 14</Text>
+          <Text style={styles.questionMeta}>3 of 6</Text>
         <Text style={styles.questionTitle}>
             On a normal day in that future—not a big moment—what could you do that would make you feel
             quietly proud of yourself?{' '}
@@ -3140,15 +3009,15 @@ export function IdentityAspirationFlow({
               ⓘ
             </Text>
         </Text>
-        <View style={styles.chipGrid}>
-          {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 5).map((option) => {
+        <View style={styles.fullWidthList}>
+          {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 7).map((option) => {
             const selected = proudMomentIds.includes(option.id);
             return (
-              <Button
+              <Pressable
                 key={option.id}
-                size="small"
-                variant="ghost"
-                style={[styles.chip, selected && styles.chipSelected]}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
                 onPress={() => {
                   const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
                     proudMomentIds.includes(o.id)
@@ -3159,8 +3028,18 @@ export function IdentityAspirationFlow({
                   handleConfirmProudMoment(option.label);
                 }}
               >
-                <ButtonLabel size="sm">{option.label}</ButtonLabel>
-              </Button>
+                <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+              </Pressable>
             );
           })}
         </View>
@@ -3187,7 +3066,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>6 of 14</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             When you imagine your future, what makes life feel truly meaningful to you?{' '}
             <Text
@@ -3283,7 +3162,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>7 of 14</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             How do you hope your life will impact other people?{' '}
             <Text
@@ -3346,7 +3225,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>8 of 14</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             Which value feels most core to who you want to be?{' '}
             <Text
@@ -3402,7 +3281,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>9 of 14</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             How do you want to move through life—what&apos;s the overall approach?{' '}
             <Text
@@ -3467,7 +3346,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>10 of 14</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             And which kind of work or creation feels closest to Future You?{' '}
             <Text
@@ -3539,16 +3418,8 @@ export function IdentityAspirationFlow({
     if (workflowRuntime) {
       workflowRuntime.completeStep('big_dream', { bigDream: trimmed });
     }
-    if (mode === 'reuseIdentityForNewArc') {
-      // In the Arc creation flow launched from the Arcs inventory, capture
-      // the big dream first, then ask "why does this feel important?" before
-      // actually generating the Arc.
-      setPhase('whyNow');
-    } else {
-      // For first-time onboarding, keep the explicit optional nickname step
-      // before generating the Arc so the user can add a personal anchor.
-      setPhase('nickname');
-    }
+    // Hybrid-Minimal: proceed to optional archetype taps (skip-able).
+    setPhase('roleModelType');
   };
 
   const renderDreams = () => {
@@ -3563,14 +3434,8 @@ export function IdentityAspirationFlow({
 
     return (
       <View style={styles.dreamsStack}>
-        {mode === 'firstTimeOnboarding' && (
-          <Card padding="none" style={[styles.stepCard, styles.dreamsGifCard]}>
-            <View style={styles.stepBody}>
-              <CelebrationGif kind="firstArcDreamsPrompt" size="md" />
-            </View>
-          </Card>
-        )}
         <QuestionCard
+          stepLabel="4 of 6"
           title="Looking ahead, what’s one big thing you’d love to bring to life?"
         >
           <Input
@@ -3957,14 +3822,6 @@ export function IdentityAspirationFlow({
     return renderRoleModelType();
   }
 
-  if (phase === 'roleModelSpecific') {
-    return renderRoleModelSpecific();
-  }
-
-  if (phase === 'roleModelWhy') {
-    return renderRoleModelWhy();
-  }
-
   if (phase === 'admiredQualities') {
     return renderAdmiredQualities();
   }
@@ -4111,6 +3968,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: colors.accent,
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: colors.accent,
+  },
+  checkboxOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  checkboxOuterSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
   },
   fullWidthOptionEmoji: {
     ...typography.body,

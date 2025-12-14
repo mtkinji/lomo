@@ -13,10 +13,10 @@
  * - Non-parroting: transform inputs into identity language, don't copy phrases verbatim
  *
  * IMPORTANT:
- * Production flows currently don't collect explicit role-model taps yet.
- * The hybrid approach still borrows the Archetype idea by asking the model to
- * *infer admired qualities* from whatever signals we do have, and weave them
- * into the Arc without name-dropping role models.
+ * Some production flows *do* collect explicit role-model taps (type / specific / why / admired qualities).
+ * When present, those should be treated as **high-signal** inputs for felt accuracy.
+ * When absent, we still borrow the Archetype idea by asking the model to
+ * *infer admired qualities* from whatever signals we do have.
  */
 
 /**
@@ -54,12 +54,20 @@ export const HYBRID_ARC_QUALITY_REQUIREMENTS = [
   '2) Reading ease: short sentences, short words; a 14-year-old understands instantly.',
   '3) Everyday concreteness: tangible verbs, small scenes, real-life detail.',
   '',
+  'Show-don’t-tell rule (prevents virtue-only arcs):',
+  '- If you reference an admired quality (e.g., steady, brave, disciplined), show it through an action or scene.',
+  '- Do NOT write adjective-only or virtue-list sentences. Prefer verbs and ordinary-life detail.',
+  '',
   'Non-parroting rule:',
   '- Do NOT copy raw input phrases verbatim. Translate them into natural identity language.',
   '',
-  'Archetype-inference (internal, do not name-drop):',
+  'Archetype (role-model translation):',
+  '- If the user provided role model signals (type / person / why / admired qualities), use them as high-signal.',
+  '- Translate them into *the user’s* identity language (do NOT name-drop the role model; do NOT copy the role model descriptor verbatim).',
+  '',
+  'Archetype fallback (when role-model signals are missing):',
   '- Silently infer 2–3 admired qualities (e.g., steady, courageous, craft-focused, generous).',
-  '- Use them to sharpen the Arc’s identity voice, but do not mention a role model unless the user explicitly did.',
+  '- Use them to sharpen the Arc’s identity voice.',
 ].join('\n');
 
 /**

@@ -1,4 +1,4 @@
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
@@ -23,6 +23,7 @@ import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, HStack, Input, Textarea, ThreeColumnRow, Combobox } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { Coachmark } from '../../ui/Coachmark';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ type ActivityDetailNavigationProp = NativeStackNavigationProp<
 >;
 
 export function ActivityDetailScreen() {
+  const isFocused = useIsFocused();
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
   const { activityId } = route.params;
@@ -52,6 +54,12 @@ export function ActivityDetailScreen() {
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const hasDismissedActivityDetailGuide = useAppStore(
+    (state) => state.hasDismissedActivityDetailGuide,
+  );
+  const setHasDismissedActivityDetailGuide = useAppStore(
+    (state) => state.setHasDismissedActivityDetailGuide,
+  );
 
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
@@ -107,6 +115,10 @@ export function ActivityDetailScreen() {
   const [estimateHoursDraft, setEstimateHoursDraft] = useState('0');
   const [estimateMinutesDraft, setEstimateMinutesDraft] = useState('0');
 
+  const titleStepsBundleRef = useRef<View | null>(null);
+  const scheduleAndPlanningCardRef = useRef<View | null>(null);
+  const [detailGuideStep, setDetailGuideStep] = useState(0);
+
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -139,6 +151,29 @@ export function ActivityDetailScreen() {
 
   const isCompleted = activity.status === 'done';
   const showDoneButton = isKeyboardVisible || isAnyInputFocused || isEditingTitle || isAddingStepInline;
+
+  const shouldShowDetailGuide =
+    isFocused &&
+    !hasDismissedActivityDetailGuide &&
+    !showDoneButton &&
+    !goalComboboxOpen &&
+    !difficultyComboboxOpen &&
+    !reminderSheetVisible &&
+    !dueDateSheetVisible &&
+    !repeatSheetVisible &&
+    !estimateSheetVisible;
+
+  const dismissDetailGuide = () => {
+    setHasDismissedActivityDetailGuide(true);
+    setDetailGuideStep(0);
+  };
+
+  const detailGuideTargetRef = detailGuideStep === 0 ? titleStepsBundleRef : scheduleAndPlanningCardRef;
+  const detailGuideTitle = detailGuideStep === 0 ? 'Edit + complete here' : 'Schedule + plan';
+  const detailGuideBody =
+    detailGuideStep === 0
+      ? 'Tap the circle to mark done. Add a few steps for clarity—when required steps are completed, the Activity completes automatically.'
+      : 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
 
   const handleDoneEditing = () => {
     // Prefer blurring the known inline inputs first so their onBlur commits fire.
@@ -676,8 +711,12 @@ export function ActivityDetailScreen() {
                 </Pressable>
               ) : (
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <IconButton style={styles.optionsButton} accessibilityLabel="Activity actions">
+                  <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                    <IconButton
+                      style={styles.optionsButton}
+                      pointerEvents="none"
+                      accessible={false}
+                    >
                       <Icon name="more" size={18} color={colors.canvas} />
                     </IconButton>
                   </DropdownMenuTrigger>
@@ -699,7 +738,7 @@ export function ActivityDetailScreen() {
           >
             {/* Title + Steps bundle (task-style, no enclosing card) */}
             <View style={styles.section}>
-              <View style={styles.titleStepsBundle}>
+              <View ref={titleStepsBundleRef} collapsable={false} style={styles.titleStepsBundle}>
                 <ThreeColumnRow
                   style={styles.titleRow}
                   contentStyle={styles.titleRowContent}
@@ -797,13 +836,14 @@ export function ActivityDetailScreen() {
                             }
                             right={
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger accessibilityLabel="Step actions">
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     iconButtonSize={24}
-                                    accessibilityLabel="Step actions"
                                     style={styles.removeStepButton}
+                                    pointerEvents="none"
+                                    accessible={false}
                                   >
                                     <Icon name="more" size={16} color={colors.textSecondary} />
                                   </Button>
@@ -872,7 +912,7 @@ export function ActivityDetailScreen() {
 
             {/* Linked goal */}
             <View style={styles.section}>
-              <Text style={styles.fieldLabel}>Linked Goal</Text>
+              <Text style={styles.inputLabel}>Linked Goal</Text>
               <Combobox
                 open={goalComboboxOpen}
                 onOpenChange={setGoalComboboxOpen}
@@ -916,7 +956,7 @@ export function ActivityDetailScreen() {
 
             {/* 3) Reminder / Due date / Recurrence */}
             <View style={styles.section}>
-              <View style={styles.rowsCard}>
+              <View ref={scheduleAndPlanningCardRef} collapsable={false} style={styles.rowsCard}>
                 <View style={styles.rowPadding}>
                   <VStack space="xs">
                   {/* Timing */}
@@ -1158,6 +1198,41 @@ export function ActivityDetailScreen() {
         </VStack>
       </View>
 
+      <Coachmark
+        visible={shouldShowDetailGuide}
+        targetRef={detailGuideTargetRef}
+        scrimToken="subtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={16}
+        highlightColor={colors.turmeric}
+        actionColor={colors.turmeric}
+        title={<Text style={styles.detailGuideTitle}>{detailGuideTitle}</Text>}
+        body={<Text style={styles.detailGuideBody}>{detailGuideBody}</Text>}
+        progressLabel={`${detailGuideStep + 1} of 2`}
+        actions={[
+          { id: 'skip', label: 'Skip', variant: 'outline' },
+          {
+            id: detailGuideStep === 0 ? 'next' : 'done',
+            label: detailGuideStep === 0 ? 'Next' : 'Got it',
+            variant: 'accent',
+          },
+        ]}
+        onAction={(actionId) => {
+          if (actionId === 'skip') {
+            dismissDetailGuide();
+            return;
+          }
+          if (actionId === 'next') {
+            setDetailGuideStep(1);
+            return;
+          }
+          dismissDetailGuide();
+        }}
+        onDismiss={dismissDetailGuide}
+        placement="below"
+      />
+
       <BottomDrawer
         visible={reminderSheetVisible}
         onClose={() => setReminderSheetVisible(false)}
@@ -1370,12 +1445,6 @@ const styles = StyleSheet.create({
     padding: 0,
     flexShrink: 1,
   },
-  fieldLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.sm,
-    marginBottom: 2,
-  },
   comboboxTrigger: {
     width: '100%',
   },
@@ -1402,6 +1471,14 @@ const styles = StyleSheet.create({
   metaText: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  detailGuideTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  detailGuideBody: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   checkboxBase: {
     width: 24,

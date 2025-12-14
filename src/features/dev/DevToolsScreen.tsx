@@ -21,7 +21,7 @@ import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { Logo } from '../../ui/Logo';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,6 +33,7 @@ import {
 } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
 import { ArcTestingLauncher } from './ArcTestingLauncher';
+import type { Activity } from '../../domain/types';
 
 type InterstitialVariant = 'launch' | 'auth' | 'streak';
 type DevToolsRoute = RouteProp<RootDrawerParamList, 'DevTools'>;
@@ -49,6 +50,8 @@ export function DevToolsScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const addArc = useAppStore((state) => state.addArc);
   const addGoal = useAppStore((state) => state.addGoal);
+  const activities = useAppStore((state) => state.activities);
+  const addActivity = useAppStore((state) => state.addActivity);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
@@ -61,6 +64,12 @@ export function DevToolsScreen() {
   );
   const setHasDismissedOnboardingGoalGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingGoalGuide
+  );
+  const setHasDismissedActivitiesListGuide = useAppStore(
+    (state) => state.setHasDismissedActivitiesListGuide,
+  );
+  const setHasDismissedActivityDetailGuide = useAppStore(
+    (state) => state.setHasDismissedActivityDetailGuide,
   );
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const setHasSeenFirstGoalCelebration = useAppStore(
@@ -118,6 +127,50 @@ export function DevToolsScreen() {
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
     startFlow();
+  };
+
+  const ensureDevActivityId = () => {
+    const existing = activities.length > 0 ? activities[activities.length - 1] : null;
+    if (existing) return existing.id;
+
+    const timestamp = new Date().toISOString();
+    const id = `dev-activity-${Date.now()}`;
+    const activity: Activity = {
+      id,
+      goalId: null,
+      title: '🧪 Dev: Activity guide test',
+      notes: 'This Activity exists to test ActivityDetail coachmarks from DevTools.',
+      steps: [],
+      reminderAt: null,
+      priority: undefined,
+      estimateMinutes: null,
+      creationSource: 'manual',
+      planGroupId: null,
+      scheduledDate: null,
+      repeatRule: undefined,
+      orderIndex: (activities.length || 0) + 1,
+      phase: null,
+      status: 'planned',
+      actualMinutes: null,
+      startedAt: null,
+      completedAt: null,
+      forceActual: defaultForceLevels(0),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    addActivity(activity);
+    return id;
+  };
+
+  const handleShowActivitiesListGuide = () => {
+    setHasDismissedActivitiesListGuide(false);
+    navigation.navigate('Activities', { screen: 'ActivitiesList' });
+  };
+
+  const handleShowActivityDetailGuide = () => {
+    const activityId = ensureDevActivityId();
+    setHasDismissedActivityDetailGuide(false);
+    navigation.navigate('Activities', { screen: 'ActivityDetail', params: { activityId } });
   };
 
   const handleDebugDailyShowUpNotification = () => {
@@ -214,7 +267,7 @@ export function DevToolsScreen() {
         title: '🎉 Dev: First Goal',
         description:
           'This goal exists to test the “Goal created” celebration overlay without running onboarding.',
-        status: 'active',
+        status: 'planned',
         startDate: nowIso,
         targetDate: undefined,
         forceIntent: {},
@@ -958,6 +1011,12 @@ export function DevToolsScreen() {
                 <ButtonLabel size="md" tone="inverse">
                   Trigger first-time UX
                 </ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={handleShowActivitiesListGuide} style={styles.cardAction}>
+                <ButtonLabel size="md">Show Activities list guide</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={handleShowActivityDetailGuide} style={styles.cardAction}>
+                <ButtonLabel size="md">Show Activity detail guide</ButtonLabel>
               </Button>
               {isFlowActive && (
                 <Button variant="secondary" onPress={dismissFlow} style={styles.cardAction}>

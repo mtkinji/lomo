@@ -30,7 +30,7 @@ import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
-import { VStack, Heading, HStack, CelebrationGif, EmptyState } from '../../ui/primitives';
+import { VStack, Heading, HStack, EmptyState } from '../../ui/primitives';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { EditableField } from '../../ui/EditableField';
@@ -92,6 +92,9 @@ export function ArcDetailScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
   const createGoalsButtonRef = useRef<View>(null);
+  const heroBannerRef = useRef<View>(null);
+  const tabControlRef = useRef<View>(null);
+  const insightsSectionRef = useRef<View>(null);
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -114,6 +117,8 @@ export function ArcDetailScreen() {
   const setHasDismissedOnboardingGoalGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingGoalGuide
   );
+  const hasDismissedArcExploreGuide = useAppStore((state) => state.hasDismissedArcExploreGuide);
+  const setHasDismissedArcExploreGuide = useAppStore((state) => state.setHasDismissedArcExploreGuide);
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
@@ -160,6 +165,8 @@ export function ArcDetailScreen() {
   const [activeTab, setActiveTab] = useState<'details' | 'goals' | 'history'>(
     'details',
   );
+  const [arcExploreGuideStep, setArcExploreGuideStep] = useState(0);
+  const hasStartedArcExploreGuideRef = useRef(false);
   const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
   const [openInsightsSection, setOpenInsightsSection] = useState<
     'strengths' | 'growthEdges' | 'pitfalls' | null
@@ -230,6 +237,27 @@ export function ArcDetailScreen() {
     hasSeenFirstArcCelebration &&
     arcGoals.length === 0 &&
     !hasDismissedOnboardingGoalGuide;
+
+  const shouldOfferArcExploreGuide =
+    Boolean(arc) && !showOnboardingArcHandoff && !hasDismissedArcExploreGuide;
+
+  useEffect(() => {
+    // When the user navigates between Arcs, allow the guide to re-arm if it has not
+    // been dismissed yet (still gated by the persisted dismissal flag).
+    hasStartedArcExploreGuideRef.current = false;
+    setArcExploreGuideStep(0);
+  }, [arcId]);
+
+  useEffect(() => {
+    if (!shouldOfferArcExploreGuide) return;
+    if (hasStartedArcExploreGuideRef.current) return;
+    hasStartedArcExploreGuideRef.current = true;
+    setArcExploreGuideStep(0);
+  }, [shouldOfferArcExploreGuide]);
+
+  const dismissArcExploreGuide = useCallback(() => {
+    setHasDismissedArcExploreGuide(true);
+  }, [setHasDismissedArcExploreGuide]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -626,7 +654,11 @@ export function ArcDetailScreen() {
     };
 
     return (
-      <View style={styles.insightsSectionContainer}>
+      <View
+        ref={insightsSectionRef}
+        collapsable={false}
+        style={styles.insightsSectionContainer}
+      >
         <Text style={styles.insightsSectionLabel}>Arc Development Insights</Text>
         <View style={styles.insightsCard}>
           <View style={styles.insightsBlocksStack}>
@@ -644,13 +676,13 @@ export function ArcDetailScreen() {
       <BottomGuide
         visible={showOnboardingArcHandoff}
         onClose={handleDismissOnboardingArcHandoff}
-        snapPoints={['40%']}
         scrim="light"
         guideColor={colors.turmeric}
       >
         <Heading variant="sm">🚀 Your first Arc is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          We turned your answers into an Arc. Pick one first goal so kwilt can help you plan tiny Activities.
+          Now that we have your first identity Arc, we can create a Goal to help you get there. Tap “Go to
+          Goals” and we’ll guide you from there.
         </Text>
         <HStack space="sm" marginTop={spacing.sm}>
           <Button
@@ -704,8 +736,12 @@ export function ArcDetailScreen() {
               </View>
               <View style={styles.headerSideRight}>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <IconButton style={styles.optionsButton} accessibilityLabel="Arc actions">
+                  <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                    <IconButton
+                      style={styles.optionsButton}
+                      pointerEvents="none"
+                      accessible={false}
+                    >
                       <Icon name="more" size={18} color={colors.canvas} />
                     </IconButton>
                   </DropdownMenuTrigger>
@@ -754,36 +790,38 @@ export function ArcDetailScreen() {
               <View>
                 <View style={[styles.paddedSection, styles.arcHeaderSection]}>
                   <View style={styles.heroContainer}>
-                    <TouchableOpacity
-                      style={styles.heroImageWrapper}
-                      onPress={() => {
-                        logArcDetailDebug('hero:pressed', {
-                          previousVisible: isHeroModalVisible,
-                        });
-                        setIsHeroModalVisible(true);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Edit Arc banner"
-                      activeOpacity={0.9}
-                    >
-                      {arc.thumbnailUrl ? (
-                        <Image
-                          source={{ uri: arc.thumbnailUrl }}
-                          style={styles.heroImage}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <LinearGradient
-                          colors={headerGradientColors}
-                          start={headerGradientDirection.start}
-                          end={headerGradientDirection.end}
-                          style={styles.heroImage}
-                        />
-                      )}
-                      <View style={styles.heroEditButton}>
-                        <Icon name="edit" size={16} color={colors.canvas} />
-                      </View>
-                    </TouchableOpacity>
+                    <View ref={heroBannerRef} collapsable={false}>
+                      <TouchableOpacity
+                        style={styles.heroImageWrapper}
+                        onPress={() => {
+                          logArcDetailDebug('hero:pressed', {
+                            previousVisible: isHeroModalVisible,
+                          });
+                          setIsHeroModalVisible(true);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit Arc banner"
+                        activeOpacity={0.9}
+                      >
+                        {arc.thumbnailUrl ? (
+                          <Image
+                            source={{ uri: arc.thumbnailUrl }}
+                            style={styles.heroImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <LinearGradient
+                            colors={headerGradientColors}
+                            start={headerGradientDirection.start}
+                            end={headerGradientDirection.end}
+                            style={styles.heroImage}
+                          />
+                        )}
+                        <View style={styles.heroEditButton}>
+                          <Icon name="edit" size={16} color={colors.canvas} />
+                        </View>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <EditableField
@@ -811,7 +849,11 @@ export function ArcDetailScreen() {
                     }}
                   />
                   {/* Canvas mode toggle: Details vs Goals vs History */}
-                  <View style={styles.segmentedControlRow}>
+                  <View
+                    ref={tabControlRef}
+                    collapsable={false}
+                    style={styles.segmentedControlRow}
+                  >
                     <SegmentedControl
                       value={activeTab}
                       onChange={setActiveTab}
@@ -1048,6 +1090,75 @@ export function ArcDetailScreen() {
           Once the tap-centric Agent entry is refined for object canvases,
           we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
+      <Coachmark
+        visible={Boolean(
+          shouldOfferArcExploreGuide &&
+            activeTab === 'details' &&
+            (arcExploreGuideStep === 0
+              ? heroBannerRef.current
+              : arcExploreGuideStep === 1
+                ? tabControlRef.current
+                : hasDevelopmentInsights && insightsSectionRef.current),
+        )}
+        targetRef={
+          arcExploreGuideStep === 0
+            ? heroBannerRef
+            : arcExploreGuideStep === 1
+              ? tabControlRef
+              : insightsSectionRef
+        }
+        scrimToken="subtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={18}
+        offset={spacing.xs}
+        attentionPulse
+        attentionPulseDelayMs={2500}
+        attentionPulseDurationMs={12000}
+        title={
+          <Text style={styles.arcExploreCoachmarkTitle}>
+            {arcExploreGuideStep === 0
+              ? 'Make this Arc yours'
+              : arcExploreGuideStep === 1
+                ? 'Switch canvases'
+                : 'Review your insights'}
+          </Text>
+        }
+        body={
+          <Text style={styles.arcExploreCoachmarkBody}>
+            {arcExploreGuideStep === 0
+              ? 'Tap the banner to change the image (upload, curated picks, or Unsplash).'
+              : arcExploreGuideStep === 1
+                ? 'Use these tabs to move between Details, Goals, and your progress history.'
+                : 'We generated Arc Development Insights to help you steer this chapter. Tap a section to expand it.'}
+          </Text>
+        }
+        progressLabel={`${arcExploreGuideStep + 1} of ${hasDevelopmentInsights ? 3 : 2}`}
+        actions={[
+          { id: 'skip', label: 'Skip', variant: 'outline' },
+          {
+            id:
+              arcExploreGuideStep + 1 < (hasDevelopmentInsights ? 3 : 2) ? 'next' : 'done',
+            label:
+              arcExploreGuideStep + 1 < (hasDevelopmentInsights ? 3 : 2) ? 'Next' : 'Got it',
+            variant: 'accent',
+          },
+        ]}
+        onAction={(actionId) => {
+          if (actionId === 'skip') {
+            dismissArcExploreGuide();
+            return;
+          }
+          if (actionId === 'next') {
+            const totalSteps = hasDevelopmentInsights ? 3 : 2;
+            setArcExploreGuideStep((current) => Math.min(current + 1, totalSteps - 1));
+            return;
+          }
+          dismissArcExploreGuide();
+        }}
+        onDismiss={dismissArcExploreGuide}
+        placement="below"
+      />
       <Coachmark
         visible={Boolean(
           activeTab === 'goals' &&
@@ -1720,6 +1831,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   goalCoachmarkBody: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  arcExploreCoachmarkTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  arcExploreCoachmarkBody: {
     ...typography.body,
     color: colors.textPrimary,
   },

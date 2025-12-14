@@ -48,6 +48,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
+import type { ComboboxOption } from '../../ui/Combobox';
+import { Combobox } from '../../ui/Combobox';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
@@ -90,6 +92,16 @@ export function GoalDetailScreen() {
   const setHasDismissedOnboardingActivitiesGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingActivitiesGuide
   );
+  const hasDismissedOnboardingPlanReadyGuide = useAppStore(
+    (state) => state.hasDismissedOnboardingPlanReadyGuide
+  );
+  const setHasDismissedOnboardingPlanReadyGuide = useAppStore(
+    (state) => state.setHasDismissedOnboardingPlanReadyGuide
+  );
+  const hasDismissedGoalVectorsGuide = useAppStore((state) => state.hasDismissedGoalVectorsGuide);
+  const setHasDismissedGoalVectorsGuide = useAppStore(
+    (state) => state.setHasDismissedGoalVectorsGuide
+  );
   const hasSeenFirstGoalCelebration = useAppStore(
     (state) => state.hasSeenFirstGoalCelebration
   );
@@ -110,7 +122,7 @@ export function GoalDetailScreen() {
     }
     return [DEFAULT_THUMBNAIL_STYLE];
   }, [visuals]);
-  const [arcSelectorVisible, setArcSelectorVisible] = useState(false);
+  const [linkedArcComboboxOpen, setLinkedArcComboboxOpen] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingForces, setEditingForces] = useState(false);
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
@@ -118,12 +130,14 @@ export function GoalDetailScreen() {
   );
   const [showFirstGoalCelebration, setShowFirstGoalCelebration] = useState(false);
   const [showOnboardingSharePrompt, setShowOnboardingSharePrompt] = useState(false);
+  const [pendingOnboardingSharePrompt, setPendingOnboardingSharePrompt] = useState(false);
   const onboardingSharePrevActivityCountRef = useRef(0);
   const [vectorsInfoVisible, setVectorsInfoVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
   const addActivitiesButtonRef = useRef<View>(null);
+  const vectorsSectionRef = useRef<View>(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
@@ -161,16 +175,20 @@ export function GoalDetailScreen() {
   };
 
   useEffect(() => {
-    if (__DEV__) {
-      // Track sheet visibility transitions so we can debug why the Arc selector
-      // may not be appearing when expected.
-      // eslint-disable-next-line no-console
-      console.log('[goalDetail] arcSelectorVisible changed', arcSelectorVisible);
-    }
-  }, [arcSelectorVisible]);
+    // no-op placeholder; reserved for future debug instrumentation
+  }, []);
 
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
+  const arcOptions = useMemo<ComboboxOption[]>(() => {
+    const list = [...arcs];
+    list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    return list.map((a) => ({
+      value: a.id,
+      label: a.name,
+      keywords: a.narrative ? [a.narrative] : undefined,
+    }));
+  }, [arcs]);
   const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>('details');
   const goalActivities = useMemo(
     () => activities.filter((activity) => activity.goalId === goalId),
@@ -187,6 +205,24 @@ export function GoalDetailScreen() {
     Boolean(addActivitiesButtonRef.current) &&
     !activityCoachVisible &&
     !activityComposerVisible;
+  const shouldShowOnboardingPlanReadyGuide =
+    goal?.id === lastOnboardingGoalId &&
+    goalActivities.length > 0 &&
+    !showFirstGoalCelebration &&
+    !showOnboardingSharePrompt &&
+    !hasDismissedOnboardingPlanReadyGuide &&
+    activeTab === 'plan' &&
+    !activityCoachVisible &&
+    !activityComposerVisible;
+  const shouldShowGoalVectorsCoachmark =
+    Boolean(goal) &&
+    activeTab === 'details' &&
+    !hasDismissedGoalVectorsGuide &&
+    !showFirstGoalCelebration &&
+    !shouldShowOnboardingActivitiesGuide &&
+    !editingForces &&
+    !vectorsInfoVisible &&
+    !editModalVisible;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -195,6 +231,19 @@ export function GoalDetailScreen() {
     () => goalActivities.filter((activity) => activity.status === 'done'),
     [goalActivities]
   );
+  const firstPlanActivityId = useMemo(() => {
+    const list = [...activeGoalActivities];
+    if (list.length === 0) return goalActivities[0]?.id ?? null;
+    list.sort((a, b) => {
+      const orderA = a.orderIndex ?? Number.MAX_SAFE_INTEGER;
+      const orderB = b.orderIndex ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+      const createdA = a.createdAt ?? '';
+      const createdB = b.createdAt ?? '';
+      return createdA.localeCompare(createdB);
+    });
+    return list[0]?.id ?? null;
+  }, [activeGoalActivities, goalActivities]);
 
   const handleToggleActivityComplete = useCallback(
     (activityId: string) => {
@@ -256,6 +305,7 @@ export function GoalDetailScreen() {
   const hasCustomThumbnail = Boolean(goal?.thumbnailUrl);
   const shouldShowTopography = showTopography && !hasCustomThumbnail;
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
+  const displayThumbnailUrl = goal?.thumbnailUrl ?? arc?.thumbnailUrl;
 
   if (!goal) {
     return (
@@ -294,15 +344,38 @@ export function GoalDetailScreen() {
       goal.id === lastOnboardingGoalId &&
       !hasSeenOnboardingSharePrompt
     ) {
-      setShowOnboardingSharePrompt(true);
-      setHasSeenOnboardingSharePrompt(true);
+      // Handoff first: switch to the Plan canvas so the user sees their newly
+      // created Activities, then queue the share prompt after the plan-ready
+      // guide has had a chance to run.
+      setActiveTab('plan');
+      setPendingOnboardingSharePrompt(true);
     }
   }, [
     goalActivities.length,
     goal.id,
     lastOnboardingGoalId,
     hasSeenOnboardingSharePrompt,
+  ]);
+
+  useEffect(() => {
+    if (!pendingOnboardingSharePrompt) return;
+    if (hasSeenOnboardingSharePrompt) {
+      setPendingOnboardingSharePrompt(false);
+      return;
+    }
+    // Wait until the plan-ready handoff has been dismissed so we don't stack guidance.
+    if (shouldShowOnboardingPlanReadyGuide) return;
+    if (showFirstGoalCelebration) return;
+
+    setShowOnboardingSharePrompt(true);
+    setHasSeenOnboardingSharePrompt(true);
+    setPendingOnboardingSharePrompt(false);
+  }, [
+    pendingOnboardingSharePrompt,
+    hasSeenOnboardingSharePrompt,
     setHasSeenOnboardingSharePrompt,
+    shouldShowOnboardingPlanReadyGuide,
+    showFirstGoalCelebration,
   ]);
 
   useEffect(() => {
@@ -531,19 +604,6 @@ export function GoalDetailScreen() {
       arcId: nextArcId ?? '',
       updatedAt: timestamp,
     }));
-    setArcSelectorVisible(false);
-  };
-
-  const handleOpenArcSelector = () => {
-    if (__DEV__) {
-      // Instrument tap behavior so we can debug Arc connection interactions.
-      // eslint-disable-next-line no-console
-      console.log('[goalDetail] Arc connection field pressed', {
-        goalId: goal.id,
-        currentArcId: goal.arcId || null,
-      });
-    }
-    setArcSelectorVisible(true);
   };
 
   const handleSaveGoal = (values: {
@@ -746,6 +806,36 @@ export function GoalDetailScreen() {
           <Text style={styles.linkLabel}>Add manually instead</Text>
         </Button>
       </BottomGuide>
+      <BottomGuide
+        visible={shouldShowOnboardingPlanReadyGuide}
+        onClose={() => setHasDismissedOnboardingPlanReadyGuide(true)}
+      >
+        <Heading variant="sm">Your first plan is ready</Heading>
+        <Text style={styles.firstGoalBody}>
+          Great — you’ve got Activities to start with. Open one and schedule it so it actually happens.
+        </Text>
+        <HStack space="sm" marginTop={spacing.sm}>
+          <Button
+            variant="outline"
+            style={{ flex: 1 }}
+            onPress={() => setHasDismissedOnboardingPlanReadyGuide(true)}
+          >
+            <Text style={styles.secondaryCtaText}>Not now</Text>
+          </Button>
+          <Button
+            variant="accent"
+            style={{ flex: 1 }}
+            onPress={() => {
+              setHasDismissedOnboardingPlanReadyGuide(true);
+              if (firstPlanActivityId) {
+                handleOpenActivityDetail(firstPlanActivityId);
+              }
+            }}
+          >
+            <Text style={styles.primaryCtaText}>Open first Activity</Text>
+          </Button>
+        </HStack>
+      </BottomGuide>
       <Coachmark
         visible={shouldShowOnboardingActivitiesCoachmark}
         targetRef={addActivitiesButtonRef}
@@ -767,6 +857,33 @@ export function GoalDetailScreen() {
           </Text>
         }
         onDismiss={() => setHasDismissedOnboardingActivitiesGuide(true)}
+        placement="below"
+      />
+      <Coachmark
+        visible={Boolean(shouldShowGoalVectorsCoachmark && vectorsSectionRef.current)}
+        targetRef={vectorsSectionRef}
+        scrimToken="pineSubtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={18}
+        offset={spacing.xs}
+        highlightColor={colors.turmeric}
+        actionColor={colors.turmeric}
+        attentionPulse
+        attentionPulseDelayMs={2500}
+        attentionPulseDurationMs={12000}
+        title={<Text style={styles.goalCoachmarkTitle}>Vectors keep goals balanced</Text>}
+        body={
+          <Text style={styles.goalCoachmarkBody}>
+            These show which core dimensions this goal develops (Activity, Connection, Mastery,
+            Spirituality). Keeping them balanced helps you grow sustainably — not just in one
+            dimension.
+          </Text>
+        }
+        actions={[
+          { id: 'dismiss', label: 'Got it', variant: 'accent' },
+        ]}
+        onDismiss={() => setHasDismissedGoalVectorsGuide(true)}
         placement="below"
       />
       {editingForces && (
@@ -797,8 +914,12 @@ export function GoalDetailScreen() {
               </View>
               <View style={styles.headerSideRight}>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <IconButton style={styles.optionsButton} accessibilityLabel="Goal actions">
+                  <DropdownMenuTrigger accessibilityLabel="Goal actions">
+                    <IconButton
+                      style={styles.optionsButton}
+                      pointerEvents="none"
+                      accessible={false}
+                    >
                       <Icon name="more" size={18} color={colors.canvas} />
                     </IconButton>
                   </DropdownMenuTrigger>
@@ -849,9 +970,9 @@ export function GoalDetailScreen() {
                   onPress={() => setThumbnailSheetVisible(true)}
                 >
                   <View style={styles.goalThumbnailInner}>
-                    {goal.thumbnailUrl ? (
+                    {displayThumbnailUrl ? (
                       <Image
-                        source={{ uri: goal.thumbnailUrl }}
+                        source={{ uri: displayThumbnailUrl }}
                         style={styles.goalThumbnail}
                         resizeMode="cover"
                       />
@@ -969,117 +1090,129 @@ export function GoalDetailScreen() {
                 </View>
 
                 <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.arcConnectionLabel}>Arc</Text>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={handleOpenArcSelector}
-                    accessibilityRole="button"
-                    accessibilityLabel={arc ? 'Change connected arc' : 'Connect this goal to an arc'}
-                  >
-                    <HStack
-                      alignItems="center"
-                      justifyContent="space-between"
-                      style={styles.arcRow}
-                    >
-                      <Text
-                        style={arc ? styles.arcChipTextConnected : styles.arcChipText}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
+                  <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
+                  <Combobox
+                    open={linkedArcComboboxOpen}
+                    onOpenChange={setLinkedArcComboboxOpen}
+                    value={goal.arcId ?? ''}
+                    onValueChange={(nextArcId) => {
+                      handleUpdateArc(nextArcId ? nextArcId : null);
+                    }}
+                    options={arcOptions}
+                    title="Select Arc…"
+                    searchPlaceholder="Search arcs…"
+                    emptyText="No arcs found."
+                    allowDeselect
+                    trigger={
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
+                        style={styles.arcRow}
                       >
-                        {arc ? arc.name : 'Connect to an Arc'}
-                      </Text>
-                      <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                    </HStack>
-                  </TouchableOpacity>
+                        <HStack alignItems="center" justifyContent="space-between">
+                          <Text
+                            style={arc ? styles.arcChipTextConnected : styles.arcChipText}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {arc ? arc.name : 'Select Arc…'}
+                          </Text>
+                          <Icon name="chevronsUpDown" size={16} color={colors.textSecondary} />
+                        </HStack>
+                      </Pressable>
+                    }
+                  />
                 </View>
 
-                <HStack justifyContent="space-between" alignItems="center">
-                  <HStack alignItems="center" space="xs">
-                    <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
+                <View ref={vectorsSectionRef} collapsable={false}>
+                  <HStack justifyContent="space-between" alignItems="center">
+                    <HStack alignItems="center" space="xs">
+                      <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => setVectorsInfoVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Learn how vectors work for this goal"
+                        style={styles.forceInfoIconButton}
+                      >
+                        <Icon name="info" size={16} color={colors.muted} />
+                      </TouchableOpacity>
+                    </HStack>
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      onPress={() => setVectorsInfoVisible(true)}
+                      onPress={handleToggleForceEdit}
                       accessibilityRole="button"
-                      accessibilityLabel="Learn how vectors work for this goal"
-                      style={styles.forceInfoIconButton}
+                      accessibilityLabel={
+                        editingForces
+                          ? 'Save vector balance updates'
+                          : 'Edit how this goal moves different vectors in your life'
+                      }
+                      style={styles.forceEditIconButton}
                     >
-                      <Icon name="info" size={16} color={colors.muted} />
+                      <Icon
+                        name="edit"
+                        size={16}
+                        color={editingForces ? colors.accent : colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   </HStack>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={handleToggleForceEdit}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      editingForces
-                        ? 'Save vector balance updates'
-                        : 'Edit how this goal moves different vectors in your life'
-                    }
-                    style={styles.forceEditIconButton}
+                  <VStack
+                    style={[styles.forceCard, editingForces && styles.editableFieldActive]}
+                    space="xs"
                   >
-                    <Icon
-                      name="edit"
-                      size={16}
-                      color={editingForces ? colors.accent : colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </HStack>
-                <VStack
-                  style={[styles.forceCard, editingForces && styles.editableFieldActive]}
-                  space="xs"
-                >
-                  {FORCE_ORDER.map((forceId) => {
-                    const force = getCanonicalForce(forceId);
-                    if (!force) return null;
-                    const level = liveForceIntent[forceId] ?? 0;
-                    const percentage = (Number(level) / 3) * 100;
+                    {FORCE_ORDER.map((forceId) => {
+                      const force = getCanonicalForce(forceId);
+                      if (!force) return null;
+                      const level = liveForceIntent[forceId] ?? 0;
+                      const percentage = (Number(level) / 3) * 100;
 
-                    if (!editingForces) {
-                      return (
-                        <HStack key={forceId} style={styles.forceRow} alignItems="center">
-                          <Text style={styles.forceLabel}>{force.name}</Text>
-                          <View style={styles.forceBarWrapper}>
-                            <View style={styles.forceBarTrack}>
-                              <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
+                      if (!editingForces) {
+                        return (
+                          <HStack key={forceId} style={styles.forceRow} alignItems="center">
+                            <Text style={styles.forceLabel}>{force.name}</Text>
+                            <View style={styles.forceBarWrapper}>
+                              <View style={styles.forceBarTrack}>
+                                <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
+                              </View>
                             </View>
-                          </View>
-                          <Text style={styles.forceValue}>{level}/3</Text>
-                        </HStack>
-                      );
-                    }
+                            <Text style={styles.forceValue}>{level}/3</Text>
+                          </HStack>
+                        );
+                      }
 
-                    return (
-                      <VStack key={forceId} space="xs">
-                        <HStack justifyContent="space-between" alignItems="center">
-                          <Text style={styles.forceLabel}>{force.name}</Text>
-                          <Text style={styles.forceValue}>{level}/3</Text>
-                        </HStack>
-                        <HStack space="xs" style={styles.forceSliderRow}>
-                          {[0, 1, 2, 3].map((value) => (
-                            <TouchableOpacity
-                              key={value}
-                              activeOpacity={0.8}
-                              style={[
-                                styles.forceLevelChip,
-                                level === value && styles.forceLevelChipActive,
-                              ]}
-                              onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
-                            >
-                              <Text
+                      return (
+                        <VStack key={forceId} space="xs">
+                          <HStack justifyContent="space-between" alignItems="center">
+                            <Text style={styles.forceLabel}>{force.name}</Text>
+                            <Text style={styles.forceValue}>{level}/3</Text>
+                          </HStack>
+                          <HStack space="xs" style={styles.forceSliderRow}>
+                            {[0, 1, 2, 3].map((value) => (
+                              <TouchableOpacity
+                                key={value}
+                                activeOpacity={0.8}
                                 style={[
-                                  styles.forceLevelChipText,
-                                  level === value && styles.forceLevelChipTextActive,
+                                  styles.forceLevelChip,
+                                  level === value && styles.forceLevelChipActive,
                                 ]}
+                                onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
                               >
+                                <Text
+                                  style={[
+                                    styles.forceLevelChipText,
+                                    level === value && styles.forceLevelChipTextActive,
+                                  ]}
+                                >
                                 {value}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </HStack>
-                      </VStack>
-                    );
-                  })}
-                </VStack>
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </HStack>
+                        </VStack>
+                      );
+                    })}
+                  </VStack>
+                </View>
                 {createdAtLabel && (
                   <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
                 )}
@@ -1274,13 +1407,6 @@ export function GoalDetailScreen() {
         initialForceIntent={forceIntent}
         onSubmit={handleSaveGoal}
         insetTop={insets.top}
-      />
-      <ArcSelectorModal
-        visible={arcSelectorVisible}
-        arcs={arcs}
-        currentArcId={arc?.id ?? null}
-        onClose={() => setArcSelectorVisible(false)}
-        onSubmit={handleUpdateArc}
       />
       {/* Agent FAB entry for Goal detail is temporarily disabled for MVP.
           Once the tap-centric Agent entry is refined for object canvases,

@@ -198,14 +198,22 @@ export function Coachmark({
     const roomAbove = targetRect.y - topLimit;
     const roomBelow = bottomLimit - (targetRect.y + targetRect.height);
 
-    const resolvedPlacement: 'above' | 'below' =
-      placement === 'above'
-        ? 'above'
-        : placement === 'below'
-        ? 'below'
-        : roomBelow >= bubbleHeight + ARROW_SIZE + offset || roomBelow >= roomAbove
-        ? 'below'
-        : 'above';
+    const requiredRoom = bubbleHeight + ARROW_SIZE + offset;
+
+    // Even when a caller requests an explicit placement, keep the coachmark usable:
+    // if there isn't enough room on that side, flip to the other side.
+    const resolvedPlacement: 'above' | 'below' = (() => {
+      if (placement === 'above') {
+        if (roomAbove >= requiredRoom) return 'above';
+        return roomBelow >= requiredRoom || roomBelow >= roomAbove ? 'below' : 'above';
+      }
+      if (placement === 'below') {
+        if (roomBelow >= requiredRoom) return 'below';
+        return roomAbove >= requiredRoom || roomAbove >= roomBelow ? 'above' : 'below';
+      }
+      // Auto: pick the side that fits, otherwise prefer the side with more room.
+      return roomBelow >= requiredRoom || roomBelow >= roomAbove ? 'below' : 'above';
+    })();
 
     const top =
       resolvedPlacement === 'below'

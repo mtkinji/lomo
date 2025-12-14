@@ -87,8 +87,8 @@ export function Combobox({
           setTriggerWidth(event.nativeEvent.layout.width);
         }}
       >
-        <DropdownMenuTrigger asChild>
-          {trigger}
+        <DropdownMenuTrigger>
+          <View pointerEvents="none">{trigger}</View>
         </DropdownMenuTrigger>
       </View>
 

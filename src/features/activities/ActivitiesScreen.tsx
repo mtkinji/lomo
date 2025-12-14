@@ -1,5 +1,5 @@
 import React from 'react';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useIsFocused, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { BottomDrawer } from '../../ui/BottomDrawer';
+import { Coachmark } from '../../ui/Coachmark';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -121,6 +122,7 @@ function CompletedActivitySection({
 }
 
 export function ActivitiesScreen() {
+  const isFocused = useIsFocused();
   const navigation = useNavigation<
     NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'> &
       DrawerNavigationProp<RootDrawerParamList>
@@ -139,12 +141,68 @@ export function ActivitiesScreen() {
   const addActivityView = useAppStore((state) => state.addActivityView);
   const updateActivityView = useAppStore((state) => state.updateActivityView);
   const removeActivityView = useAppStore((state) => state.removeActivityView);
+  const hasDismissedActivitiesListGuide = useAppStore(
+    (state) => state.hasDismissedActivitiesListGuide,
+  );
+  const setHasDismissedActivitiesListGuide = useAppStore(
+    (state) => state.setHasDismissedActivitiesListGuide,
+  );
 
   const [activityCoachVisible, setActivityCoachVisible] = React.useState(false);
   const [viewEditorVisible, setViewEditorVisible] = React.useState(false);
   const [viewEditorMode, setViewEditorMode] = React.useState<'create' | 'settings'>('create');
   const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
   const [viewEditorName, setViewEditorName] = React.useState('');
+
+  const addButtonRef = React.useRef<View | null>(null);
+  const viewsButtonRef = React.useRef<View | null>(null);
+  const filterButtonRef = React.useRef<View | null>(null);
+  const sortButtonRef = React.useRef<View | null>(null);
+  const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
+
+  const guideVariant = activities.length > 0 ? 'full' : 'empty';
+  const guideTotalSteps = guideVariant === 'full' ? 3 : 1;
+  const shouldShowActivitiesListGuide =
+    isFocused && !hasDismissedActivitiesListGuide && !activityCoachVisible && !viewEditorVisible;
+
+  const dismissActivitiesListGuide = React.useCallback(() => {
+    setHasDismissedActivitiesListGuide(true);
+    setActivitiesGuideStep(0);
+  }, [setHasDismissedActivitiesListGuide]);
+
+  const guideTargetRef =
+    guideVariant === 'empty'
+      ? addButtonRef
+      : activitiesGuideStep === 0
+      ? viewsButtonRef
+      : activitiesGuideStep === 1
+      ? filterButtonRef
+      : sortButtonRef;
+
+  const guideCopy = React.useMemo(() => {
+    if (guideVariant === 'empty') {
+      return {
+        title: 'Start here',
+        body: 'Tap + to add your first Activity. Once you have a few, you can use Views, Filters, and Sort to stay focused.',
+      };
+    }
+    if (activitiesGuideStep === 0) {
+      return {
+        title: 'Views = saved setups',
+        body: 'Views remember your filter + sort (and “show completed”). Create a few like “This week” or “P1 only.”',
+      };
+    }
+    if (activitiesGuideStep === 1) {
+      return {
+        title: 'Filter the list',
+        body: 'Quickly switch between All, Active, Completed, or Priority 1 activities.',
+      };
+    }
+    return {
+      title: 'Sort changes the order',
+      body: 'Try due date or priority sorting when the list grows. Manual keeps your custom ordering.',
+    };
+  }, [activitiesGuideStep, guideVariant]);
 
   const activeView: ActivityView | undefined = React.useMemo(() => {
     const current =
@@ -428,6 +486,8 @@ export function ActivitiesScreen() {
         }}
         rightElement={
           <IconButton
+            ref={addButtonRef}
+            collapsable={false}
             accessibilityRole="button"
             accessibilityLabel="Add Activity"
             onPress={() => {
@@ -437,6 +497,44 @@ export function ActivitiesScreen() {
             <Icon name="plus" size={18} color="#FFFFFF" />
           </IconButton>
         }
+      />
+      <Coachmark
+        visible={shouldShowActivitiesListGuide}
+        targetRef={guideTargetRef}
+        scrimToken="subtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={16}
+        highlightColor={colors.turmeric}
+        actionColor={colors.turmeric}
+        title={<Text style={styles.activitiesGuideTitle}>{guideCopy.title}</Text>}
+        body={<Text style={styles.activitiesGuideBody}>{guideCopy.body}</Text>}
+        progressLabel={`${Math.min(activitiesGuideStep + 1, guideTotalSteps)} of ${guideTotalSteps}`}
+        actions={
+          guideTotalSteps > 1
+            ? [
+                { id: 'skip', label: 'Skip', variant: 'outline' },
+                {
+                  id: activitiesGuideStep >= guideTotalSteps - 1 ? 'done' : 'next',
+                  label: activitiesGuideStep >= guideTotalSteps - 1 ? 'Got it' : 'Next',
+                  variant: 'accent',
+                },
+              ]
+            : [{ id: 'done', label: 'Got it', variant: 'accent' }]
+        }
+        onAction={(actionId) => {
+          if (actionId === 'skip') {
+            dismissActivitiesListGuide();
+            return;
+          }
+          if (actionId === 'next') {
+            setActivitiesGuideStep((current) => Math.min(current + 1, guideTotalSteps - 1));
+            return;
+          }
+          dismissActivitiesListGuide();
+        }}
+        onDismiss={dismissActivitiesListGuide}
+        placement="below"
       />
       <CanvasScrollView
         style={styles.scroll}
@@ -452,12 +550,14 @@ export function ActivitiesScreen() {
             >
               <View style={styles.toolbarButtonWrapper}>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                  <DropdownMenuTrigger accessibilityRole="button" accessibilityLabel="Views menu">
                     <Button
+                      ref={viewsButtonRef}
+                      collapsable={false}
                       variant="outline"
                       size="small"
-                      accessibilityRole="button"
-                      accessibilityLabel="Views menu"
+                      pointerEvents="none"
+                      accessible={false}
                     >
                       <HStack alignItems="center" space="xs">
                         <Icon name="panelLeft" size={14} color={colors.textPrimary} />
@@ -510,12 +610,17 @@ export function ActivitiesScreen() {
               <HStack space="sm" alignItems="center">
                 <View style={styles.toolbarButtonWrapper}>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger
+                      accessibilityRole="button"
+                      accessibilityLabel="Filter activities"
+                    >
                       <Button
+                        ref={filterButtonRef}
+                        collapsable={false}
                         variant="outline"
                         size="small"
-                        accessibilityRole="button"
-                        accessibilityLabel="Filter activities"
+                        pointerEvents="none"
+                        accessible={false}
                       >
                           <Icon name="funnel" size={14} color={colors.textPrimary} />
                       </Button>
@@ -539,12 +644,14 @@ export function ActivitiesScreen() {
 
                 <View style={styles.toolbarButtonWrapper}>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger accessibilityRole="button" accessibilityLabel="Sort activities">
                       <Button
+                        ref={sortButtonRef}
+                        collapsable={false}
                         variant="outline"
                         size="small"
-                        accessibilityRole="button"
-                        accessibilityLabel="Sort activities"
+                        pointerEvents="none"
+                        accessible={false}
                       >
                           <Icon name="sort" size={14} color={colors.textPrimary} />
                       </Button>
@@ -854,6 +961,14 @@ const styles = StyleSheet.create({
   appliedChipLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  activitiesGuideTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  activitiesGuideBody: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   activityCoachContainer: {
     flex: 1,

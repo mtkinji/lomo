@@ -40,7 +40,8 @@ const config: ExpoConfig = {
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff',
+    // Pine 300 (matches in-app LaunchScreen background).
+    backgroundColor: '#B7CFB5',
   },
   ios: {
     supportsTablet: true,

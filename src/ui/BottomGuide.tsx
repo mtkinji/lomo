@@ -41,6 +41,12 @@ interface BottomGuideProps {
    * actions.
    */
   children: ReactNode;
+  /**
+   * When true, the guide will shrink-to-fit its rendered content (up to the
+   * max height implied by `snapPoints`). Useful for variable-height content
+   * like GIFs.
+   */
+  dynamicSizing?: boolean;
 }
 
 /**
@@ -56,6 +62,7 @@ export function BottomGuide({
   guideColor,
   onClose,
   children,
+  dynamicSizing = false,
 }: BottomGuideProps) {
   const scrimToken = scrim === 'light' ? 'pineSubtle' : 'default';
   const shouldHideBackdrop = scrim === 'none';
@@ -89,6 +96,7 @@ export function BottomGuide({
       handleStyle={canDismiss ? [styles.handle, { backgroundColor: accent }] : styles.handleHidden}
       // Let users swipe down anywhere on the guide card to dismiss.
       enableContentPanningGesture={canDismiss}
+      dynamicSizing={dynamicSizing}
     >
       <View style={styles.content}>{children}</View>
     </BottomDrawer>

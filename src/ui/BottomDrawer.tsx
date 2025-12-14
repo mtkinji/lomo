@@ -88,6 +88,16 @@ type BottomDrawerProps = {
    * gestures cooperate.
    */
   enableContentPanningGesture?: boolean;
+
+  /**
+   * When true, the drawer will shrink-to-fit its rendered content (up to the
+   * maximum height implied by `snapPoints`). This is useful for lightweight
+   * guides where content height can vary (e.g. GIFs).
+   *
+   * Implementation note: the drawer initially opens at the max snap height so
+   * content can lay out, then animates down to the measured content height.
+   */
+  dynamicSizing?: boolean;
 };
 
 type BottomDrawerContextValue = {
@@ -161,6 +171,7 @@ export function BottomDrawer({
   handleContainerStyle,
   handleStyle,
   enableContentPanningGesture = false,
+  dynamicSizing = false,
 }: BottomDrawerProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -168,14 +179,39 @@ export function BottomDrawer({
   // Available height excludes the top safe-area so a 100% snap doesn't tuck under the notch.
   const availableHeight = Math.max(windowHeight - insets.top, 0);
 
-  const snapHeights = useMemo(() => {
+  const parsedSnapHeights = useMemo(() => {
     const parsed = snapPoints.map((point) => parseSnapPoint({ point, availableHeight }));
     // Ensure all snap points are within range. Keep caller ordering stable.
     return parsed.map((h) => clamp(h, 0, availableHeight));
   }, [availableHeight, snapPoints]);
 
+  const maxAllowedHeight = useMemo(() => Math.max(...parsedSnapHeights, 0), [parsedSnapHeights]);
+
+  const [dynamicTargetHeight, setDynamicTargetHeight] = useState<number | null>(null);
+  const hasDynamicTarget = dynamicSizing && dynamicTargetHeight !== null;
+
+  const snapHeights = useMemo(() => {
+    if (!hasDynamicTarget) return parsedSnapHeights;
+    if (dynamicTargetHeight === null) return parsedSnapHeights;
+
+    const compact = clamp(dynamicTargetHeight, 0, maxAllowedHeight);
+    const expanded = clamp(maxAllowedHeight, 0, availableHeight);
+    // Keep ordering stable: compact first, optional expanded second.
+    if (expanded - compact < 2) return [compact];
+    return [compact, expanded];
+  }, [
+    availableHeight,
+    dynamicTargetHeight,
+    hasDynamicTarget,
+    maxAllowedHeight,
+    parsedSnapHeights,
+  ]);
+
   const maxSnapHeight = useMemo(() => Math.max(...snapHeights, 0), [snapHeights]);
-  const minSnapHeight = useMemo(() => Math.min(...snapHeights, availableHeight), [snapHeights, availableHeight]);
+  const minSnapHeight = useMemo(
+    () => Math.min(...snapHeights, availableHeight),
+    [snapHeights, availableHeight]
+  );
   const closedOffset = maxSnapHeight + 24; // move the whole drawer down by at least its max height.
 
   const scrimConfig = scrims[scrimToken] ?? scrims.default;
@@ -205,8 +241,12 @@ export function BottomDrawer({
     if (typeof initialSnapIndex === 'number') {
       return clamp(Math.floor(initialSnapIndex), 0, maxIndex);
     }
+    // In dynamic sizing mode, once we've measured content, default to the compact height.
+    if (hasDynamicTarget) {
+      return 0;
+    }
     return maxIndex;
-  }, [initialSnapIndex, snapIndex, snapHeights.length]);
+  }, [hasDynamicTarget, initialSnapIndex, snapIndex, snapHeights.length]);
 
   useEffect(() => {
     if (visible) {
@@ -239,6 +279,19 @@ export function BottomDrawer({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, visible, openToIndex, maxSnapHeight, snapHeights.join('|')]);
+
+  useEffect(() => {
+    if (!dynamicSizing) return;
+    if (!mounted || !visible) return;
+    if (dynamicTargetHeight === null) return;
+    // Once content has laid out, animate down to the measured compact height.
+    sheetHeight.value = withTiming(clamp(dynamicTargetHeight, 0, maxSnapHeight), { duration: 220 }, (finished) => {
+      if (finished && onSnapIndexChange) {
+        runOnJS(onSnapIndexChange)(0);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dynamicSizing, dynamicTargetHeight, mounted, visible, maxSnapHeight]);
 
   const progress = useDerivedValue(() => {
     // 0=open, 1=closed.
@@ -405,7 +458,19 @@ export function BottomDrawer({
                 <View style={[styles.handle, handleStyle]} />
               </View>
             </GestureDetector>
-            {children}
+            {dynamicSizing ? (
+              <View
+                onLayout={(event) => {
+                  const { y, height } = event.nativeEvent.layout;
+                  const next = clamp(y + height + insets.bottom, 0, maxAllowedHeight);
+                  setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
+                }}
+              >
+                {children}
+              </View>
+            ) : (
+              children
+            )}
           </Animated.View>
         </GestureDetector>
       </Animated.View>

@@ -54,7 +54,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showPersonalization, setShowPersonalization] = useState(false);
 
-  // Hybrid archetype taps (optional): boosts felt accuracy without forcing typing.
+  // Hybrid archetype taps: boosts felt accuracy without forcing typing.
   const [roleModelTypeId, setRoleModelTypeId] = useState<ArchetypeRoleModelTypeId | null>(null);
   const [specificRoleModelId, setSpecificRoleModelId] = useState<
     ArchetypeSpecificRoleModelId | 'none' | 'not_sure' | null
@@ -126,7 +126,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
       // Mirror optional archetype signals into chat so the Arc coach model sees them.
       if (roleModelTypeLabel || specificRoleModelLabel || roleModelWhyLabel || admiredLabels.length) {
         const lines = [
-          'Role model signals (optional):',
+          'Role model signals:',
           roleModelTypeLabel ? `- People I look up to: ${roleModelTypeLabel}` : null,
           specificRoleModelLabel ? `- Someone specific: ${specificRoleModelLabel}` : null,
           roleModelWhyLabel ? `- Why: ${roleModelWhyLabel}` : null,
@@ -181,7 +181,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
           style={styles.personalizeToggle}
         >
           <Text style={styles.personalizeToggleText}>
-            {showPersonalization ? 'Hide personalization' : 'Add personalization (optional)'}
+            {showPersonalization ? 'Hide personalization' : 'Add personalization'}
           </Text>
         </Pressable>
 
@@ -257,7 +257,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
               })}
             </View>
 
-            <Text style={styles.sectionLabel}>What do you admire? (pick up to 3)</Text>
+            <Text style={styles.sectionLabel}>What qualities do you admire in them? (pick up to 3)</Text>
             <View style={styles.chipGrid}>
               {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
                 const selected = admiredQualityIds.includes(option.id);
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   personalizeToggleText: {
-    ...typography.caption,
+    ...typography.bodySm,
     color: colors.textSecondary,
     textDecorationLine: 'underline',
   },
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   sectionLabel: {
-    ...typography.caption,
+    ...typography.bodySm,
     color: colors.textSecondary,
     fontWeight: '600',
   },

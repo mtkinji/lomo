@@ -1,3 +1,4 @@
+import React, { forwardRef } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '../theme';
@@ -42,16 +43,19 @@ type Props = {
   fullWidth?: boolean;
 } & Omit<React.ComponentProps<typeof Pressable>, 'style'>;
 
-export function Button({
-  variant = 'default',
-  size = 'default',
-  style,
-  iconButtonSize,
-  fullWidth,
-  children,
-  className,
-  ...rest
-}: Props) {
+export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(function Button(
+  {
+    variant = 'default',
+    size = 'default',
+    style,
+    iconButtonSize,
+    fullWidth,
+    children,
+    className,
+    ...rest
+  },
+  ref,
+) {
   const logicalSize: ButtonSizeToken =
     size === 'sm' || size === 'small' ? 'sm' : size === 'lg' ? 'lg' : 'md';
   const isIconOnly = size === 'icon' || Boolean(iconButtonSize);
@@ -77,6 +81,7 @@ export function Button({
 
   return (
     <Pressable
+      ref={ref}
       {...rest}
       style={({ pressed }) => [
         // Base shape + sizing
@@ -118,7 +123,7 @@ export function Button({
       {children}
     </Pressable>
   );
-}
+});
 
 type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
 
@@ -126,30 +131,33 @@ type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
  * Canonical circular icon button: pine background, fully rounded, fixed icon
  * sizing. Intended for header actions and compact icon-only controls.
  */
-export function IconButton({ style, children, className, ...rest }: IconButtonProps) {
-  return (
-    <Pressable
-      {...rest}
-      style={({ pressed }) => [
-        {
-          width: 32,
-          height: 32,
-          borderRadius: 16,
-          backgroundColor: colors.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        pressed
-          ? {
-              opacity: 0.85,
-              transform: [{ scale: 0.95 }],
-            }
-          : null,
-        style,
-      ]}
-    >
-      {children}
-    </Pressable>
-  );
-}
+export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconButtonProps>(
+  function IconButton({ style, children, className, ...rest }, ref) {
+    return (
+      <Pressable
+        ref={ref}
+        {...rest}
+        style={({ pressed }) => [
+          {
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: colors.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          pressed
+            ? {
+                opacity: 0.85,
+                transform: [{ scale: 0.95 }],
+              }
+            : null,
+          style,
+        ]}
+      >
+        {children}
+      </Pressable>
+    );
+  },
+);
 

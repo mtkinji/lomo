@@ -19,6 +19,12 @@ type CelebrationGifProps = {
   size?: 'sm' | 'md';
   stylePreference?: CelebrationStylePreference;
   /**
+   * Optional max height for the GIF tile/frame. Useful when embedding in
+   * compact surfaces (e.g. bottom guides) so very tall GIFs don't dominate
+   * the layout.
+   */
+  maxHeight?: number;
+  /**
    * When false, hides the refresh/like/thumbs-down controls + attribution row.
    * Useful for full-screen celebration moments where controls would be distracting.
    */
@@ -38,6 +44,7 @@ export function CelebrationGif({
   ageRange,
   size = 'sm',
   stylePreference,
+  maxHeight,
   showControls = true,
 }: CelebrationGifProps) {
   const [url, setUrl] = useState<string | null>(null);
@@ -152,6 +159,7 @@ export function CelebrationGif({
         style={[
           styles.frame,
           aspectRatio ? { aspectRatio } : { height: fallbackHeight },
+          typeof maxHeight === 'number' ? { maxHeight } : null,
         ]}
       >
         {isLoading ? (

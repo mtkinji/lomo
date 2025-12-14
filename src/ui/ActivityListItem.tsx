@@ -7,12 +7,22 @@ import { colors, spacing, typography } from '../theme';
 import { fonts } from '../theme/typography';
 
 type ActivityListItemProps = {
+  /**
+   * Visual density / information level.
+   * - compact: single-row card (default)
+   * - full: richer card with optional notes preview
+   */
+  variant?: 'compact' | 'full';
   title: string;
   /**
    * Optional secondary line shown under the title. Typically used for the
    * parent goal name, phase, or light metadata.
    */
   meta?: string;
+  /**
+   * Optional notes/body preview shown only in `variant="full"`.
+   */
+  notes?: string;
   /**
    * Optional leading icon for the metadata row. Typically used for a tiny
    * due-date calendar icon.
@@ -42,8 +52,10 @@ type ActivityListItemProps = {
 };
 
 export function ActivityListItem({
+  variant = 'compact',
   title,
   meta,
+  notes,
   metaLeadingIconName,
   isCompleted = false,
   onToggleComplete,
@@ -90,10 +102,20 @@ export function ActivityListItem({
     outputRange: [0.6, 1],
   });
 
+  const showNotes = variant === 'full' && Boolean(notes && notes.trim().length > 0);
+
   const content = (
-    <Card style={styles.card}>
-      <HStack space="md" alignItems="center" justifyContent="space-between">
-        <HStack space="md" alignItems="center" style={styles.leftCluster}>
+    <Card style={[styles.card, variant === 'full' && styles.cardFull]}>
+      <HStack
+        space="md"
+        alignItems={variant === 'full' ? 'flex-start' : 'center'}
+        justifyContent="space-between"
+      >
+        <HStack
+          space="md"
+          alignItems={variant === 'full' ? 'flex-start' : 'center'}
+          style={styles.leftCluster}
+        >
           <View style={styles.checkboxWrapper}>
             <Pressable
               accessibilityRole="button"
@@ -154,6 +176,14 @@ export function ActivityListItem({
                 </Text>
               </HStack>
             ) : null}
+            {showNotes ? (
+              <Text
+                numberOfLines={2}
+                style={[styles.notes, isCompleted && styles.notesCompleted]}
+              >
+                {notes?.trim()}
+              </Text>
+            ) : null}
           </VStack>
         </HStack>
 
@@ -201,6 +231,10 @@ const styles = StyleSheet.create({
     // density and shell rhythm.
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
+  },
+  cardFull: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   leftCluster: {
     flex: 1,
@@ -263,6 +297,15 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   metaCompleted: {
+    color: colors.muted,
+  },
+  notes: {
+    ...typography.bodySm,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
+  notesCompleted: {
     color: colors.muted,
   },
 });
