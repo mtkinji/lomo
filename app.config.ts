@@ -54,7 +54,7 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '7',
+    buildNumber: '8',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ['fetch', 'remote-notification'],
