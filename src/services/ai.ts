@@ -672,6 +672,129 @@ export type CoachChatOptions = {
   launchContextSummary?: string;
 };
 
+export const COACH_CONVERSATION_SUMMARY_PREFIX = 'kwilt-coach-summary:v1:';
+
+export type CoachConversationSummaryRecordV1 = {
+  version: 1;
+  updatedAt: string;
+  summary: string;
+  /**
+   * How many "eligible" non-system turns have already been summarized.
+   * Eligible turns are all non-system turns except the most recent window.
+   */
+  summarizedEligibleCount: number;
+};
+
+export const buildCoachConversationSummaryStorageKey = (opts?: CoachChatOptions): string => {
+  const mode = opts?.mode ?? 'default';
+  const workflowId = opts?.workflowInstanceId ?? opts?.workflowDefinitionId;
+  if (workflowId) {
+    return `${COACH_CONVERSATION_SUMMARY_PREFIX}${mode}:workflow:${workflowId}`;
+  }
+  const seed = (opts?.launchContextSummary ?? '').trim();
+  if (!seed) {
+    return `${COACH_CONVERSATION_SUMMARY_PREFIX}${mode}:anonymous`;
+  }
+  // Fast deterministic hash (djb2) to avoid huge keys.
+  let hash = 5381;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 33) ^ seed.charCodeAt(i);
+  }
+  const hex = (hash >>> 0).toString(16);
+  return `${COACH_CONVERSATION_SUMMARY_PREFIX}${mode}:launch:${hex}`;
+};
+
+export async function loadCoachConversationSummaryRecord(
+  opts?: CoachChatOptions
+): Promise<CoachConversationSummaryRecordV1 | null> {
+  try {
+    const key = buildCoachConversationSummaryStorageKey(opts);
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CoachConversationSummaryRecordV1> | null;
+    if (!parsed || parsed.version !== 1) return null;
+    if (typeof parsed.summary !== 'string') return null;
+    return {
+      version: 1,
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
+      summary: parsed.summary,
+      summarizedEligibleCount:
+        typeof parsed.summarizedEligibleCount === 'number' ? parsed.summarizedEligibleCount : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCoachConversationSummaryRecord(
+  record: CoachConversationSummaryRecordV1,
+  opts?: CoachChatOptions
+): Promise<void> {
+  try {
+    const key = buildCoachConversationSummaryStorageKey(opts);
+    await AsyncStorage.setItem(key, JSON.stringify(record));
+  } catch {
+    // Ignore persistence errors; chat should still work.
+  }
+}
+
+export async function clearCoachConversationMemory(opts?: CoachChatOptions): Promise<void> {
+  try {
+    const key = buildCoachConversationSummaryStorageKey(opts);
+    await AsyncStorage.removeItem(key);
+  } catch {
+    // Ignore; best-effort only.
+  }
+}
+
+export async function listCoachConversationMemoryKeys(): Promise<string[]> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    return keys.filter((k) => k.startsWith(COACH_CONVERSATION_SUMMARY_PREFIX)).sort();
+  } catch {
+    return [];
+  }
+}
+
+export async function loadCoachConversationMemoryByKey(
+  key: string
+): Promise<CoachConversationSummaryRecordV1 | null> {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CoachConversationSummaryRecordV1> | null;
+    if (!parsed || parsed.version !== 1) return null;
+    if (typeof parsed.summary !== 'string') return null;
+    return {
+      version: 1,
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
+      summary: parsed.summary,
+      summarizedEligibleCount:
+        typeof parsed.summarizedEligibleCount === 'number' ? parsed.summarizedEligibleCount : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function clearCoachConversationMemoryByKey(key: string): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(key);
+  } catch {
+    // Ignore; best-effort only.
+  }
+}
+
+export async function clearAllCoachConversationMemory(): Promise<void> {
+  try {
+    const keys = await listCoachConversationMemoryKeys();
+    if (keys.length === 0) return;
+    await AsyncStorage.multiRemove(keys);
+  } catch {
+    // Ignore; best-effort only.
+  }
+}
+
 const appendDevCoachChatHistory = async (
   snapshot: Omit<DevCoachChatLogEntry, 'id'>
 ): Promise<void> => {
@@ -1992,11 +2115,81 @@ export async function sendCoachChat(
     ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
     : baseSystemPrompt;
 
+  const summarizeConversationChunk = async (params: {
+    existingSummary?: string;
+    newTurns: CoachChatTurn[];
+  }): Promise<string> => {
+    const { existingSummary, newTurns } = params;
+    const transcript = newTurns
+      .map((t) => {
+        const roleLabel =
+          t.role === 'user' ? 'User' : t.role === 'assistant' ? 'Assistant' : 'System';
+        return `${roleLabel}: ${t.content}`;
+      })
+      .join('\n');
+
+    const summarySystemPrompt =
+      'You maintain a compact, durable "memory summary" for an ongoing coaching conversation.\n' +
+      '- Focus on stable user facts, preferences, constraints, goals, decisions, and commitments.\n' +
+      '- Avoid speculation; never infer health, political affiliation, religion, or other sensitive traits.\n' +
+      '- Do not quote the transcript verbatim; rewrite in your own words.\n' +
+      '- Output ONLY the updated memory summary as 8–16 short bullet points.\n' +
+      '- Keep it under 1200 characters.';
+
+    const summaryUserContent = [
+      existingSummary?.trim()
+        ? `Existing memory summary:\n${existingSummary.trim()}`
+        : 'Existing memory summary: (none)',
+      'New conversation turns to incorporate:',
+      transcript,
+    ].join('\n\n');
+
+    const summaryBody: Record<string, unknown> = {
+      model: resolveChatModel(),
+      temperature: 0.2,
+      messages: [
+        { role: 'system' as const, content: summarySystemPrompt },
+        { role: 'user' as const, content: summaryUserContent },
+      ],
+    };
+
+    const summaryResponse = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(summaryBody),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!summaryResponse.ok) {
+      const errorText = await summaryResponse.text();
+      markOpenAiQuotaExceeded('coachChat:summary', summaryResponse.status, errorText, apiKey);
+      throw new Error('Unable to summarize conversation');
+    }
+
+    const summaryData = await summaryResponse.json();
+    const summaryContent: string | undefined = summaryData?.choices?.[0]?.message?.content;
+    const cleaned = (summaryContent ?? '').trim();
+    if (!cleaned) {
+      throw new Error('Empty summary');
+    }
+    return cleaned;
+  };
+
+  const summaryRecord = await loadCoachConversationSummaryRecord(options);
+
   const { openAiMessages: historyMessages } = buildCoachChatContext({
     mode: options?.mode,
     launchContextSummary: options?.launchContextSummary,
+    conversationSummary: summaryRecord?.summary,
     workflowInstance: undefined,
     history: messages,
+    recentTurnsMax: 16,
   });
 
   const openAiMessages = [
@@ -2104,6 +2297,41 @@ export async function sendCoachChat(
     throw new Error('OpenAI coach chat response malformed');
   }
 
+  const scheduleConversationSummaryMaintenance = () => {
+    void (async () => {
+      try {
+        const recentTurnsMax = 16;
+        const nonSystemTurns = messages.filter((m) => m.role !== 'system');
+        const eligibleTurns = nonSystemTurns.slice(
+          0,
+          Math.max(0, nonSystemTurns.length - recentTurnsMax)
+        );
+
+        // Only update if there's meaningfully new eligible content.
+        const prevEligibleCount = summaryRecord?.summarizedEligibleCount ?? 0;
+        const newEligibleTurns = eligibleTurns.slice(Math.max(0, prevEligibleCount));
+        if (newEligibleTurns.length < 6) return;
+
+        const updatedSummary = await summarizeConversationChunk({
+          existingSummary: summaryRecord?.summary,
+          newTurns: newEligibleTurns,
+        });
+
+        await saveCoachConversationSummaryRecord(
+          {
+            version: 1,
+            updatedAt: new Date().toISOString(),
+            summary: updatedSummary,
+            summarizedEligibleCount: eligibleTurns.length,
+          },
+          options
+        );
+      } catch {
+        // Ignore summary failures; they should never break chat.
+      }
+    })();
+  };
+
   // If the model did not request any tools, return the content as before.
   if (!firstChoice.tool_calls || firstChoice.tool_calls.length === 0) {
     const content = firstChoice.content;
@@ -2131,6 +2359,7 @@ export async function sendCoachChat(
       ],
     });
 
+    scheduleConversationSummaryMaintenance();
     return content as string;
   }
 
@@ -2248,6 +2477,7 @@ export async function sendCoachChat(
     ],
   });
 
+  scheduleConversationSummaryMaintenance();
   return finalContent as string;
 }
 

@@ -17,7 +17,7 @@ export const arcCreationWorkflow: WorkflowDefinition = {
     {
       id: 'generateArcs',
       description:
-        "Analyze the user's longings, time horizon, and constraints to propose 2–3 identity Arcs.",
+        "Analyze the user's context and generate ONE identity Arc proposal (name + narrative).",
       kind: 'internal_ai',
       serverOperation: 'ai.generateArcs',
     },
@@ -56,10 +56,15 @@ export const arcCreationWorkflow: WorkflowDefinition = {
     {
       id: 'agent_generate_arc',
       type: 'agent_generate',
-      label: 'Generate Arc suggestions',
+      label: 'Generate Arc proposal',
       fieldsCollected: [],
       promptTemplate:
-        "Given the user's context and any existing workspace snapshot, propose 1–3 Arc identity directions that feel distinctive and grounded.",
+        [
+          "Given the user's context and any existing workspace snapshot, propose exactly ONE Arc identity direction that feels distinctive and grounded.",
+          'Do NOT provide a numbered list of multiple Arc options.',
+          '',
+          'Return a short human explanation (1–3 sentences), then include the required ARC_PROPOSAL_JSON block at the end of the message.',
+        ].join('\n'),
       validationHint:
         'Arcs should read like long-horizon identity directions, not single projects.',
       agentBehavior: {

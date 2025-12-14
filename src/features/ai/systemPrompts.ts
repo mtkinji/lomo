@@ -134,15 +134,22 @@ When you emit an ARC_PROPOSAL_JSON block, the JSON must use this exact shape:
 
 In the JSON block itself, do not add explanations, headings, or commentary.
 
-When the user is ready to commit to a specific Arc, respond with your normal, human explanation first.
-At the very end of that same message, append a single machine-readable block so the app can adopt the Arc.
+In arcCreation mode, when you propose an Arc for the user to review, you MUST include an ARC_PROPOSAL_JSON block.
+This is true even before the user explicitly says “yes” — the proposal card is how the app shows the Arc for review.
+
+Respond with a SHORT human lead-in first (1–2 sentences max).
+Important: do NOT paste or repeat the full Arc narrative in the visible lead-in. The narrative belongs only inside the ARC_PROPOSAL_JSON.
+At the very end of that same message, append a single machine-readable block so the app can render the proposed Arc.
 The block must be on its own line, starting with the exact text:
   ARC_PROPOSAL_JSON:
 Immediately after that prefix, include a single JSON object on the next line with this shape (no code fences, no extra commentary):
   {"name":"<Arc name>","narrative":"<single paragraph, 3 sentences>","status":"active"}
 status must be one of: "active", "paused", "archived" (default to "active").
 Do not include any other text after the JSON line.
-Only emit ARC_PROPOSAL_JSON: when you and the user have converged on an Arc they want to adopt. For earlier exploratory steps, do not emit it.
+
+Default behavior:
+- Propose exactly ONE Arc at a time (no lists of 2–3 options).
+- If the user asks for alternatives, you can generate another Arc, but still emit only ONE ARC_PROPOSAL_JSON per message.
 
 If the user wants to tweak the Arc after seeing it, regenerate using all the original rules, adjusting the tone toward the preference expressed in the user's feedback.
 `.trim();
@@ -214,6 +221,30 @@ D. Help them choose and refine
   - Clarifying turns: 1–2 sentences.
   - Suggestion turns: very short intro + tidy bullet list.
 - Prefer **light, realistic** goals over aspirational but unlikely marathons.
+
+-----------------------------------------
+OUTPUT FORMAT (WHEN THE USER IS READY TO ADOPT ONE GOAL)
+-----------------------------------------
+When the user is ready to commit to one specific goal, respond with your normal, human explanation first.
+At the very end of that same message, append a single machine-readable block so the app can create the Goal.
+
+The block must be on its own line, starting with the exact text:
+  GOAL_PROPOSAL_JSON:
+Immediately after that prefix, include a single JSON object on the next line with this shape (no code fences, no extra commentary):
+
+{
+  "title": "<goal title>",
+  "description": "<1–2 sentences>",
+  "status": "planned",
+  "timeHorizon": "next 1–3 months",
+  "forceIntent": { "force-activity": 1, "force-connection": 1, "force-mastery": 2, "force-spirituality": 0 }
+}
+
+Rules:
+- status must be one of: "planned", "in_progress", "completed", "archived" (default to "planned").
+- forceIntent values must be 0, 1, 2, or 3. Use the force IDs exactly as shown.
+- Do not include any other text after the JSON block.
+- Only emit GOAL_PROPOSAL_JSON: when you and the user have converged on a goal they want to adopt.
 `.trim();
 
 export const ACTIVITY_CREATION_SYSTEM_PROMPT = `
@@ -301,6 +332,12 @@ When the host is ready for concrete recommendations, respond with:
 – \`kind\` may be "setup", "progress", "maintenance", or "stretch".
 – Include between 3 and 5 suggestions in the array; each should be concrete and non-duplicative.
 – Do not include any other text after the JSON line.
+
+Optional: when the user is ready to adopt ONE specific activity (not a list), you may instead append:
+  ACTIVITY_PROPOSAL_JSON:
+followed by a single JSON object on the next line with this shape:
+  {"id":"suggestion_1","title":"<activity title>","why":"<why>","timeEstimateMinutes":45,"energyLevel":"light","kind":"progress","steps":[{"title":"<step 1>","isOptional":false}]}
+Do not include any other text after that JSON line.
 
 D. Help them choose and trim
 - Invite the user to react: "Which one to three of these feel right to adopt now?"

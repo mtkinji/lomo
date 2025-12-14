@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   Keyboard,
@@ -24,7 +25,13 @@ import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { BrandLockup } from '../../ui/BrandLockup';
-import { CoachChatTurn, GeneratedArc, sendCoachChat, type CoachChatOptions } from '../../services/ai';
+import {
+  CoachChatTurn,
+  GeneratedArc,
+  clearCoachConversationMemory,
+  sendCoachChat,
+  type CoachChatOptions,
+} from '../../services/ai';
 import { WORKFLOW_REGISTRY, type ChatMode } from './workflowRegistry';
 import { useAppStore } from '../../store/useAppStore';
 import { useWorkflowRuntime } from './WorkflowRuntimeContext';
@@ -35,6 +42,8 @@ import type {
   ArcProposalFeedback,
   ArcProposalFeedbackReason,
 } from '../../domain/types';
+import type { Goal, GoalForceIntent } from '../../domain/types';
+import { defaultForceLevels } from '../../store/useAppStore';
 import { Text, VStack } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 
@@ -163,6 +172,21 @@ type ParsedAssistantReply = {
 
 const ARC_PROPOSAL_MARKER = 'ARC_PROPOSAL_JSON:';
 const ACTIVITY_SUGGESTIONS_MARKER = 'ACTIVITY_SUGGESTIONS_JSON:';
+const ACTIVITY_PROPOSAL_MARKER = 'ACTIVITY_PROPOSAL_JSON:';
+const GOAL_PROPOSAL_MARKER = 'GOAL_PROPOSAL_JSON:';
+
+type ProposedGoalDraft = {
+  title: string;
+  description?: string;
+  status?: Goal['status'];
+  forceIntent?: GoalForceIntent;
+  timeHorizon?: string;
+};
+
+type ParsedGoalProposal = {
+  displayContent: string;
+  goalProposal: ProposedGoalDraft | null;
+};
 
 export type ActivitySuggestion = {
   id: string;
@@ -180,6 +204,11 @@ export type ActivitySuggestion = {
 type ParsedActivitySuggestions = {
   displayContent: string;
   suggestions: ActivitySuggestion[] | null;
+};
+
+type ParsedActivityProposal = {
+  displayContent: string;
+  suggestion: ActivitySuggestion | null;
 };
 
 function extractJsonCandidateFromHandoffBlock(raw: string): string | null {
@@ -272,6 +301,83 @@ function extractArcProposalFromAssistantMessage(content: string): ParsedAssistan
       displayContent: content,
       arcProposal: null,
     };
+  }
+}
+
+function extractFocusedArcIdFromLaunchContext(launchContext: string | undefined): string | null {
+  if (!launchContext) return null;
+  // Examples we emit today:
+  // - "Focused entity: arc#<id>."
+  // - "Object: arc#<id>."
+  const focusedMatch = launchContext.match(/Focused entity:\s*arc#([^.\s]+)\./i);
+  if (focusedMatch?.[1]) return focusedMatch[1];
+  const objectMatch = launchContext.match(/Object:\s*arc#([^.\s]+)\./i);
+  if (objectMatch?.[1]) return objectMatch[1];
+  return null;
+}
+
+function extractGoalProposalFromAssistantMessage(content: string): ParsedGoalProposal {
+  const markerIndex = content.indexOf(GOAL_PROPOSAL_MARKER);
+  if (markerIndex === -1) {
+    return { displayContent: content, goalProposal: null };
+  }
+
+  const visiblePart = content.slice(0, markerIndex).trimEnd();
+  const afterMarker = content.slice(markerIndex + GOAL_PROPOSAL_MARKER.length).trim();
+  if (!afterMarker) {
+    return { displayContent: content, goalProposal: null };
+  }
+
+  const jsonText = extractJsonCandidateFromHandoffBlock(afterMarker);
+  if (!jsonText) {
+    return { displayContent: visiblePart || content, goalProposal: null };
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText) as ProposedGoalDraft;
+    if (!parsed || typeof parsed !== 'object') {
+      return { displayContent: visiblePart || content, goalProposal: null };
+    }
+    if (!parsed.title || typeof parsed.title !== 'string') {
+      return { displayContent: visiblePart || content, goalProposal: null };
+    }
+    return { displayContent: visiblePart || content, goalProposal: parsed };
+  } catch {
+    return { displayContent: visiblePart || content, goalProposal: null };
+  }
+}
+
+function extractActivityProposalFromAssistantMessage(content: string): ParsedActivityProposal {
+  const markerIndex = content.indexOf(ACTIVITY_PROPOSAL_MARKER);
+  if (markerIndex === -1) {
+    return { displayContent: content, suggestion: null };
+  }
+
+  const visiblePart = content.slice(0, markerIndex).trimEnd();
+  const afterMarker = content.slice(markerIndex + ACTIVITY_PROPOSAL_MARKER.length).trim();
+  if (!afterMarker) {
+    return { displayContent: content, suggestion: null };
+  }
+
+  const jsonText = extractJsonCandidateFromHandoffBlock(afterMarker);
+  if (!jsonText) {
+    return { displayContent: visiblePart || content, suggestion: null };
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText) as ActivitySuggestion;
+    if (!parsed || typeof parsed !== 'object') {
+      return { displayContent: visiblePart || content, suggestion: null };
+    }
+    if (!parsed.id || typeof parsed.id !== 'string') {
+      return { displayContent: visiblePart || content, suggestion: null };
+    }
+    if (!parsed.title || typeof parsed.title !== 'string') {
+      return { displayContent: visiblePart || content, suggestion: null };
+    }
+    return { displayContent: visiblePart || content, suggestion: parsed };
+  } catch {
+    return { displayContent: visiblePart || content, suggestion: null };
   }
 }
 
@@ -743,12 +849,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasStepCard = Boolean(stepCard);
-  const hasVisibleMessages = (messages ?? []).some((message) => message.role !== 'system');
 
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const arcFeedbackEntries = useAppStore((state) => state.arcFeedback);
   const addArcFeedback = useAppStore((state) => state.addArcFeedback);
+  const addGoal = useAppStore((state) => state.addGoal);
+  const arcs = useAppStore((state) => state.arcs);
   const hasAgeRange = Boolean(userProfile?.ageRange);
   // Arc creation previously asked for an age range inline, but this felt
   // intrusive and overlapped with onboarding responsibilities. We now keep
@@ -828,12 +935,15 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [arcProposal, setArcProposal] = useState<GeneratedArc | null>(null);
+  const [goalProposal, setGoalProposal] = useState<ProposedGoalDraft | null>(null);
+  const [goalDraftTitle, setGoalDraftTitle] = useState('');
+  const [goalDraftDescription, setGoalDraftDescription] = useState('');
   const [activitySuggestions, setActivitySuggestions] = useState<ActivitySuggestion[] | null>(
     null
   );
   const [arcDraftName, setArcDraftName] = useState('');
   const [arcDraftNarrative, setArcDraftNarrative] = useState('');
-  const [isFeedbackModalVisible, setIsFeedbackModalVisible] = useState(false);
+  const [isFeedbackInlineVisible, setIsFeedbackInlineVisible] = useState(false);
   const [isUploadComingSoonVisible, setIsUploadComingSoonVisible] = useState(false);
   const [feedbackReasons, setFeedbackReasons] = useState<ArcProposalFeedbackReason[]>([]);
   const [feedbackNote, setFeedbackNote] = useState('');
@@ -848,6 +958,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [dictationError, setDictationError] = useState<string | null>(null);
   const [isDictationAvailable, setIsDictationAvailable] = useState(Boolean(iosSpeechModule));
   const [hasTransportError, setHasTransportError] = useState(false);
+
+  const hasVisibleMessages = (messages ?? []).some((message) => message.role !== 'system');
 
   const hasInput = input.trim().length > 0;
   const canSend = hasInput && !sending;
@@ -1210,13 +1322,27 @@ export const AiChatPane = forwardRef(function AiChatPane(
         }
 
         if (mode === 'activityCreation') {
-          const parsed = extractActivitySuggestionsFromAssistantMessage(fullText);
-          if (parsed.suggestions && parsed.suggestions.length > 0) {
-            setActivitySuggestions(parsed.suggestions);
+          const proposalParsed = extractActivityProposalFromAssistantMessage(fullText);
+          const parsed = extractActivitySuggestionsFromAssistantMessage(proposalParsed.displayContent);
+          const suggestions = proposalParsed.suggestion
+            ? [proposalParsed.suggestion]
+            : parsed.suggestions;
+          if (suggestions && suggestions.length > 0) {
+            setActivitySuggestions(suggestions);
             setAdoptedActivityCount(0);
             setShowActivitySummary(false);
           } else {
             setActivitySuggestions(null);
+          }
+          streamAssistantReply(parsed.displayContent, baseId, opts);
+        } else if (mode === 'goalCreation') {
+          const parsed = extractGoalProposalFromAssistantMessage(fullText);
+          if (parsed.goalProposal) {
+            setGoalProposal(parsed.goalProposal);
+            setGoalDraftTitle(parsed.goalProposal.title ?? '');
+            setGoalDraftDescription(parsed.goalProposal.description ?? '');
+          } else {
+            setGoalProposal(null);
           }
           streamAssistantReply(parsed.displayContent, baseId, opts);
         } else if (mode === 'arcCreation') {
@@ -1275,23 +1401,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
           role: m.role,
           content: m.content,
         }));
-        const coachOptions: CoachChatOptions = {
-          mode,
-          workflowDefinitionId: workflowRuntime?.definition?.id,
-          workflowInstanceId: workflowRuntime?.instance?.id,
-          workflowStepId: workflowRuntime?.instance?.currentStepId,
-          launchContextSummary: launchContext,
-        };
+        const coachOptions: CoachChatOptions = buildCoachOptions();
         const reply = await sendCoachChat(history, coachOptions);
 
         let baseContent = reply;
         if (mode === 'activityCreation') {
+          const proposalParsed = extractActivityProposalFromAssistantMessage(reply);
           const { displayContent, suggestions } =
-            extractActivitySuggestionsFromAssistantMessage(reply);
+            extractActivitySuggestionsFromAssistantMessage(proposalParsed.displayContent);
           baseContent = displayContent;
           if (!cancelled) {
+            const mergedSuggestions = proposalParsed.suggestion
+              ? [proposalParsed.suggestion]
+              : suggestions;
             const nextSuggestions =
-              suggestions && suggestions.length > 0 ? suggestions : null;
+              mergedSuggestions && mergedSuggestions.length > 0 ? mergedSuggestions : null;
             setActivitySuggestions(nextSuggestions);
             if (nextSuggestions) {
               setAdoptedActivityCount(0);
@@ -1300,7 +1424,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
           }
 
           if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
-            const suggestedCount = suggestions?.length ?? 0;
+            const mergedSuggestions = proposalParsed.suggestion ? [proposalParsed.suggestion] : suggestions;
+            const suggestedCount = mergedSuggestions?.length ?? 0;
             workflowRuntime.completeStep(
               'agent_generate_activities',
               { suggestedCount },
@@ -1309,15 +1434,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
           }
         }
 
-        const { displayContent, arcProposal } =
-          extractArcProposalFromAssistantMessage(baseContent);
-        if (arcProposal) {
-          setArcProposal(arcProposal);
-          setArcDraftName(arcProposal.name ?? '');
-          setArcDraftNarrative(arcProposal.narrative ?? '');
+        const arcParsed = extractArcProposalFromAssistantMessage(baseContent);
+        if (arcParsed.arcProposal) {
+          setArcProposal(arcParsed.arcProposal);
+          setArcDraftName(arcParsed.arcProposal.name ?? '');
+          setArcDraftNarrative(arcParsed.arcProposal.narrative ?? '');
+        }
+
+        const goalParsed = extractGoalProposalFromAssistantMessage(arcParsed.displayContent);
+        if (goalParsed.goalProposal) {
+          setGoalProposal(goalParsed.goalProposal);
+          setGoalDraftTitle(goalParsed.goalProposal.title ?? '');
+          setGoalDraftDescription(goalParsed.goalProposal.description ?? '');
         }
         if (cancelled) return;
-        streamAssistantReply(displayContent, 'assistant-bootstrap', {
+        streamAssistantReply(goalParsed.displayContent, 'assistant-bootstrap', {
           onDone: () => {
             if (!cancelled) {
               setBootstrapped(true);
@@ -1457,26 +1588,35 @@ export const AiChatPane = forwardRef(function AiChatPane(
         role: m.role,
         content: m.content,
       }));
-      const coachOptions: CoachChatOptions = {
-        mode,
-        workflowDefinitionId: workflowRuntime?.definition?.id,
-        workflowInstanceId: workflowRuntime?.instance?.id,
-        workflowStepId: workflowRuntime?.instance?.currentStepId,
-        launchContextSummary: launchContext,
-      };
+      const coachOptions: CoachChatOptions = buildCoachOptions();
       const reply = await sendCoachChat(history, coachOptions);
 
-      const { displayContent, arcProposal } = extractArcProposalFromAssistantMessage(reply);
-      if (arcProposal) {
-        setArcProposal(arcProposal);
-        setArcDraftName(arcProposal.name ?? '');
-        setArcDraftNarrative(arcProposal.narrative ?? '');
+      // Parse structured proposal payloads (Arc / Goal) so we can render
+      // confirm/apply cards instead of exposing raw JSON in the transcript.
+      const arcParsed = extractArcProposalFromAssistantMessage(reply);
+      if (arcParsed.arcProposal) {
+        setArcProposal(arcParsed.arcProposal);
+        setArcDraftName(arcParsed.arcProposal.name ?? '');
+        setArcDraftNarrative(arcParsed.arcProposal.narrative ?? '');
+      }
+
+      const goalParsed = extractGoalProposalFromAssistantMessage(arcParsed.displayContent);
+      if (goalParsed.goalProposal) {
+        setGoalProposal(goalParsed.goalProposal);
+        setGoalDraftTitle(goalParsed.goalProposal.title ?? '');
+        setGoalDraftDescription(goalParsed.goalProposal.description ?? '');
+      } else {
+        setGoalProposal(null);
       }
 
       if (mode === 'activityCreation') {
-        const activityParsed = extractActivitySuggestionsFromAssistantMessage(displayContent);
-        if (activityParsed.suggestions && activityParsed.suggestions.length > 0) {
-          setActivitySuggestions(activityParsed.suggestions);
+        const proposalParsed = extractActivityProposalFromAssistantMessage(goalParsed.displayContent);
+        const activityParsed = extractActivitySuggestionsFromAssistantMessage(proposalParsed.displayContent);
+        const suggestions = proposalParsed.suggestion
+          ? [proposalParsed.suggestion]
+          : activityParsed.suggestions;
+        if (suggestions && suggestions.length > 0) {
+          setActivitySuggestions(suggestions);
           setAdoptedActivityCount(0);
           setShowActivitySummary(false);
         } else {
@@ -1502,7 +1642,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         return;
       }
 
-      streamAssistantReply(displayContent, 'assistant', {
+      streamAssistantReply(goalParsed.displayContent, 'assistant', {
         onDone: () => {
           setSending(false);
           setThinking(false);
@@ -1689,6 +1829,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
       ? 'This coach helps you design one long‑term Arc for your life — not manage tasks or habits.'
       : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
 
+  const buildCoachOptions = useCallback((): CoachChatOptions => {
+    return {
+      mode,
+      workflowDefinitionId: workflowRuntime?.definition?.id,
+      workflowInstanceId: workflowRuntime?.instance?.id,
+      workflowStepId: workflowRuntime?.instance?.currentStepId,
+      launchContextSummary: launchContext,
+    };
+  }, [launchContext, mode, workflowRuntime]);
+
+  const handleResetContext = useCallback(() => {
+    Alert.alert(
+      'Reset context?',
+      'This clears the coach’s stored conversation memory for this workflow so it doesn’t keep “remembering” older turns. Recent messages in the thread will still be visible.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            void clearCoachConversationMemory(buildCoachOptions());
+          },
+        },
+      ]
+    );
+  }, [buildCoachOptions]);
+
   return (
     <>
       <KeyboardAvoidingView style={styles.flex}>
@@ -1724,8 +1891,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                               ? 'goals'
                               : mode === 'activityCreation'
                               ? 'activity'
-                              : mode === 'firstTimeOnboarding'
-                              ? 'sparkles'
                               : 'arcs'
                           }
                           size={14}
@@ -1742,6 +1907,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       />
                     </Pressable>
                   )}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Reset coach context"
+                    onPress={handleResetContext}
+                    style={styles.resetContextButton}
+                  >
+                    <View style={styles.resetContextInner}>
+                      <Icon name="refresh" size={14} color={CHAT_COLORS.textSecondary} />
+                      <Text style={styles.resetContextText}>Reset context</Text>
+                    </View>
+                  </Pressable>
                 </View>
               )}
               <View
@@ -1912,6 +2088,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           setArcProposal(null);
                           setArcDraftName('');
                           setArcDraftNarrative('');
+                          setIsFeedbackInlineVisible(false);
                         }}
                       >
                         <Text style={styles.arcDraftSecondaryButtonText}>Not now</Text>
@@ -1921,7 +2098,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         onPress={() => {
                           setFeedbackReasons([]);
                           setFeedbackNote('');
-                          setIsFeedbackModalVisible(true);
+                          setIsFeedbackInlineVisible((current) => !current);
                         }}
                       >
                         <Text style={styles.arcDraftSecondaryButtonText}>Not quite</Text>
@@ -1943,6 +2120,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           };
 
                           setArcProposal(finalized);
+                          setIsFeedbackInlineVisible(false);
                           await saveArcCreationDraft(null);
                           if (workflowRuntime?.definition?.chatMode === 'arcCreation') {
                             workflowRuntime.completeStep('confirm_arc');
@@ -1953,6 +2131,182 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         }}
                       >
                         <Text style={styles.arcDraftConfirmText}>Adopt Arc</Text>
+                      </Button>
+                    </View>
+                    {isFeedbackInlineVisible ? (
+                      <View style={styles.arcDraftInlineFeedback}>
+                        <Text style={styles.feedbackTitle}>Help refine this Arc</Text>
+                        <Text style={styles.feedbackBody}>
+                          What feels off about this suggestion? Pick any that apply and add a short note if
+                          helpful.
+                        </Text>
+                        <View style={styles.feedbackChipsRow}>
+                          {ARC_FEEDBACK_REASONS.map((reason) => {
+                            const selected = feedbackReasons.includes(reason.value);
+                            return (
+                              <Button
+                                key={reason.value}
+                                variant={selected ? 'secondary' : 'outline'}
+                                size="small"
+                                style={styles.feedbackChip}
+                                onPress={() => {
+                                  setFeedbackReasons((current) =>
+                                    current.includes(reason.value)
+                                      ? current.filter((value) => value !== reason.value)
+                                      : [...current, reason.value],
+                                  );
+                                }}
+                              >
+                                <Text
+                                  style={
+                                    selected
+                                      ? styles.feedbackChipTextSelected
+                                      : styles.feedbackChipTextUnselected
+                                  }
+                                >
+                                  {reason.label}
+                                </Text>
+                              </Button>
+                            );
+                          })}
+                        </View>
+                        <View style={styles.feedbackNoteContainer}>
+                          <Text style={styles.feedbackNoteLabel}>In your own words</Text>
+                          <TextInput
+                            style={styles.feedbackNoteInput}
+                            value={feedbackNote}
+                            onChangeText={setFeedbackNote}
+                            placeholder="e.g. This sounds like a short project, I wanted a longer storyline."
+                            placeholderTextColor={CHAT_COLORS.textSecondary}
+                            multiline
+                          />
+                        </View>
+                        <View style={styles.feedbackButtonsRow}>
+                          <Button
+                            variant="outline"
+                            onPress={() => {
+                              setIsFeedbackInlineVisible(false);
+                              setFeedbackReasons([]);
+                              setFeedbackNote('');
+                            }}
+                          >
+                            <Text style={styles.arcDraftSecondaryButtonText}>Cancel</Text>
+                          </Button>
+                          <Button
+                            variant="ai"
+                            onPress={() => {
+                              if (!arcProposal) {
+                                setIsFeedbackInlineVisible(false);
+                                return;
+                              }
+                              const payload: ArcProposalFeedback = {
+                                id: `arc-feedback-${Date.now()}`,
+                                arcName: arcProposal.name,
+                                arcNarrative: arcProposal.narrative,
+                                decision: 'down',
+                                reasons: feedbackReasons,
+                                note: feedbackNote.trim() || undefined,
+                                createdAt: new Date().toISOString(),
+                              };
+                              addArcFeedback(payload);
+                              setIsFeedbackInlineVisible(false);
+                              setFeedbackReasons([]);
+                              setFeedbackNote('');
+                            }}
+                          >
+                            <Text style={styles.arcDraftConfirmText}>Save feedback</Text>
+                          </Button>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+
+                {mode === 'goalCreation' && goalProposal && (
+                  <View style={styles.goalDraftCard}>
+                    <Text style={styles.goalDraftLabel}>Proposed Goal</Text>
+                    <TextInput
+                      style={styles.goalDraftTitleInput}
+                      value={goalDraftTitle}
+                      onChangeText={setGoalDraftTitle}
+                      placeholder="Goal title"
+                      placeholderTextColor={CHAT_COLORS.textSecondary}
+                    />
+                    <TextInput
+                      style={styles.goalDraftDescriptionInput}
+                      value={goalDraftDescription}
+                      onChangeText={setGoalDraftDescription}
+                      placeholder="Short description"
+                      placeholderTextColor={CHAT_COLORS.textSecondary}
+                      multiline
+                    />
+                    {goalProposal.timeHorizon ? (
+                      <Text style={styles.goalDraftMeta}>Time horizon: {goalProposal.timeHorizon}</Text>
+                    ) : null}
+                    <View style={styles.goalDraftButtonsRow}>
+                      <Button
+                        variant="outline"
+                        onPress={() => {
+                          setGoalProposal(null);
+                          setGoalDraftTitle('');
+                          setGoalDraftDescription('');
+                        }}
+                      >
+                        <Text style={styles.goalDraftSecondaryButtonText}>Not now</Text>
+                      </Button>
+                      <Button
+                        variant="ai"
+                        onPress={() => {
+                          if (!goalProposal) return;
+                          const title = (goalDraftTitle || goalProposal.title || '').trim();
+                          if (!title) return;
+                          const description = (goalDraftDescription || goalProposal.description || '').trim();
+
+                          const focusedArcId = extractFocusedArcIdFromLaunchContext(launchContext);
+                          const fallbackArcId = arcs.length > 0 ? arcs[arcs.length - 1]?.id : null;
+                          const arcId = focusedArcId ?? fallbackArcId;
+                          if (!arcId) {
+                            Alert.alert(
+                              'No Arc available',
+                              'Create an Arc first so this goal has a home.'
+                            );
+                            return;
+                          }
+
+                          const timestamp = new Date().toISOString();
+                          const mergedForceIntent = {
+                            ...defaultForceLevels(0),
+                            ...(goalProposal.forceIntent ?? {}),
+                          };
+
+                          const goal: Goal = {
+                            id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            arcId,
+                            title,
+                            description: description.length ? description : undefined,
+                            status: goalProposal.status ?? 'planned',
+                            startDate: timestamp,
+                            targetDate: undefined,
+                            forceIntent: mergedForceIntent,
+                            metrics: [],
+                            createdAt: timestamp,
+                            updatedAt: timestamp,
+                          };
+
+                          addGoal(goal);
+                          setGoalProposal(null);
+
+                          if (workflowRuntime?.definition?.chatMode === 'goalCreation') {
+                            workflowRuntime.completeStep('confirm_goal', {
+                              title: goal.title,
+                              description: goal.description ?? null,
+                              status: goal.status,
+                              forceIntent: goal.forceIntent,
+                            });
+                          }
+                        }}
+                      >
+                        <Text style={styles.goalDraftConfirmText}>Adopt Goal</Text>
                       </Button>
                     </View>
                   </View>
@@ -2219,110 +2573,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
         </Text>
       </Dialog>
 
-    {isArcCreationMode && arcProposal && (
-      <Modal
-        visible={isFeedbackModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsFeedbackModalVisible(false)}
-      >
-        <View style={styles.feedbackOverlay}>
-          <View style={styles.feedbackCard}>
-            <View style={styles.feedbackHeaderRow}>
-              <Text style={styles.feedbackTitle}>Help refine this Arc</Text>
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={() => setIsFeedbackModalVisible(false)}
-                accessibilityLabel="Close feedback"
-                style={styles.arcInfoCloseButton}
-              >
-                <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
-              </Button>
-            </View>
-            <Text style={styles.feedbackBody}>
-              What feels off about this suggestion? Pick any that apply and add a short note if
-              helpful.
-            </Text>
-            <View style={styles.feedbackChipsRow}>
-              {ARC_FEEDBACK_REASONS.map((reason) => {
-                const selected = feedbackReasons.includes(reason.value);
-                return (
-                  <Button
-                    key={reason.value}
-                    variant={selected ? 'secondary' : 'outline'}
-                    size="small"
-                    style={styles.feedbackChip}
-                    onPress={() => {
-                      setFeedbackReasons((current) =>
-                        current.includes(reason.value)
-                          ? current.filter((value) => value !== reason.value)
-                          : [...current, reason.value],
-                      );
-                    }}
-                  >
-                    <Text
-                      style={
-                        selected
-                          ? styles.feedbackChipTextSelected
-                          : styles.feedbackChipTextUnselected
-                      }
-                    >
-                      {reason.label}
-                    </Text>
-                  </Button>
-                );
-              })}
-            </View>
-            <View style={styles.feedbackNoteContainer}>
-              <Text style={styles.feedbackNoteLabel}>In your own words</Text>
-              <TextInput
-                style={styles.feedbackNoteInput}
-                value={feedbackNote}
-                onChangeText={setFeedbackNote}
-                placeholder="e.g. This sounds like a short project, I wanted a longer storyline."
-                placeholderTextColor={CHAT_COLORS.textSecondary}
-                multiline
-              />
-            </View>
-            <View style={styles.feedbackButtonsRow}>
-              <Button
-                variant="outline"
-                onPress={() => {
-                  setIsFeedbackModalVisible(false);
-                }}
-              >
-                <Text style={styles.arcDraftSecondaryButtonText}>Cancel</Text>
-              </Button>
-              <Button
-                variant="ai"
-                onPress={() => {
-                  if (!arcProposal) {
-                    setIsFeedbackModalVisible(false);
-                    return;
-                  }
-                  const payload: ArcProposalFeedback = {
-                    id: `arc-feedback-${Date.now()}`,
-                    arcName: arcProposal.name,
-                    arcNarrative: arcProposal.narrative,
-                    decision: 'down',
-                    reasons: feedbackReasons,
-                    note: feedbackNote.trim() || undefined,
-                    createdAt: new Date().toISOString(),
-                  };
-                  addArcFeedback(payload);
-                  setIsFeedbackModalVisible(false);
-                  setFeedbackReasons([]);
-                  setFeedbackNote('');
-                }}
-              >
-                <Text style={styles.arcDraftConfirmText}>Save feedback</Text>
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    )}
   </>
   );
 });
@@ -2528,6 +2778,24 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   modePillText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  resetContextButton: {
+    alignSelf: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  resetContextInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  resetContextText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
   },
@@ -3070,6 +3338,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
+  arcDraftInlineFeedback: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: CHAT_COLORS.border,
+  },
   arcDraftSecondaryButtonText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
@@ -3078,27 +3352,51 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: CHAT_COLORS.userBubbleText,
   },
-  feedbackOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
-  feedbackCard: {
-    width: '100%',
-    borderRadius: 24,
-    backgroundColor: CHAT_COLORS.surface,
+  goalDraftCard: {
+    marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: 16,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    gap: spacing.sm,
   },
-  feedbackHeaderRow: {
+  goalDraftLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  goalDraftTitleInput: {
+    ...typography.titleSm,
+    color: CHAT_COLORS.textPrimary,
+    paddingVertical: spacing.xs,
+  },
+  goalDraftDescriptionInput: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+    paddingVertical: spacing.xs,
+    textAlignVertical: 'top',
+    minHeight: typography.bodySm.lineHeight * 2,
+  },
+  goalDraftMeta: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  goalDraftButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
+  goalDraftSecondaryButtonText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  goalDraftConfirmText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.userBubbleText,
+  },
+  // Inline feedback panel reuses the feedback typography + chip styles below.
   feedbackTitle: {
     ...typography.titleSm,
     color: CHAT_COLORS.textPrimary,

@@ -27,9 +27,14 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
+  clearAllCoachConversationMemory,
+  clearCoachConversationMemoryByKey,
   type CoachChatTurn,
+  type CoachConversationSummaryRecordV1,
   type DevCoachChatLogEntry,
   type DevCoachChatFeedback,
+  listCoachConversationMemoryKeys,
+  loadCoachConversationMemoryByKey,
 } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
 import { ArcTestingLauncher } from './ArcTestingLauncher';
@@ -82,11 +87,20 @@ export function DevToolsScreen() {
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'tools' | 'gallery' | 'typeColor' | 'arcTesting'>(initialTab);
+  const [viewMode, setViewMode] = useState<
+    'tools' | 'gallery' | 'typeColor' | 'arcTesting' | 'memory'
+  >(initialTab);
   const [demoDialogVisible, setDemoDialogVisible] = useState(false);
   const [demoSheetVisible, setDemoSheetVisible] = useState(false);
   const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
   const [isInterstitialFullScreenVisible, setIsInterstitialFullScreenVisible] = useState(false);
+  const [memoryKeys, setMemoryKeys] = useState<string[]>([]);
+  const [memoryRecords, setMemoryRecords] = useState<Record<string, CoachConversationSummaryRecordV1 | null>>(
+    {}
+  );
+  const [memoryExpandedKey, setMemoryExpandedKey] = useState<string | null>(null);
+  const [isLoadingMemory, setIsLoadingMemory] = useState(false);
+
   const [launchBody, setLaunchBody] = useState('Grow into the person you want to be.');
   const [authBody, setAuthBody] = useState(
     'Save your arcs and sync your progress across devices.'
@@ -117,6 +131,23 @@ export function DevToolsScreen() {
   useEffect(() => {
     void loadChatHistory();
   }, []);
+
+  const loadMemory = async () => {
+    try {
+      setIsLoadingMemory(true);
+      const keys = await listCoachConversationMemoryKeys();
+      setMemoryKeys(keys);
+      const nextRecords: Record<string, CoachConversationSummaryRecordV1 | null> = {};
+      await Promise.all(
+        keys.map(async (key) => {
+          nextRecords[key] = await loadCoachConversationMemoryByKey(key);
+        })
+      );
+      setMemoryRecords(nextRecords);
+    } finally {
+      setIsLoadingMemory(false);
+    }
+  };
 
   useEffect(() => {
     if (route.params?.initialTab) {
@@ -435,6 +466,7 @@ export function DevToolsScreen() {
   const isGallery = viewMode === 'gallery';
   const isTypeAndColor = viewMode === 'typeColor';
   const isArcTesting = viewMode === 'arcTesting';
+  const isMemory = viewMode === 'memory';
 
   const interstitialSegmentOptions: { value: InterstitialVariant; label: string }[] = [
     { value: 'launch', label: 'Launch' },
@@ -969,6 +1001,7 @@ export function DevToolsScreen() {
           onChange={(next) => setViewMode(next)}
           options={[
             { value: 'tools', label: 'Tools' },
+            { value: 'memory', label: 'Memory' },
             { value: 'gallery', label: 'Components' },
             { value: 'typeColor', label: 'Type & Color' },
             { value: 'arcTesting', label: 'Arc Testing' },
@@ -977,6 +1010,120 @@ export function DevToolsScreen() {
       </PageHeader>
       {isArcTesting ? (
         <ArcTestingLauncher />
+      ) : isMemory ? (
+        <CanvasScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.stack}>
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Coach memory (device)</Text>
+              <Text style={styles.cardBody}>
+                These are the persisted “conversation memory summaries” used to keep the coach
+                consistent over time without sending the full transcript every turn.
+              </Text>
+              <HStack space="sm" style={{ marginTop: spacing.md }}>
+                <Button variant="accent" onPress={() => void loadMemory()}>
+                  <Text style={styles.primaryButtonLabel}>
+                    {isLoadingMemory ? 'Loading…' : 'Refresh'}
+                  </Text>
+                </Button>
+                <Button
+                  variant="outline"
+                  onPress={() => {
+                    Alert.alert(
+                      'Clear all memory?',
+                      'This removes all persisted coach memory summaries on this device.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Clear all',
+                          style: 'destructive',
+                          onPress: () => {
+                            void clearAllCoachConversationMemory().then(loadMemory);
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Clear all</Text>
+                </Button>
+              </HStack>
+              <Text style={styles.meta}>
+                {memoryKeys.length} {memoryKeys.length === 1 ? 'record' : 'records'}
+              </Text>
+            </View>
+
+            {memoryKeys.length === 0 ? (
+              <View style={styles.card}>
+                <Text style={styles.cardBody}>
+                  No memory summaries stored yet. Have a longer chat, then come back and refresh.
+                </Text>
+              </View>
+            ) : (
+              memoryKeys.map((key) => {
+                const record = memoryRecords[key];
+                const isExpanded = memoryExpandedKey === key;
+                const preview = (record?.summary ?? '').trim();
+                return (
+                  <View key={key} style={styles.card}>
+                    <HStack justifyContent="space-between" alignItems="center">
+                      <Text style={styles.memoryKey} numberOfLines={2}>
+                        {key.replace('kwilt-coach-summary:v1:', '')}
+                      </Text>
+                      <Button
+                        variant="ghost"
+                        size="small"
+                        onPress={() => setMemoryExpandedKey(isExpanded ? null : key)}
+                      >
+                        <Text style={styles.memoryLinkText}>{isExpanded ? 'Hide' : 'View'}</Text>
+                      </Button>
+                    </HStack>
+
+                    {record ? (
+                      <>
+                        <Text style={styles.meta}>
+                          Updated {record.updatedAt} • summarized={record.summarizedEligibleCount}
+                        </Text>
+                        <Text style={styles.memoryPreview} numberOfLines={isExpanded ? 0 : 6}>
+                          {preview.length > 0 ? preview : '(empty)'}
+                        </Text>
+                        {isExpanded && (
+                          <HStack space="sm" style={{ marginTop: spacing.md }}>
+                            <Button
+                              variant="outline"
+                              onPress={() => {
+                                Alert.alert(
+                                  'Clear memory?',
+                                  'This removes this one memory summary.',
+                                  [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                      text: 'Clear',
+                                      style: 'destructive',
+                                      onPress: () => {
+                                        void clearCoachConversationMemoryByKey(key).then(loadMemory);
+                                      },
+                                    },
+                                  ]
+                                );
+                              }}
+                            >
+                              <Text style={styles.secondaryButtonLabel}>Clear</Text>
+                            </Button>
+                          </HStack>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={styles.cardBody}>Unable to load record.</Text>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </CanvasScrollView>
       ) : isGallery ? (
         <>
           {renderComponentGallery()}
@@ -1274,6 +1421,23 @@ const styles = StyleSheet.create({
   meta: {
     ...typography.bodySm,
     color: colors.muted,
+    marginTop: spacing.sm,
+  },
+  memoryKey: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  memoryLinkText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.semibold,
+  },
+  memoryPreview: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
     marginTop: spacing.sm,
   },
   cardAction: {

@@ -862,6 +862,55 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
   const [introLine2, setIntroLine2] = React.useState('');
   const [introDone, setIntroDone] = React.useState(false);
   const [recommendedIndex, setRecommendedIndex] = React.useState(0);
+  const [refineDrawerVisible, setRefineDrawerVisible] = React.useState(false);
+  const [refinementHint, setRefinementHint] = React.useState('');
+  const [refining, setRefining] = React.useState(false);
+
+  const handleRefineRecommendation = React.useCallback(
+    async (hint: string) => {
+      const trimmed = hint.trim();
+      if (!trimmed) return;
+
+      setRefining(true);
+      setRecommendationsError(null);
+      try {
+        const current = recommended?.[recommendedIndex];
+        const currentSummary = current
+          ? `Current suggestion:\nTitle: ${current.title}\nDescription: ${current.description ?? ''}`
+          : '';
+        const prompt = [
+          'The user generally likes the goal, but wants to refine it.',
+          currentSummary,
+          `Refinement request: ${trimmed}`,
+          'Keep the same general intent. Produce 3 alternative versions with slightly different scope/wording, each with a short title + 1–2 sentence description.',
+        ]
+          .filter(Boolean)
+          .join('\n\n');
+
+        const goals = await generateGoals({
+          arcName: arc.name,
+          arcNarrative: arc.narrative ?? undefined,
+          prompt,
+          timeHorizon: undefined,
+          constraints: undefined,
+        });
+
+        if (goals && goals.length > 0) {
+          setRecommended(goals);
+          setRecommendedIndex(0);
+          setRefinementHint('');
+          setRefineDrawerVisible(false);
+        } else {
+          setRecommendationsError('Unable to refine suggestion right now.');
+        }
+      } catch {
+        setRecommendationsError('Unable to refine suggestion right now.');
+      } finally {
+        setRefining(false);
+      }
+    },
+    [arc.name, arc.narrative, recommended, recommendedIndex]
+  );
 
   React.useEffect(() => {
     if (recommended || loadingRecommendations || step !== 'recommendations') return;
@@ -1002,133 +1051,236 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
 
   if (step === 'recommendations') {
     return (
-      <ScrollView
-        style={styles.wizardScroll}
-        contentContainerStyle={styles.wizardContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {introLine1.length > 0 && (
-          <>
-            {(() => {
-              const text = introLine1;
-              const name = arc.name;
-              const idx = text.indexOf(name);
-              if (idx === -1) {
-                return <Text style={styles.wizardTitle}>{text}</Text>;
-              }
-              const before = text.slice(0, idx);
-              const namePart = text.slice(idx, idx + name.length);
-              const after = text.slice(idx + name.length);
-              return (
-                <Text style={styles.wizardTitle}>
-                  {before}
-                  <Text style={styles.wizardTitleEmphasis}>{namePart}</Text>
-                  {after}
-                </Text>
-              );
-            })()}
-            {introLine2.length > 0 && <Text style={styles.wizardBody}>{introLine2}</Text>}
-          </>
-        )}
-        {introDone && (
-          <View style={styles.wizardOuterCard}>
-            {loadingRecommendations && (
-              <View style={styles.wizardLoadingRow}>
-                <ActivityIndicator color={colors.accent} />
-                <Text style={styles.wizardLoadingLabel}>Loading a goal suggestion…</Text>
-              </View>
-            )}
-            {recommendationsError && (
-              <Text style={styles.wizardErrorText}>{recommendationsError}</Text>
-            )}
-            {!loadingRecommendations &&
-              !recommendationsError &&
-              recommended &&
-              recommended.length > 0 && (
-                <View style={styles.wizardRecommendationCard}>
-                  {(() => {
-                    const draftGoal = recommended[recommendedIndex];
-                    if (!draftGoal) return null;
-                    const previewGoal: Goal = {
-                      id: `recommendation-${arc.id}-${recommendedIndex}`,
-                      arcId: arc.id,
-                      title: draftGoal.title,
-                      description: draftGoal.description,
-                      status: draftGoal.status,
-                      forceIntent: { ...defaultForceLevels(0), ...draftGoal.forceIntent },
-                      metrics: [],
-                      createdAt: 'draft',
-                      updatedAt: 'draft',
-                    };
-                    return (
-                      <GoalListCard
-                        goal={previewGoal}
-                        parentArc={arc}
-                        padding="xs"
-                        density="dense"
-                        showThumbnail={false}
-                        showActivityMeta={false}
-                        compact
-                        headerLabel={
-                          <HStack
-                            space="xs"
-                            alignItems="center"
-                            style={styles.wizardRecommendationHeaderLabel}
-                          >
-                            <Icon name="sparkles" size={14} color={colors.textSecondary} />
-                            <Text style={styles.wizardRecommendationBadgeText}>AI recommendation</Text>
-                          </HStack>
-                        }
-                      >
-                        <VStack space="sm">
-                          {draftGoal.description && (
-                            <Text style={styles.wizardDraftBody}>{draftGoal.description}</Text>
-                          )}
-                          <HStack
-                            style={styles.wizardDraftActions}
-                            alignItems="center"
-                            justifyContent="flex-end"
-                            space="sm"
-                          >
-                            {recommended.length > 1 && (
-                              <Button
-                                variant="outline"
-                                size="small"
-                                onPress={() =>
-                                  setRecommendedIndex((current) =>
-                                    (current + 1) % (recommended.length || 1)
-                                  )
-                                }
-                              >
-                                <HStack space="xs" alignItems="center">
-                                  <Icon name="refresh" size={14} color={colors.textSecondary} />
-                                  <Text>Try again</Text>
-                                </HStack>
-                              </Button>
-                            )}
-                            <Button
-                              variant="accent"
-                              size="small"
-                              onPress={() => {
-                                const goal = recommended[recommendedIndex];
-                                if (goal) {
-                                  onGoalCreated(goal);
-                                }
-                              }}
-                            >
-                              <Text style={styles.primaryButtonLabel}>Accept</Text>
-                            </Button>
-                          </HStack>
-                        </VStack>
-                      </GoalListCard>
-                    );
-                  })()}
+      <>
+        <ScrollView
+          style={styles.wizardScroll}
+          contentContainerStyle={styles.wizardContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {introLine1.length > 0 && (
+            <>
+              {(() => {
+                const text = introLine1;
+                const name = arc.name;
+                const idx = text.indexOf(name);
+                if (idx === -1) {
+                  return <Text style={styles.wizardTitle}>{text}</Text>;
+                }
+                const before = text.slice(0, idx);
+                const namePart = text.slice(idx, idx + name.length);
+                const after = text.slice(idx + name.length);
+                return (
+                  <Text style={styles.wizardTitle}>
+                    {before}
+                    <Text style={styles.wizardTitleEmphasis}>{namePart}</Text>
+                    {after}
+                  </Text>
+                );
+              })()}
+              {introLine2.length > 0 && <Text style={styles.wizardBody}>{introLine2}</Text>}
+            </>
+          )}
+          {introDone && (
+            <View style={styles.wizardOuterCard}>
+              {loadingRecommendations && (
+                <View style={styles.wizardLoadingRow}>
+                  <ActivityIndicator color={colors.accent} />
+                  <Text style={styles.wizardLoadingLabel}>Loading a goal suggestion…</Text>
                 </View>
               )}
-          </View>
-        )}
-      </ScrollView>
+              {recommendationsError && (
+                <Text style={styles.wizardErrorText}>{recommendationsError}</Text>
+              )}
+              {!loadingRecommendations &&
+                !recommendationsError &&
+                recommended &&
+                recommended.length > 0 && (
+                  <View style={styles.wizardRecommendationCard}>
+                    {(() => {
+                      const draftGoal = recommended[recommendedIndex];
+                      if (!draftGoal) return null;
+                      const previewGoal: Goal = {
+                        id: `recommendation-${arc.id}-${recommendedIndex}`,
+                        arcId: arc.id,
+                        title: draftGoal.title,
+                        description: draftGoal.description,
+                        status: draftGoal.status,
+                        forceIntent: { ...defaultForceLevels(0), ...draftGoal.forceIntent },
+                        metrics: [],
+                        createdAt: 'draft',
+                        updatedAt: 'draft',
+                      };
+                      return (
+                        <GoalListCard
+                          goal={previewGoal}
+                          parentArc={arc}
+                          padding="xs"
+                          density="dense"
+                          showThumbnail={false}
+                          showActivityMeta={false}
+                          compact
+                          headerLabel={
+                            <HStack
+                              space="xs"
+                              alignItems="center"
+                              style={styles.wizardRecommendationHeaderLabel}
+                            >
+                              <Icon name="sparkles" size={14} color={colors.textSecondary} />
+                              <Text style={styles.wizardRecommendationBadgeText}>
+                                AI recommendation
+                              </Text>
+                            </HStack>
+                          }
+                        >
+                          <VStack space="sm">
+                            {draftGoal.description && (
+                              <Text style={styles.wizardDraftBody}>{draftGoal.description}</Text>
+                            )}
+                            <HStack
+                              style={styles.wizardDraftActions}
+                              alignItems="center"
+                              justifyContent="flex-end"
+                              space="sm"
+                            >
+                              {recommended.length > 1 && (
+                                <Button
+                                  variant="outline"
+                                  size="small"
+                                  onPress={() =>
+                                    setRecommendedIndex((current) =>
+                                      (current + 1) % (recommended.length || 1)
+                                    )
+                                  }
+                                >
+                                  <HStack space="xs" alignItems="center">
+                                    <Icon name="refresh" size={14} color={colors.textSecondary} />
+                                    <Text>Try again</Text>
+                                  </HStack>
+                                </Button>
+                              )}
+                              <Button
+                                variant="accent"
+                                size="small"
+                                onPress={() => {
+                                  const goal = recommended[recommendedIndex];
+                                  if (goal) {
+                                    onGoalCreated(goal);
+                                  }
+                                }}
+                              >
+                                <Text style={styles.primaryButtonLabel}>Accept</Text>
+                              </Button>
+                            </HStack>
+                          </VStack>
+                        </GoalListCard>
+                      );
+                    })()}
+
+                    <View style={styles.wizardRefinePanel}>
+                      <HStack space="xs" alignItems="center">
+                        <Text style={styles.wizardRefinePrompt}>Want to tweak it?</Text>
+                        {refining && <ActivityIndicator color={colors.accent} />}
+                      </HStack>
+                      <View style={styles.wizardRefineChipRow}>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.wizardRefineChip}
+                          onPress={() =>
+                            void handleRefineRecommendation(
+                              'Make it smaller and easier to start this week.'
+                            )
+                          }
+                          disabled={refining}
+                        >
+                          <Text style={styles.wizardRefineChipText}>Make it smaller</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.wizardRefineChip}
+                          onPress={() =>
+                            void handleRefineRecommendation(
+                              'Make it more specific and measurable without changing the core idea.'
+                            )
+                          }
+                          disabled={refining}
+                        >
+                          <Text style={styles.wizardRefineChipText}>More specific</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.wizardRefineChip}
+                          onPress={() =>
+                            void handleRefineRecommendation(
+                              'Add a realistic timeframe and a clear definition of done.'
+                            )
+                          }
+                          disabled={refining}
+                        >
+                          <Text style={styles.wizardRefineChipText}>Add timeframe</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.wizardRefineChip}
+                          onPress={() => setRefineDrawerVisible(true)}
+                          disabled={refining}
+                        >
+                          <Text style={styles.wizardRefineChipText}>Tell us more…</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                )}
+            </View>
+          )}
+        </ScrollView>
+
+        <BottomDrawer
+          visible={refineDrawerVisible}
+          onClose={() => setRefineDrawerVisible(false)}
+          snapPoints={['60%']}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.wizardRefineDrawer}
+          >
+            <Heading style={styles.wizardRefineDrawerTitle}>Refine this goal</Heading>
+            <Text style={styles.modalBody}>
+              Add a sentence or two about what you want to change (scope, wording, timeframe, or what “done”
+              means). We’ll keep the same core idea.
+            </Text>
+
+            <Text style={styles.modalLabel}>Your refinement</Text>
+            <TextInput
+              style={[styles.input, styles.wizardRefineInput]}
+              value={refinementHint}
+              onChangeText={setRefinementHint}
+              placeholder="e.g., I only have ~20 minutes per day; make this feel lighter and more realistic."
+              placeholderTextColor={colors.textSecondary}
+              multiline
+            />
+
+            <HStack space="sm" marginTop={spacing.md}>
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => setRefineDrawerVisible(false)}
+                disabled={refining}
+              >
+                <Text style={styles.wizardRefineDrawerSecondaryText}>Cancel</Text>
+              </Button>
+              <Button
+                variant="accent"
+                style={{ flex: 1 }}
+                onPress={() => void handleRefineRecommendation(refinementHint)}
+                disabled={refining || refinementHint.trim().length === 0}
+              >
+                <Text style={styles.primaryButtonLabel}>{refining ? 'Updating…' : 'Update'}</Text>
+              </Button>
+            </HStack>
+          </KeyboardAvoidingView>
+        </BottomDrawer>
+      </>
     );
   }
 
@@ -1522,6 +1674,52 @@ const styles = StyleSheet.create({
   },
   wizardRecommendationCard: {
     gap: spacing.sm,
+  },
+  wizardRefinePanel: {
+    paddingTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  wizardRefinePrompt: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+  },
+  wizardRefineChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  wizardRefineChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  wizardRefineChipText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  wizardRefineDrawer: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  wizardRefineDrawerTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  wizardRefineDrawerSecondaryText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  wizardRefineInput: {
+    minHeight: 96,
+    textAlignVertical: 'top',
   },
   wizardRecommendationHeader: {
     flexDirection: 'row',

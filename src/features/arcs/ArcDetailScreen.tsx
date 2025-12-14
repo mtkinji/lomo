@@ -1112,6 +1112,8 @@ export function ArcDetailScreen() {
         spotlightPadding={spacing.xs}
         spotlightRadius={18}
         offset={spacing.xs}
+        highlightColor={colors.turmeric}
+        actionColor={colors.turmeric}
         attentionPulse
         attentionPulseDelayMs={2500}
         attentionPulseDurationMs={12000}
