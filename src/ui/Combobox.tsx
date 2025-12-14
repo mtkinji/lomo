@@ -75,8 +75,10 @@ export function Combobox({
 
   return (
     <DropdownMenu
-      open={open}
       onOpenChange={(nextOpen) => {
+        // `@rn-primitives/dropdown-menu` doesn't expose a controlled `open` prop
+        // in its current types, so we treat `open` as externally-controlled UI
+        // state and mirror primitive events through `onOpenChange`.
         onOpenChange(nextOpen);
         if (!nextOpen) setQuery('');
       }}
@@ -92,75 +94,77 @@ export function Combobox({
         </DropdownMenuTrigger>
       </View>
 
-      <DropdownMenuContent
-        align="start"
-        side="bottom"
-        sideOffset={8}
-        style={[
-          styles.popover,
-          triggerWidth != null ? { width: triggerWidth, minWidth: triggerWidth } : null,
-        ]}
-      >
-        <View style={styles.container}>
-          <Text style={styles.title}>{title}</Text>
-          <Input
-            value={query}
-            onChangeText={setQuery}
-            placeholder={searchPlaceholder}
-            leadingIcon="search"
-            variant="outline"
-            elevation="flat"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <ScrollView
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {filtered.length === 0 ? (
-              <Text style={styles.empty}>{emptyText}</Text>
-            ) : (
-              <VStack space="xs">
-                {filtered.map((opt) => {
-                  const selected = opt.value === value;
-                  return (
-                    <Pressable
-                      key={opt.value}
-                      onPress={() => {
-                        const next = allowDeselect && selected ? '' : opt.value;
-                        onValueChange(next);
-                        onOpenChange(false);
-                      }}
-                      style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-                      accessibilityRole="button"
-                      accessibilityLabel={opt.label}
-                    >
-                      <HStack
-                        alignItems="center"
-                        justifyContent="space-between"
-                        style={styles.itemRow}
+      {open ? (
+        <DropdownMenuContent
+          align="start"
+          side="bottom"
+          sideOffset={8}
+          style={StyleSheet.flatten([
+            styles.popover,
+            triggerWidth != null ? { width: triggerWidth, minWidth: triggerWidth } : null,
+          ])}
+        >
+          <View style={styles.container}>
+            <Text style={styles.title}>{title}</Text>
+            <Input
+              value={query}
+              onChangeText={setQuery}
+              placeholder={searchPlaceholder}
+              leadingIcon="search"
+              variant="outline"
+              elevation="flat"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <ScrollView
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {filtered.length === 0 ? (
+                <Text style={styles.empty}>{emptyText}</Text>
+              ) : (
+                <VStack space="xs">
+                  {filtered.map((opt) => {
+                    const selected = opt.value === value;
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        onPress={() => {
+                          const next = allowDeselect && selected ? '' : opt.value;
+                          onValueChange(next);
+                          onOpenChange(false);
+                        }}
+                        style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={opt.label}
                       >
-                        <Text style={styles.itemLabel}>{opt.label}</Text>
-                        {opt.rightElement ? (
-                          opt.rightElement
-                        ) : (
-                          <View style={styles.checkSlot}>
-                            {selected ? (
-                              <Icon name="check" size={16} color={colors.textPrimary} />
-                            ) : null}
-                          </View>
-                        )}
-                      </HStack>
-                    </Pressable>
-                  );
-                })}
-              </VStack>
-            )}
-          </ScrollView>
-        </View>
-      </DropdownMenuContent>
+                        <HStack
+                          alignItems="center"
+                          justifyContent="space-between"
+                          style={styles.itemRow}
+                        >
+                          <Text style={styles.itemLabel}>{opt.label}</Text>
+                          {opt.rightElement ? (
+                            opt.rightElement
+                          ) : (
+                            <View style={styles.checkSlot}>
+                              {selected ? (
+                                <Icon name="check" size={16} color={colors.textPrimary} />
+                              ) : null}
+                            </View>
+                          )}
+                        </HStack>
+                      </Pressable>
+                    );
+                  })}
+                </VStack>
+              )}
+            </ScrollView>
+          </View>
+        </DropdownMenuContent>
+      ) : null}
     </DropdownMenu>
   );
 }

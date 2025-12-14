@@ -13,6 +13,7 @@ import {
   GoalDraft,
   UserProfile,
 } from '../domain/types';
+import type { CelebrationKind, MediaRole } from '../services/gifs';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
@@ -138,11 +139,6 @@ interface AppState {
     kind: CelebrationKind;
   }[];
   /**
-   * Per-user denylist of celebration GIF ids that should never be shown again.
-   * Populated via lightweight "Not quite right" feedback controls.
-   */
-  blockedCelebrationGifIds: string[];
-  /**
    * Update notification preferences in a single place so the notifications
    * service and settings screens stay in sync.
    */
@@ -197,7 +193,6 @@ interface AppState {
   removeActivityView: (viewId: string) => void;
   blockCelebrationGif: (gifId: string) => void;
   likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
-  blockCelebrationGif: (gifId: string) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
@@ -428,6 +423,7 @@ export const useAppStore = create(
       goalRecommendations: {},
       arcFeedback: [],
       blockedCelebrationGifIds: [],
+      likedCelebrationGifs: [],
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
       hasCompletedFirstTimeOnboarding: false,

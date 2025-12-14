@@ -309,9 +309,9 @@ function extractFocusedArcIdFromLaunchContext(launchContext: string | undefined)
   // Examples we emit today:
   // - "Focused entity: arc#<id>."
   // - "Object: arc#<id>."
-  const focusedMatch = launchContext.match(/Focused entity:\s*arc#([^.\s]+)\./i);
+  const focusedMatch = launchContext.match(/Focused entity:\s*arc#([^\s.]+)(?:\.|$)/i);
   if (focusedMatch?.[1]) return focusedMatch[1];
-  const objectMatch = launchContext.match(/Object:\s*arc#([^.\s]+)\./i);
+  const objectMatch = launchContext.match(/Object:\s*arc#([^\s.]+)(?:\.|$)/i);
   if (objectMatch?.[1]) return objectMatch[1];
   return null;
 }

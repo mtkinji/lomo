@@ -207,14 +207,11 @@ const SAFE_SPACING: typeof spacing = (spacing ??
     '2xl': 32,
   } as const));
 
-const SAFE_TYPOGRAPHY_SIZES: typeof typography.sizes = (typography?.sizes ??
-  ({
-    sm: 12,
-    md: 14,
-    lg: 16,
-    xl: 18,
-    xxl: 22,
-  } as const));
+const SAFE_FONT_SIZES = {
+  sm: 12,
+  md: 14,
+  lg: 16,
+} as const;
 
 const getStyles = () => StyleSheet.create({
   container: {
@@ -227,8 +224,7 @@ const getStyles = () => StyleSheet.create({
     marginBottom: SAFE_SPACING.lg,
   },
   sectionTitle: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.lg,
-    fontWeight: '600',
+    ...typography.titleSm,
     marginBottom: SAFE_SPACING.md,
   },
   resultsHeaderRow: {
@@ -248,35 +244,35 @@ const getStyles = () => StyleSheet.create({
   },
   responseItem: {
     padding: SAFE_SPACING.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardMuted,
     borderRadius: 8,
     marginBottom: SAFE_SPACING.sm,
   },
   responseId: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.sm,
+    fontSize: SAFE_FONT_SIZES.sm,
     fontWeight: '600',
     color: colors.primary,
     marginBottom: SAFE_SPACING.xs,
   },
   responseDesc: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.md,
-    color: colors.text,
+    fontSize: SAFE_FONT_SIZES.md,
+    color: colors.textPrimary,
     marginBottom: SAFE_SPACING.xs,
   },
   paradigmItem: {
     padding: SAFE_SPACING.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardMuted,
     borderRadius: 8,
     marginBottom: SAFE_SPACING.sm,
   },
   paradigmName: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.md,
+    fontSize: SAFE_FONT_SIZES.md,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: SAFE_SPACING.xs,
   },
   paradigmDesc: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.sm,
+    fontSize: SAFE_FONT_SIZES.sm,
     color: colors.textSecondary,
   },
   loadingContainer: {
@@ -289,34 +285,34 @@ const getStyles = () => StyleSheet.create({
   },
   outputContainer: {
     maxHeight: 600,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardMuted,
     borderRadius: 8,
     padding: SAFE_SPACING.md,
   },
   outputText: {
     fontFamily: 'monospace',
-    fontSize: SAFE_TYPOGRAPHY_SIZES.sm,
-    color: colors.text,
+    fontSize: SAFE_FONT_SIZES.sm,
+    color: colors.textPrimary,
     lineHeight: 20,
   },
   summaryText: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.md,
-    color: colors.text,
+    fontSize: SAFE_FONT_SIZES.md,
+    color: colors.textPrimary,
     marginBottom: SAFE_SPACING.md,
   },
   summaryItem: {
     padding: SAFE_SPACING.sm,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.cardMuted,
     borderRadius: 8,
     marginBottom: SAFE_SPACING.xs,
   },
   summaryResponseId: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.sm,
+    fontSize: SAFE_FONT_SIZES.sm,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textPrimary,
   },
   summaryCount: {
-    fontSize: SAFE_TYPOGRAPHY_SIZES.sm,
+    fontSize: SAFE_FONT_SIZES.sm,
     color: colors.textSecondary,
     marginTop: SAFE_SPACING.xs,
   },

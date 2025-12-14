@@ -34,6 +34,12 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
+  notification: {
+    // Use a flat, monochrome logo for the small status-bar icon on Android.
+    // This should be a white glyph on a transparent background.
+    icon: './assets/icon.png',
+    color: '#1F5226',
+  },
   // Enable React Native New Architecture so SDK 54-compatible libraries like
   // Reanimated and Worklets can install their pods correctly on EAS.
   newArchEnabled: true,
@@ -60,12 +66,6 @@ const config: ExpoConfig = {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
-    },
-    notification: {
-      // Use a flat, monochrome logo for the small status-bar icon on Android.
-      // This should be a white glyph on a transparent background.
-      icon: './assets/icon.png',
-      color: '#1F5226',
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
