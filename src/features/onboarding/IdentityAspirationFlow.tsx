@@ -14,6 +14,19 @@ import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
 import { useAppStore } from '../../store/useAppStore';
 import type { Arc } from '../../domain/types';
+import { buildHybridArcGuidelinesBlock } from '../../domain/arcHybridPrompt';
+import type {
+  ArchetypeAdmiredQualityId,
+  ArchetypeRoleModelTypeId,
+  ArchetypeRoleModelWhyId,
+  ArchetypeSpecificRoleModelId,
+} from '../../domain/archetypeTaps';
+import {
+  ARCHETYPE_ADMIRED_QUALITIES,
+  ARCHETYPE_ROLE_MODEL_TYPES,
+  ARCHETYPE_ROLE_MODEL_WHY,
+  ARCHETYPE_SPECIFIC_ROLE_MODELS,
+} from '../../domain/archetypeTaps';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { AgentTimelineItem } from '../ai/agentRuntime';
@@ -464,6 +477,12 @@ const TWEAK_OPTIONS: ChoiceOption[] = [
 type Phase =
   | 'domain'
   | 'motivation'
+  // NOTE: The original FTUE collected a richer 10-question identity snapshot.
+  // The Hybrid-Minimal model intentionally uses a smaller set:
+  //   Domain + Vibe + Proud moment + Big dream
+  // …then optional Archetype taps to boost felt accuracy without typing.
+  // We keep the legacy phases in the type for now to avoid a large delete diff,
+  // but the first-time onboarding path no longer routes through them.
   | 'trait'
   | 'growth'
   | 'proudMoment'
@@ -475,6 +494,9 @@ type Phase =
   | 'philosophy'
   | 'vocation'
   | 'dreams'
+  // Hybrid archetype taps (optional, tap-centric)
+  | 'roleModelType'
+  | 'admiredQualities'
   | 'generating'
   | 'reveal'
   | 'tweak';
@@ -561,6 +583,21 @@ type ArcDevelopmentInsights = {
   pitfalls: string[];
 };
 
+const BANNED_ARC_MUSH_PHRASES = [
+  'in a grounded way',
+  'rooted in',
+  'powered by',
+  'radiant',
+  'tapestry',
+  'essence',
+  'unlock',
+] as const;
+
+const containsArcMushPhrases = (text: string): boolean => {
+  const normalized = text.toLowerCase();
+  return BANNED_ARC_MUSH_PHRASES.some((phrase) => normalized.includes(phrase));
+};
+
 /**
  * Workflow presenter for the identity/Arc FTUE (and reuseIdentityForNewArc).
  *
@@ -606,6 +643,13 @@ export function IdentityAspirationFlow({
   const [valueIds, setValueIds] = useState<string[]>([]);
   const [philosophyIds, setPhilosophyIds] = useState<string[]>([]);
   const [vocationIds, setVocationIds] = useState<string[]>([]);
+  // Hybrid (tap-centric archetype): optional signals to boost felt accuracy without typing.
+  const [roleModelTypeId, setRoleModelTypeId] = useState<ArchetypeRoleModelTypeId | null>(null);
+  const [specificRoleModelId, setSpecificRoleModelId] = useState<
+    ArchetypeSpecificRoleModelId | 'none' | 'not_sure' | null
+  >(null);
+  const [roleModelWhyId, setRoleModelWhyId] = useState<ArchetypeRoleModelWhyId | null>(null);
+  const [admiredQualityIds, setAdmiredQualityIds] = useState<ArchetypeAdmiredQualityId[]>([]);
   // Use a stable, per-session id for the draft Arc so that the preview card
   // and the eventually-created Arc share the same visual seed (gradient,
   // thumbnail variants, etc.).
@@ -742,14 +786,9 @@ export function IdentityAspirationFlow({
   const canGenerate =
     domainIds.length > 0 &&
     motivationIds.length > 0 &&
-    signatureTraitIds.length > 0 &&
-    growthEdgeIds.length > 0 &&
     proudMomentIds.length > 0 &&
-    meaningIds.length > 0 &&
-    impactIds.length > 0 &&
-    valueIds.length > 0 &&
-    philosophyIds.length > 0 &&
-    vocationIds.length > 0;
+    // Minimal variant uses a single free-response big dream as the last required input.
+    dreamInput.trim().length > 0;
 
   // When reusing identity context for a new Arc, hydrate the selection state
   // from the stored identityProfile so we can skip re-asking questions 1–10.
@@ -792,6 +831,18 @@ export function IdentityAspirationFlow({
     if (identityProfile.nickname) {
       setNickname(identityProfile.nickname);
     }
+    if (identityProfile.roleModelTypeId) {
+      setRoleModelTypeId(identityProfile.roleModelTypeId);
+    }
+    if (identityProfile.specificRoleModelId) {
+      setSpecificRoleModelId(identityProfile.specificRoleModelId);
+    }
+    if (identityProfile.roleModelWhyId) {
+      setRoleModelWhyId(identityProfile.roleModelWhyId);
+    }
+    if (identityProfile.admiredQualityIds?.length) {
+      setAdmiredQualityIds(identityProfile.admiredQualityIds);
+    }
 
     // In the reuse flow we land directly on the big-dream question, then ask
     // a short "why does this feel important?" follow-up before generating.
@@ -809,6 +860,10 @@ export function IdentityAspirationFlow({
     setValueIds,
     setPhilosophyIds,
     setVocationIds,
+    setRoleModelTypeId,
+    setSpecificRoleModelId,
+    setRoleModelWhyId,
+    setAdmiredQualityIds,
   ]);
 
   const advancePhase = (next: Phase) => {
@@ -847,20 +902,42 @@ export function IdentityAspirationFlow({
     let cleaned = name.trim();
     
     // Remove common prefixes that violate the pattern
-    cleaned = cleaned.replace(/^(toward|towards|becoming|i want to|i want|i'd|i can)\s+/i, '');
+    cleaned = cleaned.replace(
+      /^(toward|towards|becoming|i want to|i want|i['’]d love to|i['’]d like to|i would love to|i would like to|i['’]d|i can)\s+/i,
+      ''
+    );
     
     // Remove "I want" patterns that shouldn't be in the name
     cleaned = cleaned.replace(/\bi want\b/gi, '');
+    cleaned = cleaned.replace(/\bi['’]d\b/gi, '');
     
     // Split into words and take first 1-3 meaningful words
     const words = cleaned.split(/\s+/).filter((word) => {
       const lower = word.toLowerCase();
-      const hasLetter = /[a-z]/i.test(lower);
+      const hasLetter = /[\p{L}\p{N}]/u.test(lower);
       // Filter out common filler words and standalone symbols like "&"
       return (
         word.length > 0 &&
         hasLetter &&
-        !['to', 'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'for', 'of', 'with'].includes(lower) &&
+        ![
+          'to',
+          'a',
+          'an',
+          'the',
+          'and',
+          'or',
+          'but',
+          'in',
+          'on',
+          'at',
+          'for',
+          'of',
+          'with',
+          'love',
+          'like',
+          'want',
+          'would',
+        ].includes(lower) &&
         !lower.match(/^(i|you|we|they|it)$/)
       );
     });
@@ -872,7 +949,14 @@ export function IdentityAspirationFlow({
     }
     
     return meaningfulWords
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .map((word) => {
+        // Preserve internal capitalization for proper nouns (e.g., Kwilt) and acronyms.
+        const hasInternalCaps = /[A-Z]/.test(word.slice(1));
+        if (hasInternalCaps) {
+          return word.charAt(0).toUpperCase() + word.slice(1);
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
       .join(' ');
   };
 
@@ -969,10 +1053,8 @@ export function IdentityAspirationFlow({
     const valueLabel = valueOrientation || 'a core value';
     const philosophyLabel = philosophy || 'a way of moving through life';
     const vocationLabel = vocation || 'a kind of work that feels like home';
-    const dreamsLabel =
-      bigDreams.length > 0
-        ? bigDreams.join('; ')
-        : "one or two concrete things you'd love to bring to life someday";
+    const dreamRaw = bigDreams.length > 0 ? String(bigDreams[0] ?? '').trim() : '';
+    const dreamHasKwilt = /\bkwilt\b/i.test(dreamRaw);
 
     // Generate Arc name using allowed patterns: primarily dream‑anchored, with
     // Domain+Posture / Value+Domain / Two‑noun frame as graceful fallbacks.
@@ -988,34 +1070,35 @@ export function IdentityAspirationFlow({
         return words.slice(0, 3).join(' ');
       }
 
-      // First, try to derive a compact identity name directly from the big dream.
-      // Example transformations:
-      // - "I want to build a tiny cabin in the woods" -> "Tiny Cabin"
-      // - "Record an honest folk album" -> "Honest Album"
-      if (bigDreams.length > 0) {
-        const firstDream = bigDreams[0].toLowerCase();
-        const dreamWords = firstDream
-          // Strip common scaffolding and filler so we keep the heart of the dream.
-          .replace(
-            /\b(i want to|i want|i'd like to|i'd like|i can|and|the|a|an|into|turn|build|make|create|start|launch|record|write|sell|profitable|lifestyle|business|product|physical|project|thing|something)\b/gi,
-            ''
-          )
-          .split(/\s+/)
-          .filter((word) => word.length > 2);
+      // Prefer stable identity-direction names, not the raw dream text.
+      // Detect high-level domain signals from the dream + domain/vocation labels.
+      const signalText = `${domainLabel} ${vocationLabel} ${dreamRaw}`.toLowerCase();
+      const isVenture =
+        /\b(venture|startup|entrepreneur|business|company|app|product|studio|initiative|launch)\b/.test(
+          signalText
+        );
+      const isCreative =
+        /\b(creative|design|write|music|album|art|maker|making|build|craft)\b/.test(signalText);
+      const isRelational =
+        /\b(relationship|friend|friends|community|partner|family|parent|kids|home)\b/.test(signalText);
 
-        if (dreamWords.length > 0) {
-          const meaningfulDreamWords = dreamWords
-            .filter((word) => !['very', 'really', 'more', 'less', 'just'].includes(word))
-            .slice(0, 3);
+      const inferredDomain = isVenture
+        ? 'Venture'
+        : isRelational
+          ? 'Relational'
+          : isCreative
+            ? 'Creative'
+            : 'Identity';
 
-          if (meaningfulDreamWords.length > 0) {
-            const capitalized = meaningfulDreamWords
-              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
-            return capitalized;
-          }
-        }
-      }
+      const postureSignalText = `${motivationLabel} ${traitLabel} ${growthEdgeLabel} ${valueLabel} ${philosophyLabel}`.toLowerCase();
+      const inferredPosture =
+        /\b(discipline|disciplined|consistent|follow[- ]?through)\b/.test(postureSignalText)
+          ? 'Discipline'
+          : /\b(courage|brave|bold)\b/.test(postureSignalText)
+            ? 'Courage'
+            : 'Stewardship';
+
+      return `${inferredDomain} ${inferredPosture}`;
 
       // If we can't get a clean identity phrase from the dream, fall back to
       // domain‑driven patterns.
@@ -1057,78 +1140,35 @@ export function IdentityAspirationFlow({
 
     const arcName = sanitizeArcName(generateArcName());
 
-    // Generate 3-sentence narrative following the new model:
-    // Sentence 1: Start with "I want…", express identity direction
-    // Sentence 2: Why this direction matters now (using signals)
-    // Sentence 3: One concrete ordinary-life scene (grounded in proud moment + strength + values)
-    
-    // Helper to clean and format user inputs for natural sentence insertion
-    const cleanPhrase = (phrase: string): string => {
-      if (!phrase) return '';
-      // Remove "I want" patterns that shouldn't appear in the narrative
-      let cleaned = phrase.toLowerCase().replace(/\bi want to\b|\bi want\b|\bi'd\b|\bi can\b/gi, '').trim();
-      // Remove leading articles if they create awkward grammar
-      cleaned = cleaned.replace(/^(a|an|the)\s+/i, '');
-      // Capitalize first letter for sentence start or keep lowercase for mid-sentence
-      return cleaned;
-    };
+    // Generate a clean 3-sentence narrative (no mush phrases, no lowercase word-salad).
+    const oneLine = (value: string) => value.replace(/\s+/g, ' ').trim();
+    const short = (value: string) => oneLine(value).replace(/[.?!]+$/g, '');
 
-    // Extract core domain concept (first meaningful word or phrase)
-    const domainCore = domainLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'growth';
-    const motivationCore = motivationLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'purpose';
-    const traitCore =
-      traitLabel.replace(/^Your\s+/i, '').split(/[&,]/)[0]?.trim().toLowerCase() || 'strength';
+    const valuesCore = short(valueLabel);
+    const philosophyCore = short(philosophyLabel);
+    const meaningCore = short(meaningLabel);
+    const impactCore = short(impactLabel);
+    const proudMomentCore = short(proudMomentLabel).toLowerCase();
+    const whyCore = short(whyNowLabel || '').trim();
+    const growthCore = short(growthEdgeLabel).toLowerCase();
 
-    // Extract key concept from dreams (remove "I want" patterns and extract 2-4 key words)
-    let dreamPhrase = '';
-    if (bigDreams.length > 0) {
-      const firstDream = bigDreams[0].toLowerCase();
-      // Remove "I want" patterns and extract meaningful words
-      const meaningfulWords = firstDream
-        .replace(/\bi want to\b|\bi want\b|\bi'd\b|\bi can\b/gi, '')
-        .split(/\s+/)
-        .filter(
-          (word) => word.length > 3 && !['that', 'this', 'with', 'into', 'turn'].includes(word)
-        )
-        .slice(0, 6)
-        .join(' ');
-      dreamPhrase = meaningfulWords || 'what matters most';
-    }
+    const dreamClause = (() => {
+      if (dreamHasKwilt) return 'build Kwilt into something real and useful';
+      if (dreamRaw) return 'bring that dream to life';
+      return `grow in ${short(domainLabel).toLowerCase()}`;
+    })();
 
-    // Sentence 1: Identity direction — explicitly anchored in the dream when present.
-    const sentence1 =
-      bigDreams.length > 0 && dreamPhrase
-        ? `I want to become the kind of person who can bring ${dreamPhrase} to life in a grounded way, rooted in ${domainCore} and powered by ${motivationCore} with ${traitCore} as a real strength.`
-        : `I want to grow into someone who cares deeply about ${domainCore}, powered by ${motivationCore}, and who leans on ${traitCore} as a real strength.`;
+    const tensionClause = whyCore
+      ? whyCore
+      : growthCore
+        ? `I'm working on ${growthCore}`
+        : "I'm learning to follow through on what matters";
 
-    // Sentence 2: Why it matters now - need to construct proper grammar
-    const growthEdgeCore = growthEdgeLabel.toLowerCase().trim();
-    // Fix incomplete phrases like "staying consistent" -> "I'm working on staying consistent"
-    const growthEdgePhrase = growthEdgeCore.match(/^(staying|being|becoming|learning|working)/i)
-      ? `I'm working on ${growthEdgeCore}`
-      : growthEdgeCore.startsWith('i ') || growthEdgeCore.startsWith('i\'m ')
-      ? growthEdgeCore
-      : `I'm learning to navigate ${growthEdgeCore}`;
-    
-    const valueCore = valueLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'integrity';
-    
-    const tensionPhrase = (whyNowLabel || growthEdgePhrase).trim();
+    const sentence1 = `I want to ${dreamClause}, and do it with ${valuesCore.toLowerCase()} and ${philosophyCore.toLowerCase()}.`;
+    const sentence2 = `This matters now because ${tensionClause}, and I want my energy to go toward ${meaningCore.toLowerCase()} and ${impactCore.toLowerCase()}.`;
+    const sentence3 = `On normal days, I see this when I’m ${proudMomentCore}, then taking one small step and calling it done.`;
 
-    const sentence2 = bigDreams.length > 0 && dreamPhrase
-      ? `This direction matters now because ${tensionPhrase}, and I'm learning to bring ${dreamPhrase} to life in a way that stays grounded, kind to my energy, and aligned with ${valueCore}.`
-      : `This direction matters now because ${tensionPhrase}, and I'm learning to move toward what matters at a pace that feels sustainable and true to ${valueCore}.`;
-
-    // Sentence 3: Concrete everyday scene
-    const proudMomentCore = proudMomentLabel.toLowerCase().trim();
-    const vocationCore = vocationLabel.split(/[&,]/)[0]?.trim().toLowerCase() || 'work';
-    
-    // Fix philosophy phrase - handle "with clarity and intention" -> "clarity and intention"
-    let philosophyPhrase = philosophyLabel.toLowerCase().trim();
-    philosophyPhrase = philosophyPhrase.replace(/^(with|through|by|via)\s+/i, '');
-    
-    const sentence3 = `On normal days, that often looks like ${proudMomentCore} in the way I move through ${vocationCore}, staying true to my approach of ${philosophyPhrase || 'thoughtful intention'}.`;
-
-    const aspirationSentence = `${sentence1} ${sentence2} ${sentence3}`;
+    const aspirationSentence = oneLine(`${sentence1} ${sentence2} ${sentence3}`);
 
     const nextSmallStep = buildNextSmallStep();
 
@@ -1282,6 +1322,7 @@ export function IdentityAspirationFlow({
         '- final_score = (grammatical_correctness * 0.3) + (input_fidelity * 0.3) + ((identity_spine + concrete_imagery + why_now_tension + tone_voice) * 0.4 / 4).',
         '- Clamp final_score to the 0–10 range.',
         '- CRITICAL: If grammatical_correctness is below 5, automatically cap the final_score at 6.0 maximum, regardless of other scores.',
+        '- CRITICAL: If the narrative uses obvious “LLM mush” phrasing like "in a grounded way", "rooted in", or "powered by", cap final_score at 6.0 maximum.',
         '',
         'Return ONLY a JSON object (no markdown, no surrounding text) in this shape:',
         '{',
@@ -1622,30 +1663,46 @@ export function IdentityAspirationFlow({
       setIsGenerating(true);
       setError(null);
 
+      // HYBRID-MINIMAL INPUT SUMMARY:
+      // We intentionally keep the required input set small:
+      // - Domain, Vibe, Proud moment, Big dream
+      // …then optionally add Archetype taps (role models + admired qualities) to increase felt accuracy.
       const inputsSummaryLines = [
         `domain of becoming: ${domain}`,
-        `motivational style: ${motivation}`,
-        `signature trait: ${signatureTrait}`,
-        `growth edge: ${growthEdge}`,
+        `motivational style / vibe: ${motivation}`,
         `everyday proud moment: ${proudMoment}`,
-        `source of meaning: ${meaning}`,
-        `why this matters now / turning point: ${whyNow || 'not specified'}`,
-        `desired impact: ${impact}`,
-        `core values: ${valueOrientation}`,
-        `life philosophy: ${philosophy}`,
-        `vocational orientation: ${vocation}`,
+        `big dream (primary anchor): ${bigDreams.length > 0 ? bigDreams.join('; ') : 'not provided'}`,
       ];
-      if (bigDreams.length > 0) {
-        inputsSummaryLines.push(
-          `concrete big things the user would love to bring to life (treat these as high-priority identity imagery, not task lists): ${bigDreams.join(
-            '; '
-          )}`
-        );
+      // Hybrid archetype taps: include any explicit role model signals in the prompt so the model
+      // can improve felt accuracy without adding more free-text.
+      if (roleModelTypeId) {
+        const label = labelForArchetype(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId);
+        if (label) inputsSummaryLines.push(`role model type (tap): ${label}`);
       }
+      if (specificRoleModelId) {
+        const label =
+          specificRoleModelId === 'none'
+            ? 'No one specific'
+            : specificRoleModelId === 'not_sure'
+            ? 'Not sure'
+            : labelForArchetype(ARCHETYPE_SPECIFIC_ROLE_MODELS, specificRoleModelId);
+        if (label) inputsSummaryLines.push(`specific role model (tap): ${label}`);
+      }
+      if (roleModelWhyId) {
+        const label = labelForArchetype(ARCHETYPE_ROLE_MODEL_WHY, roleModelWhyId);
+        if (label) inputsSummaryLines.push(`why they picked them (tap): ${label}`);
+      }
+      if (admiredQualityIds.length > 0) {
+        const labels = admiredQualityIds
+          .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
+          .filter((l): l is string => Boolean(l));
+        if (labels.length > 0) {
+          inputsSummaryLines.push(`admired qualities (tap): ${labels.join('; ')}`);
+        }
+      }
+      // Optional: nickname still supported, but not part of the minimal required set.
       if (nickname.trim()) {
-        inputsSummaryLines.push(
-          `typed nickname (treat this as a high-priority anchor for the Arc Name and description): ${nickname.trim()}`
-        );
+        inputsSummaryLines.push(`optional nickname: ${nickname.trim()}`);
       }
       if (tweakHint) {
         inputsSummaryLines.push(`user tweak preference: ${tweakHint}`);
@@ -1678,6 +1735,13 @@ export function IdentityAspirationFlow({
           '2. Arc.narrative — a 3-sentence, first-person description of what they want to grow toward in this Arc.',
           '',
           'Your outputs must be readable and useful to both a 14-year-old and a 41-year-old.',
+          '',
+          // Hybrid paradigm: align FTUE generation with our rubric targets.
+          // Even though FTUE collects more than the "minimal essentials", we still optimize for:
+          // - felt accuracy (specific, true-to-signals)
+          // - reading ease (teen-friendly language)
+          // - everyday concreteness (scenes + micro-behaviors)
+          buildHybridArcGuidelinesBlock(),
           '',
           '-----------------------------------------',
           'ARC NAME — RULES',
@@ -1738,7 +1802,7 @@ export function IdentityAspirationFlow({
           'Sentence roles:',
           '1. Sentence 1: Begin with "I want…", clearly expressing the identity direction within this Arc. When the user has given a specific big dream (e.g., record an album, build a cabin, start a studio), weave that dream directly into this first sentence so it feels like the heart of the direction, not a side note.',
           '2. Sentence 2: In a short sentence, explain why this direction matters now, using the user\'s signals (domain, vibe, social presence, strength, proud moment, dream).',
-          '3. Sentence 3: In another short sentence, give one concrete, ordinary-life scene showing how this direction appears on a normal day. Use grounded images anchored in proud-moment and strength signals, not generic abstractions.',
+          '3. Sentence 3: In another short sentence, give one concrete, ordinary-life scene AND one micro-behavior they could do this week that shows this direction on a normal day.',
           '',
           'Tone:',
           '- grounded, human, reflective,',
@@ -1836,6 +1900,12 @@ export function IdentityAspirationFlow({
 
           // Pre-filter: Check for obvious grammatical errors before quality scoring
           const narrative = parsed.aspirationSentence.toLowerCase();
+          const name = parsed.arcName;
+          const nameLooksLikeAStarterPhrase =
+            /\b(i['’]d|i would|i want|i can|love|like)\b/i.test(name) || containsArcMushPhrases(name);
+          if (nameLooksLikeAStarterPhrase) {
+            continue;
+          }
           // Check for raw user input patterns - verbatim insertion without proper transformation
           // Pattern: "bring build physical product sell" or "bring [verb] [noun] [verb]" without proper gerund/participle
           const hasRawInputPattern = 
@@ -1847,13 +1917,15 @@ export function IdentityAspirationFlow({
           
           // Check for word salad - multiple verbs/nouns in sequence without proper structure
           const wordSaladPattern = /\b(build|make|create|start|sell|turn)\s+\w+\s+(build|make|create|start|sell|turn|physical|product|business)\s+\w+\s+(sell|turn|can|i|physical|product)\b/i.test(narrative);
+          const hasMushPhrases = containsArcMushPhrases(narrative);
           
-          if (hasRawInputPattern || wordSaladPattern) {
+          if (hasRawInputPattern || wordSaladPattern || hasMushPhrases) {
             // Skip this candidate - it has obvious grammatical errors
             if (__DEV__) {
               console.warn('[onboarding] Skipping candidate with grammatical errors:', {
                 hasRawInputPattern,
                 wordSaladPattern,
+                hasMushPhrases,
                 narrativePreview: parsed.aspirationSentence.slice(0, 150),
               });
             }
@@ -2033,6 +2105,10 @@ export function IdentityAspirationFlow({
       valueIds,
       philosophyIds,
       vocationIds,
+      roleModelTypeId: roleModelTypeId ?? undefined,
+      specificRoleModelId: specificRoleModelId ?? undefined,
+      roleModelWhyId: roleModelWhyId ?? undefined,
+      admiredQualityIds: admiredQualityIds.length > 0 ? admiredQualityIds : undefined,
       nickname: nickname.trim() || undefined,
       aspirationArcName: aspiration.arcName,
       aspirationNarrative: aspiration.aspirationSentence,
@@ -2097,8 +2173,8 @@ export function IdentityAspirationFlow({
       'We’ll start by sketching a short **identity Arc** that captures the kind of **person you want to become**.\n\nThen kwilt can use that Arc to shape better **Goals** and small everyday **Activities**, so your effort lines up with a purpose that feels real to you.',
       // Message 3 (light research grounding)
       'Under the hood I’m borrowing from **research-backed psychology**, so the plan we build actually **fits you**—not someone else’s idea of who you should be.',
-      // Message 4 (lead-in to the two-part flow: taps + one short free-response step)
-      'To do that well, we’ll go in **two quick parts**: first a personality‑quiz‑style set of **about 10 quick, tap-only questions**, then one short follow-up where you can name a big thing you’d love to bring to life in your own words. All together it should still only take a few minutes, and it helps me surface a future version of you you’d genuinely want to grow into.',
+      // Message 4 (lead-in to the minimal + archetype flow)
+      'To do that well, we’ll keep it **simple and fast**: **4 quick questions** (tap‑based + one short free response), then a **quick personalization step** about who you admire (taps only). You can skip any of that personalization if nothing comes to mind. All together it should take just a few minutes, and it helps me surface a future version of you you’d genuinely want to grow into.',
     ];
 
     const queue = messages.length > 0 ? messages : [fallback];
@@ -2361,7 +2437,8 @@ export function IdentityAspirationFlow({
     }
     appendChatUserMessage(selectedMotivation);
     setError(null);
-    advancePhase('trait');
+    // Hybrid-Minimal: go directly to the everyday proud-moment question.
+    advancePhase('proudMoment');
   };
 
   const handleConfirmTrait = (selectedTrait: string) => {
@@ -2388,7 +2465,8 @@ export function IdentityAspirationFlow({
     }
     appendChatUserMessage(selectedProudMoment);
     setError(null);
-    advancePhase('meaning');
+    // Hybrid-Minimal: go directly to the big-dream question.
+    advancePhase('dreams');
   };
 
   const handleContinueFromNickname = () => {
@@ -2397,14 +2475,134 @@ export function IdentityAspirationFlow({
         nickname: nickname.trim().length ? nickname.trim() : null,
       });
     }
-    setPhase('generating');
-    void generateArc();
+    // Hybrid-Minimal: role model type + admired qualities are required steps now.
+    setPhase('roleModelType');
+  };
+
+  const labelForArchetype = <T extends { id: string; label: string }>(
+    options: T[],
+    id: string | null | undefined
+  ): string | null => {
+    if (!id) return null;
+    return options.find((o) => o.id === id)?.label ?? null;
+  };
+
+  const renderRadioIndicator = (selected: boolean) => (
+    <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+      {selected ? <View style={styles.radioInner} /> : null}
+    </View>
+  );
+
+  const renderCheckboxIndicator = (selected: boolean) => (
+    <View style={[styles.checkboxOuter, selected && styles.checkboxOuterSelected]}>
+      {selected ? <Icon name="check" size={14} color={colors.canvas} /> : null}
+    </View>
+  );
+
+  const renderRoleModelType = () => {
+    return (
+      <QuestionCard stepLabel="5 of 6" title="What kind of people do you look up to?">
+        <View style={styles.fullWidthList}>
+          {ARCHETYPE_ROLE_MODEL_TYPES.map((option) => {
+            const selected = roleModelTypeId === option.id;
+            return (
+              <Pressable
+                key={option.id}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  setRoleModelTypeId(option.id);
+                  appendChatUserMessage(`People I look up to: ${option.label}`);
+                  // Minimal + Archetype: jump straight to admired qualities.
+                  setPhase('admiredQualities');
+                }}
+              >
+                <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </QuestionCard>
+    );
+  };
+
+  const renderAdmiredQualities = () => {
+    return (
+      <QuestionCard stepLabel="6 of 6" title="What qualities do you admire in them? (Pick 1–3)">
+        <View style={styles.fullWidthList}>
+          {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
+            const selected = admiredQualityIds.includes(option.id);
+            return (
+              <Pressable
+                key={option.id}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selected }}
+                onPress={() => {
+                  const next = toggleIdInList(option.id, admiredQualityIds);
+                  // Enforce 1–3 selection to keep signal crisp (and keep this truly "quick").
+                  if (next.length > 3) return;
+                  setAdmiredQualityIds(next as ArchetypeAdmiredQualityId[]);
+                }}
+              >
+                <View style={styles.fullWidthOptionContent}>
+                  {renderCheckboxIndicator(selected)}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.inlineActions}>
+          <Button
+            variant="accent"
+            style={[
+              styles.primaryButton,
+              { flex: 1 },
+              admiredQualityIds.length === 0 && styles.primaryButtonDisabled,
+            ]}
+            disabled={admiredQualityIds.length === 0}
+            onPress={() => {
+              const labels = admiredQualityIds
+                .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
+                .filter((l): l is string => Boolean(l));
+              appendChatUserMessage(`I admire: ${labels.join(', ')}`);
+              setPhase('generating');
+              void generateArc();
+            }}
+          >
+            <ButtonLabel size="md" tone="inverse">
+              Continue
+            </ButtonLabel>
+          </Button>
+        </View>
+      </QuestionCard>
+    );
   };
 
   const renderNickname = () => {
     return (
       <QuestionCard title="If future-you had a nickname…">
-        <Text style={styles.bodyText}>Optional — one or two words. (You can skip.)</Text>
+        <Text style={styles.bodyText}>One or two words. (You can skip.)</Text>
         <Input
           value={nickname}
           onChangeText={setNickname}
@@ -2463,9 +2661,18 @@ export function IdentityAspirationFlow({
 
     if (mode === 'reuseIdentityForNewArc') {
       // For Arc creation launched from the Arcs inventory, we move from the
-      // big dream → why now → generating the Arc.
-      setPhase('generating');
-      void generateArc();
+      // big dream → why now → (optional archetype taps) → generating the Arc.
+      const alreadyHasArchetypeSignals =
+        Boolean(roleModelTypeId) ||
+        Boolean(specificRoleModelId) ||
+        Boolean(roleModelWhyId) ||
+        admiredQualityIds.length > 0;
+      if (alreadyHasArchetypeSignals) {
+        setPhase('generating');
+        void generateArc();
+      } else {
+        setPhase('roleModelType');
+      }
     } else {
       advancePhase('impact');
     }
@@ -2510,7 +2717,7 @@ export function IdentityAspirationFlow({
   const renderDomain = () => (
     <>
       <QuestionCard
-        stepLabel="1 of 10"
+        stepLabel="1 of 6"
         title={
           <>
             Which part of yourself are you most excited to grow right now?{' '}
@@ -2533,6 +2740,8 @@ export function IdentityAspirationFlow({
               <Pressable
                 key={option.id}
                 style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
                 onPress={() => {
                   // Single-select: clear previous selection contributions, then apply the new one
                   const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
@@ -2543,6 +2752,7 @@ export function IdentityAspirationFlow({
                 }}
               >
                 <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
                   {option.emoji ? (
                     <Text
                       style={[
@@ -2587,7 +2797,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>2 of 10</Text>
+          <Text style={styles.questionMeta}>2 of 6</Text>
         <Text style={styles.questionTitle}>
           Thinking about that future version of you, what do you think would motivate them the most
             here?{' '}
@@ -2607,6 +2817,8 @@ export function IdentityAspirationFlow({
               <Pressable
                 key={option.id}
                 style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
                 onPress={() => {
                   const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
                     motivationIds.includes(o.id)
@@ -2618,6 +2830,7 @@ export function IdentityAspirationFlow({
                 }}
               >
                 <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
                   {option.emoji ? (
                     <Text
                       style={[
@@ -2664,7 +2877,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>3 of 10</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
         <Text style={styles.questionTitle}>
           Future-you will still be you—just more grown up and confident. For that future version of
             you, which of these strengths would you most want them to have?{' '}
@@ -2724,7 +2937,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>4 of 10</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
         <Text style={styles.questionTitle}>
           Every good story has a challenge. Which of these challenges feels most real for you right
             now?{' '}
@@ -2783,7 +2996,7 @@ export function IdentityAspirationFlow({
     <>
     <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>5 of 10</Text>
+          <Text style={styles.questionMeta}>3 of 6</Text>
         <Text style={styles.questionTitle}>
             On a normal day in that future—not a big moment—what could you do that would make you feel
             quietly proud of yourself?{' '}
@@ -2796,15 +3009,15 @@ export function IdentityAspirationFlow({
               ⓘ
             </Text>
         </Text>
-        <View style={styles.chipGrid}>
-          {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 5).map((option) => {
+        <View style={styles.fullWidthList}>
+          {getAdaptiveOptions(PROUD_MOMENT_OPTIONS, 7).map((option) => {
             const selected = proudMomentIds.includes(option.id);
             return (
-              <Button
+              <Pressable
                 key={option.id}
-                size="small"
-                variant="ghost"
-                style={[styles.chip, selected && styles.chipSelected]}
+                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
                 onPress={() => {
                   const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
                     proudMomentIds.includes(o.id)
@@ -2815,8 +3028,18 @@ export function IdentityAspirationFlow({
                   handleConfirmProudMoment(option.label);
                 }}
               >
-                <ButtonLabel size="sm">{option.label}</ButtonLabel>
-              </Button>
+                <View style={styles.fullWidthOptionContent}>
+                  {renderRadioIndicator(selected)}
+                  <Text
+                    style={[
+                      styles.fullWidthOptionLabel,
+                      selected && styles.fullWidthOptionLabelSelected,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+              </Pressable>
             );
           })}
         </View>
@@ -2843,7 +3066,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
       <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>6 of 10</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             When you imagine your future, what makes life feel truly meaningful to you?{' '}
             <Text
@@ -2939,7 +3162,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>7 of 10</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             How do you hope your life will impact other people?{' '}
             <Text
@@ -3002,7 +3225,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>8 of 10</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             Which value feels most core to who you want to be?{' '}
             <Text
@@ -3058,7 +3281,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>9 of 10</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             How do you want to move through life—what&apos;s the overall approach?{' '}
             <Text
@@ -3123,7 +3346,7 @@ export function IdentityAspirationFlow({
     <>
       <Card style={[styles.stepCard, styles.researchCard]}>
         <View style={styles.stepBody}>
-          <Text style={styles.questionMeta}>10 of 10</Text>
+          <Text style={styles.questionMeta}>Legacy</Text>
           <Text style={styles.questionTitle}>
             And which kind of work or creation feels closest to Future You?{' '}
             <Text
@@ -3195,16 +3418,8 @@ export function IdentityAspirationFlow({
     if (workflowRuntime) {
       workflowRuntime.completeStep('big_dream', { bigDream: trimmed });
     }
-    if (mode === 'reuseIdentityForNewArc') {
-      // In the Arc creation flow launched from the Arcs inventory, capture
-      // the big dream first, then ask "why does this feel important?" before
-      // actually generating the Arc.
-      setPhase('whyNow');
-    } else {
-      // For first-time onboarding, keep the explicit optional nickname step
-      // before generating the Arc so the user can add a personal anchor.
-      setPhase('nickname');
-    }
+    // Hybrid-Minimal: proceed to optional archetype taps (skip-able).
+    setPhase('roleModelType');
   };
 
   const renderDreams = () => {
@@ -3219,14 +3434,8 @@ export function IdentityAspirationFlow({
 
     return (
       <View style={styles.dreamsStack}>
-        {mode === 'firstTimeOnboarding' && (
-          <Card padding="none" style={[styles.stepCard, styles.dreamsGifCard]}>
-            <View style={styles.stepBody}>
-              <CelebrationGif kind="firstArcDreamsPrompt" size="md" />
-            </View>
-          </Card>
-        )}
         <QuestionCard
+          stepLabel="4 of 6"
           title="Looking ahead, what’s one big thing you’d love to bring to life?"
         >
           <Input
@@ -3609,6 +3818,14 @@ export function IdentityAspirationFlow({
     return renderNickname();
   }
 
+  if (phase === 'roleModelType') {
+    return renderRoleModelType();
+  }
+
+  if (phase === 'admiredQualities') {
+    return renderAdmiredQualities();
+  }
+
   if (phase === 'reveal') {
     return renderReveal();
   }
@@ -3751,6 +3968,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: colors.accent,
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: colors.accent,
+  },
+  checkboxOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  checkboxOuterSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
   },
   fullWidthOptionEmoji: {
     ...typography.body,

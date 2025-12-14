@@ -63,6 +63,11 @@ export function FirstTimeUxFlow() {
 
   const introAnim = useRef(new Animated.Value(1)).current;
   const workflowAnim = useRef(new Animated.Value(0)).current;
+  const shouldShowNotificationsStep =
+    notificationPreferences.osPermissionStatus !== 'authorized';
+  const flowSteps: FtueStep[] = shouldShowNotificationsStep
+    ? ['welcome', 'notifications', 'path']
+    : ['welcome', 'path'];
 
   useEffect(() => {
     if (!isVisible) {
@@ -202,6 +207,8 @@ export function FirstTimeUxFlow() {
   };
 
   const renderFtueInterstitial = () => {
+    const currentIndex = Math.max(0, flowSteps.indexOf(ftueStep));
+    const totalSteps = flowSteps.length;
     const stepTheme = (() => {
       switch (ftueStep) {
         case 'welcome':
@@ -247,8 +254,7 @@ export function FirstTimeUxFlow() {
     let body: string;
     let ctaLabel: string;
     let nextStep: FtueStep | 'workflow';
-    let stepIndex = 1;
-    const totalSteps = 3;
+    let stepIndex = currentIndex + 1;
     const illustrationSource =
       ftueStep === 'welcome'
         ? require('../../../assets/illustrations/welcome.png')
@@ -275,9 +281,8 @@ export function FirstTimeUxFlow() {
         title = 'Welcome to Kwilt';
         body =
           'A simple way to understand who you’re becoming and grow into the best version of yourself.';
-        ctaLabel = 'Next';
-        nextStep = 'notifications';
-        stepIndex = 1;
+        ctaLabel = totalSteps > 2 ? 'Next' : 'Continue';
+        nextStep = totalSteps > 2 ? 'notifications' : 'path';
         break;
       case 'notifications':
         title = 'Setup regular prompts';
@@ -285,7 +290,6 @@ export function FirstTimeUxFlow() {
           'Kwilt will help you along with gentle reminders so tiny steps don’t slip through the cracks.';
         ctaLabel = 'Continue';
         nextStep = 'path';
-        stepIndex = 2;
         break;
       case 'path':
       default:
@@ -294,7 +298,6 @@ export function FirstTimeUxFlow() {
           'Kwilt uses AI to help you describe the character Arcs you’re developing, create Goals to get there, and plan tiny Activities so you always know the next step.';
         ctaLabel = 'Let’s begin';
         nextStep = 'workflow';
-        stepIndex = 3;
         break;
     }
 
@@ -595,19 +598,38 @@ export function FirstTimeUxFlow() {
                   setHasCompletedFirstTimeOnboarding(true);
                   const { lastOnboardingArcId: arcId, lastOnboardingGoalId: goalId } =
                     useAppStore.getState();
-                  if (rootNavigationRef.isReady()) {
+
+                  const navigateToOutcome = (attempt = 0) => {
+                    if (!rootNavigationRef.isReady()) {
+                      if (attempt < 25) {
+                        setTimeout(() => navigateToOutcome(attempt + 1), 50);
+                      }
+                      return;
+                    }
+
                     if (arcId) {
                       rootNavigationRef.navigate('ArcsStack', {
                         screen: 'ArcDetail',
-                        params: { arcId },
+                        params: {
+                          arcId,
+                          showFirstArcCelebration: true,
+                        },
                       });
-                    } else if (goalId) {
+                      return;
+                    }
+
+                    if (goalId) {
                       rootNavigationRef.navigate('ArcsStack', {
                         screen: 'GoalDetail',
                         params: { goalId, entryPoint: 'arcsStack' },
                       });
+                      return;
                     }
-                  }
+
+                    rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
+                  };
+
+                  navigateToOutcome();
                 }}
               />
             </AppShell>

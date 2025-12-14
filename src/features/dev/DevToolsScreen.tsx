@@ -1,10 +1,12 @@
 import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput } from 'react-native';
 import { useEffect, useState } from 'react';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -19,22 +21,31 @@ import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { Logo } from '../../ui/Logo';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
+  clearAllCoachConversationMemory,
+  clearCoachConversationMemoryByKey,
   type CoachChatTurn,
+  type CoachConversationSummaryRecordV1,
   type DevCoachChatLogEntry,
   type DevCoachChatFeedback,
+  listCoachConversationMemoryKeys,
+  loadCoachConversationMemoryByKey,
 } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
+import { ArcTestingLauncher } from './ArcTestingLauncher';
+import type { Activity } from '../../domain/types';
 
 type InterstitialVariant = 'launch' | 'auth' | 'streak';
+type DevToolsRoute = RouteProp<RootDrawerParamList, 'DevTools'>;
 
 export function DevToolsScreen() {
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
+  const route = useRoute<DevToolsRoute>();
   const drawerStatus = useDrawerStatus();
   const insets = useSafeAreaInsets();
   const menuOpen = drawerStatus === 'open';
@@ -44,6 +55,8 @@ export function DevToolsScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const addArc = useAppStore((state) => state.addArc);
   const addGoal = useAppStore((state) => state.addGoal);
+  const activities = useAppStore((state) => state.activities);
+  const addActivity = useAppStore((state) => state.addActivity);
   const startFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const resetOnboardingAnswers = useAppStore((state) => state.resetOnboardingAnswers);
@@ -57,21 +70,37 @@ export function DevToolsScreen() {
   const setHasDismissedOnboardingGoalGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingGoalGuide
   );
+  const setHasDismissedActivitiesListGuide = useAppStore(
+    (state) => state.setHasDismissedActivitiesListGuide,
+  );
+  const setHasDismissedActivityDetailGuide = useAppStore(
+    (state) => state.setHasDismissedActivityDetailGuide,
+  );
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
   );
 
+  const initialTab = route.params?.initialTab ?? 'tools';
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'tools' | 'gallery' | 'typeColor'>('tools');
+  const [viewMode, setViewMode] = useState<
+    'tools' | 'gallery' | 'typeColor' | 'arcTesting' | 'memory'
+  >(initialTab);
   const [demoDialogVisible, setDemoDialogVisible] = useState(false);
   const [demoSheetVisible, setDemoSheetVisible] = useState(false);
   const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
   const [isInterstitialFullScreenVisible, setIsInterstitialFullScreenVisible] = useState(false);
+  const [memoryKeys, setMemoryKeys] = useState<string[]>([]);
+  const [memoryRecords, setMemoryRecords] = useState<Record<string, CoachConversationSummaryRecordV1 | null>>(
+    {}
+  );
+  const [memoryExpandedKey, setMemoryExpandedKey] = useState<string | null>(null);
+  const [isLoadingMemory, setIsLoadingMemory] = useState(false);
+
   const [launchBody, setLaunchBody] = useState('Grow into the person you want to be.');
   const [authBody, setAuthBody] = useState(
     'Save your arcs and sync your progress across devices.'
@@ -103,9 +132,76 @@ export function DevToolsScreen() {
     void loadChatHistory();
   }, []);
 
+  const loadMemory = async () => {
+    try {
+      setIsLoadingMemory(true);
+      const keys = await listCoachConversationMemoryKeys();
+      setMemoryKeys(keys);
+      const nextRecords: Record<string, CoachConversationSummaryRecordV1 | null> = {};
+      await Promise.all(
+        keys.map(async (key) => {
+          nextRecords[key] = await loadCoachConversationMemoryByKey(key);
+        })
+      );
+      setMemoryRecords(nextRecords);
+    } finally {
+      setIsLoadingMemory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setViewMode(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
+
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
     startFlow();
+  };
+
+  const ensureDevActivityId = () => {
+    const existing = activities.length > 0 ? activities[activities.length - 1] : null;
+    if (existing) return existing.id;
+
+    const timestamp = new Date().toISOString();
+    const id = `dev-activity-${Date.now()}`;
+    const activity: Activity = {
+      id,
+      goalId: null,
+      title: '🧪 Dev: Activity guide test',
+      notes: 'This Activity exists to test ActivityDetail coachmarks from DevTools.',
+      steps: [],
+      reminderAt: null,
+      priority: undefined,
+      estimateMinutes: null,
+      creationSource: 'manual',
+      planGroupId: null,
+      scheduledDate: null,
+      repeatRule: undefined,
+      orderIndex: (activities.length || 0) + 1,
+      phase: null,
+      status: 'planned',
+      actualMinutes: null,
+      startedAt: null,
+      completedAt: null,
+      forceActual: defaultForceLevels(0),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    addActivity(activity);
+    return id;
+  };
+
+  const handleShowActivitiesListGuide = () => {
+    setHasDismissedActivitiesListGuide(false);
+    navigation.navigate('Activities', { screen: 'ActivitiesList' });
+  };
+
+  const handleShowActivityDetailGuide = () => {
+    const activityId = ensureDevActivityId();
+    setHasDismissedActivityDetailGuide(false);
+    navigation.navigate('Activities', { screen: 'ActivityDetail', params: { activityId } });
   };
 
   const handleDebugDailyShowUpNotification = () => {
@@ -202,7 +298,7 @@ export function DevToolsScreen() {
         title: '🎉 Dev: First Goal',
         description:
           'This goal exists to test the “Goal created” celebration overlay without running onboarding.',
-        status: 'active',
+        status: 'planned',
         startDate: nowIso,
         targetDate: undefined,
         forceIntent: {},
@@ -369,6 +465,8 @@ export function DevToolsScreen() {
 
   const isGallery = viewMode === 'gallery';
   const isTypeAndColor = viewMode === 'typeColor';
+  const isArcTesting = viewMode === 'arcTesting';
+  const isMemory = viewMode === 'memory';
 
   const interstitialSegmentOptions: { value: InterstitialVariant; label: string }[] = [
     { value: 'launch', label: 'Launch' },
@@ -477,10 +575,7 @@ export function DevToolsScreen() {
 
   const renderComponentGallery = () => {
     return (
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.stack}>
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>Buttons</Text>
@@ -752,7 +847,7 @@ export function DevToolsScreen() {
             </Button>
           </View>
         </BottomDrawer>
-      </ScrollView>
+      </CanvasScrollView>
     );
   };
 
@@ -802,10 +897,7 @@ export function DevToolsScreen() {
     ];
 
     return (
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.stack}>
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>Typography tokens</Text>
@@ -884,7 +976,7 @@ export function DevToolsScreen() {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </CanvasScrollView>
     );
   };
 
@@ -909,12 +1001,130 @@ export function DevToolsScreen() {
           onChange={(next) => setViewMode(next)}
           options={[
             { value: 'tools', label: 'Tools' },
+            { value: 'memory', label: 'Memory' },
             { value: 'gallery', label: 'Components' },
             { value: 'typeColor', label: 'Type & Color' },
+            { value: 'arcTesting', label: 'Arc Testing' },
           ]}
         />
       </PageHeader>
-      {isGallery ? (
+      {isArcTesting ? (
+        <ArcTestingLauncher />
+      ) : isMemory ? (
+        <CanvasScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.stack}>
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Coach memory (device)</Text>
+              <Text style={styles.cardBody}>
+                These are the persisted “conversation memory summaries” used to keep the coach
+                consistent over time without sending the full transcript every turn.
+              </Text>
+              <HStack space="sm" style={{ marginTop: spacing.md }}>
+                <Button variant="accent" onPress={() => void loadMemory()}>
+                  <Text style={styles.primaryButtonLabel}>
+                    {isLoadingMemory ? 'Loading…' : 'Refresh'}
+                  </Text>
+                </Button>
+                <Button
+                  variant="outline"
+                  onPress={() => {
+                    Alert.alert(
+                      'Clear all memory?',
+                      'This removes all persisted coach memory summaries on this device.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Clear all',
+                          style: 'destructive',
+                          onPress: () => {
+                            void clearAllCoachConversationMemory().then(loadMemory);
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Clear all</Text>
+                </Button>
+              </HStack>
+              <Text style={styles.meta}>
+                {memoryKeys.length} {memoryKeys.length === 1 ? 'record' : 'records'}
+              </Text>
+            </View>
+
+            {memoryKeys.length === 0 ? (
+              <View style={styles.card}>
+                <Text style={styles.cardBody}>
+                  No memory summaries stored yet. Have a longer chat, then come back and refresh.
+                </Text>
+              </View>
+            ) : (
+              memoryKeys.map((key) => {
+                const record = memoryRecords[key];
+                const isExpanded = memoryExpandedKey === key;
+                const preview = (record?.summary ?? '').trim();
+                return (
+                  <View key={key} style={styles.card}>
+                    <HStack justifyContent="space-between" alignItems="center">
+                      <Text style={styles.memoryKey} numberOfLines={2}>
+                        {key.replace('kwilt-coach-summary:v1:', '')}
+                      </Text>
+                      <Button
+                        variant="ghost"
+                        size="small"
+                        onPress={() => setMemoryExpandedKey(isExpanded ? null : key)}
+                      >
+                        <Text style={styles.memoryLinkText}>{isExpanded ? 'Hide' : 'View'}</Text>
+                      </Button>
+                    </HStack>
+
+                    {record ? (
+                      <>
+                        <Text style={styles.meta}>
+                          Updated {record.updatedAt} • summarized={record.summarizedEligibleCount}
+                        </Text>
+                        <Text style={styles.memoryPreview} numberOfLines={isExpanded ? 0 : 6}>
+                          {preview.length > 0 ? preview : '(empty)'}
+                        </Text>
+                        {isExpanded && (
+                          <HStack space="sm" style={{ marginTop: spacing.md }}>
+                            <Button
+                              variant="outline"
+                              onPress={() => {
+                                Alert.alert(
+                                  'Clear memory?',
+                                  'This removes this one memory summary.',
+                                  [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                      text: 'Clear',
+                                      style: 'destructive',
+                                      onPress: () => {
+                                        void clearCoachConversationMemoryByKey(key).then(loadMemory);
+                                      },
+                                    },
+                                  ]
+                                );
+                              }}
+                            >
+                              <Text style={styles.secondaryButtonLabel}>Clear</Text>
+                            </Button>
+                          </HStack>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={styles.cardBody}>Unable to load record.</Text>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </CanvasScrollView>
+      ) : isGallery ? (
         <>
           {renderComponentGallery()}
           <FullScreenInterstitial
@@ -935,10 +1145,7 @@ export function DevToolsScreen() {
       ) : isTypeAndColor ? (
         renderTypeAndColorGallery()
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.stack}>
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>First-time UX</Text>
@@ -951,6 +1158,12 @@ export function DevToolsScreen() {
                 <ButtonLabel size="md" tone="inverse">
                   Trigger first-time UX
                 </ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={handleShowActivitiesListGuide} style={styles.cardAction}>
+                <ButtonLabel size="md">Show Activities list guide</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={handleShowActivityDetailGuide} style={styles.cardAction}>
+                <ButtonLabel size="md">Show Activity detail guide</ButtonLabel>
               </Button>
               {isFlowActive && (
                 <Button variant="secondary" onPress={dismissFlow} style={styles.cardAction}>
@@ -1145,7 +1358,7 @@ export function DevToolsScreen() {
               )}
             </View>
           </View>
-        </ScrollView>
+        </CanvasScrollView>
       )}
     </AppShell>
   );
@@ -1208,6 +1421,23 @@ const styles = StyleSheet.create({
   meta: {
     ...typography.bodySm,
     color: colors.muted,
+    marginTop: spacing.sm,
+  },
+  memoryKey: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  memoryLinkText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.semibold,
+  },
+  memoryPreview: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
     marginTop: spacing.sm,
   },
   cardAction: {

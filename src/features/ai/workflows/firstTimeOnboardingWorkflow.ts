@@ -1,5 +1,6 @@
 import type { WorkflowDefinition, WorkflowStep } from '../../../domain/workflows';
 import { FIRST_TIME_ONBOARDING_PROMPT } from '../systemPrompts';
+import { buildHybridArcGuidelinesBlock } from '../../../domain/arcHybridPrompt';
 
 /**
  * First-Time Onboarding workflow (v2 – identity Arc / aspiration).
@@ -267,8 +268,37 @@ export const firstTimeOnboardingWorkflow: WorkflowDefinition = {
       type: 'agent_generate',
       label: 'Synthesize identity aspiration',
       fieldsCollected: ['arcName', 'arcNarrative', 'nextSmallStep'],
-      promptTemplate:
-        'Using the collected inputs — vibe, socialPresence, coreStrength, everydayAction, optional nickname, and any age/profile context the host has already provided in hidden system messages — generate an identity Arc with exactly 3 sentences plus a single gentle "next small step".\n\nQUALITY EXAMPLES (study these for tone and depth):\n\nExample 1 - Craft & Contribution:\nName: "🧠 Craft & Contribution"\nNarrative: "I want to become a product builder whose work is marked by clarity, compassion, and craftsmanship. This Arc is about developing the ability to see complexity clearly, to name problems honestly, and to build solutions that genuinely help people. It\'s the pursuit of excellence—not for ego, but because thoughtful work is a form of service."\n\nExample 2 - Making & Embodied Creativity:\nName: "🪚 Making & Embodied Creativity"\nNarrative: "I want to stay connected to the physical world through the work of my hands—building, shaping, repairing, and creating things that are tangible and lasting. Making reminds me that growth isn\'t only intellectual. It\'s slow, physical, patient, and grounded. It teaches me presence. It teaches me to notice details. It teaches me to treat materials with respect."\n\nExample 3 - Venture / Entrepreneurship:\nName: "🚀 Venture / Entrepreneurship"\nNarrative: "I want to build ventures that are principled, thoughtful, and genuinely helpful. Entrepreneurship is not about speed or hype for me—it\'s about stewarding ideas that could make people\'s lives more coherent, more peaceful, or more empowered. This Arc represents my desire to take responsibility for my creativity and see it through to real-world impact."\n\nKey qualities to match: specific concrete language, clear "I want" statements, natural flow, grounded in real scenes, reflects genuine identity direction.\n\nRespond ONLY with a JSON object in this shape (no extra commentary):\n{\n  "arcName": string, // 1–3 words (emoji prefix allowed), describing an identity direction or arena, stable over time, reflecting the user\'s inputs. Use patterns like Domain+Posture, Value+Domain, Two-noun frame, or canonical templates.\n  "aspirationSentence": string, // exactly 3 sentences in one paragraph, 40–120 words, FIRST sentence must start with "I want…", use plain grounded language suitable for ages 14–50+, avoid guru-speak/cosmic language/therapy language/prescriptive "shoulds". Sentence 1 expresses identity direction, Sentence 2 explains why it matters now, Sentence 3 gives one concrete ordinary-life scene. CRITICAL: All sentences must be grammatically complete and natural-sounding. Transform user inputs into proper prose rather than inserting raw phrases verbatim. Extract core concepts from user dreams/inputs and express them naturally.\n  "nextSmallStep": string // one sentence starting with "Your next small step: …"\n}\n\nThe Arc should focus on character, energy, and trajectory (who they want to become), not achievements or metrics. The nextSmallStep must be concrete but low-pressure (e.g., "Practice what matters for just 5 minutes."). Keep your visible reply to one short paragraph (2–3 sentences).',
+      promptTemplate: `${[
+        'Using the collected inputs (domain, motivation, signatureTrait, growthEdge, proudMoment, meaning, impact, values, philosophy, vocation, bigDream, optional nickname), generate an identity Arc plus a single gentle "next small step".',
+        '',
+        // Shared hybrid paradigm constraints + quality targets.
+        buildHybridArcGuidelinesBlock(),
+        '',
+        'QUALITY EXAMPLES (3 sentences each; follow the feel, do not copy):',
+        '',
+        'Example 1 — Craft & Contribution',
+        'Name: "🧠 Craft & Contribution"',
+        'Narrative: "I want to become someone whose work is careful, honest, and useful to real people. This matters now because I feel most like myself when I build things with clarity instead of rushing or performing. I see this Arc on ordinary days when I pick one small problem, fix it cleanly, and share the result with someone who will actually use it."',
+        '',
+        'Example 2 — Making & Embodied Creativity',
+        'Name: "🪚 Making & Embodied Creativity"',
+        'Narrative: "I want to stay grounded in the physical world by making things with my hands and my attention. This matters now because screens can pull me away from what feels real and steady. I notice this Arc after work when I step into the garage, set a 20-minute timer, and make one clean cut or join on a project I care about."',
+        '',
+        'Example 3 — Venture Stewardship',
+        'Name: "🚀 Venture Stewardship"',
+        'Narrative: "I want to build small, principled ventures that help people without turning me into someone I don’t like. This matters now because I want my ambition to be clean and aligned, not frantic or showy. I live this Arc on a Tuesday when I write one page, ship one tiny improvement, and tell the truth about what’s working and what isn’t."',
+        '',
+        'Respond ONLY with a JSON object in this shape (no extra commentary):',
+        '{',
+        '  "arcName": string,',
+        '  "aspirationSentence": string,',
+        '  "nextSmallStep": string',
+        '}',
+        '',
+        'nextSmallStep requirements:',
+        '- One sentence starting with "Your next small step: …"',
+        '- Concrete but low-pressure (fits in 5–20 minutes).',
+      ].join('\n')}`,
       validationHint:
         'arcName should be short and legible in a list (typically 2–5 words). aspirationSentence should be emotionally resonant but grounded. nextSmallStep must begin with "Your next small step: " and describe one doable action.',
       nextStepId: 'aspiration_reveal',

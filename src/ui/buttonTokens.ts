@@ -56,6 +56,7 @@ export const BUTTON_SIZE_TOKENS: Record<
  * right foreground color automatically.
  */
 export type ButtonVariantToken =
+  | 'cta'
   | 'primary'
   | 'secondary'
   | 'outline'
@@ -74,8 +75,12 @@ export const BUTTON_VARIANT_TOKENS: Record<
     textTone: ButtonTextTone;
   }
 > = {
-  primary: {
+  cta: {
     backgroundColor: colors.accent,
+    textTone: 'inverse',
+  },
+  primary: {
+    backgroundColor: colors.primary,
     textTone: 'inverse',
   },
   secondary: {

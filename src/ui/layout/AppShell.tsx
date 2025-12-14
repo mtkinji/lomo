@@ -27,7 +27,11 @@ export function AppShell({ children, backgroundVariant = 'default' }: AppShellPr
           styles.container,
           {
             paddingTop: spacing.sm + insets.top,
-            paddingBottom: insets.bottom,
+            // NOTE: Do not pad the canvas bottom here.
+            // Bottom safe area should be handled by scrollable content (via contentContainerStyle)
+            // or by explicit bottom UI (e.g., a composer) so content can scroll into the bottom space
+            // rather than being clipped.
+            paddingBottom: 0,
             // For gradient variants, let the underlying shell/gradient show through.
             backgroundColor: backgroundVariant === 'arcGradient' ? 'transparent' : colors.shell,
           },

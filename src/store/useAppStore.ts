@@ -13,6 +13,7 @@ import {
   GoalDraft,
   UserProfile,
 } from '../domain/types';
+import type { CelebrationKind, MediaRole } from '../services/gifs';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
@@ -83,6 +84,31 @@ interface AppState {
    */
   hasDismissedOnboardingActivitiesGuide: boolean;
   /**
+   * Dismissal flag for the post-onboarding "plan ready" handoff shown once the
+   * onboarding-created goal has at least one Activity.
+   */
+  hasDismissedOnboardingPlanReadyGuide: boolean;
+  /**
+   * Dismissal flag for the first-time Goal detail "Vectors for this goal" coachmark.
+   * Explains how balancing vectors leads to more sustainable goals.
+   */
+  hasDismissedGoalVectorsGuide: boolean;
+  /**
+   * Dismissal flag for the first-time Activities list guide (views/filter/sort + card affordances).
+   * This is intentionally separate from onboarding-only guidance: users can discover Activities
+   * later, outside the E2E FTUE.
+   */
+  hasDismissedActivitiesListGuide: boolean;
+  /**
+   * Dismissal flag for the first-time Activity detail guide.
+   */
+  hasDismissedActivityDetailGuide: boolean;
+  /**
+   * Dismissal flag for the first-time Arc detail "explore" coachmarks
+   * (banner edit, tabs navigation, and Development Insights).
+   */
+  hasDismissedArcExploreGuide: boolean;
+  /**
    * One-time FTUE evangelism/share prompt. Triggered after the user creates
    * their first onboarding Activities (social accountability + referral hook).
    */
@@ -112,11 +138,6 @@ interface AppState {
     role: MediaRole;
     kind: CelebrationKind;
   }[];
-  /**
-   * Per-user denylist of celebration GIF ids that should never be shown again.
-   * Populated via lightweight "Not quite right" feedback controls.
-   */
-  blockedCelebrationGifIds: string[];
   /**
    * Update notification preferences in a single place so the notifications
    * service and settings screens stay in sync.
@@ -161,13 +182,17 @@ interface AppState {
   setHasSeenOnboardingSharePrompt: (seen: boolean) => void;
   setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingActivitiesGuide: (dismissed: boolean) => void;
+  setHasDismissedOnboardingPlanReadyGuide: (dismissed: boolean) => void;
+  setHasDismissedGoalVectorsGuide: (dismissed: boolean) => void;
+  setHasDismissedActivitiesListGuide: (dismissed: boolean) => void;
+  setHasDismissedActivityDetailGuide: (dismissed: boolean) => void;
+  setHasDismissedArcExploreGuide: (dismissed: boolean) => void;
   setActiveActivityViewId: (viewId: string | null) => void;
   addActivityView: (view: ActivityView) => void;
   updateActivityView: (viewId: string, updater: Updater<ActivityView>) => void;
   removeActivityView: (viewId: string) => void;
   blockCelebrationGif: (gifId: string) => void;
   likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
-  blockCelebrationGif: (gifId: string) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
@@ -398,6 +423,7 @@ export const useAppStore = create(
       goalRecommendations: {},
       arcFeedback: [],
       blockedCelebrationGifIds: [],
+      likedCelebrationGifs: [],
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
       hasCompletedFirstTimeOnboarding: false,
@@ -408,6 +434,11 @@ export const useAppStore = create(
       hasSeenOnboardingSharePrompt: false,
       hasDismissedOnboardingGoalGuide: false,
       hasDismissedOnboardingActivitiesGuide: false,
+      hasDismissedOnboardingPlanReadyGuide: false,
+      hasDismissedGoalVectorsGuide: false,
+      hasDismissedActivitiesListGuide: false,
+      hasDismissedActivityDetailGuide: false,
+      hasDismissedArcExploreGuide: false,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
         set((state) => ({
@@ -516,6 +547,26 @@ export const useAppStore = create(
       setHasDismissedOnboardingActivitiesGuide: (dismissed) =>
         set(() => ({
           hasDismissedOnboardingActivitiesGuide: dismissed,
+        })),
+      setHasDismissedOnboardingPlanReadyGuide: (dismissed) =>
+        set(() => ({
+          hasDismissedOnboardingPlanReadyGuide: dismissed,
+        })),
+      setHasDismissedGoalVectorsGuide: (dismissed) =>
+        set(() => ({
+          hasDismissedGoalVectorsGuide: dismissed,
+        })),
+      setHasDismissedActivitiesListGuide: (dismissed) =>
+        set(() => ({
+          hasDismissedActivitiesListGuide: dismissed,
+        })),
+      setHasDismissedActivityDetailGuide: (dismissed) =>
+        set(() => ({
+          hasDismissedActivityDetailGuide: dismissed,
+        })),
+      setHasDismissedArcExploreGuide: (dismissed) =>
+        set(() => ({
+          hasDismissedArcExploreGuide: dismissed,
         })),
       setActiveActivityViewId: (viewId) =>
         set(() => ({
@@ -662,6 +713,11 @@ export const useAppStore = create(
             hasSeenOnboardingSharePrompt: false,
             hasDismissedOnboardingGoalGuide: false,
             hasDismissedOnboardingActivitiesGuide: false,
+            hasDismissedOnboardingPlanReadyGuide: false,
+            hasDismissedGoalVectorsGuide: false,
+            hasDismissedActivitiesListGuide: false,
+            hasDismissedActivityDetailGuide: false,
+            hasDismissedArcExploreGuide: false,
             // When we explicitly reset onboarding answers (typically from dev
             // tooling), also reset the one-time celebrations so the overlays
             // can be exercised again on the next onboarding-created Arc/Goal.
@@ -686,6 +742,11 @@ export const useAppStore = create(
           hasSeenOnboardingSharePrompt: false,
           hasDismissedOnboardingGoalGuide: false,
           hasDismissedOnboardingActivitiesGuide: false,
+          hasDismissedOnboardingPlanReadyGuide: false,
+          hasDismissedGoalVectorsGuide: false,
+          hasDismissedActivitiesListGuide: false,
+          hasDismissedActivityDetailGuide: false,
+          hasDismissedArcExploreGuide: false,
           blockedCelebrationGifIds: [],
           likedCelebrationGifs: [],
           hasCompletedFirstTimeOnboarding: false,

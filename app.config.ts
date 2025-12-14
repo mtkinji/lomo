@@ -34,13 +34,20 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
+  notification: {
+    // Use a flat, monochrome logo for the small status-bar icon on Android.
+    // This should be a white glyph on a transparent background.
+    icon: './assets/icon.png',
+    color: '#1F5226',
+  },
   // Enable React Native New Architecture so SDK 54-compatible libraries like
   // Reanimated and Worklets can install their pods correctly on EAS.
   newArchEnabled: true,
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff',
+    // Pine 300 (matches in-app LaunchScreen background).
+    backgroundColor: '#B7CFB5',
   },
   ios: {
     supportsTablet: true,
@@ -60,12 +67,6 @@ const config: ExpoConfig = {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
-    notification: {
-      // Use a flat, monochrome logo for the small status-bar icon on Android.
-      // This should be a white glyph on a transparent background.
-      icon: './assets/icon.png',
-      color: '#1F5226',
-    },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
   },
@@ -78,7 +79,8 @@ const config: ExpoConfig = {
       // Linked EAS project for the kwilt app (added manually for dynamic config).
       projectId: '7717f04d-8327-47a9-8bb4-84c21dc8214f',
     },
-    openAiApiKey: process.env.OPENAI_API_KEY,
+    // Prefer testing key if available (for Arc Testing dev tooling), otherwise fall back to main key
+    openAiApiKey: process.env.OPENAI_ARK_TESTING_KEY ?? process.env.OPENAI_API_KEY,
     giphyApiKey: process.env.GIPHY_API_KEY,
     // Unsplash Access Key (Client ID). Support a few common env var names so
     // local/dev setups don't silently break.

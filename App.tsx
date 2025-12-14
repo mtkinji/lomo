@@ -72,16 +72,9 @@ export default function App() {
     startFirstTimeFlow,
   ]);
 
-  useEffect(() => {
-    if (!fontsLoaded) return;
-    // Hold the in-app launch screen briefly so the branded interstitial
-    // feels intentional between the native splash and main shell.
-    const timeout = setTimeout(() => {
-      setIsBootstrapped(true);
-    }, 900);
-
-    return () => clearTimeout(timeout);
-  }, [fontsLoaded]);
+  const handleLaunchScreenComplete = () => {
+    setIsBootstrapped(true);
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -94,7 +87,7 @@ export default function App() {
           <BottomSheetModalProvider>
             <StatusBar style="dark" />
             <Logo size={1} />
-            <LaunchScreen />
+            <LaunchScreen onAnimationComplete={handleLaunchScreenComplete} />
             <PortalHost />
           </BottomSheetModalProvider>
         </SafeAreaProvider>
