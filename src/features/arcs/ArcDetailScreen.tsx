@@ -675,28 +675,21 @@ export function ArcDetailScreen() {
         visible={showOnboardingArcHandoff}
         onClose={handleDismissOnboardingArcHandoff}
         scrim="light"
-        guideColor={colors.turmeric}
       >
         <Heading variant="sm">🚀 Your first Arc is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
           Now that we have your first identity Arc, we can create a Goal to help you get there. Tap “Go to
           Goals” and we’ll guide you from there.
         </Text>
-        <HStack space="sm" marginTop={spacing.sm}>
+        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
             variant="outline"
-            style={{ flex: 1 }}
             onPress={handleDismissOnboardingArcHandoff}
           >
             <Text style={styles.onboardingGuideSecondaryLabel}>Explore first</Text>
           </Button>
           <Button
-            variant="accent"
-            style={{
-              flex: 1,
-              backgroundColor: colors.turmeric,
-              borderColor: colors.turmeric,
-            }}
+            variant="turmeric"
             onPress={() => {
               // Step 1: navigate to the Goals tab. The in-context callout there
               // will guide the user to the "Create goals for this Arc" button.
@@ -922,29 +915,31 @@ export function ArcDetailScreen() {
                       { paddingBottom: spacing['2xl'] + insets.bottom },
                     ]}
                   >
-                    <View
-                      style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}
-                    >
-                      <Text style={styles.sectionTitle}>
-                        Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-                      </Text>
-                      <IconButton
-                        style={styles.goalsExpandButton}
-                        onPress={() => {
-                          setHasDismissedOnboardingGoalGuide(true);
-                          setIsGoalCoachVisible(true);
-                        }}
-                        accessibilityLabel="Create a new goal"
+                    {arcGoals.length > 0 && (
+                      <View
+                        style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}
                       >
-                        <Icon name="plus" size={18} color={colors.canvas} />
-                      </IconButton>
-                    </View>
+                        <Text style={styles.sectionTitle}>
+                          Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
+                        </Text>
+                        <IconButton
+                          style={styles.goalsExpandButton}
+                          onPress={() => {
+                            setHasDismissedOnboardingGoalGuide(true);
+                            setIsGoalCoachVisible(true);
+                          }}
+                          accessibilityLabel="Create a new goal"
+                        >
+                          <Icon name="plus" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </View>
+                    )}
 
                     {arcGoals.length === 0 ? (
                       <EmptyState
                         title="Turn this Arc into clear goals"
-                        instructions="Add 3–5 goals so kwilt knows what “success” looks like here."
-                        style={styles.goalsEmptyStateContainer}
+                        instructions={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
+                        style={[styles.goalsEmptyStateContainer, { marginTop: spacing['2xl'] }]}
                         actions={
                           <View
                             ref={createGoalsButtonRef}

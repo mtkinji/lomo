@@ -62,7 +62,8 @@ export type ButtonVariantToken =
   | 'outline'
   | 'ghost'
   | 'link'
-  | 'destructive';
+  | 'destructive'
+  | 'turmeric';
 
 export type ButtonTextTone = 'default' | 'inverse' | 'accent' | 'destructive';
 
@@ -115,6 +116,12 @@ export const BUTTON_VARIANT_TOKENS: Record<
     backgroundColor: colors.destructive,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.18)',
+    textTone: 'inverse',
+  },
+  turmeric: {
+    backgroundColor: colors.turmeric,
+    borderWidth: 1,
+    borderColor: colors.turmeric,
     textTone: 'inverse',
   },
 };

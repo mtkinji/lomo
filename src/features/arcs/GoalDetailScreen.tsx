@@ -130,12 +130,20 @@ export function GoalDetailScreen() {
   const [showFirstGoalCelebration, setShowFirstGoalCelebration] = useState(false);
   const [showOnboardingSharePrompt, setShowOnboardingSharePrompt] = useState(false);
   const [pendingOnboardingSharePrompt, setPendingOnboardingSharePrompt] = useState(false);
-  const onboardingSharePrevActivityCountRef = useRef(0);
+  // Track activity count transitions so we only trigger onboarding handoffs on
+  // *real* changes (not just because a goal already has activities when the screen mounts).
+  const onboardingSharePrevActivityCountRef = useRef<number | null>(null);
   const [vectorsInfoVisible, setVectorsInfoVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
   const addActivitiesButtonRef = useRef<View>(null);
+  const [isAddActivitiesButtonReady, setIsAddActivitiesButtonReady] = useState(false);
+  /**
+   * We only want to "spotlight" the + button when the user arrives to Plan via
+   * the onboarding handoff (mirrors the Arc → Goals coachmark pattern).
+   */
+  const [shouldPromptAddActivity, setShouldPromptAddActivity] = useState(false);
   const vectorsSectionRef = useRef<View>(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
@@ -193,6 +201,7 @@ export function GoalDetailScreen() {
     () => activities.filter((activity) => activity.goalId === goalId),
     [activities, goalId]
   );
+  const isPlanEmpty = goalActivities.length === 0;
   const shouldShowOnboardingActivitiesGuide =
     goal?.id === lastOnboardingGoalId &&
     goalActivities.length === 0 &&
@@ -201,7 +210,8 @@ export function GoalDetailScreen() {
   const shouldShowOnboardingActivitiesCoachmark =
     shouldShowOnboardingActivitiesGuide &&
     activeTab === 'plan' &&
-    Boolean(addActivitiesButtonRef.current) &&
+    isAddActivitiesButtonReady &&
+    shouldPromptAddActivity &&
     !activityCoachVisible &&
     !activityComposerVisible;
   const shouldShowOnboardingPlanReadyGuide =
@@ -335,6 +345,12 @@ export function GoalDetailScreen() {
     // Note: we intentionally keep this non-blocking and skippable.
     const prev = onboardingSharePrevActivityCountRef.current;
     const next = goalActivities.length;
+    // On first mount for a given goal, seed the ref and do nothing. Otherwise,
+    // any goal that already has activities would look like a "0 → >0" transition.
+    if (prev === null) {
+      onboardingSharePrevActivityCountRef.current = next;
+      return;
+    }
     onboardingSharePrevActivityCountRef.current = next;
 
     if (
@@ -355,6 +371,16 @@ export function GoalDetailScreen() {
     lastOnboardingGoalId,
     hasSeenOnboardingSharePrompt,
   ]);
+
+  useEffect(() => {
+    if (!showFirstGoalCelebration) return;
+    // When replaying the celebration (especially via DevTools), ensure we start
+    // on the Goal Details canvas so the onboarding guide can orient the user
+    // before we move them into the Activities plan.
+    setActiveTab('details');
+    setActivityCoachVisible(false);
+    setActivityComposerVisible(false);
+  }, [showFirstGoalCelebration]);
 
   useEffect(() => {
     if (!pendingOnboardingSharePrompt) return;
@@ -574,8 +600,9 @@ export function GoalDetailScreen() {
   const handleContinueFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);
     setHasSeenFirstGoalCelebration(true);
-    setActiveTab('plan');
-    setActivityCoachVisible(true);
+    // Keep the user on the Goal canvas so the onboarding guide can explain
+    // where Activities live before we open any AI/creation surfaces.
+    setActiveTab('details');
   };
 
   const handleDeleteGoal = () => {
@@ -693,6 +720,7 @@ export function GoalDetailScreen() {
         onDismiss={handleDismissFirstGoalCelebration}
         progression="button"
         backgroundColor="indigo"
+        transition="fade"
         contentStyle={{
           paddingTop: insets.top + spacing['2xl'],
           paddingBottom: insets.bottom + spacing['2xl'],
@@ -770,60 +798,49 @@ export function GoalDetailScreen() {
       <BottomGuide
         visible={shouldShowOnboardingActivitiesGuide && activeTab !== 'plan'}
         onClose={() => setHasDismissedOnboardingActivitiesGuide(true)}
+        scrim="light"
       >
-        <Heading variant="sm">Next step: add your first activities</Heading>
-        <Text style={styles.firstGoalBody}>
-          Activities are the concrete steps that move this goal forward. Add 1–3 so you always know
-          what to do next.
+        <Heading variant="sm">Your new Goal is ready</Heading>
+        <Text style={styles.onboardingGuideBody}>
+          Next, open the Plan tab to see this Goal's Activities. Add 1–3 so you always know what to do
+          next.
         </Text>
-        <HStack space="sm" marginTop={spacing.sm}>
+        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
             variant="outline"
-            style={{ flex: 1 }}
             onPress={() => setHasDismissedOnboardingActivitiesGuide(true)}
           >
-            <Text style={styles.secondaryCtaText}>Not now</Text>
+            <Text style={styles.onboardingGuideSecondaryLabel}>Not now</Text>
           </Button>
           <Button
-            variant="accent"
-            style={{ flex: 1 }}
+            variant="turmeric"
             onPress={() => {
               setActiveTab('plan');
-              setActivityCoachVisible(true);
+              setShouldPromptAddActivity(true);
             }}
           >
-            <Text style={styles.primaryCtaText}>Generate with AI</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>View Plan</Text>
           </Button>
         </HStack>
-        <Button
-          variant="ghost"
-          onPress={() => {
-            setActiveTab('plan');
-            setActivityComposerVisible(true);
-          }}
-        >
-          <Text style={styles.linkLabel}>Add manually instead</Text>
-        </Button>
       </BottomGuide>
       <BottomGuide
         visible={shouldShowOnboardingPlanReadyGuide}
         onClose={() => setHasDismissedOnboardingPlanReadyGuide(true)}
+        scrim="light"
       >
         <Heading variant="sm">Your first plan is ready</Heading>
-        <Text style={styles.firstGoalBody}>
-          Great — you’ve got Activities to start with. Open one and schedule it so it actually happens.
+        <Text style={styles.onboardingGuideBody}>
+          Great — you've got Activities to start with. Open one and schedule it so it actually happens.
         </Text>
-        <HStack space="sm" marginTop={spacing.sm}>
+        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
             variant="outline"
-            style={{ flex: 1 }}
             onPress={() => setHasDismissedOnboardingPlanReadyGuide(true)}
           >
-            <Text style={styles.secondaryCtaText}>Not now</Text>
+            <Text style={styles.onboardingGuideSecondaryLabel}>Not now</Text>
           </Button>
           <Button
-            variant="accent"
-            style={{ flex: 1 }}
+            variant="turmeric"
             onPress={() => {
               setHasDismissedOnboardingPlanReadyGuide(true);
               if (firstPlanActivityId) {
@@ -831,7 +848,7 @@ export function GoalDetailScreen() {
               }
             }}
           >
-            <Text style={styles.primaryCtaText}>Open first Activity</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>Open Activity</Text>
           </Button>
         </HStack>
       </BottomGuide>
@@ -851,8 +868,8 @@ export function GoalDetailScreen() {
         title={<Text style={styles.goalCoachmarkTitle}>Add your first activity</Text>}
         body={
           <Text style={styles.goalCoachmarkBody}>
-            Tap the + to generate Activities with AI (or switch to Manual for something you already
-            know you should do next).
+            Tap “Add activity” to generate Activities with AI (or switch to Manual for something you
+            already know you should do next).
           </Text>
         }
         onDismiss={() => setHasDismissedOnboardingActivitiesGuide(true)}
@@ -1300,31 +1317,52 @@ export function GoalDetailScreen() {
                   showsVerticalScrollIndicator={false}
                 >
                   <VStack space="md">
-                    <HStack alignItems="center" justifyContent="space-between">
-                      <Heading style={styles.sectionTitle}>Activities</Heading>
-                      <View ref={addActivitiesButtonRef} collapsable={false}>
-                        <IconButton
-                          style={styles.addActivityIconButton}
-                          onPress={() => setActivityCoachVisible(true)}
-                          accessibilityLabel="Generate activities with AI"
+                    {!isPlanEmpty && (
+                      <HStack alignItems="center" justifyContent="space-between">
+                        <Heading style={styles.sectionTitle}>Activities</Heading>
+                        <View
+                          ref={addActivitiesButtonRef}
+                          collapsable={false}
+                          onLayout={() => {
+                            // Ensure the onboarding coachmark can safely measure this target.
+                            setIsAddActivitiesButtonReady(true);
+                          }}
                         >
-                          <Icon name="plus" size={18} color={colors.canvas} />
-                        </IconButton>
-                      </View>
-                    </HStack>
+                          <IconButton
+                            style={styles.addActivityIconButton}
+                            onPress={() => setActivityCoachVisible(true)}
+                            accessibilityLabel="Add an activity"
+                          >
+                            <Icon name="plus" size={18} color={colors.canvas} />
+                          </IconButton>
+                        </View>
+                      </HStack>
+                    )}
 
-                    {goalActivities.length === 0 ? (
+                    {isPlanEmpty ? (
                       <EmptyState
                         variant="compact"
                         title="No activities for this goal yet"
                         instructions="Add your first activity to move this goal forward."
-                        primaryAction={{
-                          label: 'Add activity',
-                          variant: 'accent',
-                          onPress: () => setActivityCoachVisible(true),
-                          accessibilityLabel: 'Add an activity to this goal',
-                        }}
-                        style={styles.planEmptyState}
+                        style={[styles.planEmptyState, { marginTop: spacing['2xl'] }]}
+                        actions={
+                          <View
+                            ref={addActivitiesButtonRef}
+                            collapsable={false}
+                            onLayout={() => {
+                              // Ensure the onboarding coachmark can safely measure this target.
+                              setIsAddActivitiesButtonReady(true);
+                            }}
+                          >
+                            <Button
+                              variant="accent"
+                              onPress={() => setActivityCoachVisible(true)}
+                              accessibilityLabel="Add an activity to this goal"
+                            >
+                              <Text style={styles.primaryCtaText}>Add activity</Text>
+                            </Button>
+                          </View>
+                        }
                       />
                     ) : (
                       <>
@@ -2235,11 +2273,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.quiltBlue200,
     borderColor: colors.quiltBlue200,
     borderRadius: 18,
-    paddingVertical: spacing.md,
   },
   celebrationContinueLabel: {
     ...typography.titleSm,
     color: colors.indigo900,
+    lineHeight: 22,
   },
   goalCoachmarkTitle: {
     ...typography.titleSm,
@@ -2454,6 +2492,20 @@ const styles = StyleSheet.create({
   secondaryCtaText: {
     ...typography.body,
     color: colors.accent,
+  },
+  onboardingGuideBody: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  onboardingGuidePrimaryLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    fontFamily: fonts.medium,
+  },
+  onboardingGuideSecondaryLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
   },
   linkLabel: {
     ...typography.bodySm,

@@ -76,6 +76,12 @@ export function DevToolsScreen() {
   const setHasDismissedActivityDetailGuide = useAppStore(
     (state) => state.setHasDismissedActivityDetailGuide,
   );
+  const setHasDismissedOnboardingActivitiesGuide = useAppStore(
+    (state) => state.setHasDismissedOnboardingActivitiesGuide,
+  );
+  const setHasDismissedOnboardingPlanReadyGuide = useAppStore(
+    (state) => state.setHasDismissedOnboardingPlanReadyGuide,
+  );
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
@@ -255,11 +261,27 @@ export function DevToolsScreen() {
     // IMPORTANT: `lastOnboardingGoalId` can become stale if the user clears
     // goals (or restores a different store snapshot). Validate it exists in the
     // current store before navigating, otherwise fall back or create a dev goal.
+    const activityCountByGoalId = activities.reduce<Record<string, number>>((acc, activity) => {
+      const gid = activity.goalId;
+      if (!gid) return acc;
+      acc[gid] = (acc[gid] ?? 0) + 1;
+      return acc;
+    }, {});
+    const isGoalEmpty = (goalId: string) => (activityCountByGoalId[goalId] ?? 0) === 0;
+
     const onboardingGoal =
       lastOnboardingGoalId ? goals.find((g) => g.id === lastOnboardingGoalId) : undefined;
 
-    let targetGoalId: string | null =
-      onboardingGoal?.id ?? (goals.length > 0 ? goals[goals.length - 1].id : null);
+    // Prefer an empty goal so this dev trigger reliably replays the
+    // "celebration → goal details → add activities" onboarding handoff.
+    let targetGoalId: string | null = onboardingGoal?.id ?? null;
+    if (targetGoalId && !isGoalEmpty(targetGoalId)) {
+      targetGoalId = null;
+    }
+    if (!targetGoalId) {
+      const emptyGoal = [...goals].reverse().find((g) => isGoalEmpty(g.id));
+      targetGoalId = emptyGoal?.id ?? null;
+    }
 
     if (!targetGoalId) {
       // Nothing to show yet: create a safe dev goal so this button always works.
@@ -297,7 +319,7 @@ export function DevToolsScreen() {
         arcId: targetArcId,
         title: '🎉 Dev: First Goal',
         description:
-          'This goal exists to test the “Goal created” celebration overlay without running onboarding.',
+          'This goal exists to test the "Goal created" celebration overlay without running onboarding.',
         status: 'planned',
         startDate: nowIso,
         targetDate: undefined,
@@ -311,9 +333,11 @@ export function DevToolsScreen() {
     }
 
     // Ensure the GoalDetail screen recognizes this goal as the onboarding
-    // target and that the one-time flag does not suppress the overlay.
+    // target and that the one-time flags do not suppress the overlay/guides.
     setLastOnboardingGoalId(targetGoalId);
     setHasSeenFirstGoalCelebration(false);
+    setHasDismissedOnboardingActivitiesGuide(false);
+    setHasDismissedOnboardingPlanReadyGuide(false);
 
     navigation.navigate('ArcsStack', {
       screen: 'GoalDetail',
@@ -1131,6 +1155,7 @@ export function DevToolsScreen() {
             visible={isInterstitialFullScreenVisible}
             onDismiss={() => setIsInterstitialFullScreenVisible(false)}
             progression={interstitialVariant === 'launch' ? 1500 : 'button'}
+            transition={interstitialVariant === 'launch' ? 'launch' : 'fade'}
             backgroundColor={
               interstitialVariant === 'launch'
                 ? 'pine300'

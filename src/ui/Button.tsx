@@ -19,7 +19,8 @@ type ButtonVariant =
   | 'link'
   | 'accent'
   | 'ai'
-  | 'destructive';
+  | 'destructive'
+  | 'turmeric';
 type ButtonSizeProp = 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
 
 type Props = {
@@ -75,6 +76,8 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
       ? 'link'
       : variant === 'destructive'
       ? 'destructive'
+      : variant === 'turmeric'
+      ? 'turmeric'
       : 'cta';
 
   const variantTokens = BUTTON_VARIANT_TOKENS[logicalVariant];
