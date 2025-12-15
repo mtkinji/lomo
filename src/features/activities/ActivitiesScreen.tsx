@@ -5,7 +5,6 @@ import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
   Pressable,
@@ -64,6 +63,7 @@ import type {
 import { fonts } from '../../theme/typography';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { QuickAddDock } from './QuickAddDock';
 
 type CompletedActivitySectionProps = {
   activities: Activity[];
@@ -177,6 +177,7 @@ export function ActivitiesScreen() {
   const quickAddInputRef = React.useRef<TextInput | null>(null);
   const [isQuickAddFocused, setIsQuickAddFocused] = React.useState(false);
   const quickAddFocusedRef = React.useRef(false);
+  const quickAddLastFocusAtRef = React.useRef<number>(0);
   const [quickAddReminderAt, setQuickAddReminderAt] = React.useState<string | null>(null);
   const [quickAddScheduledDate, setQuickAddScheduledDate] = React.useState<string | null>(null);
   const [quickAddRepeatRule, setQuickAddRepeatRule] = React.useState<Activity['repeatRule']>(undefined);
@@ -188,9 +189,9 @@ export function ActivitiesScreen() {
   const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = React.useState(false);
   const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = React.useState(false);
   const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
-  // Total vertical space reserved for the docked composer so the last row can
-  // scroll above it.
-  const quickAddDockHeight = QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + spacing.xs;
+  const [quickAddReservedHeight, setQuickAddReservedHeight] = React.useState(
+    QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4,
+  );
 
   const guideVariant = activities.length > 0 ? 'full' : 'empty';
   const guideTotalSteps = guideVariant === 'full' ? 3 : 1;
@@ -383,20 +384,9 @@ export function ActivitiesScreen() {
     quickAddFocusedRef.current = isQuickAddFocused;
   }, [isQuickAddFocused]);
 
-  React.useEffect(() => {
-    // If the keyboard is dismissed via a system gesture, TextInput can remain
-    // focused, which prevents subsequent taps from re-opening the keyboard.
-    // Blur the input on keyboard hide so the next tap re-focuses cleanly.
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const sub = Keyboard.addListener(hideEvent, () => {
-      if (!quickAddFocusedRef.current) return;
-      setIsQuickAddFocused(false);
-      requestAnimationFrame(() => {
-        quickAddInputRef.current?.blur();
-      });
-    });
-    return () => sub.remove();
-  }, []);
+  // NOTE: We intentionally avoid blurring the quick-add input on keyboard hide.
+  // On iOS, keyboard show/hide transitions can fire events that cause a just-focused
+  // TextInput to immediately blur, making the quick-add dock feel “broken”.
 
   const handleQuickAddActivity = React.useCallback(() => {
     const trimmed = quickAddTitle.trim();
@@ -704,7 +694,7 @@ export function ActivitiesScreen() {
               accessibilityLabel="Done"
               onPress={collapseQuickAdd}
             >
-              <ButtonLabel>Done</ButtonLabel>
+              <ButtonLabel tone="inverse">Done</ButtonLabel>
             </Button>
           ) : (
             <IconButton
@@ -762,8 +752,13 @@ export function ActivitiesScreen() {
       <CanvasScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        extraBottomPadding={quickAddDockHeight}
+        extraBottomPadding={quickAddReservedHeight}
         showsVerticalScrollIndicator={false}
+        // The Activities screen owns keyboard avoidance for the docked quick-add.
+        // Letting the scroll view also auto-adjust can cause iOS to "fight" the
+        // keyboard transition and immediately dismiss it.
+        automaticallyAdjustKeyboardInsets={false}
+        keyboardShouldPersistTaps="handled"
       >
         {activities.length > 0 && (
           <>
@@ -1018,124 +1013,29 @@ export function ActivitiesScreen() {
           />
         )}
       </CanvasScrollView>
-      <KeyboardAvoidingView
-        style={styles.quickAddDock}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
-        <View pointerEvents="none" style={styles.quickAddDockBackground} />
-        <View
-          style={[
-            styles.quickAddOuter,
-            {
-              paddingBottom: quickAddBottomPadding,
-            },
-          ]}
-        >
-          <Card marginHorizontal="sm" padding="xs" elevation="none" style={styles.quickAddCard}>
-            <HStack alignItems="center" space="md" style={styles.quickAddRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isQuickAddFocused ? 'Create activity' : 'Start adding an activity'}
-                accessibilityState={{ disabled: isQuickAddFocused ? quickAddTitle.trim().length === 0 : false }}
-                onPress={() => {
-                  if (!isQuickAddFocused) {
-                    quickAddInputRef.current?.focus();
-                    return;
-                  }
-                  if (quickAddTitle.trim().length === 0) {
-                    collapseQuickAdd();
-                    return;
-                  }
-                  handleQuickAddActivity();
-                }}
-                style={[
-                  styles.quickAddAffordance,
-                  styles.quickAddAffordanceIdle,
-                  isQuickAddFocused && quickAddTitle.trim().length === 0 && styles.quickAddAffordanceDisabled,
-                ]}
-              >
-                <Icon
-                  name="plus"
-                  size={16}
-                  color={isQuickAddFocused && quickAddTitle.trim().length > 0 ? colors.accent : colors.textSecondary}
-                />
-              </Pressable>
-              <Input
-                ref={quickAddInputRef}
-                value={quickAddTitle}
-                onChangeText={setQuickAddTitle}
-                placeholder="Add an activity"
-                placeholderTextColor={colors.textSecondary}
-                variant="inline"
-                returnKeyType="done"
-                showSoftInputOnFocus
-                blurOnSubmit
-                onSubmitEditing={() => {
-                  if (quickAddTitle.trim().length === 0) {
-                    collapseQuickAdd();
-                    return;
-                  }
-                  handleQuickAddActivity();
-                }}
-                onFocus={() => setIsQuickAddFocused(true)}
-                onBlur={() => setIsQuickAddFocused(false)}
-                autoCapitalize="sentences"
-                autoCorrect
-                containerStyle={styles.quickAddInputContainer}
-                inputStyle={styles.quickAddInput}
-                accessibilityLabel="Activity title"
-              />
-            </HStack>
-            {isQuickAddFocused ? (
-              <HStack style={styles.quickAddToolsRow} alignItems="center" justifyContent="space-between">
-                <HStack space="md" alignItems="center">
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Set reminder"
-                    onPress={() => setQuickAddReminderSheetVisible(true)}
-                    style={[styles.quickAddToolButton, quickAddReminderAt ? styles.quickAddToolButtonActive : null]}
-                  >
-                    <Icon name="bell" size={16} color={quickAddReminderAt ? colors.accent : colors.textSecondary} />
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Set due date"
-                    onPress={() => setQuickAddDueDateSheetVisible(true)}
-                    style={[styles.quickAddToolButton, quickAddScheduledDate ? styles.quickAddToolButtonActive : null]}
-                  >
-                    <Icon
-                      name="today"
-                      size={16}
-                      color={quickAddScheduledDate ? colors.accent : colors.textSecondary}
-                    />
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Set repeat"
-                    onPress={() => setQuickAddRepeatSheetVisible(true)}
-                    style={[styles.quickAddToolButton, quickAddRepeatRule ? styles.quickAddToolButtonActive : null]}
-                  >
-                    <Icon name="refresh" size={16} color={quickAddRepeatRule ? colors.accent : colors.textSecondary} />
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Set time estimate"
-                    onPress={() => setQuickAddEstimateSheetVisible(true)}
-                    style={[styles.quickAddToolButton, quickAddEstimateMinutes != null ? styles.quickAddToolButtonActive : null]}
-                  >
-                    <Icon
-                      name="estimate"
-                      size={16}
-                      color={quickAddEstimateMinutes != null ? colors.accent : colors.textSecondary}
-                    />
-                  </Pressable>
-                </HStack>
-              </HStack>
-            ) : null}
-          </Card>
-        </View>
-      </KeyboardAvoidingView>
+      <QuickAddDock
+        value={quickAddTitle}
+        onChangeText={setQuickAddTitle}
+        inputRef={quickAddInputRef}
+        isFocused={isQuickAddFocused}
+        setIsFocused={(next) => {
+          if (next) {
+            quickAddLastFocusAtRef.current = Date.now();
+          }
+          setIsQuickAddFocused(next);
+        }}
+        onSubmit={handleQuickAddActivity}
+        onCollapse={collapseQuickAdd}
+        reminderAt={quickAddReminderAt}
+        scheduledDate={quickAddScheduledDate}
+        repeatRule={quickAddRepeatRule}
+        estimateMinutes={quickAddEstimateMinutes}
+        onPressReminder={() => setQuickAddReminderSheetVisible(true)}
+        onPressDueDate={() => setQuickAddDueDateSheetVisible(true)}
+        onPressRepeat={() => setQuickAddRepeatSheetVisible(true)}
+        onPressEstimate={() => setQuickAddEstimateSheetVisible(true)}
+        onReservedHeightChange={setQuickAddReservedHeight}
+      />
       <BottomDrawer
         visible={quickAddReminderSheetVisible}
         onClose={() => setQuickAddReminderSheetVisible(false)}
@@ -1336,85 +1236,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing['2xl'],
-  },
-  quickAddDock: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  quickAddDockBackground: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    // Bleed the background out past the AppShell gutter so it reaches the bezel.
-    left: -spacing.sm,
-    right: -spacing.sm,
-    backgroundColor: colors.shell,
-  },
-  quickAddOuter: {
-    paddingHorizontal: 0,
-    paddingTop: spacing.xs,
-    backgroundColor: 'transparent',
-  },
-  quickAddCard: {
-    marginVertical: 0,
-    // Let `Card` handle tokenized horizontal margins (e.g. `marginHorizontal="xs"`).
-    alignSelf: 'stretch',
-    // Match input corner radius (`Input`, `EditableField`, `Combobox`).
-    borderRadius: 12,
-  },
-  quickAddRow: {
-    flex: 1,
-  },
-  quickAddAffordance: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickAddAffordanceIdle: {
-    // No circle around the "+" affordance (matches the quick-add spec).
-    borderRadius: 0,
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-  },
-  quickAddAffordanceActive: {
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
-  },
-  quickAddAffordanceDisabled: {
-    opacity: 0.5,
-  },
-  quickAddInputContainer: {
-    flex: 1,
-  },
-  quickAddInput: {
-    flex: 1,
-    ...typography.body,
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-    color: colors.textPrimary,
-  },
-  quickAddToolsRow: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  quickAddToolButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  quickAddToolButtonActive: {
-    backgroundColor: colors.pine100,
   },
   toolbarRow: {
     marginBottom: spacing.sm,
