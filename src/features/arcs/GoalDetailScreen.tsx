@@ -819,7 +819,7 @@ export function GoalDetailScreen() {
               setShouldPromptAddActivity(true);
             }}
           >
-            <Text style={styles.onboardingGuidePrimaryLabel}>View Plan</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>Create plan</Text>
           </Button>
         </HStack>
       </BottomGuide>
@@ -2041,11 +2041,23 @@ function GoalActivityCoachDrawer({
         return;
       }
 
+      const normalizeTitleKey = (value: string) =>
+        value.trim().toLowerCase().replace(/\s+/g, ' ');
+
       const baseIndex = activities.length;
       adoptedTitles.forEach((rawTitle: unknown, idx: number) => {
         if (typeof rawTitle !== 'string') return;
         const trimmedTitle = rawTitle.trim();
         if (!trimmedTitle) return;
+
+        const titleKey = normalizeTitleKey(trimmedTitle);
+        // Skip if an activity with this title already exists for this goal
+        // (prevents duplicates when "accept all" triggers both onAdoptActivitySuggestion
+        // and workflow completion)
+        const alreadyExists = activities.some(
+          (a) => (a.goalId ?? null) === focusGoalId && normalizeTitleKey(a.title) === titleKey
+        );
+        if (alreadyExists) return;
 
         const timestamp = new Date().toISOString();
         const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -2076,7 +2088,7 @@ function GoalActivityCoachDrawer({
         addActivity(nextActivity);
       });
     },
-    [activities.length, addActivity, focusGoalId]
+    [activities, addActivity, focusGoalId]
   );
 
   const handleAdoptActivitySuggestion = useCallback(

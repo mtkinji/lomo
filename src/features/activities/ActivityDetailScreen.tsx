@@ -53,6 +53,7 @@ export function ActivityDetailScreen() {
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const hasDismissedActivityDetailGuide = useAppStore(
     (state) => state.hasDismissedActivityDetailGuide,
   );
@@ -117,6 +118,8 @@ export function ActivityDetailScreen() {
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
   const [detailGuideStep, setDetailGuideStep] = useState(0);
+  const [isTitleStepsBundleReady, setIsTitleStepsBundleReady] = useState(false);
+  const [isScheduleCardReady, setIsScheduleCardReady] = useState(false);
 
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
@@ -151,8 +154,14 @@ export function ActivityDetailScreen() {
   const isCompleted = activity.status === 'done';
   const showDoneButton = isKeyboardVisible || isAnyInputFocused || isEditingTitle || isAddingStepInline;
 
+  // Only show coachmarks for activities belonging to the onboarding goal
+  const isOnboardingActivity = Boolean(
+    lastOnboardingGoalId && activity.goalId === lastOnboardingGoalId
+  );
+
   const shouldShowDetailGuide =
     isFocused &&
+    isOnboardingActivity &&
     !hasDismissedActivityDetailGuide &&
     !showDoneButton &&
     !goalComboboxOpen &&
@@ -160,7 +169,8 @@ export function ActivityDetailScreen() {
     !reminderSheetVisible &&
     !dueDateSheetVisible &&
     !repeatSheetVisible &&
-    !estimateSheetVisible;
+    !estimateSheetVisible &&
+    (detailGuideStep === 0 ? isTitleStepsBundleReady : isScheduleCardReady);
 
   const dismissDetailGuide = () => {
     setHasDismissedActivityDetailGuide(true);
@@ -736,7 +746,15 @@ export function ActivityDetailScreen() {
           >
             {/* Title + Steps bundle (task-style, no enclosing card) */}
             <View style={styles.section}>
-              <View ref={titleStepsBundleRef} collapsable={false} style={styles.titleStepsBundle}>
+              <View
+                ref={titleStepsBundleRef}
+                collapsable={false}
+                style={styles.titleStepsBundle}
+                onLayout={() => {
+                  // Ensure the onboarding coachmark can safely measure this target.
+                  setIsTitleStepsBundleReady(true);
+                }}
+              >
                 <ThreeColumnRow
                   style={styles.titleRow}
                   contentStyle={styles.titleRowContent}
@@ -957,7 +975,15 @@ export function ActivityDetailScreen() {
 
             {/* 3) Reminder / Due date / Recurrence */}
             <View style={styles.section}>
-              <View ref={scheduleAndPlanningCardRef} collapsable={false} style={styles.rowsCard}>
+              <View
+                ref={scheduleAndPlanningCardRef}
+                collapsable={false}
+                style={styles.rowsCard}
+                onLayout={() => {
+                  // Ensure the onboarding coachmark can safely measure this target.
+                  setIsScheduleCardReady(true);
+                }}
+              >
                 <View style={styles.rowPadding}>
                   <VStack space="xs">
                   {/* Timing */}
@@ -1202,12 +1228,16 @@ export function ActivityDetailScreen() {
       <Coachmark
         visible={shouldShowDetailGuide}
         targetRef={detailGuideTargetRef}
-        scrimToken="subtle"
+        scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
-        spotlightRadius={16}
+        spotlightRadius={18}
+        offset={spacing.xs}
         highlightColor={colors.turmeric}
         actionColor={colors.turmeric}
+        attentionPulse
+        attentionPulseDelayMs={2500}
+        attentionPulseDurationMs={15000}
         title={<Text style={styles.detailGuideTitle}>{detailGuideTitle}</Text>}
         body={<Text style={styles.detailGuideBody}>{detailGuideBody}</Text>}
         progressLabel={`${detailGuideStep + 1} of 2`}

@@ -2139,11 +2139,23 @@ function ActivityCoachDrawer({
         return;
       }
 
+      const normalizeTitleKey = (value: string) =>
+        value.trim().toLowerCase().replace(/\s+/g, ' ');
+
       const baseIndex = activities.length;
       adoptedTitles.forEach((rawTitle: unknown, idx: number) => {
         if (typeof rawTitle !== 'string') return;
         const trimmedTitle = rawTitle.trim();
         if (!trimmedTitle) return;
+
+        const titleKey = normalizeTitleKey(trimmedTitle);
+        // Skip if an activity with this title already exists
+        // (prevents duplicates when "accept all" triggers both onAdoptActivitySuggestion
+        // and workflow completion)
+        const alreadyExists = activities.some(
+          (a) => normalizeTitleKey(a.title) === titleKey
+        );
+        if (alreadyExists) return;
 
         const timestamp = new Date().toISOString();
         const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -2174,7 +2186,7 @@ function ActivityCoachDrawer({
         addActivity(activity);
       });
     },
-    [activities.length, addActivity],
+    [activities, addActivity],
   );
 
   const handleAdoptActivitySuggestion = React.useCallback(
