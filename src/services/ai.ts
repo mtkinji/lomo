@@ -457,10 +457,8 @@ const calculateAgeFromBirthdate = (birthdate?: string): number | null => {
 
 const describeKey = (key?: string) => {
   if (!key) return { present: false };
-  // Show first 7 chars + last 4 for verification (e.g., "sk-proj-...xyz1")
-  const prefix = key.slice(0, 7);
-  const suffix = key.length > 11 ? key.slice(-4) : '****';
-  return { present: true, length: key.length, prefix, suffix };
+  // Never log any portion of the key itself (even in dev). We only track presence + length.
+  return { present: true, length: key.length };
 };
 
 const devLog = (context: string, details?: Record<string, unknown>) => {
@@ -2554,13 +2552,11 @@ let OPENAI_KEY_LOGGED = false;
 
 function resolveOpenAiApiKey(): string | undefined {
   const key = getEnvVar<string>('openAiApiKey');
-  // Log key prefix once at startup (for verification)
+  // Log presence once at startup (for verification) WITHOUT revealing any portion of the key.
   if (__DEV__ && key && !OPENAI_KEY_LOGGED) {
     OPENAI_KEY_LOGGED = true;
     const keyInfo = describeKey(key);
-    console.log(
-      `[ai] Using OpenAI API key: ${keyInfo.prefix}...${keyInfo.suffix} (length: ${keyInfo.length})`
-    );
+    console.log(`[ai] OpenAI API key detected (length: ${keyInfo.length})`);
   }
   return key;
 }

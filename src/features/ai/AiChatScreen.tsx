@@ -212,6 +212,60 @@ type ParsedActivityProposal = {
   suggestion: ActivitySuggestion | null;
 };
 
+function normalizeActivitySuggestion(raw: unknown): ActivitySuggestion | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const maybe = raw as Partial<ActivitySuggestion> & Record<string, unknown>;
+
+  if (typeof maybe.id !== 'string' || maybe.id.trim().length === 0) return null;
+  if (typeof maybe.title !== 'string' || maybe.title.trim().length === 0) return null;
+
+  const normalized: ActivitySuggestion = {
+    id: maybe.id.trim(),
+    title: maybe.title.trim(),
+  };
+
+  if (typeof maybe.why === 'string' && maybe.why.trim().length > 0) {
+    normalized.why = maybe.why.trim();
+  }
+
+  if (typeof maybe.timeEstimateMinutes === 'number' && Number.isFinite(maybe.timeEstimateMinutes)) {
+    normalized.timeEstimateMinutes = maybe.timeEstimateMinutes;
+  }
+
+  if (maybe.energyLevel === 'light' || maybe.energyLevel === 'focused') {
+    normalized.energyLevel = maybe.energyLevel;
+  }
+
+  if (
+    maybe.kind === 'setup' ||
+    maybe.kind === 'progress' ||
+    maybe.kind === 'maintenance' ||
+    maybe.kind === 'stretch'
+  ) {
+    normalized.kind = maybe.kind;
+  }
+
+  if (Array.isArray(maybe.steps)) {
+    const steps = maybe.steps
+      .filter((step) => step && typeof step === 'object')
+      .map((step) => step as { title?: unknown; isOptional?: unknown })
+      .map((step) => {
+        if (typeof step.title !== 'string') return null;
+        const title = step.title.trim();
+        if (!title) return null;
+        const isOptional = typeof step.isOptional === 'boolean' ? step.isOptional : undefined;
+        return { title, ...(typeof isOptional === 'boolean' ? { isOptional } : {}) };
+      })
+      .filter((step): step is { title: string; isOptional?: boolean } => Boolean(step));
+
+    if (steps.length > 0) {
+      normalized.steps = steps;
+    }
+  }
+
+  return normalized;
+}
+
 function extractJsonCandidateFromHandoffBlock(raw: string): string | null {
   let text = raw.trim();
   if (!text) return null;
@@ -366,17 +420,9 @@ function extractActivityProposalFromAssistantMessage(content: string): ParsedAct
   }
 
   try {
-    const parsed = JSON.parse(jsonText) as ActivitySuggestion;
-    if (!parsed || typeof parsed !== 'object') {
-      return { displayContent: visiblePart || content, suggestion: null };
-    }
-    if (!parsed.id || typeof parsed.id !== 'string') {
-      return { displayContent: visiblePart || content, suggestion: null };
-    }
-    if (!parsed.title || typeof parsed.title !== 'string') {
-      return { displayContent: visiblePart || content, suggestion: null };
-    }
-    return { displayContent: visiblePart || content, suggestion: parsed };
+    const parsed = JSON.parse(jsonText) as unknown;
+    const suggestion = normalizeActivitySuggestion(parsed);
+    return { displayContent: visiblePart || content, suggestion };
   } catch {
     return { displayContent: visiblePart || content, suggestion: null };
   }
@@ -413,11 +459,16 @@ function extractActivitySuggestionsFromAssistantMessage(
   }
 
   try {
-    const parsed = JSON.parse(jsonText) as { suggestions?: ActivitySuggestion[] };
-    const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : null;
+    const parsed = JSON.parse(jsonText) as { suggestions?: unknown };
+    const rawSuggestions = Array.isArray(parsed?.suggestions) ? parsed.suggestions : null;
+    const suggestions =
+      rawSuggestions?.map(normalizeActivitySuggestion).filter((s): s is ActivitySuggestion => Boolean(s)) ??
+      null;
+
+    const resolved = suggestions && suggestions.length > 0 ? suggestions : null;
     return {
       displayContent: visiblePart || content,
-      suggestions,
+      suggestions: resolved,
     };
   } catch (err) {
     return {
