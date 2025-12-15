@@ -1,7 +1,8 @@
-import { Image } from 'react-native';
+import { Image, type ImageStyle, type StyleProp } from 'react-native';
 
 type LogoProps = {
   size?: number;
+  style?: StyleProp<ImageStyle>;
 };
 
 const LOGO_SOURCE = require('../../assets/icon.png');
@@ -13,19 +14,22 @@ const LOGO_SOURCE = require('../../assets/icon.png');
  * depending on native SVG support in development. This keeps the FAB and
  * other brand surfaces stable across platforms.
  */
-export function Logo({ size = 32 }: LogoProps) {
+export function Logo({ size = 32, style }: LogoProps) {
   return (
     <Image
       source={LOGO_SOURCE}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 4,
-        // We rely on the app icon artwork itself for color & composition.
-        // Keeping this component as a thin wrapper around `Image` reduces
-        // the chances of regressions (e.g., over-tinting) and makes the
-        // logo render dependably anywhere it's used.
-      }}
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 4,
+          // We rely on the app icon artwork itself for color & composition.
+          // Keeping this component as a thin wrapper around `Image` reduces
+          // the chances of regressions (e.g., over-tinting) and makes the
+          // logo render dependably anywhere it's used.
+        },
+        style,
+      ]}
       resizeMode="contain"
       accessibilityRole="image"
       accessible

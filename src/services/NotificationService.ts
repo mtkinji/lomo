@@ -35,7 +35,8 @@ let responseSubscription:
  */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
   }),
@@ -147,7 +148,10 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshot, pref
           activityId: activity.id,
         } satisfies NotificationData,
       },
-      trigger: when,
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: when,
+      },
     });
     activityNotificationIds.set(activity.id, identifier);
   } catch (error) {
@@ -202,6 +206,20 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   }
 
   try {
+    const trigger =
+      Platform.OS === 'ios'
+        ? ({
+            type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+            hour,
+            minute,
+            repeats: true,
+          } as const)
+        : ({
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour,
+            minute,
+          } as const);
+
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Align your day with your arcs',
@@ -211,11 +229,7 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
         } satisfies NotificationData,
       },
       // Fire at the chosen local time every day.
-      trigger: {
-        hour,
-        minute,
-        repeats: true,
-      },
+      trigger,
     });
     dailyShowUpNotificationId = identifier;
   } catch (error) {
@@ -570,7 +584,9 @@ export const NotificationService = {
       await Notifications.scheduleNotificationAsync({
         content,
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 2,
+          repeats: false,
         },
       });
     } catch (error) {

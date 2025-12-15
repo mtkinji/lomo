@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -82,11 +83,13 @@ export default function App() {
 
   if (!isBootstrapped) {
     return (
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.shell }}>
+      <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.pine400 }]}>
         <SafeAreaProvider>
           <BottomSheetModalProvider>
-            <StatusBar style="dark" />
-            <Logo size={1} />
+            <StatusBar style="dark" backgroundColor={colors.pine400} />
+            {/* Preload the kwilt logo asset without impacting layout to avoid
+                a visible "hairline" at the top of launch surfaces. */}
+            <Logo size={1} style={styles.logoPreload} />
             <LaunchScreen onAnimationComplete={handleLaunchScreenComplete} />
             <PortalHost />
           </BottomSheetModalProvider>
@@ -96,14 +99,14 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.shell }}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.shell }]}>
       <SafeAreaProvider>
         <BottomSheetModalProvider>
           <StatusBar style="dark" />
           {/* Preload the kwilt logo asset as early as possible so coach headers
               can render the mark without a visible pop-in the first time the
               Agent workspace opens. */}
-          <Logo size={1} />
+          <Logo size={1} style={styles.logoPreload} />
           <RootNavigator />
           <FirstTimeUxFlow />
           <PortalHost />
@@ -112,3 +115,15 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  logoPreload: {
+    position: 'absolute',
+    left: -1000,
+    top: -1000,
+    opacity: 0,
+  },
+});

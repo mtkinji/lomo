@@ -6,7 +6,6 @@ import {
   StyleProp,
   ViewStyle,
   Pressable,
-  KeyboardAvoidingView,
   Platform,
   TextInput,
   Image,
@@ -26,7 +25,7 @@ import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../dom
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -201,7 +200,7 @@ export function GoalsScreen() {
         showsVerticalScrollIndicator={false}
       >
       {hasGoals ? (
-        <VStack space="sm">
+        <VStack space="xs">
           {goals.map((goal) => {
             const arcName = arcLookup[goal.arcId];
               const statusLabel = goal.status.replace('_', ' ');
@@ -669,17 +668,10 @@ export function GoalCoachDrawer({
             </Text>
           )}
         </Dialog>
-          <KeyboardAvoidingView
-            style={[
-              styles.goalCoachBody,
-              activeTab !== 'manual' && { display: 'none' },
-            ]}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <ScrollView
+          <View style={[styles.goalCoachBody, activeTab !== 'manual' && { display: 'none' }]}>
+            <KeyboardAwareScrollView
               style={styles.manualFormContainer}
               contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
-              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <Card padding="sm" style={{ width: '100%' }}>
@@ -794,8 +786,8 @@ export function GoalCoachDrawer({
                   </Button>
                 </View>
               </Card>
-            </ScrollView>
-          </KeyboardAvoidingView>
+            </KeyboardAwareScrollView>
+          </View>
       </View>
       <BottomDrawer
         visible={thumbnailSheetVisible}
@@ -1240,9 +1232,10 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
           onClose={() => setRefineDrawerVisible(false)}
           snapPoints={['60%']}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          <KeyboardAwareScrollView
             style={styles.wizardRefineDrawer}
+            contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+            showsVerticalScrollIndicator={false}
           >
             <Heading style={styles.wizardRefineDrawerTitle}>Refine this goal</Heading>
             <Text style={styles.modalBody}>
@@ -1278,7 +1271,7 @@ function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
                 <Text style={styles.primaryButtonLabel}>{refining ? 'Updating…' : 'Update'}</Text>
               </Button>
             </HStack>
-          </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
         </BottomDrawer>
       </>
     );

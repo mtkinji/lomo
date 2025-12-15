@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  ScrollView,
   StyleProp,
   StyleSheet,
   Text,
@@ -15,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Heading, Input } from '../../ui/primitives';
+import { Heading, Input, KeyboardAwareScrollView } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { ARC_HERO_LIBRARY, type ArcHeroImage } from './arcHeroLibrary';
@@ -287,11 +286,10 @@ export function ArcBannerSheet({
           />
 
           <View style={styles.heroModalCard}>
-            <ScrollView
+            <KeyboardAwareScrollView
               style={styles.heroModalScroll}
               contentContainerStyle={styles.heroModalScrollContent}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
             >
               <View style={styles.heroModalPreviewSection}>
                 <View style={styles.heroModalPreviewColumn}>
@@ -637,7 +635,7 @@ export function ArcBannerSheet({
                   )}
                 </View>
               )}
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
 
           <View style={styles.sheetFooter}>

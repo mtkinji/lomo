@@ -2,7 +2,6 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
   StyleSheet,
   View,
-  KeyboardAvoidingView,
   Platform,
   TextInput,
   TouchableOpacity,
@@ -22,7 +21,7 @@ import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/
 import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Dialog, VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
+import { Dialog, VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
@@ -1553,11 +1552,12 @@ function EditGoalModal({
       handleStyle={{ width: 0, height: 0, opacity: 0 }}
       sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
-        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
+      <View style={styles.modalOverlay}>
+        <KeyboardAwareScrollView
+          style={{ flex: 1, width: '100%' }}
+          contentContainerStyle={[styles.modalContent, { paddingTop: spacing.lg }]}
+          showsVerticalScrollIndicator={false}
+        >
           <Heading style={styles.modalTitle}>Edit Goal</Heading>
           <Text style={styles.modalBody}>
             Update the goal details and rebalance the forces to better match where you are right now.
@@ -1582,49 +1582,44 @@ function EditGoalModal({
             multiline
           />
 
-          <ScrollView
-            style={{ marginTop: spacing.lg }}
-            contentContainerStyle={{ paddingBottom: spacing.lg }}
-          >
-            <Text style={styles.modalLabel}>Forces</Text>
-            <VStack space="md" style={{ marginTop: spacing.sm }}>
-              {FORCE_ORDER.map((forceId) => {
-                const force = getCanonicalForce(forceId);
-                if (!force) return null;
-                const currentLevel = forceIntent[forceId] ?? 0;
-                return (
-                  <VStack key={forceId} space="xs">
-                    <HStack justifyContent="space-between" alignItems="center">
-                      <Text style={styles.forceLabel}>{force.name}</Text>
-                      <Text style={styles.forceValue}>{currentLevel}/3</Text>
-                    </HStack>
-                    <HStack space="xs" style={styles.forceSliderRow}>
-                      {[0, 1, 2, 3].map((value) => (
-                        <TouchableOpacity
-                          key={value}
-                          activeOpacity={0.8}
+          <Text style={[styles.modalLabel, { marginTop: spacing.lg }]}>Forces</Text>
+          <VStack space="md" style={{ marginTop: spacing.sm }}>
+            {FORCE_ORDER.map((forceId) => {
+              const force = getCanonicalForce(forceId);
+              if (!force) return null;
+              const currentLevel = forceIntent[forceId] ?? 0;
+              return (
+                <VStack key={forceId} space="xs">
+                  <HStack justifyContent="space-between" alignItems="center">
+                    <Text style={styles.forceLabel}>{force.name}</Text>
+                    <Text style={styles.forceValue}>{currentLevel}/3</Text>
+                  </HStack>
+                  <HStack space="xs" style={styles.forceSliderRow}>
+                    {[0, 1, 2, 3].map((value) => (
+                      <TouchableOpacity
+                        key={value}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.forceLevelChip,
+                          currentLevel === value && styles.forceLevelChipActive,
+                        ]}
+                        onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
+                      >
+                        <Text
                           style={[
-                            styles.forceLevelChip,
-                            currentLevel === value && styles.forceLevelChipActive,
+                            styles.forceLevelChipText,
+                            currentLevel === value && styles.forceLevelChipTextActive,
                           ]}
-                          onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
                         >
-                          <Text
-                            style={[
-                              styles.forceLevelChipText,
-                              currentLevel === value && styles.forceLevelChipTextActive,
-                            ]}
-                          >
-                            {value}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </HStack>
-                  </VStack>
-                );
-              })}
-            </VStack>
-          </ScrollView>
+                          {value}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </HStack>
+                </VStack>
+              );
+            })}
+          </VStack>
 
           <HStack space="sm" marginTop={spacing.lg}>
             <Button variant="outline" style={{ flex: 1 }} onPress={onClose}>
@@ -1638,8 +1633,8 @@ function EditGoalModal({
               <Text style={styles.primaryCtaText}>Save</Text>
             </Button>
           </HStack>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </BottomDrawer>
   );
 }
@@ -1706,11 +1701,12 @@ function ArcSelectorModal({
       handleStyle={{ width: 0, height: 0, opacity: 0 }}
       sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalOverlay}
-      >
-        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
+      <View style={styles.modalOverlay}>
+        <KeyboardAwareScrollView
+          style={{ flex: 1, width: '100%' }}
+          contentContainerStyle={[styles.modalContent, { paddingTop: spacing.lg }]}
+          showsVerticalScrollIndicator={false}
+        >
           <Heading style={styles.modalTitle}>Connect to an Arc</Heading>
           <Text style={styles.modalBody}>
             Choose an Arc this goal contributes to. You can change or remove this connection at any
@@ -1725,53 +1721,48 @@ function ArcSelectorModal({
             placeholderTextColor="#6B7280"
           />
 
-          <ScrollView
-            style={{ marginTop: spacing.lg, flex: 1 }}
-            contentContainerStyle={{ paddingBottom: spacing.lg }}
-          >
-            <VStack space="sm">
-              {filteredArcs.map((arc) => {
-                const selected = selectedArcId === arc.id;
-                return (
-                  <TouchableOpacity
-                    key={arc.id}
-                    activeOpacity={0.8}
+          <VStack space="sm" style={{ marginTop: spacing.lg }}>
+            {filteredArcs.map((arc) => {
+              const selected = selectedArcId === arc.id;
+              return (
+                <TouchableOpacity
+                  key={arc.id}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.arcOptionRow,
+                    selected && styles.arcOptionRowSelected,
+                  ]}
+                  onPress={() => setSelectedArcId(arc.id)}
+                >
+                  <VStack space="xs" flex={1}>
+                    <Text style={styles.arcOptionName}>{arc.name}</Text>
+                    {arc.narrative ? (
+                      <Text
+                        style={styles.arcOptionNarrative}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                      >
+                        {arc.narrative}
+                      </Text>
+                    ) : null}
+                  </VStack>
+                  <View
                     style={[
-                      styles.arcOptionRow,
-                      selected && styles.arcOptionRowSelected,
+                      styles.arcOptionRadio,
+                      selected && styles.arcOptionRadioSelected,
                     ]}
-                    onPress={() => setSelectedArcId(arc.id)}
                   >
-                    <VStack space="xs" flex={1}>
-                      <Text style={styles.arcOptionName}>{arc.name}</Text>
-                      {arc.narrative ? (
-                        <Text
-                          style={styles.arcOptionNarrative}
-                          numberOfLines={2}
-                          ellipsizeMode="tail"
-                        >
-                          {arc.narrative}
-                        </Text>
-                      ) : null}
-                    </VStack>
-                    <View
-                      style={[
-                        styles.arcOptionRadio,
-                        selected && styles.arcOptionRadioSelected,
-                      ]}
-                    >
-                      {selected && <View style={styles.arcOptionRadioDot} />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-              {filteredArcs.length === 0 && (
-                <Text style={styles.emptyBody}>
-                  No arcs match that search. Try a different phrase or clear the search.
-                </Text>
-              )}
-            </VStack>
-          </ScrollView>
+                    {selected && <View style={styles.arcOptionRadioDot} />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            {filteredArcs.length === 0 && (
+              <Text style={styles.emptyBody}>
+                No arcs match that search. Try a different phrase or clear the search.
+              </Text>
+            )}
+          </VStack>
 
           <VStack space="sm">
             <TouchableOpacity
@@ -1798,8 +1789,8 @@ function ArcSelectorModal({
               </Button>
             </HStack>
           </VStack>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </BottomDrawer>
   );
 }
@@ -1844,11 +1835,12 @@ function GoalActivityComposerModal({
       handleStyle={{ width: 0, height: 0, opacity: 0 }}
       sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={[styles.modalOverlay, { paddingTop: insetTop }]}
-      >
-        <View style={[styles.modalContent, { paddingTop: spacing.lg }]}>
+      <View style={[styles.modalOverlay, { paddingTop: insetTop }]}>
+        <KeyboardAwareScrollView
+          style={{ flex: 1, width: '100%' }}
+          contentContainerStyle={[styles.modalContent, { paddingTop: spacing.lg }]}
+          showsVerticalScrollIndicator={false}
+        >
           <Heading style={styles.modalTitle}>Add Activity</Heading>
           <Text style={styles.modalBody}>
             Capture a concrete step that moves this goal forward. You can refine details later from
@@ -1882,8 +1874,8 @@ function GoalActivityComposerModal({
               <Text style={styles.primaryCtaText}>Add</Text>
             </Button>
           </HStack>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
+      </View>
     </BottomDrawer>
   );
 }
@@ -2145,14 +2137,10 @@ function GoalActivityCoachDrawer({
             />
           </View>
         ) : (
-          <KeyboardAvoidingView
-            style={styles.activityCoachBody}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <ScrollView
+          <View style={styles.activityCoachBody}>
+            <KeyboardAwareScrollView
               style={styles.manualFormContainer}
               contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
-              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <Text style={styles.modalLabel}>Activity title</Text>
@@ -2188,8 +2176,8 @@ function GoalActivityCoachDrawer({
                   }));
                 }}
               />
-            </ScrollView>
-          </KeyboardAvoidingView>
+            </KeyboardAwareScrollView>
+          </View>
         )}
       </View>
     </BottomDrawer>

@@ -27,6 +27,9 @@ envFiles.forEach((file) => {
 
 const config: ExpoConfig = {
   name: 'kwilt',
+  // Ensure this project is owned/billed under the Kwilt organization in Expo.
+  // (You still need to transfer the existing project in the Expo dashboard.)
+  owner: 'kwilt',
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
@@ -44,10 +47,10 @@ const config: ExpoConfig = {
   // Reanimated and Worklets can install their pods correctly on EAS.
   newArchEnabled: true,
   splash: {
-    image: './assets/splash-icon.png',
+    image: './assets/icon.png',
     resizeMode: 'contain',
     // Pine 300 (matches in-app LaunchScreen background).
-    backgroundColor: '#B7CFB5',
+    backgroundColor: '#8EAF8B',
   },
   ios: {
     supportsTablet: true,

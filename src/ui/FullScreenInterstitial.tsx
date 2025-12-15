@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Keyboard, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Portal } from '@rn-primitives/portal';
 import { colors, spacing } from '../theme';
 
@@ -91,6 +91,14 @@ export function FullScreenInterstitial({
   withinModal = false,
 }: FullScreenInterstitialProps) {
   const surfaceBackground = colors[backgroundColor] ?? colors.card;
+
+  useEffect(() => {
+    if (!visible) return;
+    // Interstitials are full-screen "moments" with no text input. If the user
+    // navigates here from a screen that had a focused TextInput, iOS can keep
+    // the keyboard open. Explicitly dismiss it on show.
+    Keyboard.dismiss();
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) return;

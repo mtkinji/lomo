@@ -136,6 +136,9 @@ export function ButtonLabel({
         {
           ...base,
           color: getToneColor(tone),
+          // Android adds extra top/bottom font padding by default, which can
+          // make labels look vertically off-center inside fixed-height buttons.
+          includeFontPadding: false,
         },
         style,
       ]}

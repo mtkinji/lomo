@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { FlatListProps, ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
-import { FlatList, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
@@ -25,6 +25,16 @@ type BottomDrawerProps = {
   visible: boolean;
   onClose: () => void;
   children: ReactNode;
+  /**
+   * When true (default), BottomDrawer lifts above the keyboard using a
+   * KeyboardAvoidingView wrapper.
+   *
+   * Turn this off for special-case surfaces that already implement their own
+   * keyboard strategy (e.g. Agent chat / AiChatScreen) to avoid double offsets.
+   *
+   * See: `docs/keyboard-input-safety-implementation.md`
+   */
+  keyboardAvoidanceEnabled?: boolean;
 
   /**
    * Snap points expressed as either:
@@ -156,6 +166,7 @@ export function BottomDrawer({
   visible,
   onClose,
   children,
+  keyboardAvoidanceEnabled = true,
   snapPoints = DEFAULT_SNAP_POINTS,
   initialSnapIndex,
   snapIndex,
@@ -421,59 +432,124 @@ export function BottomDrawer({
 
   if (!mounted) return null;
 
+  // Keyboard behavior guidance:
+  // - `docs/keyboard-input-safety-implementation.md`
   const body = (
     <BottomDrawerContext.Provider value={{ scrollY, setScrollableGesture }}>
-      <Animated.View
-        style={styles.overlay}
-        pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
-      >
-        {!hideBackdrop && (
-          <Animated.View
-            style={[
-              styles.scrim,
-              { backgroundColor: scrimConfig.color },
-              scrimStyle,
-            ]}
-            pointerEvents="none"
-          />
-        )}
-        {!hideBackdrop && dismissable && dismissOnBackdropPress && (
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        )}
-        <GestureDetector gesture={contentPanGesture}>
-          <Animated.View
-            style={[
-              styles.sheet,
-              {
-                paddingBottom: insets.bottom,
-                // Max height is the safe-area-aware available height.
-                maxHeight: availableHeight,
-              },
-              sheetAnimatedStyle,
-              sheetStyle,
-            ]}
-          >
-            <GestureDetector gesture={handlePanGesture}>
-              <View style={[styles.handleGrabRegion, handleContainerStyle]}>
-                <View style={[styles.handle, handleStyle]} />
-              </View>
-            </GestureDetector>
-            {dynamicSizing ? (
-              <View
-                onLayout={(event) => {
-                  const { y, height } = event.nativeEvent.layout;
-                  const next = clamp(y + height + insets.bottom, 0, maxAllowedHeight);
-                  setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
-                }}
-              >
-                {children}
-              </View>
-            ) : (
-              children
+      {keyboardAvoidanceEnabled ? (
+        <KeyboardAvoidingView
+          // Important: BottomDrawer hosts inputs inside a modal-like overlay.
+          // KeyboardAvoidingView at the overlay level is the most reliable way to
+          // lift the entire sheet above the keyboard without fighting the sheet's
+          // own height/transform animations.
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+          pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
+        >
+          <Animated.View style={StyleSheet.absoluteFillObject}>
+            {!hideBackdrop && (
+              <Animated.View
+                style={[
+                  styles.scrim,
+                  { backgroundColor: scrimConfig.color },
+                  scrimStyle,
+                ]}
+                pointerEvents="none"
+              />
+            )}
+            {!hideBackdrop && dismissable && dismissOnBackdropPress && (
+              <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
             )}
           </Animated.View>
-        </GestureDetector>
-      </Animated.View>
+          <GestureDetector gesture={contentPanGesture}>
+            <Animated.View
+              style={[
+                styles.sheet,
+                {
+                  paddingBottom: insets.bottom,
+                  // Max height is the safe-area-aware available height.
+                  maxHeight: availableHeight,
+                },
+                sheetAnimatedStyle,
+                sheetStyle,
+              ]}
+            >
+              <GestureDetector gesture={handlePanGesture}>
+                <View style={[styles.handleGrabRegion, handleContainerStyle]}>
+                  <View style={[styles.handle, handleStyle]} />
+                </View>
+              </GestureDetector>
+              {dynamicSizing ? (
+                <View
+                  onLayout={(event) => {
+                    const { y, height } = event.nativeEvent.layout;
+                    const next = clamp(y + height + insets.bottom, 0, maxAllowedHeight);
+                    setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
+                  }}
+                >
+                  {children}
+                </View>
+              ) : (
+                children
+              )}
+            </Animated.View>
+          </GestureDetector>
+        </KeyboardAvoidingView>
+      ) : (
+        <View
+          style={styles.overlay}
+          pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
+        >
+          <Animated.View style={StyleSheet.absoluteFillObject}>
+            {!hideBackdrop && (
+              <Animated.View
+                style={[
+                  styles.scrim,
+                  { backgroundColor: scrimConfig.color },
+                  scrimStyle,
+                ]}
+                pointerEvents="none"
+              />
+            )}
+            {!hideBackdrop && dismissable && dismissOnBackdropPress && (
+              <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+            )}
+          </Animated.View>
+          <GestureDetector gesture={contentPanGesture}>
+            <Animated.View
+              style={[
+                styles.sheet,
+                {
+                  paddingBottom: insets.bottom,
+                  maxHeight: availableHeight,
+                },
+                sheetAnimatedStyle,
+                sheetStyle,
+              ]}
+            >
+              <GestureDetector gesture={handlePanGesture}>
+                <View style={[styles.handleGrabRegion, handleContainerStyle]}>
+                  <View style={[styles.handle, handleStyle]} />
+                </View>
+              </GestureDetector>
+              {dynamicSizing ? (
+                <View
+                  onLayout={(event) => {
+                    const { y, height } = event.nativeEvent.layout;
+                    const next = clamp(y + height + insets.bottom, 0, maxAllowedHeight);
+                    setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
+                  }}
+                >
+                  {children}
+                </View>
+              ) : (
+                children
+              )}
+            </Animated.View>
+          </GestureDetector>
+        </View>
+      )}
     </BottomDrawerContext.Provider>
   );
 

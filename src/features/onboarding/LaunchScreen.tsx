@@ -101,7 +101,7 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
-    backgroundColor: colors.pine300,
+    backgroundColor: colors.pine400,
   },
   heroSurface: {
     flex: 1,
@@ -118,7 +118,11 @@ const styles = StyleSheet.create({
     ...typography.brand,
     color: colors.pine700,
     fontSize: 36,
-    lineHeight: 42,
+    // Sriracha has tall ascenders; give it a touch of extra vertical room so
+    // iOS doesn't clip the very top pixels on certain rasterization passes.
+    lineHeight: 46,
+    paddingTop: 2,
+    paddingBottom: 2,
     textShadowColor: colors.pine800,
     textShadowOffset: { width: 0.4, height: 0.4 },
     textShadowRadius: 1,

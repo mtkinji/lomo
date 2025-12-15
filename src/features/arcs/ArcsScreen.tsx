@@ -7,9 +7,7 @@ import {
   Text,
   Pressable,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
 } from 'react-native';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -27,7 +25,7 @@ import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/R
 import type { Arc, Goal } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { ArcListCard } from '../../ui/ArcListCard';
-import { EmptyState } from '../../ui/primitives';
+import { EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
 import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 import { ensureArcBannerPrefill } from './arcBannerPrefill';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
@@ -882,17 +880,10 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
           />
         </View>
 
-        <KeyboardAvoidingView
-          style={[
-            { flex: 1 },
-            activeTab !== 'manual' && { display: 'none' },
-          ]}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView
+        <View style={[{ flex: 1 }, activeTab !== 'manual' && { display: 'none' }]}>
+          <KeyboardAwareScrollView
             style={styles.manualFormContainer}
             contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
-            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.manualInner}>
@@ -940,8 +931,8 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
                 </View>
               </Card>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
+        </View>
 
         <ArcInfoModal
           visible={isArcInfoVisible}

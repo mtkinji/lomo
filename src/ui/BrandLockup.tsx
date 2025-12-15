@@ -44,7 +44,8 @@ export function BrandLockup({
   // Optical alignment: the logo glyph reads slightly "lower" than the wordmark
   // due to font ascent/descender metrics (especially on iOS). A small downward
   // nudge keeps the lockup visually centered.
-  const iosWordmarkNudge = Platform.OS === 'ios' ? (wordmarkSize === 'lg' ? 2.5 : 1.5) : 0;
+  const iosWordmarkNudge =
+    Platform.OS === 'ios' ? (wordmarkSize === 'lg' ? 3.5 : 2.25) : 0;
 
   return (
     <View style={[styles.root, style]}>
@@ -71,8 +72,8 @@ const styles = StyleSheet.create({
   },
   wordmarkSm: {
     fontFamily: fonts.logo,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 22,
+    lineHeight: 32,
     // Android adds extra top/bottom font padding by default which throws off
     // optical vertical centering next to the logo mark.
     includeFontPadding: false,

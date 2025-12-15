@@ -98,6 +98,17 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
 }
 
+function parseProgressLabel(progressLabel?: string) {
+  if (!progressLabel) return null;
+  const match = progressLabel.trim().match(/^(\d+)\s+of\s+(\d+)$/i);
+  if (!match) return null;
+  const current = Number.parseInt(match[1] ?? '', 10);
+  const total = Number.parseInt(match[2] ?? '', 10);
+  if (!Number.isFinite(current) || !Number.isFinite(total)) return null;
+  if (total <= 0) return null;
+  return { current, total };
+}
+
 export function Coachmark({
   visible,
   targetRef,
@@ -237,16 +248,28 @@ export function Coachmark({
     return { left, top, resolvedPlacement, arrowLeft, bubbleWidth };
   }, [visible, targetRect, bubbleSize, insets.bottom, insets.top, maxWidth, offset, placement, windowHeight, windowWidth]);
 
-  const footerActions =
-    actions && actions.length > 0
-      ? actions
-      : [
-          {
-            id: 'dismiss',
-            label: 'Got it',
-            variant: 'outline' as const,
-          },
-        ];
+  const footerActions = useMemo(() => {
+    const baseActions =
+      actions && actions.length > 0
+        ? actions
+        : [
+            {
+              id: 'dismiss',
+              label: 'Got it',
+              variant: 'outline' as const,
+            },
+          ];
+
+    // Coachmark guides typically show "Skip" on intermediate steps, but not on the final step.
+    // We infer "final step" from the standard progressLabel format ("X of Y").
+    const progress = parseProgressLabel(progressLabel);
+    const isFinalStep = Boolean(progress && progress.current >= progress.total);
+    if (!isFinalStep) return baseActions;
+
+    const withoutSkip = baseActions.filter((action) => action.id !== 'skip');
+    // Never remove the *only* action.
+    return withoutSkip.length > 0 ? withoutSkip : baseActions;
+  }, [actions, progressLabel]);
 
   const spotlightRect = targetRect
     ? {

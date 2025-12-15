@@ -28,8 +28,12 @@ export function CanvasFlatList<T>({
   contentContainerStyle,
   includeSafeAreaBottom = true,
   extraBottomPadding = 0,
+  automaticallyAdjustKeyboardInsets = true,
   ...props
 }: CanvasFlatListProps<T>) {
+  // Keyboard behavior guidance:
+  // - `docs/keyboard-input-safety-implementation.md`
+  // - `docs/prds/keyboard-input-safety-prd.md`
   const insets = useSafeAreaInsets();
 
   const flat = StyleSheet.flatten(contentContainerStyle) as ViewStyle | undefined;
@@ -39,6 +43,7 @@ export function CanvasFlatList<T>({
   return (
     <FlatList
       {...props}
+      automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
       style={[styles.container, style]}
       contentContainerStyle={[
         contentContainerStyle,

@@ -49,7 +49,10 @@ export function EditableField({
   disabled,
   validate,
   variant = 'body',
-  autoFocusOnEdit = true,
+  // Best-practice default: do NOT auto-focus on mount. Auto-focus should be opt-in
+  // and only used in explicit "create/edit" flows where no other overlay (coachmark,
+  // modal, etc.) competes for attention.
+  autoFocusOnEdit = false,
   style,
   elevation = 'elevated',
 }: EditableFieldProps) {
@@ -124,7 +127,10 @@ export function EditableField({
           placeholder={placeholder || 'Tap to edit'}
           placeholderTextColor={colors.muted}
           editable={!disabled}
-          autoFocus={autoFocusOnEdit}
+          // Only request autofocus when the field is actively entering edit mode.
+          // This prevents accidental mount-time focus/keyboard pop that can fight
+          // onboarding coachmarks and other overlays.
+          autoFocus={Boolean(autoFocusOnEdit && isEditing)}
           onSubmitEditing={handleSubmitEditing}
           onBlur={() => {
             commit(draft);

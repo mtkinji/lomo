@@ -78,6 +78,15 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
       : 'cta';
 
   const variantTokens = BUTTON_VARIANT_TOKENS[logicalVariant];
+  // Ensure button sizing is consistent across variants. Outline/secondary variants
+  // draw a 1px border; if other solid variants omit borderWidth entirely, their
+  // rendered size can differ by ~2px (top+bottom). We reserve border space for
+  // all "button-like" variants while keeping ghost/link borderless.
+  const shouldReserveBorderSpace = logicalVariant !== 'ghost' && logicalVariant !== 'link';
+  const resolvedBorderWidth =
+    variantTokens.borderWidth ?? (shouldReserveBorderSpace ? 1 : 0);
+  const resolvedBorderColor =
+    variantTokens.borderColor ?? (shouldReserveBorderSpace ? 'transparent' : 'transparent');
 
   return (
     <Pressable
@@ -87,7 +96,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
         // Base shape + sizing
         !isIconOnly && {
           borderRadius: 12,
-          minHeight: sizeTokens.height,
+          height: sizeTokens.height,
           paddingHorizontal: sizeTokens.paddingHorizontal,
           paddingVertical: sizeTokens.paddingVertical,
           alignItems: 'center',
@@ -96,8 +105,8 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
         // Variant-specific backgrounds/borders
         {
           backgroundColor: variantTokens.backgroundColor,
-          borderWidth: variantTokens.borderWidth ?? 0,
-          borderColor: variantTokens.borderColor ?? 'transparent',
+          borderWidth: resolvedBorderWidth,
+          borderColor: resolvedBorderColor,
           width: fullWidth ? '100%' : undefined,
         },
         // Icon-only circular buttons.

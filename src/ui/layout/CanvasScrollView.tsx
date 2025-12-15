@@ -24,8 +24,12 @@ export function CanvasScrollView({
   contentContainerStyle,
   includeSafeAreaBottom = true,
   extraBottomPadding = 0,
+  automaticallyAdjustKeyboardInsets = true,
   ...props
 }: CanvasScrollViewProps) {
+  // Keyboard behavior guidance:
+  // - `docs/keyboard-input-safety-implementation.md`
+  // - `docs/prds/keyboard-input-safety-prd.md`
   const insets = useSafeAreaInsets();
 
   const flat = StyleSheet.flatten(contentContainerStyle) as ViewStyle | undefined;
@@ -35,6 +39,7 @@ export function CanvasScrollView({
   return (
     <ScrollView
       {...props}
+      automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
       style={[styles.container, style]}
       contentContainerStyle={[
         contentContainerStyle,

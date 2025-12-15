@@ -4,16 +4,17 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   UIManager,
   View,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
@@ -23,7 +24,18 @@ import type {
 } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { VStack, Heading, Text, HStack, Input, Textarea, ButtonLabel, Card, EmptyState } from '../../ui/primitives';
+import {
+  VStack,
+  Heading,
+  Text,
+  HStack,
+  Input,
+  Textarea,
+  ButtonLabel,
+  Card,
+  EmptyState,
+  KeyboardAwareScrollView,
+} from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
@@ -41,6 +53,7 @@ import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import type {
   Activity,
+  ActivityDifficulty,
   ActivityView,
   ActivityFilterMode,
   ActivitySortMode,
@@ -127,6 +140,7 @@ export function ActivitiesScreen() {
     NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'> &
       DrawerNavigationProp<RootDrawerParamList>
   >();
+  const insets = useSafeAreaInsets();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
 
@@ -159,6 +173,24 @@ export function ActivitiesScreen() {
   const filterButtonRef = React.useRef<View | null>(null);
   const sortButtonRef = React.useRef<View | null>(null);
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
+  const [quickAddTitle, setQuickAddTitle] = React.useState('');
+  const quickAddInputRef = React.useRef<TextInput | null>(null);
+  const [isQuickAddFocused, setIsQuickAddFocused] = React.useState(false);
+  const quickAddFocusedRef = React.useRef(false);
+  const [quickAddReminderAt, setQuickAddReminderAt] = React.useState<string | null>(null);
+  const [quickAddScheduledDate, setQuickAddScheduledDate] = React.useState<string | null>(null);
+  const [quickAddRepeatRule, setQuickAddRepeatRule] = React.useState<Activity['repeatRule']>(undefined);
+  const [quickAddEstimateMinutes, setQuickAddEstimateMinutes] = React.useState<number | null>(null);
+
+  const [quickAddReminderSheetVisible, setQuickAddReminderSheetVisible] = React.useState(false);
+  const [quickAddDueDateSheetVisible, setQuickAddDueDateSheetVisible] = React.useState(false);
+  const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = React.useState(false);
+  const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = React.useState(false);
+  const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = React.useState(false);
+  const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
+  // Total vertical space reserved for the docked composer so the last row can
+  // scroll above it.
+  const quickAddDockHeight = QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + spacing.xs;
 
   const guideVariant = activities.length > 0 ? 'full' : 'empty';
   const guideTotalSteps = guideVariant === 'full' ? 3 : 1;
@@ -304,6 +336,185 @@ export function ActivitiesScreen() {
   );
 
   const hasAnyActivities = visibleActivities.length > 0;
+
+  const buildQuickAddHeuristicPlan = React.useCallback(
+    (id: string, title: string, timestamp: string) => {
+      const lower = title.toLowerCase();
+      const steps: ActivityStep[] = [
+        { id: `step-${id}-0`, title: 'Prep the workspace', orderIndex: 0, completedAt: null },
+        { id: `step-${id}-1`, title: 'Do the main work', orderIndex: 1, completedAt: null },
+        { id: `step-${id}-2`, title: 'Clean up + reset', orderIndex: 2, completedAt: null },
+      ];
+
+      const estimateMinutes =
+        /(install|replace|repair|fix)\b/.test(lower)
+          ? 45
+          : /(call|email|book|schedule)\b/.test(lower)
+            ? 15
+            : 25;
+      const difficulty: ActivityDifficulty =
+        /(repair|fix|install)\b/.test(lower) ? 'medium' : /(exercise|workout|run)\b/.test(lower) ? 'hard' : 'easy';
+
+      return {
+        steps,
+        aiPlanning: {
+          estimateMinutes,
+          difficulty,
+          confidence: 0.4,
+          lastUpdatedAt: timestamp,
+          source: 'quick_suggest' as const,
+        },
+      };
+    },
+    [],
+  );
+
+  const collapseQuickAdd = React.useCallback(() => {
+    // Optimistically flip the UI state immediately; the TextInput blur will also
+    // drive `onBlur` shortly after.
+    setIsQuickAddFocused(false);
+    Keyboard.dismiss();
+    requestAnimationFrame(() => {
+      quickAddInputRef.current?.blur();
+    });
+  }, []);
+
+  React.useEffect(() => {
+    quickAddFocusedRef.current = isQuickAddFocused;
+  }, [isQuickAddFocused]);
+
+  React.useEffect(() => {
+    // If the keyboard is dismissed via a system gesture, TextInput can remain
+    // focused, which prevents subsequent taps from re-opening the keyboard.
+    // Blur the input on keyboard hide so the next tap re-focuses cleanly.
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const sub = Keyboard.addListener(hideEvent, () => {
+      if (!quickAddFocusedRef.current) return;
+      setIsQuickAddFocused(false);
+      requestAnimationFrame(() => {
+        quickAddInputRef.current?.blur();
+      });
+    });
+    return () => sub.remove();
+  }, []);
+
+  const handleQuickAddActivity = React.useCallback(() => {
+    const trimmed = quickAddTitle.trim();
+    if (!trimmed) return;
+
+    const timestamp = new Date().toISOString();
+    const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    // TODO(paywall): gate this behind real Pro entitlement / active trial.
+    const proAutoPopulateEnabled = false;
+    const proPlan = proAutoPopulateEnabled
+      ? buildQuickAddHeuristicPlan(id, trimmed, timestamp)
+      : { steps: [], aiPlanning: undefined };
+
+    const activity: Activity = {
+      id,
+      goalId: null,
+      title: trimmed,
+      notes: undefined,
+      steps: proPlan.steps,
+      reminderAt: quickAddReminderAt ?? null,
+      priority: undefined,
+      estimateMinutes: quickAddEstimateMinutes ?? null,
+      creationSource: 'manual',
+      planGroupId: null,
+      scheduledDate: quickAddScheduledDate ?? null,
+      repeatRule: quickAddRepeatRule,
+      orderIndex: (activities.length || 0) + 1,
+      phase: null,
+      status: 'planned',
+      actualMinutes: null,
+      startedAt: null,
+      completedAt: null,
+      aiPlanning: proPlan.aiPlanning,
+      forceActual: defaultForceLevels(0),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    addActivity(activity);
+    setQuickAddTitle('');
+    setQuickAddReminderAt(null);
+    setQuickAddScheduledDate(null);
+    setQuickAddRepeatRule(undefined);
+    setQuickAddEstimateMinutes(null);
+    // Keep the keyboard up for rapid entry.
+    requestAnimationFrame(() => {
+      quickAddInputRef.current?.focus();
+    });
+  }, [
+    activities.length,
+    addActivity,
+    buildQuickAddHeuristicPlan,
+    quickAddEstimateMinutes,
+    quickAddReminderAt,
+    quickAddRepeatRule,
+    quickAddScheduledDate,
+    quickAddTitle,
+  ]);
+
+  const setQuickAddDueDateByOffsetDays = React.useCallback((offsetDays: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offsetDays);
+    date.setHours(9, 0, 0, 0);
+    setQuickAddScheduledDate(date.toISOString());
+    setQuickAddDueDateSheetVisible(false);
+    setQuickAddIsDueDatePickerVisible(false);
+  }, []);
+
+  const clearQuickAddDueDate = React.useCallback(() => {
+    setQuickAddScheduledDate(null);
+    setQuickAddDueDateSheetVisible(false);
+    setQuickAddIsDueDatePickerVisible(false);
+  }, []);
+
+  const setQuickAddReminderByOffsetMinutes = React.useCallback((offsetMinutes: number) => {
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + offsetMinutes);
+    setQuickAddReminderAt(date.toISOString());
+    setQuickAddReminderSheetVisible(false);
+  }, []);
+
+  const clearQuickAddReminder = React.useCallback(() => {
+    setQuickAddReminderAt(null);
+    setQuickAddReminderSheetVisible(false);
+  }, []);
+
+  const handleQuickAddSelectRepeat = React.useCallback((rule: Activity['repeatRule']) => {
+    setQuickAddRepeatRule(rule);
+    setQuickAddRepeatSheetVisible(false);
+  }, []);
+
+  const clearQuickAddRepeat = React.useCallback(() => {
+    setQuickAddRepeatRule(undefined);
+    setQuickAddRepeatSheetVisible(false);
+  }, []);
+
+  const handleQuickAddSelectEstimate = React.useCallback((minutes: number | null) => {
+    setQuickAddEstimateMinutes(minutes);
+    setQuickAddEstimateSheetVisible(false);
+  }, []);
+
+  const getQuickAddInitialDueDateForPicker = React.useCallback(() => {
+    if (quickAddScheduledDate) return new Date(quickAddScheduledDate);
+    return new Date();
+  }, [quickAddScheduledDate]);
+
+  const handleQuickAddDueDateChange = React.useCallback(
+    (_: DateTimePickerEvent, selected?: Date) => {
+      if (!selected) return;
+      const next = new Date(selected);
+      next.setHours(9, 0, 0, 0);
+      setQuickAddScheduledDate(next.toISOString());
+      setQuickAddIsDueDatePickerVisible(false);
+      setQuickAddDueDateSheetVisible(false);
+    },
+    [],
+  );
 
   const handleToggleComplete = React.useCallback(
     (activityId: string) => {
@@ -485,17 +696,29 @@ export function ActivitiesScreen() {
           parent?.dispatch(DrawerActions.openDrawer());
         }}
         rightElement={
-          <IconButton
-            ref={addButtonRef}
-            collapsable={false}
-            accessibilityRole="button"
-            accessibilityLabel="Add Activity"
-            onPress={() => {
-              setActivityCoachVisible(true);
-            }}
-          >
-            <Icon name="plus" size={18} color="#FFFFFF" />
-          </IconButton>
+          isQuickAddFocused ? (
+            <Button
+              variant="accent"
+              size="small"
+              accessibilityRole="button"
+              accessibilityLabel="Done"
+              onPress={collapseQuickAdd}
+            >
+              <ButtonLabel>Done</ButtonLabel>
+            </Button>
+          ) : (
+            <IconButton
+              ref={addButtonRef}
+              collapsable={false}
+              accessibilityRole="button"
+              accessibilityLabel="Add Activity"
+              onPress={() => {
+                setActivityCoachVisible(true);
+              }}
+            >
+              <Icon name="plus" size={18} color="#FFFFFF" />
+            </IconButton>
+          )
         }
       />
       <Coachmark
@@ -539,6 +762,7 @@ export function ActivitiesScreen() {
       <CanvasScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
+        extraBottomPadding={quickAddDockHeight}
         showsVerticalScrollIndicator={false}
       >
         {activities.length > 0 && (
@@ -794,6 +1018,213 @@ export function ActivitiesScreen() {
           />
         )}
       </CanvasScrollView>
+      <KeyboardAvoidingView
+        style={styles.quickAddDock}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <View pointerEvents="none" style={styles.quickAddDockBackground} />
+        <View
+          style={[
+            styles.quickAddOuter,
+            {
+              paddingBottom: quickAddBottomPadding,
+            },
+          ]}
+        >
+          <Card marginHorizontal="sm" padding="xs" elevation="none" style={styles.quickAddCard}>
+            <HStack alignItems="center" space="md" style={styles.quickAddRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isQuickAddFocused ? 'Create activity' : 'Start adding an activity'}
+                accessibilityState={{ disabled: isQuickAddFocused ? quickAddTitle.trim().length === 0 : false }}
+                onPress={() => {
+                  if (!isQuickAddFocused) {
+                    quickAddInputRef.current?.focus();
+                    return;
+                  }
+                  if (quickAddTitle.trim().length === 0) {
+                    collapseQuickAdd();
+                    return;
+                  }
+                  handleQuickAddActivity();
+                }}
+                style={[
+                  styles.quickAddAffordance,
+                  styles.quickAddAffordanceIdle,
+                  isQuickAddFocused && quickAddTitle.trim().length === 0 && styles.quickAddAffordanceDisabled,
+                ]}
+              >
+                <Icon
+                  name="plus"
+                  size={16}
+                  color={isQuickAddFocused && quickAddTitle.trim().length > 0 ? colors.accent : colors.textSecondary}
+                />
+              </Pressable>
+              <Input
+                ref={quickAddInputRef}
+                value={quickAddTitle}
+                onChangeText={setQuickAddTitle}
+                placeholder="Add an activity"
+                placeholderTextColor={colors.textSecondary}
+                variant="inline"
+                returnKeyType="done"
+                showSoftInputOnFocus
+                blurOnSubmit
+                onSubmitEditing={() => {
+                  if (quickAddTitle.trim().length === 0) {
+                    collapseQuickAdd();
+                    return;
+                  }
+                  handleQuickAddActivity();
+                }}
+                onFocus={() => setIsQuickAddFocused(true)}
+                onBlur={() => setIsQuickAddFocused(false)}
+                autoCapitalize="sentences"
+                autoCorrect
+                containerStyle={styles.quickAddInputContainer}
+                inputStyle={styles.quickAddInput}
+                accessibilityLabel="Activity title"
+              />
+            </HStack>
+            {isQuickAddFocused ? (
+              <HStack style={styles.quickAddToolsRow} alignItems="center" justifyContent="space-between">
+                <HStack space="md" alignItems="center">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Set reminder"
+                    onPress={() => setQuickAddReminderSheetVisible(true)}
+                    style={[styles.quickAddToolButton, quickAddReminderAt ? styles.quickAddToolButtonActive : null]}
+                  >
+                    <Icon name="bell" size={16} color={quickAddReminderAt ? colors.accent : colors.textSecondary} />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Set due date"
+                    onPress={() => setQuickAddDueDateSheetVisible(true)}
+                    style={[styles.quickAddToolButton, quickAddScheduledDate ? styles.quickAddToolButtonActive : null]}
+                  >
+                    <Icon
+                      name="today"
+                      size={16}
+                      color={quickAddScheduledDate ? colors.accent : colors.textSecondary}
+                    />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Set repeat"
+                    onPress={() => setQuickAddRepeatSheetVisible(true)}
+                    style={[styles.quickAddToolButton, quickAddRepeatRule ? styles.quickAddToolButtonActive : null]}
+                  >
+                    <Icon name="refresh" size={16} color={quickAddRepeatRule ? colors.accent : colors.textSecondary} />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Set time estimate"
+                    onPress={() => setQuickAddEstimateSheetVisible(true)}
+                    style={[styles.quickAddToolButton, quickAddEstimateMinutes != null ? styles.quickAddToolButtonActive : null]}
+                  >
+                    <Icon
+                      name="estimate"
+                      size={16}
+                      color={quickAddEstimateMinutes != null ? colors.accent : colors.textSecondary}
+                    />
+                  </Pressable>
+                </HStack>
+              </HStack>
+            ) : null}
+          </Card>
+        </View>
+      </KeyboardAvoidingView>
+      <BottomDrawer
+        visible={quickAddReminderSheetVisible}
+        onClose={() => setQuickAddReminderSheetVisible(false)}
+        snapPoints={['40%']}
+        presentation="inline"
+        hideBackdrop
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Reminder</Text>
+          <VStack space="sm">
+            <SheetOption label="In 1 hour" onPress={() => setQuickAddReminderByOffsetMinutes(60)} />
+            <SheetOption label="This evening" onPress={() => setQuickAddReminderByOffsetMinutes(60 * 6)} />
+            <SheetOption label="Tomorrow morning" onPress={() => setQuickAddReminderByOffsetMinutes(60 * 18)} />
+            <SheetOption label="Clear reminder" onPress={clearQuickAddReminder} />
+          </VStack>
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddDueDateSheetVisible}
+        onClose={() => {
+          setQuickAddDueDateSheetVisible(false);
+          setQuickAddIsDueDatePickerVisible(false);
+        }}
+        snapPoints={['45%']}
+        presentation="inline"
+        hideBackdrop
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Due</Text>
+          <VStack space="sm">
+            <SheetOption label="Today" onPress={() => setQuickAddDueDateByOffsetDays(0)} />
+            <SheetOption label="Tomorrow" onPress={() => setQuickAddDueDateByOffsetDays(1)} />
+            <SheetOption label="Next Week" onPress={() => setQuickAddDueDateByOffsetDays(7)} />
+            <SheetOption label="Pick a date…" onPress={() => setQuickAddIsDueDatePickerVisible(true)} />
+            <SheetOption label="Clear due date" onPress={clearQuickAddDueDate} />
+          </VStack>
+          {quickAddIsDueDatePickerVisible && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getQuickAddInitialDueDateForPicker()}
+                onChange={handleQuickAddDueDateChange}
+              />
+            </View>
+          )}
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddRepeatSheetVisible}
+        onClose={() => setQuickAddRepeatSheetVisible(false)}
+        snapPoints={['45%']}
+        presentation="inline"
+        hideBackdrop
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Repeat</Text>
+          <VStack space="sm">
+            <SheetOption label="Daily" onPress={() => handleQuickAddSelectRepeat('daily')} />
+            <SheetOption label="Weekly" onPress={() => handleQuickAddSelectRepeat('weekly')} />
+            <SheetOption label="Weekdays" onPress={() => handleQuickAddSelectRepeat('weekdays')} />
+            <SheetOption label="Monthly" onPress={() => handleQuickAddSelectRepeat('monthly')} />
+            <SheetOption label="Yearly" onPress={() => handleQuickAddSelectRepeat('yearly')} />
+            <SheetOption label="Off" onPress={clearQuickAddRepeat} />
+          </VStack>
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddEstimateSheetVisible}
+        onClose={() => setQuickAddEstimateSheetVisible(false)}
+        snapPoints={['45%']}
+        presentation="inline"
+        hideBackdrop
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Estimate</Text>
+          <VStack space="sm">
+            <SheetOption label="10 min" onPress={() => handleQuickAddSelectEstimate(10)} />
+            <SheetOption label="20 min" onPress={() => handleQuickAddSelectEstimate(20)} />
+            <SheetOption label="30 min" onPress={() => handleQuickAddSelectEstimate(30)} />
+            <SheetOption label="45 min" onPress={() => handleQuickAddSelectEstimate(45)} />
+            <SheetOption label="60 min" onPress={() => handleQuickAddSelectEstimate(60)} />
+            <SheetOption label="Clear estimate" onPress={() => handleQuickAddSelectEstimate(null)} />
+          </VStack>
+        </View>
+      </BottomDrawer>
       <ActivityCoachDrawer
         visible={activityCoachVisible}
         onClose={() => setActivityCoachVisible(false)}
@@ -897,12 +1328,93 @@ export function ActivitiesScreen() {
   );
 }
 
+const QUICK_ADD_BAR_HEIGHT = 64;
+
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: spacing['2xl'],
+  },
+  quickAddDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  quickAddDockBackground: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    // Bleed the background out past the AppShell gutter so it reaches the bezel.
+    left: -spacing.sm,
+    right: -spacing.sm,
+    backgroundColor: colors.shell,
+  },
+  quickAddOuter: {
+    paddingHorizontal: 0,
+    paddingTop: spacing.xs,
+    backgroundColor: 'transparent',
+  },
+  quickAddCard: {
+    marginVertical: 0,
+    // Let `Card` handle tokenized horizontal margins (e.g. `marginHorizontal="xs"`).
+    alignSelf: 'stretch',
+    // Match input corner radius (`Input`, `EditableField`, `Combobox`).
+    borderRadius: 12,
+  },
+  quickAddRow: {
+    flex: 1,
+  },
+  quickAddAffordance: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickAddAffordanceIdle: {
+    // No circle around the "+" affordance (matches the quick-add spec).
+    borderRadius: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+  },
+  quickAddAffordanceActive: {
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
+  },
+  quickAddAffordanceDisabled: {
+    opacity: 0.5,
+  },
+  quickAddInputContainer: {
+    flex: 1,
+  },
+  quickAddInput: {
+    flex: 1,
+    ...typography.body,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    lineHeight: typography.body.lineHeight,
+    color: colors.textPrimary,
+  },
+  quickAddToolsRow: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  quickAddToolButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  quickAddToolButtonActive: {
+    backgroundColor: colors.pine100,
   },
   toolbarRow: {
     marginBottom: spacing.sm,
@@ -1105,7 +1617,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   stepRow: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: spacing.xs,
   },
   checkboxBase: {
@@ -1357,6 +1869,17 @@ function ActivityCoachDrawer({
   const [isAddingStepInline, setIsAddingStepInline] = React.useState(false);
   const [newStepTitle, setNewStepTitle] = React.useState('');
   const newStepInputRef = React.useRef<TextInput | null>(null);
+  // Step titles should wrap to show their content, but stay bounded so the list remains scannable.
+  const STEP_MAX_LINES = 4;
+  const STEP_LINE_HEIGHT = typography.bodySm.lineHeight;
+  const STEP_MIN_HEIGHT = STEP_LINE_HEIGHT;
+  const STEP_MAX_HEIGHT = STEP_LINE_HEIGHT * STEP_MAX_LINES + spacing.sm;
+  const clampStepHeight = React.useCallback(
+    (height: number) => Math.max(STEP_MIN_HEIGHT, Math.min(height, STEP_MAX_HEIGHT)),
+    [STEP_MIN_HEIGHT, STEP_MAX_HEIGHT],
+  );
+  const [manualStepHeights, setManualStepHeights] = React.useState<Record<string, number>>({});
+  const [newStepHeight, setNewStepHeight] = React.useState<number>(STEP_MIN_HEIGHT);
 
   const workspaceSnapshot = React.useMemo(
     () => buildActivityCoachLaunchContext(goals, activities),
@@ -1933,17 +2456,10 @@ function ActivityCoachDrawer({
           />
         </View>
 
-        <KeyboardAvoidingView
-          style={[
-            styles.activityCoachBody,
-            activeTab !== 'manual' && { display: 'none' },
-          ]}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView
+        <View style={[styles.activityCoachBody, activeTab !== 'manual' && { display: 'none' }]}>
+          <KeyboardAwareScrollView
             style={styles.manualFormContainer}
             contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.lg }}
-            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             <Card padding="sm" style={{ width: '100%' }}>
@@ -2003,12 +2519,28 @@ function ActivityCoachDrawer({
                             ]}
                           />
                           <TextInput
-                            style={styles.stepInput}
                             value={step.title}
                             onChangeText={(text) => handleChangeManualStepTitle(step.id, text)}
                             placeholder="Describe the step"
                             placeholderTextColor={colors.muted}
                             multiline
+                            textAlignVertical="top"
+                            blurOnSubmit
+                            returnKeyType="done"
+                            scrollEnabled={(manualStepHeights[step.id] ?? STEP_MIN_HEIGHT) >= STEP_MAX_HEIGHT}
+                            onContentSizeChange={(event) => {
+                              const nextHeight = clampStepHeight(event.nativeEvent.contentSize.height);
+                              setManualStepHeights((prev) =>
+                                prev[step.id] === nextHeight ? prev : { ...prev, [step.id]: nextHeight },
+                              );
+                            }}
+                            // Drive height so the field expands up to 4 visible lines, then stays bounded.
+                            // (When bounded, `scrollEnabled` flips on so longer content remains editable.)
+                            // eslint-disable-next-line react-native/no-inline-styles
+                            style={[
+                              styles.stepInput,
+                              { height: manualStepHeights[step.id] ?? STEP_MIN_HEIGHT, maxHeight: STEP_MAX_HEIGHT },
+                            ]}
                           />
                           <Button
                             variant="ghost"
@@ -2036,14 +2568,20 @@ function ActivityCoachDrawer({
                         />
                         <TextInput
                           ref={newStepInputRef}
-                          style={styles.stepInput}
+                          // eslint-disable-next-line react-native/no-inline-styles
+                          style={[styles.stepInput, { height: newStepHeight, maxHeight: STEP_MAX_HEIGHT }]}
                           value={newStepTitle}
                           onChangeText={setNewStepTitle}
                           placeholder="Add step"
                           placeholderTextColor={colors.muted}
                           multiline
+                          textAlignVertical="top"
                           returnKeyType="done"
                           blurOnSubmit
+                          scrollEnabled={newStepHeight >= STEP_MAX_HEIGHT}
+                          onContentSizeChange={(event) => {
+                            setNewStepHeight(clampStepHeight(event.nativeEvent.contentSize.height));
+                          }}
                           onSubmitEditing={commitManualInlineStep}
                           onBlur={commitManualInlineStep}
                         />
@@ -2203,8 +2741,8 @@ function ActivityCoachDrawer({
                 <Text>Add activity</Text>
               </Button>
             </Card>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
+        </View>
       </View>
       {activeTab === 'manual' && (
         <>

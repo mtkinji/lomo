@@ -2,7 +2,6 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
-  ScrollView,
   StyleSheet,
   View,
   Text,
@@ -20,7 +19,7 @@ import type {
   ActivityDetailRouteParams,
 } from '../../navigation/RootNavigator';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { VStack, HStack, Input, Textarea, ThreeColumnRow, Combobox } from '../../ui/primitives';
+import { VStack, HStack, Input, Textarea, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Coachmark } from '../../ui/Coachmark';
@@ -730,10 +729,9 @@ export function ActivityDetailScreen() {
             </View>
           </HStack>
 
-          <ScrollView
+          <KeyboardAwareScrollView
             style={styles.scroll}
             contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             {/* Title + Steps bundle (task-style, no enclosing card) */}
@@ -867,7 +865,10 @@ export function ActivityDetailScreen() {
                               placeholder="Describe the step"
                               size="sm"
                               variant="inline"
-                              multiline={false}
+                              // Allow step titles to wrap (and grow) up to 4 lines so content remains visible.
+                              multiline
+                              multilineMinHeight={typography.bodySm.lineHeight}
+                              multilineMaxHeight={typography.bodySm.lineHeight * 4 + spacing.sm}
                               blurOnSubmit
                               returnKeyType="done"
                             />
@@ -1194,7 +1195,7 @@ export function ActivityDetailScreen() {
                 multilineMaxHeight={180}
               />
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </VStack>
       </View>
 
@@ -1569,9 +1570,12 @@ const styles = StyleSheet.create({
   stepRow: {
     // Keep step content vertically centered against the checkbox.
     minHeight: 40,
+    // When step titles wrap, pin the checkbox/actions to the top of the content block.
+    alignItems: 'flex-start',
   },
   stepRowContent: {
     paddingVertical: 0,
+    justifyContent: 'flex-start',
   },
   stepCheckbox: {
     width: 20,

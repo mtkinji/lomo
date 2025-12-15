@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,7 +8,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { spacing, cardSurfaceStyle } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
-import { Input } from '../../ui/primitives';
+import { Input, KeyboardAwareScrollView } from '../../ui/primitives';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -94,10 +94,9 @@ export function ProfileSettingsScreen() {
           title="Profile"
           onPressBack={() => navigation.goBack()}
         />
-        <ScrollView
+        <KeyboardAwareScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.card}>
@@ -141,7 +140,7 @@ export function ProfileSettingsScreen() {
               />
             </View>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </View>
     </AppShell>
   );

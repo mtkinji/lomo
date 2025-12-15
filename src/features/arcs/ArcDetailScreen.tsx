@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   TextInput,
-  KeyboardAvoidingView,
   Keyboard,
   Platform,
   ScrollView,
@@ -30,7 +29,7 @@ import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
-import { VStack, Heading, HStack, EmptyState } from '../../ui/primitives';
+import { VStack, Heading, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { EditableField } from '../../ui/EditableField';
@@ -90,7 +89,6 @@ export function ArcDetailScreen() {
   const { arcId, openGoalCreation, showFirstArcCelebration: showCelebrationFromRoute } =
     route.params;
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView | null>(null);
   const createGoalsButtonRef = useRef<View>(null);
   const heroBannerRef = useRef<View>(null);
   const tabControlRef = useRef<View>(null);
@@ -778,12 +776,10 @@ export function ArcDetailScreen() {
             </View>
           </View>
 
-          <ScrollView
-            ref={scrollRef}
+          <KeyboardAwareScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
           >
             <View style={styles.pageContent}>
@@ -1037,7 +1033,7 @@ export function ArcDetailScreen() {
                 </View>
               )}
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </View>
       </TouchableWithoutFeedback>
       <ArcBannerSheet

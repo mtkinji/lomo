@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View, Pressable, Platform } from 'react-native';
+import { Alert, StyleSheet, View, Pressable, Platform } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,7 +9,7 @@ import { Icon } from '../../ui/Icon';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { useAppStore, type LlmModel } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
-import { HStack, Text, VStack, Textarea, Button } from '../../ui/primitives';
+import { HStack, Text, VStack, Textarea, Button, KeyboardAwareScrollView } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { buildUserProfileSummary } from '../../services/ai';
 
@@ -124,7 +124,7 @@ export function AiModelSettingsScreen() {
           title="Agent"
           onPressBack={handleNavigateBack}
         />
-        <ScrollView
+        <KeyboardAwareScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator
@@ -245,7 +245,7 @@ export function AiModelSettingsScreen() {
               </VStack>
             </>
           )}
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </View>
     </AppShell>
   );

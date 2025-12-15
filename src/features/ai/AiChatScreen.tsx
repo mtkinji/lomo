@@ -5,7 +5,6 @@ import {
   Animated,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   NativeEventEmitter,
   NativeModules,
@@ -13,12 +12,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  findNodeHandle,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
@@ -44,7 +45,7 @@ import type {
 } from '../../domain/types';
 import type { Goal, GoalForceIntent } from '../../domain/types';
 import { defaultForceLevels } from '../../store/useAppStore';
-import { Text, VStack } from '../../ui/primitives';
+import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
@@ -825,8 +826,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
   }: AiChatPaneProps,
   ref: Ref<AiChatPaneController>
 ) {
+  const insets = useSafeAreaInsets();
   const isArcCreationMode = mode === 'arcCreation';
   const isOnboardingMode = mode === 'firstTimeOnboarding';
+  // Extra breathing room so “inline card” CTAs (like Continue) clear the keyboard.
+  const keyboardClearance = 140;
 
   const workflowRuntime = useWorkflowRuntime();
   const currentWorkflowStepId = workflowRuntime?.instance?.currentStepId;
@@ -1391,11 +1395,18 @@ export const AiChatPane = forwardRef(function AiChatPane(
       return;
     }
 
+    // Activities AI bootstraps via a dedicated effect that streams local copy
+    // immediately while fetching suggestions in parallel.
+    if (mode === 'activityCreation') {
+      return;
+    }
+
     let cancelled = false;
 
     const bootstrapConversation = async () => {
       try {
         setHasTransportError(false);
+
         setThinking(true);
         const history: CoachChatTurn[] = messagesRef.current.map((m) => ({
           role: m.role,
@@ -1404,35 +1415,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         const coachOptions: CoachChatOptions = buildCoachOptions();
         const reply = await sendCoachChat(history, coachOptions);
 
-        let baseContent = reply;
-        if (mode === 'activityCreation') {
-          const proposalParsed = extractActivityProposalFromAssistantMessage(reply);
-          const { displayContent, suggestions } =
-            extractActivitySuggestionsFromAssistantMessage(proposalParsed.displayContent);
-          baseContent = displayContent;
-          if (!cancelled) {
-            const mergedSuggestions = proposalParsed.suggestion
-              ? [proposalParsed.suggestion]
-              : suggestions;
-            const nextSuggestions =
-              mergedSuggestions && mergedSuggestions.length > 0 ? mergedSuggestions : null;
-            setActivitySuggestions(nextSuggestions);
-            if (nextSuggestions) {
-              setAdoptedActivityCount(0);
-              setShowActivitySummary(false);
-            }
-          }
-
-          if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
-            const mergedSuggestions = proposalParsed.suggestion ? [proposalParsed.suggestion] : suggestions;
-            const suggestedCount = mergedSuggestions?.length ?? 0;
-            workflowRuntime.completeStep(
-              'agent_generate_activities',
-              { suggestedCount },
-              'agent_generate_activities'
-            );
-          }
-        }
+        const baseContent = reply;
 
         const arcParsed = extractArcProposalFromAssistantMessage(baseContent);
         if (arcParsed.arcProposal) {
@@ -1489,7 +1472,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
     return () => {
       cancelled = true;
     };
-  }, [mode, bootstrapped, shouldBootstrapAssistant, workflowRuntime, launchContext]);
+  }, [
+    mode,
+    bootstrapped,
+    shouldBootstrapAssistant,
+    workflowRuntime,
+    launchContext,
+  ]);
 
   // When the user re-opens Arc Creation coach, restore any saved draft so they
   // can pick up where they left off instead of starting a fresh thread.
@@ -1530,6 +1519,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
       cancelled = true;
     };
   }, [isArcCreationMode, resumeDraft]);
+
+  const buildCoachOptions = useCallback((): CoachChatOptions => {
+    return {
+      mode,
+      workflowDefinitionId: workflowRuntime?.definition?.id,
+      workflowInstanceId: workflowRuntime?.instance?.id,
+      workflowStepId: workflowRuntime?.instance?.currentStepId,
+      launchContextSummary: launchContext,
+    };
+  }, [launchContext, mode, workflowRuntime]);
 
   const sendMessageWithContent = async (rawContent: string) => {
     const trimmed = rawContent.trim();
@@ -1681,12 +1680,131 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
   const [adoptedActivityCount, setAdoptedActivityCount] = useState(0);
   const [showActivitySummary, setShowActivitySummary] = useState(false);
+  const [isGeneratingActivitySuggestions, setIsGeneratingActivitySuggestions] = useState(false);
+  const [activitySuggestionEdits, setActivitySuggestionEdits] = useState<Record<string, string>>(
+    {},
+  );
+  const [editingActivitySuggestionId, setEditingActivitySuggestionId] = useState<string | null>(
+    null,
+  );
+  const activitySuggestionInputRefs = useRef<Record<string, TextInput | null>>({});
+
+  const extractFocusedGoalTitleFromLaunchContext = useCallback((raw?: string): string | null => {
+    if (!raw) return null;
+    const match = raw.match(/FOCUSED GOAL[\s\S]*?\n- (.*?) \(status:/);
+    const title = match?.[1]?.trim();
+    return title && title.length > 0 ? title : null;
+  }, []);
+
+  const buildActivityCreationBootstrapCopy = useCallback((): string => {
+    const focusedGoalTitle = extractFocusedGoalTitleFromLaunchContext(launchContext);
+    if (focusedGoalTitle) {
+      return [
+        `You're currently working on ${focusedGoalTitle}.`,
+        "Let’s identify some concrete activities you can tackle this week to keep the momentum going.",
+      ].join(' ');
+    }
+    return "Let’s identify some concrete activities you can tackle this week to keep the momentum going.";
+  }, [extractFocusedGoalTitleFromLaunchContext, launchContext]);
+
+  const fetchActivitySuggestionsOnly = useCallback(
+    async (params?: { reason?: 'bootstrap' | 'regenerate' }) => {
+      const reason = params?.reason ?? 'bootstrap';
+      setIsGeneratingActivitySuggestions(true);
+      setHasTransportError(false);
+
+      try {
+        const history: CoachChatTurn[] = messagesRef.current.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+        history.push({
+          role: 'system',
+          content:
+            'Return ONLY an ACTIVITY_SUGGESTIONS_JSON payload and nothing else.\n' +
+            'Format:\n' +
+            'ACTIVITY_SUGGESTIONS_JSON: {"suggestions":[{...}]}\n' +
+            'Each suggestion MUST include: id (string), title (string), why (string), timeEstimateMinutes (number).\n' +
+            'Do not include markdown fences. Do not include prose before or after.',
+        });
+
+        const coachOptions: CoachChatOptions = buildCoachOptions();
+        const reply = await sendCoachChat(history, coachOptions);
+        const proposalParsed = extractActivityProposalFromAssistantMessage(reply);
+        const activityParsed = extractActivitySuggestionsFromAssistantMessage(
+          proposalParsed.displayContent,
+        );
+        const suggestions = proposalParsed.suggestion
+          ? [proposalParsed.suggestion]
+          : activityParsed.suggestions;
+
+        const nextSuggestions = suggestions && suggestions.length > 0 ? suggestions : null;
+        setActivitySuggestions(nextSuggestions);
+        setEditingActivitySuggestionId(null);
+        setActivitySuggestionEdits({});
+
+        if (nextSuggestions) {
+          setAdoptedActivityCount(0);
+          setShowActivitySummary(false);
+        }
+
+        if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
+          workflowRuntime.completeStep(
+            'agent_generate_activities',
+            { suggestedCount: nextSuggestions?.length ?? 0, reason },
+            'agent_generate_activities',
+          );
+        }
+      } catch (err) {
+        console.error('kwilt Activities AI suggestions-only fetch failed', err);
+        setHasTransportError(true);
+        setActivitySuggestions(null);
+        onTransportError?.();
+      } finally {
+        setIsGeneratingActivitySuggestions(false);
+      }
+    },
+    [buildCoachOptions, onTransportError, workflowRuntime],
+  );
+
+  useEffect(() => {
+    if (!shouldBootstrapAssistant) return;
+    if (bootstrapped) return;
+    if (mode !== 'activityCreation') return;
+
+    setThinking(false);
+    setBootstrapped(true);
+    setActivitySuggestions(null);
+    setAdoptedActivityCount(0);
+    setShowActivitySummary(false);
+    streamAssistantReply(buildActivityCreationBootstrapCopy(), 'assistant-bootstrap');
+    void fetchActivitySuggestionsOnly({ reason: 'bootstrap' });
+  }, [
+    bootstrapped,
+    buildActivityCreationBootstrapCopy,
+    fetchActivitySuggestionsOnly,
+    mode,
+    shouldBootstrapAssistant,
+  ]);
 
   const handleRegenerateActivitySuggestions = async () => {
+    if (mode === 'activityCreation') {
+      await fetchActivitySuggestionsOnly({ reason: 'regenerate' });
+      return;
+    }
     await sendMessageWithContent(
       'Let’s try a fresh set of concrete activity suggestions for this goal.'
     );
   };
+
+  const getEffectiveActivitySuggestionTitle = useCallback(
+    (suggestion: ActivitySuggestion) => {
+      const edited = activitySuggestionEdits[suggestion.id];
+      const candidate = (edited ?? suggestion.title).trim();
+      return candidate || suggestion.title;
+    },
+    [activitySuggestionEdits],
+  );
 
   // For non-bootstrap modes (like free-form coaching and Arc AI), stream a
   // short assistant intro into the thread so the Agent always "arrives" via
@@ -1722,19 +1840,28 @@ export const AiChatPane = forwardRef(function AiChatPane(
   }, [bootstrapped, hasStepCard, isOnboardingMode, shouldBootstrapAssistant]);
 
   const handleAcceptSuggestion = useCallback(
-    (suggestion: ActivitySuggestion) => {
+    (suggestion: ActivitySuggestion, titleOverride?: string) => {
+      const resolvedTitle = (titleOverride ?? suggestion.title).trim() || suggestion.title;
+      const resolvedSuggestion =
+        resolvedTitle === suggestion.title ? suggestion : { ...suggestion, title: resolvedTitle };
       if (onAdoptActivitySuggestion) {
-        onAdoptActivitySuggestion(suggestion);
+        onAdoptActivitySuggestion(resolvedSuggestion);
       }
       // Mark the confirm step as completed the first time the user adopts an
       // suggestion, so the workflow instance reflects that at least one
       // activity was chosen.
       if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
         workflowRuntime.completeStep('confirm_activities', {
-          adoptedActivityTitles: [suggestion.title],
+          adoptedActivityTitles: [resolvedTitle],
         });
       }
       setAdoptedActivityCount((count) => count + 1);
+      setEditingActivitySuggestionId((current) => (current === suggestion.id ? null : current));
+      setActivitySuggestionEdits((current) => {
+        if (!Object.prototype.hasOwnProperty.call(current, suggestion.id)) return current;
+        const { [suggestion.id]: _removed, ...rest } = current;
+        return rest;
+      });
       setActivitySuggestions((current) => {
         if (!current) return current;
         const next = current.filter((entry) => entry.id !== suggestion.id);
@@ -1753,13 +1880,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
     if (activitySuggestions && activitySuggestions.length > 0) {
       if (onAdoptActivitySuggestion) {
         activitySuggestions.forEach((suggestion) => {
-          onAdoptActivitySuggestion(suggestion);
+          const resolvedTitle = getEffectiveActivitySuggestionTitle(suggestion);
+          onAdoptActivitySuggestion(
+            resolvedTitle === suggestion.title ? suggestion : { ...suggestion, title: resolvedTitle },
+          );
         });
         setAdoptedActivityCount((count) => count + activitySuggestions.length);
       }
 
       if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
-        const adoptedActivityTitles = activitySuggestions.map((entry) => entry.title);
+        const adoptedActivityTitles = activitySuggestions.map(getEffectiveActivitySuggestionTitle);
         workflowRuntime.completeStep('confirm_activities', {
           adoptedActivityTitles,
         });
@@ -1769,11 +1899,39 @@ export const AiChatPane = forwardRef(function AiChatPane(
     // everything has been adopted.
     setActivitySuggestions(null);
     setShowActivitySummary(true);
-  }, [activitySuggestions, onAdoptActivitySuggestion, workflowRuntime]);
+    setEditingActivitySuggestionId(null);
+    setActivitySuggestionEdits({});
+  }, [activitySuggestions, getEffectiveActivitySuggestionTitle, onAdoptActivitySuggestion, workflowRuntime]);
 
   const scrollToLatest = () => {
     scrollRef.current?.scrollToEnd({ animated: true });
   };
+
+  const scrollToFocusedInput = useCallback(
+    (extraOffset: number = spacing.lg) => {
+      // Ensures inline TextInputs inside the timeline (e.g. onboarding cards,
+      // arc/goal drafts) scroll into view when the keyboard opens. This is more
+      // reliable than KeyboardAvoidingView when hosted inside transformed sheets.
+      const getter = (TextInput.State as any)?.currentlyFocusedInput;
+      const focused = typeof getter === 'function' ? getter() : null;
+
+      const nodeHandle =
+        typeof focused === 'number' ? focused : focused ? findNodeHandle(focused) : null;
+
+      if (!nodeHandle || !scrollRef.current) return;
+
+      try {
+        (scrollRef.current as any).scrollResponderScrollNativeHandleToKeyboard(
+          nodeHandle,
+          extraOffset,
+          true,
+        );
+      } catch {
+        // Best-effort: if the responder API isn't available, do nothing.
+      }
+    },
+    [scrollRef],
+  );
 
   useEffect(() => {
     scrollToLatest();
@@ -1794,12 +1952,19 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // the software keyboard. Because the chat lives inside a custom bottom sheet
   // (with its own transforms), the standard KeyboardAvoidingView behavior
   // isn’t enough, so we adjust the bottom margin manually.
+  //
+  // Keyboard strategy reference:
+  // - `docs/keyboard-input-safety-implementation.md`
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const onShow = (e: any) => {
       setKeyboardHeight(e?.endCoordinates?.height ?? 0);
+      // Wait a beat so focus + layout settle, then ensure the focused input is visible.
+      requestAnimationFrame(() => {
+        scrollToFocusedInput(keyboardClearance);
+      });
     };
     const onHide = () => {
       setKeyboardHeight(0);
@@ -1829,16 +1994,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
       ? 'This coach helps you design one long‑term Arc for your life — not manage tasks or habits.'
       : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
 
-  const buildCoachOptions = useCallback((): CoachChatOptions => {
-    return {
-      mode,
-      workflowDefinitionId: workflowRuntime?.definition?.id,
-      workflowInstanceId: workflowRuntime?.instance?.id,
-      workflowStepId: workflowRuntime?.instance?.currentStepId,
-      launchContextSummary: launchContext,
-    };
-  }, [launchContext, mode, workflowRuntime]);
-
   const handleResetContext = useCallback(() => {
     Alert.alert(
       'Reset context?',
@@ -1858,18 +2013,34 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
   return (
     <>
-      <KeyboardAvoidingView style={styles.flex}>
+      <View style={styles.flex}>
         <View
           style={styles.body}
           onTouchEnd={() => {
             typingControllerRef.current?.skip();
+            // In workflows that collect input inside the timeline (e.g. FTUE),
+            // a user may focus an input while the keyboard is already open.
+            // Nudge the ScrollView to reveal the focused field on every tap.
+            if (!shouldShowComposer) {
+              requestAnimationFrame(() => {
+                scrollToFocusedInput(keyboardClearance);
+              });
+            }
           }}
         >
           <ScrollView
             ref={scrollRef}
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              // Provide additional scroll room when the keyboard is open so inline
+              // inputs (like FTUE free-response) can always scroll above it.
+              keyboardHeight > 0
+                ? { paddingBottom: spacing['2xl'] + keyboardHeight + keyboardClearance + insets.bottom }
+                : null,
+            ]}
             showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={scrollToLatest}
           >
@@ -1945,7 +2116,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   )}
 
                 {mode === 'activityCreation' &&
-                  activitySuggestions &&
+                  (activitySuggestions || isGeneratingActivitySuggestions) &&
                   bootstrapped &&
                   !showActivitySummary && (
                     <View style={styles.activitySuggestionsStack}>
@@ -1971,41 +2142,165 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         </View>
                       )}
                       <VStack space="xs">
-                        {activitySuggestions.map((suggestion) => (
-                          <Card key={suggestion.id} style={styles.activitySuggestionCard}>
-                            <VStack space="sm">
-                              <Text style={styles.activitySuggestionTitle}>{suggestion.title}</Text>
-                              <View style={styles.activitySuggestionActionsRow}>
-                                <Button
-                                  variant="accent"
-                                  size="small"
-                                  onPress={() => {
-                                    handleAcceptSuggestion(suggestion);
-                                  }}
+                        {activitySuggestions
+                          ? activitySuggestions.map((suggestion) => (
+                              <Card
+                                key={suggestion.id}
+                                padding="none"
+                                style={styles.activitySuggestionCard}
+                              >
+                                <HStack
+                                  space="sm"
+                                  alignItems="center"
+                                  justifyContent="space-between"
+                                  style={styles.activitySuggestionRow}
                                 >
-                                  <Text style={styles.primaryButtonLabel}>Accept</Text>
-                                </Button>
-                              </View>
-                            </VStack>
-                          </Card>
-                        ))}
+                                  {editingActivitySuggestionId === suggestion.id ? (
+                                    <View style={styles.activitySuggestionTitlePressable}>
+                                      <TextInput
+                                        ref={(node) => {
+                                          activitySuggestionInputRefs.current[suggestion.id] = node;
+                                        }}
+                                        style={styles.activitySuggestionTitleInput}
+                                        value={
+                                          activitySuggestionEdits[suggestion.id] ?? suggestion.title
+                                        }
+                                        onChangeText={(text) => {
+                                          setActivitySuggestionEdits((current) => ({
+                                            ...current,
+                                            [suggestion.id]: text,
+                                          }));
+                                        }}
+                                        placeholder="Edit activity"
+                                        placeholderTextColor={CHAT_COLORS.textSecondary}
+                                        multiline={false}
+                                        numberOfLines={1}
+                                        returnKeyType="done"
+                                        blurOnSubmit
+                                        onSubmitEditing={() => {
+                                          activitySuggestionInputRefs.current[suggestion.id]?.blur();
+                                        }}
+                                        onBlur={() => {
+                                          setEditingActivitySuggestionId((current) =>
+                                            current === suggestion.id ? null : current,
+                                          );
+                                        }}
+                                        accessibilityLabel={`Activity title input for ${suggestion.title}`}
+                                      />
+                                    </View>
+                                  ) : (
+                                    <Pressable
+                                      style={styles.activitySuggestionTitlePressable}
+                                      accessibilityRole="button"
+                                      accessibilityLabel={`Edit suggested activity: ${suggestion.title}`}
+                                      onPress={() => {
+                                        setActivitySuggestionEdits((current) => {
+                                          if (
+                                            Object.prototype.hasOwnProperty.call(
+                                              current,
+                                              suggestion.id,
+                                            )
+                                          ) {
+                                            return current;
+                                          }
+                                          return { ...current, [suggestion.id]: suggestion.title };
+                                        });
+                                        setEditingActivitySuggestionId(suggestion.id);
+                                        requestAnimationFrame(() => {
+                                          activitySuggestionInputRefs.current[suggestion.id]?.focus();
+                                        });
+                                      }}
+                                      hitSlop={8}
+                                    >
+                                      <Text
+                                        style={styles.activitySuggestionTitle}
+                                        numberOfLines={2}
+                                        ellipsizeMode="tail"
+                                      >
+                                        {getEffectiveActivitySuggestionTitle(suggestion)}
+                                      </Text>
+                                    </Pressable>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="small"
+                                    onPress={() => {
+                                      handleAcceptSuggestion(
+                                        suggestion,
+                                        getEffectiveActivitySuggestionTitle(suggestion),
+                                      );
+                                    }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Add activity: ${getEffectiveActivitySuggestionTitle(
+                                      suggestion,
+                                    )}`}
+                                  >
+                                    <HStack space="xs" alignItems="center">
+                                      <Icon name="plus" color={CHAT_COLORS.textPrimary} size={14} />
+                                      <ButtonLabel size="sm">Add</ButtonLabel>
+                                    </HStack>
+                                  </Button>
+                                </HStack>
+                              </Card>
+                            ))
+                          : Array.from({ length: 3 }).map((_, idx) => (
+                              <Card
+                                key={`activity-skeleton-${idx}`}
+                                padding="none"
+                                style={styles.activitySuggestionCard}
+                              >
+                                <HStack
+                                  space="sm"
+                                  alignItems="center"
+                                  justifyContent="space-between"
+                                  style={styles.activitySuggestionRow}
+                                >
+                                  <View style={styles.activitySuggestionTitlePressable}>
+                                    <View
+                                      style={[
+                                        styles.activitySuggestionSkeletonBlock,
+                                        styles.activitySuggestionSkeletonTitle,
+                                      ]}
+                                    />
+                                  </View>
+                                  <Button variant="outline" size="small" disabled>
+                                    <HStack space="xs" alignItems="center">
+                                      <Icon
+                                        name="plus"
+                                        color={CHAT_COLORS.textSecondary}
+                                        size={14}
+                                      />
+                                      <ButtonLabel size="sm">Add</ButtonLabel>
+                                    </HStack>
+                                  </Button>
+                                </HStack>
+                              </Card>
+                            ))}
                       </VStack>
                       <View style={styles.activitySuggestionsFooterRow}>
-                        <Button
-                          variant="outline"
-                          size="small"
-                          onPress={handleRegenerateActivitySuggestions}
-                        >
-                          <Text style={styles.activitySuggestionRegenerateLabel}>Generate again</Text>
-                        </Button>
-                        <Button
-                          variant="ai"
-                          size="small"
-                          onPress={handleAcceptAllSuggestions}
-                          disabled={!activitySuggestions || activitySuggestions.length === 0}
-                        >
-                          <Text style={styles.primaryButtonLabel}>Accept all</Text>
-                        </Button>
+                        <View style={styles.activitySuggestionsButtonGroup}>
+                          <Button
+                            variant="outline"
+                            size="md"
+                            onPress={handleRegenerateActivitySuggestions}
+                            disabled={isGeneratingActivitySuggestions}
+                          >
+                            <HStack space="xs" alignItems="center">
+                              <Icon name="refresh" size={14} color={CHAT_COLORS.textPrimary} />
+                              <ButtonLabel size="md">Generate again</ButtonLabel>
+                            </HStack>
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="md"
+                            onPress={handleAcceptAllSuggestions}
+                            disabled={!activitySuggestions || activitySuggestions.length === 0}
+                          >
+                            <ButtonLabel size="md" tone="inverse">
+                              Add all
+                            </ButtonLabel>
+                          </Button>
+                        </View>
                       </View>
                     </View>
                   )}
@@ -2035,11 +2330,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         </Button>
                         {onDismiss && (
                           <Button
-                            variant="ai"
+                            variant="primary"
                             size="small"
                             onPress={onDismiss}
                           >
-                            <Text style={styles.primaryButtonLabel}>Done for now</Text>
+                            <ButtonLabel size="sm" tone="inverse">
+                              Done for now
+                            </ButtonLabel>
                           </Button>
                         )}
                       </View>
@@ -2348,8 +2645,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
               style={[
                 styles.composerFence,
                 {
+                  // Lift the composer fully above the keyboard on iOS. We still
+                  // keep a small baseline inset when the keyboard is hidden so
+                  // the composer clears the home indicator.
                   marginBottom:
-                    keyboardHeight > 0 ? keyboardHeight - spacing.lg : -spacing.md,
+                    keyboardHeight > 0
+                      ? keyboardHeight
+                      : Math.max(insets.bottom, spacing.sm),
                 },
               ]}
             >
@@ -2472,7 +2774,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
             </View>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       {hasWorkflowContextMeta && (
         <Modal
@@ -2855,23 +3157,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
-  activitySuggestionTitle: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textPrimary,
+  activitySuggestionRow: {
+    flex: 1,
+    alignItems: 'center',
+    minHeight: 36,
   },
-  activitySuggestionActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    columnGap: spacing.xs,
-    marginTop: spacing.sm,
+  activitySuggestionTitle: {
+    // Match ActivityListItem title hierarchy (15pt semibold).
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    lineHeight: 22,
+    color: CHAT_COLORS.textPrimary,
+    flex: 1,
+  },
+  activitySuggestionTitlePressable: {
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  activitySuggestionTitleInput: {
+    // Match the non-editing title style, but behave like an inline field.
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    lineHeight: 22,
+    color: CHAT_COLORS.textPrimary,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    includeFontPadding: false,
   },
   activitySuggestionsFooterRow: {
     marginTop: spacing.sm,
-    alignItems: 'flex-end',
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'flex-end',
     flexWrap: 'wrap',
     columnGap: spacing.xs,
+  },
+  activitySuggestionsButtonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  activitySuggestionSkeletonBlock: {
+    backgroundColor: '#E5E7EB',
+    borderRadius: 999,
+  },
+  activitySuggestionSkeletonTitle: {
+    width: '82%',
+    height: 12,
   },
   activitySuggestionRegenerateLabel: {
     ...typography.bodySm,

@@ -16,6 +16,7 @@ export { CelebrationGif } from './CelebrationGif';
 export { EmptyState } from './EmptyState';
 export { ThreeColumnRow } from './layout/ThreeColumnRow';
 export { Combobox } from './Combobox';
+export { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 
 // Aliases for clarity in forms: Textarea is just Input with multiline enabled.
 export { Input as Textarea } from './Input';

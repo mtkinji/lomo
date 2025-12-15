@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Platform, StyleSheet, View, TouchableWithoutFeedback } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Text, Heading } from './Typography';
 
@@ -38,9 +38,16 @@ export function Dialog({
   size = 'sm',
   showHeaderDivider = false,
 }: DialogProps) {
-  // On native platforms, prefer a simple, reliable Modal-based implementation
-  // so dialogs always render as a centered card with a dimmed backdrop on top
-  // of the current app canvas.
+  // Prefer a simple, reliable Modal-based implementation so dialogs always
+  // render as a centered card with a dimmed backdrop on top of the current
+  // app canvas.
+  //
+  // IMPORTANT: Avoid rendering a dynamically-chosen component type (e.g.
+  // `<OverlayComponent />`) here. In some RN/Fabric builds that can surface as
+  // "Element type is invalid ... got: undefined" even when the underlying
+  // import is correct. An explicit branch keeps the element type stable.
+  const canUseKeyboardAvoidingView = KeyboardAvoidingView != null;
+
   return (
     <Modal
       visible={visible}
@@ -48,33 +55,53 @@ export function Dialog({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      {canUseKeyboardAvoidingView ? (
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          // Dialogs sometimes host form fields (e.g., quick edits). Ensure the
+          // card lifts above the keyboard instead of being obscured.
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
+          {/* Backdrop press target (behind the card) */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+
+          <View style={styles.card}>
+            {(title || description) && (
+              <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
+                {title ? (
+                  <Heading style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
+                    {title}
+                  </Heading>
+                ) : null}
+                {description ? <Text style={styles.description}>{description}</Text> : null}
+              </View>
+            )}
+            {children ? <View style={styles.body}>{children}</View> : null}
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
+          </View>
+        </KeyboardAvoidingView>
+      ) : (
         <View style={styles.overlay}>
-          <TouchableWithoutFeedback
-            // Capture taps inside the card so they don't bubble to the overlay.
-            onPress={() => {}}
-          >
-            <View style={styles.card}>
-              {(title || description) && (
-                <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
-                  {title ? (
-                    <Heading style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
-                      {title}
-                    </Heading>
-                  ) : null}
-                  {description ? (
-                    <Text style={styles.description}>
-                      {description}
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-              {children ? <View style={styles.body}>{children}</View> : null}
-              {footer ? <View style={styles.footer}>{footer}</View> : null}
-            </View>
-          </TouchableWithoutFeedback>
+          {/* Backdrop press target (behind the card) */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+
+          <View style={styles.card}>
+            {(title || description) && (
+              <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
+                {title ? (
+                  <Heading style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
+                    {title}
+                  </Heading>
+                ) : null}
+                {description ? <Text style={styles.description}>{description}</Text> : null}
+              </View>
+            )}
+            {children ? <View style={styles.body}>{children}</View> : null}
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
+          </View>
         </View>
-      </TouchableWithoutFeedback>
+      )}
     </Modal>
   );
 }

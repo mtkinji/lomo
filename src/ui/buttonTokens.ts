@@ -77,10 +77,16 @@ export const BUTTON_VARIANT_TOKENS: Record<
 > = {
   cta: {
     backgroundColor: colors.accent,
+    borderWidth: 1,
+    // Subtle highlight stroke so filled and outline buttons have the same
+    // visual "edge weight" and never read as different heights.
+    borderColor: 'rgba(255,255,255,0.18)',
     textTone: 'inverse',
   },
   primary: {
     backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
     textTone: 'inverse',
   },
   secondary: {
@@ -107,6 +113,8 @@ export const BUTTON_VARIANT_TOKENS: Record<
   },
   destructive: {
     backgroundColor: colors.destructive,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
     textTone: 'inverse',
   },
 };

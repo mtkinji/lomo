@@ -4,6 +4,8 @@ import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
 import { spacing } from '../theme/spacing';
 
 export type CardPadding = 'none' | 'xs' | 'sm' | 'md' | 'lg';
+type SpaceToken = keyof typeof spacing;
+type SpaceValue = SpaceToken | number;
 
 type CardElevation = keyof typeof cardElevation;
 
@@ -19,6 +21,20 @@ const paddingBySize: Record<Exclude<CardPadding, 'none'>, number> = {
 interface CardProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Tokenized margin controls.
+   *
+   * Notes:
+   * - Defaults to `marginVertical="xs"` to preserve historical spacing.
+   * - If you provide both `margin` and a directional margin prop, the directional prop wins.
+   */
+  margin?: SpaceValue;
+  marginHorizontal?: SpaceValue;
+  marginVertical?: SpaceValue;
+  marginTop?: SpaceValue;
+  marginRight?: SpaceValue;
+  marginBottom?: SpaceValue;
+  marginLeft?: SpaceValue;
   /**
    * Standardized padding presets for card content.
    *
@@ -38,18 +54,40 @@ interface CardProps {
 export function Card({
   children,
   style,
+  margin,
+  marginHorizontal,
+  marginVertical = 'xs',
+  marginTop,
+  marginRight,
+  marginBottom,
+  marginLeft,
   padding = 'md',
   elevation = 'soft',
 }: CardProps) {
+  const resolveSpace = (value: SpaceValue | undefined) => {
+    if (value == null) return undefined;
+    return typeof value === 'number' ? value : spacing[value];
+  };
+
   const paddingStyle =
     padding === 'none' ? null : { padding: paddingBySize[padding] };
   const elevationStyle = cardElevation[elevation] as ViewStyle | undefined;
+
+  const marginStyle: ViewStyle = {
+    ...(margin != null ? { margin: resolveSpace(margin) } : null),
+    ...(marginHorizontal != null ? { marginHorizontal: resolveSpace(marginHorizontal) } : null),
+    ...(marginVertical != null ? { marginVertical: resolveSpace(marginVertical) } : null),
+    ...(marginTop != null ? { marginTop: resolveSpace(marginTop) } : null),
+    ...(marginRight != null ? { marginRight: resolveSpace(marginRight) } : null),
+    ...(marginBottom != null ? { marginBottom: resolveSpace(marginBottom) } : null),
+    ...(marginLeft != null ? { marginLeft: resolveSpace(marginLeft) } : null),
+  };
 
   return (
     <View
       style={[
         cardSurfaceStyle,
-        { marginVertical: spacing.xs },
+        marginStyle,
         style,
         elevationStyle,
         paddingStyle,

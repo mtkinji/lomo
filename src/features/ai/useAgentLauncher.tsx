@@ -103,7 +103,15 @@ export function useAgentLauncher(workspaceSnapshot?: string) {
 
   const AgentWorkspaceSheet = useMemo(() => {
     return (
-      <BottomDrawer visible={visible} onClose={close} snapPoints={['90%']}>
+      <BottomDrawer
+        visible={visible}
+        onClose={close}
+        snapPoints={['90%']}
+        // Agent chat implements its own keyboard avoidance + focused-input scrolling.
+        // Avoid double offsets from BottomDrawer's default keyboard avoidance.
+        // See: `docs/keyboard-input-safety-implementation.md`
+        keyboardAvoidanceEnabled={false}
+      >
         {state.launchContext ? (
           <AgentWorkspace
             mode={state.mode}

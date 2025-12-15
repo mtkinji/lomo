@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';
 import { GoalDetailScreen } from '../features/arcs/GoalDetailScreen';
-import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { GoalsScreen } from '../features/goals/GoalsScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { ActivityDetailScreen } from '../features/activities/ActivityDetailScreen';
@@ -41,7 +40,6 @@ export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Goals: NavigatorScreenParams<GoalsStackParamList> | undefined;
   Activities: NavigatorScreenParams<ActivitiesStackParamList> | undefined;
-  Chapters: undefined;
   Settings: undefined;
   DevTools:
     | {
@@ -143,7 +141,7 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // This ensures we don't restore stale navigation state that can prevent certain
 // screens (like Arcs or Goals) from being reachable or animating correctly.
 // Prefix with "kwilt" so new installs don't carry any legacy LOMO state keys.
-const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v1';
+const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v2';
 
 const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
   headerShown: false,
@@ -196,7 +194,6 @@ export function RootNavigator() {
             'ArcsStack',
             'Goals',
             'Activities',
-            'Chapters',
             'Settings',
             'DevTools',
           ];
@@ -327,11 +324,6 @@ export function RootNavigator() {
           component={ActivitiesStackNavigator}
           options={{ title: 'Activities' }}
         />
-        <Drawer.Screen
-          name="Chapters"
-          component={ChaptersScreen}
-          options={{ title: 'Chapters' }}
-        />
         {showDevTools && (
           <>
             <Drawer.Screen
@@ -425,8 +417,6 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
       return 'goals';
     case 'Activities':
       return 'activities';
-    case 'Chapters':
-      return 'chapters';
     case 'Settings':
       return 'dot';
     case 'DevTools':
