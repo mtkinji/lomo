@@ -32,7 +32,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { EditableField } from '../../ui/EditableField';
-import { EditableTextArea } from '../../ui/EditableTextArea';
+import { LongTextField } from '../../ui/LongTextField';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -923,12 +923,13 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
                     }}
                   />
                   <View style={{ marginTop: spacing.sm }}>
-                    <EditableTextArea
+                    <LongTextField
                       label="Description"
                       value={manualNarrative}
                       placeholder="Add a short note about this Arc…"
-                      maxCollapsedLines={0}
                       onChange={setManualNarrative}
+                      // Manual creation lives inside a BottomDrawer already; keep this editor a bit smaller.
+                      snapPoints={['75%']}
                     />
                   </View>
                 </View>

@@ -73,6 +73,14 @@ const iconMap: Record<string, IconEntry> = {
   pause: { library: 'feather', name: 'pause' },
   play: { library: 'feather', name: 'play' },
   stop: { library: 'feather', name: 'square' },
+  // Editor toolbar icons
+  // Use Ionicons here because it has more "toolbar-ish" glyphs than Feather for lists.
+  listBulleted: { library: 'ion', name: 'list' },
+  listOrdered: { library: 'ion', name: 'list-outline' },
+  link: { library: 'feather', name: 'link-2' },
+  bold: { library: 'feather', name: 'bold' },
+  italic: { library: 'feather', name: 'italic' },
+  underline: { library: 'feather', name: 'underline' },
 };
 
 export type IconName = keyof typeof iconMap;

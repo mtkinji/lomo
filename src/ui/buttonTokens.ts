@@ -3,7 +3,7 @@ import { colors, fonts, spacing } from '../theme';
 /**
  * Logical button sizes that control both container dimensions and typography.
  */
-export type ButtonSizeToken = 'sm' | 'md' | 'lg';
+export type ButtonSizeToken = 'xs' | 'sm' | 'md' | 'lg';
 
 export const BUTTON_SIZE_TOKENS: Record<
   ButtonSizeToken,
@@ -18,6 +18,16 @@ export const BUTTON_SIZE_TOKENS: Record<
     };
   }
 > = {
+  xs: {
+    height: 32,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    text: {
+      fontFamily: fonts.medium,
+      fontSize: 14,
+      lineHeight: 18,
+    },
+  },
   sm: {
     height: 36,
     paddingHorizontal: spacing.md,

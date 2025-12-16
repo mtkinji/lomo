@@ -1,4 +1,4 @@
-import { Arc, GoalDraft, type AgeRange } from '../domain/types';
+import { Arc, GoalDraft, type AgeRange, type ActivityDifficulty } from '../domain/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Calendar from 'expo-calendar';
@@ -12,6 +12,22 @@ import { useAppStore, type LlmModel } from '../store/useAppStore';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
+
+export type ActivityAiEnrichment = {
+  notes?: string;
+  tags?: string[];
+  steps?: Array<{ title: string }>;
+  estimateMinutes?: number | null;
+  priority?: 1 | 2 | 3 | null;
+  difficulty?: ActivityDifficulty;
+};
+
+export type EnrichActivityWithAiParams = {
+  title: string;
+  goalId: string | null;
+  existingNotes?: string;
+  existingTags?: string[];
+};
 
 type GenerateArcParams = {
   prompt: string;
@@ -1305,7 +1321,15 @@ const runCoachTool = async (tool: CoachToolCall) => {
           stepIndex: index,
           completed: patch.completed,
         });
-        return { ok: true, queued: 'confirmStepCompletion', activityId, stepIndex: index, completed: patch.completed };
+        return {
+          ok: true,
+          queued: 'confirmStepCompletion',
+          requiresUserConfirmation: true,
+          applied: false,
+          activityId,
+          stepIndex: index,
+          completed: patch.completed,
+        };
       }
 
       updatedSteps = normalizeOrder(
@@ -2960,6 +2984,162 @@ function resolveChatModel(): LlmModel {
   }
 
   return 'gpt-4o-mini';
+}
+
+/**
+ * Lightweight activity enrichment used by quick-add and manual creation flows.
+ *
+ * This is intentionally best-effort:
+ * - returns null if OpenAI is unavailable (no key / quota exceeded / network error)
+ * - callers only apply fields that the user hasn't already set
+ */
+export async function enrichActivityWithAI(
+  params: EnrichActivityWithAiParams
+): Promise<ActivityAiEnrichment | null> {
+  try {
+    if (OPENAI_QUOTA_EXCEEDED) return null;
+    const apiKey = resolveOpenAiApiKey();
+    if (!apiKey) return null;
+
+    const title = params.title?.trim() ?? '';
+    if (!title) return null;
+
+    const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
+    const goalTitle =
+      params.goalId && state?.goals
+        ? state.goals.find((g) => g.id === params.goalId)?.title ?? null
+        : null;
+    const goalDescription =
+      params.goalId && state?.goals
+        ? state.goals.find((g) => g.id === params.goalId)?.description ?? null
+        : null;
+
+    const systemPrompt =
+      'You enrich a single task/activity with helpful supporting details.\n' +
+      'Return JSON only, matching the schema.\n' +
+      '- notes: 1–3 short sentences, practical and specific.\n' +
+      '- tags: 0–5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
+      '- steps: 0–6 short action steps.\n' +
+      '- estimateMinutes: integer minutes (5–180) if reasonable.\n' +
+      '- priority: 1 (highest) to 3 if obvious, otherwise omit.\n' +
+      '- difficulty: one of very_easy|easy|medium|hard|very_hard if obvious.\n' +
+      'Do not include any PII and do not invent constraints the user did not imply.';
+
+    const userPrompt = [
+      `Activity title: ${title}`,
+      goalTitle ? `Goal: ${goalTitle}` : 'Goal: (none)',
+      goalDescription ? `Goal context: ${goalDescription}` : 'Goal context: (none)',
+      params.existingNotes?.trim()
+        ? `Existing notes (do not repeat, only augment if useful): ${params.existingNotes.trim()}`
+        : 'Existing notes: (none)',
+      Array.isArray(params.existingTags) && params.existingTags.length > 0
+        ? `Existing tags (avoid duplicates): ${params.existingTags.join(', ')}`
+        : 'Existing tags: (none)',
+    ].join('\n');
+
+    const body = {
+      model: resolveChatModel(),
+      temperature: 0.4,
+      max_tokens: 350,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'activity_enrichment',
+          schema: {
+            type: 'object',
+            properties: {
+              notes: { type: 'string' },
+              tags: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+              steps: {
+                type: 'array',
+                maxItems: 6,
+                items: {
+                  type: 'object',
+                  properties: { title: { type: 'string' } },
+                  required: ['title'],
+                  additionalProperties: false,
+                },
+              },
+              estimateMinutes: { type: 'integer', minimum: 5, maximum: 180 },
+              priority: { type: 'integer', enum: [1, 2, 3] },
+              difficulty: {
+                type: 'string',
+                enum: ['very_easy', 'easy', 'medium', 'hard', 'very_hard'],
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      messages: [
+        { role: 'system' as const, content: systemPrompt },
+        { role: 'user' as const, content: userPrompt },
+      ],
+    };
+
+    const response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      markOpenAiQuotaExceeded('activityEnrichment', response.status, errorText, apiKey);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return null;
+    const parsed = JSON.parse(content) as Partial<ActivityAiEnrichment> | null;
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const normalized: ActivityAiEnrichment = {};
+    if (typeof parsed.notes === 'string' && parsed.notes.trim().length > 0) {
+      normalized.notes = parsed.notes.trim();
+    }
+    if (Array.isArray(parsed.tags)) {
+      const tags = parsed.tags
+        .map((t) => String(t ?? '').trim())
+        .filter(Boolean)
+        .slice(0, 5);
+      if (tags.length > 0) normalized.tags = tags;
+    }
+    if (Array.isArray(parsed.steps)) {
+      const steps = parsed.steps
+        .map((s) => ({ title: String((s as any)?.title ?? '').trim() }))
+        .filter((s) => s.title.length > 0)
+        .slice(0, 6);
+      if (steps.length > 0) normalized.steps = steps;
+    }
+    if (typeof (parsed as any).estimateMinutes === 'number' && Number.isFinite((parsed as any).estimateMinutes)) {
+      normalized.estimateMinutes = Math.max(5, Math.min(180, Math.round((parsed as any).estimateMinutes)));
+    }
+    if ((parsed as any).priority === 1 || (parsed as any).priority === 2 || (parsed as any).priority === 3) {
+      normalized.priority = (parsed as any).priority;
+    }
+    if (
+      (parsed as any).difficulty === 'very_easy' ||
+      (parsed as any).difficulty === 'easy' ||
+      (parsed as any).difficulty === 'medium' ||
+      (parsed as any).difficulty === 'hard' ||
+      (parsed as any).difficulty === 'very_hard'
+    ) {
+      normalized.difficulty = (parsed as any).difficulty;
+    }
+
+    return Object.keys(normalized).length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
 }
 
 

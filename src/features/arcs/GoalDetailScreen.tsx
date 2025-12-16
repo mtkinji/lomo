@@ -22,7 +22,16 @@ import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
 import { rootNavigationRef } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Dialog, VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
+import {
+  Dialog,
+  VStack,
+  Heading,
+  Text,
+  HStack,
+  EmptyState,
+  KeyboardAwareScrollView,
+} from '../../ui/primitives';
+import { LongTextField } from '../../ui/LongTextField';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
@@ -55,7 +64,6 @@ import {
 import type { ComboboxOption } from '../../ui/Combobox';
 import { Combobox } from '../../ui/Combobox';
 import { EditableField } from '../../ui/EditableField';
-import { EditableTextArea } from '../../ui/EditableTextArea';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
@@ -771,7 +779,7 @@ export function GoalDetailScreen() {
           return { ...prev, ...updates };
         });
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         // Silently fail - activity creation should succeed even if enrichment fails
         if (__DEV__) {
           console.warn('[GoalDetailScreen] Failed to enrich activity:', err);
@@ -1219,11 +1227,10 @@ export function GoalDetailScreen() {
                 </View>
 
                 <View style={{ marginTop: spacing.md }}>
-                  <EditableTextArea
+                  <LongTextField
                     label="Description"
                     value={goal.description ?? ''}
                     placeholder="Add a short description"
-                    maxCollapsedLines={3}
                     enableAi
                     aiContext={{
                       objectType: 'goal',

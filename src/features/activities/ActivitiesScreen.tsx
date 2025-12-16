@@ -804,12 +804,12 @@ export function ActivitiesScreen() {
           isQuickAddFocused ? (
             <Button
               variant="accent"
-              size="small"
+              size="xs"
               accessibilityRole="button"
               accessibilityLabel="Done"
               onPress={collapseQuickAdd}
             >
-              <ButtonLabel tone="inverse">Done</ButtonLabel>
+              <ButtonLabel size="xs" tone="inverse">Done</ButtonLabel>
             </Button>
           ) : (
             <IconButton

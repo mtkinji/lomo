@@ -21,7 +21,7 @@ type ButtonVariant =
   | 'ai'
   | 'destructive'
   | 'turmeric';
-type ButtonSizeProp = 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
+type ButtonSizeProp = 'xs' | 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
 
 type Props = {
   variant?: ButtonVariant;
@@ -58,7 +58,13 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
   ref,
 ) {
   const logicalSize: ButtonSizeToken =
-    size === 'sm' || size === 'small' ? 'sm' : size === 'lg' ? 'lg' : 'md';
+    size === 'xs'
+      ? 'xs'
+      : size === 'sm' || size === 'small'
+        ? 'sm'
+        : size === 'lg'
+          ? 'lg'
+          : 'md';
   const isIconOnly = size === 'icon' || Boolean(iconButtonSize);
 
   const sizeTokens = BUTTON_SIZE_TOKENS[logicalSize];

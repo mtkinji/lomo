@@ -2965,7 +2965,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     {parsedContext?.arcs && parsedContext.arcs.length > 0 && (
                       <View style={styles.arcInfoSubSection}>
                         {parsedContext.arcs.map((arc) => {
-                          const arcGoals = parsedContext.goals.filter(
+                          const arcGoals = (parsedContext.goals ?? []).filter(
                             (goal) => goal.arcName === arc.name,
                           );
                           return (

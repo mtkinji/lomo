@@ -30,7 +30,14 @@ import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
-import { VStack, Heading, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
+import {
+  VStack,
+  Heading,
+  HStack,
+  EmptyState,
+  KeyboardAwareScrollView,
+} from '../../ui/primitives';
+import { LongTextField } from '../../ui/LongTextField';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
@@ -920,13 +927,10 @@ export function ArcDetailScreen() {
                   </View>
                   {activeTab === 'details' && (
                     <View style={{ marginTop: spacing.sm }}>
-                      <EditableTextArea
+                      <LongTextField
                         label="Description"
                         value={arc.narrative ?? ''}
                         placeholder="Add a short note about this Arc…"
-                        // For Arc narratives, always expose the full text instead of
-                        // truncating so longer descriptions remain fully readable.
-                        maxCollapsedLines={0}
                         enableAi
                         aiContext={{
                           objectType: 'arc',
@@ -941,12 +945,7 @@ export function ArcDetailScreen() {
                             updatedAt: new Date().toISOString(),
                           }));
                         }}
-                        onRequestAiHelp={({
-                          objectType,
-                          objectId,
-                          fieldId,
-                          currentText,
-                        }) => {
+                        onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
                           openForFieldContext({
                             objectType,
                             objectId,

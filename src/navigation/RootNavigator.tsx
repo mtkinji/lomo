@@ -203,7 +203,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             'Goals',
             'Activities',
             'Settings',
-            'DevTools',
+            ...(showDevTools ? (['DevTools', 'DevArcTestingResults'] as const) : []),
           ];
 
           const rootHasUnexpectedRoute =
