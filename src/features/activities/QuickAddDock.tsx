@@ -1,14 +1,19 @@
 import * as React from 'react';
 import type { RefObject } from 'react';
-import { KeyboardAvoidingView, LayoutAnimation, Platform, Pressable, StyleSheet, View, type TextInput } from 'react-native';
+import { Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, View, type TextInput } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Activity } from '../../domain/types';
 import { colors, spacing, typography } from '../../theme';
+import { cardElevation } from '../../theme/surfaces';
 import { Icon } from '../../ui/Icon';
 import { Card, HStack, Input } from '../../ui/primitives';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_IDLE_RAISE = 24;
+const QUICK_ADD_FOCUSED_TOP_RADIUS = 22;
+const QUICK_ADD_TOP_SHADOW_HEIGHT = 32;
+const QUICK_ADD_TOP_SHADOW_ALPHA = cardElevation.overlay.shadowOpacity;
 
 type QuickAddDockProps = {
   value: string;
@@ -58,6 +63,32 @@ export function QuickAddDock({
   const activeBottomPadding = 0;
   const idleBottomPadding = Math.max(insets.bottom, spacing.sm);
   const bottomPadding = isFocused ? activeBottomPadding : idleBottomPadding;
+  const backgroundTopInset = isFocused ? spacing.sm + QUICK_ADD_FOCUSED_TOP_RADIUS : 0;
+
+  // Keep the dock flush to the keyboard, including iOS safe-area / rounded-corner quirks.
+  // `KeyboardAvoidingView` can introduce small gaps for absolute-positioned bottom bars.
+  const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+
+  React.useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (e: any) => {
+      const next = e?.endCoordinates?.height ?? 0;
+      setKeyboardHeight(next);
+    };
+    const onHide = () => setKeyboardHeight(0);
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const dockBottom = isFocused ? keyboardHeight : 0;
   
   // Guard against blur events that fire immediately after focus (e.g., during layout transitions).
   const lastFocusTimeRef = React.useRef<number>(0);
@@ -80,14 +111,37 @@ export function QuickAddDock({
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.dock}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
-    >
+    <>
+      {/* iOS keyboards have rounded corners with slight transparency; ensure the "behind keyboard"
+          background matches the focused composer so the corners don't reveal the app shell. */}
+      {isFocused && keyboardHeight > 0 ? (
+        <View
+          pointerEvents="none"
+          style={[styles.keyboardUnderlay, { height: keyboardHeight }]}
+        />
+      ) : null}
+      <View style={[styles.dock, { bottom: dockBottom }]}>
+      {isFocused ? (
+        Platform.OS === 'ios' ? (
+          <View pointerEvents="none" style={styles.topShadowIos} />
+        ) : (
+          <View pointerEvents="none" style={styles.topShadowAndroid}>
+            <LinearGradient
+              colors={['rgba(15,23,42,0)', `rgba(15,23,42,${QUICK_ADD_TOP_SHADOW_ALPHA})`]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </View>
+        )
+      ) : null}
       <View
         pointerEvents="none"
-        style={[styles.dockBackground, isFocused ? styles.dockBackgroundFocused : null]}
+        style={[
+          styles.dockBackground,
+          { top: backgroundTopInset },
+          isFocused ? styles.dockBackgroundFocused : null,
+        ]}
       />
       <View
         style={[
@@ -120,7 +174,7 @@ export function QuickAddDock({
           marginHorizontal={isFocused ? 0 : 'sm'}
           marginVertical={0}
           padding="xs"
-          elevation={isFocused ? 'raised' : 'none'}
+          elevation={isFocused ? 'overlay' : 'none'}
           style={[
             styles.card,
             isFocused ? styles.cardFocused : styles.cardIdleRaised,
@@ -169,13 +223,19 @@ export function QuickAddDock({
               onFocus={() => {
                 lastFocusTimeRef.current = Date.now();
                 // Animate the layout transition smoothly (card margins, elevation, border radius).
-                LayoutAnimation.configureNext(
-                  LayoutAnimation.create(
-                    200,
-                    LayoutAnimation.Types.easeInEaseOut,
-                    LayoutAnimation.Properties.opacity | LayoutAnimation.Properties.scaleXY,
-                  ),
-                );
+                //
+                // NOTE(iOS): LayoutAnimation during TextInput focus can intermittently prevent the
+                // keyboard from presenting (caret appears, but no keyboard). Keep the animation on
+                // Android where it’s stable; prioritize keyboard reliability on iOS.
+                if (Platform.OS === 'android') {
+                  LayoutAnimation.configureNext(
+                    LayoutAnimation.create(
+                      200,
+                      LayoutAnimation.Types.easeInEaseOut,
+                      LayoutAnimation.Properties.scaleXY,
+                    ),
+                  );
+                }
                 setIsFocused(true);
               }}
               onBlur={() => {
@@ -183,19 +243,23 @@ export function QuickAddDock({
                 const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
                 if (timeSinceFocus < BLUR_GUARD_MS) {
                   // Re-focus immediately to keep the keyboard open.
-                  requestAnimationFrame(() => {
-                    inputRef.current?.focus();
-                  });
+                  //
+                  // IMPORTANT: Doing this asynchronously (e.g. `requestAnimationFrame`) can result in
+                  // iOS showing a caret without presenting the keyboard, because the focus is no longer
+                  // considered user-initiated. Keep this synchronous.
+                  inputRef.current?.focus();
                   return;
                 }
-                // Animate the collapse transition smoothly.
-                LayoutAnimation.configureNext(
-                  LayoutAnimation.create(
-                    200,
-                    LayoutAnimation.Types.easeInEaseOut,
-                    LayoutAnimation.Properties.opacity | LayoutAnimation.Properties.scaleXY,
-                  ),
-                );
+                // Animate the collapse transition smoothly (Android only; see iOS note above).
+                if (Platform.OS === 'android') {
+                  LayoutAnimation.configureNext(
+                    LayoutAnimation.create(
+                      200,
+                      LayoutAnimation.Types.easeInEaseOut,
+                      LayoutAnimation.Properties.scaleXY,
+                    ),
+                  );
+                }
                 setIsFocused(false);
               }}
               autoCapitalize="sentences"
@@ -245,20 +309,50 @@ export function QuickAddDock({
           ) : null}
         </Card>
       </View>
-    </KeyboardAvoidingView>
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  dock: {
+  keyboardUnderlay: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: colors.canvas,
+  },
+  dock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  topShadowIos: {
+    position: 'absolute',
+    // Align the shadow to where the focused dock surface begins (outer paddingTop).
+    top: spacing.sm,
+    left: -spacing.sm,
+    right: -spacing.sm,
+    height: 1,
+    // Keep the caster visually invisible while still allowing iOS to compute a shadow.
+    backgroundColor: colors.card,
+    shadowColor: cardElevation.overlay.shadowColor,
+    shadowOpacity: cardElevation.overlay.shadowOpacity,
+    shadowRadius: cardElevation.overlay.shadowRadius,
+    shadowOffset: { width: 0, height: -Math.abs(cardElevation.overlay.shadowOffset.height) },
+    // Android ignores negative shadow offsets, so we use a gradient fallback there.
+    elevation: 0,
+  },
+  topShadowAndroid: {
+    position: 'absolute',
+    left: -spacing.sm,
+    right: -spacing.sm,
+    // Place the gradient just above the dock so it darkens the content above (casts "upwards").
+    top: spacing.sm - QUICK_ADD_TOP_SHADOW_HEIGHT,
+    height: QUICK_ADD_TOP_SHADOW_HEIGHT,
   },
   dockBackground: {
     position: 'absolute',
-    top: 0,
     bottom: 0,
     // Bleed the background out past the AppShell gutter so it reaches the bezel.
     left: -spacing.sm,

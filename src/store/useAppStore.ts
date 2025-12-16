@@ -19,11 +19,66 @@ export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
 type Updater<T> = (item: T) => T;
 
+export type AgentHostAction =
+  | {
+      id: string;
+      createdAt: string;
+      objectType: 'activity';
+      objectId: string;
+      type: 'openFocusMode';
+      minutes?: number;
+    }
+  | {
+      id: string;
+      createdAt: string;
+      objectType: 'activity';
+      objectId: string;
+      type: 'openCalendar';
+      startAtISO?: string;
+      durationMinutes?: number;
+    }
+  | {
+      id: string;
+      createdAt: string;
+      objectType: 'activity';
+      objectId: string;
+      type: 'confirmStepCompletion';
+      stepIndex: number;
+      completed: boolean;
+    };
+
+export type EnqueueAgentHostAction =
+  | {
+      objectType: 'activity';
+      objectId: string;
+      type: 'openFocusMode';
+      minutes?: number;
+    }
+  | {
+      objectType: 'activity';
+      objectId: string;
+      type: 'openCalendar';
+      startAtISO?: string;
+      durationMinutes?: number;
+    }
+  | {
+      objectType: 'activity';
+      objectId: string;
+      type: 'confirmStepCompletion';
+      stepIndex: number;
+      completed: boolean;
+    };
+
 interface AppState {
   forces: Force[];
   arcs: Arc[];
   goals: Goal[];
   activities: Activity[];
+  /**
+   * Dev-only feature flags / experiments. Persisted so we can A/B UX patterns
+   * locally across reloads, but always gated behind `__DEV__` at the callsite.
+   */
+  devBreadcrumbsEnabled: boolean;
   /**
    * App-level notification preferences and OS permission status.
    * Used by the notifications service to decide what to schedule.
@@ -36,6 +91,15 @@ interface AppState {
     dailyShowUpTime: string | null;
     allowStreakAndReactivation: boolean;
   };
+  /**
+   * Last used Focus mode duration (in minutes). Used as the default suggestion
+   * across sessions so Focus feels sticky/personal.
+   */
+  lastFocusMinutes: number | null;
+  /**
+   * Whether the in-app soundscape should play during Focus sessions.
+   */
+  soundscapeEnabled: boolean;
   /**
    * Simple engagement state for show-up streaks and recent activity.
    */
@@ -139,6 +203,13 @@ interface AppState {
     kind: CelebrationKind;
   }[];
   /**
+   * Queue of agent-requested host actions (open sheets, prefill drafts, etc.).
+   * These are consumed by screens that own the relevant UI surfaces.
+   */
+  agentHostActions: AgentHostAction[];
+  enqueueAgentHostAction: (action: EnqueueAgentHostAction) => void;
+  consumeAgentHostActions: (filter: { objectType: AgentHostAction['objectType']; objectId: string }) => AgentHostAction[];
+  /**
    * Update notification preferences in a single place so the notifications
    * service and settings screens stay in sync.
    */
@@ -149,6 +220,8 @@ interface AppState {
         ) => AppState['notificationPreferences'])
       | AppState['notificationPreferences'],
   ) => void;
+  setLastFocusMinutes: (minutes: number) => void;
+  setSoundscapeEnabled: (enabled: boolean) => void;
   /**
    * Record that the user "showed up" today by visiting Today or completing
    * an Activity. Updates streak and lastActiveDate.
@@ -193,12 +266,14 @@ interface AppState {
   removeActivityView: (viewId: string) => void;
   blockCelebrationGif: (gifId: string) => void;
   likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
+  setDevBreadcrumbsEnabled: (enabled: boolean) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
 }
 
 const now = () => new Date().toISOString();
+const createAgentActionId = () => `agent-action-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 
 // Prefer the explicit `environment` value wired through `app.config.ts`. When that
 // isn't available at runtime (for example, in certain standalone/TestFlight builds),
@@ -273,113 +348,11 @@ const canonicalForces: Force[] = canonicalForceSeeds.map((seed) => ({
 const withUpdate = <T extends { id: string }>(items: T[], id: string, updater: Updater<T>): T[] =>
   items.map((item) => (item.id === id ? updater(item) : item));
 
-const initialDemoArc: Arc = {
-  id: 'arc-demo-making',
-  name: '🪚 Making & Embodied Creativity',
-  narrative:
-    'Stay connected to the physical world through projects that build skill, presence, and grounding.',
-  status: 'active',
-  startDate: now(),
-  endDate: null,
-  createdAt: now(),
-  updatedAt: now(),
-};
-
-const initialDemoGoal: Goal = {
-  id: 'goal-demo-steam-desk',
-  arcId: initialDemoArc.id,
-  title: 'Build the STEAM room desk',
-  description:
-    'Complete the STEAM room desk with thoughtful joinery, clean finish, and intentional cable management.',
-  status: 'in_progress',
-  startDate: now(),
-  targetDate: undefined,
-  forceIntent: {
-    'force-activity': 3,
-    'force-mastery': 2,
-    'force-connection': 1,
-    'force-spirituality': 1,
-  },
-  metrics: [],
-  createdAt: now(),
-  updatedAt: now(),
-};
-
-const initialDemoActivities: Activity[] = [
-  {
-    id: 'activity-demo-panel-glueups',
-    goalId: initialDemoGoal.id,
-    title: 'Panel glue-ups for desktop',
-    notes: 'Prep boards, apply glue, clamp, flatten after cure.',
-    estimateMinutes: 180,
-    scheduledDate: now(),
-    orderIndex: 1,
-    phase: 'Build',
-    status: 'in_progress',
-    actualMinutes: 90,
-    startedAt: now(),
-    completedAt: null,
-    forceActual: {
-      'force-activity': 3,
-      'force-mastery': 2,
-      'force-connection': 0,
-      'force-spirituality': 0,
-    },
-    createdAt: now(),
-    updatedAt: now(),
-  },
-  {
-    id: 'activity-demo-router-template',
-    goalId: initialDemoGoal.id,
-    title: 'Design router template for cable cutouts',
-    notes: 'Rough sketch, build template, test on scrap.',
-    estimateMinutes: 90,
-    scheduledDate: now(),
-    orderIndex: 2,
-    phase: 'Design',
-    status: 'planned',
-    actualMinutes: null,
-    startedAt: null,
-    completedAt: null,
-    forceActual: {
-      'force-activity': 2,
-      'force-mastery': 2,
-      'force-connection': 0,
-      'force-spirituality': 0,
-    },
-    createdAt: now(),
-    updatedAt: now(),
-  },
-  {
-    id: 'activity-demo-finish',
-    goalId: initialDemoGoal.id,
-    title: 'Finish sanding + oil finish',
-    notes: 'Progress through grits, apply Rubio, buff.',
-    estimateMinutes: 120,
-    scheduledDate: now(),
-    orderIndex: 3,
-    phase: 'Finish',
-    status: 'planned',
-    actualMinutes: null,
-    startedAt: null,
-    completedAt: null,
-    forceActual: {
-      'force-activity': 2,
-      'force-mastery': 1,
-      'force-connection': 0,
-      'force-spirituality': 1,
-    },
-    createdAt: now(),
-    updatedAt: now(),
-  },
-];
-
-// In production, we want fresh installs to start empty so the first-time
-// onboarding flow can create the user's initial Arcs, goals, and activities.
-// In development/preview, keep the demo data to make local flows easier to test.
-const initialArcs: Arc[] = isProductionEnvironment ? [] : [initialDemoArc];
-const initialGoals: Goal[] = isProductionEnvironment ? [] : [initialDemoGoal];
-const initialActivities: Activity[] = isProductionEnvironment ? [] : initialDemoActivities;
+// Fresh installs must start with *no* out-of-the-box user objects (Arcs/Goals/Activities).
+// Dev/test data should be created explicitly via DevTools, not implicitly via store defaults.
+const initialArcs: Arc[] = [];
+const initialGoals: Goal[] = [];
+const initialActivities: Activity[] = [];
 
 const initialActivityViews: ActivityView[] = [
   {
@@ -407,6 +380,7 @@ export const useAppStore = create(
       arcs: initialArcs,
       goals: initialGoals,
       activities: initialActivities,
+      devBreadcrumbsEnabled: false,
       notificationPreferences: {
         notificationsEnabled: false,
         osPermissionStatus: 'notRequested',
@@ -415,6 +389,8 @@ export const useAppStore = create(
         dailyShowUpTime: null,
         allowStreakAndReactivation: false,
       },
+      lastFocusMinutes: null,
+      soundscapeEnabled: false,
       lastShowUpDate: null,
       currentShowUpStreak: 0,
       lastActiveDate: null,
@@ -424,6 +400,31 @@ export const useAppStore = create(
       arcFeedback: [],
       blockedCelebrationGifIds: [],
       likedCelebrationGifs: [],
+      agentHostActions: [],
+      enqueueAgentHostAction: (action) =>
+        set((state) => ({
+          agentHostActions: [
+            ...(state.agentHostActions ?? []),
+            {
+              ...(action as EnqueueAgentHostAction),
+              id: createAgentActionId(),
+              createdAt: now(),
+            } as AgentHostAction,
+          ],
+        })),
+      consumeAgentHostActions: (filter) => {
+        const current = get().agentHostActions ?? [];
+        const matches = current.filter(
+          (a) => a.objectType === filter.objectType && a.objectId === filter.objectId
+        );
+        if (matches.length === 0) return [];
+        set((state) => ({
+          agentHostActions: (state.agentHostActions ?? []).filter(
+            (a) => !(a.objectType === filter.objectType && a.objectId === filter.objectId)
+          ),
+        }));
+        return matches;
+      },
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
       hasCompletedFirstTimeOnboarding: false,
@@ -611,6 +612,10 @@ export const useAppStore = create(
             next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
           return { likedCelebrationGifs: trimmed };
         }),
+      setDevBreadcrumbsEnabled: (enabled) =>
+        set(() => ({
+          devBreadcrumbsEnabled: enabled,
+        })),
       setUserProfile: (profile) =>
         set(() => ({
           userProfile: {
@@ -645,6 +650,14 @@ export const useAppStore = create(
               : updater;
           return { notificationPreferences: next };
         }),
+      setLastFocusMinutes: (minutes) =>
+        set(() => ({
+          lastFocusMinutes: Number.isFinite(minutes) ? Math.max(1, Math.round(minutes)) : null,
+        })),
+      setSoundscapeEnabled: (enabled) =>
+        set(() => ({
+          soundscapeEnabled: Boolean(enabled),
+        })),
       recordShowUp: () =>
         set((state) => {
           const nowDate = new Date();
@@ -731,10 +744,13 @@ export const useAppStore = create(
           arcs: [],
           goals: [],
           activities: [],
+          devBreadcrumbsEnabled: false,
           goalRecommendations: {},
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,
           activeActivityViewId: 'default',
+          lastFocusMinutes: null,
+          soundscapeEnabled: false,
           lastOnboardingArcId: null,
           lastOnboardingGoalId: null,
           hasSeenFirstGoalCelebration: false,
@@ -749,6 +765,7 @@ export const useAppStore = create(
           hasDismissedArcExploreGuide: false,
           blockedCelebrationGifIds: [],
           likedCelebrationGifs: [],
+          agentHostActions: [],
           hasCompletedFirstTimeOnboarding: false,
         }),
     }),
@@ -762,6 +779,65 @@ export const useAppStore = create(
         if (state.forces.length === 0) {
           state.forces = canonicalForces;
         }
+
+        // Safety cleanup: permanently remove known out-of-the-box demo objects from any
+        // persisted store (including production/TestFlight upgrades where storage is carried over).
+        const DEMO_ARC_ID = 'arc-demo-making';
+        const DEMO_GOAL_ID = 'goal-demo-steam-desk';
+        const DEMO_ACTIVITY_IDS = new Set([
+          'activity-demo-panel-glueups',
+          'activity-demo-router-template',
+          'activity-demo-finish',
+        ]);
+
+        const hadDemoArc = state.arcs.some((arc) => arc.id === DEMO_ARC_ID);
+        const hadDemoGoal = state.goals.some((goal) => goal.id === DEMO_GOAL_ID);
+        const hadDemoActivities = state.activities.some((a) => DEMO_ACTIVITY_IDS.has(a.id));
+
+        if (hadDemoArc || hadDemoGoal || hadDemoActivities) {
+          // Remove demo arc first.
+          state.arcs = state.arcs.filter((arc) => arc.id !== DEMO_ARC_ID);
+
+          // Remove demo goal and any goals attached to the demo arc (defensive).
+          const removedGoalIds = new Set<string>();
+          state.goals = state.goals.filter((goal) => {
+            const shouldRemove = goal.id === DEMO_GOAL_ID || goal.arcId === DEMO_ARC_ID;
+            if (shouldRemove) removedGoalIds.add(goal.id);
+            return !shouldRemove;
+          });
+
+          // Remove demo activities by ID and any activities pointing at removed demo goals.
+          state.activities = state.activities.filter((activity) => {
+            if (DEMO_ACTIVITY_IDS.has(activity.id)) return false;
+            const gid = activity.goalId ?? null;
+            if (gid && removedGoalIds.has(gid)) return false;
+            if (gid === DEMO_GOAL_ID) return false;
+            return true;
+          });
+
+          // Clear any stale onboarding pointers to demo objects.
+          if (state.lastOnboardingArcId === DEMO_ARC_ID) {
+            state.lastOnboardingArcId = null;
+          }
+          if (state.lastOnboardingGoalId === DEMO_GOAL_ID) {
+            state.lastOnboardingGoalId = null;
+          }
+
+          // Remove any stored goal recommendations keyed by the demo arc.
+          if (state.goalRecommendations && DEMO_ARC_ID in state.goalRecommendations) {
+            delete state.goalRecommendations[DEMO_ARC_ID];
+          }
+        }
+
+        // Backward-compatible normalization: older persisted activities may not have `tags`.
+        // Ensure the field is always present as a string[].
+        state.activities = (state.activities ?? []).map((activity) => {
+          const rawTags = (activity as any).tags;
+          const tags = Array.isArray(rawTags)
+            ? rawTags.filter((t) => typeof t === 'string' && t.trim().length > 0)
+            : [];
+          return { ...activity, tags };
+        });
       },
     }
   )

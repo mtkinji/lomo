@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWindowDimensions, View, StyleSheet, Platform } from 'react-native';
+import { useAnalytics } from '../services/analytics/useAnalytics';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -165,13 +166,20 @@ const navTheme: Theme = {
   },
 };
 
-export function RootNavigator() {
+type TrackScreenFn = (
+  screenName: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  params?: Record<string, any>,
+) => void;
+
+function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const { width } = useWindowDimensions();
   const drawerWidth = width * 0.8;
   const showDevTools = __DEV__;
 
   const [isNavReady, setIsNavReady] = useState(false);
   const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
+  const lastTrackedRouteNameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let isMounted = true;
@@ -235,11 +243,25 @@ export function RootNavigator() {
       ref={rootNavigationRef}
       theme={navTheme}
       initialState={initialState}
+      onReady={() => {
+        const currentRoute = rootNavigationRef.getCurrentRoute();
+        if (currentRoute?.name) {
+          lastTrackedRouteNameRef.current = currentRoute.name;
+          trackScreen?.(currentRoute.name, currentRoute.params as any);
+        }
+      }}
       onStateChange={(state) => {
         if (!state) return;
         AsyncStorage.setItem(NAV_PERSISTENCE_KEY, JSON.stringify(state)).catch((e) => {
           console.warn('Failed to persist navigation state', e);
         });
+
+        const activeRoute = getActiveRoute(state);
+        const routeName = activeRoute?.name;
+        if (routeName && routeName !== lastTrackedRouteNameRef.current) {
+          lastTrackedRouteNameRef.current = routeName;
+          trackScreen?.(routeName, activeRoute?.params as any);
+        }
       }}
     >
       <Drawer.Navigator
@@ -349,6 +371,41 @@ export function RootNavigator() {
       </Drawer.Navigator>
     </NavigationContainer>
   );
+}
+
+export function RootNavigator() {
+  return <RootNavigatorBase />;
+}
+
+export function RootNavigatorWithPostHog() {
+  const { posthog } = useAnalytics();
+
+  return (
+    <RootNavigatorBase
+      trackScreen={(screenName, params) => {
+        try {
+          posthog?.screen(screenName, params);
+        } catch (error) {
+          if (__DEV__) {
+            console.warn('[posthog] failed to capture screen', error);
+          }
+        }
+      }}
+    />
+  );
+}
+
+function getActiveRoute(
+  state: NavigationState | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): { name: string; params?: any } | undefined {
+  if (!state?.routes?.length) return undefined;
+  const route: any = state.routes[state.index ?? 0];
+  if (!route) return undefined;
+  if (route.state) {
+    return getActiveRoute(route.state as NavigationState) ?? { name: route.name, params: route.params };
+  }
+  return { name: route.name, params: route.params };
 }
 
 function ArcsStackNavigator() {

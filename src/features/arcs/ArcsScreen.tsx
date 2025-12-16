@@ -28,6 +28,8 @@ import { ArcListCard } from '../../ui/ArcListCard';
 import { EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
 import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 import { ensureArcBannerPrefill } from './arcBannerPrefill';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { EditableField } from '../../ui/EditableField';
 import { EditableTextArea } from '../../ui/EditableTextArea';
@@ -760,6 +762,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   const goals = useAppStore((state) => state.goals);
   const userProfile = useAppStore((state) => state.userProfile);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
+  const { capture } = useAnalytics();
 
   const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
   const [manualName, setManualName] = useState('');
@@ -815,6 +818,10 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
     };
 
     addArc(arc);
+    capture(AnalyticsEvent.ArcCreated, {
+      source: 'manual',
+      arc_id: arc.id,
+    });
     void ensureArcBannerPrefill(arc, {
       fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
     });
@@ -870,6 +877,10 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
               };
 
               addArc(arc);
+              capture(AnalyticsEvent.ArcCreated, {
+                source: 'ai',
+                arc_id: arc.id,
+              });
               void ensureArcBannerPrefill(arc, {
                 fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
               });

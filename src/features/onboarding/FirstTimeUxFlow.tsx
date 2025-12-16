@@ -25,6 +25,8 @@ import { Text } from '../../ui/primitives';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { NotificationService } from '../../services/NotificationService';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 
 type FtueStep = 'welcome' | 'notifications' | 'path';
 
@@ -57,6 +59,8 @@ export function FirstTimeUxFlow() {
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [isAutoRequestingNotifications, setIsAutoRequestingNotifications] = useState(false);
+  const { capture } = useAnalytics();
+  const hasTrackedVisible = useRef(false);
 
   const hasAutoRequestedNotifications = useRef(false);
   const notificationAutoPromptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,6 +80,20 @@ export function FirstTimeUxFlow() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => sub.remove();
   }, [isVisible]);
+
+  useEffect(() => {
+    if (isVisible && !hasTrackedVisible.current) {
+      hasTrackedVisible.current = true;
+      capture(AnalyticsEvent.FtueStarted, {
+        trigger_count: triggerCount,
+        includes_notifications_step: shouldShowNotificationsStep,
+      });
+    }
+
+    if (!isVisible) {
+      hasTrackedVisible.current = false;
+    }
+  }, [capture, isVisible, shouldShowNotificationsStep, triggerCount]);
 
   // Reset the FTUE sequence whenever the flow (re)opens so repeated runs
   // always start at the first interstitial.
@@ -119,11 +137,20 @@ export function FirstTimeUxFlow() {
     hasAutoRequestedNotifications.current = true;
     setNotificationError(null);
     setIsAutoRequestingNotifications(true);
+    capture(AnalyticsEvent.NotificationsPermissionPrompted, {
+      source: 'ftue_auto',
+    });
 
     notificationAutoPromptTimer.current = setTimeout(() => {
       void (async () => {
         try {
           const granted = await NotificationService.requestOsPermission();
+          const updatedStatus = useAppStore.getState().notificationPreferences.osPermissionStatus;
+          capture(AnalyticsEvent.NotificationsPermissionResult, {
+            source: 'ftue_auto',
+            granted,
+            os_permission_status: updatedStatus,
+          });
           if (granted) {
             const currentPrefs = useAppStore.getState().notificationPreferences;
             const next = {
@@ -547,6 +574,9 @@ export function FirstTimeUxFlow() {
                     accessibilityRole="button"
                     onPress={() => {
                       setShowDevMenu(false);
+                      capture(AnalyticsEvent.FtueDismissed, {
+                        source: 'dev_menu',
+                      });
                       dismissFlow();
                     }}
                     style={({ pressed }) => [
@@ -598,6 +628,12 @@ export function FirstTimeUxFlow() {
                   setHasCompletedFirstTimeOnboarding(true);
                   const { lastOnboardingArcId: arcId, lastOnboardingGoalId: goalId } =
                     useAppStore.getState();
+
+                  capture(AnalyticsEvent.FtueCompleted, {
+                    trigger_count: triggerCount,
+                    created_arc: Boolean(arcId),
+                    created_goal: Boolean(goalId),
+                  });
 
                   const navigateToOutcome = (attempt = 0) => {
                     if (!rootNavigationRef.isReady()) {

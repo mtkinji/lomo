@@ -15,19 +15,20 @@ export const colors = {
   gray900: '#18181B',
 
   /**
-   * Pine / primary scale – centered on the brand accent so we can use
-   * lighter steps for backgrounds and stronger ones for emphasis.
+   * Pine / primary scale – anchored on the official Kwilt green.
+   *
+   * Official Kwilt green: #315545
    */
-  pine50: '#F7FBF6',
-  pine100: '#EDF4ED',
-  pine200: '#D7E5D6',
-  pine300: '#B7CFB5',
-  pine400: '#8EAF8B',
-  pine500: '#4F5D47', // matches existing `moss`
-  pine600: '#3C4937',
-  pine700: '#1F5226', // matches `accent` + logo mark
-  pine800: '#222B20',
-  pine900: '#151C14',
+  pine50: '#F3F7F5',
+  pine100: '#E3EEE9',
+  pine200: '#C6DDD4',
+  pine300: '#9FC4B6',
+  pine400: '#6FA592',
+  pine500: '#4F8A72',
+  pine600: '#3F6F5C',
+  pine700: '#315545', // official Kwilt green
+  pine800: '#233F33',
+  pine900: '#152820',
 
   /**
    * Indogo / secondary brand scale – derived from the existing `indigo`
@@ -90,8 +91,13 @@ export const colors = {
   textSecondary: '#5D6B54',
   muted: '#8E9B83',
 
-  accent: '#1F5226',
-  accentMuted: '#4F5D4A',
+  // Primary brand accent: kwilt green.
+  accent: '#315545',
+  // Muted accent: slightly softer/desaturated green for secondary fills (badges, info surfaces, etc.).
+  accentMuted: '#3F6F5C',
+
+  // Cream / parchment tone used for high-contrast warm text on saturated greens.
+  parchment: '#FAF7ED',
 
   // Complementary surfaces to the pine green accent
   accentRose: '#F9A8D4', // soft rose

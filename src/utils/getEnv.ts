@@ -18,4 +18,12 @@ export function getGiphyApiKey(): string | undefined {
   return getEnvVar<string>('giphyApiKey');
 }
 
+export function getPosthogApiKey(): string | undefined {
+  return getEnvVar<string>('posthogApiKey');
+}
+
+export function getPosthogHost(): string | undefined {
+  return getEnvVar<string>('posthogHost');
+}
+
 

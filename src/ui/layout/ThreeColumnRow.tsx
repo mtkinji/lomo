@@ -47,7 +47,9 @@ export function ThreeColumnRow({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [pressed && styles.pressed]}
+      // Ensure the pressable wrapper stretches so the middle flex column
+      // can actually claim space (otherwise long labels can disappear).
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
     >
       {content}
     </Pressable>
@@ -60,6 +62,9 @@ const LEFT_COLUMN_WIDTH = 46; // +12px vs prior 34 (within requested +8–16 ran
 const RIGHT_COLUMN_WIDTH = 34;
 
 const styles = StyleSheet.create({
+  pressable: {
+    width: '100%',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -72,6 +77,9 @@ const styles = StyleSheet.create({
   },
   middle: {
     flex: 1,
+    // Critical for proper truncation/shrinking of long text in the middle column.
+    // Without this, iOS can clip the entire label when the right column is present.
+    minWidth: 0,
     justifyContent: 'center',
     paddingVertical: spacing.xs,
   },

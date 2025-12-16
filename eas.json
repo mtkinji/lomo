@@ -12,7 +12,10 @@
       "distribution": "internal"
     },
     "production": {
-      "distribution": "store"
+      "distribution": "store",
+      "env": {
+        "POSTHOG_HOST": "https://us.i.posthog.com"
+      }
     }
   },
   "submit": {

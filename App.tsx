@@ -16,7 +16,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { Sriracha_400Regular } from '@expo-google-fonts/sriracha';
-import { RootNavigator } from './src/navigation/RootNavigator';
+import { PostHogProvider } from 'posthog-react-native';
+import { RootNavigator, RootNavigatorWithPostHog } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
 import { FirstTimeUxFlow } from './src/features/onboarding/FirstTimeUxFlow';
 import { useAppStore } from './src/store/useAppStore';
@@ -24,6 +25,8 @@ import { NotificationService } from './src/services/NotificationService';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
+import { isPosthogEnabled } from './src/services/analytics/posthog';
+import { posthogClient } from './src/services/analytics/posthogClient';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -107,8 +110,24 @@ export default function App() {
               can render the mark without a visible pop-in the first time the
               Agent workspace opens. */}
           <Logo size={1} style={styles.logoPreload} />
-          <RootNavigator />
-          <FirstTimeUxFlow />
+          {isPosthogEnabled && posthogClient ? (
+            <PostHogProvider
+              client={posthogClient}
+              autocapture={{
+                // React Navigation v7+ requires manual screen capture.
+                captureScreens: false,
+              }}
+              debug={__DEV__}
+            >
+              <RootNavigatorWithPostHog />
+              <FirstTimeUxFlow />
+            </PostHogProvider>
+          ) : (
+            <>
+              <RootNavigator />
+              <FirstTimeUxFlow />
+            </>
+          )}
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

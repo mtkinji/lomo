@@ -3,6 +3,18 @@ import * as Notifications from 'expo-notifications';
 import { Activity } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
 import { rootNavigationRef } from '../navigation/RootNavigator';
+import { posthogClient } from './analytics/posthogClient';
+import { track } from './analytics/analytics';
+import { AnalyticsEvent } from './analytics/events';
+import {
+  markActivityReminderCancelled,
+  saveDailyShowUpLedger,
+  upsertActivityReminderSchedule,
+} from './notifications/NotificationDeliveryLedger';
+import {
+  reconcileNotificationsFiredEstimated,
+  registerNotificationReconcileTask,
+} from './notifications/notificationBackgroundTask';
 
 type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted';
 
@@ -28,6 +40,7 @@ let hasAttachedStoreSubscription = false;
 let responseSubscription:
   | Notifications.Subscription
   | null = null;
+let receivedSubscription: Notifications.Subscription | null = null;
 
 /**
  * Configure the base notification handler so local notifications show as alerts
@@ -128,6 +141,13 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshot, pref
   if (existingId) {
     try {
       await Notifications.cancelScheduledNotificationAsync(existingId);
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'activityReminder',
+        notification_id: existingId,
+        activity_id: activity.id,
+        reason: 'reschedule',
+      });
+      await markActivityReminderCancelled(activity.id, new Date().toISOString());
     } catch (error) {
       if (__DEV__) {
         console.warn('[notifications] failed to cancel previous activity notification', {
@@ -154,6 +174,17 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshot, pref
       },
     });
     activityNotificationIds.set(activity.id, identifier);
+    track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+      notification_type: 'activityReminder',
+      notification_id: identifier,
+      activity_id: activity.id,
+      scheduled_for: when.toISOString(),
+    });
+    await upsertActivityReminderSchedule({
+      activityId: activity.id,
+      notificationId: identifier,
+      scheduledForIso: when.toISOString(),
+    });
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to schedule activity reminder', {
@@ -170,6 +201,13 @@ async function cancelActivityReminderInternal(activityId: string) {
   try {
     await Notifications.cancelScheduledNotificationAsync(existingId);
     activityNotificationIds.delete(activityId);
+    track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+      notification_type: 'activityReminder',
+      notification_id: existingId,
+      activity_id: activityId,
+      reason: 'explicit_cancel',
+    });
+    await markActivityReminderCancelled(activityId, new Date().toISOString());
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to cancel activity reminder', {
@@ -195,6 +233,11 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   if (dailyShowUpNotificationId) {
     try {
       await Notifications.cancelScheduledNotificationAsync(dailyShowUpNotificationId);
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'dailyShowUp',
+        notification_id: dailyShowUpNotificationId,
+        reason: 'reschedule',
+      });
     } catch (error) {
       if (__DEV__) {
         console.warn('[notifications] failed to cancel previous daily show-up notification', {
@@ -232,6 +275,16 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
       trigger,
     });
     dailyShowUpNotificationId = identifier;
+    track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+      notification_type: 'dailyShowUp',
+      notification_id: identifier,
+      schedule_time_local: time,
+      platform_trigger_type: Platform.OS === 'ios' ? 'calendar' : 'daily',
+    });
+    await saveDailyShowUpLedger({
+      notificationId: identifier,
+      scheduleTimeLocal: time,
+    });
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to schedule daily show-up notification', { error });
@@ -243,6 +296,15 @@ async function cancelDailyShowUpInternal() {
   if (!dailyShowUpNotificationId) return;
   try {
     await Notifications.cancelScheduledNotificationAsync(dailyShowUpNotificationId);
+    track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+      notification_type: 'dailyShowUp',
+      notification_id: dailyShowUpNotificationId,
+      reason: 'explicit_cancel',
+    });
+    await saveDailyShowUpLedger({
+      notificationId: null,
+      scheduleTimeLocal: null,
+    });
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to cancel daily show-up notification', { error });
@@ -329,6 +391,16 @@ function attachNotificationResponseListener() {
     if (!data || !('type' in data) || !data.type) {
       return;
     }
+
+    track(posthogClient, AnalyticsEvent.NotificationOpened, {
+      notification_type: data.type,
+      notification_id: response.notification.request.identifier,
+      action_identifier: response.actionIdentifier,
+      activity_id:
+        data.type === 'activityReminder'
+          ? (data as { activityId?: string }).activityId ?? null
+          : null,
+    });
 
     switch (data.type) {
       case 'activityReminder': {
@@ -420,6 +492,46 @@ async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily
   });
 }
 
+function attachNotificationReceivedListener() {
+  if (receivedSubscription) return;
+  receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+    const data = notification.request.content.data as Partial<NotificationData> | undefined;
+    if (!data || !('type' in data) || !data.type) return;
+    track(posthogClient, AnalyticsEvent.NotificationReceived, {
+      notification_type: data.type,
+      notification_id: notification.request.identifier,
+      activity_id:
+        data.type === 'activityReminder'
+          ? (data as { activityId?: string }).activityId ?? null
+          : null,
+      received_context: 'foreground',
+    });
+  });
+}
+
+async function captureLastNotificationOpenIfAny() {
+  try {
+    const last = await Notifications.getLastNotificationResponseAsync();
+    if (!last) return;
+    const data = last.notification.request.content.data as Partial<NotificationData> | undefined;
+    if (!data || !('type' in data) || !data.type) return;
+    track(posthogClient, AnalyticsEvent.NotificationOpened, {
+      notification_type: data.type,
+      notification_id: last.notification.request.identifier,
+      action_identifier: last.actionIdentifier,
+      activity_id:
+        data.type === 'activityReminder'
+          ? (data as { activityId?: string }).activityId ?? null
+          : null,
+      opened_context: 'cold_start_or_resume',
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to read last notification response', error);
+    }
+  }
+}
+
 export const NotificationService = {
   /**
    * Initialize notifications:
@@ -434,7 +546,17 @@ export const NotificationService = {
     await syncOsPermissionStatus();
     await hydrateScheduledNotifications();
     attachStoreSubscription();
+    attachNotificationReceivedListener();
     attachNotificationResponseListener();
+    await captureLastNotificationOpenIfAny();
+    // Best-effort background reconciliation for "fired" notifications without a server.
+    await registerNotificationReconcileTask().catch((error) => {
+      if (__DEV__) {
+        console.warn('[notifications] failed to register background reconcile task', error);
+      }
+    });
+    // Reconcile on launch too (covers cases where background fetch doesn't run).
+    await reconcileNotificationsFiredEstimated('app_launch');
   },
 
   async ensurePermissionWithRationale(reason: 'activity' | 'daily'): Promise<boolean> {

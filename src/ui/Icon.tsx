@@ -69,6 +69,10 @@ const iconMap: Record<string, IconEntry> = {
   sort: { library: 'feather', name: 'sliders' },
   thumbsDown: { library: 'feather', name: 'thumbs-down' },
   thumbsUp: { library: 'feather', name: 'thumbs-up' },
+  sound: { library: 'feather', name: 'volume-2' },
+  pause: { library: 'feather', name: 'pause' },
+  play: { library: 'feather', name: 'play' },
+  stop: { library: 'feather', name: 'square' },
 };
 
 export type IconName = keyof typeof iconMap;

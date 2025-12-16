@@ -36,6 +36,8 @@ import { fonts } from '../../theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -86,6 +88,7 @@ const GOAL_FORCE_LABELS: Record<(typeof GOAL_FORCE_ORDER)[number], string> = {
 };
 
 export function GoalsScreen() {
+  const { capture } = useAnalytics();
   const navigation =
     useNavigation<
       NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'> &
@@ -149,8 +152,9 @@ export function GoalsScreen() {
     const timestamp = new Date().toISOString();
     const mergedForceIntent = { ...defaultForceLevels(0), ...draft.forceIntent };
 
+    const goalId = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     addGoal({
-      id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: goalId,
       arcId,
       title: draft.title,
       description: draft.description,
@@ -161,6 +165,12 @@ export function GoalsScreen() {
       metrics: [],
       createdAt: timestamp,
       updatedAt: timestamp,
+    });
+    capture(AnalyticsEvent.GoalCreated, {
+      source: 'recommendation_adopt',
+      goal_id: goalId,
+      arc_id: arcId,
+      has_description: Boolean(draft.description && draft.description.trim().length > 0),
     });
 
     dismissGoalRecommendation(arcId, draft.title);
@@ -431,6 +441,7 @@ export function GoalCoachDrawer({
   );
   const [draft, setDraft] = React.useState<GoalCreationDraft>(() => buildEmptyDraft());
   const addGoal = useAppStore((state) => state.addGoal);
+  const { capture } = useAnalytics();
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList>>();
   const launchArc = React.useMemo(
@@ -573,6 +584,12 @@ export function GoalCoachDrawer({
     };
 
     addGoal(goal);
+    capture(AnalyticsEvent.GoalCreated, {
+      source: 'manual',
+      goal_id: goal.id,
+      arc_id: goal.arcId,
+      has_description: Boolean(goal.description && goal.description.trim().length > 0),
+    });
     onGoalCreated?.(id);
     onClose();
     if (navigateToGoalDetailOnCreate) {
@@ -603,6 +620,12 @@ export function GoalCoachDrawer({
       };
 
       addGoal(goal);
+      capture(AnalyticsEvent.GoalCreated, {
+        source: 'ai_coach',
+        goal_id: goal.id,
+        arc_id: arcId,
+        has_description: Boolean(goal.description && goal.description.trim().length > 0),
+      });
       onGoalCreated?.(id);
       onClose();
       if (navigateToGoalDetailOnCreate) {
@@ -612,7 +635,7 @@ export function GoalCoachDrawer({
         });
       }
     },
-    [addGoal, navigateToGoalDetailOnCreate, navigation, onClose, onGoalCreated]
+    [addGoal, capture, navigateToGoalDetailOnCreate, navigation, onClose, onGoalCreated]
   );
 
   return (

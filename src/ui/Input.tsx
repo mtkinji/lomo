@@ -11,6 +11,7 @@ import {
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
   TextInputProps,
+  Platform,
 } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
@@ -145,6 +146,7 @@ const InputBase = forwardRef<TextInput, Props>(
             }}
             style={[
               styles.input,
+              !multiline ? styles.singleLinePlatformMetrics : null,
               multiline && styles.multilineInput,
               size === 'sm' && styles.inputSm,
               variant === 'inline' && !multiline ? styles.inlineSingleLineInput : null,
@@ -219,6 +221,20 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodySm.lineHeight,
     color: colors.textPrimary,
     paddingVertical: 0,
+  },
+  singleLinePlatformMetrics: {
+    // Android: remove extra font padding and request vertical centering.
+    ...(Platform.OS === 'android'
+      ? ({
+          includeFontPadding: false,
+          textAlignVertical: 'center',
+        } as TextStyle)
+      : ({
+          // iOS: line-height strongly affects perceived vertical centering.
+          // Keep it closer to font size, then nudge baseline up a hair.
+          lineHeight: typography.bodySm.fontSize + 2,
+          marginTop: -1,
+        } as TextStyle)),
   },
   inlineSingleLineInput: {
     // Visual centering: iOS text baselines tend to sit slightly low next to circular

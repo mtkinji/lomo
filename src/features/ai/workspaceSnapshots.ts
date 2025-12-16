@@ -60,7 +60,8 @@ export function buildActivityCoachLaunchContext(
   goals: Goal[],
   activities: Activity[],
   focusGoalId?: string,
-  arcs?: Arc[]
+  arcs?: Arc[],
+  focusActivityId?: string
 ): string | undefined {
   if (goals.length === 0 && activities.length === 0) {
     return undefined;
@@ -73,6 +74,65 @@ export function buildActivityCoachLaunchContext(
   );
   lines.push(`Total goals: ${goals.length}. Total activities: ${activities.length}.`);
   lines.push('');
+
+  const focusActivity =
+    focusActivityId
+      ? activities.find((candidate) => candidate.id === focusActivityId) ?? null
+      : null;
+
+  if (focusActivity) {
+    lines.push(
+      'FOCUSED ACTIVITY (this is what the user is viewing; base your guidance on it):',
+      `- ${focusActivity.title} (status: ${focusActivity.status}, id: ${focusActivity.id})`
+    );
+
+    if (typeof focusActivity.estimateMinutes === 'number' && focusActivity.estimateMinutes > 0) {
+      lines.push(`Estimate (minutes): ${focusActivity.estimateMinutes}`);
+    }
+
+    if (focusActivity.difficulty) {
+      lines.push(`Difficulty: ${focusActivity.difficulty}`);
+    }
+
+    if (focusActivity.scheduledDate) {
+      lines.push(`Scheduled date: ${focusActivity.scheduledDate}`);
+    }
+
+    if (focusActivity.scheduledAt) {
+      lines.push(`Scheduled at: ${focusActivity.scheduledAt}`);
+    }
+
+    if (focusActivity.reminderAt) {
+      lines.push(`Reminder at: ${focusActivity.reminderAt}`);
+    }
+
+    if (Array.isArray(focusActivity.tags) && focusActivity.tags.length > 0) {
+      lines.push(`Tags: ${focusActivity.tags.slice(0, 8).join(', ')}`);
+    }
+
+    if (focusActivity.notes) {
+      const trimmedNotes =
+        focusActivity.notes.length > 520 ? `${focusActivity.notes.slice(0, 517)}…` : focusActivity.notes;
+      lines.push(`Notes: ${trimmedNotes}`);
+    }
+
+    const steps = Array.isArray(focusActivity.steps) ? focusActivity.steps : [];
+    if (steps.length > 0) {
+      lines.push('Steps:');
+      steps.slice(0, 12).forEach((step) => {
+        const status = step.completedAt ? 'done' : 'todo';
+        const optional = step.isOptional ? ' (optional)' : '';
+        lines.push(`- [${status}] ${step.title}${optional}`);
+      });
+      if (steps.length > 12) {
+        lines.push(`…and ${steps.length - 12} more.`);
+      }
+    } else {
+      lines.push('No steps are currently attached to this activity.');
+    }
+
+    lines.push(''); // spacer after focused activity
+  }
 
   const focusGoal =
     focusGoalId ? goals.find((candidate) => candidate.id === focusGoalId) ?? null : null;

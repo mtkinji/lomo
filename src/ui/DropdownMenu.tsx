@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, motion } from '../theme';
+import { cardElevation } from '../theme/surfaces';
 import { Icon } from './Icon';
 import { NativeOnlyAnimatedView } from './NativeOnlyAnimatedView';
 
@@ -233,16 +234,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
     minWidth: 224,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    ...cardElevation.overlay,
   },
   item: {
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,

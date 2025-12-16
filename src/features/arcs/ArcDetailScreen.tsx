@@ -25,11 +25,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { rootNavigationRef } from '../../navigation/RootNavigator';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
 import { VStack, Heading, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
+import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { EditableField } from '../../ui/EditableField';
@@ -95,6 +97,7 @@ export function ArcDetailScreen() {
   const insightsSectionRef = useRef<View>(null);
 
   const arcs = useAppStore((state) => state.arcs);
+  const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
@@ -710,33 +713,93 @@ export function ArcDetailScreen() {
         <View style={styles.screen}>
           <View style={styles.paddedSection}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={styles.headerSide}>
-                <IconButton
-                  style={styles.backButton}
-                  onPress={handleBackToArcs}
-                  accessibilityLabel="Back to Arcs"
-                >
-                  <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                </IconButton>
-              </View>
-              <View style={styles.headerCenter}>
-                <View style={styles.objectTypeRow}>
-                  <Icon name="arcs" size={18} color={colors.textSecondary} />
-                  <Text style={styles.objectTypeLabel}>Arc</Text>
-                </View>
-              </View>
-              <View style={styles.headerSideRight}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityLabel="Arc actions">
+              {breadcrumbsEnabled ? (
+                <>
+                  <View style={styles.breadcrumbsLeft}>
+                    <BreadcrumbBar
+                      items={[
+                        {
+                          id: 'arcs',
+                          label: 'Arcs',
+                          onPress: () => {
+                            rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
+                          },
+                        },
+                        { id: 'arc', label: arc?.name ?? 'Arc' },
+                      ]}
+                    />
+                  </View>
+                  <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                        <IconButton
+                          style={styles.optionsButton}
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="more" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                        {/* Primary, non-destructive action(s) first */}
+                        <DropdownMenuItem
+                          onPress={() => {
+                            // TODO: wire up real archive behavior once the store exposes it.
+                            Alert.alert(
+                              'Archive arc',
+                              'Archiving is not yet implemented. This will be wired to an archive action in the store.'
+                            );
+                          }}
+                        >
+                          <View style={styles.menuItemRow}>
+                            <Icon name="info" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemLabel}>Archive</Text>
+                          </View>
+                        </DropdownMenuItem>
+
+                        {/* Divider before destructive actions */}
+                        <DropdownMenuSeparator />
+
+                        {/* Destructive action pinned to the bottom */}
+                        <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                          <View style={styles.menuItemRow}>
+                            <Icon name="trash" size={16} color={colors.destructive} />
+                            <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                          </View>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.headerSide}>
                     <IconButton
-                      style={styles.optionsButton}
-                      pointerEvents="none"
-                      accessible={false}
+                      style={styles.backButton}
+                      onPress={handleBackToArcs}
+                      accessibilityLabel="Back to Arcs"
                     >
-                      <Icon name="more" size={18} color={colors.canvas} />
+                      <Icon name="arrowLeft" size={20} color={colors.canvas} />
                     </IconButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                  </View>
+                  <View style={styles.headerCenter}>
+                    <View style={styles.objectTypeRow}>
+                      <Icon name="arcs" size={18} color={colors.textSecondary} />
+                      <Text style={styles.objectTypeLabel}>Arc</Text>
+                    </View>
+                  </View>
+                  <View style={styles.headerSideRight}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                        <IconButton
+                          style={styles.optionsButton}
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="more" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                     {/* Primary, non-destructive action(s) first */}
                     <DropdownMenuItem
                       onPress={() => {
@@ -765,7 +828,9 @@ export function ArcDetailScreen() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </View>
+                  </View>
+                </>
+              )}
             </View>
           </View>
 
@@ -1307,6 +1372,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  breadcrumbsLeft: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingRight: spacing.sm,
+  },
+  breadcrumbsRight: {
+    flex: 0,
   },
   goalsDrawerInner: {
     paddingHorizontal: 0,

@@ -8,6 +8,7 @@ import {
   TextInputSubmitEditingEventData,
   StyleProp,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 
@@ -209,6 +210,16 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     padding: 0,
+    // Match the shared `Input` single-line metrics so inline editors center the same way.
+    ...(Platform.OS === 'android'
+      ? ({
+          includeFontPadding: false,
+          textAlignVertical: 'center',
+        } as any)
+      : ({
+          lineHeight: typography.body.fontSize + 2,
+          marginTop: -1,
+        } as any)),
   },
   inputTitle: {
     ...typography.titleSm,

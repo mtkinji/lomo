@@ -5,13 +5,19 @@ import type { WorkflowDefinition } from '../../domain/workflows';
 import { goalCreationWorkflow } from './workflows/goalCreationWorkflow';
 import { arcCreationWorkflow } from './workflows/arcCreationWorkflow';
 import { activityCreationWorkflow } from './workflows/activityCreationWorkflow';
+import { activityGuidanceWorkflow } from './workflows/activityGuidanceWorkflow';
 import { firstTimeOnboardingWorkflow } from './workflows/firstTimeOnboardingWorkflow';
 
 /**
  * High-level modes that describe what job the AI chat is doing.
  * Each mode maps 1:1 to a workflow definition.
  */
-export type ChatMode = 'arcCreation' | 'firstTimeOnboarding' | 'goalCreation' | 'activityCreation';
+export type ChatMode =
+  | 'arcCreation'
+  | 'firstTimeOnboarding'
+  | 'goalCreation'
+  | 'activityCreation'
+  | 'activityGuidance';
 
 /**
  * Logical identifiers for tools the AI can call.
@@ -97,6 +103,7 @@ function validateWorkflowDefinition(workflow: WorkflowDefinition): void {
 validateWorkflowDefinition(goalCreationWorkflow);
 validateWorkflowDefinition(arcCreationWorkflow);
 validateWorkflowDefinition(activityCreationWorkflow);
+validateWorkflowDefinition(activityGuidanceWorkflow);
 validateWorkflowDefinition(firstTimeOnboardingWorkflow);
 
 /**
@@ -108,6 +115,7 @@ export const WORKFLOW_REGISTRY: Record<ChatMode, WorkflowDefinition> = {
   goalCreation: goalCreationWorkflow,
   arcCreation: arcCreationWorkflow,
   activityCreation: activityCreationWorkflow,
+  activityGuidance: activityGuidanceWorkflow,
   firstTimeOnboarding: firstTimeOnboardingWorkflow,
 };
 

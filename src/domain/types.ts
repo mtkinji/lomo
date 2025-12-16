@@ -241,6 +241,11 @@ export interface Activity {
   id: string;
   goalId: string | null;
   title: string;
+  /**
+   * User-defined tags for lightweight grouping / filtering (e.g. "errands", "outdoors").
+   * Stored as simple strings; UI typically edits these as a comma-separated list.
+   */
+  tags: string[];
   notes?: string;
   /**
    * Small, ordered checklist that keeps a single activity concrete and
@@ -279,6 +284,15 @@ export interface Activity {
    */
   planGroupId?: string | null;
   scheduledDate?: string | null;
+  /**
+   * Optional ISO timestamp representing the intended start time of this Activity
+   * (used for calendar export + scheduled-time semantics). This is additive and
+   * intentionally separate from `scheduledDate` which behaves more like a due
+   * date / "anytime today" marker.
+   *
+   * See: `docs/prds/calendar-export-ics-prd.md`
+   */
+  scheduledAt?: string | null;
   /**
    * Optional recurrence rule for Activities that repeat on a cadence. This is
    * intentionally lightweight for now; a future implementation can expand this

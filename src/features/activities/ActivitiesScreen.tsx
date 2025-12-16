@@ -36,6 +36,9 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { enrichActivityWithAI } from '../../services/ai';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
 import {
@@ -64,6 +67,41 @@ import { fonts } from '../../theme/typography';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
+import { formatTags, parseTags } from '../../utils/tags';
+
+type ViewMenuItemProps = {
+  view: ActivityView;
+  onApplyView: (viewId: string) => void;
+  onOpenViewSettings: (view: ActivityView) => void;
+};
+
+function ViewMenuItem({ view, onApplyView, onOpenViewSettings }: ViewMenuItemProps) {
+  const iconPressedRef = React.useRef(false);
+
+  return (
+    <DropdownMenuItem
+      onPress={() => {
+        if (!iconPressedRef.current) {
+          onApplyView(view.id);
+        }
+        iconPressedRef.current = false;
+      }}
+    >
+      <HStack alignItems="center" justifyContent="space-between" space="sm" flex={1}>
+        <Text style={styles.menuItemText}>{view.name}</Text>
+        <Pressable
+          onPress={() => {
+            iconPressedRef.current = true;
+            onOpenViewSettings(view);
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="more" size={16} color={colors.textSecondary} />
+        </Pressable>
+      </HStack>
+    </DropdownMenuItem>
+  );
+}
 
 type CompletedActivitySectionProps = {
   activities: Activity[];
@@ -143,6 +181,7 @@ export function ActivitiesScreen() {
   const insets = useSafeAreaInsets();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
+  const { capture } = useAnalytics();
 
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
@@ -405,6 +444,7 @@ export function ActivitiesScreen() {
       id,
       goalId: null,
       title: trimmed,
+      tags: [],
       notes: undefined,
       steps: proPlan.steps,
       reminderAt: quickAddReminderAt ?? null,
@@ -427,6 +467,14 @@ export function ActivitiesScreen() {
     };
 
     addActivity(activity);
+    capture(AnalyticsEvent.ActivityCreated, {
+      source: 'quick_add',
+      activity_id: activity.id,
+      goal_id: null,
+      has_due_date: Boolean(activity.scheduledDate),
+      has_reminder: Boolean(activity.reminderAt),
+      has_estimate: Boolean(activity.estimateMinutes),
+    });
     setQuickAddTitle('');
     setQuickAddReminderAt(null);
     setQuickAddScheduledDate(null);
@@ -436,10 +484,70 @@ export function ActivitiesScreen() {
     requestAnimationFrame(() => {
       quickAddInputRef.current?.focus();
     });
+
+    // Enrich activity with AI details asynchronously
+    enrichActivityWithAI({
+      title: trimmed,
+      goalId: null,
+    })
+      .then((enrichment) => {
+        if (!enrichment) return;
+
+        const timestamp = new Date().toISOString();
+        updateActivity(activity.id, (prev) => {
+          const updates: Partial<Activity> = {
+            updatedAt: timestamp,
+          };
+
+          // Only update fields that weren't already set by the user
+          if (enrichment.notes && !prev.notes) {
+            updates.notes = enrichment.notes;
+          }
+          if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
+            updates.tags = enrichment.tags;
+          }
+          if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
+            updates.steps = enrichment.steps.map((step, idx) => ({
+              id: `step-${activity.id}-${idx}`,
+              title: step.title,
+              orderIndex: idx,
+              completedAt: null,
+            }));
+          }
+          if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
+            updates.estimateMinutes = enrichment.estimateMinutes;
+          }
+          if (enrichment.priority != null && prev.priority == null) {
+            updates.priority = enrichment.priority;
+          }
+
+          // Update aiPlanning with difficulty suggestion
+          if (enrichment.difficulty) {
+            updates.aiPlanning = {
+              ...prev.aiPlanning,
+              difficulty: enrichment.difficulty,
+              estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
+              confidence: 0.7,
+              lastUpdatedAt: timestamp,
+              source: 'quick_suggest' as const,
+            };
+          }
+
+          return { ...prev, ...updates };
+        });
+      })
+      .catch((err) => {
+        // Silently fail - activity creation should succeed even if enrichment fails
+        if (__DEV__) {
+          console.warn('[ActivitiesScreen] Failed to enrich activity:', err);
+        }
+      });
   }, [
     activities.length,
     addActivity,
+    updateActivity,
     buildQuickAddHeuristicPlan,
+    capture,
     quickAddEstimateMinutes,
     quickAddReminderAt,
     quickAddRepeatRule,
@@ -518,6 +626,13 @@ export function ActivitiesScreen() {
       );
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
+        capture(AnalyticsEvent.ActivityCompletionToggled, {
+          source: 'activities_list',
+          activity_id: activityId,
+          goal_id: activity.goalId ?? null,
+          next_status: nextIsDone ? 'done' : 'planned',
+          had_steps: Boolean(activity.steps && activity.steps.length > 0),
+        });
         return {
           ...activity,
           status: nextIsDone ? 'done' : 'planned',
@@ -526,7 +641,7 @@ export function ActivitiesScreen() {
         };
       });
     },
-    [updateActivity],
+    [capture, updateActivity],
   );
 
   const handleTogglePriorityOne = React.useCallback(
@@ -789,33 +904,17 @@ export function ActivitiesScreen() {
                   {!viewEditorVisible && (
                     <DropdownMenuContent side="bottom" sideOffset={4} align="start">
                       {activityViews.map((view) => (
-                        <DropdownMenuItem key={view.id} onPress={() => applyView(view.id)}>
-                          <HStack
-                            alignItems="center"
-                            justifyContent="space-between"
-                            space="sm"
-                            flex={1}
-                          >
-                            <Text style={styles.menuItemText}>{view.name}</Text>
-                            {activeView?.id === view.id ? (
-                              <Icon name="more" size={16} color={colors.textSecondary} />
-                            ) : null}
-                          </HStack>
-                        </DropdownMenuItem>
+                        <ViewMenuItem
+                          key={view.id}
+                          view={view}
+                          onApplyView={applyView}
+                          onOpenViewSettings={handleOpenViewSettings}
+                        />
                       ))}
                       <DropdownMenuItem
-                        disabled={!activeView}
-                        onPress={() => {
-                          if (!activeView) return;
-                          handleOpenViewSettings(activeView);
-                        }}
+                        onPress={handleOpenCreateView}
+                        style={styles.newViewMenuItem}
                       >
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="more" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>View settings</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={handleOpenCreateView}>
                         <HStack alignItems="center" space="xs">
                           <Icon name="plus" size={14} color={colors.textSecondary} />
                           <Text style={styles.menuItemText}>New view</Text>
@@ -849,7 +948,10 @@ export function ActivitiesScreen() {
                         <Text style={styles.menuItemText}>All activities</Text>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={() => handleUpdateFilterMode('priority1')}>
-                        <Text style={styles.menuItemText}>Priority 1</Text>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="star" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Starred</Text>
+                        </HStack>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={() => handleUpdateFilterMode('active')}>
                         <Text style={styles.menuItemText}>Active</Text>
@@ -1282,8 +1384,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   menuItemText: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
+  },
+  newViewMenuItem: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.xs,
+    marginHorizontal: -spacing.xs,
+    paddingLeft: spacing.xs + spacing.sm,
+    paddingRight: spacing.xs + spacing.sm,
   },
   appliedChip: {
     paddingHorizontal: spacing.sm,
@@ -1632,7 +1742,7 @@ const styles = StyleSheet.create({
 function getFilterLabel(mode: ActivityFilterMode): string {
   switch (mode) {
     case 'priority1':
-      return 'Priority 1';
+      return 'Starred';
     case 'active':
       return 'Active';
     case 'completed':
@@ -1679,6 +1789,7 @@ function ActivityCoachDrawer({
   addActivity,
 }: ActivityCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
+  const { capture } = useAnalytics();
   const [manualActivityId, setManualActivityId] = React.useState<string | null>(null);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
@@ -1729,6 +1840,7 @@ function ActivityCoachDrawer({
       if (manualActivityId && manualActivity) {
         const title = manualActivity.title?.trim() ?? '';
         const hasTitle = title.length > 0;
+        const hasTags = (manualActivity.tags ?? []).length > 0;
         const hasNotes = (manualActivity.notes ?? '').trim().length > 0;
         const hasSteps = (manualActivity.steps ?? []).length > 0;
         const hasReminder = Boolean(manualActivity.reminderAt);
@@ -1738,6 +1850,7 @@ function ActivityCoachDrawer({
 
         const isTriviallyEmpty =
           !hasTitle &&
+          !hasTags &&
           !hasNotes &&
           !hasSteps &&
           !hasReminder &&
@@ -1767,6 +1880,7 @@ function ActivityCoachDrawer({
       id,
       goalId: null,
       title: '',
+      tags: [],
       notes: undefined,
       steps: [],
       reminderAt: null,
@@ -1788,8 +1902,86 @@ function ActivityCoachDrawer({
     };
 
     addActivity(activity);
+    capture(AnalyticsEvent.ActivityCreated, {
+      source: 'manual_drawer',
+      activity_id: activity.id,
+      goal_id: null,
+    });
     setManualActivityId(id);
-  }, [activities.length, addActivity, manualActivityId]);
+  }, [activities.length, addActivity, capture, manualActivityId]);
+
+  // Enrich activity with AI when title becomes non-empty
+  React.useEffect(() => {
+    if (!manualActivity) return;
+    const title = manualActivity.title?.trim() ?? '';
+    if (title.length === 0) return;
+    // Only enrich if we haven't enriched yet (check if aiPlanning exists and was set by us)
+    if (manualActivity.aiPlanning?.source === 'quick_suggest') return;
+
+    // Debounce: wait a bit after user stops typing
+    const timeoutId = setTimeout(() => {
+      enrichActivityWithAI({
+        title,
+        goalId: manualActivity.goalId,
+        existingNotes: manualActivity.notes,
+        existingTags: manualActivity.tags,
+      })
+        .then((enrichment) => {
+          if (!enrichment) return;
+
+          const timestamp = new Date().toISOString();
+          updateActivity(manualActivity.id, (prev) => {
+            const updates: Partial<Activity> = {
+              updatedAt: timestamp,
+            };
+
+            // Only update fields that weren't already set by the user
+            if (enrichment.notes && !prev.notes) {
+              updates.notes = enrichment.notes;
+            }
+            if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
+              updates.tags = enrichment.tags;
+            }
+            if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
+              updates.steps = enrichment.steps.map((step, idx) => ({
+                id: `step-${manualActivity.id}-${idx}`,
+                title: step.title,
+                orderIndex: idx,
+                completedAt: null,
+              }));
+            }
+            if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
+              updates.estimateMinutes = enrichment.estimateMinutes;
+            }
+            if (enrichment.priority != null && prev.priority == null) {
+              updates.priority = enrichment.priority;
+            }
+
+            // Update aiPlanning with difficulty suggestion
+            if (enrichment.difficulty) {
+              updates.aiPlanning = {
+                ...prev.aiPlanning,
+                difficulty: enrichment.difficulty,
+                estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
+                confidence: 0.7,
+                lastUpdatedAt: timestamp,
+                source: 'quick_suggest' as const,
+              };
+            }
+
+            return { ...prev, ...updates };
+          });
+        })
+        .catch((err) => {
+          // Silently fail - activity creation should succeed even if enrichment fails
+          if (__DEV__) {
+            console.warn('[ActivityCoachDrawer] Failed to enrich activity:', err);
+          }
+        });
+    }, 1500); // Wait 1.5 seconds after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [manualActivity?.title, manualActivity?.id, manualActivity?.goalId, manualActivity?.notes, manualActivity?.tags, manualActivity?.aiPlanning?.source, updateActivity]);
 
   React.useEffect(() => {
     if (!visible) return;
@@ -2163,6 +2355,7 @@ function ActivityCoachDrawer({
           id,
           goalId: null,
           title: trimmedTitle,
+          tags: [],
           notes: undefined,
           steps: [],
           reminderAt: null,
@@ -2184,9 +2377,14 @@ function ActivityCoachDrawer({
         };
 
         addActivity(activity);
+        capture(AnalyticsEvent.ActivityCreated, {
+          source: 'ai_workflow',
+          activity_id: activity.id,
+          goal_id: null,
+        });
       });
     },
-    [activities, addActivity],
+    [activities, addActivity, capture],
   );
 
   const handleAdoptActivitySuggestion = React.useCallback(
@@ -2208,6 +2406,7 @@ function ActivityCoachDrawer({
         id,
         goalId: null,
         title: suggestion.title.trim(),
+        tags: [],
         notes: suggestion.why,
         steps,
         reminderAt: null,
@@ -2242,8 +2441,15 @@ function ActivityCoachDrawer({
       };
 
       addActivity(activity);
+      capture(AnalyticsEvent.ActivityCreated, {
+        source: 'ai_suggestion',
+        activity_id: activity.id,
+        goal_id: null,
+        has_steps: Boolean(activity.steps && activity.steps.length > 0),
+        has_estimate: Boolean(activity.estimateMinutes),
+      });
     },
-    [activities.length, addActivity],
+    [activities.length, addActivity, capture],
   );
 
   return (
@@ -2306,6 +2512,21 @@ function ActivityCoachDrawer({
                   updateActivity(manualActivity.id, (prev) => ({
                     ...prev,
                     title: next,
+                    updatedAt: timestamp,
+                  }));
+                }}
+                variant="outline"
+              />
+              <Input
+                label="Tags (comma-separated)"
+                placeholder="e.g., errands, outdoors"
+                value={formatTags(manualActivity?.tags)}
+                onChangeText={(raw) => {
+                  if (!manualActivity) return;
+                  const timestamp = new Date().toISOString();
+                  updateActivity(manualActivity.id, (prev) => ({
+                    ...prev,
+                    tags: parseTags(raw),
                     updatedAt: timestamp,
                   }));
                 }}

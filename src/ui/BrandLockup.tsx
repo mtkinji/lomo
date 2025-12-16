@@ -23,6 +23,10 @@ type BrandLockupProps = {
    */
   color?: string;
   /**
+   * Optional variant for the logo mark. Use 'white' or 'parchment' for saturated/dark backgrounds.
+   */
+  logoVariant?: 'default' | 'white' | 'parchment';
+  /**
    * Optional style override for the outer container.
    */
   style?: ViewStyle;
@@ -36,6 +40,7 @@ export function BrandLockup({
   logoSize = 32,
   wordmarkSize = 'sm',
   color = colors.accent,
+  logoVariant = 'default',
   style,
   wordmarkStyle,
 }: BrandLockupProps) {
@@ -49,7 +54,7 @@ export function BrandLockup({
 
   return (
     <View style={[styles.root, style]}>
-      <Logo size={logoSize} />
+      <Logo size={logoSize} variant={logoVariant} />
       <Text
         style={[
           baseWordmarkStyle,
