@@ -11,7 +11,6 @@ import {
   Keyboard,
   Modal,
   Share,
-  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -28,7 +27,7 @@ import { rootNavigationRef } from '../../navigation/RootNavigator';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
-import { startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
+import { preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
 import {
   VStack,
   HStack,
@@ -107,11 +106,13 @@ export function ActivityDetailScreen() {
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const recordCompletedFocusSession = useAppStore((state) => state.recordCompletedFocusSession);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const lastFocusMinutes = useAppStore((state) => state.lastFocusMinutes);
   const setLastFocusMinutes = useAppStore((state) => state.setLastFocusMinutes);
   const soundscapeEnabled = useAppStore((state) => state.soundscapeEnabled);
   const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
+  const currentFocusStreak = useAppStore((state) => state.currentFocusStreak);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const agentHostActions = useAppStore((state) => state.agentHostActions);
   const consumeAgentHostActions = useAppStore((state) => state.consumeAgentHostActions);
@@ -369,7 +370,7 @@ export function ActivityDetailScreen() {
 
   const endFocusSession = async () => {
     await cancelFocusNotificationIfNeeded();
-    await stopSoundscapeLoop().catch(() => undefined);
+    await stopSoundscapeLoop({ unload: true }).catch(() => undefined);
     setFocusSession(null);
   };
 
@@ -386,10 +387,17 @@ export function ActivityDetailScreen() {
     setLastFocusMinutes(minutes);
 
     setFocusSheetVisible(false);
+    // Start preloading immediately so sound can come up quickly once the focus overlay appears.
+    preloadSoundscape().catch(() => undefined);
     // Avoid stacking our focus interstitial modal on top of the BottomDrawer modal
     // while it is animating out; otherwise iOS can show the scrim but hide the next modal.
     if (focusLaunchTimeoutRef.current) {
       clearTimeout(focusLaunchTimeoutRef.current);
+    }
+
+    // If sound is enabled, start playback right away (don't wait for the focus modal delay).
+    if (soundscapeEnabled) {
+      startSoundscapeLoop({ fadeInMs: 250 }).catch(() => undefined);
     }
 
     focusLaunchTimeoutRef.current = setTimeout(() => {
@@ -397,9 +405,6 @@ export function ActivityDetailScreen() {
       const endAtMs = startedAtMs + minutes * 60_000;
       setFocusSession({ mode: 'running', startedAtMs, endAtMs });
       setFocusTickMs(startedAtMs);
-      if (soundscapeEnabled) {
-        startSoundscapeLoop().catch(() => undefined);
-      }
 
       // Best-effort: schedule a "time's up" local notification if permissions are already granted
       // and the user hasn't disabled reminders in app settings.
@@ -469,7 +474,7 @@ export function ActivityDetailScreen() {
   useEffect(() => {
     // Keep soundscape aligned with Focus session state (handles toggling + pause/resume).
     if (focusSession?.mode === 'running' && soundscapeEnabled) {
-      startSoundscapeLoop().catch(() => undefined);
+      startSoundscapeLoop({ fadeInMs: 250 }).catch(() => undefined);
       return;
     }
     stopSoundscapeLoop().catch(() => undefined);
@@ -482,6 +487,7 @@ export function ActivityDetailScreen() {
 
     // Session completed
     recordShowUp();
+    recordCompletedFocusSession({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingFocusMs, focusSession?.mode]);
@@ -2322,6 +2328,9 @@ export function ActivityDetailScreen() {
           <Text style={styles.sheetDescription}>
             How long do you want to focus? (We can’t toggle system Focus / Do Not Disturb for you, but we’ll keep you on a distraction-free timer.)
           </Text>
+          <Text style={styles.focusStreakSheetLabel}>
+            Current streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
+          </Text>
           <VStack space="md">
             <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
               <Pressable
@@ -2667,29 +2676,43 @@ export function ActivityDetailScreen() {
               logoVariant="parchment"
               color={colors.parchment}
             />
-            <HStack space="xs" alignItems="center">
-              <Icon
-                name="sound"
-                size={18}
-                color={soundscapeEnabled ? colors.parchment : 'rgba(250,247,237,0.72)'}
-              />
-              <Switch
-                value={soundscapeEnabled}
-                onValueChange={setSoundscapeEnabled}
-                trackColor={{
-                  false: 'rgba(250,247,237,0.25)',
-                  true: 'rgba(250,247,237,0.65)',
-                }}
-                thumbColor={soundscapeEnabled ? colors.parchment : 'rgba(250,247,237,0.92)'}
-                ios_backgroundColor="rgba(250,247,237,0.25)"
-              />
-            </HStack>
+            <Pressable
+              onPress={() => setSoundscapeEnabled(!soundscapeEnabled)}
+              style={({ pressed }) => [
+                styles.focusSoundToggle,
+                soundscapeEnabled ? styles.focusSoundToggleOn : styles.focusSoundToggleOff,
+                pressed && styles.focusSoundTogglePressed,
+              ]}
+              accessibilityRole="switch"
+              accessibilityLabel="Focus soundscape"
+              accessibilityState={{ checked: soundscapeEnabled }}
+              accessibilityHint={soundscapeEnabled ? 'Double tap to turn audio off' : 'Double tap to turn audio on'}
+            >
+              <HStack space="xs" alignItems="center">
+                <Icon
+                  name={soundscapeEnabled ? 'sound' : 'soundOff'}
+                  size={18}
+                  color={soundscapeEnabled ? colors.pine800 : colors.parchment}
+                />
+                <Text
+                  style={[
+                    styles.focusSoundToggleLabel,
+                    soundscapeEnabled ? styles.focusSoundToggleLabelOn : styles.focusSoundToggleLabelOff,
+                  ]}
+                >
+                  {soundscapeEnabled ? 'Audio on' : 'Audio off'}
+                </Text>
+              </HStack>
+            </Pressable>
           </View>
 
           <View style={styles.focusCenter}>
             <Text style={styles.focusTimer}>{formatMsAsTimer(remainingFocusMs)}</Text>
             <Text style={styles.focusActivityTitle} numberOfLines={2}>
               {activity.title}
+            </Text>
+            <Text style={styles.focusStreakOverlayLabel}>
+              Streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
             </Text>
           </View>
 
@@ -3233,11 +3256,53 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
+  focusSoundToggle: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  focusSoundToggleOn: {
+    backgroundColor: colors.parchment,
+    borderColor: 'rgba(250,247,237,0.9)',
+  },
+  focusSoundToggleOff: {
+    backgroundColor: 'rgba(250,247,237,0.08)',
+    borderColor: 'rgba(250,247,237,0.35)',
+  },
+  focusSoundTogglePressed: {
+    opacity: 0.9,
+  },
+  focusSoundToggleLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
+  focusSoundToggleLabelOn: {
+    color: colors.pine800,
+  },
+  focusSoundToggleLabelOff: {
+    color: colors.parchment,
+  },
   focusCenter: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  focusStreakOverlayLabel: {
+    ...typography.body,
+    color: colors.parchment,
+    opacity: 0.9,
+    marginTop: spacing.sm,
+  },
+  focusStreakSheetLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
   },
   focusTimer: {
     // Best approximation of the Apple Watch “thick rounded” vibe without bundling new fonts:

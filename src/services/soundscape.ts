@@ -1,6 +1,6 @@
 import { Audio } from 'expo-av';
 
-type SoundscapeStatus = 'idle' | 'loading' | 'playing' | 'stopped' | 'error';
+type SoundscapeStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'stopped' | 'error';
 
 let status: SoundscapeStatus = 'idle';
 let sound: Audio.Sound | null = null;
@@ -9,6 +9,7 @@ let currentVolume = 1.0;
 let lastAppliedVolume = 1.0;
 let pendingStop = false;
 let opCounter = 0;
+let audioModeConfigured = false;
 
 // Bundled default soundscape (offline, no ads).
 // Note: keep this in one place so it’s easy to swap tracks later.
@@ -17,9 +18,54 @@ const DEFAULT_SOUNDSCAPE_SOURCE = require('../../assets/audio/soundscapes/Sleep 
 /**
  * Offline, ad-free soundscape loop (bundled asset).
  */
-export async function startSoundscapeLoop(opts?: { volume?: number }) {
+export async function preloadSoundscape() {
   const opId = ++opCounter;
   pendingStop = false;
+
+  if (status === 'loading' || status === 'playing' || status === 'ready') {
+    return;
+  }
+  if (sound) {
+    status = 'ready';
+    return;
+  }
+
+  status = 'loading';
+  try {
+    await ensureAudioMode();
+    const created = await Audio.Sound.createAsync(
+      DEFAULT_SOUNDSCAPE_SOURCE,
+      { isLooping: true, volume: 0, shouldPlay: false },
+    );
+    sound = created.sound;
+    status = 'ready';
+
+    if (pendingStop) {
+      await stopSoundscapeLoop({ unload: true });
+      return;
+    }
+
+    lastAppliedVolume = 0;
+    // Ensure the op hasn't been superseded.
+    if (opId !== opCounter) return;
+  } catch (e) {
+    status = 'error';
+    try {
+      await sound?.unloadAsync();
+    } catch {
+      // ignore
+    }
+    sound = null;
+    throw e;
+  }
+}
+
+export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: number }) {
+  const opId = ++opCounter;
+  pendingStop = false;
+  const fadeInMs = typeof opts?.fadeInMs === 'number' && Number.isFinite(opts.fadeInMs)
+    ? Math.max(0, Math.round(opts.fadeInMs))
+    : 250;
 
   if (typeof opts?.volume === 'number' && Number.isFinite(opts.volume)) {
     currentVolume = clamp(opts.volume, 0, 1);
@@ -37,23 +83,30 @@ export async function startSoundscapeLoop(opts?: { volume?: number }) {
     return;
   }
 
-  status = 'loading';
   try {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      allowsRecordingIOS: false,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-    });
+    // If we already have a loaded sound, start it immediately.
+    if (!sound || (status !== 'ready' && status !== 'stopped' && status !== 'idle' && status !== 'error')) {
+      await preloadSoundscape();
+    }
 
-    const created = await Audio.Sound.createAsync(
-      DEFAULT_SOUNDSCAPE_SOURCE,
-      // Start at 0 and fade in so it feels intentional and premium.
-      { isLooping: true, volume: 0, shouldPlay: true },
-    );
+    if (!sound) {
+      status = 'error';
+      throw new Error('Soundscape failed to load');
+    }
 
-    sound = created.sound;
     status = 'playing';
+    try {
+      await sound.setIsLoopingAsync(true);
+    } catch {
+      // best-effort
+    }
+    try {
+      await sound.playAsync();
+    } catch {
+      // If play fails, fall back to a full reload next time.
+      status = 'error';
+      throw new Error('Soundscape failed to start playback');
+    }
 
     // If the user turned soundscape off (or ended Focus) while we were loading,
     // ensure we don't start playing after the fact.
@@ -63,7 +116,7 @@ export async function startSoundscapeLoop(opts?: { volume?: number }) {
     }
 
     lastAppliedVolume = 0;
-    await fadeToVolume(sound, 0, currentVolume, 900, opId);
+    await fadeToVolume(sound, 0, currentVolume, fadeInMs, opId);
     lastAppliedVolume = currentVolume;
   } catch (e) {
     status = 'error';
@@ -77,19 +130,20 @@ export async function startSoundscapeLoop(opts?: { volume?: number }) {
   }
 }
 
-export async function stopSoundscapeLoop() {
+export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
   const opId = ++opCounter;
   pendingStop = true;
+  const unload = Boolean(opts?.unload);
 
   // If we're loading but haven't created the Sound instance yet, mark stopped now.
   // The start flow checks `pendingStop` after load and will shut down immediately.
   if (status === 'loading' && !sound) {
-    status = 'stopped';
+    status = unload ? 'stopped' : 'idle';
     return;
   }
 
   if (!sound) {
-    status = 'stopped';
+    status = unload ? 'stopped' : 'idle';
     return;
   }
 
@@ -99,18 +153,30 @@ export async function stopSoundscapeLoop() {
   } catch {
     // best effort
   }
-  try {
-    await sound.stopAsync();
-  } catch {
-    // ignore
+
+  if (unload) {
+    try {
+      await sound.stopAsync();
+    } catch {
+      // ignore
+    }
+    try {
+      await sound.unloadAsync();
+    } catch {
+      // ignore
+    }
+    sound = null;
+    status = 'stopped';
+  } else {
+    // Keep the asset loaded so turning sound back on feels instant.
+    try {
+      await sound.pauseAsync();
+    } catch {
+      // ignore
+    }
+    status = 'ready';
   }
-  try {
-    await sound.unloadAsync();
-  } catch {
-    // ignore
-  }
-  sound = null;
-  status = 'stopped';
+
   pendingStop = false;
   lastAppliedVolume = 0;
 }
@@ -121,6 +187,17 @@ export function getSoundscapeStatus(): SoundscapeStatus {
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
+}
+
+async function ensureAudioMode() {
+  if (audioModeConfigured) return;
+  await Audio.setAudioModeAsync({
+    playsInSilentModeIOS: true,
+    allowsRecordingIOS: false,
+    staysActiveInBackground: false,
+    shouldDuckAndroid: true,
+  });
+  audioModeConfigured = true;
 }
 
 async function fadeToVolume(

@@ -9,6 +9,7 @@ import { AnalyticsEvent } from './analytics/events';
 import {
   markActivityReminderCancelled,
   saveDailyShowUpLedger,
+  saveDailyFocusLedger,
   upsertActivityReminderSchedule,
 } from './notifications/NotificationDeliveryLedger';
 import {
@@ -18,7 +19,7 @@ import {
 
 type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted';
 
-type NotificationType = 'activityReminder' | 'dailyShowUp' | 'streak' | 'reactivation';
+type NotificationType = 'activityReminder' | 'dailyShowUp' | 'dailyFocus' | 'streak' | 'reactivation';
 
 type ActivitySnapshot = Pick<Activity, 'id' | 'reminderAt' | 'status'>;
 
@@ -27,12 +28,14 @@ type NotificationPreferences = ReturnType<typeof useAppStore.getState>['notifica
 type NotificationData =
   | { type: 'activityReminder'; activityId: string }
   | { type: 'dailyShowUp' }
+  | { type: 'dailyFocus' }
   | { type: 'streak' }
   | { type: 'reactivation' };
 
 // Local in-memory map of scheduled notification ids, hydrated on init.
 const activityNotificationIds = new Map<string, string>();
 let dailyShowUpNotificationId: string | null = null;
+let dailyFocusNotificationId: string | null = null;
 
 let isInitialized = false;
 let hasAttachedStoreSubscription = false;
@@ -96,12 +99,22 @@ async function hydrateScheduledNotifications() {
       if (data && data.type === 'dailyShowUp') {
         dailyShowUpNotificationId = request.identifier;
       }
+      if (data && data.type === 'dailyFocus') {
+        dailyFocusNotificationId = request.identifier;
+      }
     });
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to hydrate scheduled notifications', error);
     }
   }
+}
+
+function localDateKey(date: Date): string {
+  const y = String(date.getFullYear());
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function shouldScheduleNotificationsForActivity(
@@ -314,6 +327,107 @@ async function cancelDailyShowUpInternal() {
   }
 }
 
+async function scheduleDailyFocusInternal(time: string, prefs: NotificationPreferences) {
+  if (!prefs.notificationsEnabled || !prefs.allowDailyFocus) {
+    return;
+  }
+  if (prefs.osPermissionStatus !== 'authorized') {
+    return;
+  }
+
+  const state = useAppStore.getState();
+  const todayKey = localDateKey(new Date());
+  const alreadyCompletedFocusToday = state.lastCompletedFocusSessionDate === todayKey;
+
+  const [hourString, minuteString] = time.split(':');
+  const hour = Number.parseInt(hourString ?? '8', 10);
+  const minute = Number.parseInt(minuteString ?? '0', 10);
+
+  const now = new Date();
+  const fireAt = new Date(now);
+  fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+
+  // If the user already completed Focus today, schedule tomorrow.
+  // If today’s time has already passed, schedule tomorrow.
+  if (alreadyCompletedFocusToday || fireAt.getTime() <= now.getTime()) {
+    fireAt.setDate(fireAt.getDate() + 1);
+  }
+
+  // Cancel any existing daily focus notification before scheduling a new one.
+  if (dailyFocusNotificationId) {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(dailyFocusNotificationId);
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'dailyFocus',
+        notification_id: dailyFocusNotificationId,
+        reason: 'reschedule',
+      });
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[notifications] failed to cancel previous daily focus notification', {
+          error,
+        });
+      }
+    }
+    dailyFocusNotificationId = null;
+  }
+
+  try {
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Finish one focus session today',
+        body:
+          'Complete one full timer—earn clarity now, and build momentum that makes tomorrow easier.',
+        data: {
+          type: 'dailyFocus',
+        } satisfies NotificationData,
+      },
+      // One-shot (we reschedule). This lets us avoid nudging after Focus is already completed today.
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireAt,
+      },
+    });
+    dailyFocusNotificationId = identifier;
+    track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+      notification_type: 'dailyFocus',
+      notification_id: identifier,
+      scheduled_for: fireAt.toISOString(),
+      schedule_time_local: time,
+    });
+    await saveDailyFocusLedger({
+      notificationId: identifier,
+      scheduleTimeLocal: time,
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to schedule daily focus notification', { error });
+    }
+  }
+}
+
+async function cancelDailyFocusInternal() {
+  if (!dailyFocusNotificationId) return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(dailyFocusNotificationId);
+    track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+      notification_type: 'dailyFocus',
+      notification_id: dailyFocusNotificationId,
+      reason: 'explicit_cancel',
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to cancel daily focus notification', { error });
+    }
+  } finally {
+    await saveDailyFocusLedger({
+      notificationId: null,
+      scheduleTimeLocal: null,
+    }).catch(() => undefined);
+    dailyFocusNotificationId = null;
+  }
+}
+
 function attachStoreSubscription() {
   if (hasAttachedStoreSubscription) {
     return;
@@ -328,6 +442,15 @@ function attachStoreSubscription() {
       status: activity.status,
     }));
 
+  const initial = useAppStore.getState();
+  let prevFocusDateKey = initial.lastCompletedFocusSessionDate;
+  let prevFocusPrefKey = JSON.stringify({
+    notificationsEnabled: initial.notificationPreferences.notificationsEnabled,
+    allowDailyFocus: initial.notificationPreferences.allowDailyFocus,
+    dailyFocusTime: initial.notificationPreferences.dailyFocusTime,
+    osPermissionStatus: initial.notificationPreferences.osPermissionStatus,
+  });
+
   useAppStore.subscribe((state) => {
     const nextActivities: ActivitySnapshot[] = state.activities.map((activity) => ({
       id: activity.id,
@@ -336,6 +459,35 @@ function attachStoreSubscription() {
     }));
 
     const prefs = state.notificationPreferences;
+
+    // Keep the one-shot daily focus nudge aligned with:
+    // - preference toggle/time changes
+    // - OS permission changes
+    // - completing Focus today (so we can reschedule for tomorrow)
+    const nextFocusPrefKey = JSON.stringify({
+      notificationsEnabled: prefs.notificationsEnabled,
+      allowDailyFocus: prefs.allowDailyFocus,
+      dailyFocusTime: prefs.dailyFocusTime,
+      osPermissionStatus: prefs.osPermissionStatus,
+    });
+    const focusDateChanged = prevFocusDateKey !== state.lastCompletedFocusSessionDate;
+    const focusPrefsChanged = prevFocusPrefKey !== nextFocusPrefKey;
+    if (focusDateChanged || focusPrefsChanged) {
+      prevFocusDateKey = state.lastCompletedFocusSessionDate;
+      prevFocusPrefKey = nextFocusPrefKey;
+      const allowDailyFocus = prefs.allowDailyFocus;
+      const dailyFocusTime = prefs.dailyFocusTime;
+      if (
+        !prefs.notificationsEnabled ||
+        !allowDailyFocus ||
+        !dailyFocusTime ||
+        prefs.osPermissionStatus !== 'authorized'
+      ) {
+        void cancelDailyFocusInternal();
+      } else {
+        void scheduleDailyFocusInternal(dailyFocusTime, prefs);
+      }
+    }
 
     const prevById = new Map(prevActivities.map((a) => [a.id, a]));
     const nextById = new Map(nextActivities.map((a) => [a.id, a]));
@@ -427,6 +579,20 @@ function attachNotificationResponseListener() {
           return;
         }
         // For now, land on the Activities list as the primary daily canvas.
+        rootNavigationRef.navigate('Activities', {
+          screen: 'ActivitiesList',
+        });
+        break;
+      }
+      case 'dailyFocus': {
+        const state = useAppStore.getState();
+        const todayKey = localDateKey(new Date());
+        if (state.lastCompletedFocusSessionDate === todayKey) {
+          return;
+        }
+        if (!rootNavigationRef.isReady()) {
+          return;
+        }
         rootNavigationRef.navigate('Activities', {
           screen: 'ActivitiesList',
         });
@@ -545,6 +711,12 @@ export const NotificationService = {
     isInitialized = true;
     await syncOsPermissionStatus();
     await hydrateScheduledNotifications();
+    // Ensure daily focus is scheduled (one-shot) on launch as a fallback in case
+    // the previous day's notification already fired and background fetch didn't run.
+    const prefs = getPreferences();
+    if (prefs.notificationsEnabled && prefs.allowDailyFocus && prefs.dailyFocusTime) {
+      await scheduleDailyFocusInternal(prefs.dailyFocusTime, prefs);
+    }
     attachStoreSubscription();
     attachNotificationReceivedListener();
     attachNotificationResponseListener();
@@ -613,6 +785,15 @@ export const NotificationService = {
     await cancelDailyShowUpInternal();
   },
 
+  async scheduleDailyFocus(time: string) {
+    const prefs = getPreferences();
+    await scheduleDailyFocusInternal(time, prefs);
+  },
+
+  async cancelDailyFocus() {
+    await cancelDailyFocusInternal();
+  },
+
   /**
    * Apply new notification preferences. This is intended to be called from
    * settings screens. It updates the store and cleans up any scheduled
@@ -626,6 +807,7 @@ export const NotificationService = {
       const ids = Array.from(activityNotificationIds.keys());
       await Promise.all(ids.map((id) => cancelActivityReminderInternal(id)));
       await cancelDailyShowUpInternal();
+      await cancelDailyFocusInternal();
       return;
     }
 
@@ -650,6 +832,13 @@ export const NotificationService = {
       await cancelDailyShowUpInternal();
     } else {
       await scheduleDailyShowUpInternal(next.dailyShowUpTime, next);
+    }
+
+    // Daily focus
+    if (!next.allowDailyFocus || !next.dailyFocusTime) {
+      await cancelDailyFocusInternal();
+    } else {
+      await scheduleDailyFocusInternal(next.dailyFocusTime, next);
     }
   },
 
@@ -676,6 +865,13 @@ export const NotificationService = {
           title: 'Dev: Daily show-up test',
           body: 'This is a dev-mode daily show-up notification.',
           data: { type: 'dailyShowUp' satisfies NotificationData['type'] },
+        };
+        break;
+      case 'dailyFocus':
+        content = {
+          title: 'Dev: Daily focus test',
+          body: 'This is a dev-mode daily focus notification.',
+          data: { type: 'dailyFocus' satisfies NotificationData['type'] },
         };
         break;
       case 'streak':

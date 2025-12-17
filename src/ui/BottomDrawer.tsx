@@ -447,7 +447,7 @@ export function BottomDrawer({
           keyboardVerticalOffset={0}
           pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
         >
-          <Animated.View style={StyleSheet.absoluteFillObject}>
+          <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
               <Animated.View
                 style={[
@@ -501,7 +501,7 @@ export function BottomDrawer({
           style={styles.overlay}
           pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
         >
-          <Animated.View style={StyleSheet.absoluteFillObject}>
+          <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
               <Animated.View
                 style={[

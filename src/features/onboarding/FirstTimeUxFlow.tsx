@@ -158,6 +158,11 @@ export function FirstTimeUxFlow() {
               notificationsEnabled: true,
               allowDailyShowUp: true,
               dailyShowUpTime: currentPrefs.dailyShowUpTime ?? '08:00',
+                // Daily focus is a high-signal “one thing” nudge: default it on
+                // alongside the daily show-up reminder, using the same time.
+                allowDailyFocus: true,
+                dailyFocusTime:
+                  currentPrefs.dailyFocusTime ?? currentPrefs.dailyShowUpTime ?? '08:00',
               // Activity reminders are the most directly tied to “next step”.
               allowActivityReminders: true,
             };

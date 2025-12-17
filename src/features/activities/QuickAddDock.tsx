@@ -5,6 +5,7 @@ import { Keyboard, Platform, Pressable, StyleSheet, Text, View, type TextInput }
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Activity } from '../../domain/types';
 import { colors, spacing, typography } from '../../theme';
+import { fonts } from '../../theme/typography';
 import { cardElevation } from '../../theme/surfaces';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Icon } from '../../ui/Icon';
@@ -40,6 +41,9 @@ type QuickAddDockProps = {
   onPressDueDate: () => void;
   onPressRepeat: () => void;
   onPressEstimate: () => void;
+  onPressGenerateActivityTitle?: () => void;
+  isGeneratingActivityTitle?: boolean;
+  hasGeneratedActivityTitle?: boolean;
 
   /**
    * Reserve enough space so the last list rows can scroll above the dock.
@@ -64,6 +68,9 @@ export function QuickAddDock({
   onPressDueDate,
   onPressRepeat,
   onPressEstimate,
+  onPressGenerateActivityTitle,
+  isGeneratingActivityTitle,
+  hasGeneratedActivityTitle,
   onReservedHeightChange,
 }: QuickAddDockProps) {
   const insets = useSafeAreaInsets();
@@ -176,6 +183,8 @@ export function QuickAddDock({
               icon="refresh"
               variant={repeatRule ? 'primary' : 'secondary'}
             />
+          </ToolbarGroup>
+          <ToolbarGroup>
             <ToolbarButton
               accessibilityLabel="Set time estimate"
               onPress={onPressEstimate}
@@ -183,15 +192,40 @@ export function QuickAddDock({
               variant={estimateMinutes != null ? 'primary' : 'secondary'}
             />
           </ToolbarGroup>
+          <ToolbarGroup>
+            <ToolbarButton
+              accessibilityLabel={
+                'Generate activity suggestion'
+              }
+              onPress={onPressGenerateActivityTitle}
+              disabled={Boolean(isGeneratingActivityTitle)}
+              icon="sparkles"
+              label="Suggest"
+              variant="secondary"
+            />
+          </ToolbarGroup>
         </Toolbar>
       </View>
     );
-  }, [estimateMinutes, onPressDueDate, onPressEstimate, onPressReminder, onPressRepeat, reminderAt, repeatRule, scheduledDate]);
+  }, [
+    estimateMinutes,
+    hasGeneratedActivityTitle,
+    isGeneratingActivityTitle,
+    onPressDueDate,
+    onPressEstimate,
+    onPressGenerateActivityTitle,
+    onPressReminder,
+    onPressRepeat,
+    reminderAt,
+    repeatRule,
+    scheduledDate,
+  ]);
 
   const effectiveKeyboardHeight =
     keyboardHeight > 0 ? keyboardHeight : isFocused ? lastKnownKeyboardHeightRef.current : 0;
   const composerHeight = measuredComposerHeight ?? QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX;
   const focusedDrawerHeight = Math.max(0, effectiveKeyboardHeight + composerHeight);
+  const canSubmit = value.trim().length > 0;
 
   return (
     <>
@@ -224,8 +258,8 @@ export function QuickAddDock({
                   style={styles.collapsedRowContent}
                 >
                   <HStack space="md" alignItems="center" style={{ flex: 1 }}>
-                    <View style={styles.collapsedLeftCircle}>
-                      <Icon name="plus" size={14} color={colors.textSecondary} />
+                    <View style={styles.collapsedLeftIconSlot}>
+                      <Icon name="plus" size={16} color={colors.textSecondary} />
                     </View>
                     <Text style={styles.collapsedPlaceholderText}>Add an activity</Text>
                   </HStack>
@@ -278,22 +312,36 @@ export function QuickAddDock({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Create activity"
-                    accessibilityState={{ disabled: value.trim().length === 0 }}
+                    accessibilityState={{ disabled: !canSubmit }}
                     onPress={() => {
-                      if (value.trim().length === 0) return;
+                      if (!canSubmit) return;
                       onSubmit();
                     }}
                     style={[
                       styles.affordance,
                       styles.affordanceIdle,
-                      value.trim().length === 0 ? styles.affordanceDisabled : null,
+                      !canSubmit ? styles.affordanceDisabled : null,
                     ]}
                   >
-                    <Icon
-                      name="plus"
-                      size={16}
-                      color={value.trim().length > 0 ? colors.accent : colors.textSecondary}
-                    />
+                    {hasGeneratedActivityTitle ? (
+                      <View style={styles.aiSuggestedAffordance}>
+                        <Icon
+                          name="sparkles"
+                          size={16}
+                          color={canSubmit ? colors.accent : colors.textSecondary}
+                        />
+                      </View>
+                    ) : (
+                      // Keep this as an "empty checkbox" affordance while composing (no completion signal).
+                      <View
+                        style={[
+                          styles.createCheckboxBase,
+                          styles.createCheckboxDisabled,
+                        ]}
+                      >
+                        {/* Intentionally no inner icon while composing */}
+                      </View>
+                    )}
                   </Pressable>
 
                   <Input
@@ -378,7 +426,7 @@ const styles = StyleSheet.create({
   collapsedInputShell: {
     width: '100%',
     backgroundColor: colors.canvas,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     // Keep it looking like an input, not a card.
@@ -392,13 +440,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  collapsedLeftCircle: {
+  collapsedLeftIconSlot: {
     width: 24,
     height: 24,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -410,6 +454,8 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
   },
   contentStack: {
     width: '100%',
@@ -422,10 +468,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     columnGap: spacing.sm,
     backgroundColor: colors.canvas,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     minHeight: 44,
   },
@@ -443,16 +489,48 @@ const styles = StyleSheet.create({
   affordanceDisabled: {
     opacity: 0.5,
   },
+  createCheckboxBase: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createCheckboxDisabled: {
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  createCheckboxEnabled: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
+  },
   inputContainer: {
     flex: 1,
   },
   input: {
     flex: 1,
     ...typography.body,
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    // Match ActivityListItem title metrics, but tune TextInput baseline so
+    // descenders never clip while remaining visually centered.
+    lineHeight: 22,
+    ...(Platform.OS === 'ios'
+      ? {
+          marginTop: 0,
+          paddingTop: 0,
+          paddingBottom: 1,
+          transform: [{ translateY: -1 }],
+        }
+      : null),
     color: colors.textPrimary,
+  },
+  aiSuggestedAffordance: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toolbar: {
     backgroundColor: 'transparent',
@@ -484,10 +562,12 @@ const styles = StyleSheet.create({
     // BottomDrawer provides a default shadow, but we override the sheet style,
     // so we need to explicitly re-apply elevation here.
     shadowColor: '#0F172A',
-    shadowOpacity: 0.22,
-    shadowRadius: 32,
-    shadowOffset: { width: 0, height: -10 },
-    elevation: 14,
+    // Keep this a touch lighter than a typical modal drawer since this sits inside the canvas
+    // and should not feel like a heavy overlay.
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 10,
     overflow: 'visible',
   },
   drawerHandleContainer: {

@@ -15,8 +15,15 @@ export type DailyShowUpLedger = {
   lastFiredDateKey?: string; // YYYY-MM-DD
 };
 
+export type DailyFocusLedger = {
+  notificationId: string | null;
+  scheduleTimeLocal: string | null;
+  lastFiredDateKey?: string; // YYYY-MM-DD (local)
+};
+
 const KEY_ACTIVITY_REMINDERS = 'kwilt.notifications.activityReminders.v1';
 const KEY_DAILY_SHOW_UP = 'kwilt.notifications.dailyShowUp.v1';
+const KEY_DAILY_FOCUS = 'kwilt.notifications.dailyFocus.v1';
 
 export async function loadActivityReminderLedger(): Promise<Record<string, ActivityReminderLedgerEntry>> {
   const raw = await AsyncStorage.getItem(KEY_ACTIVITY_REMINDERS);
@@ -88,6 +95,22 @@ export async function loadDailyShowUpLedger(): Promise<DailyShowUpLedger> {
 
 export async function saveDailyShowUpLedger(next: DailyShowUpLedger): Promise<void> {
   await AsyncStorage.setItem(KEY_DAILY_SHOW_UP, JSON.stringify(next));
+}
+
+export async function loadDailyFocusLedger(): Promise<DailyFocusLedger> {
+  const raw = await AsyncStorage.getItem(KEY_DAILY_FOCUS);
+  if (!raw) {
+    return { notificationId: null, scheduleTimeLocal: null };
+  }
+  try {
+    return JSON.parse(raw) as DailyFocusLedger;
+  } catch {
+    return { notificationId: null, scheduleTimeLocal: null };
+  }
+}
+
+export async function saveDailyFocusLedger(next: DailyFocusLedger): Promise<void> {
+  await AsyncStorage.setItem(KEY_DAILY_FOCUS, JSON.stringify(next));
 }
 
 

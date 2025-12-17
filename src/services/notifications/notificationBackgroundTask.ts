@@ -7,8 +7,10 @@ import { AnalyticsEvent } from '../analytics/events';
 import {
   deleteActivityReminderLedgerEntry,
   loadActivityReminderLedger,
+  loadDailyFocusLedger,
   loadDailyShowUpLedger,
   markActivityReminderFired,
+  saveDailyFocusLedger,
   saveDailyShowUpLedger,
 } from './NotificationDeliveryLedger';
 import { useAppStore } from '../../store/useAppStore';
@@ -17,6 +19,13 @@ export const NOTIFICATION_RECONCILE_TASK = 'kwilt-notification-reconcile-v1';
 
 function dateKeyNow(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function localDateKey(date: Date): string {
+  const y = String(date.getFullYear());
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function hasPassedLocalTime(scheduleTimeLocal: string, now: Date): boolean {
@@ -89,6 +98,106 @@ export async function reconcileNotificationsFiredEstimated(
           ...daily,
           scheduleTimeLocal: timeLocal,
           lastFiredDateKey: today,
+        });
+      }
+    }
+  }
+
+  // 3) Daily focus: one-shot notification we keep scheduled for the next occurrence.
+  if (prefs.notificationsEnabled && prefs.allowDailyFocus && prefs.osPermissionStatus === 'authorized') {
+    const focusLedger = await loadDailyFocusLedger();
+    const timeLocal = focusLedger.scheduleTimeLocal ?? prefs.dailyFocusTime ?? null;
+    if (timeLocal) {
+      const state = useAppStore.getState();
+      const todayLocal = localDateKey(now);
+      const completedToday = state.lastCompletedFocusSessionDate === todayLocal;
+
+      // Find any scheduled daily focus notifications.
+      const scheduledDailyFocus = scheduled.filter((req) => {
+        const data = req.content.data as any;
+        return data && data.type === 'dailyFocus';
+      });
+
+      // If focus is completed today, cancel any scheduled daily-focus nudges and schedule tomorrow.
+      if (completedToday) {
+        await Promise.all(
+          scheduledDailyFocus.map((req) =>
+            Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+          ),
+        );
+
+        const [h, m] = timeLocal.split(':');
+        const hour = Number.parseInt(h ?? '8', 10);
+        const minute = Number.parseInt(m ?? '0', 10);
+        const fireAt = new Date(now);
+        fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+        fireAt.setDate(fireAt.getDate() + 1);
+
+        const identifier = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Finish one focus session today',
+            body:
+              'Complete one full timer—earn clarity now, and build momentum that makes tomorrow easier.',
+            data: { type: 'dailyFocus' },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: fireAt,
+          },
+        });
+
+        await saveDailyFocusLedger({
+          notificationId: identifier,
+          scheduleTimeLocal: timeLocal,
+        });
+      } else {
+        // If nothing is scheduled, schedule the next occurrence (today if still upcoming; else tomorrow).
+        if (scheduledDailyFocus.length === 0) {
+          const [h, m] = timeLocal.split(':');
+          const hour = Number.parseInt(h ?? '8', 10);
+          const minute = Number.parseInt(m ?? '0', 10);
+          const fireAt = new Date(now);
+          fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+          if (fireAt.getTime() <= now.getTime()) {
+            fireAt.setDate(fireAt.getDate() + 1);
+          }
+
+          const identifier = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Finish one focus session today',
+              body:
+                'Complete one full timer—earn clarity now, and build momentum that makes tomorrow easier.',
+              data: { type: 'dailyFocus' },
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: fireAt,
+            },
+          });
+
+          await saveDailyFocusLedger({
+            notificationId: identifier,
+            scheduleTimeLocal: timeLocal,
+          });
+        }
+      }
+
+      // Best-effort: estimate "fired" once/day after the scheduled time.
+      const alreadyMarked = focusLedger.lastFiredDateKey === todayLocal;
+      if (!alreadyMarked && hasPassedLocalTime(timeLocal, now)) {
+        track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
+          notification_type: 'dailyFocus',
+          notification_id: focusLedger.notificationId ?? null,
+          date_key: todayLocal,
+          schedule_time_local: timeLocal,
+          detected_at: nowIso,
+          detection_source: source,
+        });
+
+        await saveDailyFocusLedger({
+          ...focusLedger,
+          scheduleTimeLocal: timeLocal,
+          lastFiredDateKey: todayLocal,
         });
       }
     }

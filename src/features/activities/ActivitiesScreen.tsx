@@ -38,7 +38,7 @@ import {
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
-import { enrichActivityWithAI } from '../../services/ai';
+import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
 import {
@@ -51,7 +51,7 @@ import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Coachmark } from '../../ui/Coachmark';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
-import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { buildActivityCoachLaunchContext, buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import type {
   Activity,
@@ -217,6 +217,9 @@ export function ActivitiesScreen() {
   const [isQuickAddFocused, setIsQuickAddFocused] = React.useState(false);
   const quickAddFocusedRef = React.useRef(false);
   const quickAddLastFocusAtRef = React.useRef<number>(0);
+  const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
+  const [hasQuickAddAiGenerated, setHasQuickAddAiGenerated] = React.useState(false);
+  const lastQuickAddAiTitleRef = React.useRef<string | null>(null);
   const [quickAddReminderAt, setQuickAddReminderAt] = React.useState<string | null>(null);
   const [quickAddScheduledDate, setQuickAddScheduledDate] = React.useState<string | null>(null);
   const [quickAddRepeatRule, setQuickAddRepeatRule] = React.useState<Activity['repeatRule']>(undefined);
@@ -419,6 +422,97 @@ export function ActivitiesScreen() {
     });
   }, []);
 
+  const normalizeQuickAddAiTitle = React.useCallback((raw: string): string | null => {
+    const firstLine = (raw ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0);
+    if (!firstLine) return null;
+
+    let title = firstLine;
+    title = title.replace(/^[\-\*\d]+[.)\s-]+/, '').trim();
+    title = title.replace(/^["'`]+/, '').replace(/["'`]+$/, '').trim();
+    title = title.replace(/[.!?]+$/, '').trim();
+    if (!title) return null;
+    if (title.length > 80) title = `${title.slice(0, 80).trim()}`;
+    return title.length > 0 ? title : null;
+  }, []);
+
+  const handleGenerateQuickAddActivityTitle = React.useCallback(async () => {
+    if (isQuickAddAiGenerating) return;
+    setIsQuickAddAiGenerating(true);
+
+    try {
+      const arcSnapshot = buildArcCoachLaunchContext(arcs, goals);
+      const activitySnapshot = buildActivityCoachLaunchContext(goals, activities, undefined, arcs);
+      const combinedSnapshot = [arcSnapshot, activitySnapshot].filter(Boolean).join('\n\n').trim();
+      const snapshot = combinedSnapshot.length > 8000 ? `${combinedSnapshot.slice(0, 7999)}…` : combinedSnapshot;
+
+      const launchContextSummary = [
+        'Launch source: activities_quick_add_toolbar',
+        'Intent: generate a single new Activity title to prefill the quick-add input.',
+        'Constraints: Output ONLY the Activity title as plain text on a single line. No quotes. No bullets. No numbering. No trailing punctuation.',
+        snapshot ? `\n${snapshot}` : '',
+      ].join('\n');
+
+      const turns: CoachChatTurn[] = [
+        {
+          role: 'system',
+          content:
+            'You are generating a single Activity title for the user.\n' +
+            '- Output MUST be exactly one line: the title only.\n' +
+            '- Keep it concrete and action-oriented (3–10 words).\n' +
+            '- Avoid duplicating existing activity titles from the workspace snapshot.\n' +
+            '- Do not include any explanation.',
+        },
+        {
+          role: 'user',
+          content:
+            'Suggest one new activity that fits the user’s current arcs and goals and complements existing activities.',
+        },
+      ];
+
+      const reply = await sendCoachChat(turns, { launchContextSummary });
+      const title = normalizeQuickAddAiTitle(reply);
+      if (!title) return;
+
+      setQuickAddTitle(title);
+      setHasQuickAddAiGenerated(true);
+      lastQuickAddAiTitleRef.current = title;
+      if (!quickAddFocusedRef.current) {
+        setIsQuickAddFocused(true);
+      }
+      requestAnimationFrame(() => {
+        quickAddInputRef.current?.focus();
+      });
+    } catch (err) {
+      if (__DEV__) {
+        console.warn('[ActivitiesScreen] Failed to generate quick-add activity title:', err);
+      }
+    } finally {
+      setIsQuickAddAiGenerating(false);
+    }
+  }, [
+    activities,
+    arcs,
+    goals,
+    isQuickAddAiGenerating,
+    normalizeQuickAddAiTitle,
+    setQuickAddTitle,
+  ]);
+
+  const handleQuickAddChangeText = React.useCallback(
+    (next: string) => {
+      setQuickAddTitle(next);
+      const lastAi = lastQuickAddAiTitleRef.current;
+      if (hasQuickAddAiGenerated && lastAi && next !== lastAi) {
+        setHasQuickAddAiGenerated(false);
+        lastQuickAddAiTitleRef.current = null;
+      }
+    },
+    [hasQuickAddAiGenerated],
+  );
+
   React.useEffect(() => {
     quickAddFocusedRef.current = isQuickAddFocused;
   }, [isQuickAddFocused]);
@@ -480,6 +574,8 @@ export function ActivitiesScreen() {
     setQuickAddScheduledDate(null);
     setQuickAddRepeatRule(undefined);
     setQuickAddEstimateMinutes(null);
+    setHasQuickAddAiGenerated(false);
+    lastQuickAddAiTitleRef.current = null;
     // Keep the keyboard up for rapid entry.
     requestAnimationFrame(() => {
       quickAddInputRef.current?.focus();
@@ -1117,7 +1213,7 @@ export function ActivitiesScreen() {
       </CanvasScrollView>
       <QuickAddDock
         value={quickAddTitle}
-        onChangeText={setQuickAddTitle}
+        onChangeText={handleQuickAddChangeText}
         inputRef={quickAddInputRef}
         isFocused={isQuickAddFocused}
         setIsFocused={(next) => {
@@ -1136,6 +1232,9 @@ export function ActivitiesScreen() {
         onPressDueDate={() => setQuickAddDueDateSheetVisible(true)}
         onPressRepeat={() => setQuickAddRepeatSheetVisible(true)}
         onPressEstimate={() => setQuickAddEstimateSheetVisible(true)}
+        onPressGenerateActivityTitle={handleGenerateQuickAddActivityTitle}
+        isGeneratingActivityTitle={isQuickAddAiGenerating}
+        hasGeneratedActivityTitle={hasQuickAddAiGenerated}
         onReservedHeightChange={setQuickAddReservedHeight}
       />
       <BottomDrawer

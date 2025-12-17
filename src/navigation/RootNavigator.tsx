@@ -14,7 +14,7 @@ import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@
 import {
   createDrawerNavigator,
   DrawerContentScrollView,
-  DrawerItemList,
+  DrawerItem,
 } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, Pressable } from 'react-native';
@@ -36,6 +36,7 @@ import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 import { ArcTestingResultsPage } from '../features/dev/ArcTestingResultsPage';
 import { useAppStore } from '../store/useAppStore';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
+import { Badge } from '../ui/Badge';
 
 export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
@@ -488,40 +489,70 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
 function KwiltDrawerContent(props: any) {
   const insets = useSafeAreaInsets();
   const userProfile = useAppStore((state) => state.userProfile);
-  const displayName = userProfile?.fullName?.trim() || 'Your profile';
+  const arcs = useAppStore((state) => state.arcs);
+
+  const generatedNameFromFirstArc = (() => {
+    let firstArcName: string | null = null;
+    let firstArcCreatedAt: string | null = null;
+    for (const arc of arcs) {
+      const arcName = arc?.name?.trim();
+      if (!arcName) continue;
+      if (!firstArcCreatedAt || arc.createdAt < firstArcCreatedAt) {
+        firstArcCreatedAt = arc.createdAt;
+        firstArcName = arcName;
+      }
+    }
+    return firstArcName;
+  })();
+
+  const displayName = userProfile?.fullName?.trim() || generatedNameFromFirstArc || 'Kwilter';
+  const subscriptionLabel = 'Kwilt Free';
 
   // Hide the top-level Settings item from the drawer list while keeping the
   // Settings screen available for navigation from the profile row.
-  const filteredRoutes = props.state.routes.filter(
+  const activeRoute = props.state.routes[props.state.index];
+  const activeRouteName = activeRoute?.name as keyof RootDrawerParamList | undefined;
+
+  const devToolsRoute = props.state.routes.find((route: { name: string }) => route.name === 'DevTools');
+  const mainRoutes = props.state.routes.filter(
     (route: { name: string }) =>
       route.name !== 'Settings' &&
-      route.name !== 'DevArcTestingResults',
-  );
-  const filteredRouteNames = props.state.routeNames.filter(
-    (name: string) =>
-      name !== 'Settings' &&
-      name !== 'DevArcTestingResults',
+      route.name !== 'DevArcTestingResults' &&
+      route.name !== 'DevTools',
   );
 
-  // Keep the "focused" drawer item in sync with the *visible* routes.
-  // When the active route is the hidden Settings screen, we don't want any
-  // drawer item to appear focused; otherwise presses on DevTools would be
-  // treated as a no-op because the drawer thinks it's already selected.
-  const activeRoute = props.state.routes[props.state.index];
-  const filteredIndex = filteredRoutes.findIndex(
-    (route: { key: string }) => route.key === activeRoute?.key,
-  );
+  const navigateFromDrawer = (routeName: keyof RootDrawerParamList) => {
+    if (routeName === 'ArcsStack') {
+      props.navigation.navigate('ArcsStack', { screen: 'ArcsList' });
+      props.navigation.dispatch(DrawerActions.closeDrawer());
+      return;
+    }
 
-  const filteredState = {
-    ...props.state,
-    routes: filteredRoutes,
-    routeNames: filteredRouteNames,
-    // If the active route is hidden (i.e., Settings), filteredIndex will be -1.
-    // React Navigation's DrawerItemList expects `state.routes[state.index]` to
-    // always be defined, so we clamp the index to 0 in that case. This means
-    // the first visible item appears focused when Settings is active, which is
-    // preferable to a runtime crash.
-    index: filteredIndex === -1 ? 0 : filteredIndex,
+    if (routeName === 'Goals') {
+      props.navigation.navigate('Goals', { screen: 'GoalsList' });
+      props.navigation.dispatch(DrawerActions.closeDrawer());
+      return;
+    }
+
+    if (routeName === 'Activities') {
+      props.navigation.navigate('Activities', { screen: 'ActivitiesList' });
+      props.navigation.dispatch(DrawerActions.closeDrawer());
+      return;
+    }
+
+    props.navigation.navigate(routeName as any);
+    props.navigation.dispatch(DrawerActions.closeDrawer());
+  };
+
+  const getDrawerLabel = (route: { key: string; name: keyof RootDrawerParamList }) => {
+    const options = props.descriptors?.[route.key]?.options ?? {};
+    if (typeof options.drawerLabel === 'string' && options.drawerLabel.trim()) {
+      return options.drawerLabel.trim();
+    }
+    if (typeof options.title === 'string' && options.title.trim()) {
+      return options.title.trim();
+    }
+    return route.name;
   };
 
   return (
@@ -531,7 +562,9 @@ function KwiltDrawerContent(props: any) {
         styles.drawerContentContainer,
         {
           paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET,
-          paddingBottom: spacing.xl + insets.bottom,
+          // Keep the footer (Dev Mode + Profile) visually anchored to the bottom.
+          // Use minimal safe-area padding so it doesn't float upward.
+          paddingBottom: spacing.sm + insets.bottom,
         },
       ]}
     >
@@ -550,33 +583,79 @@ function KwiltDrawerContent(props: any) {
         />
       </View>
       */}
-      <View style={styles.drawerMain}>
-        <DrawerItemList
-          {...props}
-          state={filteredState}
-        />
-      </View>
-      <View style={styles.drawerFooter}>
-        <Pressable
-          style={styles.profileRow}
-          accessibilityRole="button"
-          accessibilityLabel="View profile and settings"
-          onPress={() => {
-            props.navigation.navigate('Settings');
-          }}
-        >
-          <ProfileAvatar
-            name={userProfile?.fullName}
-            avatarUrl={userProfile?.avatarUrl}
-            size={36}
-            borderRadius={18}
-            style={styles.avatarPlaceholder}
-          />
-          <View>
-            <Text style={styles.profileName}>{displayName}</Text>
-            <Text style={styles.profileSubtitle}>View profile & settings</Text>
+      <View style={styles.drawerLayout}>
+        <View style={styles.drawerTop}>
+          <View style={styles.drawerMainItems}>
+            {mainRoutes.map((route: { key: string; name: keyof RootDrawerParamList }) => {
+              const focused = route.key === activeRoute?.key;
+              const label = getDrawerLabel(route);
+              const iconName = getDrawerIcon(route.name);
+
+              return (
+                <DrawerItem
+                  key={route.key}
+                  label={label}
+                  focused={focused}
+                  onPress={() => navigateFromDrawer(route.name)}
+                  icon={({ color, size }) => (
+                    <Icon name={iconName} color={color} size={size ?? 20} />
+                  )}
+                  activeTintColor={colors.accent}
+                  inactiveTintColor={colors.textSecondary}
+                  activeBackgroundColor={colors.pine100}
+                  inactiveBackgroundColor="transparent"
+                  labelStyle={styles.drawerLabel}
+                  style={styles.drawerItem}
+                />
+              );
+            })}
           </View>
-        </Pressable>
+        </View>
+
+        <View style={styles.drawerBottom}>
+          {!!devToolsRoute && (
+            <DrawerItem
+              label={getDrawerLabel(devToolsRoute)}
+              focused={activeRouteName === 'DevTools'}
+              onPress={() => navigateFromDrawer('DevTools')}
+              icon={({ color, size }) => (
+                <Icon name={getDrawerIcon('DevTools')} color={color} size={size ?? 20} />
+              )}
+              activeTintColor={colors.accent}
+              inactiveTintColor={colors.textSecondary}
+              activeBackgroundColor={colors.pine100}
+              inactiveBackgroundColor="transparent"
+              labelStyle={styles.drawerLabel}
+              style={styles.drawerItem}
+            />
+          )}
+
+          <Pressable
+            style={styles.profileRow}
+            accessibilityRole="button"
+            accessibilityLabel="View profile and settings"
+            onPress={() => {
+              props.navigation.navigate('Settings');
+              props.navigation.dispatch(DrawerActions.closeDrawer());
+            }}
+          >
+            <ProfileAvatar
+              name={displayName}
+              avatarUrl={userProfile?.avatarUrl}
+              size={36}
+              borderRadius={18}
+              style={styles.avatarPlaceholder}
+            />
+            <View style={styles.profileTextBlock}>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {displayName}
+              </Text>
+              <Badge variant="secondary" style={styles.subscriptionBadge}>
+                {subscriptionLabel}
+              </Badge>
+            </View>
+          </Pressable>
+        </View>
       </View>
     </DrawerContentScrollView>
   );
@@ -584,7 +663,9 @@ function KwiltDrawerContent(props: any) {
 
 const styles = StyleSheet.create({
   drawerContentContainer: {
-    flex: 1,
+    // DrawerContentScrollView uses contentContainerStyle; `flexGrow` is the
+    // reliable way to make the content fill the viewport height.
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
   },
   drawerHeader: {
@@ -592,19 +673,26 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
   },
-  drawerMain: {
+  drawerLayout: {
     flex: 1,
-    paddingBottom: spacing.lg,
+    justifyContent: 'space-between',
   },
-  drawerFooter: {
+  drawerTop: {
+    flex: 1,
+  },
+  drawerMainItems: {
     paddingTop: spacing.lg,
-    marginTop: spacing.lg,
-    marginBottom: spacing.lg,
+  },
+  drawerBottom: {
+    // Keep this section tight so it sits lower in the drawer.
+    paddingTop: spacing.md,
+    marginTop: spacing.md,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    paddingVertical: spacing.sm,
   },
   avatarPlaceholder: {
     width: 36,
@@ -612,13 +700,25 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.shell,
   },
+  profileTextBlock: {
+    flex: 1,
+  },
   profileName: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.textPrimary,
   },
-  profileSubtitle: {
+  subscriptionBadge: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs / 2,
+  },
+  drawerItem: {
+    borderRadius: 12,
+    marginVertical: spacing.xs / 4,
+    paddingVertical: spacing.xs / 8,
+    minHeight: 32,
+  },
+  drawerLabel: {
     ...typography.bodySm,
-    color: colors.textSecondary,
   },
 });
 

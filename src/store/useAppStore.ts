@@ -89,6 +89,8 @@ interface AppState {
     allowActivityReminders: boolean;
     allowDailyShowUp: boolean;
     dailyShowUpTime: string | null;
+    allowDailyFocus: boolean;
+    dailyFocusTime: string | null;
     allowStreakAndReactivation: boolean;
   };
   /**
@@ -106,6 +108,15 @@ interface AppState {
   lastShowUpDate: string | null;
   currentShowUpStreak: number;
   lastActiveDate: string | null;
+  /**
+   * Focus mode streak: counts days where the user completes at least one *full*
+   * Focus session (timer reaches zero). This is independent from "show up".
+   *
+   * Dates are stored as local calendar keys: YYYY-MM-DD (local time).
+   */
+  lastCompletedFocusSessionDate: string | null;
+  currentFocusStreak: number;
+  bestFocusStreak: number;
   /**
    * When set, this is the goal that was most recently created by the
    * first-time onboarding flow so we can land the user directly on it.
@@ -228,9 +239,15 @@ interface AppState {
    */
   recordShowUp: () => void;
   /**
+   * Record that the user completed a full Focus session (timer reached 0).
+   * Updates the daily Focus streak (at most once per calendar day).
+   */
+  recordCompletedFocusSession: (params?: { completedAtMs?: number }) => void;
+  /**
    * Explicitly reset the show-up streak (used by future engagement flows).
    */
   resetShowUpStreak: () => void;
+  resetFocusStreak: () => void;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -274,6 +291,21 @@ interface AppState {
 
 const now = () => new Date().toISOString();
 const createAgentActionId = () => `agent-action-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+
+const localDateKey = (date: Date) => {
+  const y = String(date.getFullYear());
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const parseLocalDateKey = (key: string) => {
+  const parts = key.split('-').map((p) => Math.floor(Number(p)));
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts;
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(y, m - 1, d);
+};
 
 // Prefer the explicit `environment` value wired through `app.config.ts`. When that
 // isn't available at runtime (for example, in certain standalone/TestFlight builds),
@@ -387,6 +419,8 @@ export const useAppStore = create(
         allowActivityReminders: false,
         allowDailyShowUp: false,
         dailyShowUpTime: null,
+        allowDailyFocus: false,
+        dailyFocusTime: null,
         allowStreakAndReactivation: false,
       },
       lastFocusMinutes: null,
@@ -394,6 +428,9 @@ export const useAppStore = create(
       lastShowUpDate: null,
       currentShowUpStreak: 0,
       lastActiveDate: null,
+      lastCompletedFocusSessionDate: null,
+      currentFocusStreak: 0,
+      bestFocusStreak: 0,
       activityViews: initialActivityViews,
       activeActivityViewId: 'default',
       goalRecommendations: {},
@@ -700,11 +737,71 @@ export const useAppStore = create(
             lastActiveDate: nowDate.toISOString(),
           };
         }),
+      recordCompletedFocusSession: (params) =>
+        set((state) => {
+          const completedAtMs = params?.completedAtMs;
+          const nowDate =
+            typeof completedAtMs === 'number' && Number.isFinite(completedAtMs)
+              ? new Date(completedAtMs)
+              : new Date();
+
+          const todayKey = localDateKey(nowDate);
+          const prevKey = state.lastCompletedFocusSessionDate;
+          const prevStreak = state.currentFocusStreak ?? 0;
+
+          if (prevKey === todayKey) {
+            // Already counted today.
+            return {
+              ...state,
+              lastActiveDate: state.lastActiveDate ?? nowDate.toISOString(),
+            };
+          }
+
+          let nextStreak = 1;
+          if (prevKey) {
+            const prevDate = parseLocalDateKey(prevKey);
+            if (prevDate) {
+              const startOfPrev = new Date(
+                prevDate.getFullYear(),
+                prevDate.getMonth(),
+                prevDate.getDate(),
+              );
+              const startOfToday = new Date(
+                nowDate.getFullYear(),
+                nowDate.getMonth(),
+                nowDate.getDate(),
+              );
+              const diffMs = startOfToday.getTime() - startOfPrev.getTime();
+              const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+              if (diffDays === 1) {
+                nextStreak = prevStreak + 1;
+              }
+            }
+          }
+
+          const prevBest = state.bestFocusStreak ?? 0;
+          const bestFocusStreak = Math.max(prevBest, nextStreak);
+
+          return {
+            ...state,
+            lastCompletedFocusSessionDate: todayKey,
+            currentFocusStreak: nextStreak,
+            bestFocusStreak,
+            lastActiveDate: nowDate.toISOString(),
+          };
+        }),
       resetShowUpStreak: () =>
         set((state) => ({
           ...state,
           lastShowUpDate: null,
           currentShowUpStreak: 0,
+        })),
+      resetFocusStreak: () =>
+        set((state) => ({
+          ...state,
+          lastCompletedFocusSessionDate: null,
+          currentFocusStreak: 0,
+          bestFocusStreak: 0,
         })),
       resetOnboardingAnswers: () =>
         set((state) => {
@@ -767,6 +864,12 @@ export const useAppStore = create(
           likedCelebrationGifs: [],
           agentHostActions: [],
           hasCompletedFirstTimeOnboarding: false,
+          lastShowUpDate: null,
+          currentShowUpStreak: 0,
+          lastActiveDate: null,
+          lastCompletedFocusSessionDate: null,
+          currentFocusStreak: 0,
+          bestFocusStreak: 0,
         }),
     }),
     {

@@ -28,7 +28,7 @@ const iconMap: Record<string, IconEntry> = {
   activities: { library: 'feather', name: 'list' },
   activity: { library: 'feather', name: 'activity' },
   // Planning / metadata affordances
-  estimate: { library: 'feather', name: 'clock' },
+  estimate: { library: 'ion', name: 'hourglass-outline' },
   difficulty: { library: 'feather', name: 'bar-chart-2' },
   // Arc identity narrative affordances
   identity: { library: 'feather', name: 'user' },
@@ -70,6 +70,7 @@ const iconMap: Record<string, IconEntry> = {
   thumbsDown: { library: 'feather', name: 'thumbs-down' },
   thumbsUp: { library: 'feather', name: 'thumbs-up' },
   sound: { library: 'feather', name: 'volume-2' },
+  soundOff: { library: 'feather', name: 'volume-x' },
   pause: { library: 'feather', name: 'pause' },
   play: { library: 'feather', name: 'play' },
   stop: { library: 'feather', name: 'square' },

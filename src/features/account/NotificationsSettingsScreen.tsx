@@ -21,6 +21,9 @@ export function NotificationsSettingsScreen() {
   const preferences = useAppStore((state) => state.notificationPreferences);
   const setPreferences = useAppStore((state) => state.setNotificationPreferences);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState<'dailyShowUp' | 'dailyFocus'>(
+    'dailyShowUp',
+  );
 
   const dailyShowUpTimeLabel = useMemo(() => {
     if (!preferences.dailyShowUpTime) {
@@ -36,6 +39,21 @@ export function NotificationsSettingsScreen() {
       minute: '2-digit',
     });
   }, [preferences.dailyShowUpTime]);
+
+  const dailyFocusTimeLabel = useMemo(() => {
+    if (!preferences.dailyFocusTime) {
+      return '8:00 AM';
+    }
+    const [hourString, minuteString] = preferences.dailyFocusTime.split(':');
+    const hour = Number.parseInt(hourString ?? '8', 10);
+    const minute = Number.parseInt(minuteString ?? '0', 10);
+    const date = new Date();
+    date.setHours(hour, minute, 0, 0);
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }, [preferences.dailyFocusTime]);
 
   const osStatusLabel = useMemo(() => {
     switch (preferences.osPermissionStatus) {
@@ -107,9 +125,31 @@ export function NotificationsSettingsScreen() {
     await NotificationService.applySettings(next);
   };
 
+  const handleToggleDailyFocus = async () => {
+    if (!preferences.notificationsEnabled || !preferences.allowDailyFocus) {
+      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+      if (!granted) {
+        return;
+      }
+    }
+    const nextAllow = !preferences.allowDailyFocus;
+    const nextTime = preferences.dailyFocusTime ?? preferences.dailyShowUpTime ?? '8:00';
+    const next = {
+      ...preferences,
+      notificationsEnabled: true,
+      allowDailyFocus: nextAllow,
+      dailyFocusTime: nextTime,
+    };
+    await NotificationService.applySettings(next);
+  };
+
   const getInitialTimeForPicker = () => {
-    if (preferences.dailyShowUpTime) {
-      const [hourString, minuteString] = preferences.dailyShowUpTime.split(':');
+    const raw =
+      timePickerTarget === 'dailyFocus'
+        ? preferences.dailyFocusTime
+        : preferences.dailyShowUpTime;
+    if (raw) {
+      const [hourString, minuteString] = raw.split(':');
       const hour = Number.parseInt(hourString ?? '8', 10);
       const minute = Number.parseInt(minuteString ?? '0', 10);
       const date = new Date();
@@ -131,12 +171,20 @@ export function NotificationsSettingsScreen() {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const time = `${hours}:${minutes}`;
-    const next = {
-      ...preferences,
-      notificationsEnabled: true,
-      allowDailyShowUp: true,
-      dailyShowUpTime: time,
-    };
+    const next =
+      timePickerTarget === 'dailyFocus'
+        ? {
+            ...preferences,
+            notificationsEnabled: true,
+            allowDailyFocus: true,
+            dailyFocusTime: time,
+          }
+        : {
+            ...preferences,
+            notificationsEnabled: true,
+            allowDailyShowUp: true,
+            dailyShowUpTime: time,
+          };
     await NotificationService.applySettings(next);
   };
 
@@ -259,7 +307,10 @@ export function NotificationsSettingsScreen() {
                   </Text>
                   {preferences.allowDailyShowUp && (
                     <Pressable
-                      onPress={() => setIsTimePickerVisible(true)}
+                      onPress={() => {
+                        setTimePickerTarget('dailyShowUp');
+                        setIsTimePickerVisible(true);
+                      }}
                       accessibilityRole="button"
                       accessibilityLabel="Change daily reminder time"
                     >
@@ -281,6 +332,54 @@ export function NotificationsSettingsScreen() {
                         styles.toggleThumb,
                         preferences.notificationsEnabled &&
                           preferences.allowDailyShowUp &&
+                          styles.toggleThumbOn,
+                      ]}
+                    />
+                  </View>
+                </HStack>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.row,
+                  pressed && styles.rowPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle daily focus reminder"
+                onPress={handleToggleDailyFocus}
+              >
+                <VStack flex={1}>
+                  <Text style={styles.rowTitle}>Daily focus session</Text>
+                  <Text style={styles.rowSubtitle}>
+                    A once-a-day nudge to finish one full Focus timer (clarity + momentum).
+                  </Text>
+                  {preferences.allowDailyFocus && (
+                    <Pressable
+                      onPress={() => {
+                        setTimePickerTarget('dailyFocus');
+                        setIsTimePickerVisible(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change daily focus reminder time"
+                    >
+                      <Text style={styles.timeLabel}>Time · {dailyFocusTimeLabel}</Text>
+                    </Pressable>
+                  )}
+                </VStack>
+                <HStack alignItems="center">
+                  <View
+                    style={[
+                      styles.toggle,
+                      preferences.notificationsEnabled &&
+                        preferences.allowDailyFocus &&
+                        styles.toggleOn,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        preferences.notificationsEnabled &&
+                          preferences.allowDailyFocus &&
                           styles.toggleThumbOn,
                       ]}
                     />

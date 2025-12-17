@@ -117,7 +117,18 @@ export const colors = {
   turmeric800: '#6F4512',
   turmeric900: '#52320C',
   turmeric: '#C58B2A', // alias for the base turmeric
-  madder: '#B35F4C', // Madder Rose – soft, earthy historical dye red
+  // Madder scale (soft, earthy historical dye red)
+  madder50: '#FBF2EF',
+  madder100: '#F7E2DC',
+  madder200: '#F0C6BA',
+  madder300: '#E5A493',
+  madder400: '#D27F6B',
+  madder500: '#C26B58',
+  madder600: '#B35F4C', // legacy `madder` value
+  madder700: '#944C3D',
+  madder800: '#7A3D32',
+  madder900: '#5A2B24',
+  madder: '#B35F4C', // alias for the legacy/base madder
   quiltBlue: '#6C8AA6', // Woad / weathered quilt blue, cool but worn-in
   clay: '#D9C8B8', // Clay Slip – neutral, grounding, unbleached-cotton/ceramic slip
   moss: '#4F5D47', // Moss Iron – vegetal green cut with soil
