@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  InputAccessoryView,
-  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -9,12 +7,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { BottomDrawer } from './BottomDrawer';
 import { Icon } from './Icon';
 import { Toolbar, ToolbarButton, ToolbarGroup } from './Toolbar';
+import { EditorSurface, EditorHeader } from './EditorSurface';
 
 type AiHelpContext = {
   objectType: 'arc' | 'goal' | 'activity' | 'chapter';
@@ -29,6 +26,11 @@ export type LongTextFieldProps = {
   onChange: (next: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /**
+   * When true, hides the small label rendered above the read-surface.
+   * Useful when the parent already renders a section label (e.g., Activity Detail).
+   */
+  hideLabel?: boolean;
   /**
    * Drawer snap points for the editor. Defaults to a large editor surface.
    */
@@ -57,21 +59,19 @@ export function LongTextField({
   onChange,
   placeholder = 'Tap to add details',
   disabled,
+  hideLabel = false,
   snapPoints = ['92%'],
   autosaveDebounceMs = 500,
   enableAi,
   onRequestAiHelp,
   aiContext,
 }: LongTextFieldProps) {
-  const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
   const [editorVisible, setEditorVisible] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<TextInput | null>(null);
   const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCommittedRef = useRef<string>(value);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Keep track of external updates when NOT editing.
   useEffect(() => {
@@ -80,27 +80,6 @@ export function LongTextField({
     lastCommittedRef.current = value;
   }, [editorVisible, value]);
 
-  useEffect(() => {
-    if (!editorVisible) {
-      setKeyboardHeight(0);
-      return;
-    }
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const onShow = (e: any) => {
-      const next = e?.endCoordinates?.height ?? 0;
-      setKeyboardHeight(next);
-    };
-    const onHide = () => setKeyboardHeight(0);
-
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [editorVisible]);
 
   const flush = (next: string) => {
     if (debounceTimerRef.current) {
@@ -144,26 +123,7 @@ export function LongTextField({
     flush(draft);
   };
 
-  const KEYBOARD_CLEARANCE = 14;
   const accessoryId = useMemo(() => `kwilt-longtext-accessory-${label.replace(/\s+/g, '-')}`, [label]);
-
-  const editorBottomInset = useMemo(() => {
-    // Keep the editor surface tall (don’t “shrink” the body when the keyboard is up).
-    // We handle keyboard clearance via extra *internal* padding in the TextInput instead.
-    return spacing.sm + insets.bottom;
-  }, [insets.bottom]);
-
-  const editorTopInset = useMemo(() => {
-    // Make the editor feel like a dedicated writing surface (less cramped).
-    return spacing.lg;
-  }, []);
-
-  const inputBottomPadding = useMemo(() => {
-    const base = spacing.sm + insets.bottom;
-    if (keyboardHeight <= 0) return base;
-    // Add internal scroll padding so the caret can scroll above the keyboard.
-    return base + keyboardHeight + KEYBOARD_CLEARANCE;
-  }, [insets.bottom, keyboardHeight]);
 
   const showAi = Boolean(enableAi && onRequestAiHelp && aiContext);
 
@@ -251,16 +211,9 @@ export function LongTextField({
     applyReplace(next, { start: urlStart, end: urlEnd });
   };
 
-  const renderAccessoryBar = (opts: { attachToKeyboard: boolean }) => {
-    const { attachToKeyboard } = opts;
+  const renderToolbar = () => {
     return (
-      <View
-        style={[
-          styles.accessoryBarContainer,
-          // IMPORTANT: don't force a fixed height on iOS InputAccessoryView.
-          // A fixed height tends to clip pill shadows and sometimes the glyphs themselves.
-        ]}
-      >
+      <View style={styles.accessoryBarContainer}>
         <Toolbar style={styles.toolbarFloating} center>
           <ToolbarGroup>
             <ToolbarButton
@@ -317,9 +270,11 @@ export function LongTextField({
 
   return (
     <View style={styles.container}>
-      <View style={styles.labelRow}>
-        <Text style={[styles.label, disabled && styles.labelDisabled]}>{label}</Text>
-      </View>
+      {!hideLabel ? (
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, disabled && styles.labelDisabled]}>{label}</Text>
+        </View>
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -356,64 +311,54 @@ export function LongTextField({
         handleStyle={{ width: 0, height: 0, opacity: 0 }}
         // Avoid double keyboard handling:
         // - BottomDrawer's KeyboardAvoidingView lifts the whole sheet
-        // - KeyboardAwareScrollView pads for keyboard height + scrolls focused input
+        // - EditorSurface handles keyboard height tracking and padding internally
         // Using both can create large "dead space" and janky scroll.
         keyboardAvoidanceEnabled={false}
       >
-        <View style={styles.editorRoot}>
-          {/* Pinned header (Notes-style) */}
-          <View style={styles.editorHeader}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {label}
-              </Text>
-            </View>
-
-            <View style={styles.headerCenter} />
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Done"
-              onPress={closeEditor}
-              hitSlop={8}
-              style={[styles.headerRight, { alignItems: 'flex-end' }]}
-            >
-              <Text style={styles.headerActionText}>Done</Text>
-            </Pressable>
-          </View>
-
-          {/* Body */}
-          <View style={[styles.editorBody, { paddingTop: editorTopInset, paddingBottom: editorBottomInset }]}>
-            <TextInput
-              ref={inputRef}
-              value={draft}
-              onChangeText={setDraft}
-              placeholder={placeholder}
-              placeholderTextColor={colors.muted}
-              multiline
-              scrollEnabled
-              textAlignVertical="top"
-              style={[styles.editorTextInput, { paddingBottom: inputBottomPadding }]}
-              inputAccessoryViewID={Platform.OS === 'ios' ? accessoryId : undefined}
-              selection={selection}
-              onSelectionChange={(e) => {
-                const next = e.nativeEvent.selection;
-                setSelection(next);
-              }}
+        <EditorSurface
+          visible={editorVisible}
+          accessoryId={accessoryId}
+          header={
+            <EditorHeader
+              left={
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  {label}
+                </Text>
+              }
+              right={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Done"
+                  onPress={closeEditor}
+                  hitSlop={8}
+                  style={{ alignItems: 'flex-end' }}
+                >
+                  <Text style={styles.headerActionText}>Done</Text>
+                </Pressable>
+              }
             />
-          </View>
-
-          {/* Keyboard accessory toolbar */}
-          {Platform.OS === 'ios' ? (
-            <InputAccessoryView nativeID={accessoryId}>
-              {renderAccessoryBar({ attachToKeyboard: true })}
-            </InputAccessoryView>
-          ) : keyboardHeight > 0 ? (
-            <View style={[styles.accessoryAbsolute, { bottom: keyboardHeight }]}>
-              {renderAccessoryBar({ attachToKeyboard: false })}
-            </View>
-          ) : null}
-        </View>
+          }
+          toolbar={renderToolbar()}
+          bodyStyle={styles.editorBodyContent}
+        >
+          <TextInput
+            ref={inputRef}
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={placeholder}
+            placeholderTextColor={colors.muted}
+            multiline
+            scrollEnabled
+            textAlignVertical="top"
+            style={styles.editorTextInput}
+            inputAccessoryViewID={Platform.OS === 'ios' ? accessoryId : undefined}
+            selection={selection}
+            onSelectionChange={(e) => {
+              const next = e.nativeEvent.selection;
+              setSelection(next);
+            }}
+          />
+        </EditorSurface>
       </BottomDrawer>
     </View>
   );
@@ -459,32 +404,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.muted,
   },
-  editorRoot: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  editorHeader: {
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.canvas,
-  },
-  headerLeft: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerRight: {
-    width: 80,
-    justifyContent: 'center',
-  },
   headerTitle: {
     ...typography.label,
     color: colors.textPrimary,
@@ -493,8 +412,7 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.accent,
   },
-  editorBody: {
-    flex: 1,
+  editorBodyContent: {
     // Small padding around the actual copy area, like the reference.
     paddingHorizontal: spacing.sm,
   },
@@ -507,11 +425,6 @@ const styles = StyleSheet.create({
     // edge-to-edge white.
     paddingHorizontal: spacing.sm,
     paddingVertical: 0,
-  },
-  accessoryAbsolute: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
   },
   accessoryBarContainer: {
     backgroundColor: colors.canvas,

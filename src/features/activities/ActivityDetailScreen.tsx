@@ -29,13 +29,21 @@ import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
-import { VStack, HStack, Input, Textarea, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
+import {
+  VStack,
+  HStack,
+  Input,
+  ThreeColumnRow,
+  Combobox,
+  KeyboardAwareScrollView,
+} from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
+import { LongTextField } from '../../ui/LongTextField';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import {
@@ -181,7 +189,6 @@ export function ActivityDetailScreen() {
   const [titleDraft, setTitleDraft] = useState(activity?.title ?? '');
   const titleInputRef = useRef<TextInput | null>(null);
 
-  const [notesDraft, setNotesDraft] = useState(activity?.notes ?? '');
   const [tagsInputDraft, setTagsInputDraft] = useState('');
   const tagsInputRef = useRef<TextInput | null>(null);
   const [stepsDraft, setStepsDraft] = useState<ActivityStep[]>(activity?.steps ?? []);
@@ -823,20 +830,6 @@ export function ActivityDetailScreen() {
     setIsEditingTitle(false);
   };
 
-  const commitNotes = () => {
-    const next = notesDraft.trim();
-    const current = activity.notes ?? '';
-    if (next === current) {
-      return;
-    }
-    const timestamp = new Date().toISOString();
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      notes: next.length ? next : undefined,
-      updatedAt: timestamp,
-    }));
-  };
-
   const addTags = (raw: string | string[]) => {
     const incoming = Array.isArray(raw) ? raw : parseTags(raw);
     if (incoming.length === 0) return;
@@ -1330,7 +1323,6 @@ export function ActivityDetailScreen() {
 
   useEffect(() => {
     setTitleDraft(activity.title ?? '');
-    setNotesDraft(activity.notes ?? '');
     setTagsInputDraft('');
     setStepsDraft(activity.steps ?? []);
   }, [activity.title, activity.notes, activity.steps, activity.id]);
@@ -2112,26 +2104,23 @@ export function ActivityDetailScreen() {
             {/* 6) Notes */}
             <View style={styles.section}>
               <Text style={styles.inputLabel}>NOTES</Text>
-              <Textarea
-                value={notesDraft}
-                onChangeText={setNotesDraft}
-                onFocus={() => {
-                  handleAnyInputFocus();
-                  requestAnimationFrame(() => {
-                    scrollRef.current?.scrollToFocusedInput(KEYBOARD_CLEARANCE);
-                  });
-                }}
-                onBlur={() => {
-                  handleAnyInputBlur();
-                  commitNotes();
-                }}
+              <LongTextField
+                label="Notes"
+                hideLabel
+                value={activity.notes ?? ''}
                 placeholder="Add context or reminders for this activity."
-                multiline
-                variant="outline"
-                elevation="flat"
-                // Compact note field vs the larger default textarea spec.
-                multilineMinHeight={80}
-                multilineMaxHeight={180}
+                autosaveDebounceMs={900}
+                onChange={(next) => {
+                  const nextValue = next.trim().length ? next : '';
+                  const current = activity.notes ?? '';
+                  if (nextValue === current) return;
+                  const timestamp = new Date().toISOString();
+                  updateActivity(activity.id, (prev) => ({
+                    ...prev,
+                    notes: nextValue.length ? nextValue : undefined,
+                    updatedAt: timestamp,
+                  }));
+                }}
               />
             </View>
           </KeyboardAwareScrollView>

@@ -76,6 +76,7 @@ const InputBase = forwardRef<TextInput, Props>(
       onBlur,
       multiline = false,
       onContentSizeChange,
+      placeholderTextColor,
       ...rest
     },
     ref,
@@ -120,7 +121,7 @@ const InputBase = forwardRef<TextInput, Props>(
             ref={ref}
             editable={editable}
             multiline={multiline}
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={placeholderTextColor ?? colors.muted}
             onContentSizeChange={(
               event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
             ) => {
