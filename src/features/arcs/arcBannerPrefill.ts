@@ -1,11 +1,11 @@
-import type { Arc } from '../../domain/types';
+import type { Arc, FocusAreaId } from '../../domain/types';
 import { useAppStore } from '../../store/useAppStore';
 import { generateArcBannerVibeQuery } from '../../services/ai';
 import { searchUnsplashPhotos, UnsplashError } from '../../services/unsplash';
 import { pickHeroForArc } from './arcHeroSelector';
 
 type PrefillFallbackCuratedOptions = {
-  userFocusAreas?: string[] | undefined;
+  userFocusAreas?: FocusAreaId[] | undefined;
 };
 
 type EnsureArcBannerPrefillOptions = {

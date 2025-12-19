@@ -19,16 +19,32 @@ import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
 import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
+import { rootNavigationRef } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Dialog, VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
+import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
+import {
+  Dialog,
+  VStack,
+  Heading,
+  Text,
+  HStack,
+  EmptyState,
+  KeyboardAwareScrollView,
+} from '../../ui/primitives';
+import { LongTextField } from '../../ui/LongTextField';
+import { richTextToPlainText } from '../../ui/richText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
+import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { enrichActivityWithAI } from '../../services/ai';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -50,7 +66,6 @@ import {
 import type { ComboboxOption } from '../../ui/Combobox';
 import { Combobox } from '../../ui/Combobox';
 import { EditableField } from '../../ui/EditableField';
-import { EditableTextArea } from '../../ui/EditableTextArea';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
@@ -112,6 +127,7 @@ export function GoalDetailScreen() {
   const removeGoal = useAppStore((state) => state.removeGoal);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
+  const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const thumbnailStyles = useMemo<ThumbnailStyle[]>(() => {
     if (visuals?.thumbnailStyles && visuals.thumbnailStyles.length > 0) {
       return visuals.thumbnailStyles;
@@ -689,6 +705,7 @@ export function GoalDetailScreen() {
       id,
       goalId: goal.id,
       title: trimmedTitle,
+      tags: [],
       notes: values.notes?.trim().length ? values.notes.trim() : undefined,
       steps: [],
       reminderAt: null,
@@ -711,6 +728,65 @@ export function GoalDetailScreen() {
 
     addActivity(nextActivity);
     setActivityComposerVisible(false);
+
+    // Enrich activity with AI details asynchronously
+    enrichActivityWithAI({
+      title: trimmedTitle,
+      goalId: goal.id,
+      existingNotes: values.notes?.trim(),
+    })
+      .then((enrichment) => {
+        if (!enrichment) return;
+
+        const timestamp = new Date().toISOString();
+        updateActivity(nextActivity.id, (prev) => {
+          const updates: Partial<Activity> = {
+            updatedAt: timestamp,
+          };
+
+          // Only update fields that weren't already set by the user
+          if (enrichment.notes && !prev.notes) {
+            updates.notes = enrichment.notes;
+          }
+          if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
+            updates.tags = enrichment.tags;
+          }
+          if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
+            updates.steps = enrichment.steps.map((step, idx) => ({
+              id: `step-${nextActivity.id}-${idx}`,
+              title: step.title,
+              orderIndex: idx,
+              completedAt: null,
+            }));
+          }
+          if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
+            updates.estimateMinutes = enrichment.estimateMinutes;
+          }
+          if (enrichment.priority != null && prev.priority == null) {
+            updates.priority = enrichment.priority;
+          }
+
+          // Update aiPlanning with difficulty suggestion
+          if (enrichment.difficulty) {
+            updates.aiPlanning = {
+              ...prev.aiPlanning,
+              difficulty: enrichment.difficulty,
+              estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
+              confidence: 0.7,
+              lastUpdatedAt: timestamp,
+              source: 'quick_suggest' as const,
+            };
+          }
+
+          return { ...prev, ...updates };
+        });
+      })
+      .catch((err: unknown) => {
+        // Silently fail - activity creation should succeed even if enrichment fails
+        if (__DEV__) {
+          console.warn('[GoalDetailScreen] Failed to enrich activity:', err);
+        }
+      });
   };
 
   return (
@@ -913,33 +989,111 @@ export function GoalDetailScreen() {
         <View style={{ flex: 1 }}>
           <VStack space="lg" flex={1}>
             <HStack alignItems="center">
-              <View style={styles.headerSide}>
-                <IconButton
-                  style={styles.backButton}
-                  onPress={handleBack}
-                  accessibilityLabel="Back to Arc"
-                >
-                  <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                </IconButton>
-              </View>
-              <View style={styles.headerCenter}>
-                <HStack alignItems="center" justifyContent="center" space="xs">
-                  <Icon name="goals" size={16} color={colors.textSecondary} />
-                  <Text style={styles.objectTypeLabel}>Goal</Text>
-                </HStack>
-              </View>
-              <View style={styles.headerSideRight}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityLabel="Goal actions">
+              {breadcrumbsEnabled ? (
+                <>
+                  <View style={styles.breadcrumbsLeft}>
+                    <BreadcrumbBar
+                      items={[
+                        {
+                          id: 'arcs',
+                          label: 'Arcs',
+                          onPress: () => {
+                            rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
+                          },
+                        },
+                        ...(arc?.id
+                          ? [
+                              {
+                                id: 'arc',
+                                label: arc?.name ?? 'Arc',
+                                onPress: () => {
+                                  rootNavigationRef.navigate('ArcsStack', {
+                                    screen: 'ArcDetail',
+                                    params: { arcId: arc.id },
+                                  });
+                                },
+                              },
+                            ]
+                          : []),
+                        { id: 'goal', label: goal?.title ?? 'Goal' },
+                      ]}
+                    />
+                  </View>
+                  <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger accessibilityLabel="Goal actions">
+                        <IconButton
+                          style={styles.optionsButton}
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="more" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                        {/* Primary, non-destructive actions first */}
+                        <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
+                          <View style={styles.menuItemRow}>
+                            <Icon name="edit" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemLabel}>Edit details</Text>
+                          </View>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            Alert.alert(
+                              'Archive goal',
+                              'Archiving is not yet implemented. This will be wired to an archive action in the store.',
+                            );
+                          }}
+                        >
+                          <View style={styles.menuItemRow}>
+                            <Icon name="info" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemLabel}>Archive</Text>
+                          </View>
+                        </DropdownMenuItem>
+
+                        {/* Divider before destructive actions */}
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
+                          <View style={styles.menuItemRow}>
+                            <Icon name="trash" size={16} color={colors.destructive} />
+                            <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
+                          </View>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.headerSide}>
                     <IconButton
-                      style={styles.optionsButton}
-                      pointerEvents="none"
-                      accessible={false}
+                      style={styles.backButton}
+                      onPress={handleBack}
+                      accessibilityLabel="Back to Arc"
                     >
-                      <Icon name="more" size={18} color={colors.canvas} />
+                      <Icon name="arrowLeft" size={20} color={colors.canvas} />
                     </IconButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                  </View>
+                  <View style={styles.headerCenter}>
+                    <HStack alignItems="center" justifyContent="center" space="xs">
+                      <ObjectTypeIconBadge iconName="goals" tone="goal" size={14} badgeSize={26} />
+                      <Text style={styles.objectTypeLabel}>Goal</Text>
+                    </HStack>
+                  </View>
+                  <View style={styles.headerSideRight}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger accessibilityLabel="Goal actions">
+                        <IconButton
+                          style={styles.optionsButton}
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="more" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                     {/* Primary, non-destructive actions first */}
                     <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
                       <View style={styles.menuItemRow}>
@@ -972,7 +1126,9 @@ export function GoalDetailScreen() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </View>
+                  </View>
+                </>
+              )}
             </HStack>
 
             <VStack space="sm">
@@ -1073,11 +1229,10 @@ export function GoalDetailScreen() {
                 </View>
 
                 <View style={{ marginTop: spacing.md }}>
-                  <EditableTextArea
+                  <LongTextField
                     label="Description"
                     value={goal.description ?? ''}
                     placeholder="Add a short description"
-                    maxCollapsedLines={3}
                     enableAi
                     aiContext={{
                       objectType: 'goal',
@@ -1115,7 +1270,6 @@ export function GoalDetailScreen() {
                       handleUpdateArc(nextArcId ? nextArcId : null);
                     }}
                     options={arcOptions}
-                    title="Select Arc…"
                     searchPlaceholder="Search arcs…"
                     emptyText="No arcs found."
                     allowDeselect
@@ -1780,7 +1934,7 @@ function ArcSelectorModal({
                         numberOfLines={2}
                         ellipsizeMode="tail"
                       >
-                        {arc.narrative}
+                        {richTextToPlainText(arc.narrative)}
                       </Text>
                     ) : null}
                   </VStack>
@@ -1933,6 +2087,7 @@ function GoalActivityCoachDrawer({
   activities,
   focusGoalId,
 }: GoalActivityCoachDrawerProps) {
+  const { capture } = useAnalytics();
   const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
   const [manualActivityId, setManualActivityId] = useState<string | null>(null);
   const arcs = useAppStore((state) => state.arcs);
@@ -1983,6 +2138,7 @@ function GoalActivityCoachDrawer({
       id,
       goalId: focusGoalId,
       title: '',
+      tags: [],
       notes: undefined,
       steps: [],
       reminderAt: null,
@@ -2004,8 +2160,13 @@ function GoalActivityCoachDrawer({
     };
 
     addActivity(activity);
+    capture(AnalyticsEvent.ActivityCreated, {
+      source: 'goal_detail_manual',
+      activity_id: activity.id,
+      goal_id: focusGoalId,
+    });
     setManualActivityId(id);
-  }, [activities.length, addActivity, focusGoalId, manualActivityId]);
+  }, [activities.length, addActivity, capture, focusGoalId, manualActivityId]);
 
   useEffect(() => {
     if (!visible) {
@@ -2065,6 +2226,7 @@ function GoalActivityCoachDrawer({
           id,
           goalId: focusGoalId,
           title: trimmedTitle,
+          tags: [],
           notes: undefined,
           steps: [],
           reminderAt: null,
@@ -2086,9 +2248,14 @@ function GoalActivityCoachDrawer({
         };
 
         addActivity(nextActivity);
+        capture(AnalyticsEvent.ActivityCreated, {
+          source: 'goal_detail_ai_workflow',
+          activity_id: nextActivity.id,
+          goal_id: focusGoalId,
+        });
       });
     },
-    [activities, addActivity, focusGoalId]
+    [activities, addActivity, capture, focusGoalId]
   );
 
   const handleAdoptActivitySuggestion = useCallback(
@@ -2110,6 +2277,7 @@ function GoalActivityCoachDrawer({
         id,
         goalId: focusGoalId,
         title: suggestion.title.trim(),
+        tags: [],
         notes: suggestion.why,
         steps,
         reminderAt: null,
@@ -2144,8 +2312,15 @@ function GoalActivityCoachDrawer({
       };
 
       addActivity(nextActivity);
+      capture(AnalyticsEvent.ActivityCreated, {
+        source: 'goal_detail_ai_suggestion',
+        activity_id: nextActivity.id,
+        goal_id: focusGoalId,
+        has_steps: Boolean(nextActivity.steps && nextActivity.steps.length > 0),
+        has_estimate: Boolean(nextActivity.estimateMinutes),
+      });
     },
-    [activities.length, addActivity, focusGoalId]
+    [activities.length, addActivity, capture, focusGoalId]
   );
 
   return (
@@ -2249,17 +2424,26 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
+  breadcrumbsLeft: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingRight: spacing.sm,
+  },
+  breadcrumbsRight: {
+    flex: 0,
+  },
   backButton: {
     alignSelf: 'flex-start',
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   addActivityIconButton: {
     borderRadius: 999,
     width: 36,
     height: 36,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2303,6 +2487,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   menuItemRow: {
     flexDirection: 'row',

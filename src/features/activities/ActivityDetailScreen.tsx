@@ -9,20 +9,45 @@ import {
   TextInput,
   Platform,
   Keyboard,
+  Modal,
+  Share,
+  findNodeHandle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 import type { ActivityDifficulty, ActivityStatus, ActivityStep } from '../../domain/types';
 import type {
   ActivitiesStackParamList,
   ActivityDetailRouteParams,
 } from '../../navigation/RootNavigator';
+import { rootNavigationRef } from '../../navigation/RootNavigator';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { VStack, HStack, Input, Textarea, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
+import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
+import { preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
+import {
+  VStack,
+  HStack,
+  Input,
+  ThreeColumnRow,
+  Combobox,
+  KeyboardAwareScrollView,
+} from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
+import { BrandLockup } from '../../ui/BrandLockup';
 import { Coachmark } from '../../ui/Coachmark';
+import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
+import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
+import { LongTextField } from '../../ui/LongTextField';
+import { richTextToPlainText } from '../../ui/richText';
+import { Badge } from '../../ui/Badge';
+import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +56,26 @@ import {
 } from '../../ui/DropdownMenu';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { parseTags } from '../../utils/tags';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Clipboard from 'expo-clipboard';
+import * as Notifications from 'expo-notifications';
+import * as Calendar from 'expo-calendar';
+import { buildIcsEvent } from '../../utils/ics';
+import { useAgentLauncher } from '../ai/useAgentLauncher';
+import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
+
+type FocusSessionState =
+  | {
+      mode: 'running';
+      startedAtMs: number;
+      endAtMs: number;
+    }
+  | {
+      mode: 'paused';
+      startedAtMs: number;
+      remainingMs: number;
+    };
 
 type ActivityDetailRouteProp = RouteProp<
   { ActivityDetail: ActivityDetailRouteParams },
@@ -43,17 +88,37 @@ type ActivityDetailNavigationProp = NativeStackNavigationProp<
 >;
 
 export function ActivityDetailScreen() {
+  // Focus duration limits:
+  // TODO(paywall): when monetization is implemented, free users should be capped at 5 minutes.
+  // For now, keep this generous.
+  const focusMaxMinutes = 180;
   const isFocused = useIsFocused();
+  const { capture } = useAnalytics();
+  const insets = useSafeAreaInsets();
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
   const { activityId } = route.params;
 
+  const KEYBOARD_CLEARANCE = spacing['2xl'] + spacing.lg;
+  const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
+  const arcs = useAppStore((state) => state.arcs);
+  const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const recordCompletedFocusSession = useAppStore((state) => state.recordCompletedFocusSession);
+  const notificationPreferences = useAppStore((state) => state.notificationPreferences);
+  const lastFocusMinutes = useAppStore((state) => state.lastFocusMinutes);
+  const setLastFocusMinutes = useAppStore((state) => state.setLastFocusMinutes);
+  const soundscapeEnabled = useAppStore((state) => state.soundscapeEnabled);
+  const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
+  const currentFocusStreak = useAppStore((state) => state.currentFocusStreak);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const agentHostActions = useAppStore((state) => state.agentHostActions);
+  const consumeAgentHostActions = useAppStore((state) => state.consumeAgentHostActions);
   const hasDismissedActivityDetailGuide = useAppStore(
     (state) => state.hasDismissedActivityDetailGuide,
   );
@@ -65,6 +130,33 @@ export function ActivityDetailScreen() {
     () => activities.find((item) => item.id === activityId),
     [activities, activityId],
   );
+
+  const activityWorkspaceSnapshot = useMemo(() => {
+    // Focus the snapshot on this activity's goal when possible so the agent
+    // can offer grounded help (next steps, reframes, timeboxing, etc.).
+    const focusGoalId = activity?.goalId ?? undefined;
+    const focusActivityId = activity?.id ?? undefined;
+    return buildActivityCoachLaunchContext(goals, activities, focusGoalId, arcs, focusActivityId);
+  }, [activities, activity?.goalId, activity?.id, arcs, goals]);
+
+  const { openForScreenContext: openAgentForActivity, AgentWorkspaceSheet } = useAgentLauncher(
+    activityWorkspaceSnapshot,
+    {
+      snapPoints: ['100%'],
+      hideBrandHeader: false,
+      screenMode: 'activityGuidance',
+    },
+  );
+
+  const goal = useMemo(() => {
+    if (!activity?.goalId) return undefined;
+    return goals.find((g) => g.id === activity.goalId);
+  }, [activity?.goalId, goals]);
+
+  const arc = useMemo(() => {
+    if (!goal?.arcId) return undefined;
+    return arcs.find((a) => a.id === goal.arcId);
+  }, [arcs, goal?.arcId]);
 
   const goalTitle = useMemo(() => {
     if (!activity?.goalId) return undefined;
@@ -101,7 +193,9 @@ export function ActivityDetailScreen() {
   const [titleDraft, setTitleDraft] = useState(activity?.title ?? '');
   const titleInputRef = useRef<TextInput | null>(null);
 
-  const [notesDraft, setNotesDraft] = useState(activity?.notes ?? '');
+  const [tagsInputDraft, setTagsInputDraft] = useState('');
+  const tagsInputRef = useRef<TextInput | null>(null);
+  const tagsFieldContainerRef = useRef<View | null>(null);
   const [stepsDraft, setStepsDraft] = useState<ActivityStep[]>(activity?.steps ?? []);
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isAddingStepInline, setIsAddingStepInline] = useState(false);
@@ -114,6 +208,32 @@ export function ActivityDetailScreen() {
   const [estimateSheetVisible, setEstimateSheetVisible] = useState(false);
   const [estimateHoursDraft, setEstimateHoursDraft] = useState('0');
   const [estimateMinutesDraft, setEstimateMinutesDraft] = useState('0');
+  // iOS-only: use a wheel-style countdown picker to avoid the keyboard entirely.
+  const [estimateCountdownDate, setEstimateCountdownDate] = useState<Date>(new Date(0));
+  const [estimateCountdownMinutes, setEstimateCountdownMinutes] = useState<number>(0);
+
+  const [focusSheetVisible, setFocusSheetVisible] = useState(false);
+  const [focusMinutesDraft, setFocusMinutesDraft] = useState('25');
+  const [focusDurationMode, setFocusDurationMode] = useState<'preset' | 'custom'>('preset');
+  const [focusSelectedPresetMinutes, setFocusSelectedPresetMinutes] = useState<number>(25);
+  const [focusCustomExpanded, setFocusCustomExpanded] = useState(false);
+  const [focusSession, setFocusSession] = useState<FocusSessionState | null>(null);
+  const [focusTickMs, setFocusTickMs] = useState(() => Date.now());
+  const focusEndNotificationIdRef = useRef<string | null>(null);
+  const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [calendarSheetVisible, setCalendarSheetVisible] = useState(false);
+  const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
+  const [calendarDurationDraft, setCalendarDurationDraft] = useState('30');
+  const [isCalendarPickerVisible, setIsCalendarPickerVisible] = useState(false);
+  const [calendarPermissionStatus, setCalendarPermissionStatus] = useState<
+    'unknown' | 'granted' | 'denied'
+  >('unknown');
+  const [writableCalendars, setWritableCalendars] = useState<Calendar.Calendar[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
+  const [isCalendarListVisible, setIsCalendarListVisible] = useState(false);
+  const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
+  const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
@@ -137,6 +257,23 @@ export function ActivityDetailScreen() {
       hideSub.remove();
     };
   }, []);
+
+  // Composite control keyboard reveal:
+  // The Tags field is a "chip input" where the focused TextInput is smaller than the
+  // visible field container. To avoid only revealing the caret/label, we ask the scroll
+  // container to reveal the entire field container.
+  // Needs to account for a 2-row field (chips row + input row) plus a bit of breathing room.
+  // Equivalent to 64 with current spacing scale; keep it expressed in tokens so it
+  // tracks design-system changes.
+  const TAGS_REVEAL_EXTRA_OFFSET = spacing['2xl'] + spacing['2xl'];
+  const prepareRevealTagsField = () => {
+    const handle = tagsFieldContainerRef.current
+      ? findNodeHandle(tagsFieldContainerRef.current)
+      : null;
+    if (typeof handle !== 'number') return null;
+    scrollRef.current?.setNextRevealTarget(handle, TAGS_REVEAL_EXTRA_OFFSET);
+    return handle;
+  };
 
   if (!activity) {
     return (
@@ -219,6 +356,493 @@ export function ActivityDetailScreen() {
     );
   };
 
+  const openFocusSheet = () => {
+    const fallback = Math.min(
+      focusMaxMinutes,
+      Math.max(
+      1,
+      Math.round(typeof lastFocusMinutes === 'number' ? lastFocusMinutes : (activity.estimateMinutes ?? 25)),
+      ),
+    );
+    setFocusMinutesDraft(String(fallback));
+    const presets = [10, 25, 45, 60];
+    if (presets.includes(fallback)) {
+      setFocusDurationMode('preset');
+      setFocusSelectedPresetMinutes(fallback);
+      setFocusCustomExpanded(false);
+    } else {
+      setFocusDurationMode('custom');
+      // Keep the wheel hidden until the user taps the custom chip.
+      setFocusCustomExpanded(false);
+    }
+    setFocusSheetVisible(true);
+  };
+
+  const cancelFocusNotificationIfNeeded = async () => {
+    const existing = focusEndNotificationIdRef.current;
+    focusEndNotificationIdRef.current = null;
+    if (!existing) return;
+    try {
+      await Notifications.cancelScheduledNotificationAsync(existing);
+    } catch {
+      // best-effort
+    }
+  };
+
+  const endFocusSession = async () => {
+    await cancelFocusNotificationIfNeeded();
+    await stopSoundscapeLoop({ unload: true }).catch(() => undefined);
+    setFocusSession(null);
+  };
+
+  const startFocusSession = async () => {
+    const minutes = Math.max(1, Math.floor(Number(focusMinutesDraft)));
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      Alert.alert('Choose a duration', 'Enter a number of minutes greater than 0.');
+      return;
+    }
+    if (minutes > focusMaxMinutes) {
+      Alert.alert('Duration too long', `Focus mode is currently limited to ${focusMaxMinutes} minutes.`);
+      return;
+    }
+    setLastFocusMinutes(minutes);
+
+    setFocusSheetVisible(false);
+    // Start preloading immediately so sound can come up quickly once the focus overlay appears.
+    preloadSoundscape().catch(() => undefined);
+    // Avoid stacking our focus interstitial modal on top of the BottomDrawer modal
+    // while it is animating out; otherwise iOS can show the scrim but hide the next modal.
+    if (focusLaunchTimeoutRef.current) {
+      clearTimeout(focusLaunchTimeoutRef.current);
+    }
+
+    // If sound is enabled, start playback right away (don't wait for the focus modal delay).
+    if (soundscapeEnabled) {
+      startSoundscapeLoop({ fadeInMs: 250 }).catch(() => undefined);
+    }
+
+    focusLaunchTimeoutRef.current = setTimeout(() => {
+      const startedAtMs = Date.now();
+      const endAtMs = startedAtMs + minutes * 60_000;
+      setFocusSession({ mode: 'running', startedAtMs, endAtMs });
+      setFocusTickMs(startedAtMs);
+
+      // Best-effort: schedule a "time's up" local notification if permissions are already granted
+      // and the user hasn't disabled reminders in app settings.
+      (async () => {
+        try {
+          const permissions = await Notifications.getPermissionsAsync();
+          const canNotify =
+            permissions.status === 'granted' &&
+            notificationPreferences.notificationsEnabled &&
+            notificationPreferences.allowActivityReminders;
+
+          if (canNotify) {
+            const identifier = await Notifications.scheduleNotificationAsync({
+              content: {
+                title: 'Focus session complete',
+                body: activity.title,
+                data: { type: 'focusSession', activityId: activity.id },
+              },
+              trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                seconds: minutes * 60,
+                repeats: false,
+              },
+            });
+            focusEndNotificationIdRef.current = identifier;
+          }
+        } catch {
+          // best-effort
+        }
+      })().catch(() => undefined);
+    }, 320);
+  };
+
+  const remainingFocusMs = (() => {
+    if (!focusSession) return 0;
+    if (focusSession.mode === 'paused') return Math.max(0, focusSession.remainingMs);
+    return Math.max(0, focusSession.endAtMs - focusTickMs);
+  })();
+
+  const togglePauseFocusSession = async () => {
+    if (!focusSession) return;
+    if (focusSession.mode === 'paused') {
+      const endAtMs = Date.now() + focusSession.remainingMs;
+      setFocusSession({ mode: 'running', startedAtMs: focusSession.startedAtMs, endAtMs });
+      setFocusTickMs(Date.now());
+      return;
+    }
+
+    await cancelFocusNotificationIfNeeded();
+    setFocusSession({
+      mode: 'paused',
+      startedAtMs: focusSession.startedAtMs,
+      remainingMs: remainingFocusMs,
+    });
+  };
+
+  useEffect(() => {
+    if (!focusSession) return;
+    if (focusSession.mode !== 'running') return;
+
+    const id = setInterval(() => {
+      setFocusTickMs(Date.now());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [focusSession]);
+
+  useEffect(() => {
+    // Keep soundscape aligned with Focus session state (handles toggling + pause/resume).
+    if (focusSession?.mode === 'running' && soundscapeEnabled) {
+      startSoundscapeLoop({ fadeInMs: 250 }).catch(() => undefined);
+      return;
+    }
+    stopSoundscapeLoop().catch(() => undefined);
+  }, [focusSession?.mode, soundscapeEnabled]);
+
+  useEffect(() => {
+    if (!focusSession) return;
+    if (focusSession.mode !== 'running') return;
+    if (remainingFocusMs > 0) return;
+
+    // Session completed
+    recordShowUp();
+    recordCompletedFocusSession({ completedAtMs: Date.now() });
+    endFocusSession().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainingFocusMs, focusSession?.mode]);
+
+  const openCalendarSheet = () => {
+    const existingStart = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
+    const draftStart = existingStart && !Number.isNaN(existingStart.getTime()) ? existingStart : new Date();
+    setCalendarStartDraft(draftStart);
+    setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
+    setCalendarSheetVisible(true);
+    setIsCalendarPickerVisible(false);
+    setIsCalendarListVisible(false);
+  };
+
+  useEffect(() => {
+    if (!activity) return;
+    const pending = agentHostActions?.some(
+      (a) => a.objectType === 'activity' && a.objectId === activity.id
+    );
+    if (!pending) return;
+
+    const actions = consumeAgentHostActions({ objectType: 'activity', objectId: activity.id });
+    if (!actions || actions.length === 0) return;
+
+    actions.forEach((action) => {
+      if (action.type === 'openFocusMode') {
+        const minutes =
+          typeof action.minutes === 'number' && Number.isFinite(action.minutes)
+            ? Math.max(1, Math.round(action.minutes))
+            : Math.max(1, Math.round(activity.estimateMinutes ?? 25));
+        setFocusMinutesDraft(String(minutes));
+        const presets = [10, 25, 45, 60];
+        if (presets.includes(minutes)) {
+          setFocusDurationMode('preset');
+          setFocusSelectedPresetMinutes(minutes);
+          setFocusCustomExpanded(false);
+        } else {
+          setFocusDurationMode('custom');
+          setFocusCustomExpanded(false);
+        }
+        setFocusSheetVisible(true);
+        return;
+      }
+
+      if (action.type === 'openCalendar') {
+        const fromAction = action.startAtISO ? new Date(action.startAtISO) : null;
+        const fromExisting = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
+        const fallback = new Date();
+        const draftStart =
+          fromAction && !Number.isNaN(fromAction.getTime())
+            ? fromAction
+            : fromExisting && !Number.isNaN(fromExisting.getTime())
+              ? fromExisting
+              : fallback;
+
+        const duration =
+          typeof action.durationMinutes === 'number' && Number.isFinite(action.durationMinutes)
+            ? Math.max(5, Math.round(action.durationMinutes))
+            : Math.max(5, Math.round(activity.estimateMinutes ?? 30));
+
+        setCalendarStartDraft(draftStart);
+        setCalendarDurationDraft(String(duration));
+        setCalendarSheetVisible(true);
+        setIsCalendarPickerVisible(false);
+        setIsCalendarListVisible(false);
+      }
+
+      if (action.type === 'confirmStepCompletion') {
+        const index = Math.floor(Number(action.stepIndex));
+        const desired = Boolean(action.completed);
+        const steps = activity.steps ?? [];
+        const step = steps[index];
+        if (!step) return;
+
+        Alert.alert(
+          desired ? 'Mark step complete?' : 'Mark step incomplete?',
+          `Step: ${step.title}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: desired ? 'Mark complete' : 'Mark incomplete',
+              style: desired ? 'default' : 'destructive',
+              onPress: () => {
+                const timestamp = new Date().toISOString();
+                updateActivity(activity.id, (prev) => {
+                  const prevSteps = prev.steps ?? [];
+                  const nextSteps = prevSteps.map((s, idx) => {
+                    if (idx !== index) return s;
+                    return {
+                      ...s,
+                      completedAt: desired ? (s.completedAt ?? timestamp) : null,
+                    };
+                  });
+                  return { ...prev, steps: nextSteps, updatedAt: timestamp };
+                });
+
+                // Keep local draft in sync immediately.
+                setStepsDraft((prevDraft) =>
+                  prevDraft.map((s, idx) =>
+                    idx === index ? { ...s, completedAt: desired ? (s.completedAt ?? timestamp) : null } : s,
+                  ),
+                );
+              },
+            },
+          ],
+        );
+      }
+    });
+  }, [activity, agentHostActions, consumeAgentHostActions]);
+
+  const loadWritableCalendars = async (): Promise<boolean> => {
+    setIsLoadingCalendars(true);
+    try {
+      const permissions = await Calendar.getCalendarPermissionsAsync();
+      const hasPermission = permissions.status === 'granted';
+      if (!hasPermission) {
+        const requested = await Calendar.requestCalendarPermissionsAsync();
+        if (requested.status !== 'granted') {
+          setCalendarPermissionStatus('denied');
+          setWritableCalendars([]);
+          setSelectedCalendarId(null);
+          return false;
+        }
+      }
+
+      setCalendarPermissionStatus('granted');
+      const all = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const writable = all.filter((cal) => {
+        // iOS exposes `allowsModifications`; Android uses accessLevel/source.
+        // We treat missing fields as permissive and let createEventAsync fail gracefully if needed.
+        const anyCal = cal as unknown as { allowsModifications?: boolean; isPrimary?: boolean };
+        if (anyCal.allowsModifications === false) return false;
+        return true;
+      });
+
+      setWritableCalendars(writable);
+
+      // Auto-select:
+      // - keep existing selection if still valid
+      // - else prefer the OS default calendar when it is writable
+      // - else fall back to any primary calendar (if present)
+      // - else first writable
+      const isExistingValid = Boolean(selectedCalendarId && writable.some((c) => c.id === selectedCalendarId));
+      if (isExistingValid) return true;
+
+      let nextId: string | null = null;
+      try {
+        const defaultCal = await Calendar.getDefaultCalendarAsync();
+        if (defaultCal?.id && writable.some((c) => c.id === defaultCal.id)) {
+          nextId = defaultCal.id;
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!nextId) {
+        const anyPrimary = writable.find((c) => (c as unknown as { isPrimary?: boolean }).isPrimary);
+        nextId = anyPrimary?.id ?? writable[0]?.id ?? null;
+      }
+
+      setSelectedCalendarId(nextId);
+      return true;
+    } catch {
+      setCalendarPermissionStatus('denied');
+      setWritableCalendars([]);
+      setSelectedCalendarId(null);
+      return false;
+    } finally {
+      setIsLoadingCalendars(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!calendarSheetVisible) return;
+    // Lazy-load calendars only when the sheet is opened.
+    loadWritableCalendars().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarSheetVisible]);
+
+  const selectedCalendarName = useMemo(() => {
+    if (!selectedCalendarId) return 'Choose…';
+    return writableCalendars.find((c) => c.id === selectedCalendarId)?.title ?? 'Choose…';
+  }, [selectedCalendarId, writableCalendars]);
+
+  const addActivityToNativeCalendar = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('Not available on web', 'Calendar events can only be created on iOS/Android.');
+      return;
+    }
+
+    if (calendarPermissionStatus !== 'granted') {
+      const ok = await loadWritableCalendars();
+      if (!ok) {
+        Alert.alert(
+          'Calendar access needed',
+          'Enable Calendar access in system settings, or use the “Share calendar file” option.',
+        );
+        return;
+      }
+    }
+
+    if (!selectedCalendarId) {
+      Alert.alert('Choose a calendar', 'Select which calendar (Google/Outlook/iCloud) to add this event to.');
+      return;
+    }
+
+    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
+      return;
+    }
+
+    const startAt = calendarStartDraft;
+    if (!startAt || Number.isNaN(startAt.getTime())) {
+      Alert.alert('Start time needed', 'Pick a start date/time.');
+      return;
+    }
+
+    const endAt = new Date(startAt.getTime() + minutes * 60_000);
+    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
+    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
+    const notes = [goalTitlePart, notesPart].filter(Boolean).join('\n\n') || undefined;
+
+    setIsCreatingCalendarEvent(true);
+    try {
+      const eventId = await Calendar.createEventAsync(selectedCalendarId, {
+        title: activity.title,
+        startDate: startAt,
+        endDate: endAt,
+        notes,
+      });
+
+      // Persist scheduledAt (additive model).
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        scheduledAt: startAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+
+      setCalendarSheetVisible(false);
+      Alert.alert('Added to calendar', `Added to “${selectedCalendarName}”.`);
+      if (__DEV__) {
+        console.log('[calendar] created event', { eventId, calendarId: selectedCalendarId });
+      }
+    } catch (error) {
+      Alert.alert(
+        'Could not create event',
+        'Something went wrong adding this event to your calendar. You can still use “Share calendar file” as a fallback.',
+      );
+      if (__DEV__) {
+        console.warn('[calendar] createEventAsync failed', error);
+      }
+    } finally {
+      setIsCreatingCalendarEvent(false);
+    }
+  };
+
+  const shareActivityAsIcs = async () => {
+    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
+      return;
+    }
+
+    const startAt = calendarStartDraft;
+    if (!startAt || Number.isNaN(startAt.getTime())) {
+      Alert.alert('Start time needed', 'Pick a start date/time.');
+      return;
+    }
+
+    const endAt = new Date(startAt.getTime() + minutes * 60_000);
+    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
+    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
+    const description = [goalTitlePart, notesPart].filter(Boolean).join('\n\n');
+    const ics = buildIcsEvent({
+      uid: `kwilt-activity-${activity.id}`,
+      title: activity.title,
+      description,
+      startAt,
+      endAt,
+    });
+
+    // Persist scheduledAt (additive model).
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      scheduledAt: startAt.toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+
+    setCalendarSheetVisible(false);
+
+    try {
+      const filename = `kwilt-${activity.title.trim().slice(0, 48).replace(/[^a-z0-9-_]+/gi, '-') || 'activity'}.ics`;
+      const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+      const fileUri = `${baseDir}${filename}`;
+      await FileSystem.writeAsStringAsync(fileUri, ics, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (Platform.OS === 'web') {
+        await Clipboard.setStringAsync(ics);
+        Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
+        return;
+      }
+
+      await Share.share({
+        title: 'Add to calendar',
+        message: activity.title,
+        url: fileUri,
+      });
+    } catch (error) {
+      // Last-ditch fallback: copy the ICS text.
+      try {
+        await Clipboard.setStringAsync(ics);
+        Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
+      } catch {
+        Alert.alert('Could not share', 'Something went wrong while exporting to calendar.');
+        if (__DEV__) {
+          console.warn('ICS share failed', error);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (focusLaunchTimeoutRef.current) {
+        clearTimeout(focusLaunchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const commitTitle = () => {
     const next = titleDraft.trim();
     if (!next || next === activity.title) {
@@ -235,18 +859,42 @@ export function ActivityDetailScreen() {
     setIsEditingTitle(false);
   };
 
-  const commitNotes = () => {
-    const next = notesDraft.trim();
-    const current = activity.notes ?? '';
-    if (next === current) {
-      return;
-    }
+  const addTags = (raw: string | string[]) => {
+    const incoming = Array.isArray(raw) ? raw : parseTags(raw);
+    if (incoming.length === 0) return;
+    const current = Array.isArray(activity.tags) ? activity.tags : [];
+    const existingKeys = new Set(current.map((t) => t.toLowerCase()));
+    const next = [...current];
+    incoming.forEach((tag) => {
+      const key = tag.toLowerCase();
+      if (existingKeys.has(key)) return;
+      existingKeys.add(key);
+      next.push(tag);
+    });
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
-      notes: next.length ? next : undefined,
+      tags: next,
       updatedAt: timestamp,
     }));
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    const current = Array.isArray(activity.tags) ? activity.tags : [];
+    const next = current.filter((tag) => tag.toLowerCase() !== tagToRemove.toLowerCase());
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      tags: next,
+      updatedAt: timestamp,
+    }));
+  };
+
+  const commitTagsInputDraft = () => {
+    const trimmed = tagsInputDraft.trim();
+    if (!trimmed) return;
+    addTags(trimmed);
+    setTagsInputDraft('');
   };
 
   const deriveStatusFromSteps = (
@@ -312,6 +960,13 @@ export function ActivityDetailScreen() {
 
     if (markedDone) {
       recordShowUp();
+      capture(AnalyticsEvent.ActivityCompletionToggled, {
+        source: 'activity_detail',
+        activity_id: activity.id,
+        goal_id: activity.goalId ?? null,
+        next_status: 'done',
+        had_steps: Boolean(nextLocalSteps.length > 0),
+      });
     }
   };
 
@@ -665,13 +1320,27 @@ export function ActivityDetailScreen() {
     const mins = minutes % 60;
     setEstimateHoursDraft(String(hrs));
     setEstimateMinutesDraft(String(mins));
+    if (Platform.OS === 'ios') {
+      setEstimateCountdownMinutes(Math.max(0, minutes));
+      // For iOS countdown pickers, treat the Date as "today at HH:MM".
+      // Seed at local midnight + duration so `getHours/getMinutes` maps cleanly.
+      const seed = new Date();
+      seed.setHours(0, 0, 0, 0);
+      seed.setTime(seed.getTime() + Math.max(0, minutes) * 60_000);
+      setEstimateCountdownDate(seed);
+    }
     setEstimateSheetVisible(true);
   };
 
   const commitEstimateDraft = () => {
-    const hours = Math.max(0, Number.parseInt(estimateHoursDraft || '0', 10) || 0);
-    const minutes = Math.max(0, Number.parseInt(estimateMinutesDraft || '0', 10) || 0);
-    const total = hours * 60 + minutes;
+    const total =
+      Platform.OS === 'ios'
+        ? Math.max(0, Math.round(estimateCountdownMinutes))
+        : (() => {
+            const hours = Math.max(0, Number.parseInt(estimateHoursDraft || '0', 10) || 0);
+            const minutes = Math.max(0, Number.parseInt(estimateMinutesDraft || '0', 10) || 0);
+            return hours * 60 + minutes;
+          })();
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
@@ -683,65 +1352,190 @@ export function ActivityDetailScreen() {
 
   useEffect(() => {
     setTitleDraft(activity.title ?? '');
-    setNotesDraft(activity.notes ?? '');
+    setTagsInputDraft('');
     setStepsDraft(activity.steps ?? []);
-  }, [activity.title, activity.notes, activity.steps]);
+  }, [activity.title, activity.notes, activity.steps, activity.id]);
 
   return (
     <AppShell>
       <View style={styles.screen}>
         <VStack space="lg" style={styles.pageContent}>
           <HStack alignItems="center">
-            <View style={styles.headerSide}>
-              <IconButton
-                style={styles.backButton}
-                onPress={handleBackToActivities}
-                accessibilityLabel="Back to Activities"
-              >
-                <Icon name="arrowLeft" size={20} color={colors.canvas} />
-              </IconButton>
-            </View>
-            <View style={styles.headerCenter}>
-              <View style={styles.objectTypeRow}>
-                <Icon name="activities" size={18} color={colors.textSecondary} />
-                <Text style={styles.objectTypeLabel}>Activity</Text>
-              </View>
-            </View>
-            <View style={styles.headerSideRight}>
-              {showDoneButton ? (
-                <Pressable
-                  onPress={handleDoneEditing}
-                  accessibilityRole="button"
-                  accessibilityLabel="Done editing"
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
-                >
-                  <Text style={styles.doneButtonText}>Done</Text>
-                </Pressable>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityLabel="Activity actions">
-                    <IconButton
-                      style={styles.optionsButton}
-                      pointerEvents="none"
-                      accessible={false}
+            {breadcrumbsEnabled ? (
+              <>
+                <View style={styles.breadcrumbsLeft}>
+                  <BreadcrumbBar
+                    items={[
+                      {
+                        id: 'arcs',
+                        label: 'Arcs',
+                        onPress: () => rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' }),
+                      },
+                      ...(arc?.id
+                        ? [
+                            {
+                              id: 'arc',
+                              label: arc?.name ?? 'Arc',
+                              onPress: () =>
+                                rootNavigationRef.navigate('ArcsStack', {
+                                  screen: 'ArcDetail',
+                                  params: { arcId: arc.id },
+                                }),
+                            },
+                          ]
+                        : []),
+                      ...(goal?.id
+                        ? [
+                            {
+                              id: 'goal',
+                              label: goal?.title ?? 'Goal',
+                              onPress: () => {
+                                if (navigation.canGoBack()) {
+                                  navigation.goBack();
+                                  return;
+                                }
+                                rootNavigationRef.navigate('Goals', {
+                                  screen: 'GoalDetail',
+                                  params: { goalId: goal.id, entryPoint: 'goalsTab' },
+                                });
+                              },
+                            },
+                          ]
+                        : []),
+                      { id: 'activity', label: activity?.title ?? 'Activity' },
+                    ]}
+                  />
+                </View>
+                <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
+                  {showDoneButton ? (
+                    <Pressable
+                      onPress={handleDoneEditing}
+                      accessibilityRole="button"
+                      accessibilityLabel="Done editing"
+                      hitSlop={8}
+                      style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
                     >
-                      <Icon name="more" size={18} color={colors.canvas} />
-                    </IconButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                    <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                      <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </View>
+                      <Text style={styles.doneButtonText}>Done</Text>
+                    </Pressable>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                        <IconButton style={styles.optionsButton} pointerEvents="none" accessible={false}>
+                          <Icon name="more" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                        <DropdownMenuItem
+                          onPress={() => {
+                            capture(AnalyticsEvent.ActivityActionInvoked, {
+                              activityId: activity.id,
+                              action: 'focusMode',
+                            });
+                            openFocusSheet();
+                          }}
+                        >
+                          <Text style={styles.menuRowText}>Focus mode</Text>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            capture(AnalyticsEvent.ActivityActionInvoked, {
+                              activityId: activity.id,
+                              action: 'addToCalendar',
+                            });
+                            openCalendarSheet();
+                          }}
+                        >
+                          <Text style={styles.menuRowText}>Add to calendar</Text>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                          <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.headerSide}>
+                  <IconButton
+                    style={styles.backButton}
+                    onPress={handleBackToActivities}
+                    accessibilityLabel="Back to Activities"
+                  >
+                    <Icon name="arrowLeft" size={20} color={colors.canvas} />
+                  </IconButton>
+                </View>
+                <View style={styles.headerCenter}>
+                  <View style={styles.objectTypeRow}>
+                    <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
+                    <Text style={styles.objectTypeLabel}>Activity</Text>
+                  </View>
+                </View>
+                <View style={styles.headerSideRight}>
+                  {showDoneButton ? (
+                    <Pressable
+                      onPress={handleDoneEditing}
+                      accessibilityRole="button"
+                      accessibilityLabel="Done editing"
+                      hitSlop={8}
+                      style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
+                    >
+                      <Text style={styles.doneButtonText}>Done</Text>
+                    </Pressable>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                        <IconButton
+                          style={styles.optionsButton}
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="more" size={18} color={colors.canvas} />
+                        </IconButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                        <DropdownMenuItem
+                          onPress={() => {
+                            capture(AnalyticsEvent.ActivityActionInvoked, {
+                              activityId: activity.id,
+                              action: 'focusMode',
+                            });
+                            openFocusSheet();
+                          }}
+                        >
+                          <Text style={styles.menuRowText}>Focus mode</Text>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            capture(AnalyticsEvent.ActivityActionInvoked, {
+                              activityId: activity.id,
+                              action: 'addToCalendar',
+                            });
+                            openCalendarSheet();
+                          }}
+                        >
+                          <Text style={styles.menuRowText}>Add to calendar</Text>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                          <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </View>
+              </>
+            )}
           </HStack>
 
           <KeyboardAwareScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.content}
+            // Activity detail has a few composite controls (e.g. tag chips) where the
+            // focused TextInput sits inside a taller bordered container. Slightly
+            // increase the clearance so the *whole* field clears the keyboard.
+            keyboardClearance={KEYBOARD_CLEARANCE + spacing.lg}
             showsVerticalScrollIndicator={false}
           >
             {/* Title + Steps bundle (task-style, no enclosing card) */}
@@ -929,6 +1723,65 @@ export function ActivityDetailScreen() {
               </View>
             </View>
 
+            {/* Key actions */}
+            <View style={styles.section}>
+              <View style={styles.keyActionsInset}>
+                <VStack space="sm">
+                  <KeyActionsRow
+                    items={[
+                      {
+                        id: 'focusMode',
+                        icon: 'estimate',
+                        label: 'Focus mode',
+                        tileBackgroundColor: colors.canvas,
+                        badgeColor: colors.indigo700,
+                        onPress: () => {
+                          capture(AnalyticsEvent.ActivityActionInvoked, {
+                            activityId: activity.id,
+                            action: 'focusMode',
+                          });
+                          openFocusSheet();
+                        },
+                      },
+                      {
+                        id: 'addToCalendar',
+                        icon: 'today',
+                        label: 'Add to calendar',
+                        tileBackgroundColor: colors.canvas,
+                        badgeColor: colors.accent,
+                        onPress: () => {
+                          capture(AnalyticsEvent.ActivityActionInvoked, {
+                            activityId: activity.id,
+                            action: 'addToCalendar',
+                          });
+                          openCalendarSheet();
+                        },
+                      },
+                    ]}
+                  />
+
+                  <KeyActionsRow
+                    items={[
+                      {
+                        id: 'chatWithAi',
+                        icon: 'sparkles',
+                        label: 'Get help from AI',
+                        tileBackgroundColor: colors.canvas,
+                        badgeColor: colors.turmeric600,
+                        onPress: () => {
+                          capture(AnalyticsEvent.ActivityActionInvoked, {
+                            activityId: activity.id,
+                            action: 'chatWithAi',
+                          });
+                          openAgentForActivity({ objectType: 'activity', objectId: activity.id });
+                        },
+                      },
+                    ]}
+                  />
+                </VStack>
+              </View>
+            </View>
+
             {/* Linked goal */}
             <View style={styles.section}>
               <Text style={styles.inputLabel}>Linked Goal</Text>
@@ -945,15 +1798,15 @@ export function ActivityDetailScreen() {
                   }));
                 }}
                 options={goalOptions}
-                title="Select goal…"
                 searchPlaceholder="Search goals…"
                 emptyText="No goals found."
                 allowDeselect
+                presentation="drawer"
+                drawerSnapPoints={['60%']}
                 trigger={
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Change linked goal"
-                    onPress={() => setGoalComboboxOpen(true)}
                     style={styles.comboboxTrigger}
                   >
                     <View pointerEvents="none">
@@ -1152,7 +2005,6 @@ export function ActivityDetailScreen() {
                       }));
                     }}
                     options={difficultyOptions}
-                    title="Difficulty"
                     searchPlaceholder="Search difficulty…"
                     emptyText="No difficulty options found."
                     allowDeselect
@@ -1160,7 +2012,6 @@ export function ActivityDetailScreen() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Edit difficulty"
-                        onPress={() => setDifficultyComboboxOpen(true)}
                         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                       >
                         <ThreeColumnRow
@@ -1203,22 +2054,117 @@ export function ActivityDetailScreen() {
 
             {/* 5) Notes */}
             <View style={styles.section}>
-              <Text style={styles.inputLabel}>NOTES</Text>
-              <Textarea
-                value={notesDraft}
-                onChangeText={setNotesDraft}
-                onFocus={handleAnyInputFocus}
-                onBlur={() => {
-                  handleAnyInputBlur();
-                  commitNotes();
+              <Text style={styles.inputLabel}>TAGS</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit tags"
+                onPress={() => {
+                  // Set the reveal target *before* focusing so the keyboard-open auto-scroll
+                  // lands on the whole field container (not just the inner TextInput).
+                  prepareRevealTagsField();
+                  tagsInputRef.current?.focus();
                 }}
+                style={styles.tagsFieldContainer}
+                ref={tagsFieldContainerRef}
+              >
+                <View style={styles.tagsFieldInner}>
+                  {(activity.tags ?? []).map((tag) => (
+                    <Pressable
+                      key={tag}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove tag ${tag}`}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleRemoveTag(tag);
+                      }}
+                    >
+                      <Badge variant="secondary" style={styles.tagChip}>
+                        <HStack space="xs" alignItems="center">
+                          <Text style={styles.tagChipText}>{tag}</Text>
+                          <Icon name="close" size={14} color={colors.textSecondary} />
+                        </HStack>
+                      </Badge>
+                    </Pressable>
+                  ))}
+                  <TextInput
+                    ref={tagsInputRef}
+                    value={tagsInputDraft}
+                    onChangeText={(next) => {
+                      // If the user types/pastes a comma-separated list, adopt all completed tags
+                      // and keep the trailing fragment in the input.
+                      if (next.includes(',')) {
+                        const parts = next.split(',');
+                        const trailing = parts.pop() ?? '';
+                        const completed = parts.join(',');
+                        addTags(completed);
+                        setTagsInputDraft(trailing.trimStart());
+                        return;
+                      }
+                      setTagsInputDraft(next);
+                    }}
+                    onFocus={() => {
+                      handleAnyInputFocus();
+                      // Let the screen-level keyboard strategy handle revealing this field.
+                      // (Avoid per-field scroll calls that can fight the container.)
+                      const handle = prepareRevealTagsField();
+                      // If the keyboard is already open, we won't get a keyboardDidShow event,
+                      // so run the reveal immediately.
+                      if (handle && isKeyboardVisible) {
+                        const totalOffset =
+                          KEYBOARD_CLEARANCE + spacing.lg + TAGS_REVEAL_EXTRA_OFFSET;
+                        requestAnimationFrame(() => {
+                          scrollRef.current?.scrollToNodeHandle(handle, totalOffset);
+                        });
+                      }
+                    }}
+                    onBlur={() => {
+                      handleAnyInputBlur();
+                      commitTagsInputDraft();
+                    }}
+                    onSubmitEditing={commitTagsInputDraft}
+                    placeholder={(activity.tags ?? []).length === 0 ? 'e.g., errands, outdoors' : ''}
+                    placeholderTextColor={colors.muted}
+                    style={styles.tagsTextInput}
+                    returnKeyType="done"
+                    // "Done" should dismiss the keyboard for this lightweight chip input.
+                    // (We still commit the draft via `onSubmitEditing`.)
+                    blurOnSubmit
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onKeyPress={(e) => {
+                      // Backspace on empty input removes the last tag (nice token-input affordance).
+                      if (e.nativeEvent.key !== 'Backspace') return;
+                      if (tagsInputDraft.length > 0) return;
+                      const current = activity.tags ?? [];
+                      const last = current[current.length - 1];
+                      if (!last) return;
+                      handleRemoveTag(last);
+                    }}
+                  />
+                </View>
+              </Pressable>
+            </View>
+
+            {/* 6) Notes */}
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>NOTES</Text>
+              <LongTextField
+                label="Notes"
+                hideLabel
+                value={activity.notes ?? ''}
                 placeholder="Add context or reminders for this activity."
-                multiline
-                variant="outline"
-                elevation="flat"
-                // Compact note field vs the larger default textarea spec.
-                multilineMinHeight={80}
-                multilineMaxHeight={180}
+                autosaveDebounceMs={900}
+                onChange={(next) => {
+                  const nextValue = next.trim().length ? next : '';
+                  const current = activity.notes ?? '';
+                  if (nextValue === current) return;
+                  const timestamp = new Date().toISOString();
+                  updateActivity(activity.id, (prev) => ({
+                    ...prev,
+                    notes: nextValue.length ? nextValue : undefined,
+                    updatedAt: timestamp,
+                  }));
+                }}
               />
             </View>
           </KeyboardAwareScrollView>
@@ -1332,39 +2278,62 @@ export function ActivityDetailScreen() {
       <BottomDrawer
         visible={estimateSheetVisible}
         onClose={() => setEstimateSheetVisible(false)}
-        snapPoints={['40%']}
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['40%']}
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Duration</Text>
           <VStack space="md">
-            <HStack space="sm" alignItems="center" style={styles.estimateFieldsRow}>
-              <View style={styles.estimateField}>
-                <Text style={styles.estimateFieldLabel}>Hours</Text>
-                <Input
-                  value={estimateHoursDraft}
-                  onChangeText={setEstimateHoursDraft}
-                  placeholder="0"
-                  keyboardType="number-pad"
-                  returnKeyType="done"
-                  size="sm"
-                  variant="outline"
-                  elevation="flat"
+            {Platform.OS === 'ios' ? (
+              <View style={styles.estimatePickerContainer}>
+                <DateTimePicker
+                  mode="countdown"
+                  display="spinner"
+                  value={estimateCountdownDate}
+                  onChange={(_event, date) => {
+                    if (!date) return;
+                    setEstimateCountdownDate(date);
+                    // Interpret the picker's value as a duration in local HH:MM.
+                    // (Countdown picker can return a "today at HH:MM" Date; don't use day/month/year.)
+                    const hours = Math.max(0, date.getHours?.() ?? 0);
+                    const minutes = Math.max(0, date.getMinutes?.() ?? 0);
+                    const seconds = Math.max(0, date.getSeconds?.() ?? 0);
+                    const totalMinutes = hours * 60 + minutes + (seconds >= 30 ? 1 : 0);
+                    setEstimateCountdownMinutes(totalMinutes);
+                    setEstimateHoursDraft(String(Math.floor(totalMinutes / 60)));
+                    setEstimateMinutesDraft(String(totalMinutes % 60));
+                  }}
                 />
               </View>
-              <View style={styles.estimateField}>
-                <Text style={styles.estimateFieldLabel}>Minutes</Text>
-                <Input
-                  value={estimateMinutesDraft}
-                  onChangeText={setEstimateMinutesDraft}
-                  placeholder="0"
-                  keyboardType="number-pad"
-                  returnKeyType="done"
-                  size="sm"
-                  variant="outline"
-                  elevation="flat"
-                />
-              </View>
-            </HStack>
+            ) : (
+              <HStack space="sm" alignItems="center" style={styles.estimateFieldsRow}>
+                <View style={styles.estimateField}>
+                  <Text style={styles.estimateFieldLabel}>Hours</Text>
+                  <Input
+                    value={estimateHoursDraft}
+                    onChangeText={setEstimateHoursDraft}
+                    placeholder="0"
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    size="sm"
+                    variant="outline"
+                    elevation="flat"
+                  />
+                </View>
+                <View style={styles.estimateField}>
+                  <Text style={styles.estimateFieldLabel}>Minutes</Text>
+                  <Input
+                    value={estimateMinutesDraft}
+                    onChangeText={setEstimateMinutesDraft}
+                    placeholder="0"
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                    size="sm"
+                    variant="outline"
+                    elevation="flat"
+                  />
+                </View>
+              </HStack>
+            )}
 
             <HStack space="sm">
               <Button
@@ -1378,14 +2347,454 @@ export function ActivityDetailScreen() {
                 <Text style={styles.sheetRowLabel}>Clear</Text>
               </Button>
               <Button variant="primary" style={{ flex: 1 }} onPress={commitEstimateDraft}>
-                <Text style={styles.sheetRowLabel}>Save</Text>
+                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                  Save
+                </Text>
               </Button>
             </HStack>
           </VStack>
         </View>
       </BottomDrawer>
+
+      <BottomDrawer
+        visible={focusSheetVisible}
+        onClose={() => setFocusSheetVisible(false)}
+        snapPoints={['52%']}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Focus mode</Text>
+          <Text style={styles.sheetDescription}>
+            How long do you want to focus? (We can’t toggle system Focus / Do Not Disturb for you, but we’ll keep you on a distraction-free timer.)
+          </Text>
+          <Text style={styles.focusStreakSheetLabel}>
+            Current streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
+          </Text>
+          <VStack space="md">
+            <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.focusPresetChip,
+                  focusDurationMode === 'preset' &&
+                    focusSelectedPresetMinutes === 10 &&
+                    styles.focusPresetChipSelected,
+                  pressed && styles.focusPresetChipPressed,
+                ]}
+                onPress={() => {
+                  setFocusDurationMode('preset');
+                  setFocusSelectedPresetMinutes(10);
+                  setFocusMinutesDraft('10');
+                  setFocusCustomExpanded(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.focusPresetChipText,
+                    focusDurationMode === 'preset' &&
+                      focusSelectedPresetMinutes === 10 &&
+                      styles.focusPresetChipTextSelected,
+                  ]}
+                >
+                  10m
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.focusPresetChip,
+                  focusDurationMode === 'preset' &&
+                    focusSelectedPresetMinutes === 25 &&
+                    styles.focusPresetChipSelected,
+                  pressed && styles.focusPresetChipPressed,
+                ]}
+                onPress={() => {
+                  setFocusDurationMode('preset');
+                  setFocusSelectedPresetMinutes(25);
+                  setFocusMinutesDraft('25');
+                  setFocusCustomExpanded(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.focusPresetChipText,
+                    focusDurationMode === 'preset' &&
+                      focusSelectedPresetMinutes === 25 &&
+                      styles.focusPresetChipTextSelected,
+                  ]}
+                >
+                  25m
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.focusPresetChip,
+                  focusDurationMode === 'preset' &&
+                    focusSelectedPresetMinutes === 45 &&
+                    styles.focusPresetChipSelected,
+                  pressed && styles.focusPresetChipPressed,
+                ]}
+                onPress={() => {
+                  setFocusDurationMode('preset');
+                  setFocusSelectedPresetMinutes(45);
+                  setFocusMinutesDraft('45');
+                  setFocusCustomExpanded(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.focusPresetChipText,
+                    focusDurationMode === 'preset' &&
+                      focusSelectedPresetMinutes === 45 &&
+                      styles.focusPresetChipTextSelected,
+                  ]}
+                >
+                  45m
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.focusPresetChip,
+                  focusDurationMode === 'preset' &&
+                    focusSelectedPresetMinutes === 60 &&
+                    styles.focusPresetChipSelected,
+                  pressed && styles.focusPresetChipPressed,
+                ]}
+                onPress={() => {
+                  setFocusDurationMode('preset');
+                  setFocusSelectedPresetMinutes(60);
+                  setFocusMinutesDraft('60');
+                  setFocusCustomExpanded(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.focusPresetChipText,
+                    focusDurationMode === 'preset' &&
+                      focusSelectedPresetMinutes === 60 &&
+                      styles.focusPresetChipTextSelected,
+                  ]}
+                >
+                  60m
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.focusPresetChip,
+                  focusDurationMode === 'custom' && styles.focusPresetChipSelected,
+                  pressed && styles.focusPresetChipPressed,
+                ]}
+                onPress={() => {
+                  setFocusDurationMode('custom');
+                  setFocusCustomExpanded(true);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.focusPresetChipText,
+                    focusDurationMode === 'custom' && styles.focusPresetChipTextSelected,
+                  ]}
+                >
+                  {(() => {
+                    const presets = [10, 25, 45, 60];
+                    const draft = Math.max(1, Math.floor(Number(focusMinutesDraft) || 1));
+                    if (focusDurationMode === 'custom') return `${draft}m`;
+                    if (typeof lastFocusMinutes === 'number' && !presets.includes(lastFocusMinutes)) {
+                      return `${Math.max(1, Math.round(lastFocusMinutes))}m`;
+                    }
+                    return 'Custom';
+                  })()}
+                </Text>
+              </Pressable>
+            </HStack>
+
+            {focusDurationMode === 'custom' && focusCustomExpanded ? (
+              <View>
+                <Text style={styles.estimateFieldLabel}>Minutes</Text>
+                <NumberWheelPicker
+                  value={Math.max(1, Math.floor(Number(focusMinutesDraft) || 1))}
+                  onChange={(next) => setFocusMinutesDraft(String(next))}
+                  min={1}
+                  max={focusMaxMinutes}
+                />
+              </View>
+            ) : null}
+
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => setFocusSheetVisible(false)}
+              >
+                <Text style={styles.sheetRowLabel}>Cancel</Text>
+              </Button>
+              <Button
+                variant="primary"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  startFocusSession().catch(() => undefined);
+                }}
+              >
+                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                  Start
+                </Text>
+              </Button>
+            </HStack>
+          </VStack>
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={calendarSheetVisible}
+        onClose={() => {
+          setCalendarSheetVisible(false);
+          setIsCalendarPickerVisible(false);
+          setIsCalendarListVisible(false);
+        }}
+        snapPoints={['60%']}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Add to calendar</Text>
+          <Text style={styles.sheetDescription}>
+            Choose which calendar to add this event to (iCloud, Google, Outlook, etc.). These options come from accounts configured on your phone.
+          </Text>
+
+          <VStack space="md">
+            <SheetOption
+              label={`Start: ${calendarStartDraft.toLocaleString()}`}
+              onPress={() => setIsCalendarPickerVisible((v) => !v)}
+            />
+            {isCalendarPickerVisible && (
+              <View style={styles.datePickerContainer}>
+                <DateTimePicker
+                  mode="datetime"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  value={calendarStartDraft}
+                  onChange={(_, date) => {
+                    if (date) setCalendarStartDraft(date);
+                  }}
+                />
+              </View>
+            )}
+
+            {calendarPermissionStatus === 'denied' ? (
+              <View style={styles.calendarPermissionNotice}>
+                <Text style={styles.sheetDescription}>
+                  Calendar access is disabled. You can enable it in system settings, or share a calendar file instead.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <SheetOption
+                  label={`Calendar: ${isLoadingCalendars ? 'Loading…' : selectedCalendarName}`}
+                  onPress={() => {
+                    if (!isLoadingCalendars) {
+                      setIsCalendarListVisible((v) => !v);
+                    }
+                  }}
+                />
+                {isCalendarListVisible && (
+                  <View style={styles.calendarListContainer}>
+                    <BottomDrawerScrollView
+                      style={{ maxHeight: 220 }}
+                      contentContainerStyle={{ paddingBottom: spacing.sm }}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <VStack space="xs">
+                        {writableCalendars.length === 0 ? (
+                          <Text style={styles.sheetDescription}>
+                            No writable calendars found. Add a calendar account (Google/Outlook/iCloud) in system settings, or share a calendar file instead.
+                          </Text>
+                        ) : (
+                          writableCalendars.map((cal) => {
+                            const selected = cal.id === selectedCalendarId;
+                            return (
+                              <Pressable
+                                key={cal.id}
+                                style={({ pressed }) => [
+                                  styles.calendarChoiceRow,
+                                  pressed && styles.rowPressed,
+                                  selected && styles.calendarChoiceRowSelected,
+                                ]}
+                                onPress={() => {
+                                  setSelectedCalendarId(cal.id);
+                                  setIsCalendarListVisible(false);
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Use calendar ${cal.title}`}
+                              >
+                                <HStack space="sm" alignItems="center" justifyContent="space-between">
+                                  <Text
+                                    style={[
+                                      styles.calendarChoiceLabel,
+                                      selected && styles.calendarChoiceLabelSelected,
+                                    ]}
+                                  >
+                                    {cal.title}
+                                  </Text>
+                                  {selected ? (
+                                    <Icon name="check" size={16} color={colors.primaryForeground} />
+                                  ) : null}
+                                </HStack>
+                              </Pressable>
+                            );
+                          })
+                        )}
+                      </VStack>
+                    </BottomDrawerScrollView>
+                  </View>
+                )}
+              </>
+            )}
+
+            <View>
+              <Text style={styles.estimateFieldLabel}>Duration (minutes)</Text>
+              <Input
+                value={calendarDurationDraft}
+                onChangeText={setCalendarDurationDraft}
+                placeholder="30"
+                keyboardType="number-pad"
+                returnKeyType="done"
+                size="sm"
+                variant="outline"
+                elevation="flat"
+              />
+            </View>
+
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => setCalendarSheetVisible(false)}
+              >
+                <Text style={styles.sheetRowLabel}>Cancel</Text>
+              </Button>
+              <Button
+                variant="primary"
+                style={{ flex: 1 }}
+                disabled={isCreatingCalendarEvent}
+                onPress={() => {
+                  addActivityToNativeCalendar().catch(() => undefined);
+                }}
+              >
+                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                  {isCreatingCalendarEvent ? 'Adding…' : 'Add event'}
+                </Text>
+              </Button>
+            </HStack>
+
+            <Button
+              variant="outline"
+              onPress={() => {
+                shareActivityAsIcs().catch(() => undefined);
+              }}
+            >
+              <Text style={styles.sheetRowLabel}>Share calendar file (.ics)</Text>
+            </Button>
+          </VStack>
+        </View>
+      </BottomDrawer>
+
+      <Modal
+        visible={Boolean(focusSession)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          endFocusSession().catch(() => undefined);
+        }}
+      >
+        <View
+          style={[
+            styles.focusOverlay,
+            { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
+          ]}
+        >
+          <View style={styles.focusTopBar}>
+            <BrandLockup
+              logoSize={28}
+              wordmarkSize="sm"
+              logoVariant="parchment"
+              color={colors.parchment}
+            />
+            <Pressable
+              onPress={() => setSoundscapeEnabled(!soundscapeEnabled)}
+              style={({ pressed }) => [
+                styles.focusSoundToggle,
+                soundscapeEnabled ? styles.focusSoundToggleOn : styles.focusSoundToggleOff,
+                pressed && styles.focusSoundTogglePressed,
+              ]}
+              accessibilityRole="switch"
+              accessibilityLabel="Focus soundscape"
+              accessibilityState={{ checked: soundscapeEnabled }}
+              accessibilityHint={soundscapeEnabled ? 'Double tap to turn audio off' : 'Double tap to turn audio on'}
+            >
+              <HStack space="xs" alignItems="center">
+                <Icon
+                  name={soundscapeEnabled ? 'sound' : 'soundOff'}
+                  size={18}
+                  color={soundscapeEnabled ? colors.pine800 : colors.parchment}
+                />
+                <Text
+                  style={[
+                    styles.focusSoundToggleLabel,
+                    soundscapeEnabled ? styles.focusSoundToggleLabelOn : styles.focusSoundToggleLabelOff,
+                  ]}
+                >
+                  {soundscapeEnabled ? 'Audio on' : 'Audio off'}
+                </Text>
+              </HStack>
+            </Pressable>
+          </View>
+
+          <View style={styles.focusCenter}>
+            <Text style={styles.focusTimer}>{formatMsAsTimer(remainingFocusMs)}</Text>
+            <Text style={styles.focusActivityTitle} numberOfLines={2}>
+              {activity.title}
+            </Text>
+            <Text style={styles.focusStreakOverlayLabel}>
+              Streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
+            </Text>
+          </View>
+
+          <HStack space="sm" style={styles.focusBottomBar}>
+            <Button
+              accessibilityRole="button"
+              accessibilityLabel="End focus session"
+              variant="ghost"
+              size="icon"
+              iconButtonSize={56}
+              style={styles.focusActionIconButton}
+              onPress={() => endFocusSession().catch(() => undefined)}
+            >
+              <Icon name="stop" size={22} color={colors.parchment} />
+            </Button>
+            <Button
+              accessibilityRole="button"
+              accessibilityLabel={focusSession?.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'}
+              variant="ghost"
+              size="icon"
+              iconButtonSize={56}
+              style={styles.focusActionIconButton}
+              onPress={() => togglePauseFocusSession().catch(() => undefined)}
+            >
+              <Icon
+                name={focusSession?.mode === 'paused' ? 'play' : 'pause'}
+                size={22}
+                color={colors.parchment}
+              />
+            </Button>
+          </HStack>
+        </View>
+      </Modal>
+
+      {AgentWorkspaceSheet}
     </AppShell>
   );
+}
+
+function formatMsAsTimer(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 type SheetOptionProps = {
@@ -1422,6 +2831,53 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
+  breadcrumbsLeft: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingRight: spacing.sm,
+  },
+  breadcrumbsRight: {
+    flex: 0,
+  },
+  menuRowText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  tagsFieldContainer: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 44,
+  },
+  tagsFieldInner: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tagChipText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  tagsTextInput: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 120,
+    fontFamily: typography.bodySm.fontFamily,
+    fontSize: typography.bodySm.fontSize,
+    lineHeight: typography.bodySm.lineHeight + 2,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
   scroll: {
     flex: 1,
   },
@@ -1431,6 +2887,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   section: {
+    paddingVertical: spacing.xs,
+  },
+  keyActionsInset: {
+    // Give tile shadows room to render inside the scroll viewport so they
+    // don't get clipped at the canvas edges.
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   activityHeaderRow: {
@@ -1645,6 +3107,7 @@ const styles = StyleSheet.create({
   rowValue: {
     ...typography.bodySm,
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   rowRight: {
     flexShrink: 1,
@@ -1665,6 +3128,14 @@ const styles = StyleSheet.create({
   },
   estimateFieldsRow: {
     width: '100%',
+  },
+  estimatePickerContainer: {
+    width: '100%',
+    // Keep the wheel comfortably separated from the buttons.
+    paddingVertical: spacing.sm,
+    // Let the iOS wheel claim vertical space inside the sheet.
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   estimateField: {
     flex: 1,
@@ -1717,12 +3188,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   optionsButton: {
     alignSelf: 'flex-end',
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   destructiveMenuRowText: {
     ...typography.body,
@@ -1741,6 +3214,159 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 22,
     color: colors.textPrimary,
+  },
+  sheetDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  calendarPermissionNotice: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  calendarListContainer: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  calendarChoiceRow: {
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.shell,
+  },
+  calendarChoiceRowSelected: {
+    backgroundColor: colors.accent,
+  },
+  calendarChoiceLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  calendarChoiceLabelSelected: {
+    color: colors.primaryForeground,
+  },
+  focusPresetRow: {
+    flexWrap: 'wrap',
+  },
+  focusPresetChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  focusPresetChipPressed: {
+    opacity: 0.86,
+  },
+  focusPresetChipSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  focusPresetChipText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  focusPresetChipTextSelected: {
+    color: colors.primaryForeground,
+  },
+  focusOverlay: {
+    flex: 1,
+    backgroundColor: colors.pine700,
+    paddingHorizontal: spacing.lg,
+  },
+  focusTopBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  focusSoundToggle: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  focusSoundToggleOn: {
+    backgroundColor: colors.parchment,
+    borderColor: 'rgba(250,247,237,0.9)',
+  },
+  focusSoundToggleOff: {
+    backgroundColor: 'rgba(250,247,237,0.08)',
+    borderColor: 'rgba(250,247,237,0.35)',
+  },
+  focusSoundTogglePressed: {
+    opacity: 0.9,
+  },
+  focusSoundToggleLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
+  focusSoundToggleLabelOn: {
+    color: colors.pine800,
+  },
+  focusSoundToggleLabelOff: {
+    color: colors.parchment,
+  },
+  focusCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  focusStreakOverlayLabel: {
+    ...typography.body,
+    color: colors.parchment,
+    opacity: 0.9,
+    marginTop: spacing.sm,
+  },
+  focusStreakSheetLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  focusTimer: {
+    // Best approximation of the Apple Watch “thick rounded” vibe without bundling new fonts:
+    // iOS will render a very watch-like result with heavy system weights and tabular numbers.
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Rounded' : fonts.black,
+    fontWeight: Platform.OS === 'ios' ? '900' : '900',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1.2,
+    fontSize: 78,
+    lineHeight: 84,
+    color: colors.parchment,
+    textAlign: 'center',
+  },
+  focusActivityTitle: {
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  focusBottomBar: {
+    marginTop: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  focusActionIconButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(250,247,237,0.28)',
+    backgroundColor: 'rgba(250,247,237,0.08)',
   },
 });
 

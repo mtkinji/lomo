@@ -8,6 +8,7 @@ import {
   LayoutAnimation,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   UIManager,
   View,
@@ -36,7 +37,11 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
 import { ActivityListItem } from '../../ui/ActivityListItem';
+import type { IconName } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import {
   DropdownMenu,
@@ -48,7 +53,7 @@ import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Coachmark } from '../../ui/Coachmark';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
-import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { buildActivityCoachLaunchContext, buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import type {
   Activity,
@@ -64,6 +69,41 @@ import { fonts } from '../../theme/typography';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
+import { formatTags, parseTags } from '../../utils/tags';
+
+type ViewMenuItemProps = {
+  view: ActivityView;
+  onApplyView: (viewId: string) => void;
+  onOpenViewSettings: (view: ActivityView) => void;
+};
+
+function ViewMenuItem({ view, onApplyView, onOpenViewSettings }: ViewMenuItemProps) {
+  const iconPressedRef = React.useRef(false);
+
+  return (
+    <DropdownMenuItem
+      onPress={() => {
+        if (!iconPressedRef.current) {
+          onApplyView(view.id);
+        }
+        iconPressedRef.current = false;
+      }}
+    >
+      <HStack alignItems="center" justifyContent="space-between" space="sm" flex={1}>
+        <Text style={styles.menuItemText}>{view.name}</Text>
+        <Pressable
+          onPress={() => {
+            iconPressedRef.current = true;
+            onOpenViewSettings(view);
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="more" size={16} color={colors.textSecondary} />
+        </Pressable>
+      </HStack>
+    </DropdownMenuItem>
+  );
+}
 
 type CompletedActivitySectionProps = {
   activities: Activity[];
@@ -71,7 +111,82 @@ type CompletedActivitySectionProps = {
   onToggleComplete: (activityId: string) => void;
   onTogglePriority: (activityId: string) => void;
   onPressActivity: (activityId: string) => void;
+  isMetaLoading?: (activityId: string) => boolean;
 };
+
+function formatActivityMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (mins === 0) return `${hrs} hr${hrs === 1 ? '' : 's'}`;
+  return `${hrs} hr${hrs === 1 ? '' : 's'} ${mins} min`;
+}
+
+function formatActivityRepeatRule(rule: Activity['repeatRule'] | undefined): string | null {
+  if (!rule) return null;
+  return rule === 'weekdays' ? 'Weekdays' : rule.charAt(0).toUpperCase() + rule.slice(1);
+}
+
+function formatActivityDueDateLabel(iso: string): string {
+  const date = new Date(iso);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatActivityReminderLabel(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (sameDay) return time;
+
+  const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${day} ${time}`;
+}
+
+function buildActivityListMeta(args: {
+  activity: Activity;
+  goalTitle?: string;
+}): { meta?: string; metaLeadingIconName?: IconName } {
+  const { activity, goalTitle } = args;
+
+  const parts: string[] = [];
+
+  // Scheduling / effort metadata (these are what quick-add sets today).
+  if (activity.scheduledDate) {
+    parts.push(formatActivityDueDateLabel(activity.scheduledDate));
+  }
+  if (activity.reminderAt) {
+    parts.push(formatActivityReminderLabel(activity.reminderAt));
+  }
+  if (activity.estimateMinutes != null) {
+    parts.push(formatActivityMinutes(activity.estimateMinutes));
+  }
+  const repeatLabel = formatActivityRepeatRule(activity.repeatRule);
+  if (repeatLabel) {
+    parts.push(repeatLabel);
+  }
+
+  // Contextual metadata (these are often null for quick-add).
+  if (activity.phase) {
+    parts.push(activity.phase);
+  }
+  if (goalTitle) {
+    parts.push(goalTitle);
+  }
+
+  const meta = parts.length > 0 ? parts.join(' · ') : undefined;
+  const metaLeadingIconName: IconName | undefined = activity.scheduledDate
+    ? 'today'
+    : activity.reminderAt
+      ? 'bell'
+      : undefined;
+
+  return { meta, metaLeadingIconName };
+}
 
 function CompletedActivitySection({
   activities,
@@ -79,6 +194,7 @@ function CompletedActivitySection({
   onToggleComplete,
   onTogglePriority,
   onPressActivity,
+  isMetaLoading,
 }: CompletedActivitySectionProps) {
   const [expanded, setExpanded] = React.useState(false);
 
@@ -111,15 +227,16 @@ function CompletedActivitySection({
         <VStack space="xs">
           {activities.map((activity) => {
             const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const phase = activity.phase ?? undefined;
-            const metaParts = [phase, goalTitle].filter(Boolean);
-            const meta = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+            const { meta, metaLeadingIconName } = buildActivityListMeta({ activity, goalTitle });
+            const metaLoading = Boolean(isMetaLoading?.(activity.id)) && !meta;
 
             return (
               <ActivityListItem
                 key={activity.id}
                 title={activity.title}
                 meta={meta}
+                metaLeadingIconName={metaLeadingIconName}
+                metaLoading={metaLoading}
                 isCompleted={activity.status === 'done'}
                 onToggleComplete={() => onToggleComplete(activity.id)}
                 isPriorityOne={activity.priority === 1}
@@ -143,6 +260,7 @@ export function ActivitiesScreen() {
   const insets = useSafeAreaInsets();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
+  const { capture } = useAnalytics();
 
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
@@ -178,10 +296,32 @@ export function ActivitiesScreen() {
   const [isQuickAddFocused, setIsQuickAddFocused] = React.useState(false);
   const quickAddFocusedRef = React.useRef(false);
   const quickAddLastFocusAtRef = React.useRef<number>(0);
+  const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
+  const [hasQuickAddAiGenerated, setHasQuickAddAiGenerated] = React.useState(false);
+  const lastQuickAddAiTitleRef = React.useRef<string | null>(null);
+  const [enrichingActivityIds, setEnrichingActivityIds] = React.useState<Set<string>>(() => new Set());
+  const enrichingActivityIdsRef = React.useRef<Set<string>>(new Set());
   const [quickAddReminderAt, setQuickAddReminderAt] = React.useState<string | null>(null);
   const [quickAddScheduledDate, setQuickAddScheduledDate] = React.useState<string | null>(null);
   const [quickAddRepeatRule, setQuickAddRepeatRule] = React.useState<Activity['repeatRule']>(undefined);
   const [quickAddEstimateMinutes, setQuickAddEstimateMinutes] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    enrichingActivityIdsRef.current = enrichingActivityIds;
+  }, [enrichingActivityIds]);
+
+  const markActivityEnrichment = React.useCallback((activityId: string, isEnriching: boolean) => {
+    setEnrichingActivityIds((prev) => {
+      const next = new Set(prev);
+      if (isEnriching) next.add(activityId);
+      else next.delete(activityId);
+      return next;
+    });
+  }, []);
+
+  const isActivityEnriching = React.useCallback((activityId: string) => {
+    return enrichingActivityIdsRef.current.has(activityId);
+  }, []);
 
   const [quickAddReminderSheetVisible, setQuickAddReminderSheetVisible] = React.useState(false);
   const [quickAddDueDateSheetVisible, setQuickAddDueDateSheetVisible] = React.useState(false);
@@ -192,6 +332,37 @@ export function ActivitiesScreen() {
   const [quickAddReservedHeight, setQuickAddReservedHeight] = React.useState(
     QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4,
   );
+  const canvasScrollRef = React.useRef<ScrollView | null>(null);
+  const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+  const lastKnownKeyboardHeightRef = React.useRef<number>(320);
+
+  React.useEffect(() => {
+    const setTo = (next: number) => {
+      setKeyboardHeight(next);
+      if (next > 0) lastKnownKeyboardHeightRef.current = next;
+    };
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const frameEvent = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : null;
+
+    const onShow = (e: any) => {
+      const next = e?.endCoordinates?.height ?? 0;
+      setTo(next);
+    };
+    const onHide = () => setTo(0);
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    const frameSub = frameEvent ? Keyboard.addListener(frameEvent, onShow) : null;
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      frameSub?.remove();
+    };
+  }, []);
 
   const guideVariant = activities.length > 0 ? 'full' : 'empty';
   const guideTotalSteps = guideVariant === 'full' ? 3 : 1;
@@ -380,6 +551,138 @@ export function ActivitiesScreen() {
     });
   }, []);
 
+  // When opening a quick-add "tool drawer" (reminder/due/repeat/estimate), we want:
+  // - keyboard dismissed (so the tool drawer has space)
+  // - quick-add dock temporarily collapsed (avoid stacking 2 inline drawers)
+  // - on close, restore quick-add dock + keyboard so the user can continue typing
+  const QUICK_ADD_TOOL_DRAWER_ANIMATION_MS = 240;
+  const shouldResumeQuickAddAfterToolRef = React.useRef(false);
+
+  const setQuickAddFocused = React.useCallback((next: boolean) => {
+    if (next) {
+      quickAddLastFocusAtRef.current = Date.now();
+    }
+    setIsQuickAddFocused(next);
+  }, []);
+
+  const openQuickAddToolDrawer = React.useCallback(
+    (open: () => void) => {
+      shouldResumeQuickAddAfterToolRef.current = isQuickAddFocused;
+      if (isQuickAddFocused) {
+        collapseQuickAdd();
+      } else {
+        Keyboard.dismiss();
+      }
+      requestAnimationFrame(() => open());
+    },
+    [collapseQuickAdd, isQuickAddFocused],
+  );
+
+  const closeQuickAddToolDrawer = React.useCallback(
+    (close: () => void) => {
+      close();
+      if (!shouldResumeQuickAddAfterToolRef.current) return;
+      shouldResumeQuickAddAfterToolRef.current = false;
+      setTimeout(() => {
+        setQuickAddFocused(true);
+      }, QUICK_ADD_TOOL_DRAWER_ANIMATION_MS);
+    },
+    [setQuickAddFocused],
+  );
+
+  const normalizeQuickAddAiTitle = React.useCallback((raw: string): string | null => {
+    const firstLine = (raw ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0);
+    if (!firstLine) return null;
+
+    let title = firstLine;
+    title = title.replace(/^[\-\*\d]+[.)\s-]+/, '').trim();
+    title = title.replace(/^["'`]+/, '').replace(/["'`]+$/, '').trim();
+    title = title.replace(/[.!?]+$/, '').trim();
+    if (!title) return null;
+    if (title.length > 80) title = `${title.slice(0, 80).trim()}`;
+    return title.length > 0 ? title : null;
+  }, []);
+
+  const handleGenerateQuickAddActivityTitle = React.useCallback(async () => {
+    if (isQuickAddAiGenerating) return;
+    setIsQuickAddAiGenerating(true);
+
+    try {
+      const arcSnapshot = buildArcCoachLaunchContext(arcs, goals);
+      const activitySnapshot = buildActivityCoachLaunchContext(goals, activities, undefined, arcs);
+      const combinedSnapshot = [arcSnapshot, activitySnapshot].filter(Boolean).join('\n\n').trim();
+      const snapshot = combinedSnapshot.length > 8000 ? `${combinedSnapshot.slice(0, 7999)}…` : combinedSnapshot;
+
+      const launchContextSummary = [
+        'Launch source: activities_quick_add_toolbar',
+        'Intent: generate a single new Activity title to prefill the quick-add input.',
+        'Constraints: Output ONLY the Activity title as plain text on a single line. No quotes. No bullets. No numbering. No trailing punctuation.',
+        snapshot ? `\n${snapshot}` : '',
+      ].join('\n');
+
+      const turns: CoachChatTurn[] = [
+        {
+          role: 'system',
+          content:
+            'You are generating a single Activity title for the user.\n' +
+            '- Output MUST be exactly one line: the title only.\n' +
+            '- Keep it concrete and action-oriented (3–10 words).\n' +
+            '- Choose the SINGLE highest-value activity the user can realistically do next.\n' +
+            '- It MUST NOT duplicate or near-duplicate any existing activity title from the workspace snapshot (case-insensitive; ignore punctuation; avoid minor rewordings like swapping synonyms).\n' +
+            '- Prefer high-leverage activities that unblock progress across the user’s current Arcs/Goals or create a clear next step.\n' +
+            '- Do not include any explanation.',
+        },
+        {
+          role: 'user',
+          content:
+            'Suggest one new, highest-value activity that fits the user’s current arcs and goals, complements existing activities, and is not already in their activity list.',
+        },
+      ];
+
+      const reply = await sendCoachChat(turns, { launchContextSummary });
+      const title = normalizeQuickAddAiTitle(reply);
+      if (!title) return;
+
+      setQuickAddTitle(title);
+      setHasQuickAddAiGenerated(true);
+      lastQuickAddAiTitleRef.current = title;
+      if (!quickAddFocusedRef.current) {
+        setIsQuickAddFocused(true);
+      }
+      requestAnimationFrame(() => {
+        quickAddInputRef.current?.focus();
+      });
+    } catch (err) {
+      if (__DEV__) {
+        console.warn('[ActivitiesScreen] Failed to generate quick-add activity title:', err);
+      }
+    } finally {
+      setIsQuickAddAiGenerating(false);
+    }
+  }, [
+    activities,
+    arcs,
+    goals,
+    isQuickAddAiGenerating,
+    normalizeQuickAddAiTitle,
+    setQuickAddTitle,
+  ]);
+
+  const handleQuickAddChangeText = React.useCallback(
+    (next: string) => {
+      setQuickAddTitle(next);
+      const lastAi = lastQuickAddAiTitleRef.current;
+      if (hasQuickAddAiGenerated && lastAi && next !== lastAi) {
+        setHasQuickAddAiGenerated(false);
+        lastQuickAddAiTitleRef.current = null;
+      }
+    },
+    [hasQuickAddAiGenerated],
+  );
+
   React.useEffect(() => {
     quickAddFocusedRef.current = isQuickAddFocused;
   }, [isQuickAddFocused]);
@@ -405,6 +708,7 @@ export function ActivitiesScreen() {
       id,
       goalId: null,
       title: trimmed,
+      tags: [],
       notes: undefined,
       steps: proPlan.steps,
       reminderAt: quickAddReminderAt ?? null,
@@ -427,67 +731,171 @@ export function ActivitiesScreen() {
     };
 
     addActivity(activity);
+    pendingScrollToActivityIdRef.current = activity.id;
+    capture(AnalyticsEvent.ActivityCreated, {
+      source: 'quick_add',
+      activity_id: activity.id,
+      goal_id: null,
+      has_due_date: Boolean(activity.scheduledDate),
+      has_reminder: Boolean(activity.reminderAt),
+      has_estimate: Boolean(activity.estimateMinutes),
+    });
     setQuickAddTitle('');
     setQuickAddReminderAt(null);
     setQuickAddScheduledDate(null);
     setQuickAddRepeatRule(undefined);
     setQuickAddEstimateMinutes(null);
+    setHasQuickAddAiGenerated(false);
+    lastQuickAddAiTitleRef.current = null;
     // Keep the keyboard up for rapid entry.
     requestAnimationFrame(() => {
       quickAddInputRef.current?.focus();
     });
+
+    // Enrich activity with AI details asynchronously
+    markActivityEnrichment(activity.id, true);
+    enrichActivityWithAI({
+      title: trimmed,
+      goalId: null,
+    })
+      .then((enrichment) => {
+        if (!enrichment) return;
+
+        const timestamp = new Date().toISOString();
+        updateActivity(activity.id, (prev) => {
+          const updates: Partial<Activity> = {
+            updatedAt: timestamp,
+          };
+
+          // Only update fields that weren't already set by the user
+          if (enrichment.notes && !prev.notes) {
+            updates.notes = enrichment.notes;
+          }
+          if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
+            updates.tags = enrichment.tags;
+          }
+          if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
+            updates.steps = enrichment.steps.map((step, idx) => ({
+              id: `step-${activity.id}-${idx}`,
+              title: step.title,
+              orderIndex: idx,
+              completedAt: null,
+            }));
+          }
+          if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
+            updates.estimateMinutes = enrichment.estimateMinutes;
+          }
+          if (enrichment.priority != null && prev.priority == null) {
+            updates.priority = enrichment.priority;
+          }
+
+          // Update aiPlanning with difficulty suggestion
+          if (enrichment.difficulty) {
+            updates.aiPlanning = {
+              ...prev.aiPlanning,
+              difficulty: enrichment.difficulty,
+              estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
+              confidence: 0.7,
+              lastUpdatedAt: timestamp,
+              source: 'quick_suggest' as const,
+            };
+          }
+
+          return { ...prev, ...updates };
+        });
+      })
+      .catch((err) => {
+        // Silently fail - activity creation should succeed even if enrichment fails
+        if (__DEV__) {
+          console.warn('[ActivitiesScreen] Failed to enrich activity:', err);
+        }
+      })
+      .finally(() => {
+        markActivityEnrichment(activity.id, false);
+      });
   }, [
     activities.length,
     addActivity,
+    updateActivity,
     buildQuickAddHeuristicPlan,
+    capture,
     quickAddEstimateMinutes,
     quickAddReminderAt,
     quickAddRepeatRule,
     quickAddScheduledDate,
     quickAddTitle,
+    markActivityEnrichment,
   ]);
+
+  // After creating a new activity, scroll so it becomes visible just above the dock.
+  // This relies on the reserved bottom padding from `quickAddReservedHeight`.
+  React.useEffect(() => {
+    const pendingId = pendingScrollToActivityIdRef.current;
+    if (!pendingId) return;
+    if (!activeActivities.some((a) => a.id === pendingId)) return;
+
+    pendingScrollToActivityIdRef.current = null;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        canvasScrollRef.current?.scrollToEnd({ animated: true });
+      });
+    });
+  }, [activeActivities, quickAddReservedHeight]);
+
+  // When the quick-add dock is expanded (keyboard visible), the visible dock surface
+  // occludes more of the canvas than the collapsed dock height alone. Add temporary
+  // extra padding so `scrollToEnd()` lands the last row above the dock/keyboard.
+  const effectiveKeyboardHeight =
+    keyboardHeight > 0 ? keyboardHeight : isQuickAddFocused ? lastKnownKeyboardHeightRef.current : 0;
+  const scrollExtraBottomPadding = isQuickAddFocused
+    ? quickAddReservedHeight + effectiveKeyboardHeight
+    : quickAddReservedHeight;
 
   const setQuickAddDueDateByOffsetDays = React.useCallback((offsetDays: number) => {
     const date = new Date();
     date.setDate(date.getDate() + offsetDays);
     date.setHours(9, 0, 0, 0);
     setQuickAddScheduledDate(date.toISOString());
-    setQuickAddDueDateSheetVisible(false);
-    setQuickAddIsDueDatePickerVisible(false);
-  }, []);
+    closeQuickAddToolDrawer(() => {
+      setQuickAddDueDateSheetVisible(false);
+      setQuickAddIsDueDatePickerVisible(false);
+    });
+  }, [closeQuickAddToolDrawer]);
 
   const clearQuickAddDueDate = React.useCallback(() => {
     setQuickAddScheduledDate(null);
-    setQuickAddDueDateSheetVisible(false);
-    setQuickAddIsDueDatePickerVisible(false);
-  }, []);
+    closeQuickAddToolDrawer(() => {
+      setQuickAddDueDateSheetVisible(false);
+      setQuickAddIsDueDatePickerVisible(false);
+    });
+  }, [closeQuickAddToolDrawer]);
 
   const setQuickAddReminderByOffsetMinutes = React.useCallback((offsetMinutes: number) => {
     const date = new Date();
     date.setMinutes(date.getMinutes() + offsetMinutes);
     setQuickAddReminderAt(date.toISOString());
-    setQuickAddReminderSheetVisible(false);
-  }, []);
+    closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+  }, [closeQuickAddToolDrawer]);
 
   const clearQuickAddReminder = React.useCallback(() => {
     setQuickAddReminderAt(null);
-    setQuickAddReminderSheetVisible(false);
-  }, []);
+    closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+  }, [closeQuickAddToolDrawer]);
 
   const handleQuickAddSelectRepeat = React.useCallback((rule: Activity['repeatRule']) => {
     setQuickAddRepeatRule(rule);
-    setQuickAddRepeatSheetVisible(false);
-  }, []);
+    closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false));
+  }, [closeQuickAddToolDrawer]);
 
   const clearQuickAddRepeat = React.useCallback(() => {
     setQuickAddRepeatRule(undefined);
-    setQuickAddRepeatSheetVisible(false);
-  }, []);
+    closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false));
+  }, [closeQuickAddToolDrawer]);
 
   const handleQuickAddSelectEstimate = React.useCallback((minutes: number | null) => {
     setQuickAddEstimateMinutes(minutes);
-    setQuickAddEstimateSheetVisible(false);
-  }, []);
+    closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false));
+  }, [closeQuickAddToolDrawer]);
 
   const getQuickAddInitialDueDateForPicker = React.useCallback(() => {
     if (quickAddScheduledDate) return new Date(quickAddScheduledDate);
@@ -500,10 +908,12 @@ export function ActivitiesScreen() {
       const next = new Date(selected);
       next.setHours(9, 0, 0, 0);
       setQuickAddScheduledDate(next.toISOString());
-      setQuickAddIsDueDatePickerVisible(false);
-      setQuickAddDueDateSheetVisible(false);
+      closeQuickAddToolDrawer(() => {
+        setQuickAddIsDueDatePickerVisible(false);
+        setQuickAddDueDateSheetVisible(false);
+      });
     },
-    [],
+    [closeQuickAddToolDrawer],
   );
 
   const handleToggleComplete = React.useCallback(
@@ -518,6 +928,13 @@ export function ActivitiesScreen() {
       );
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
+        capture(AnalyticsEvent.ActivityCompletionToggled, {
+          source: 'activities_list',
+          activity_id: activityId,
+          goal_id: activity.goalId ?? null,
+          next_status: nextIsDone ? 'done' : 'planned',
+          had_steps: Boolean(activity.steps && activity.steps.length > 0),
+        });
         return {
           ...activity,
           status: nextIsDone ? 'done' : 'planned',
@@ -526,7 +943,7 @@ export function ActivitiesScreen() {
         };
       });
     },
-    [updateActivity],
+    [capture, updateActivity],
   );
 
   const handleTogglePriorityOne = React.useCallback(
@@ -680,6 +1097,7 @@ export function ActivitiesScreen() {
       <PageHeader
         title="Activities"
         iconName="activities"
+        iconTone="activity"
         menuOpen={menuOpen}
         onPressMenu={() => {
           const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
@@ -689,12 +1107,12 @@ export function ActivitiesScreen() {
           isQuickAddFocused ? (
             <Button
               variant="accent"
-              size="small"
+              size="xs"
               accessibilityRole="button"
               accessibilityLabel="Done"
               onPress={collapseQuickAdd}
             >
-              <ButtonLabel tone="inverse">Done</ButtonLabel>
+              <ButtonLabel size="xs" tone="inverse">Done</ButtonLabel>
             </Button>
           ) : (
             <IconButton
@@ -702,6 +1120,7 @@ export function ActivitiesScreen() {
               collapsable={false}
               accessibilityRole="button"
               accessibilityLabel="Add Activity"
+              style={styles.addActivityIconButton}
               onPress={() => {
                 setActivityCoachVisible(true);
               }}
@@ -750,9 +1169,10 @@ export function ActivitiesScreen() {
         placement="below"
       />
       <CanvasScrollView
+        ref={canvasScrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        extraBottomPadding={quickAddReservedHeight}
+        extraBottomPadding={scrollExtraBottomPadding}
         showsVerticalScrollIndicator={false}
         // The Activities screen owns keyboard avoidance for the docked quick-add.
         // Letting the scroll view also auto-adjust can cause iOS to "fight" the
@@ -789,33 +1209,17 @@ export function ActivitiesScreen() {
                   {!viewEditorVisible && (
                     <DropdownMenuContent side="bottom" sideOffset={4} align="start">
                       {activityViews.map((view) => (
-                        <DropdownMenuItem key={view.id} onPress={() => applyView(view.id)}>
-                          <HStack
-                            alignItems="center"
-                            justifyContent="space-between"
-                            space="sm"
-                            flex={1}
-                          >
-                            <Text style={styles.menuItemText}>{view.name}</Text>
-                            {activeView?.id === view.id ? (
-                              <Icon name="more" size={16} color={colors.textSecondary} />
-                            ) : null}
-                          </HStack>
-                        </DropdownMenuItem>
+                        <ViewMenuItem
+                          key={view.id}
+                          view={view}
+                          onApplyView={applyView}
+                          onOpenViewSettings={handleOpenViewSettings}
+                        />
                       ))}
                       <DropdownMenuItem
-                        disabled={!activeView}
-                        onPress={() => {
-                          if (!activeView) return;
-                          handleOpenViewSettings(activeView);
-                        }}
+                        onPress={handleOpenCreateView}
+                        style={styles.newViewMenuItem}
                       >
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="more" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>View settings</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={handleOpenCreateView}>
                         <HStack alignItems="center" space="xs">
                           <Icon name="plus" size={14} color={colors.textSecondary} />
                           <Text style={styles.menuItemText}>New view</Text>
@@ -849,7 +1253,10 @@ export function ActivitiesScreen() {
                         <Text style={styles.menuItemText}>All activities</Text>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={() => handleUpdateFilterMode('priority1')}>
-                        <Text style={styles.menuItemText}>Priority 1</Text>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="star" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Starred</Text>
+                        </HStack>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={() => handleUpdateFilterMode('active')}>
                         <Text style={styles.menuItemText}>Active</Text>
@@ -961,15 +1368,16 @@ export function ActivitiesScreen() {
               <VStack space="xs">
                 {activeActivities.map((activity) => {
                   const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-                  const phase = activity.phase ?? undefined;
-                  const metaParts = [phase, goalTitle].filter(Boolean);
-                  const meta = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+                  const { meta, metaLeadingIconName } = buildActivityListMeta({ activity, goalTitle });
+                  const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
 
                   return (
                     <ActivityListItem
                       key={activity.id}
                       title={activity.title}
                       meta={meta}
+                      metaLeadingIconName={metaLeadingIconName}
+                      metaLoading={metaLoading}
                       isCompleted={activity.status === 'done'}
                       onToggleComplete={() => handleToggleComplete(activity.id)}
                       isPriorityOne={activity.priority === 1}
@@ -996,6 +1404,7 @@ export function ActivitiesScreen() {
                     activityId,
                   })
                 }
+                isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
               />
             )}
           </>
@@ -1015,30 +1424,28 @@ export function ActivitiesScreen() {
       </CanvasScrollView>
       <QuickAddDock
         value={quickAddTitle}
-        onChangeText={setQuickAddTitle}
+        onChangeText={handleQuickAddChangeText}
         inputRef={quickAddInputRef}
         isFocused={isQuickAddFocused}
-        setIsFocused={(next) => {
-          if (next) {
-            quickAddLastFocusAtRef.current = Date.now();
-          }
-          setIsQuickAddFocused(next);
-        }}
+        setIsFocused={setQuickAddFocused}
         onSubmit={handleQuickAddActivity}
         onCollapse={collapseQuickAdd}
         reminderAt={quickAddReminderAt}
         scheduledDate={quickAddScheduledDate}
         repeatRule={quickAddRepeatRule}
         estimateMinutes={quickAddEstimateMinutes}
-        onPressReminder={() => setQuickAddReminderSheetVisible(true)}
-        onPressDueDate={() => setQuickAddDueDateSheetVisible(true)}
-        onPressRepeat={() => setQuickAddRepeatSheetVisible(true)}
-        onPressEstimate={() => setQuickAddEstimateSheetVisible(true)}
+        onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
+        onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
+        onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
+        onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
+        onPressGenerateActivityTitle={handleGenerateQuickAddActivityTitle}
+        isGeneratingActivityTitle={isQuickAddAiGenerating}
+        hasGeneratedActivityTitle={hasQuickAddAiGenerated}
         onReservedHeightChange={setQuickAddReservedHeight}
       />
       <BottomDrawer
         visible={quickAddReminderSheetVisible}
-        onClose={() => setQuickAddReminderSheetVisible(false)}
+        onClose={() => closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false))}
         snapPoints={['40%']}
         presentation="inline"
         hideBackdrop
@@ -1056,10 +1463,12 @@ export function ActivitiesScreen() {
 
       <BottomDrawer
         visible={quickAddDueDateSheetVisible}
-        onClose={() => {
-          setQuickAddDueDateSheetVisible(false);
-          setQuickAddIsDueDatePickerVisible(false);
-        }}
+        onClose={() =>
+          closeQuickAddToolDrawer(() => {
+            setQuickAddDueDateSheetVisible(false);
+            setQuickAddIsDueDatePickerVisible(false);
+          })
+        }
         snapPoints={['45%']}
         presentation="inline"
         hideBackdrop
@@ -1088,7 +1497,7 @@ export function ActivitiesScreen() {
 
       <BottomDrawer
         visible={quickAddRepeatSheetVisible}
-        onClose={() => setQuickAddRepeatSheetVisible(false)}
+        onClose={() => closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false))}
         snapPoints={['45%']}
         presentation="inline"
         hideBackdrop
@@ -1108,7 +1517,7 @@ export function ActivitiesScreen() {
 
       <BottomDrawer
         visible={quickAddEstimateSheetVisible}
-        onClose={() => setQuickAddEstimateSheetVisible(false)}
+        onClose={() => closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false))}
         snapPoints={['45%']}
         presentation="inline"
         hideBackdrop
@@ -1132,6 +1541,8 @@ export function ActivitiesScreen() {
         activities={activities}
         arcs={arcs}
         addActivity={addActivity}
+        markActivityEnrichment={markActivityEnrichment}
+        isActivityEnriching={isActivityEnriching}
       />
       <Dialog
         visible={viewEditorVisible}
@@ -1231,6 +1642,9 @@ export function ActivitiesScreen() {
 const QUICK_ADD_BAR_HEIGHT = 64;
 
 const styles = StyleSheet.create({
+  addActivityIconButton: {
+    backgroundColor: colors.primary,
+  },
   scroll: {
     flex: 1,
   },
@@ -1282,8 +1696,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   menuItemText: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
+  },
+  newViewMenuItem: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.xs,
+    marginHorizontal: -spacing.xs,
+    paddingLeft: spacing.xs + spacing.sm,
+    paddingRight: spacing.xs + spacing.sm,
   },
   appliedChip: {
     paddingHorizontal: spacing.sm,
@@ -1632,7 +2054,7 @@ const styles = StyleSheet.create({
 function getFilterLabel(mode: ActivityFilterMode): string {
   switch (mode) {
     case 'priority1':
-      return 'Priority 1';
+      return 'Starred';
     case 'active':
       return 'Active';
     case 'completed':
@@ -1668,6 +2090,8 @@ type ActivityCoachDrawerProps = {
   activities: Activity[];
   arcs: Arc[];
   addActivity: (activity: Activity) => void;
+  markActivityEnrichment: (activityId: string, isEnriching: boolean) => void;
+  isActivityEnriching: (activityId: string) => boolean;
 };
 
 function ActivityCoachDrawer({
@@ -1677,8 +2101,11 @@ function ActivityCoachDrawer({
   activities,
   arcs,
   addActivity,
+  markActivityEnrichment,
+  isActivityEnriching,
 }: ActivityCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
+  const { capture } = useAnalytics();
   const [manualActivityId, setManualActivityId] = React.useState<string | null>(null);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
@@ -1729,6 +2156,7 @@ function ActivityCoachDrawer({
       if (manualActivityId && manualActivity) {
         const title = manualActivity.title?.trim() ?? '';
         const hasTitle = title.length > 0;
+        const hasTags = (manualActivity.tags ?? []).length > 0;
         const hasNotes = (manualActivity.notes ?? '').trim().length > 0;
         const hasSteps = (manualActivity.steps ?? []).length > 0;
         const hasReminder = Boolean(manualActivity.reminderAt);
@@ -1738,6 +2166,7 @@ function ActivityCoachDrawer({
 
         const isTriviallyEmpty =
           !hasTitle &&
+          !hasTags &&
           !hasNotes &&
           !hasSteps &&
           !hasReminder &&
@@ -1767,6 +2196,7 @@ function ActivityCoachDrawer({
       id,
       goalId: null,
       title: '',
+      tags: [],
       notes: undefined,
       steps: [],
       reminderAt: null,
@@ -1788,8 +2218,104 @@ function ActivityCoachDrawer({
     };
 
     addActivity(activity);
+    capture(AnalyticsEvent.ActivityCreated, {
+      source: 'manual_drawer',
+      activity_id: activity.id,
+      goal_id: null,
+    });
     setManualActivityId(id);
-  }, [activities.length, addActivity, manualActivityId]);
+  }, [activities.length, addActivity, capture, manualActivityId]);
+
+  // Enrich activity with AI when title becomes non-empty
+  React.useEffect(() => {
+    if (!manualActivity) return;
+    const title = manualActivity.title?.trim() ?? '';
+    if (title.length === 0) return;
+    // Only enrich if we haven't enriched yet (check if aiPlanning exists and was set by us)
+    if (manualActivity.aiPlanning?.source === 'quick_suggest') return;
+
+    // Debounce: wait a bit after user stops typing
+    const timeoutId = setTimeout(() => {
+      if (isActivityEnriching(manualActivity.id)) {
+        return;
+      }
+      markActivityEnrichment(manualActivity.id, true);
+      enrichActivityWithAI({
+        title,
+        goalId: manualActivity.goalId,
+        existingNotes: manualActivity.notes,
+        existingTags: manualActivity.tags,
+      })
+        .then((enrichment) => {
+          if (!enrichment) return;
+
+          const timestamp = new Date().toISOString();
+          updateActivity(manualActivity.id, (prev) => {
+            const updates: Partial<Activity> = {
+              updatedAt: timestamp,
+            };
+
+            // Only update fields that weren't already set by the user
+            if (enrichment.notes && !prev.notes) {
+              updates.notes = enrichment.notes;
+            }
+            if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
+              updates.tags = enrichment.tags;
+            }
+            if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
+              updates.steps = enrichment.steps.map((step, idx) => ({
+                id: `step-${manualActivity.id}-${idx}`,
+                title: step.title,
+                orderIndex: idx,
+                completedAt: null,
+              }));
+            }
+            if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
+              updates.estimateMinutes = enrichment.estimateMinutes;
+            }
+            if (enrichment.priority != null && prev.priority == null) {
+              updates.priority = enrichment.priority;
+            }
+
+            // Update aiPlanning with difficulty suggestion
+            if (enrichment.difficulty) {
+              updates.aiPlanning = {
+                ...prev.aiPlanning,
+                difficulty: enrichment.difficulty,
+                estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
+                confidence: 0.7,
+                lastUpdatedAt: timestamp,
+                source: 'quick_suggest' as const,
+              };
+            }
+
+            return { ...prev, ...updates };
+          });
+        })
+        .catch((err) => {
+          // Silently fail - activity creation should succeed even if enrichment fails
+          if (__DEV__) {
+            console.warn('[ActivityCoachDrawer] Failed to enrich activity:', err);
+          }
+        })
+        .finally(() => {
+          markActivityEnrichment(manualActivity.id, false);
+        });
+    }, 1500); // Wait 1.5 seconds after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    manualActivity?.title,
+    manualActivity?.id,
+    manualActivity?.goalId,
+    manualActivity?.notes,
+    manualActivity?.tags,
+    manualActivity?.aiPlanning?.source,
+    enrichActivityWithAI,
+    isActivityEnriching,
+    markActivityEnrichment,
+    updateActivity,
+  ]);
 
   React.useEffect(() => {
     if (!visible) return;
@@ -2163,6 +2689,7 @@ function ActivityCoachDrawer({
           id,
           goalId: null,
           title: trimmedTitle,
+          tags: [],
           notes: undefined,
           steps: [],
           reminderAt: null,
@@ -2184,9 +2711,14 @@ function ActivityCoachDrawer({
         };
 
         addActivity(activity);
+        capture(AnalyticsEvent.ActivityCreated, {
+          source: 'ai_workflow',
+          activity_id: activity.id,
+          goal_id: null,
+        });
       });
     },
-    [activities, addActivity],
+    [activities, addActivity, capture],
   );
 
   const handleAdoptActivitySuggestion = React.useCallback(
@@ -2208,6 +2740,7 @@ function ActivityCoachDrawer({
         id,
         goalId: null,
         title: suggestion.title.trim(),
+        tags: [],
         notes: suggestion.why,
         steps,
         reminderAt: null,
@@ -2242,8 +2775,15 @@ function ActivityCoachDrawer({
       };
 
       addActivity(activity);
+      capture(AnalyticsEvent.ActivityCreated, {
+        source: 'ai_suggestion',
+        activity_id: activity.id,
+        goal_id: null,
+        has_steps: Boolean(activity.steps && activity.steps.length > 0),
+        has_estimate: Boolean(activity.estimateMinutes),
+      });
     },
-    [activities.length, addActivity],
+    [activities.length, addActivity, capture],
   );
 
   return (
@@ -2306,6 +2846,21 @@ function ActivityCoachDrawer({
                   updateActivity(manualActivity.id, (prev) => ({
                     ...prev,
                     title: next,
+                    updatedAt: timestamp,
+                  }));
+                }}
+                variant="outline"
+              />
+              <Input
+                label="Tags (comma-separated)"
+                placeholder="e.g., errands, outdoors"
+                value={formatTags(manualActivity?.tags)}
+                onChangeText={(raw) => {
+                  if (!manualActivity) return;
+                  const timestamp = new Date().toISOString();
+                  updateActivity(manualActivity.id, (prev) => ({
+                    ...prev,
+                    tags: parseTags(raw),
                     updatedAt: timestamp,
                   }));
                 }}

@@ -11,9 +11,11 @@ import {
   NativeSyntheticEvent,
   TextInputContentSizeChangeEventData,
   TextInputProps,
+  Platform,
 } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
+import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 
 type InputVariant = 'surface' | 'outline' | 'ghost' | 'inline';
 type InputSize = 'md' | 'sm';
@@ -75,6 +77,7 @@ const InputBase = forwardRef<TextInput, Props>(
       onBlur,
       multiline = false,
       onContentSizeChange,
+      placeholderTextColor,
       ...rest
     },
     ref,
@@ -82,6 +85,7 @@ const InputBase = forwardRef<TextInput, Props>(
     const [focused, setFocused] = useState(false);
     const [multilineHeight, setMultilineHeight] = useState<number | undefined>(undefined);
     const hasError = Boolean(errorText);
+    const keyboardAware = useKeyboardAwareScroll();
     // Keep border color consistent between default and focused states;
     // only errors get a different color.
     const statusColor = hasError ? colors.destructive : colors.border;
@@ -119,7 +123,7 @@ const InputBase = forwardRef<TextInput, Props>(
             ref={ref}
             editable={editable}
             multiline={multiline}
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={placeholderTextColor ?? colors.muted}
             onContentSizeChange={(
               event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
             ) => {
@@ -138,6 +142,11 @@ const InputBase = forwardRef<TextInput, Props>(
             onFocus={(event) => {
               setFocused(true);
               onFocus?.(event);
+              // If the keyboard is already open (focus moved between fields),
+              // proactively reveal the focused input.
+              if (keyboardAware?.keyboardHeight) {
+                requestAnimationFrame(() => keyboardAware.scrollToFocusedInput());
+              }
             }}
             onBlur={(event) => {
               setFocused(false);
@@ -145,6 +154,7 @@ const InputBase = forwardRef<TextInput, Props>(
             }}
             style={[
               styles.input,
+              !multiline ? styles.singleLinePlatformMetrics : null,
               multiline && styles.multilineInput,
               size === 'sm' && styles.inputSm,
               variant === 'inline' && !multiline ? styles.inlineSingleLineInput : null,
@@ -219,6 +229,20 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodySm.lineHeight,
     color: colors.textPrimary,
     paddingVertical: 0,
+  },
+  singleLinePlatformMetrics: {
+    // Android: remove extra font padding and request vertical centering.
+    ...(Platform.OS === 'android'
+      ? ({
+          includeFontPadding: false,
+          textAlignVertical: 'center',
+        } as TextStyle)
+      : ({
+          // iOS: line-height strongly affects perceived vertical centering.
+          // Keep it closer to font size, then nudge baseline up a hair.
+          lineHeight: typography.bodySm.fontSize + 2,
+          marginTop: -1,
+        } as TextStyle)),
   },
   inlineSingleLineInput: {
     // Visual centering: iOS text baselines tend to sit slightly low next to circular

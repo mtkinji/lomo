@@ -93,6 +93,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
 
 export function SettingsHomeScreen() {
   const userProfile = useAppStore((state) => state.userProfile);
+  const arcs = useAppStore((state) => state.arcs);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const navigation = useNavigation<SettingsNavigationProp>();
   const drawerNavigation = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
@@ -122,7 +123,21 @@ export function SettingsHomeScreen() {
     }
   };
 
-  const displayName = userProfile?.fullName?.trim() || 'Your profile';
+  const generatedNameFromFirstArc = (() => {
+    let firstArcName: string | null = null;
+    let firstArcCreatedAt: string | null = null;
+    for (const arc of arcs) {
+      const arcName = arc?.name?.trim();
+      if (!arcName) continue;
+      if (!firstArcCreatedAt || arc.createdAt < firstArcCreatedAt) {
+        firstArcCreatedAt = arc.createdAt;
+        firstArcName = arcName;
+      }
+    }
+    return firstArcName;
+  })();
+
+  const displayName = userProfile?.fullName?.trim() || generatedNameFromFirstArc || 'Kwilter';
   const profileSubtitle = userProfile?.email?.trim() || 'Add your email address';
   const avatarSource = userProfile?.avatarUrl ? { uri: userProfile.avatarUrl } : null;
 

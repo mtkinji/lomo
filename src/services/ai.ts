@@ -1,6 +1,8 @@
-import { Arc, GoalDraft, type AgeRange } from '../domain/types';
+import { Arc, GoalDraft, type AgeRange, type ActivityDifficulty } from '../domain/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import * as Calendar from 'expo-calendar';
+import { Platform } from 'react-native';
 import { getFocusAreaLabel } from '../domain/focusAreas';
 import { listIdealArcTemplates } from '../domain/idealArcs';
 import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
@@ -9,6 +11,24 @@ import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type LlmModel } from '../store/useAppStore';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
+import type { ActivityStep } from '../domain/types';
+import { richTextToPlainText } from '../ui/richText';
+
+export type ActivityAiEnrichment = {
+  notes?: string;
+  tags?: string[];
+  steps?: Array<{ title: string }>;
+  estimateMinutes?: number | null;
+  priority?: 1 | 2 | 3 | null;
+  difficulty?: ActivityDifficulty;
+};
+
+export type EnrichActivityWithAiParams = {
+  title: string;
+  goalId: string | null;
+  existingNotes?: string;
+  existingTags?: string[];
+};
 
 type GenerateArcParams = {
   prompt: string;
@@ -386,7 +406,7 @@ const markOpenAiQuotaExceeded = (
           'This will cause user-facing failures. Check billing/quota immediately.'
       );
       console.error('[CRITICAL] OpenAI quota error details:', {
-        apiKey: keyInfo ? `${keyInfo.prefix}...${keyInfo.suffix}` : 'unknown',
+        apiKey: keyInfo?.present ? `present (length: ${keyInfo.length})` : 'unknown',
         message: error.message,
         type: error.type,
         code: error.code,
@@ -403,7 +423,7 @@ const markOpenAiQuotaExceeded = (
         `[QUOTA EXCEEDED] OpenAI quota exceeded (${context})\n` +
         `${'='.repeat(80)}`
       );
-      console.warn('API Key:', keyInfo ? `${keyInfo.prefix}...${keyInfo.suffix} (length: ${keyInfo.length})` : 'unknown');
+      console.warn('API Key:', keyInfo?.present ? `present (length: ${keyInfo.length})` : 'unknown');
       console.warn('Error Message:', error.message);
       console.warn('Error Type:', error.type);
       console.warn('Error Code:', error.code);
@@ -418,7 +438,7 @@ const markOpenAiQuotaExceeded = (
       console.warn(
         `\nTo fix this:\n` +
         `1. Go to https://platform.openai.com/settings/organization/limits\n` +
-        `2. Find the key matching: ${keyInfo ? `${keyInfo.prefix}...${keyInfo.suffix}` : 'your API key'}\n` +
+        `2. Find your API key in settings (do not paste it into logs)\n` +
         `3. Check which limit was exceeded (see details above)\n` +
         `4. Request an increase for that specific limit\n` +
         `${'='.repeat(80)}\n`
@@ -457,10 +477,8 @@ const calculateAgeFromBirthdate = (birthdate?: string): number | null => {
 
 const describeKey = (key?: string) => {
   if (!key) return { present: false };
-  // Show first 7 chars + last 4 for verification (e.g., "sk-proj-...xyz1")
-  const prefix = key.slice(0, 7);
-  const suffix = key.length > 11 ? key.slice(-4) : '****';
-  return { present: true, length: key.length, prefix, suffix };
+  // Never log any portion of the key itself (even in dev). We only track presence + length.
+  return { present: true, length: key.length };
 };
 
 const devLog = (context: string, details?: Record<string, unknown>) => {
@@ -822,7 +840,13 @@ const appendDevCoachChatHistory = async (
   }
 };
 
-type CoachToolName = 'get_user_profile' | 'set_user_profile';
+type CoachToolName =
+  | 'get_user_profile'
+  | 'set_user_profile'
+  | 'enter_focus_mode'
+  | 'schedule_activity_on_calendar'
+  | 'schedule_activity_chunks_on_calendar'
+  | 'activity_steps_edit';
 
 type CoachToolCall = {
   id: string;
@@ -843,7 +867,8 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
   // onboarding now collects identity data through workflow-driven cards
   // instead of allowing the model to freestyle reads/writes.
   const shouldExposeProfileTools = mode === 'arcCreation';
-  if (!shouldExposeProfileTools) {
+  const shouldExposeActivityTools = mode === 'activityGuidance';
+  if (!shouldExposeProfileTools && !shouldExposeActivityTools) {
     return undefined;
   }
 
@@ -858,48 +883,180 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
     'prefer-not-to-say',
   ];
 
-  return [
-    {
-      type: 'function',
-      function: {
-        name: 'get_user_profile' as CoachToolName,
-        description:
-          'Read the user profile fields that are relevant for coaching tone and examples, such as age range.',
-        parameters: {
-          type: 'object',
-          properties: {},
-          additionalProperties: false,
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'set_user_profile' as CoachToolName,
-        description:
-          'Update parts of the user profile such as name or age range. Use this only when the user has clearly provided or confirmed the information.',
-        parameters: {
-          type: 'object',
-          properties: {
-            ageRange: {
-              type: 'string',
-              enum: ageRangeEnum,
-              description:
-                'User age range bucket, used only to tune tone and examples, not to make assumptions.',
-            },
-            fullName: {
-              type: 'string',
-              description: 'Preferred name the user wants the coach to use in conversations.',
-            },
+  const tools: Array<Record<string, unknown>> = [];
+
+  if (shouldExposeProfileTools) {
+    tools.push(
+      {
+        type: 'function',
+        function: {
+          name: 'get_user_profile' as CoachToolName,
+          description:
+            'Read the user profile fields that are relevant for coaching tone and examples, such as age range.',
+          parameters: {
+            type: 'object',
+            properties: {},
+            additionalProperties: false,
           },
-          additionalProperties: false,
         },
       },
-    },
-  ];
+      {
+        type: 'function',
+        function: {
+          name: 'set_user_profile' as CoachToolName,
+          description:
+            'Update parts of the user profile such as name or age range. Use this only when the user has clearly provided or confirmed the information.',
+          parameters: {
+            type: 'object',
+            properties: {
+              ageRange: {
+                type: 'string',
+                enum: ageRangeEnum,
+                description:
+                  'User age range bucket, used only to tune tone and examples, not to make assumptions.',
+              },
+              fullName: {
+                type: 'string',
+                description: 'Preferred name the user wants the coach to use in conversations.',
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+      }
+    );
+  }
+
+  if (shouldExposeActivityTools) {
+    tools.push(
+      {
+        type: 'function',
+        function: {
+          name: 'enter_focus_mode' as CoachToolName,
+          description:
+            'Open Focus Mode for the currently focused activity. This will open the focus sheet in the UI; the user still confirms starting the timer.',
+          parameters: {
+            type: 'object',
+            properties: {
+              activityId: { type: 'string' },
+              minutes: {
+                type: 'number',
+                description: 'Suggested focus duration in minutes (optional).',
+              },
+            },
+            required: ['activityId'],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'schedule_activity_on_calendar' as CoachToolName,
+          description:
+            'Open the calendar scheduling sheet for the focused activity, optionally prefilled with a start time and duration. The user still confirms creating the calendar event.',
+          parameters: {
+            type: 'object',
+            properties: {
+              activityId: { type: 'string' },
+              startAtISO: {
+                type: 'string',
+                description: 'Suggested ISO timestamp for the event start (optional).',
+              },
+              durationMinutes: {
+                type: 'number',
+                description: 'Suggested event duration in minutes (optional).',
+              },
+            },
+            required: ['activityId'],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'schedule_activity_chunks_on_calendar' as CoachToolName,
+          description:
+            'Create multiple calendar events for the focused activity by splitting it into smaller time chunks. Use only after the user explicitly agrees to schedule chunks on their calendar.',
+          parameters: {
+            type: 'object',
+            properties: {
+              activityId: { type: 'string' },
+              chunks: {
+                type: 'array',
+                minItems: 2,
+                maxItems: 10,
+                items: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    startAtISO: { type: 'string' },
+                    durationMinutes: { type: 'number' },
+                  },
+                  required: ['title', 'startAtISO', 'durationMinutes'],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ['activityId', 'chunks'],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'activity_steps_edit' as CoachToolName,
+          description:
+            'Add/modify/remove steps on an activity. Use replace to set the full list, append to add new ones, update to edit one step, remove to delete one by index.',
+          parameters: {
+            type: 'object',
+            properties: {
+              activityId: { type: 'string' },
+              operation: {
+                type: 'string',
+                enum: ['replace', 'append', 'update', 'remove'],
+              },
+              steps: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    isOptional: { type: 'boolean' },
+                  },
+                  required: ['title'],
+                  additionalProperties: false,
+                },
+              },
+              index: { type: 'number', description: '0-based step index (for update/remove).' },
+              step: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string' },
+                  isOptional: { type: 'boolean' },
+                  completed: {
+                    type: 'boolean',
+                    description:
+                      'Request to mark a step complete/incomplete. This will trigger a user confirmation in the UI before applying.',
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+            required: ['activityId', 'operation'],
+            additionalProperties: false,
+          },
+        },
+      }
+    );
+  }
+
+  return tools;
 };
 
-const runCoachTool = (tool: CoachToolCall) => {
+const runCoachTool = async (tool: CoachToolCall) => {
   const name = tool.function.name;
   let args: unknown;
   try {
@@ -944,6 +1101,260 @@ const runCoachTool = (tool: CoachToolCall) => {
       ok: true,
       profile: updated.userProfile ?? null,
     };
+  }
+
+  if (name === 'enter_focus_mode') {
+    const payload = (args as { activityId?: string; minutes?: number }) ?? {};
+    const activityId = typeof payload.activityId === 'string' ? payload.activityId : '';
+    if (!activityId) return { ok: false, error: 'Missing activityId' };
+
+    const activity = state.activities.find((a) => a.id === activityId) ?? null;
+    if (!activity) return { ok: false, error: 'Activity not found' };
+
+    const minutes =
+      typeof payload.minutes === 'number' && Number.isFinite(payload.minutes)
+        ? Math.max(1, Math.round(payload.minutes))
+        : undefined;
+    state.enqueueAgentHostAction({
+      objectType: 'activity',
+      objectId: activityId,
+      type: 'openFocusMode',
+      minutes,
+    });
+    return { ok: true, queued: 'openFocusMode', activityId, minutes };
+  }
+
+  if (name === 'schedule_activity_on_calendar') {
+    const payload =
+      (args as { activityId?: string; startAtISO?: string; durationMinutes?: number }) ?? {};
+    const activityId = typeof payload.activityId === 'string' ? payload.activityId : '';
+    if (!activityId) return { ok: false, error: 'Missing activityId' };
+
+    const activity = state.activities.find((a) => a.id === activityId) ?? null;
+    if (!activity) return { ok: false, error: 'Activity not found' };
+
+    const startAtISO = typeof payload.startAtISO === 'string' ? payload.startAtISO : undefined;
+    const durationMinutes =
+      typeof payload.durationMinutes === 'number' && Number.isFinite(payload.durationMinutes)
+        ? Math.max(5, Math.round(payload.durationMinutes))
+        : undefined;
+    state.enqueueAgentHostAction({
+      objectType: 'activity',
+      objectId: activityId,
+      type: 'openCalendar',
+      startAtISO,
+      durationMinutes,
+    });
+    return { ok: true, queued: 'openCalendar', activityId, startAtISO, durationMinutes };
+  }
+
+  if (name === 'schedule_activity_chunks_on_calendar') {
+    const payload =
+      (args as {
+        activityId?: string;
+        chunks?: Array<{ title?: string; startAtISO?: string; durationMinutes?: number }>;
+      }) ?? {};
+    const activityId = typeof payload.activityId === 'string' ? payload.activityId : '';
+    if (!activityId) return { ok: false, error: 'Missing activityId' };
+
+    const activity = state.activities.find((a) => a.id === activityId) ?? null;
+    if (!activity) return { ok: false, error: 'Activity not found' };
+
+    if (Platform.OS === 'web') {
+      return { ok: false, error: 'Calendar scheduling is not available on web.' };
+    }
+
+    const chunks = Array.isArray(payload.chunks) ? payload.chunks : [];
+    const normalized = chunks
+      .map((c) => ({
+        title: typeof c.title === 'string' ? c.title.trim() : '',
+        startAtISO: typeof c.startAtISO === 'string' ? c.startAtISO.trim() : '',
+        durationMinutes:
+          typeof c.durationMinutes === 'number' && Number.isFinite(c.durationMinutes)
+            ? Math.max(5, Math.round(c.durationMinutes))
+            : 0,
+      }))
+      .filter((c) => c.title.length > 0 && c.startAtISO.length > 0 && c.durationMinutes > 0)
+      .slice(0, 10);
+
+    if (normalized.length < 2) {
+      return { ok: false, error: 'Need at least 2 valid chunks with title/startAtISO/durationMinutes.' };
+    }
+
+    try {
+      const permissions = await Calendar.getCalendarPermissionsAsync();
+      const hasPermission = permissions.status === 'granted';
+      if (!hasPermission) {
+        const requested = await Calendar.requestCalendarPermissionsAsync();
+        if (requested.status !== 'granted') {
+          return { ok: false, error: 'Calendar permission denied.' };
+        }
+      }
+
+      let calendarId: string | null = null;
+      try {
+        const defaultCal = await Calendar.getDefaultCalendarAsync();
+        calendarId = defaultCal?.id ?? null;
+      } catch {
+        calendarId = null;
+      }
+      if (!calendarId) {
+        const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+        calendarId = calendars[0]?.id ?? null;
+      }
+      if (!calendarId) {
+        return { ok: false, error: 'No writable calendar found.' };
+      }
+
+      const goalTitle =
+        activity.goalId ? state.goals.find((g) => g.id === activity.goalId)?.title ?? null : null;
+      const notesBase = [goalTitle ? `Goal: ${goalTitle}` : null, `Activity: ${activity.title}`]
+        .filter(Boolean)
+        .join('\n');
+
+      const createdEventIds: string[] = [];
+      for (const chunk of normalized) {
+        const startAt = new Date(chunk.startAtISO);
+        if (Number.isNaN(startAt.getTime())) continue;
+        const endAt = new Date(startAt.getTime() + chunk.durationMinutes * 60_000);
+        const eventId = await Calendar.createEventAsync(calendarId, {
+          title: chunk.title,
+          startDate: startAt,
+          endDate: endAt,
+          notes: notesBase,
+        });
+        if (typeof eventId === 'string') {
+          createdEventIds.push(eventId);
+        }
+      }
+
+      return {
+        ok: true,
+        calendarId,
+        createdCount: createdEventIds.length,
+        eventIds: createdEventIds,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        error: 'Failed to create calendar events.',
+        details: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  if (name === 'activity_steps_edit') {
+    const payload =
+      (args as {
+        activityId?: string;
+        operation?: 'replace' | 'append' | 'update' | 'remove';
+        steps?: Array<{ title: string; isOptional?: boolean }>;
+        index?: number;
+        step?: { title?: string; isOptional?: boolean; completed?: boolean };
+      }) ?? {};
+
+    const activityId = typeof payload.activityId === 'string' ? payload.activityId : '';
+    if (!activityId) return { ok: false, error: 'Missing activityId' };
+    const activity = state.activities.find((a) => a.id === activityId) ?? null;
+    if (!activity) return { ok: false, error: 'Activity not found' };
+
+    const operation = payload.operation;
+    if (!operation) return { ok: false, error: 'Missing operation' };
+
+    const createStep = (params: { title: string; isOptional?: boolean }): ActivityStep => {
+      const title = String(params.title ?? '').trim();
+      const isOptional = Boolean(params.isOptional);
+      return {
+        id: `step-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`,
+        title,
+        isOptional,
+        completedAt: null,
+        orderIndex: null,
+      };
+    };
+
+    const normalizeOrder = (steps: ActivityStep[]): ActivityStep[] =>
+      steps.map((s, idx) => ({ ...s, orderIndex: idx }));
+
+    let updatedSteps: ActivityStep[] = Array.isArray(activity.steps) ? [...activity.steps] : [];
+
+    if (operation === 'replace') {
+      const incoming = Array.isArray(payload.steps) ? payload.steps : [];
+      const next = incoming
+        .map((s) => ({ title: String(s.title ?? '').trim(), isOptional: Boolean(s.isOptional) }))
+        .filter((s) => s.title.length > 0)
+        .slice(0, 24)
+        .map((s) => createStep(s));
+      updatedSteps = normalizeOrder(next);
+    } else if (operation === 'append') {
+      const incoming = Array.isArray(payload.steps) ? payload.steps : [];
+      const additions = incoming
+        .map((s) => ({ title: String(s.title ?? '').trim(), isOptional: Boolean(s.isOptional) }))
+        .filter((s) => s.title.length > 0)
+        .slice(0, 12)
+        .map((s) => createStep(s));
+      updatedSteps = normalizeOrder([...updatedSteps, ...additions]);
+    } else if (operation === 'remove') {
+      const index =
+        typeof payload.index === 'number' && Number.isFinite(payload.index)
+          ? Math.floor(payload.index)
+          : -1;
+      if (index < 0 || index >= updatedSteps.length) {
+        return { ok: false, error: 'Invalid index for remove' };
+      }
+      updatedSteps = normalizeOrder(updatedSteps.filter((_, idx) => idx !== index));
+    } else if (operation === 'update') {
+      const index =
+        typeof payload.index === 'number' && Number.isFinite(payload.index)
+          ? Math.floor(payload.index)
+          : -1;
+      if (index < 0 || index >= updatedSteps.length) {
+        return { ok: false, error: 'Invalid index for update' };
+      }
+      const patch = payload.step ?? {};
+
+      // If the agent is requesting a completion toggle, require explicit user confirmation.
+      if (typeof patch.completed === 'boolean') {
+        state.enqueueAgentHostAction({
+          objectType: 'activity',
+          objectId: activityId,
+          type: 'confirmStepCompletion',
+          stepIndex: index,
+          completed: patch.completed,
+        });
+        return {
+          ok: true,
+          queued: 'confirmStepCompletion',
+          requiresUserConfirmation: true,
+          applied: false,
+          activityId,
+          stepIndex: index,
+          completed: patch.completed,
+        };
+      }
+
+      updatedSteps = normalizeOrder(
+        updatedSteps.map((s, idx) => {
+          if (idx !== index) return s;
+          const nextTitle =
+            typeof patch.title === 'string' && patch.title.trim().length > 0
+              ? patch.title.trim()
+              : s.title;
+          const nextOptional = typeof patch.isOptional === 'boolean' ? patch.isOptional : s.isOptional;
+          return { ...s, title: nextTitle, isOptional: nextOptional };
+        })
+      );
+    } else {
+      return { ok: false, error: `Unknown operation: ${String(operation)}` };
+    }
+
+    state.updateActivity(activityId, (prev) => ({
+      ...prev,
+      steps: updatedSteps,
+      updatedAt: new Date().toISOString(),
+    }));
+
+    return { ok: true, activityId, operation, stepCount: updatedSteps.length };
   }
 
   return { ok: false, error: `Unknown tool: ${name}` };
@@ -1092,7 +1503,7 @@ export async function judgeArcRubric(
     '',
     'Arc candidate:',
     `- name: ${params.arc.name}`,
-    `- narrative: ${params.arc.narrative}`,
+    `- narrative: ${richTextToPlainText(String(params.arc.narrative ?? ''))}`,
     '',
     'Rubric definitions:',
     '- identityCoherence: single clear identity spine; stable over years; not a trait salad.',
@@ -1476,7 +1887,7 @@ export async function generateArcBannerVibeQuery(
 ): Promise<string | null> {
   const apiKey = resolveOpenAiApiKey();
   const arcName = input.arcName?.trim() ?? '';
-  const narrative = input.arcNarrative?.trim() ?? '';
+  const narrative = input.arcNarrative ? richTextToPlainText(input.arcNarrative).trim() : '';
   const goalTitles = (input.goalTitles ?? []).map((g) => g.trim()).filter(Boolean).slice(0, 8);
 
   devLog('bannerVibe:init', {
@@ -1827,7 +2238,7 @@ async function requestOpenAiGoals(
 
   const userPrompt = `
 Arc name: ${params.arcName}
-Arc narrative: ${params.arcNarrative ?? 'not provided'}
+Arc narrative: ${params.arcNarrative ? richTextToPlainText(params.arcNarrative) : 'not provided'}
 User focus: ${params.prompt ?? 'not provided'}
 Time horizon: ${params.timeHorizon ?? 'not specified'}
 Constraints: ${params.constraints ?? 'none'}
@@ -1995,7 +2406,7 @@ async function requestOpenAiArcHeroImage(
 
   const prompt = [
     `Arc name: ${params.arcName}`,
-    `Narrative: ${params.arcNarrative ?? 'not provided'}`,
+    `Narrative: ${params.arcNarrative ? richTextToPlainText(params.arcNarrative) : 'not provided'}`,
     '',
     visualGuidanceParts.join(' '),
   ].join('\n');
@@ -2371,15 +2782,17 @@ export async function sendCoachChat(
     names: toolCalls.map((t) => t.function.name),
   });
 
-  const toolMessages = toolCalls.map((toolCall) => {
-    const result = runCoachTool(toolCall);
-    return {
-      role: 'tool' as const,
-      tool_call_id: toolCall.id,
-      name: toolCall.function.name,
-      content: JSON.stringify(result),
-    };
-  });
+  const toolMessages = await Promise.all(
+    toolCalls.map(async (toolCall) => {
+      const result = await runCoachTool(toolCall);
+      return {
+        role: 'tool' as const,
+        tool_call_id: toolCall.id,
+        name: toolCall.function.name,
+        content: JSON.stringify(result),
+      };
+    })
+  );
 
   const followupBody: Record<string, unknown> = {
     model,
@@ -2554,13 +2967,11 @@ let OPENAI_KEY_LOGGED = false;
 
 function resolveOpenAiApiKey(): string | undefined {
   const key = getEnvVar<string>('openAiApiKey');
-  // Log key prefix once at startup (for verification)
+  // Log presence once at startup (for verification) WITHOUT revealing any portion of the key.
   if (__DEV__ && key && !OPENAI_KEY_LOGGED) {
     OPENAI_KEY_LOGGED = true;
     const keyInfo = describeKey(key);
-    console.log(
-      `[ai] Using OpenAI API key: ${keyInfo.prefix}...${keyInfo.suffix} (length: ${keyInfo.length})`
-    );
+    console.log(`[ai] OpenAI API key detected (length: ${keyInfo.length})`);
   }
   return key;
 }
@@ -2574,6 +2985,282 @@ function resolveChatModel(): LlmModel {
   }
 
   return 'gpt-4o-mini';
+}
+
+/**
+ * Lightweight activity enrichment used by quick-add and manual creation flows.
+ *
+ * This is intentionally best-effort:
+ * - returns null if OpenAI is unavailable (no key / quota exceeded / network error)
+ * - callers only apply fields that the user hasn't already set
+ */
+export async function enrichActivityWithAI(
+  params: EnrichActivityWithAiParams
+): Promise<ActivityAiEnrichment | null> {
+  try {
+    if (OPENAI_QUOTA_EXCEEDED) return null;
+    const apiKey = resolveOpenAiApiKey();
+    if (!apiKey) return null;
+
+    const title = params.title?.trim() ?? '';
+    if (!title) return null;
+
+    const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
+    const goalTitle =
+      params.goalId && state?.goals
+        ? state.goals.find((g) => g.id === params.goalId)?.title ?? null
+        : null;
+    const goalDescription =
+      params.goalId && state?.goals
+        ? state.goals.find((g) => g.id === params.goalId)?.description ?? null
+        : null;
+    const goalDescriptionPlain = goalDescription ? richTextToPlainText(goalDescription) : null;
+    const existingNotesPlain = params.existingNotes ? richTextToPlainText(params.existingNotes).trim() : '';
+
+    const systemPrompt =
+      'You enrich a single task/activity with helpful supporting details.\n' +
+      'Return JSON only, matching the schema.\n' +
+      '- notes: 1–3 short sentences, practical and specific.\n' +
+      '- tags: 0–5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
+      '- steps: 0–6 short action steps.\n' +
+      '- estimateMinutes: integer minutes (5–180) if reasonable.\n' +
+      '- priority: 1 (highest) to 3 if obvious, otherwise omit.\n' +
+      '- difficulty: one of very_easy|easy|medium|hard|very_hard if obvious.\n' +
+      'Do not include any PII and do not invent constraints the user did not imply.';
+
+    const userPrompt = [
+      `Activity title: ${title}`,
+      goalTitle ? `Goal: ${goalTitle}` : 'Goal: (none)',
+      goalDescriptionPlain ? `Goal context: ${goalDescriptionPlain}` : 'Goal context: (none)',
+      existingNotesPlain
+        ? `Existing notes (do not repeat, only augment if useful): ${existingNotesPlain}`
+        : 'Existing notes: (none)',
+      Array.isArray(params.existingTags) && params.existingTags.length > 0
+        ? `Existing tags (avoid duplicates): ${params.existingTags.join(', ')}`
+        : 'Existing tags: (none)',
+    ].join('\n');
+
+    const body = {
+      model: resolveChatModel(),
+      temperature: 0.4,
+      max_tokens: 350,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'activity_enrichment',
+          schema: {
+            type: 'object',
+            properties: {
+              notes: { type: 'string' },
+              tags: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+              steps: {
+                type: 'array',
+                maxItems: 6,
+                items: {
+                  type: 'object',
+                  properties: { title: { type: 'string' } },
+                  required: ['title'],
+                  additionalProperties: false,
+                },
+              },
+              estimateMinutes: { type: 'integer', minimum: 5, maximum: 180 },
+              priority: { type: 'integer', enum: [1, 2, 3] },
+              difficulty: {
+                type: 'string',
+                enum: ['very_easy', 'easy', 'medium', 'hard', 'very_hard'],
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      messages: [
+        { role: 'system' as const, content: systemPrompt },
+        { role: 'user' as const, content: userPrompt },
+      ],
+    };
+
+    const response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      markOpenAiQuotaExceeded('activityEnrichment', response.status, errorText, apiKey);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return null;
+    const parsed = JSON.parse(content) as Partial<ActivityAiEnrichment> | null;
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const normalized: ActivityAiEnrichment = {};
+    if (typeof parsed.notes === 'string' && parsed.notes.trim().length > 0) {
+      normalized.notes = parsed.notes.trim();
+    }
+    if (Array.isArray(parsed.tags)) {
+      const tags = parsed.tags
+        .map((t) => String(t ?? '').trim())
+        .filter(Boolean)
+        .slice(0, 5);
+      if (tags.length > 0) normalized.tags = tags;
+    }
+    if (Array.isArray(parsed.steps)) {
+      const steps = parsed.steps
+        .map((s) => ({ title: String((s as any)?.title ?? '').trim() }))
+        .filter((s) => s.title.length > 0)
+        .slice(0, 6);
+      if (steps.length > 0) normalized.steps = steps;
+    }
+    if (typeof (parsed as any).estimateMinutes === 'number' && Number.isFinite((parsed as any).estimateMinutes)) {
+      normalized.estimateMinutes = Math.max(5, Math.min(180, Math.round((parsed as any).estimateMinutes)));
+    }
+    if ((parsed as any).priority === 1 || (parsed as any).priority === 2 || (parsed as any).priority === 3) {
+      normalized.priority = (parsed as any).priority;
+    }
+    if (
+      (parsed as any).difficulty === 'very_easy' ||
+      (parsed as any).difficulty === 'easy' ||
+      (parsed as any).difficulty === 'medium' ||
+      (parsed as any).difficulty === 'hard' ||
+      (parsed as any).difficulty === 'very_hard'
+    ) {
+      normalized.difficulty = (parsed as any).difficulty;
+    }
+
+    return Object.keys(normalized).length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+export type WritingRefinePreset =
+  | 'fix'
+  | 'simplify'
+  | 'shorten'
+  | 'expand'
+  | 'bullets'
+  | 'custom';
+
+type RefineWritingParams = {
+  text: string;
+  preset: WritingRefinePreset;
+  /**
+   * Required for `custom`, optional for others (appended to preset instruction).
+   */
+  instruction?: string;
+  /**
+   * Optional, best-effort guardrail for very long inputs.
+   */
+  maxChars?: number;
+};
+
+/**
+ * Lightweight writing refinement for inline field editors (LongTextField, etc).
+ * Best-effort:
+ * - returns null if OpenAI is unavailable (no key / quota exceeded / network error)
+ * - does not touch Coach conversation memory
+ */
+export async function refineWritingWithAI(params: RefineWritingParams): Promise<string | null> {
+  try {
+    if (OPENAI_QUOTA_EXCEEDED) return null;
+    const apiKey = resolveOpenAiApiKey();
+    if (!apiKey) return null;
+
+    const raw = params.text ?? '';
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    const maxChars = typeof params.maxChars === 'number' && params.maxChars > 0 ? params.maxChars : 6000;
+    const safeText = trimmed.length > maxChars ? trimmed.slice(0, maxChars) : trimmed;
+
+    const presetInstruction =
+      params.preset === 'fix'
+        ? 'Fix grammar and improve clarity while preserving the original meaning and voice.'
+        : params.preset === 'simplify'
+          ? 'Simplify the writing (clearer, fewer complex clauses) while preserving meaning and voice.'
+          : params.preset === 'shorten'
+            ? 'Make this shorter and tighter while preserving meaning and voice.'
+            : params.preset === 'expand'
+              ? 'Expand slightly with richer detail, but do not add new factual claims. Preserve meaning and voice.'
+              : params.preset === 'bullets'
+                ? 'Rewrite as concise bullet points (use "- " prefix). Preserve meaning and voice.'
+                : 'Follow the user instruction to rewrite the text while preserving meaning and voice.';
+
+    const userInstruction = (params.instruction ?? '').trim();
+    const effectiveInstruction =
+      params.preset === 'custom'
+        ? userInstruction
+        : userInstruction
+          ? `${presetInstruction}\nAdditional instruction: ${userInstruction}`
+          : presetInstruction;
+
+    if (params.preset === 'custom' && !effectiveInstruction) {
+      return null;
+    }
+
+    const systemPrompt =
+      'You are a careful writing assistant.\n' +
+      '- Preserve the user’s meaning and first-person voice.\n' +
+      '- Do not invent facts.\n' +
+      '- Keep paragraph breaks unless instructed otherwise.\n' +
+      '- Output ONLY the rewritten text (no preface, no quotes).';
+
+    const userPrompt = [
+      `Instruction: ${effectiveInstruction}`,
+      '',
+      'Text to rewrite:',
+      safeText,
+    ].join('\n');
+
+    const body = {
+      model: resolveChatModel(),
+      temperature: 0.35,
+      max_tokens: 900,
+      messages: [
+        { role: 'system' as const, content: systemPrompt },
+        { role: 'user' as const, content: userPrompt },
+      ],
+    };
+
+    const response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      markOpenAiQuotaExceeded('coachChat', response.status, errorText, apiKey);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    const next = String(content ?? '').trim();
+    if (!next) return null;
+    return next;
+  } catch {
+    return null;
+  }
 }
 
 

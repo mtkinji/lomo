@@ -20,6 +20,8 @@ import { ArcCreationFlow } from '../arcs/ArcCreationFlow';
 import { GoalCreationFlow } from '../goals/GoalCreationFlow';
 import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 import { sendCoachChat } from '../../services/ai';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -164,6 +166,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   } = props;
 
   const chatPaneRef = useRef<AiChatPaneController | null>(null);
+  const { capture } = useAnalytics();
 
   const launchContextText = useMemo(() => {
     const base = serializeLaunchContext(launchContext);
@@ -192,6 +195,9 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   // event for this AgentWorkspace mount. This keeps dev logs focused on
   // high-signal transitions instead of repeating on every step change.
   const hasLoggedWorkflowStartRef = useRef(false);
+  const lastTrackedStepIdRef = useRef<string | null>(null);
+  const latestInstanceRef = useRef<WorkflowInstance | null>(null);
+  const latestDefinitionRef = useRef<WorkflowDefinition | undefined>(undefined);
 
   // Track the most recent step completion so we can emit analytics events
   // after React has applied the state update.
@@ -216,6 +222,41 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return createInitialWorkflowInstance(workflowDefinition, workflowInstanceId);
     });
   }, [workflowDefinition, workflowInstanceId]);
+
+  useEffect(() => {
+    latestInstanceRef.current = workflowInstance;
+    latestDefinitionRef.current = workflowDefinition;
+  }, [workflowDefinition, workflowInstance]);
+
+  useEffect(() => {
+    if (!workflowDefinition) return;
+    if (!workflowInstance) return;
+
+    if (!hasLoggedWorkflowStartRef.current) {
+      hasLoggedWorkflowStartRef.current = true;
+      capture(AnalyticsEvent.WorkflowStarted, {
+        workflow_id: workflowDefinition.id,
+        workflow_mode: workflowDefinition.chatMode,
+        workflow_instance_id: workflowInstance.id,
+      });
+    }
+
+    const stepId = workflowInstance.currentStepId ?? null;
+    if (!stepId) return;
+    if (lastTrackedStepIdRef.current === stepId) return;
+
+    lastTrackedStepIdRef.current = stepId;
+    const stepIndex = workflowDefinition.steps.findIndex((s) => s.id === stepId);
+    const stepLabel = workflowDefinition.steps[stepIndex]?.label;
+    capture(AnalyticsEvent.WorkflowStepViewed, {
+      workflow_id: workflowDefinition.id,
+      workflow_mode: workflowDefinition.chatMode,
+      workflow_instance_id: workflowInstance.id,
+      step_id: stepId,
+      step_index: stepIndex === -1 ? null : stepIndex,
+      step_label: stepLabel ?? null,
+    });
+  }, [capture, workflowDefinition, workflowInstance]);
 
   const completeStep = useCallback(
     (stepId: string, collected?: Record<string, unknown>, nextStepIdOverride?: string) => {
@@ -253,21 +294,19 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
               : current.outcome ?? null,
         };
 
-        if (onStepComplete) {
-          lastStepEventRef.current = {
-            definition: workflowDefinition,
-            previousInstance: current,
-            nextInstance,
-            stepId,
-            collected,
-            nextStepId,
-          };
-        }
+        lastStepEventRef.current = {
+          definition: workflowDefinition,
+          previousInstance: current,
+          nextInstance,
+          stepId,
+          collected,
+          nextStepId,
+        };
 
         return nextInstance;
       });
     },
-    [workflowDefinition, onStepComplete]
+    [workflowDefinition]
   );
 
   const invokeAgentStep = useCallback(
@@ -314,7 +353,6 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
 
   // Emit step-completion analytics after the instance state has been updated.
   useEffect(() => {
-    if (!onStepComplete) return;
     if (!workflowDefinition) return;
     if (!workflowInstance) return;
 
@@ -325,9 +363,43 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return;
     }
 
-    onStepComplete(pending);
+    const stepIndex = pending.definition.steps.findIndex((s) => s.id === pending.stepId);
+    const stepLabel = pending.definition.steps[stepIndex]?.label;
+    capture(AnalyticsEvent.WorkflowStepCompleted, {
+      workflow_id: pending.definition.id,
+      workflow_mode: pending.definition.chatMode,
+      workflow_instance_id: pending.nextInstance.id,
+      step_id: pending.stepId,
+      step_index: stepIndex === -1 ? null : stepIndex,
+      step_label: stepLabel ?? null,
+      next_step_id: pending.nextStepId ?? null,
+      collected_keys_count: pending.collected ? Object.keys(pending.collected).length : 0,
+    });
+
+    onStepComplete?.(pending);
     lastStepEventRef.current = null;
-  }, [workflowInstance, workflowDefinition, onStepComplete]);
+  }, [capture, workflowInstance, workflowDefinition, onStepComplete]);
+
+  useEffect(() => {
+    return () => {
+      const definition = latestDefinitionRef.current;
+      const instance = latestInstanceRef.current;
+      if (!definition || !instance) return;
+      if (instance.status === 'completed') return;
+
+      const stepId = instance.currentStepId ?? null;
+      const stepIndex = stepId ? definition.steps.findIndex((s) => s.id === stepId) : -1;
+      const stepLabel = stepId ? definition.steps[stepIndex]?.label : undefined;
+      capture(AnalyticsEvent.WorkflowAbandoned, {
+        workflow_id: definition.id,
+        workflow_mode: definition.chatMode,
+        workflow_instance_id: instance.id,
+        step_id: stepId,
+        step_index: stepIndex === -1 ? null : stepIndex,
+        step_label: stepLabel ?? null,
+      });
+    };
+  }, [capture]);
 
   // Workflow-driven UI enters the chat surface as a generic `stepCard` node.
   // Presenters like IdentityAspirationFlow render into this slot so that all

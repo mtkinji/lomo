@@ -3,9 +3,12 @@ import { Image, type ImageStyle, type StyleProp } from 'react-native';
 type LogoProps = {
   size?: number;
   style?: StyleProp<ImageStyle>;
+  variant?: 'default' | 'white' | 'parchment';
 };
 
 const LOGO_SOURCE = require('../../assets/icon.png');
+const LOGO_WHITE_SOURCE = require('../../assets/logo-white.png');
+const LOGO_PARCHMENT_SOURCE = require('../../assets/logo-parchment.png');
 
 /**
  * Primary kwilt logo mark, rendered directly from the app icon asset.
@@ -14,10 +17,16 @@ const LOGO_SOURCE = require('../../assets/icon.png');
  * depending on native SVG support in development. This keeps the FAB and
  * other brand surfaces stable across platforms.
  */
-export function Logo({ size = 32, style }: LogoProps) {
+export function Logo({ size = 32, variant = 'default', style }: LogoProps) {
+  const source =
+    variant === 'parchment'
+      ? LOGO_PARCHMENT_SOURCE
+      : variant === 'white'
+        ? LOGO_WHITE_SOURCE
+        : LOGO_SOURCE;
   return (
     <Image
-      source={LOGO_SOURCE}
+      source={source}
       style={[
         {
           width: size,

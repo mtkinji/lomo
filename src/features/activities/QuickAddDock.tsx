@@ -1,14 +1,27 @@
 import * as React from 'react';
+import { useMemo } from 'react';
 import type { RefObject } from 'react';
-import { KeyboardAvoidingView, LayoutAnimation, Platform, Pressable, StyleSheet, View, type TextInput } from 'react-native';
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Activity } from '../../domain/types';
 import { colors, spacing, typography } from '../../theme';
+import { fonts } from '../../theme/typography';
+import { cardElevation } from '../../theme/surfaces';
 import { Icon } from '../../ui/Icon';
-import { Card, HStack, Input } from '../../ui/primitives';
+import { HStack } from '../../ui/primitives';
+import { EditorSurface } from '../../ui/EditorSurface';
+import { Toolbar, ToolbarButton, ToolbarGroup } from '../../ui/Toolbar';
+import { UnderKeyboardDrawer } from '../../ui/UnderKeyboardDrawer';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
-const QUICK_ADD_IDLE_RAISE = 24;
+// Idle state was intentionally “raised” off the bottom by 24pt; keep it flush to the bottom.
+const QUICK_ADD_IDLE_RAISE = 0;
+// Visually lift the collapsed "Add an activity" control so it aligns with the phone's bottom curve.
+const COLLAPSED_DOCK_LIFT_PX = 12;
+
+// Fallback visible height (above the keyboard) used before we have a measurement.
+const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
+const KEYBOARD_DEFAULT_GUESS_HEIGHT = 320;
 
 type QuickAddDockProps = {
   value: string;
@@ -28,6 +41,9 @@ type QuickAddDockProps = {
   onPressDueDate: () => void;
   onPressRepeat: () => void;
   onPressEstimate: () => void;
+  onPressGenerateActivityTitle?: () => void;
+  isGeneratingActivityTitle?: boolean;
+  hasGeneratedActivityTitle?: boolean;
 
   /**
    * Reserve enough space so the last list rows can scroll above the dock.
@@ -52,12 +68,21 @@ export function QuickAddDock({
   onPressDueDate,
   onPressRepeat,
   onPressEstimate,
+  onPressGenerateActivityTitle,
+  isGeneratingActivityTitle,
+  hasGeneratedActivityTitle,
   onReservedHeightChange,
 }: QuickAddDockProps) {
   const insets = useSafeAreaInsets();
   const activeBottomPadding = 0;
   const idleBottomPadding = Math.max(insets.bottom, spacing.sm);
   const bottomPadding = isFocused ? activeBottomPadding : idleBottomPadding;
+  
+  // Generate accessory ID for keyboard toolbar
+  // Keep stable ID in case we re-enable keyboard accessory behavior later.
+  const accessoryId = useMemo(() => 'quick-add-dock-accessory', []);
+
+  const [measuredComposerHeight, setMeasuredComposerHeight] = React.useState<number | null>(null);
   
   // Guard against blur events that fire immediately after focus (e.g., during layout transitions).
   const lastFocusTimeRef = React.useRef<number>(0);
@@ -79,173 +104,244 @@ export function QuickAddDock({
     [onReservedHeightChange],
   );
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.dock}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={0}
-    >
-      <View
-        pointerEvents="none"
-        style={[styles.dockBackground, isFocused ? styles.dockBackgroundFocused : null]}
-      />
-      <View
-        style={[
-          styles.outer,
-          isFocused ? styles.outerFocused : null,
-          {
-            paddingBottom: bottomPadding,
-          },
-        ]}
-        onLayout={(event) => {
-          const layoutHeight = Math.round(event.nativeEvent.layout.height);
-          reportReservedHeight(layoutHeight);
-        }}
-      >
-        <Pressable
-          key="idle-gap-tap-shield"
-          // Only block taps in the raised 24pt “gap” below the card (so the list behind is not clickable).
-          // Keep this node mounted to avoid remounting the Card/TextInput when focus state flips.
-          accessibilityRole="none"
-          accessible={false}
-          onPress={() => {}}
-          pointerEvents={isFocused ? 'none' : 'auto'}
-          style={[
-            styles.idleGapTapShield,
-            isFocused ? styles.idleGapTapShieldHidden : null,
-          ]}
-        />
-        <Card
-          key="quick-add-card"
-          marginHorizontal={isFocused ? 0 : 'sm'}
-          marginVertical={0}
-          padding="xs"
-          elevation={isFocused ? 'raised' : 'none'}
-          style={[
-            styles.card,
-            isFocused ? styles.cardFocused : styles.cardIdleRaised,
-          ]}
-        >
-          <HStack alignItems="center" space="md" style={styles.row}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isFocused ? 'Create activity' : 'Start adding an activity'}
-              accessibilityState={{ disabled: isFocused ? value.trim().length === 0 : false }}
-              onPress={() => {
-                if (!isFocused) {
-                  inputRef.current?.focus();
-                  return;
-                }
-                if (value.trim().length === 0) {
-                  return;
-                }
-                onSubmit();
-              }}
-              style={[styles.affordance, styles.affordanceIdle, isFocused && value.trim().length === 0 ? styles.affordanceDisabled : null]}
-            >
-              <Icon
-                name="plus"
-                size={16}
-                color={isFocused && value.trim().length > 0 ? colors.accent : colors.textSecondary}
-              />
-            </Pressable>
-            <Input
-              ref={inputRef}
-              value={value}
-              onChangeText={onChangeText}
-              placeholder="Add an activity"
-              placeholderTextColor={colors.textSecondary}
-              variant="inline"
-              returnKeyType="done"
-              showSoftInputOnFocus
-              blurOnSubmit
-              onSubmitEditing={() => {
-                if (value.trim().length === 0) {
-                  onCollapse();
-                  return;
-                }
-                onSubmit();
-              }}
-              onFocus={() => {
-                lastFocusTimeRef.current = Date.now();
-                // Animate the layout transition smoothly (card margins, elevation, border radius).
-                LayoutAnimation.configureNext(
-                  LayoutAnimation.create(
-                    200,
-                    LayoutAnimation.Types.easeInEaseOut,
-                    LayoutAnimation.Properties.opacity | LayoutAnimation.Properties.scaleXY,
-                  ),
-                );
-                setIsFocused(true);
-              }}
-              onBlur={() => {
-                // Ignore blur events that fire too soon after focus (likely spurious layout-triggered blurs).
-                const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
-                if (timeSinceFocus < BLUR_GUARD_MS) {
-                  // Re-focus immediately to keep the keyboard open.
-                  requestAnimationFrame(() => {
-                    inputRef.current?.focus();
-                  });
-                  return;
-                }
-                // Animate the collapse transition smoothly.
-                LayoutAnimation.configureNext(
-                  LayoutAnimation.create(
-                    200,
-                    LayoutAnimation.Types.easeInEaseOut,
-                    LayoutAnimation.Properties.opacity | LayoutAnimation.Properties.scaleXY,
-                  ),
-                );
-                setIsFocused(false);
-              }}
-              autoCapitalize="sentences"
-              autoCorrect
-              containerStyle={styles.inputContainer}
-              inputStyle={styles.input}
-              accessibilityLabel="Activity title"
+  // Focus the input after the focused drawer mounts.
+  React.useEffect(() => {
+    if (!isFocused) return;
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, [inputRef, isFocused]);
+
+  const renderToolbar = React.useCallback(() => {
+    return (
+      <View style={styles.toolbarWrapper}>
+        <Toolbar center style={styles.toolbar}>
+          <ToolbarGroup>
+            <ToolbarButton
+              accessibilityLabel="Set reminder"
+              onPress={onPressReminder}
+              icon="bell"
+              variant={reminderAt ? 'primary' : 'secondary'}
             />
-          </HStack>
-          {isFocused ? (
-            <HStack style={styles.toolsRow} alignItems="center" justifyContent="space-between">
-              <HStack space="md" alignItems="center">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Set reminder"
-                  onPress={onPressReminder}
-                  style={[styles.toolButton, reminderAt ? styles.toolButtonActive : null]}
-                >
-                  <Icon name="bell" size={16} color={reminderAt ? colors.accent : colors.textSecondary} />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Set due date"
-                  onPress={onPressDueDate}
-                  style={[styles.toolButton, scheduledDate ? styles.toolButtonActive : null]}
-                >
-                  <Icon name="today" size={16} color={scheduledDate ? colors.accent : colors.textSecondary} />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Set repeat"
-                  onPress={onPressRepeat}
-                  style={[styles.toolButton, repeatRule ? styles.toolButtonActive : null]}
-                >
-                  <Icon name="refresh" size={16} color={repeatRule ? colors.accent : colors.textSecondary} />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Set time estimate"
-                  onPress={onPressEstimate}
-                  style={[styles.toolButton, estimateMinutes != null ? styles.toolButtonActive : null]}
-                >
-                  <Icon name="estimate" size={16} color={estimateMinutes != null ? colors.accent : colors.textSecondary} />
-                </Pressable>
-              </HStack>
-            </HStack>
-          ) : null}
-        </Card>
+            <ToolbarButton
+              accessibilityLabel="Set due date"
+              onPress={onPressDueDate}
+              icon="today"
+              variant={scheduledDate ? 'primary' : 'secondary'}
+            />
+            <ToolbarButton
+              accessibilityLabel="Set repeat"
+              onPress={onPressRepeat}
+              icon="refresh"
+              variant={repeatRule ? 'primary' : 'secondary'}
+            />
+          </ToolbarGroup>
+          <ToolbarGroup>
+            <ToolbarButton
+              accessibilityLabel="Set time estimate"
+              onPress={onPressEstimate}
+              icon="estimate"
+              variant={estimateMinutes != null ? 'primary' : 'secondary'}
+            />
+          </ToolbarGroup>
+          <ToolbarGroup>
+            <ToolbarButton
+              accessibilityLabel={
+                'Generate activity suggestion'
+              }
+              onPress={onPressGenerateActivityTitle}
+              disabled={Boolean(isGeneratingActivityTitle)}
+              icon="sparkles"
+              label="AI Suggestion"
+              tone="ai"
+            />
+          </ToolbarGroup>
+        </Toolbar>
       </View>
-    </KeyboardAvoidingView>
+    );
+  }, [
+    estimateMinutes,
+    hasGeneratedActivityTitle,
+    isGeneratingActivityTitle,
+    onPressDueDate,
+    onPressEstimate,
+    onPressGenerateActivityTitle,
+    onPressReminder,
+    onPressRepeat,
+    reminderAt,
+    repeatRule,
+    scheduledDate,
+  ]);
+
+  const composerHeight = measuredComposerHeight ?? QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX;
+  const canSubmit = value.trim().length > 0;
+
+  return (
+    <>
+      {/* Collapsed dock (always mounted so we can measure + reserve scroll space). */}
+      <View style={[styles.dock, isFocused ? styles.dockHidden : null]}>
+        <View
+          style={[
+            // Full-width "shell" surface (edge-to-edge), with an inner gutter so the
+            // input aligns with the 3-column card rhythm above.
+            styles.collapsedShell,
+            { paddingBottom: idleBottomPadding + COLLAPSED_DOCK_LIFT_PX },
+          ]}
+          onLayout={(event) => {
+            const layoutHeight = Math.round(event.nativeEvent.layout.height);
+            reportReservedHeight(layoutHeight);
+          }}
+        >
+          <View style={styles.collapsedInnerGutter}>
+            <View style={styles.collapsedInputShell}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add an activity"
+                onPress={() => setIsFocused(true)}
+                style={styles.collapsedPressable}
+              >
+                <HStack
+                  space="md"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  style={styles.collapsedRowContent}
+                >
+                  <HStack space="md" alignItems="center" style={{ flex: 1 }}>
+                    <View style={styles.collapsedLeftIconSlot}>
+                      <Icon name="plus" size={16} color={colors.textSecondary} />
+                    </View>
+                    <Text style={styles.collapsedPlaceholderText}>Add an activity</Text>
+                  </HStack>
+                  {/* Reserve the same trailing "star" column width as ActivityListItem */}
+                  <View style={styles.collapsedRightSpacer} />
+                </HStack>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Focused drawer: use BottomDrawer sizing so the hidden portion sits under the keyboard,
+          which exactly matches the Goals/Notes behavior you like. */}
+      <UnderKeyboardDrawer
+        visible={isFocused}
+        onClose={onCollapse}
+        presentation="inline"
+        hideBackdrop
+        dismissable={false}
+        dynamicHeightUnderKeyboard
+        visibleContentHeightFallbackPx={composerHeight}
+        defaultKeyboardHeightGuessPx={KEYBOARD_DEFAULT_GUESS_HEIGHT}
+        includeKeyboardSpacer
+        elevationToken="overlay"
+        topRadius="md"
+        sheetStyle={styles.drawerSheet}
+        handleContainerStyle={styles.drawerHandleContainer}
+        handleStyle={styles.drawerHandle}
+      >
+        {/* Visible composer area (measured). */}
+        <View
+          style={styles.drawerContent}
+          onLayout={(event) => {
+            const next = Math.round(event.nativeEvent.layout.height);
+            if (next > 0 && next !== measuredComposerHeight) {
+              setMeasuredComposerHeight(next);
+            }
+          }}
+        >
+          <EditorSurface
+            visible={isFocused}
+            accessoryId={accessoryId}
+            bodyTopPadding={0}
+            bodyBottomPadding={0}
+            keyboardClearance={0}
+            disableBodyKeyboardPadding
+            style={styles.editorSurface}
+            bodyStyle={styles.editorBody}
+          >
+            <View style={styles.contentStack}>
+              <View style={styles.composerRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Create activity"
+                  accessibilityState={{ disabled: !canSubmit }}
+                  onPress={() => {
+                    if (!canSubmit) return;
+                    onSubmit();
+                  }}
+                  style={[
+                    styles.affordance,
+                    styles.affordanceIdle,
+                    !canSubmit ? styles.affordanceDisabled : null,
+                  ]}
+                >
+                  {hasGeneratedActivityTitle ? (
+                    <View style={styles.aiSuggestedAffordance}>
+                      <Icon
+                        name="sparkles"
+                        size={16}
+                        color={canSubmit ? colors.accent : colors.textSecondary}
+                      />
+                    </View>
+                  ) : (
+                    // Keep this as an "empty checkbox" affordance while composing (no completion signal).
+                    <View
+                      style={[
+                        styles.createCheckboxBase,
+                        styles.createCheckboxDisabled,
+                      ]}
+                    >
+                      {/* Intentionally no inner icon while composing */}
+                    </View>
+                  )}
+                </Pressable>
+
+                <View style={styles.inputContainer}>
+                  <View style={styles.titleFieldClipper}>
+                    <RNTextInput
+                      ref={inputRef}
+                      value={value}
+                      onChangeText={onChangeText}
+                      placeholder="Add an activity"
+                      placeholderTextColor={colors.textSecondary}
+                      returnKeyType="done"
+                      showSoftInputOnFocus
+                      blurOnSubmit
+                      multiline={false}
+                      numberOfLines={1}
+                      onSubmitEditing={() => {
+                        if (value.trim().length === 0) {
+                          onCollapse();
+                          return;
+                        }
+                        onSubmit();
+                      }}
+                      onFocus={() => {
+                        lastFocusTimeRef.current = Date.now();
+                        setIsFocused(true);
+                      }}
+                      onBlur={() => {
+                        const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
+                        if (timeSinceFocus < BLUR_GUARD_MS) {
+                          inputRef.current?.focus();
+                          return;
+                        }
+                        // Don't auto-collapse on blur; the user likely tapped toolbar buttons.
+                      }}
+                      autoCapitalize="sentences"
+                      autoCorrect
+                      style={styles.input}
+                      accessibilityLabel="Activity title"
+                    />
+                  </View>
+                </View>
+              </View>
+              {renderToolbar()}
+            </View>
+          </EditorSurface>
+        </View>
+      </UnderKeyboardDrawer>
+    </>
   );
 }
 
@@ -255,58 +351,77 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    // Ensure the dock renders above the scroll view content on both platforms.
+    zIndex: 50,
+    elevation: 50,
   },
-  dockBackground: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    // Bleed the background out past the AppShell gutter so it reaches the bezel.
-    left: -spacing.sm,
-    right: -spacing.sm,
-    backgroundColor: colors.shell,
+  dockHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
   },
-  dockBackgroundFocused: {
-    backgroundColor: colors.canvas,
-  },
-  outer: {
-    paddingHorizontal: 0,
-    paddingTop: spacing.xs,
-    backgroundColor: 'transparent',
-  },
-  idleGapTapShield: {
-    position: 'absolute',
-    left: -spacing.sm,
-    right: -spacing.sm,
-    bottom: 0,
-    height: QUICK_ADD_IDLE_RAISE,
-    // Transparent but intercepts touches.
-    backgroundColor: 'transparent',
-  },
-  idleGapTapShieldHidden: {
-    height: 0,
-  },
-  outerFocused: {
-    // When active, treat the composer as a bottom drawer sheet.
+  collapsedShell: {
+    // Full-width dock "shell" behind the trigger row.
     paddingTop: spacing.sm,
+    backgroundColor: colors.canvas,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    ...cardElevation.lift,
   },
-  card: {
-    marginVertical: 0,
-    alignSelf: 'stretch',
-    // Match input corner radius (`Input`, `EditableField`, `Combobox`).
+  collapsedInnerGutter: {
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  collapsedInputShell: {
+    width: '100%',
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 12,
+    // Keep it looking like an input, not a card.
+    ...cardElevation.none,
   },
-  cardIdleRaised: {
-    marginBottom: QUICK_ADD_IDLE_RAISE,
+  collapsedPressable: {
+    width: '100%',
   },
-  cardFocused: {
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderBottomWidth: 0,
+  collapsedRowContent: {
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  row: {
+  collapsedLeftIconSlot: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collapsedRightSpacer: {
+    width: 18,
+    height: 18,
+  },
+  collapsedPlaceholderText: {
+    ...typography.body,
+    color: colors.textSecondary,
     flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  contentStack: {
+    width: '100%',
+    // Keep the toolbar visually attached to the input (no big gap).
+    rowGap: spacing.xs,
+  },
+  composerRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minHeight: 44,
   },
   affordance: {
     width: 28,
@@ -322,33 +437,101 @@ const styles = StyleSheet.create({
   affordanceDisabled: {
     opacity: 0.5,
   },
+  createCheckboxBase: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createCheckboxDisabled: {
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  createCheckboxEnabled: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
+  },
   inputContainer: {
     flex: 1,
+  },
+  titleFieldClipper: {
+    flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
   },
   input: {
     flex: 1,
     ...typography.body,
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    // Match ActivityListItem title metrics, but tune TextInput baseline so
+    // descenders never clip while remaining visually centered.
+    lineHeight: 22,
+    ...(Platform.OS === 'ios'
+      ? {
+          marginTop: 0,
+          paddingTop: 0,
+          paddingBottom: 1,
+          transform: [{ translateY: -1 }],
+        }
+      : null),
     color: colors.textPrimary,
+    minWidth: 0,
   },
-  toolsRow: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  toolButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
+  aiSuggestedAffordance: {
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
-  toolButtonActive: {
-    backgroundColor: colors.pine100,
+  toolbar: {
+    backgroundColor: 'transparent',
+    // Let the toolbar sit naturally inside the dock surface.
+    paddingHorizontal: spacing.sm,
+    width: '100%',
+  },
+  toolbarWrapper: {
+    backgroundColor: colors.canvas,
+    paddingTop: 0,
+    paddingBottom: spacing.xs,
+    alignItems: 'stretch',
+  },
+  drawerSheet: {
+    backgroundColor: colors.canvas,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    overflow: 'visible',
+  },
+  drawerHandleContainer: {
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  drawerHandle: {
+    width: 0,
+    height: 0,
+    opacity: 0,
+  },
+  drawerContent: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.canvas,
+  },
+  editorSurface: {
+    // Override EditorSurface's default flex: 1 to allow it to size to content
+    flex: 0,
+    backgroundColor: 'transparent',
+    minHeight: 0,
+  },
+  editorBody: {
+    // Remove all padding since outer container already provides padding
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    // Allow body to size to content, not flex
+    flex: 0,
   },
 });
 

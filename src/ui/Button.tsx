@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme';
 import {
   BUTTON_SIZE_TOKENS,
@@ -21,7 +22,7 @@ type ButtonVariant =
   | 'ai'
   | 'destructive'
   | 'turmeric';
-type ButtonSizeProp = 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
+type ButtonSizeProp = 'xs' | 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
 
 type Props = {
   variant?: ButtonVariant;
@@ -58,7 +59,13 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
   ref,
 ) {
   const logicalSize: ButtonSizeToken =
-    size === 'sm' || size === 'small' ? 'sm' : size === 'lg' ? 'lg' : 'md';
+    size === 'xs'
+      ? 'xs'
+      : size === 'sm' || size === 'small'
+        ? 'sm'
+        : size === 'lg'
+          ? 'lg'
+          : 'md';
   const isIconOnly = size === 'icon' || Boolean(iconButtonSize);
 
   const sizeTokens = BUTTON_SIZE_TOKENS[logicalSize];
@@ -74,6 +81,8 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
       ? 'ghost'
       : variant === 'link'
       ? 'link'
+      : variant === 'ai'
+      ? 'ai'
       : variant === 'destructive'
       ? 'destructive'
       : variant === 'turmeric'
@@ -105,6 +114,13 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
           alignItems: 'center',
           justifyContent: 'center',
         },
+        // Ensure gradient overlays clip cleanly.
+        variant === 'ai'
+          ? {
+              position: 'relative',
+              overflow: 'hidden',
+            }
+          : null,
         // Variant-specific backgrounds/borders
         {
           backgroundColor: variantTokens.backgroundColor,
@@ -132,6 +148,16 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
         style,
       ]}
     >
+      {variant === 'ai' ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+          <LinearGradient
+            colors={[colors.aiGradientStart, colors.aiGradientEnd]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </View>
+      ) : null}
       {children}
     </Pressable>
   );

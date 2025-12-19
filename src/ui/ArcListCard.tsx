@@ -7,6 +7,7 @@ import { colors, spacing, typography } from '../theme';
 import type { Arc } from '../domain/types';
 import { buildArcThumbnailSeed, getArcGradient } from '../features/arcs/thumbnailVisuals';
 import { HStack, Text } from './primitives';
+import { richTextToPlainText } from './richText';
 
 type ArcListCardProps = {
   arc: Arc;
@@ -99,7 +100,7 @@ export function ArcListCard({
                     narrativeTone === 'strong' && styles.narrativeStrong,
                   ]}
                 >
-                  {arc.narrative}
+                  {richTextToPlainText(arc.narrative)}
                 </Text>
               )}
         </View>

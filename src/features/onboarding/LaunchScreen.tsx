@@ -90,7 +90,7 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
             },
           ]}
         >
-          <Logo size={72} />
+          <Logo size={72} variant="parchment" />
           <Text style={styles.wordmark}>kwilt</Text>
         </Animated.View>
       </View>
@@ -101,7 +101,8 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
-    backgroundColor: colors.pine400,
+    // Official Kwilt green launch surface.
+    backgroundColor: colors.pine700,
   },
   heroSurface: {
     flex: 1,
@@ -116,14 +117,14 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     ...typography.brand,
-    color: colors.pine700,
+    color: colors.parchment,
     fontSize: 36,
     // Sriracha has tall ascenders; give it a touch of extra vertical room so
     // iOS doesn't clip the very top pixels on certain rasterization passes.
     lineHeight: 46,
     paddingTop: 2,
     paddingBottom: 2,
-    textShadowColor: colors.pine800,
+    textShadowColor: 'rgba(0,0,0,0.18)',
     textShadowOffset: { width: 0.4, height: 0.4 },
     textShadowRadius: 1,
   },

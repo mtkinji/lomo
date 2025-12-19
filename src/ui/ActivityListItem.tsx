@@ -29,6 +29,11 @@ type ActivityListItemProps = {
    */
   metaLeadingIconName?: import('./Icon').IconName;
   /**
+   * When true and `meta` is still empty, renders a lightweight animated skeleton
+   * placeholder in the metadata row space. Useful while AI enrichment is running.
+   */
+  metaLoading?: boolean;
+  /**
    * When true, renders the item as completed with a filled check and muted
    * text styling.
    */
@@ -57,6 +62,7 @@ export function ActivityListItem({
   meta,
   notes,
   metaLeadingIconName,
+  metaLoading = false,
   isCompleted = false,
   onToggleComplete,
   isPriorityOne = false,
@@ -65,6 +71,42 @@ export function ActivityListItem({
 }: ActivityListItemProps) {
   const completionAnim = React.useRef(new Animated.Value(0)).current;
   const [isAnimatingComplete, setIsAnimatingComplete] = React.useState(false);
+  const metaPulseAnim = React.useRef(new Animated.Value(0.4)).current;
+  const metaPulseLoopRef = React.useRef<Animated.CompositeAnimation | null>(null);
+
+  React.useEffect(() => {
+    const shouldAnimate = Boolean(metaLoading && !meta);
+    if (!shouldAnimate) {
+      metaPulseLoopRef.current?.stop();
+      metaPulseLoopRef.current = null;
+      metaPulseAnim.setValue(0.4);
+      return;
+    }
+
+    metaPulseLoopRef.current?.stop();
+    metaPulseLoopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(metaPulseAnim, {
+          toValue: 0.75,
+          duration: 700,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(metaPulseAnim, {
+          toValue: 0.35,
+          duration: 700,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    metaPulseLoopRef.current.start();
+
+    return () => {
+      metaPulseLoopRef.current?.stop();
+      metaPulseLoopRef.current = null;
+    };
+  }, [meta, metaLoading, metaPulseAnim]);
 
   const handlePressComplete = () => {
     if (!onToggleComplete) {
@@ -157,10 +199,7 @@ export function ActivityListItem({
               {title}
             </Text>
             {meta ? (
-              <HStack
-                space={4}
-                alignItems="center"
-              >
+              <HStack space={4} alignItems="center">
                 {metaLeadingIconName ? (
                   <Icon
                     name={metaLeadingIconName}
@@ -168,12 +207,27 @@ export function ActivityListItem({
                     color={isCompleted ? colors.muted : colors.textSecondary}
                   />
                 ) : null}
-                <Text
-                  numberOfLines={1}
-                  style={[styles.meta, isCompleted && styles.metaCompleted]}
-                >
+                <Text numberOfLines={1} style={[styles.meta, isCompleted && styles.metaCompleted]}>
                   {meta}
                 </Text>
+              </HStack>
+            ) : metaLoading ? (
+              <HStack space={4} alignItems="center">
+                {metaLeadingIconName ? (
+                  <Icon
+                    name={metaLeadingIconName}
+                    size={10}
+                    color={isCompleted ? colors.muted : colors.textSecondary}
+                  />
+                ) : null}
+                <Animated.View
+                  style={[
+                    styles.metaSkeleton,
+                    {
+                      opacity: metaPulseAnim,
+                    },
+                  ]}
+                />
               </HStack>
             ) : null}
             {showNotes ? (
@@ -235,6 +289,12 @@ const styles = StyleSheet.create({
   cardFull: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+  },
+  metaSkeleton: {
+    height: 10,
+    width: 132,
+    borderRadius: 6,
+    backgroundColor: colors.border,
   },
   leftCluster: {
     flex: 1,

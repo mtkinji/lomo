@@ -3,7 +3,7 @@ import { colors, fonts, spacing } from '../theme';
 /**
  * Logical button sizes that control both container dimensions and typography.
  */
-export type ButtonSizeToken = 'sm' | 'md' | 'lg';
+export type ButtonSizeToken = 'xs' | 'sm' | 'md' | 'lg';
 
 export const BUTTON_SIZE_TOKENS: Record<
   ButtonSizeToken,
@@ -18,6 +18,16 @@ export const BUTTON_SIZE_TOKENS: Record<
     };
   }
 > = {
+  xs: {
+    height: 32,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    text: {
+      fontFamily: fonts.medium,
+      fontSize: 14,
+      lineHeight: 18,
+    },
+  },
   sm: {
     height: 36,
     paddingHorizontal: spacing.md,
@@ -62,6 +72,7 @@ export type ButtonVariantToken =
   | 'outline'
   | 'ghost'
   | 'link'
+  | 'ai'
   | 'destructive'
   | 'turmeric';
 
@@ -111,6 +122,14 @@ export const BUTTON_VARIANT_TOKENS: Record<
   link: {
     backgroundColor: 'transparent',
     textTone: 'accent',
+  },
+  ai: {
+    // Gradient background is rendered by Button for this variant; keep the base
+    // tokens transparent and reserve border space for consistent sizing.
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.aiBorder,
+    textTone: 'inverse',
   },
   destructive: {
     backgroundColor: colors.destructive,

@@ -8,8 +8,10 @@ import {
   TextInputSubmitEditingEventData,
   StyleProp,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
+import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 
 type EditableFieldVariant = 'title' | 'body' | 'meta';
 
@@ -60,6 +62,7 @@ export function EditableField({
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<TextInput | null>(null);
+  const keyboardAware = useKeyboardAwareScroll();
 
   const commit = (next: string) => {
     const validationError = validate ? validate(next) : null;
@@ -122,6 +125,9 @@ export function EditableField({
             setDraft(value);
             setError(null);
             setIsEditing(true);
+            if (keyboardAware?.keyboardHeight) {
+              requestAnimationFrame(() => keyboardAware.scrollToFocusedInput());
+            }
           }}
           onChangeText={setDraft}
           placeholder={placeholder || 'Tap to edit'}
@@ -209,6 +215,16 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     padding: 0,
+    // Match the shared `Input` single-line metrics so inline editors center the same way.
+    ...(Platform.OS === 'android'
+      ? ({
+          includeFontPadding: false,
+          textAlignVertical: 'center',
+        } as any)
+      : ({
+          lineHeight: typography.body.fontSize + 2,
+          marginTop: -1,
+        } as any)),
   },
   inputTitle: {
     ...typography.titleSm,

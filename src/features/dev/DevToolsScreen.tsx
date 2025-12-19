@@ -1,4 +1,4 @@
-import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
 import { useEffect, useState } from 'react';
 import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -86,6 +86,8 @@ export function DevToolsScreen() {
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
   );
+  const devBreadcrumbsEnabled = useAppStore((state) => state.devBreadcrumbsEnabled);
+  const setDevBreadcrumbsEnabled = useAppStore((state) => state.setDevBreadcrumbsEnabled);
 
   const initialTab = route.params?.initialTab ?? 'tools';
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
@@ -176,6 +178,7 @@ export function DevToolsScreen() {
       id,
       goalId: null,
       title: '🧪 Dev: Activity guide test',
+      tags: [],
       notes: 'This Activity exists to test ActivityDetail coachmarks from DevTools.',
       steps: [],
       reminderAt: null,
@@ -1231,6 +1234,29 @@ export function DevToolsScreen() {
 
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardEyebrow}>Navigation experiments</Text>
+              </View>
+              <Text style={styles.cardBody}>
+                Toggle experimental navigation affordances in object detail headers (dev-only).
+              </Text>
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Breadcrumbs instead of green back button</Text>
+                <Switch
+                  value={devBreadcrumbsEnabled}
+                  onValueChange={(next) => setDevBreadcrumbsEnabled(next)}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                  ios_backgroundColor={colors.border}
+                  accessibilityLabel="Toggle breadcrumbs navigation experiment"
+                />
+              </View>
+              <Text style={styles.meta}>
+                When enabled, Arc → Goal → Activity will render as a tappable breadcrumb path.
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardEyebrow}>Agent chat history</Text>
                 <Button
                   variant="secondary"
@@ -1420,6 +1446,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  switchLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flex: 1,
   },
   cardEyebrow: {
     ...typography.label,

@@ -25,6 +25,18 @@ export const cardElevation = {
     elevation: 1,
   },
   /**
+   * Medium elevation between `soft` and `raised`. Use for prominent in-canvas
+   * affordances (like key actions) that need more lift than a card but should
+   * not read like an overlay.
+   */
+  lift: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  /**
    * Stronger elevation for hero cards or key focus panels (e.g., FTUE
    * research questions, reveal cards).
    */
@@ -34,6 +46,18 @@ export const cardElevation = {
     shadowOffset: { width: 0, height: 8 },
     shadowRadius: 24,
     elevation: 4,
+  },
+  /**
+   * Strong elevation for overlays, dropdowns, and menus that need to
+   * clearly separate from the content below. Darker shadow than `raised`
+   * to create more visual separation.
+   */
+  overlay: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    elevation: 8,
   },
 } as const;
 

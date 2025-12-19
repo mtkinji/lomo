@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   Keyboard,
+  InteractionManager,
   Modal,
   NativeEventEmitter,
   NativeModules,
@@ -29,7 +30,6 @@ import { BrandLockup } from '../../ui/BrandLockup';
 import {
   CoachChatTurn,
   GeneratedArc,
-  clearCoachConversationMemory,
   sendCoachChat,
   type CoachChatOptions,
 } from '../../services/ai';
@@ -47,6 +47,7 @@ import type { Goal, GoalForceIntent } from '../../domain/types';
 import { defaultForceLevels } from '../../store/useAppStore';
 import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
+import { QuestionCard } from '../../ui/QuestionCard';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 
@@ -175,6 +176,18 @@ const ARC_PROPOSAL_MARKER = 'ARC_PROPOSAL_JSON:';
 const ACTIVITY_SUGGESTIONS_MARKER = 'ACTIVITY_SUGGESTIONS_JSON:';
 const ACTIVITY_PROPOSAL_MARKER = 'ACTIVITY_PROPOSAL_JSON:';
 const GOAL_PROPOSAL_MARKER = 'GOAL_PROPOSAL_JSON:';
+const AGENT_OFFERS_MARKER = 'AGENT_OFFERS_JSON:';
+
+type AgentOffer = {
+  id: string;
+  title: string;
+  userMessage: string;
+};
+
+type ParsedAgentOffers = {
+  displayContent: string;
+  offers: AgentOffer[] | null;
+};
 
 type ProposedGoalDraft = {
   title: string;
@@ -212,6 +225,60 @@ type ParsedActivityProposal = {
   suggestion: ActivitySuggestion | null;
 };
 
+function normalizeActivitySuggestion(raw: unknown): ActivitySuggestion | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const maybe = raw as Partial<ActivitySuggestion> & Record<string, unknown>;
+
+  if (typeof maybe.id !== 'string' || maybe.id.trim().length === 0) return null;
+  if (typeof maybe.title !== 'string' || maybe.title.trim().length === 0) return null;
+
+  const normalized: ActivitySuggestion = {
+    id: maybe.id.trim(),
+    title: maybe.title.trim(),
+  };
+
+  if (typeof maybe.why === 'string' && maybe.why.trim().length > 0) {
+    normalized.why = maybe.why.trim();
+  }
+
+  if (typeof maybe.timeEstimateMinutes === 'number' && Number.isFinite(maybe.timeEstimateMinutes)) {
+    normalized.timeEstimateMinutes = maybe.timeEstimateMinutes;
+  }
+
+  if (maybe.energyLevel === 'light' || maybe.energyLevel === 'focused') {
+    normalized.energyLevel = maybe.energyLevel;
+  }
+
+  if (
+    maybe.kind === 'setup' ||
+    maybe.kind === 'progress' ||
+    maybe.kind === 'maintenance' ||
+    maybe.kind === 'stretch'
+  ) {
+    normalized.kind = maybe.kind;
+  }
+
+  if (Array.isArray(maybe.steps)) {
+    const steps = maybe.steps
+      .filter((step) => step && typeof step === 'object')
+      .map((step) => step as { title?: unknown; isOptional?: unknown })
+      .map((step) => {
+        if (typeof step.title !== 'string') return null;
+        const title = step.title.trim();
+        if (!title) return null;
+        const isOptional = typeof step.isOptional === 'boolean' ? step.isOptional : undefined;
+        return { title, ...(typeof isOptional === 'boolean' ? { isOptional } : {}) };
+      })
+      .filter((step): step is { title: string; isOptional?: boolean } => Boolean(step));
+
+    if (steps.length > 0) {
+      normalized.steps = steps;
+    }
+  }
+
+  return normalized;
+}
+
 function extractJsonCandidateFromHandoffBlock(raw: string): string | null {
   let text = raw.trim();
   if (!text) return null;
@@ -243,6 +310,72 @@ function extractJsonCandidateFromHandoffBlock(raw: string): string | null {
   if (!looksLikeJsonObject && !looksLikeJsonArray) return null;
 
   return text;
+}
+
+function normalizeAgentOffer(raw: unknown, fallbackIndex: number): AgentOffer | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const maybe = raw as Partial<AgentOffer> & Record<string, unknown>;
+  const title = typeof maybe.title === 'string' ? maybe.title.trim() : '';
+  const userMessage = typeof maybe.userMessage === 'string' ? maybe.userMessage.trim() : '';
+  if (!title || !userMessage) return null;
+  const id =
+    typeof maybe.id === 'string' && maybe.id.trim().length > 0
+      ? maybe.id.trim()
+      : `offer-${fallbackIndex + 1}`;
+  return { id, title, userMessage };
+}
+
+function extractAgentOffersFromAssistantMessage(content: string): ParsedAgentOffers {
+  const markerIndex = content.indexOf(AGENT_OFFERS_MARKER);
+  if (markerIndex === -1) {
+    return { displayContent: content, offers: null };
+  }
+
+  const visiblePart = content.slice(0, markerIndex).trimEnd();
+  const afterMarker = content.slice(markerIndex + AGENT_OFFERS_MARKER.length).trim();
+  if (!afterMarker) {
+    return { displayContent: visiblePart || content, offers: null };
+  }
+
+  const jsonText = extractJsonCandidateFromHandoffBlock(afterMarker);
+  if (!jsonText) {
+    return { displayContent: visiblePart || content, offers: null };
+  }
+
+  try {
+    const parsed = JSON.parse(jsonText) as unknown;
+    if (!Array.isArray(parsed)) {
+      return { displayContent: visiblePart || content, offers: null };
+    }
+    const offers = parsed
+      .map((entry, idx) => normalizeAgentOffer(entry, idx))
+      .filter((entry): entry is AgentOffer => Boolean(entry))
+      .slice(0, 5);
+    return { displayContent: visiblePart || content, offers: offers.length > 0 ? offers : null };
+  } catch {
+    return { displayContent: visiblePart || content, offers: null };
+  }
+}
+
+function extractFocusedActivityTitleFromLaunchContext(launchContext: string | undefined): string | null {
+  if (!launchContext) return null;
+  const match = launchContext.match(/FOCUSED ACTIVITY[\s\S]*?\n-\s*([^\n]+?)\s*\(status:/i);
+  const title = match?.[1]?.trim();
+  return title && title.length > 0 ? title : null;
+}
+
+function extractFocusedGoalTitleFromLaunchContext(launchContext: string | undefined): string | null {
+  if (!launchContext) return null;
+  const match = launchContext.match(/FOCUSED GOAL[\s\S]*?\n-\s*([^\n]+?)\s*\(status:/i);
+  const title = match?.[1]?.trim();
+  return title && title.length > 0 ? title : null;
+}
+
+function extractFocusedArcNameFromLaunchContext(launchContext: string | undefined): string | null {
+  if (!launchContext) return null;
+  const match = launchContext.match(/FOCUSED ARC[\s\S]*?\n-\s*([^\n]+?)\s*\(status:/i);
+  const name = match?.[1]?.trim();
+  return name && name.length > 0 ? name : null;
 }
 
 function extractArcProposalFromAssistantMessage(content: string): ParsedAssistantReply {
@@ -366,17 +499,9 @@ function extractActivityProposalFromAssistantMessage(content: string): ParsedAct
   }
 
   try {
-    const parsed = JSON.parse(jsonText) as ActivitySuggestion;
-    if (!parsed || typeof parsed !== 'object') {
-      return { displayContent: visiblePart || content, suggestion: null };
-    }
-    if (!parsed.id || typeof parsed.id !== 'string') {
-      return { displayContent: visiblePart || content, suggestion: null };
-    }
-    if (!parsed.title || typeof parsed.title !== 'string') {
-      return { displayContent: visiblePart || content, suggestion: null };
-    }
-    return { displayContent: visiblePart || content, suggestion: parsed };
+    const parsed = JSON.parse(jsonText) as unknown;
+    const suggestion = normalizeActivitySuggestion(parsed);
+    return { displayContent: visiblePart || content, suggestion };
   } catch {
     return { displayContent: visiblePart || content, suggestion: null };
   }
@@ -413,11 +538,16 @@ function extractActivitySuggestionsFromAssistantMessage(
   }
 
   try {
-    const parsed = JSON.parse(jsonText) as { suggestions?: ActivitySuggestion[] };
-    const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : null;
+    const parsed = JSON.parse(jsonText) as { suggestions?: unknown };
+    const rawSuggestions = Array.isArray(parsed?.suggestions) ? parsed.suggestions : null;
+    const suggestions =
+      rawSuggestions?.map(normalizeActivitySuggestion).filter((s): s is ActivitySuggestion => Boolean(s)) ??
+      null;
+
+    const resolved = suggestions && suggestions.length > 0 ? suggestions : null;
     return {
       displayContent: visiblePart || content,
-      suggestions,
+      suggestions: resolved,
     };
   } catch (err) {
     return {
@@ -896,7 +1026,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     if (launchContext) {
       blocks.push(
         '---',
-        'Workspace snapshot: existing arcs and goals. Use this to avoid duplicating identity directions and to keep new Arc suggestions complementary to what already exists.',
+        'Launch context + workspace snapshot (may include focused arcs/goals/activities). Use this to stay grounded, avoid duplicates, and tailor guidance to what the user is currently looking at.',
         launchContext.trim()
       );
     }
@@ -962,6 +1092,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [dictationError, setDictationError] = useState<string | null>(null);
   const [isDictationAvailable, setIsDictationAvailable] = useState(Boolean(iosSpeechModule));
   const [hasTransportError, setHasTransportError] = useState(false);
+  const [agentOffers, setAgentOffers] = useState<AgentOffer[] | null>(null);
 
   const hasVisibleMessages = (messages ?? []).some((message) => message.role !== 'system');
 
@@ -970,11 +1101,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const hasUserMessages = messages.some((m) => m.role === 'user');
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
   const shouldShowSuggestionsRail =
-    !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode;
+    !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode && mode !== 'activityGuidance';
   const hasWorkflowContextMeta = Boolean(mode || workflowRuntime?.definition || hasContextMeta);
   const modeLabel = modeConfig?.label;
   const workflowLabel = workflowRuntime?.definition?.label;
-  const contextPillLabel = modeLabel ?? workflowLabel ?? (hasContextMeta ? 'AI workflow' : null);
+  const contextPillLabel = hasWorkflowContextMeta ? 'Context' : null;
   // For first-time onboarding, we want the surface to feel like a focused,
   // narrative-led chat without extra chrome. Hide the contextual mode pill so
   // the greeting copy can stand on its own.
@@ -994,9 +1125,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
     }, 750);
   };
-  const parsedContext = launchContext
-    ? parseArcContextFromLaunchContext(launchContext)
-    : undefined;
+  const parsedContext = launchContext ? parseArcContextFromLaunchContext(launchContext) : undefined;
+  const focusedActivityTitle = extractFocusedActivityTitleFromLaunchContext(launchContext);
+  const focusedGoalTitle = extractFocusedGoalTitleFromLaunchContext(launchContext);
+  const focusedArcName = extractFocusedArcNameFromLaunchContext(launchContext);
 
   const isDictationActive = dictationState === 'recording' || dictationState === 'starting';
   const voiceButtonLabel = isDictationActive ? 'Stop voice input' : 'Start voice input';
@@ -1357,6 +1489,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
             setArcDraftNarrative(parsed.arcProposal.narrative ?? '');
           }
           streamAssistantReply(parsed.displayContent, baseId, opts);
+        } else if (mode === 'activityGuidance') {
+          const offersParsed = extractAgentOffersFromAssistantMessage(fullText);
+          setAgentOffers(offersParsed.offers);
+          streamAssistantReply(offersParsed.displayContent, baseId, opts);
         } else {
           streamAssistantReply(fullText, baseId, opts);
         }
@@ -1415,7 +1551,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
         const coachOptions: CoachChatOptions = buildCoachOptions();
         const reply = await sendCoachChat(history, coachOptions);
 
-        const baseContent = reply;
+        const offersParsed = extractAgentOffersFromAssistantMessage(reply);
+        setAgentOffers(offersParsed.offers);
+        const baseContent = offersParsed.displayContent;
 
         const arcParsed = extractArcProposalFromAssistantMessage(baseContent);
         if (arcParsed.arcProposal) {
@@ -1532,6 +1670,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
   const sendMessageWithContent = async (rawContent: string) => {
     const trimmed = rawContent.trim();
+    setAgentOffers(null);
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -1592,7 +1731,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
       // Parse structured proposal payloads (Arc / Goal) so we can render
       // confirm/apply cards instead of exposing raw JSON in the transcript.
-      const arcParsed = extractArcProposalFromAssistantMessage(reply);
+      const offersParsed = extractAgentOffersFromAssistantMessage(reply);
+      setAgentOffers(offersParsed.offers);
+      const arcParsed = extractArcProposalFromAssistantMessage(offersParsed.displayContent);
       if (arcParsed.arcProposal) {
         setArcProposal(arcParsed.arcProposal);
         setArcDraftName(arcParsed.arcProposal.name ?? '');
@@ -1689,13 +1830,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
   );
   const activitySuggestionInputRefs = useRef<Record<string, TextInput | null>>({});
 
-  const extractFocusedGoalTitleFromLaunchContext = useCallback((raw?: string): string | null => {
-    if (!raw) return null;
-    const match = raw.match(/FOCUSED GOAL[\s\S]*?\n- (.*?) \(status:/);
-    const title = match?.[1]?.trim();
-    return title && title.length > 0 ? title : null;
-  }, []);
-
   const buildActivityCreationBootstrapCopy = useCallback((): string => {
     const focusedGoalTitle = extractFocusedGoalTitleFromLaunchContext(launchContext);
     if (focusedGoalTitle) {
@@ -1705,7 +1839,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       ].join(' ');
     }
     return "Let’s identify some concrete activities you can tackle this week to keep the momentum going.";
-  }, [extractFocusedGoalTitleFromLaunchContext, launchContext]);
+  }, [launchContext]);
 
   const fetchActivitySuggestionsOnly = useCallback(
     async (params?: { reason?: 'bootstrap' | 'regenerate' }) => {
@@ -1956,14 +2090,22 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // Keyboard strategy reference:
   // - `docs/keyboard-input-safety-implementation.md`
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    // Use DidShow/DidHide even on iOS to avoid RN "Error measuring text field."
+    // warnings that can happen when measuring during the keyboard's animation.
+    const showEvent = 'keyboardDidShow';
+    const hideEvent = 'keyboardDidHide';
 
     const onShow = (e: any) => {
-      setKeyboardHeight(e?.endCoordinates?.height ?? 0);
-      // Wait a beat so focus + layout settle, then ensure the focused input is visible.
-      requestAnimationFrame(() => {
-        scrollToFocusedInput(keyboardClearance);
+      const rawHeight = e?.endCoordinates?.height ?? 0;
+      // BottomDrawer already applies safe-area padding; avoid double-lifting the composer.
+      const adjusted =
+        Platform.OS === 'ios' ? Math.max(0, rawHeight - insets.bottom) : Math.max(0, rawHeight);
+      setKeyboardHeight(adjusted);
+      // Wait until layout/animations settle, then ensure the focused input is visible.
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          scrollToFocusedInput(keyboardClearance);
+        });
       });
     };
     const onHide = () => {
@@ -1980,7 +2122,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         clearTimeout(draftSaveTimeoutRef.current);
       }
     };
-  }, []);
+  }, [insets.bottom, keyboardClearance, scrollToFocusedInput]);
 
   const workflowInfoTitle = modeLabel ?? workflowLabel ?? 'AI coach';
   const workflowInfoSubtitle =
@@ -1994,22 +2136,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
       ? 'This coach helps you design one long‑term Arc for your life — not manage tasks or habits.'
       : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
 
-  const handleResetContext = useCallback(() => {
-    Alert.alert(
-      'Reset context?',
-      'This clears the coach’s stored conversation memory for this workflow so it doesn’t keep “remembering” older turns. Recent messages in the thread will still be visible.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            void clearCoachConversationMemory(buildCoachOptions());
-          },
-        },
-      ]
-    );
-  }, [buildCoachOptions]);
 
   return (
     <>
@@ -2036,7 +2162,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
               // Provide additional scroll room when the keyboard is open so inline
               // inputs (like FTUE free-response) can always scroll above it.
               keyboardHeight > 0
-                ? { paddingBottom: spacing['2xl'] + keyboardHeight + keyboardClearance + insets.bottom }
+                ? { paddingBottom: spacing['2xl'] + keyboardHeight + keyboardClearance }
                 : null,
             ]}
             showsVerticalScrollIndicator={false}
@@ -2046,30 +2172,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
           >
               <View style={styles.timeline}>
               {!hideBrandHeader && (
-                <View style={styles.brandHeaderRow}>
-                  <BrandLockup logoSize={40} wordmarkSize="lg" />
+                <View style={styles.headerRow}>
+                  <BrandLockup logoSize={32} wordmarkSize="sm" />
                   {shouldShowContextPill && contextPillLabel && (
                     <Pressable
                       style={styles.modePill}
                       onPress={() => setIsWorkflowInfoVisible(true)}
                       accessibilityRole="button"
-                      accessibilityLabel="Learn about this AI workflow and see context"
+                      accessibilityLabel="View context"
                     >
-                      <View style={styles.modePillLeft}>
-                        <Icon
-                          name={
-                            mode === 'goalCreation'
-                              ? 'goals'
-                              : mode === 'activityCreation'
-                              ? 'activity'
-                              : 'arcs'
-                          }
-                          size={14}
-                          color={CHAT_COLORS.textSecondary}
-                          style={styles.modePillIcon}
-                        />
-                        <Text style={styles.modePillText}>{contextPillLabel}</Text>
-                      </View>
+                      <Text style={styles.modePillText}>Context</Text>
                       <Icon
                         name="info"
                         size={16}
@@ -2078,17 +2190,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       />
                     </Pressable>
                   )}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Reset coach context"
-                    onPress={handleResetContext}
-                    style={styles.resetContextButton}
-                  >
-                    <View style={styles.resetContextInner}>
-                      <Icon name="refresh" size={14} color={CHAT_COLORS.textSecondary} />
-                      <Text style={styles.resetContextText}>Reset context</Text>
-                    </View>
-                  </Pressable>
                 </View>
               )}
               <View
@@ -2636,6 +2737,26 @@ export const AiChatPane = forwardRef(function AiChatPane(
               {/* Workflow-specific UI enters the chat as an inline card. The
                   `stepCard` prop is a generic React node (often composed from
                   Card, QuestionCard, etc.), not a special StepCard class. */}
+              {mode === 'activityGuidance' && agentOffers && agentOffers.length > 0 && (
+                <View style={styles.stepCardHost}>
+                  <QuestionCard title="How can I help?">
+                    <VStack space="xs">
+                      {agentOffers.map((offer) => (
+                        <Button
+                          key={offer.id}
+                          variant="outline"
+                          onPress={() => {
+                            setAgentOffers(null);
+                            void sendMessageWithContent(offer.userMessage);
+                          }}
+                        >
+                          <Text>{offer.title}</Text>
+                        </Button>
+                      ))}
+                    </VStack>
+                  </QuestionCard>
+                </View>
+              )}
               {stepCard && <View style={styles.stepCardHost}>{stepCard}</View>}
             </View>
           </ScrollView>
@@ -2651,7 +2772,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   marginBottom:
                     keyboardHeight > 0
                       ? keyboardHeight
-                      : Math.max(insets.bottom, spacing.sm),
+                      : spacing.sm,
                 },
               ]}
             >
@@ -2817,14 +2938,39 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   </View>
                 )}
 
-                {hasContextMeta && launchContext && parsedContext && (
+                {hasContextMeta && launchContext && (
                   <View style={styles.arcInfoSection}>
                     <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
 
-                    {parsedContext.arcs.length > 0 && (
+                    {mode === 'activityGuidance' && (
+                      <View style={styles.arcInfoSubSection}>
+                        <View style={styles.arcInfoContextCard}>
+                          <Text style={styles.arcInfoGoalsLabel}>Focused Activity</Text>
+                          <Text style={styles.arcInfoContextTitle}>
+                            {focusedActivityTitle ?? 'This activity'}
+                          </Text>
+                        </View>
+
+                        {focusedGoalTitle ? (
+                          <View style={styles.arcInfoContextCard}>
+                            <Text style={styles.arcInfoGoalsLabel}>Linked Goal</Text>
+                            <Text style={styles.arcInfoContextTitle}>{focusedGoalTitle}</Text>
+                          </View>
+                        ) : null}
+
+                        {focusedArcName ? (
+                          <View style={styles.arcInfoContextCard}>
+                            <Text style={styles.arcInfoGoalsLabel}>Parent Arc</Text>
+                            <Text style={styles.arcInfoContextTitle}>{focusedArcName}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    )}
+
+                    {parsedContext?.arcs && parsedContext.arcs.length > 0 && (
                       <View style={styles.arcInfoSubSection}>
                         {parsedContext.arcs.map((arc) => {
-                          const arcGoals = parsedContext.goals.filter(
+                          const arcGoals = (parsedContext.goals ?? []).filter(
                             (goal) => goal.arcName === arc.name,
                           );
                           return (
@@ -3034,18 +3180,6 @@ const styles = StyleSheet.create({
   timeline: {
     gap: spacing.lg,
   },
-  brandHeaderRow: {
-    // Treat the logo + wordmark as a single lockup, with any mode pill
-    // sitting directly underneath as a second row so the whole unit reads
-    // as one cohesive header.
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Ensure the entire lockup stack itself sits on the center line of the
-    // canvas, not just its internal contents.
-    alignSelf: 'center',
-    gap: spacing.sm,
-  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -3065,39 +3199,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: CHAT_COLORS.surface,
-    marginTop: spacing.lg,
-    alignSelf: 'center',
+    alignSelf: 'flex-end',
   },
   modePillLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
-  modePillIcon: {
-    marginRight: spacing.xs,
-  },
   modePillInfoIcon: {
     marginLeft: spacing.sm,
   },
   modePillText: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textSecondary,
-  },
-  resetContextButton: {
-    alignSelf: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: CHAT_COLORS.border,
-    backgroundColor: CHAT_COLORS.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  resetContextInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  resetContextText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
   },

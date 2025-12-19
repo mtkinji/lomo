@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomDrawer, type BottomDrawerSnapPoint } from '../../ui/BottomDrawer';
 import { AgentWorkspace } from './AgentWorkspace';
 import type { ChatMode } from './workflowRegistry';
 import type { LaunchContext, LaunchContextObjectType } from '../../domain/workflows';
@@ -21,6 +21,28 @@ type AgentLauncherState = {
   mode?: ChatMode;
   launchContext?: LaunchContext;
   workspaceSnapshot?: string;
+};
+
+type AgentLauncherOptions = {
+  /**
+   * Default: ['90%'] (legacy behavior).
+   * Some hosts want full-height agent chrome so the chat composer sits at the
+   * same vertical rhythm as FTUE and other workflows.
+   */
+  snapPoints?: BottomDrawerSnapPoint[];
+  /**
+   * Default: true (legacy behavior) because many hosts render their own header chrome.
+   * Set to false to show AgentWorkspace's standard brand header.
+   */
+  hideBrandHeader?: boolean;
+  /**
+   * Optional ChatMode to use when launching the agent from the overall screen
+   * context (as opposed to a specific field).
+   *
+   * This is useful for hosts like Activity detail that want the assistant to
+   * proactively offer guidance on open.
+   */
+  screenMode?: ChatMode;
 };
 
 const mapObjectTypeToSource = (objectType: ObjectType): LaunchContext['source'] => {
@@ -50,7 +72,7 @@ const mapObjectTypeToEditIntent = (objectType: ObjectType): LaunchContext['inten
  * - `openForScreenContext` focuses the agent on the overall object.
  * - `openForFieldContext` narrows the launch context to a specific field.
  */
-export function useAgentLauncher(workspaceSnapshot?: string) {
+export function useAgentLauncher(workspaceSnapshot?: string, options?: AgentLauncherOptions) {
   const [state, setState] = useState<AgentLauncherState>({});
   const [visible, setVisible] = useState(false);
 
@@ -68,15 +90,15 @@ export function useAgentLauncher(workspaceSnapshot?: string) {
       };
 
       setState({
-        // For now, inline editing flows use the generic coach mode without a
-        // dedicated workflow. The launch context string carries the detail.
-        mode: undefined as ChatMode | undefined,
+        // Hosts can optionally set a mode to auto-bootstrap a first assistant
+        // reply (e.g., activity guidance on Activity detail screens).
+        mode: options?.screenMode,
         launchContext,
         workspaceSnapshot,
       });
       setVisible(true);
     },
-    [workspaceSnapshot],
+    [options?.screenMode, workspaceSnapshot],
   );
 
   const openForFieldContext = useCallback(
@@ -102,11 +124,13 @@ export function useAgentLauncher(workspaceSnapshot?: string) {
   );
 
   const AgentWorkspaceSheet = useMemo(() => {
+    const snapPoints = options?.snapPoints ?? (['90%'] as BottomDrawerSnapPoint[]);
+    const hideBrandHeader = options?.hideBrandHeader ?? true;
     return (
       <BottomDrawer
         visible={visible}
         onClose={close}
-        snapPoints={['90%']}
+        snapPoints={snapPoints}
         // Agent chat implements its own keyboard avoidance + focused-input scrolling.
         // Avoid double offsets from BottomDrawer's default keyboard avoidance.
         // See: `docs/keyboard-input-safety-implementation.md`
@@ -120,12 +144,12 @@ export function useAgentLauncher(workspaceSnapshot?: string) {
             // Inline edit flows do not currently attach a structured workflow.
             workflowDefinitionId={undefined}
             resumeDraft={false}
-            hideBrandHeader
+            hideBrandHeader={hideBrandHeader}
           />
         ) : null}
       </BottomDrawer>
     );
-  }, [state, visible, close]);
+  }, [close, options?.hideBrandHeader, options?.snapPoints, state, visible]);
 
   return {
     openForScreenContext,

@@ -76,7 +76,7 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-font', 'expo-image-picker', 'expo-notifications'],
+  plugins: ['expo-font', 'expo-image-picker', 'expo-notifications', 'expo-localization'],
   extra: {
     eas: {
       // Linked EAS project for the kwilt app (added manually for dynamic config).
@@ -91,6 +91,19 @@ const config: ExpoConfig = {
       process.env.UNSPLASH_ACCESS_KEY ??
       process.env.EXPO_PUBLIC_UNSPLASH_ACCESS_KEY ??
       process.env.UNSPLASH_API_KEY,
+    // PostHog (analytics)
+    // Recommended host values:
+    // - US Cloud: https://us.i.posthog.com
+    // - EU Cloud: https://eu.i.posthog.com
+    posthogApiKey:
+      process.env.POSTHOG_API_KEY ??
+      process.env.EXPO_PUBLIC_POSTHOG_API_KEY ??
+      process.env.POSTHOG_PROJECT_API_KEY,
+    posthogHost:
+      process.env.POSTHOG_HOST ??
+      process.env.EXPO_PUBLIC_POSTHOG_HOST ??
+      process.env.POSTHOG_API_HOST ??
+      process.env.EXPO_PUBLIC_POSTHOG_API_HOST,
     // Expose the resolved environment to the app runtime so we can distinguish
     // production installs from development/preview for things like demo data.
     environment: NODE_ENV,

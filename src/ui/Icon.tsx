@@ -28,7 +28,7 @@ const iconMap: Record<string, IconEntry> = {
   activities: { library: 'feather', name: 'list' },
   activity: { library: 'feather', name: 'activity' },
   // Planning / metadata affordances
-  estimate: { library: 'feather', name: 'clock' },
+  estimate: { library: 'ion', name: 'hourglass-outline' },
   difficulty: { library: 'feather', name: 'bar-chart-2' },
   // Arc identity narrative affordances
   identity: { library: 'feather', name: 'user' },
@@ -69,6 +69,22 @@ const iconMap: Record<string, IconEntry> = {
   sort: { library: 'feather', name: 'sliders' },
   thumbsDown: { library: 'feather', name: 'thumbs-down' },
   thumbsUp: { library: 'feather', name: 'thumbs-up' },
+  sound: { library: 'feather', name: 'volume-2' },
+  soundOff: { library: 'feather', name: 'volume-x' },
+  pause: { library: 'feather', name: 'pause' },
+  play: { library: 'feather', name: 'play' },
+  stop: { library: 'feather', name: 'square' },
+  // Editor toolbar icons
+  // Use Ionicons here because it has more "toolbar-ish" glyphs than Feather for lists.
+  listBulleted: { library: 'ion', name: 'list' },
+  listOrdered: { library: 'ion', name: 'list-outline' },
+  link: { library: 'feather', name: 'link-2' },
+  bold: { library: 'feather', name: 'bold' },
+  italic: { library: 'feather', name: 'italic' },
+  underline: { library: 'feather', name: 'underline' },
+  // Editor history
+  undo: { library: 'feather', name: 'rotate-ccw' },
+  redo: { library: 'feather', name: 'rotate-cw' },
 };
 
 export type IconName = keyof typeof iconMap;

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type PressableStateCallbackType,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, motion } from '../theme';
+import { cardElevation } from '../theme/surfaces';
 import { Icon } from './Icon';
 import { NativeOnlyAnimatedView } from './NativeOnlyAnimatedView';
 
@@ -23,6 +25,18 @@ const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const FullWindowOverlay = Platform.OS === 'ios' ? RNFullWindowOverlay : React.Fragment;
+
+type PressableChildren = React.ReactNode | ((state: PressableStateCallbackType) => React.ReactNode);
+
+function resolvePressableChildren(children: PressableChildren): React.ReactNode {
+  if (typeof children === 'function') {
+    // We don't have access to the internal pressed state here; provide a stable default.
+    return (children as (state: PressableStateCallbackType) => React.ReactNode)({
+      pressed: false,
+    } as PressableStateCallbackType);
+  }
+  return children;
+}
 
 function DropdownMenuSubTrigger({
   style,
@@ -44,10 +58,10 @@ function DropdownMenuSubTrigger({
         inset && styles.inset,
         open && styles.subTriggerActive,
         style,
-      ]}
+      ] as any}
       {...props}
     >
-      <>{children}</>
+      <>{resolvePressableChildren(children as PressableChildren)}</>
       <Icon 
         name={iconName} 
         size={16} 
@@ -65,7 +79,7 @@ function DropdownMenuSubContent({
   return (
     <NativeOnlyAnimatedView entering={motion.menu.entering} exiting={motion.menu.exiting}>
       <DropdownMenuPrimitive.SubContent
-        style={[styles.content, style]}
+        style={[styles.content, style] as any}
         {...props}
       />
     </NativeOnlyAnimatedView>
@@ -84,26 +98,19 @@ function DropdownMenuContent({
   overlayStyle?: StyleProp<ViewStyle>;
   portalHost?: string;
 }) {
+  const resolvedOverlayStyle = StyleSheet.flatten([StyleSheet.absoluteFillObject, overlayStyle]) as any;
   return (
     <DropdownMenuPrimitive.Portal hostName={portalHost}>
       <FullWindowOverlay>
         <DropdownMenuPrimitive.Overlay
-          style={Platform.select({
-            web: overlayStyle ?? undefined,
-            native: overlayStyle
-              ? StyleSheet.flatten([
-                  StyleSheet.absoluteFill,
-                  overlayStyle as ViewStyle,
-                ])
-              : StyleSheet.absoluteFill,
-          })}
+          style={resolvedOverlayStyle}
         >
           <NativeOnlyAnimatedView
             entering={motion.menu.entering}
             exiting={motion.menu.exiting}
           >
             <DropdownMenuPrimitive.Content
-              style={[styles.content, style]}
+              style={[styles.content, style] as any}
               side={side}
               align={align}
               sideOffset={sideOffset}
@@ -132,7 +139,7 @@ function DropdownMenuItem({
         inset && styles.inset,
         props.disabled && styles.disabled,
         style,
-      ]}
+      ] as any}
       {...props}
     >
       <View style={styles.itemContent}>
@@ -140,7 +147,7 @@ function DropdownMenuItem({
             Unlike NativeWind context, we can't easily inject text colors down, so we trust 
             the caller to use <Text> or we could wrap children if strict coloring is needed. 
             For now, simpler is better. */}
-        {props.children}
+        {resolvePressableChildren(props.children as PressableChildren)}
       </View>
     </DropdownMenuPrimitive.Item>
   );
@@ -154,7 +161,7 @@ function DropdownMenuCheckboxItem({
 }: DropdownMenuPrimitive.CheckboxItemProps) {
   return (
     <DropdownMenuPrimitive.CheckboxItem
-      style={[styles.item, styles.checkboxItem, style]}
+      style={[styles.item, styles.checkboxItem, style] as any}
       checked={checked}
       {...props}
     >
@@ -163,7 +170,7 @@ function DropdownMenuCheckboxItem({
           <Icon name="check" size={16} color={colors.textPrimary} />
         </DropdownMenuPrimitive.ItemIndicator>
       </View>
-      {children}
+      {resolvePressableChildren(children as PressableChildren)}
     </DropdownMenuPrimitive.CheckboxItem>
   );
 }
@@ -175,7 +182,7 @@ function DropdownMenuRadioItem({
 }: DropdownMenuPrimitive.RadioItemProps) {
   return (
     <DropdownMenuPrimitive.RadioItem
-      style={[styles.item, styles.checkboxItem, style]}
+      style={[styles.item, styles.checkboxItem, style] as any}
       {...props}
     >
       <View style={styles.itemIndicator}>
@@ -183,7 +190,7 @@ function DropdownMenuRadioItem({
           <View style={styles.radioIndicator} />
         </DropdownMenuPrimitive.ItemIndicator>
       </View>
-      {children}
+      {resolvePressableChildren(children as PressableChildren)}
     </DropdownMenuPrimitive.RadioItem>
   );
 }
@@ -197,7 +204,7 @@ function DropdownMenuLabel({
 }) {
   return (
     <DropdownMenuPrimitive.Label
-      style={[styles.label, inset && styles.inset, style]}
+      style={[styles.label, inset && styles.inset, style] as any}
       {...props}
     />
   );
@@ -209,7 +216,7 @@ function DropdownMenuSeparator({
 }: DropdownMenuPrimitive.SeparatorProps) {
   return (
     <DropdownMenuPrimitive.Separator
-      style={[styles.separator, style]}
+      style={[styles.separator, style] as any}
       {...props}
     />
   );
@@ -233,16 +240,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
     minWidth: 224,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    ...cardElevation.overlay,
   },
   item: {
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
