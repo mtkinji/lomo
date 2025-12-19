@@ -92,6 +92,7 @@ export function ArcsScreen() {
           <PageHeader
             title="Arcs"
             iconName="arcs"
+            iconTone="arc"
             menuOpen={menuOpen}
             onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
             rightElement={
@@ -200,6 +201,7 @@ const styles = StyleSheet.create({
   newArcButton: {
     alignSelf: 'flex-start',
     marginTop: 0,
+    backgroundColor: colors.primary,
   },
   arcCard: {
     // Use the shared card surface style so Arc rows feel like proper cards

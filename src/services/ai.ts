@@ -12,6 +12,7 @@ import { useAppStore, type LlmModel } from '../store/useAppStore';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
+import { richTextToPlainText } from '../ui/richText';
 
 export type ActivityAiEnrichment = {
   notes?: string;
@@ -1502,7 +1503,7 @@ export async function judgeArcRubric(
     '',
     'Arc candidate:',
     `- name: ${params.arc.name}`,
-    `- narrative: ${params.arc.narrative}`,
+    `- narrative: ${richTextToPlainText(String(params.arc.narrative ?? ''))}`,
     '',
     'Rubric definitions:',
     '- identityCoherence: single clear identity spine; stable over years; not a trait salad.',
@@ -1886,7 +1887,7 @@ export async function generateArcBannerVibeQuery(
 ): Promise<string | null> {
   const apiKey = resolveOpenAiApiKey();
   const arcName = input.arcName?.trim() ?? '';
-  const narrative = input.arcNarrative?.trim() ?? '';
+  const narrative = input.arcNarrative ? richTextToPlainText(input.arcNarrative).trim() : '';
   const goalTitles = (input.goalTitles ?? []).map((g) => g.trim()).filter(Boolean).slice(0, 8);
 
   devLog('bannerVibe:init', {
@@ -2237,7 +2238,7 @@ async function requestOpenAiGoals(
 
   const userPrompt = `
 Arc name: ${params.arcName}
-Arc narrative: ${params.arcNarrative ?? 'not provided'}
+Arc narrative: ${params.arcNarrative ? richTextToPlainText(params.arcNarrative) : 'not provided'}
 User focus: ${params.prompt ?? 'not provided'}
 Time horizon: ${params.timeHorizon ?? 'not specified'}
 Constraints: ${params.constraints ?? 'none'}
@@ -2405,7 +2406,7 @@ async function requestOpenAiArcHeroImage(
 
   const prompt = [
     `Arc name: ${params.arcName}`,
-    `Narrative: ${params.arcNarrative ?? 'not provided'}`,
+    `Narrative: ${params.arcNarrative ? richTextToPlainText(params.arcNarrative) : 'not provided'}`,
     '',
     visualGuidanceParts.join(' '),
   ].join('\n');
@@ -3013,6 +3014,8 @@ export async function enrichActivityWithAI(
       params.goalId && state?.goals
         ? state.goals.find((g) => g.id === params.goalId)?.description ?? null
         : null;
+    const goalDescriptionPlain = goalDescription ? richTextToPlainText(goalDescription) : null;
+    const existingNotesPlain = params.existingNotes ? richTextToPlainText(params.existingNotes).trim() : '';
 
     const systemPrompt =
       'You enrich a single task/activity with helpful supporting details.\n' +
@@ -3028,9 +3031,9 @@ export async function enrichActivityWithAI(
     const userPrompt = [
       `Activity title: ${title}`,
       goalTitle ? `Goal: ${goalTitle}` : 'Goal: (none)',
-      goalDescription ? `Goal context: ${goalDescription}` : 'Goal context: (none)',
-      params.existingNotes?.trim()
-        ? `Existing notes (do not repeat, only augment if useful): ${params.existingNotes.trim()}`
+      goalDescriptionPlain ? `Goal context: ${goalDescriptionPlain}` : 'Goal context: (none)',
+      existingNotesPlain
+        ? `Existing notes (do not repeat, only augment if useful): ${existingNotesPlain}`
         : 'Existing notes: (none)',
       Array.isArray(params.existingTags) && params.existingTags.length > 0
         ? `Existing tags (avoid duplicates): ${params.existingTags.join(', ')}`
@@ -3137,6 +3140,124 @@ export async function enrichActivityWithAI(
     }
 
     return Object.keys(normalized).length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+export type WritingRefinePreset =
+  | 'fix'
+  | 'simplify'
+  | 'shorten'
+  | 'expand'
+  | 'bullets'
+  | 'custom';
+
+type RefineWritingParams = {
+  text: string;
+  preset: WritingRefinePreset;
+  /**
+   * Required for `custom`, optional for others (appended to preset instruction).
+   */
+  instruction?: string;
+  /**
+   * Optional, best-effort guardrail for very long inputs.
+   */
+  maxChars?: number;
+};
+
+/**
+ * Lightweight writing refinement for inline field editors (LongTextField, etc).
+ * Best-effort:
+ * - returns null if OpenAI is unavailable (no key / quota exceeded / network error)
+ * - does not touch Coach conversation memory
+ */
+export async function refineWritingWithAI(params: RefineWritingParams): Promise<string | null> {
+  try {
+    if (OPENAI_QUOTA_EXCEEDED) return null;
+    const apiKey = resolveOpenAiApiKey();
+    if (!apiKey) return null;
+
+    const raw = params.text ?? '';
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    const maxChars = typeof params.maxChars === 'number' && params.maxChars > 0 ? params.maxChars : 6000;
+    const safeText = trimmed.length > maxChars ? trimmed.slice(0, maxChars) : trimmed;
+
+    const presetInstruction =
+      params.preset === 'fix'
+        ? 'Fix grammar and improve clarity while preserving the original meaning and voice.'
+        : params.preset === 'simplify'
+          ? 'Simplify the writing (clearer, fewer complex clauses) while preserving meaning and voice.'
+          : params.preset === 'shorten'
+            ? 'Make this shorter and tighter while preserving meaning and voice.'
+            : params.preset === 'expand'
+              ? 'Expand slightly with richer detail, but do not add new factual claims. Preserve meaning and voice.'
+              : params.preset === 'bullets'
+                ? 'Rewrite as concise bullet points (use "- " prefix). Preserve meaning and voice.'
+                : 'Follow the user instruction to rewrite the text while preserving meaning and voice.';
+
+    const userInstruction = (params.instruction ?? '').trim();
+    const effectiveInstruction =
+      params.preset === 'custom'
+        ? userInstruction
+        : userInstruction
+          ? `${presetInstruction}\nAdditional instruction: ${userInstruction}`
+          : presetInstruction;
+
+    if (params.preset === 'custom' && !effectiveInstruction) {
+      return null;
+    }
+
+    const systemPrompt =
+      'You are a careful writing assistant.\n' +
+      '- Preserve the user’s meaning and first-person voice.\n' +
+      '- Do not invent facts.\n' +
+      '- Keep paragraph breaks unless instructed otherwise.\n' +
+      '- Output ONLY the rewritten text (no preface, no quotes).';
+
+    const userPrompt = [
+      `Instruction: ${effectiveInstruction}`,
+      '',
+      'Text to rewrite:',
+      safeText,
+    ].join('\n');
+
+    const body = {
+      model: resolveChatModel(),
+      temperature: 0.35,
+      max_tokens: 900,
+      messages: [
+        { role: 'system' as const, content: systemPrompt },
+        { role: 'user' as const, content: userPrompt },
+      ],
+    };
+
+    const response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      markOpenAiQuotaExceeded('coachChat', response.status, errorText, apiKey);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content;
+    const next = String(content ?? '').trim();
+    if (!next) return null;
+    return next;
   } catch {
     return null;
   }

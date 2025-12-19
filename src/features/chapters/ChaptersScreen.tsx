@@ -18,6 +18,7 @@ export function ChaptersScreen() {
       <PageHeader
         title="Chapters"
         iconName="chapters"
+        iconTone="chapter"
         menuOpen={menuOpen}
         onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
       />

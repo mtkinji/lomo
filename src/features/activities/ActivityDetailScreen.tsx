@@ -11,6 +11,7 @@ import {
   Keyboard,
   Modal,
   Share,
+  findNodeHandle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -38,11 +39,13 @@ import {
 } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { LongTextField } from '../../ui/LongTextField';
+import { richTextToPlainText } from '../../ui/richText';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import {
@@ -192,6 +195,7 @@ export function ActivityDetailScreen() {
 
   const [tagsInputDraft, setTagsInputDraft] = useState('');
   const tagsInputRef = useRef<TextInput | null>(null);
+  const tagsFieldContainerRef = useRef<View | null>(null);
   const [stepsDraft, setStepsDraft] = useState<ActivityStep[]>(activity?.steps ?? []);
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isAddingStepInline, setIsAddingStepInline] = useState(false);
@@ -253,6 +257,23 @@ export function ActivityDetailScreen() {
       hideSub.remove();
     };
   }, []);
+
+  // Composite control keyboard reveal:
+  // The Tags field is a "chip input" where the focused TextInput is smaller than the
+  // visible field container. To avoid only revealing the caret/label, we ask the scroll
+  // container to reveal the entire field container.
+  // Needs to account for a 2-row field (chips row + input row) plus a bit of breathing room.
+  // Equivalent to 64 with current spacing scale; keep it expressed in tokens so it
+  // tracks design-system changes.
+  const TAGS_REVEAL_EXTRA_OFFSET = spacing['2xl'] + spacing['2xl'];
+  const prepareRevealTagsField = () => {
+    const handle = tagsFieldContainerRef.current
+      ? findNodeHandle(tagsFieldContainerRef.current)
+      : null;
+    if (typeof handle !== 'number') return null;
+    scrollRef.current?.setNextRevealTarget(handle, TAGS_REVEAL_EXTRA_OFFSET);
+    return handle;
+  };
 
   if (!activity) {
     return (
@@ -708,7 +729,8 @@ export function ActivityDetailScreen() {
 
     const endAt = new Date(startAt.getTime() + minutes * 60_000);
     const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPart = activity.notes?.trim() ? `Notes: ${activity.notes.trim()}` : '';
+    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
     const notes = [goalTitlePart, notesPart].filter(Boolean).join('\n\n') || undefined;
 
     setIsCreatingCalendarEvent(true);
@@ -760,7 +782,8 @@ export function ActivityDetailScreen() {
 
     const endAt = new Date(startAt.getTime() + minutes * 60_000);
     const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPart = activity.notes?.trim() ? `Notes: ${activity.notes.trim()}` : '';
+    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
     const description = [goalTitlePart, notesPart].filter(Boolean).join('\n\n');
     const ics = buildIcsEvent({
       uid: `kwilt-activity-${activity.id}`,
@@ -1445,7 +1468,7 @@ export function ActivityDetailScreen() {
                 </View>
                 <View style={styles.headerCenter}>
                   <View style={styles.objectTypeRow}>
-                    <Icon name="activities" size={18} color={colors.textSecondary} />
+                    <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
                     <Text style={styles.objectTypeLabel}>Activity</Text>
                   </View>
                 </View>
@@ -1509,7 +1532,10 @@ export function ActivityDetailScreen() {
             ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.content}
-            keyboardClearance={KEYBOARD_CLEARANCE}
+            // Activity detail has a few composite controls (e.g. tag chips) where the
+            // focused TextInput sits inside a taller bordered container. Slightly
+            // increase the clearance so the *whole* field clears the keyboard.
+            keyboardClearance={KEYBOARD_CLEARANCE + spacing.lg}
             showsVerticalScrollIndicator={false}
           >
             {/* Title + Steps bundle (task-style, no enclosing card) */}
@@ -1772,15 +1798,15 @@ export function ActivityDetailScreen() {
                   }));
                 }}
                 options={goalOptions}
-                title="Select goal…"
                 searchPlaceholder="Search goals…"
                 emptyText="No goals found."
                 allowDeselect
+                presentation="drawer"
+                drawerSnapPoints={['60%']}
                 trigger={
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Change linked goal"
-                    onPress={() => setGoalComboboxOpen(true)}
                     style={styles.comboboxTrigger}
                   >
                     <View pointerEvents="none">
@@ -1979,7 +2005,6 @@ export function ActivityDetailScreen() {
                       }));
                     }}
                     options={difficultyOptions}
-                    title="Difficulty"
                     searchPlaceholder="Search difficulty…"
                     emptyText="No difficulty options found."
                     allowDeselect
@@ -1987,7 +2012,6 @@ export function ActivityDetailScreen() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Edit difficulty"
-                        onPress={() => setDifficultyComboboxOpen(true)}
                         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                       >
                         <ThreeColumnRow
@@ -2034,8 +2058,14 @@ export function ActivityDetailScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Edit tags"
-                onPress={() => tagsInputRef.current?.focus()}
+                onPress={() => {
+                  // Set the reveal target *before* focusing so the keyboard-open auto-scroll
+                  // lands on the whole field container (not just the inner TextInput).
+                  prepareRevealTagsField();
+                  tagsInputRef.current?.focus();
+                }}
                 style={styles.tagsFieldContainer}
+                ref={tagsFieldContainerRef}
               >
                 <View style={styles.tagsFieldInner}>
                   {(activity.tags ?? []).map((tag) => (
@@ -2074,9 +2104,18 @@ export function ActivityDetailScreen() {
                     }}
                     onFocus={() => {
                       handleAnyInputFocus();
-                      requestAnimationFrame(() => {
-                        scrollRef.current?.scrollToFocusedInput(KEYBOARD_CLEARANCE);
-                      });
+                      // Let the screen-level keyboard strategy handle revealing this field.
+                      // (Avoid per-field scroll calls that can fight the container.)
+                      const handle = prepareRevealTagsField();
+                      // If the keyboard is already open, we won't get a keyboardDidShow event,
+                      // so run the reveal immediately.
+                      if (handle && isKeyboardVisible) {
+                        const totalOffset =
+                          KEYBOARD_CLEARANCE + spacing.lg + TAGS_REVEAL_EXTRA_OFFSET;
+                        requestAnimationFrame(() => {
+                          scrollRef.current?.scrollToNodeHandle(handle, totalOffset);
+                        });
+                      }
                     }}
                     onBlur={() => {
                       handleAnyInputBlur();
@@ -2087,7 +2126,9 @@ export function ActivityDetailScreen() {
                     placeholderTextColor={colors.muted}
                     style={styles.tagsTextInput}
                     returnKeyType="done"
-                    blurOnSubmit={false}
+                    // "Done" should dismiss the keyboard for this lightweight chip input.
+                    // (We still commit the draft via `onSubmitEditing`.)
+                    blurOnSubmit
                     autoCapitalize="none"
                     autoCorrect={false}
                     onKeyPress={(e) => {
@@ -2102,9 +2143,6 @@ export function ActivityDetailScreen() {
                   />
                 </View>
               </Pressable>
-              <Text style={styles.tagsHelperText}>
-                Type a tag, then press comma or Done. Tap a chip (or backspace on empty) to remove.
-              </Text>
             </View>
 
             {/* 6) Notes */}
@@ -2840,11 +2878,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingVertical: 0,
   },
-  tagsHelperText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
   scroll: {
     flex: 1,
   },
@@ -3155,12 +3188,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   optionsButton: {
     alignSelf: 'flex-end',
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   destructiveMenuRowText: {
     ...typography.body,

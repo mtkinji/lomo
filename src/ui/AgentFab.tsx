@@ -36,11 +36,10 @@ export function AgentFab({
       >
         <View style={styles.fabShadow}>
           <LinearGradient
-            // Pine-inspired dark → light → dark sweep so the center feels lit
-            // while the edges stay anchored and rich.
-            colors={[colors.accent, colors.success, colors.accent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            // Match the tokenized AI button gradient for consistent AI branding.
+            colors={[colors.aiGradientStart, colors.aiGradientEnd]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
             style={styles.fabCircle}
           >
             <View style={styles.logoStack}>

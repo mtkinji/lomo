@@ -22,6 +22,7 @@ import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
 import { rootNavigationRef } from '../../navigation/RootNavigator';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import {
   Dialog,
   VStack,
@@ -32,6 +33,7 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { LongTextField } from '../../ui/LongTextField';
+import { richTextToPlainText } from '../../ui/richText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
@@ -1076,7 +1078,7 @@ export function GoalDetailScreen() {
                   </View>
                   <View style={styles.headerCenter}>
                     <HStack alignItems="center" justifyContent="center" space="xs">
-                      <Icon name="goals" size={16} color={colors.textSecondary} />
+                      <ObjectTypeIconBadge iconName="goals" tone="goal" size={14} badgeSize={26} />
                       <Text style={styles.objectTypeLabel}>Goal</Text>
                     </HStack>
                   </View>
@@ -1268,7 +1270,6 @@ export function GoalDetailScreen() {
                       handleUpdateArc(nextArcId ? nextArcId : null);
                     }}
                     options={arcOptions}
-                    title="Select Arc…"
                     searchPlaceholder="Search arcs…"
                     emptyText="No arcs found."
                     allowDeselect
@@ -1933,7 +1934,7 @@ function ArcSelectorModal({
                         numberOfLines={2}
                         ellipsizeMode="tail"
                       >
-                        {arc.narrative}
+                        {richTextToPlainText(arc.narrative)}
                       </Text>
                     ) : null}
                   </VStack>
@@ -2436,12 +2437,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   addActivityIconButton: {
     borderRadius: 999,
     width: 36,
     height: 36,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2485,6 +2487,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   menuItemRow: {
     flexDirection: 'row',

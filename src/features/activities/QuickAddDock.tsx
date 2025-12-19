@@ -1,17 +1,17 @@
 import * as React from 'react';
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, Text, View, type TextInput } from 'react-native';
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Activity } from '../../domain/types';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
 import { cardElevation } from '../../theme/surfaces';
-import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Icon } from '../../ui/Icon';
-import { HStack, Input } from '../../ui/primitives';
+import { HStack } from '../../ui/primitives';
 import { EditorSurface } from '../../ui/EditorSurface';
 import { Toolbar, ToolbarButton, ToolbarGroup } from '../../ui/Toolbar';
+import { UnderKeyboardDrawer } from '../../ui/UnderKeyboardDrawer';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
 // Idle state was intentionally “raised” off the bottom by 24pt; keep it flush to the bottom.
@@ -82,55 +82,7 @@ export function QuickAddDock({
   // Keep stable ID in case we re-enable keyboard accessory behavior later.
   const accessoryId = useMemo(() => 'quick-add-dock-accessory', []);
 
-  // Animate the dock like a bottom drawer: the surface remains anchored to the bottom of the phone,
-  // and when the keyboard opens the visible controls are pushed up while the bottom part stays hidden
-  // under the keyboard. This gives us "drawer" surface area behind the keyboard.
-  //
-  // NOTE(Android): RN only emits `keyboardDidShow/Hide` (after the animation). To avoid the dock
-  // feeling delayed, we start a best-guess animation on focus and then correct to the real height.
-  const [keyboardHeight, setKeyboardHeight] = React.useState(0);
-  const lastKnownKeyboardHeightRef = React.useRef<number>(KEYBOARD_DEFAULT_GUESS_HEIGHT);
   const [measuredComposerHeight, setMeasuredComposerHeight] = React.useState<number | null>(null);
-
-  React.useEffect(() => {
-    const setTo = (nextHeight: number) => {
-      setKeyboardHeight(nextHeight);
-      if (nextHeight > 0) lastKnownKeyboardHeightRef.current = nextHeight;
-    };
-
-    if (Platform.OS === 'ios') {
-      const showSub = Keyboard.addListener('keyboardWillShow', (e: any) => {
-        const next = e?.endCoordinates?.height ?? 0;
-        setTo(next);
-      });
-      const hideSub = Keyboard.addListener('keyboardWillHide', (e: any) => {
-        setTo(0);
-      });
-      const frameSub = Keyboard.addListener('keyboardWillChangeFrame', (e: any) => {
-        const next = e?.endCoordinates?.height ?? 0;
-        setTo(next);
-      });
-
-      return () => {
-        showSub.remove();
-        hideSub.remove();
-        frameSub.remove();
-      };
-    }
-
-    const showSub = Keyboard.addListener('keyboardDidShow', (e: any) => {
-      const next = e?.endCoordinates?.height ?? 0;
-      setTo(next);
-    });
-    const hideSub = Keyboard.addListener('keyboardDidHide', (e: any) => {
-      setTo(0);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
   
   // Guard against blur events that fire immediately after focus (e.g., during layout transitions).
   const lastFocusTimeRef = React.useRef<number>(0);
@@ -200,8 +152,8 @@ export function QuickAddDock({
               onPress={onPressGenerateActivityTitle}
               disabled={Boolean(isGeneratingActivityTitle)}
               icon="sparkles"
-              label="Suggest"
-              variant="secondary"
+              label="AI Suggestion"
+              tone="ai"
             />
           </ToolbarGroup>
         </Toolbar>
@@ -221,10 +173,7 @@ export function QuickAddDock({
     scheduledDate,
   ]);
 
-  const effectiveKeyboardHeight =
-    keyboardHeight > 0 ? keyboardHeight : isFocused ? lastKnownKeyboardHeightRef.current : 0;
   const composerHeight = measuredComposerHeight ?? QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX;
-  const focusedDrawerHeight = Math.max(0, effectiveKeyboardHeight + composerHeight);
   const canSubmit = value.trim().length > 0;
 
   return (
@@ -274,125 +223,124 @@ export function QuickAddDock({
 
       {/* Focused drawer: use BottomDrawer sizing so the hidden portion sits under the keyboard,
           which exactly matches the Goals/Notes behavior you like. */}
-      <BottomDrawer
+      <UnderKeyboardDrawer
         visible={isFocused}
         onClose={onCollapse}
         presentation="inline"
         hideBackdrop
         dismissable={false}
-        keyboardAvoidanceEnabled={false}
-        snapPoints={[focusedDrawerHeight]}
+        dynamicHeightUnderKeyboard
+        visibleContentHeightFallbackPx={composerHeight}
+        defaultKeyboardHeightGuessPx={KEYBOARD_DEFAULT_GUESS_HEIGHT}
+        includeKeyboardSpacer
+        elevationToken="overlay"
+        topRadius="md"
         sheetStyle={styles.drawerSheet}
         handleContainerStyle={styles.drawerHandleContainer}
         handleStyle={styles.drawerHandle}
       >
-        <View style={styles.drawerSurfaceInner}>
-          {/* Visible composer area (measured). */}
-          <View
-            style={styles.drawerContent}
-            onLayout={(event) => {
-              const next = Math.round(event.nativeEvent.layout.height);
-              if (next > 0 && next !== measuredComposerHeight) {
-                setMeasuredComposerHeight(next);
-              }
-            }}
+        {/* Visible composer area (measured). */}
+        <View
+          style={styles.drawerContent}
+          onLayout={(event) => {
+            const next = Math.round(event.nativeEvent.layout.height);
+            if (next > 0 && next !== measuredComposerHeight) {
+              setMeasuredComposerHeight(next);
+            }
+          }}
+        >
+          <EditorSurface
+            visible={isFocused}
+            accessoryId={accessoryId}
+            bodyTopPadding={0}
+            bodyBottomPadding={0}
+            keyboardClearance={0}
+            disableBodyKeyboardPadding
+            style={styles.editorSurface}
+            bodyStyle={styles.editorBody}
           >
-            <EditorSurface
-              visible={isFocused}
-              accessoryId={accessoryId}
-              bodyTopPadding={0}
-              bodyBottomPadding={0}
-              keyboardClearance={0}
-              disableBodyKeyboardPadding
-              style={styles.editorSurface}
-              bodyStyle={styles.editorBody}
-            >
-              <View style={styles.contentStack}>
-                <View style={styles.composerRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Create activity"
-                    accessibilityState={{ disabled: !canSubmit }}
-                    onPress={() => {
-                      if (!canSubmit) return;
-                      onSubmit();
-                    }}
-                    style={[
-                      styles.affordance,
-                      styles.affordanceIdle,
-                      !canSubmit ? styles.affordanceDisabled : null,
-                    ]}
-                  >
-                    {hasGeneratedActivityTitle ? (
-                      <View style={styles.aiSuggestedAffordance}>
-                        <Icon
-                          name="sparkles"
-                          size={16}
-                          color={canSubmit ? colors.accent : colors.textSecondary}
-                        />
-                      </View>
-                    ) : (
-                      // Keep this as an "empty checkbox" affordance while composing (no completion signal).
-                      <View
-                        style={[
-                          styles.createCheckboxBase,
-                          styles.createCheckboxDisabled,
-                        ]}
-                      >
-                        {/* Intentionally no inner icon while composing */}
-                      </View>
-                    )}
-                  </Pressable>
+            <View style={styles.contentStack}>
+              <View style={styles.composerRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Create activity"
+                  accessibilityState={{ disabled: !canSubmit }}
+                  onPress={() => {
+                    if (!canSubmit) return;
+                    onSubmit();
+                  }}
+                  style={[
+                    styles.affordance,
+                    styles.affordanceIdle,
+                    !canSubmit ? styles.affordanceDisabled : null,
+                  ]}
+                >
+                  {hasGeneratedActivityTitle ? (
+                    <View style={styles.aiSuggestedAffordance}>
+                      <Icon
+                        name="sparkles"
+                        size={16}
+                        color={canSubmit ? colors.accent : colors.textSecondary}
+                      />
+                    </View>
+                  ) : (
+                    // Keep this as an "empty checkbox" affordance while composing (no completion signal).
+                    <View
+                      style={[
+                        styles.createCheckboxBase,
+                        styles.createCheckboxDisabled,
+                      ]}
+                    >
+                      {/* Intentionally no inner icon while composing */}
+                    </View>
+                  )}
+                </Pressable>
 
-                  <Input
-                    ref={inputRef}
-                    value={value}
-                    onChangeText={onChangeText}
-                    placeholder="Add an activity"
-                    placeholderTextColor={colors.textSecondary}
-                    variant="inline"
-                    elevation="flat"
-                    returnKeyType="done"
-                    showSoftInputOnFocus
-                    blurOnSubmit
-                    onSubmitEditing={() => {
-                      if (value.trim().length === 0) {
-                        onCollapse();
-                        return;
-                      }
-                      onSubmit();
-                    }}
-                    onFocus={() => {
-                      lastFocusTimeRef.current = Date.now();
-                      setIsFocused(true);
-                    }}
-                    onBlur={() => {
-                      const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
-                      if (timeSinceFocus < BLUR_GUARD_MS) {
-                        inputRef.current?.focus();
-                        return;
-                      }
-                      // Don't auto-collapse on blur; the user likely tapped toolbar buttons.
-                    }}
-                    autoCapitalize="sentences"
-                    autoCorrect
-                    containerStyle={styles.inputContainer}
-                    inputStyle={styles.input}
-                    accessibilityLabel="Activity title"
-                  />
+                <View style={styles.inputContainer}>
+                  <View style={styles.titleFieldClipper}>
+                    <RNTextInput
+                      ref={inputRef}
+                      value={value}
+                      onChangeText={onChangeText}
+                      placeholder="Add an activity"
+                      placeholderTextColor={colors.textSecondary}
+                      returnKeyType="done"
+                      showSoftInputOnFocus
+                      blurOnSubmit
+                      multiline={false}
+                      numberOfLines={1}
+                      onSubmitEditing={() => {
+                        if (value.trim().length === 0) {
+                          onCollapse();
+                          return;
+                        }
+                        onSubmit();
+                      }}
+                      onFocus={() => {
+                        lastFocusTimeRef.current = Date.now();
+                        setIsFocused(true);
+                      }}
+                      onBlur={() => {
+                        const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
+                        if (timeSinceFocus < BLUR_GUARD_MS) {
+                          inputRef.current?.focus();
+                          return;
+                        }
+                        // Don't auto-collapse on blur; the user likely tapped toolbar buttons.
+                      }}
+                      autoCapitalize="sentences"
+                      autoCorrect
+                      style={styles.input}
+                      accessibilityLabel="Activity title"
+                    />
+                  </View>
                 </View>
-                {renderToolbar()}
               </View>
-            </EditorSurface>
-          </View>
-
-          {/* Spacer representing the keyboard-covered region (behind the keyboard).
-              With the sheet height = keyboardHeight + composerHeight, this keeps the
-              composer fully visible above the keyboard while the white drawer continues
-              behind it. */}
-          <View style={{ height: effectiveKeyboardHeight }} />
+              {renderToolbar()}
+            </View>
+          </EditorSurface>
         </View>
-      </BottomDrawer>
+      </UnderKeyboardDrawer>
     </>
   );
 }
@@ -508,6 +456,11 @@ const styles = StyleSheet.create({
   inputContainer: {
     flex: 1,
   },
+  titleFieldClipper: {
+    flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
+  },
   input: {
     flex: 1,
     ...typography.body,
@@ -525,6 +478,7 @@ const styles = StyleSheet.create({
         }
       : null),
     color: colors.textPrimary,
+    minWidth: 0,
   },
   aiSuggestedAffordance: {
     width: 24,
@@ -545,29 +499,10 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   drawerSheet: {
-    // Important: BottomDrawer's default sheet uses `overflow: hidden`, which clips iOS shadows.
-    // We want the sheet itself to cast a shadow, so keep overflow visible and clip the rounded
-    // surface *inside* (see `drawerSurfaceInner`).
-    // Keep the sheet itself white so the area *behind the keyboard* is also white.
-    // (When this was transparent, the extra height under the visible composer showed the list.)
     backgroundColor: colors.canvas,
     paddingHorizontal: 0,
     paddingTop: 0,
-    // Override BottomDrawer's default safe-area bottom padding; we handle keyboard placement
-    // by padding the inner surface by `keyboardHeight`.
     paddingBottom: 0,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    // Match the collapsed dock’s lift, but a bit stronger when open.
-    // BottomDrawer provides a default shadow, but we override the sheet style,
-    // so we need to explicitly re-apply elevation here.
-    shadowColor: '#0F172A',
-    // Keep this a touch lighter than a typical modal drawer since this sits inside the canvas
-    // and should not feel like a heavy overlay.
-    shadowOpacity: 0.14,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: -8 },
-    elevation: 10,
     overflow: 'visible',
   },
   drawerHandleContainer: {
@@ -578,16 +513,6 @@ const styles = StyleSheet.create({
     width: 0,
     height: 0,
     opacity: 0,
-  },
-  drawerSurfaceInner: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    overflow: 'hidden',
-    // Column stack: [keyboard spacer] + [composer]. When the sheet height equals
-    // keyboardHeight + composerHeight, this produces a tight layout with no slack.
-    flexDirection: 'column',
   },
   drawerContent: {
     paddingHorizontal: spacing.sm,

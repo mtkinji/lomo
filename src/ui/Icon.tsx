@@ -82,6 +82,9 @@ const iconMap: Record<string, IconEntry> = {
   bold: { library: 'feather', name: 'bold' },
   italic: { library: 'feather', name: 'italic' },
   underline: { library: 'feather', name: 'underline' },
+  // Editor history
+  undo: { library: 'feather', name: 'rotate-ccw' },
+  redo: { library: 'feather', name: 'rotate-cw' },
 };
 
 export type IconName = keyof typeof iconMap;

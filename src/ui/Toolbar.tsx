@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../theme';
 import { Icon, type IconName } from './Icon';
 
@@ -11,6 +12,11 @@ export type ToolbarButtonProps = {
   onPress?: () => void;
   disabled?: boolean;
   variant?: ToolbarButtonVariant;
+  /**
+   * Optional visual tone overlays. Use `ai` to apply the app-wide AI gradient
+   * styling while keeping the underlying button variant semantics intact.
+   */
+  tone?: 'ai';
   /**
    * Optional icon rendered on the left of the label (or centered if no label).
    */
@@ -39,7 +45,9 @@ export function Toolbar({
         showsHorizontalScrollIndicator={false}
         style={styles.scroll}
         contentContainerStyle={[styles.row, center ? styles.rowCentered : null]}
-        keyboardShouldPersistTaps="handled"
+        // Toolbars frequently sit near active text inputs. We never want incidental taps
+        // on "toolbar whitespace" to dismiss the keyboard; only explicit actions should.
+        keyboardShouldPersistTaps="always"
       >
         {children}
       </ScrollView>
@@ -82,15 +90,22 @@ export function ToolbarButton({
   onPress,
   disabled,
   variant = 'secondary',
+  tone,
   icon,
   label,
   groupPosition = 'single',
   grouped = false,
 }: ToolbarButtonProps) {
   const isPrimary = variant === 'primary';
+  const isAi = tone === 'ai';
   const hasLabel = Boolean(label && label.trim().length > 0);
 
   const cornerRadius = 8;
+  const foregroundColor = isPrimary
+    ? colors.primaryForeground
+    : isAi
+      ? colors.aiForeground
+      : colors.secondaryForeground;
 
   return (
     <Pressable
@@ -102,6 +117,7 @@ export function ToolbarButton({
       style={({ pressed }) => [
         styles.pillBase,
         isPrimary ? styles.pillPrimary : styles.pillSecondary,
+        isAi ? styles.pillAi : null,
         grouped
           ? [
               styles.segmentBase,
@@ -122,16 +138,25 @@ export function ToolbarButton({
         (disabled || !onPress) ? { opacity: 0.55 } : null,
       ]}
     >
-      <View style={[styles.pillInner, !hasLabel ? styles.pillInnerIconOnly : null]}>
-        {icon ? (
-          <Icon
-            name={icon}
-            size={14}
-            color={isPrimary ? colors.primaryForeground : colors.secondaryForeground}
+      {isAi ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+          <LinearGradient
+            colors={[colors.aiGradientStart, colors.aiGradientEnd]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={StyleSheet.absoluteFillObject}
           />
-        ) : null}
+        </View>
+      ) : null}
+      <View style={[styles.pillInner, !hasLabel ? styles.pillInnerIconOnly : null]}>
+        {icon ? <Icon name={icon} size={14} color={foregroundColor} /> : null}
         {hasLabel ? (
-          <Text style={[styles.pillText, isPrimary ? styles.pillTextPrimary : styles.pillTextSecondary]}>
+          <Text
+            style={[
+              styles.pillText,
+              isAi ? styles.pillTextAi : isPrimary ? styles.pillTextPrimary : styles.pillTextSecondary,
+            ]}
+          >
             {label}
           </Text>
         ) : null}
@@ -170,11 +195,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     minHeight: 32,
     justifyContent: 'center',
+    position: 'relative',
   },
   segmentBase: {
     borderRadius: 0,
   },
   pillInner: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: spacing.xs,
@@ -193,6 +220,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     borderWidth: 0,
   },
+  pillAi: {
+    // Keep the same secondary pill shape + border, but let the gradient show through.
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
   pillText: {
     ...typography.bodySm,
   },
@@ -201,6 +234,9 @@ const styles = StyleSheet.create({
   },
   pillTextPrimary: {
     color: colors.primaryForeground,
+  },
+  pillTextAi: {
+    color: colors.aiForeground,
   },
 });
 

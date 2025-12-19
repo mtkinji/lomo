@@ -189,6 +189,11 @@ interface AppState {
    */
   hasSeenOnboardingSharePrompt: boolean;
   /**
+   * One-time coachmark for AI writing refine: after the first successful refine,
+   * we teach users that the header Undo button restores the prior text.
+   */
+  hasSeenRefineUndoCoachmark: boolean;
+  /**
    * Saved configurations for the Activities list. Includes both system views
    * like "Default view" and user-created custom views.
    */
@@ -270,6 +275,7 @@ interface AppState {
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
   setHasSeenOnboardingSharePrompt: (seen: boolean) => void;
+  setHasSeenRefineUndoCoachmark: (seen: boolean) => void;
   setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingActivitiesGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingPlanReadyGuide: (dismissed: boolean) => void;
@@ -470,6 +476,7 @@ export const useAppStore = create(
       hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
       hasSeenOnboardingSharePrompt: false,
+      hasSeenRefineUndoCoachmark: false,
       hasDismissedOnboardingGoalGuide: false,
       hasDismissedOnboardingActivitiesGuide: false,
       hasDismissedOnboardingPlanReadyGuide: false,
@@ -577,6 +584,10 @@ export const useAppStore = create(
       setHasSeenOnboardingSharePrompt: (seen) =>
         set(() => ({
           hasSeenOnboardingSharePrompt: seen,
+        })),
+      setHasSeenRefineUndoCoachmark: (seen) =>
+        set(() => ({
+          hasSeenRefineUndoCoachmark: seen,
         })),
       setHasDismissedOnboardingGoalGuide: (dismissed) =>
         set(() => ({
@@ -853,6 +864,7 @@ export const useAppStore = create(
           hasSeenFirstGoalCelebration: false,
           hasSeenFirstArcCelebration: false,
           hasSeenOnboardingSharePrompt: false,
+          hasSeenRefineUndoCoachmark: false,
           hasDismissedOnboardingGoalGuide: false,
           hasDismissedOnboardingActivitiesGuide: false,
           hasDismissedOnboardingPlanReadyGuide: false,

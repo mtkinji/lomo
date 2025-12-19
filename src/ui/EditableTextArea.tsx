@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon } from './Icon';
+import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 
 interface AiHelpContext {
   objectType: 'arc' | 'goal' | 'activity' | 'chapter';
@@ -55,6 +56,7 @@ export function EditableTextArea({
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<TextInput | null>(null);
+  const keyboardAware = useKeyboardAwareScroll();
 
   const commit = (next: string) => {
     const validationError = validate ? validate(next) : null;
@@ -118,6 +120,9 @@ export function EditableTextArea({
             setDraft(value);
             setError(null);
             setIsEditing(true);
+            if (keyboardAware?.keyboardHeight) {
+              requestAnimationFrame(() => keyboardAware.scrollToFocusedInput());
+            }
           }}
           onBlur={() => {
             commit(draft);

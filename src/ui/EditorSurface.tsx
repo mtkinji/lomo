@@ -26,6 +26,17 @@ export type EditorSurfaceProps = {
    */
   toolbar?: React.ReactNode;
   /**
+   * Controls how the toolbar is attached/positioned.
+   *
+   * - `auto` (default): iOS uses InputAccessoryView (requires a focused native TextInput
+   *   with matching `inputAccessoryViewID`), Android uses absolute positioning above keyboard.
+   * - `absolute`: always position the toolbar above the keyboard using keyboard height.
+   *
+   * This is important for WebView-based editors (e.g. rich text) which cannot participate
+   * in iOS InputAccessoryView attachment via `inputAccessoryViewID`.
+   */
+  toolbarAttachment?: 'auto' | 'absolute';
+  /**
    * Unique identifier for the InputAccessoryView (iOS only).
    * If not provided, a default will be generated.
    */
@@ -102,6 +113,7 @@ export function EditorSurface({
   header,
   children,
   toolbar,
+  toolbarAttachment = 'auto',
   accessoryId,
   bodyTopPadding,
   bodyBottomPadding,
@@ -171,7 +183,19 @@ export function EditorSurface({
 
       {/* Keyboard accessory toolbar */}
       {toolbar ? (
-        Platform.OS === 'ios' ? (
+        toolbarAttachment === 'absolute' ? (
+          <View
+            style={[
+              styles.toolbarAbsolute,
+              // If the parent is already handling keyboard avoidance (e.g. UnderKeyboardDrawer),
+              // the visible editor surface bottom is already "at" the keyboard top.
+              // In that case, keep the toolbar pinned to the surface bottom.
+              { bottom: disableBodyKeyboardPadding ? 0 : keyboardHeight },
+            ]}
+          >
+            {toolbar}
+          </View>
+        ) : Platform.OS === 'ios' ? (
           <InputAccessoryView nativeID={resolvedAccessoryId}>{toolbar}</InputAccessoryView>
         ) : keyboardHeight > 0 ? (
           <View style={[styles.toolbarAbsolute, { bottom: keyboardHeight }]}>{toolbar}</View>

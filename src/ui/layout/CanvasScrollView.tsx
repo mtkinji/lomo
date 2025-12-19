@@ -18,15 +18,18 @@ type CanvasScrollViewProps = PropsWithChildren<
   }
 >;
 
-export function CanvasScrollView({
-  children,
-  style,
-  contentContainerStyle,
-  includeSafeAreaBottom = true,
-  extraBottomPadding = 0,
-  automaticallyAdjustKeyboardInsets = true,
-  ...props
-}: CanvasScrollViewProps) {
+export const CanvasScrollView = React.forwardRef<ScrollView, CanvasScrollViewProps>(function CanvasScrollView(
+  {
+    children,
+    style,
+    contentContainerStyle,
+    includeSafeAreaBottom = true,
+    extraBottomPadding = 0,
+    automaticallyAdjustKeyboardInsets = true,
+    ...props
+  },
+  ref,
+) {
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
   // - `docs/prds/keyboard-input-safety-prd.md`
@@ -39,6 +42,7 @@ export function CanvasScrollView({
   return (
     <ScrollView
       {...props}
+      ref={ref}
       automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
       style={[styles.container, style]}
       contentContainerStyle={[
@@ -49,7 +53,9 @@ export function CanvasScrollView({
       {children}
     </ScrollView>
   );
-}
+});
+
+CanvasScrollView.displayName = 'CanvasScrollView';
 
 const styles = StyleSheet.create({
   container: {

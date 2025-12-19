@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
+import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 
 type InputVariant = 'surface' | 'outline' | 'ghost' | 'inline';
 type InputSize = 'md' | 'sm';
@@ -84,6 +85,7 @@ const InputBase = forwardRef<TextInput, Props>(
     const [focused, setFocused] = useState(false);
     const [multilineHeight, setMultilineHeight] = useState<number | undefined>(undefined);
     const hasError = Boolean(errorText);
+    const keyboardAware = useKeyboardAwareScroll();
     // Keep border color consistent between default and focused states;
     // only errors get a different color.
     const statusColor = hasError ? colors.destructive : colors.border;
@@ -140,6 +142,11 @@ const InputBase = forwardRef<TextInput, Props>(
             onFocus={(event) => {
               setFocused(true);
               onFocus?.(event);
+              // If the keyboard is already open (focus moved between fields),
+              // proactively reveal the focused input.
+              if (keyboardAware?.keyboardHeight) {
+                requestAnimationFrame(() => keyboardAware.scrollToFocusedInput());
+              }
             }}
             onBlur={(event) => {
               setFocused(false);

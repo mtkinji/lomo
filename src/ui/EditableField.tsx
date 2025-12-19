@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
+import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 
 type EditableFieldVariant = 'title' | 'body' | 'meta';
 
@@ -61,6 +62,7 @@ export function EditableField({
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<TextInput | null>(null);
+  const keyboardAware = useKeyboardAwareScroll();
 
   const commit = (next: string) => {
     const validationError = validate ? validate(next) : null;
@@ -123,6 +125,9 @@ export function EditableField({
             setDraft(value);
             setError(null);
             setIsEditing(true);
+            if (keyboardAware?.keyboardHeight) {
+              requestAnimationFrame(() => keyboardAware.scrollToFocusedInput());
+            }
           }}
           onChangeText={setDraft}
           placeholder={placeholder || 'Tap to edit'}

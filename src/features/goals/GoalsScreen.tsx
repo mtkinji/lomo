@@ -26,6 +26,7 @@ import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
+import { richTextToPlainText } from '../../ui/richText';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -187,6 +188,9 @@ export function GoalsScreen() {
       <PageHeader
         title="Goals"
         iconName="goals"
+        iconTone="goal"
+        //Add this to the page header if you want to wrap the title in a large badge with the icon
+        // boxedTitle
         menuOpen={menuOpen}
         onPressMenu={() => {
           const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
@@ -588,7 +592,7 @@ export function GoalCoachDrawer({
       source: 'manual',
       goal_id: goal.id,
       arc_id: goal.arcId,
-      has_description: Boolean(goal.description && goal.description.trim().length > 0),
+      has_description: Boolean(goal.description && richTextToPlainText(goal.description).trim().length > 0),
     });
     onGoalCreated?.(id);
     onClose();
@@ -624,7 +628,7 @@ export function GoalCoachDrawer({
         source: 'ai_coach',
         goal_id: goal.id,
         arc_id: arcId,
-        has_description: Boolean(goal.description && goal.description.trim().length > 0),
+        has_description: Boolean(goal.description && richTextToPlainText(goal.description).trim().length > 0),
       });
       onGoalCreated?.(id);
       onClose();
@@ -1476,6 +1480,7 @@ const styles = StyleSheet.create({
   newGoalButton: {
     alignSelf: 'flex-start',
     marginTop: 0,
+    backgroundColor: colors.primary,
   },
   draftSection: {
     marginTop: spacing['2xl'],

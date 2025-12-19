@@ -1,4 +1,5 @@
 import type { Arc, Goal, Activity } from '../../domain/types';
+import { richTextToPlainText } from '../../ui/richText';
 
 /**
  * Shared helper for building a natural-language snapshot of the user's
@@ -27,16 +28,15 @@ export function buildArcCoachLaunchContext(
 
     lines.push(`Arc: ${arc.name} (status: ${arc.status}).`);
     if (arc.narrative) {
-      lines.push(`Narrative: ${arc.narrative}`);
+      lines.push(`Narrative: ${richTextToPlainText(arc.narrative)}`);
     }
 
     if (arcGoals.length > 0) {
       lines.push('Goals in this arc:');
       arcGoals.forEach((goal) => {
+        const descriptionPlain = goal.description ? richTextToPlainText(goal.description) : '';
         const trimmedDescription =
-          goal.description && goal.description.length > 200
-            ? `${goal.description.slice(0, 197)}…`
-            : goal.description;
+          descriptionPlain && descriptionPlain.length > 200 ? `${descriptionPlain.slice(0, 197)}…` : descriptionPlain;
 
         const base = `- ${goal.title} (status: ${goal.status})`;
         lines.push(trimmedDescription ? `${base} – ${trimmedDescription}` : base);
@@ -111,8 +111,8 @@ export function buildActivityCoachLaunchContext(
     }
 
     if (focusActivity.notes) {
-      const trimmedNotes =
-        focusActivity.notes.length > 520 ? `${focusActivity.notes.slice(0, 517)}…` : focusActivity.notes;
+      const notesPlain = richTextToPlainText(focusActivity.notes);
+      const trimmedNotes = notesPlain.length > 520 ? `${notesPlain.slice(0, 517)}…` : notesPlain;
       lines.push(`Notes: ${trimmedNotes}`);
     }
 
@@ -173,8 +173,9 @@ export function buildActivityCoachLaunchContext(
         `- ${focusArc.name} (status: ${focusArc.status}, id: ${focusArc.id})`
       );
       if (focusArc.narrative) {
+        const narrativePlain = richTextToPlainText(focusArc.narrative);
         const trimmedNarrative =
-          focusArc.narrative.length > 360 ? `${focusArc.narrative.slice(0, 357)}…` : focusArc.narrative;
+          narrativePlain.length > 360 ? `${narrativePlain.slice(0, 357)}…` : narrativePlain;
         lines.push(`Narrative: ${trimmedNarrative}`);
       }
 
@@ -199,8 +200,9 @@ export function buildActivityCoachLaunchContext(
     const goalLabel = focusGoal && goal.id === focusGoal.id ? 'Goal (focused):' : 'Goal:';
     lines.push(`${goalLabel} ${goal.title} (status: ${goal.status}).`);
     if (goal.description) {
+      const descriptionPlain = richTextToPlainText(goal.description);
       const trimmedDescription =
-        goal.description.length > 200 ? `${goal.description.slice(0, 197)}…` : goal.description;
+        descriptionPlain.length > 200 ? `${descriptionPlain.slice(0, 197)}…` : descriptionPlain;
       lines.push(`Description: ${trimmedDescription}`);
     }
 
@@ -212,10 +214,8 @@ export function buildActivityCoachLaunchContext(
       lines.push(shouldCompact ? 'Activities for this goal (sample):' : 'Activities for this goal:');
       shown.forEach((activity) => {
         const base = `- ${activity.title} (status: ${activity.status})`;
-        const notes =
-          activity.notes && activity.notes.length > 160
-            ? `${activity.notes.slice(0, 157)}…`
-            : activity.notes;
+        const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+        const notes = notesPlain.length > 160 ? `${notesPlain.slice(0, 157)}…` : notesPlain;
         lines.push(notes ? `${base} – ${notes}` : base);
       });
       if (shouldCompact && goalActivities.length > shown.length) {
@@ -233,10 +233,8 @@ export function buildActivityCoachLaunchContext(
     lines.push('Unassigned activities (not linked to a specific goal yet):');
     unassignedActivities.forEach((activity) => {
       const base = `- ${activity.title} (status: ${activity.status})`;
-      const notes =
-        activity.notes && activity.notes.length > 160
-          ? `${activity.notes.slice(0, 157)}…`
-          : activity.notes;
+      const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+      const notes = notesPlain.length > 160 ? `${notesPlain.slice(0, 157)}…` : notesPlain;
       lines.push(notes ? `${base} – ${notes}` : base);
     });
     lines.push('');

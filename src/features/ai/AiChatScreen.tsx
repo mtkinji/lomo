@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   Keyboard,
+  InteractionManager,
   Modal,
   NativeEventEmitter,
   NativeModules,
@@ -2089,8 +2090,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // Keyboard strategy reference:
   // - `docs/keyboard-input-safety-implementation.md`
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    // Use DidShow/DidHide even on iOS to avoid RN "Error measuring text field."
+    // warnings that can happen when measuring during the keyboard's animation.
+    const showEvent = 'keyboardDidShow';
+    const hideEvent = 'keyboardDidHide';
 
     const onShow = (e: any) => {
       const rawHeight = e?.endCoordinates?.height ?? 0;
@@ -2098,9 +2101,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const adjusted =
         Platform.OS === 'ios' ? Math.max(0, rawHeight - insets.bottom) : Math.max(0, rawHeight);
       setKeyboardHeight(adjusted);
-      // Wait a beat so focus + layout settle, then ensure the focused input is visible.
-      requestAnimationFrame(() => {
-        scrollToFocusedInput(keyboardClearance);
+      // Wait until layout/animations settle, then ensure the focused input is visible.
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          scrollToFocusedInput(keyboardClearance);
+        });
       });
     };
     const onHide = () => {

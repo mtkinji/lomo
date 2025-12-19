@@ -1,8 +1,10 @@
 import { ReactNode, useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { IconButton } from '../Button';
+import { ObjectTypeIconBadge } from '../ObjectTypeIconBadge';
+import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objectTypeBadges';
 
 type PageHeaderProps = {
   title: string;
@@ -12,6 +14,11 @@ type PageHeaderProps = {
    * with the bottom navigation icon.
    */
   iconName?: IconName;
+  /**
+   * Optional tone that determines the icon badge color when `iconName` is provided.
+   * Use this to give each object type a consistent, recognizable header treatment.
+   */
+  iconTone?: ObjectTypeTone;
   /**
    * Optional menu handler; when provided, a hamburger icon appears to the left
    * of the title. Intended for global navigation drawers.
@@ -36,6 +43,13 @@ type PageHeaderProps = {
    */
   rightElement?: ReactNode;
   /**
+   * When true (and `iconName` is provided), the icon + title are rendered inside
+   * a single "object type badge" container instead of only boxing the icon.
+   * Keeps the overall header height stable by locking the badge height and
+   * clamping the title to a single line.
+   */
+  boxedTitle?: boolean;
+  /**
    * Optional content rendered below the main header row
    * (filters, tabs, meta, etc).
    */
@@ -45,13 +59,19 @@ type PageHeaderProps = {
 export function PageHeader({
   title,
   iconName,
+  iconTone = 'default',
   onPressMenu,
   onPressBack,
   menuOpen = false,
   onPressInfo,
   rightElement,
+  boxedTitle = false,
   children,
 }: PageHeaderProps) {
+  const headerBadgeSize = 30;
+  const headerBadgeRadius = Math.round(headerBadgeSize * 0.32);
+  const badgeColors = getObjectTypeBadgeColors(iconTone);
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -77,12 +97,41 @@ export function PageHeader({
 
         <View style={styles.centerColumn}>
           <View style={styles.titleRow}>
-            {iconName ? (
-              <View style={styles.iconContainer}>
-                <Icon name={iconName} size={24} color={colors.textPrimary} />
+            {iconName && boxedTitle ? (
+              <View
+                style={[
+                  styles.titleBadge,
+                  {
+                    height: headerBadgeSize,
+                    borderRadius: headerBadgeRadius,
+                    backgroundColor: badgeColors.backgroundColor,
+                  },
+                ]}
+              >
+                <Icon name={iconName} size={18} color={badgeColors.iconColor} />
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={[styles.title, styles.titleInBadge, { color: badgeColors.iconColor }]}
+                >
+                  {title}
+                </Text>
               </View>
-            ) : null}
-            <Text style={styles.title}>{title}</Text>
+            ) : (
+              <>
+                {iconName ? (
+                  <ObjectTypeIconBadge
+                    iconName={iconName}
+                    tone={iconTone}
+                    size={18}
+                    badgeSize={headerBadgeSize}
+                  />
+                ) : null}
+                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title}>
+                  {title}
+                </Text>
+              </>
+            )}
             {onPressInfo ? (
               <IconButton
                 accessibilityLabel={`Learn about ${title.toLowerCase()}`}
@@ -129,6 +178,18 @@ const styles = StyleSheet.create({
     ...typography.titleMd,
     color: colors.textPrimary,
     fontFamily: fonts.black,
+  },
+  titleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  titleInBadge: {
+    // Badge height is constrained; keep the title visually centered and prevent
+    // extra vertical space from changing header height.
+    lineHeight: typography.titleMd.lineHeight,
   },
   iconContainer: {
     alignItems: 'center',

@@ -72,6 +72,7 @@ export type ButtonVariantToken =
   | 'outline'
   | 'ghost'
   | 'link'
+  | 'ai'
   | 'destructive'
   | 'turmeric';
 
@@ -121,6 +122,14 @@ export const BUTTON_VARIANT_TOKENS: Record<
   link: {
     backgroundColor: 'transparent',
     textTone: 'accent',
+  },
+  ai: {
+    // Gradient background is rendered by Button for this variant; keep the base
+    // tokens transparent and reserve border space for consistent sizing.
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.aiBorder,
+    textTone: 'inverse',
   },
   destructive: {
     backgroundColor: colors.destructive,

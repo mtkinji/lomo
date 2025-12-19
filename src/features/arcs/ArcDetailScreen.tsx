@@ -30,6 +30,7 @@ import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
+import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import {
   VStack,
   Heading,
@@ -791,7 +792,7 @@ export function ArcDetailScreen() {
                   </View>
                   <View style={styles.headerCenter}>
                     <View style={styles.objectTypeRow}>
-                      <Icon name="arcs" size={18} color={colors.textSecondary} />
+                      <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
                       <Text style={styles.objectTypeLabel}>Arc</Text>
                     </View>
                   </View>
@@ -1674,11 +1675,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   optionsButton: {
     borderRadius: 999,
     width: 36,
     height: 36,
+    backgroundColor: colors.primary,
   },
   goalCount: {
     ...typography.bodySm,
@@ -1770,6 +1773,7 @@ const styles = StyleSheet.create({
   goalsExpandButton: {
     alignSelf: 'flex-end',
     marginTop: 0,
+    backgroundColor: colors.primary,
   },
   goalsSection: {
     marginTop: 0,

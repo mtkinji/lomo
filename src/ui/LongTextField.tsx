@@ -1,17 +1,28 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Platform,
+  ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type LayoutRectangle,
 } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
-import { BottomDrawer } from './BottomDrawer';
 import { Icon } from './Icon';
+import { RichEditor, actions } from 'react-native-pell-rich-editor';
 import { Toolbar, ToolbarButton, ToolbarGroup } from './Toolbar';
 import { EditorSurface, EditorHeader } from './EditorSurface';
+import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
+import { Dialog } from './Dialog';
+import { Button } from './Button';
+import { Coachmark } from './Coachmark';
+import { Text as KwiltText } from './Typography';
+import { refineWritingWithAI, type WritingRefinePreset } from '../services/ai';
+import { RichTextBlock } from './RichTextBlock';
+import { htmlToPlainText, normalizeToHtml } from './richText';
+import { useAppStore } from '../store/useAppStore';
 
 type AiHelpContext = {
   objectType: 'arc' | 'goal' | 'activity' | 'chapter';
@@ -67,19 +78,38 @@ export function LongTextField({
   aiContext,
 }: LongTextFieldProps) {
   const [editorVisible, setEditorVisible] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const inputRef = useRef<TextInput | null>(null);
-  const [selection, setSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+  const [draftHtml, setDraftHtml] = useState<string>(() => normalizeToHtml(value));
+  const richEditorRef = useRef<RichEditor | null>(null);
+  const shouldAutoFocusRef = useRef(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastCommittedRef = useRef<string>(value);
+  const lastCommittedRef = useRef<string>(normalizeToHtml(value));
+  const isProgrammaticHtmlSetRef = useRef(false);
+  const hasUserEditedSinceRefineRef = useRef(false);
+  const refineHistoryRef = useRef<null | { beforeHtml: string; afterHtml: string; state: 'before' | 'after' }>(null);
+  const [isRefining, setIsRefining] = useState(false);
+  const [customDialogVisible, setCustomDialogVisible] = useState(false);
+  const [customInstruction, setCustomInstruction] = useState('');
+  const [linkDialogVisible, setLinkDialogVisible] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkText, setLinkText] = useState('');
+  const accessoryBarRef = useRef<View | null>(null);
+  const refineAnchorRef = useRef<View | null>(null);
+  const undoButtonRef = useRef<View | null>(null);
+  const [refineMenuVisible, setRefineMenuVisible] = useState(false);
+  const [accessoryBarLayout, setAccessoryBarLayout] = useState<LayoutRectangle | null>(null);
+  const [refineAnchorLayout, setRefineAnchorLayout] = useState<LayoutRectangle | null>(null);
+  const [undoCoachmarkVisible, setUndoCoachmarkVisible] = useState(false);
+
+  const hasSeenRefineUndoCoachmark = useAppStore((state) => state.hasSeenRefineUndoCoachmark);
+  const setHasSeenRefineUndoCoachmark = useAppStore((state) => state.setHasSeenRefineUndoCoachmark);
 
   // Keep track of external updates when NOT editing.
   useEffect(() => {
     if (editorVisible) return;
-    setDraft(value);
-    lastCommittedRef.current = value;
+    const nextHtml = normalizeToHtml(value);
+    setDraftHtml(nextHtml);
+    lastCommittedRef.current = nextHtml;
   }, [editorVisible, value]);
-
 
   const flush = (next: string) => {
     if (debounceTimerRef.current) {
@@ -88,16 +118,19 @@ export function LongTextField({
     }
     if (next === lastCommittedRef.current) return;
     lastCommittedRef.current = next;
-    onChange(next);
+    // Parent screens often do `.trim()` / empty checks before persisting.
+    // Ensure "visually empty" rich text doesn't get stored as `<p></p>`.
+    const plain = htmlToPlainText(next).trim();
+    onChange(plain.length === 0 ? '' : next);
   };
 
   // Autosave while typing (debounced) when editor is open.
   useEffect(() => {
     if (!editorVisible) return;
-    if (draft === lastCommittedRef.current) return;
+    if (draftHtml === lastCommittedRef.current) return;
 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => flush(draft), autosaveDebounceMs);
+    debounceTimerRef.current = setTimeout(() => flush(draftHtml), autosaveDebounceMs);
 
     return () => {
       if (debounceTimerRef.current) {
@@ -106,129 +139,227 @@ export function LongTextField({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, editorVisible, autosaveDebounceMs]);
+  }, [draftHtml, editorVisible, autosaveDebounceMs]);
 
   const openEditor = () => {
     if (disabled) return;
-    setDraft(value);
-    lastCommittedRef.current = value;
+    const html = normalizeToHtml(value);
+    setDraftHtml(html);
+    lastCommittedRef.current = html;
+    shouldAutoFocusRef.current = true;
     setEditorVisible(true);
     requestAnimationFrame(() => {
-      inputRef.current?.focus();
+      richEditorRef.current?.setContentHTML?.(html);
+      // For WebView-based editors, focus is only reliable after initialization.
+      // We'll also focus in `editorInitializedCallback`.
+      richEditorRef.current?.focusContentEditor?.();
     });
   };
 
   const closeEditor = () => {
     setEditorVisible(false);
-    flush(draft);
+    shouldAutoFocusRef.current = false;
+    setUndoCoachmarkVisible(false);
+    refineHistoryRef.current = null;
+    hasUserEditedSinceRefineRef.current = false;
+    isProgrammaticHtmlSetRef.current = false;
+    flush(draftHtml);
   };
 
-  const accessoryId = useMemo(() => `kwilt-longtext-accessory-${label.replace(/\s+/g, '-')}`, [label]);
-
-  const showAi = Boolean(enableAi && onRequestAiHelp && aiContext);
-
-  const clampSelection = (next: { start: number; end: number }, text: string) => {
-    const max = text.length;
-    return {
-      start: Math.max(0, Math.min(next.start, max)),
-      end: Math.max(0, Math.min(next.end, max)),
-    };
+  const openRefineMenu = () => {
+    if (!enableAi) return;
+    if (disabled) return;
+    if (isRefining) return;
+    setRefineMenuVisible(true);
   };
 
-  const applyReplace = (nextText: string, nextSelection: { start: number; end: number }) => {
-    setDraft(nextText);
-    const clamped = clampSelection(nextSelection, nextText);
+  const closeRefineMenu = () => {
+    setRefineMenuVisible(false);
+  };
+
+  const applyHtmlToEditor = (html: string) => {
+    // `initialContentHTML` only applies on mount; use setContentHTML for live updates.
+    isProgrammaticHtmlSetRef.current = true;
     requestAnimationFrame(() => {
-      setSelection(clamped);
+      richEditorRef.current?.setContentHTML?.(html);
     });
   };
 
-  const getLineBoundsAt = (text: string, index: number) => {
-    const safeIndex = Math.max(0, Math.min(index, text.length));
-    const before = text.lastIndexOf('\n', safeIndex - 1);
-    const after = text.indexOf('\n', safeIndex);
-    const lineStart = before === -1 ? 0 : before + 1;
-    const lineEnd = after === -1 ? text.length : after;
-    return { lineStart, lineEnd };
+  const maybeUndoRefine = () => {
+    const hist = refineHistoryRef.current;
+    if (!hist) return false;
+    if (hasUserEditedSinceRefineRef.current) return false;
+    if (hist.state !== 'after') return false;
+    hist.state = 'before';
+    setDraftHtml(hist.beforeHtml);
+    applyHtmlToEditor(hist.beforeHtml);
+    return true;
   };
 
-  const applyInlineWrap = (prefix: string, suffix: string) => {
-    const { start, end } = selection;
-    const hasSelection = start !== end;
-    const a = Math.min(start, end);
-    const b = Math.max(start, end);
-    const selected = draft.slice(a, b);
-    const insert = hasSelection ? `${prefix}${selected}${suffix}` : `${prefix}${suffix}`;
-    const next = `${draft.slice(0, a)}${insert}${draft.slice(b)}`;
-    const cursor = hasSelection ? a + insert.length : a + prefix.length;
-    applyReplace(next, { start: cursor, end: cursor });
+  const maybeRedoRefine = () => {
+    const hist = refineHistoryRef.current;
+    if (!hist) return false;
+    if (hasUserEditedSinceRefineRef.current) return false;
+    if (hist.state !== 'before') return false;
+    hist.state = 'after';
+    setDraftHtml(hist.afterHtml);
+    applyHtmlToEditor(hist.afterHtml);
+    return true;
   };
 
-  const applyListPrefix = (kind: 'ul' | 'ol') => {
-    const { start, end } = selection;
-    const a = Math.min(start, end);
-    const b = Math.max(start, end);
-    const boundsA = getLineBoundsAt(draft, a);
-    const boundsB = getLineBoundsAt(draft, b);
-    const blockStart = boundsA.lineStart;
-    const blockEnd = boundsB.lineEnd;
-    const block = draft.slice(blockStart, blockEnd);
-    const lines = block.split('\n');
+  const runRefine = async (preset: WritingRefinePreset, instruction?: string) => {
+    if (isRefining) return;
+    const plain = htmlToPlainText(draftHtml);
+    const current = plain?.trim() ?? '';
+    if (!current) {
+      Alert.alert('Nothing to refine', 'Add some text first, then try refining.');
+      return;
+    }
 
-    let index = 1;
-    const prefixed = lines.map((line) => {
-      const trimmed = line.trimStart();
-      const leadingSpaces = line.slice(0, line.length - trimmed.length);
-      if (trimmed.length === 0) return line;
-      if (kind === 'ul') {
-        // Avoid double-prefixing.
-        if (/^[-*]\s+/.test(trimmed)) return line;
-        return `${leadingSpaces}- ${trimmed}`;
+    closeRefineMenu();
+    setIsRefining(true);
+    const beforeHtml = draftHtml;
+    try {
+      const next = await refineWritingWithAI({
+        text: plain,
+        preset,
+        instruction,
+      });
+
+      if (!next) {
+        Alert.alert(
+          'Refine unavailable',
+          'Kwilt couldn’t reach the writing assistant right now. Please try again in a moment.',
+        );
+        return;
       }
-      // OL
-      if (/^\d+\.\s+/.test(trimmed)) return line;
-      const next = `${leadingSpaces}${index}. ${trimmed}`;
-      index += 1;
-      return next;
-    });
 
-    const nextBlock = prefixed.join('\n');
-    const nextText = `${draft.slice(0, blockStart)}${nextBlock}${draft.slice(blockEnd)}`;
-    const delta = nextBlock.length - block.length;
-    applyReplace(nextText, { start: start + delta, end: end + delta });
+      if (next.trim() === plain.trim()) {
+        Alert.alert('No changes suggested', 'The assistant didn’t suggest any edits for this text.');
+        return;
+      }
+
+      const nextHtml = normalizeToHtml(next);
+      refineHistoryRef.current = { beforeHtml, afterHtml: nextHtml, state: 'after' };
+      setDraftHtml(nextHtml);
+      applyHtmlToEditor(nextHtml);
+      hasUserEditedSinceRefineRef.current = false;
+
+      // One-time tip: teach users the header Undo button restores the pre-refine version.
+      if (!hasSeenRefineUndoCoachmark) {
+        setUndoCoachmarkVisible(true);
+      }
+    } catch (e) {
+      Alert.alert(
+        'Refine unavailable',
+        'Kwilt couldn’t reach the writing assistant right now. Please try again in a moment.',
+      );
+    } finally {
+      setIsRefining(false);
+    }
   };
 
-  const applyHyperlink = () => {
-    const { start, end } = selection;
-    const a = Math.min(start, end);
-    const b = Math.max(start, end);
-    const selected = draft.slice(a, b) || 'link text';
-    const urlPlaceholder = 'https://';
-    const insert = `[${selected}](${urlPlaceholder})`;
-    const next = `${draft.slice(0, a)}${insert}${draft.slice(b)}`;
-    const urlStart = a + 1 + selected.length + 2; // `[${selected}](` -> position at start of url
-    const urlEnd = urlStart + urlPlaceholder.length;
-    applyReplace(next, { start: urlStart, end: urlEnd });
+  // Formatting is handled by the rich text editor itself.
+
+  const execAction = (action: string) => {
+    // Mimic RichToolbar behavior: sendAction(action, 'result')
+    (richEditorRef.current as any)?.sendAction?.(action, 'result');
+  };
+
+  const openLinkDialog = () => {
+    setLinkUrl('');
+    setLinkText('');
+    setLinkDialogVisible(true);
   };
 
   const renderToolbar = () => {
+    const menuWidth = 260;
+    const gutter = spacing.sm;
+    const barW = accessoryBarLayout?.width ?? 0;
+    const anchor = refineAnchorLayout;
+
+    // Place menu directly above the Refine button in accessory-bar coordinates.
+    const left = anchor
+      ? Math.max(
+          gutter,
+          Math.min(anchor.x + anchor.width - menuWidth, Math.max(gutter, barW - gutter - menuWidth)),
+        )
+      : Math.max(gutter, barW - gutter - menuWidth);
+
+    const bottom = (accessoryBarLayout?.height ?? 56) + spacing.xs;
+
     return (
-      <View style={styles.accessoryBarContainer}>
+      <View style={styles.accessoryBarContainer} ref={accessoryBarRef} onLayout={(e) => setAccessoryBarLayout(e.nativeEvent.layout)}>
+        {enableAi && refineMenuVisible ? (
+          <View
+            style={[
+              styles.refineMenuCard,
+              {
+                width: menuWidth,
+                position: 'absolute',
+                left,
+                bottom,
+              },
+            ]}
+          >
+            {refineHistoryRef.current?.state === 'after' ? (
+              <>
+                <Pressable
+                  disabled={isRefining}
+                  onPress={() => {
+                    maybeUndoRefine();
+                    closeRefineMenu();
+                  }}
+                  style={({ pressed }) => [
+                    styles.refineMenuItem,
+                    pressed && !isRefining ? styles.refineMenuItemPressed : null,
+                    isRefining ? styles.refineMenuItemDisabled : null,
+                  ]}
+                >
+                  <Text style={styles.refineMenuItemText}>Undo last refine</Text>
+                </Pressable>
+                <View style={styles.refineMenuDivider} />
+              </>
+            ) : null}
+
+            {[
+              { key: 'fix', label: 'Fix grammar & clarity', preset: 'fix' as const },
+              { key: 'simplify', label: 'Simplify', preset: 'simplify' as const },
+              { key: 'shorten', label: 'Shorten', preset: 'shorten' as const },
+              { key: 'expand', label: 'Expand', preset: 'expand' as const },
+              { key: 'bullets', label: 'Make bullets', preset: 'bullets' as const },
+            ].map((item) => (
+              <Pressable
+                key={item.key}
+                disabled={isRefining}
+                onPress={() => runRefine(item.preset)}
+                style={({ pressed }) => [
+                  styles.refineMenuItem,
+                  pressed && !isRefining ? styles.refineMenuItemPressed : null,
+                  isRefining ? styles.refineMenuItemDisabled : null,
+                ]}
+              >
+                <Text style={styles.refineMenuItemText}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         <Toolbar style={styles.toolbarFloating} center>
           <ToolbarGroup>
             <ToolbarButton
               accessibilityLabel="Bold"
-              onPress={() => applyInlineWrap('**', '**')}
+              onPress={() => execAction(actions.setBold)}
               icon="bold"
             />
             <ToolbarButton
               accessibilityLabel="Italics"
-              onPress={() => applyInlineWrap('*', '*')}
+              onPress={() => execAction(actions.setItalic)}
               icon="italic"
             />
             <ToolbarButton
               accessibilityLabel="Underline"
-              onPress={() => applyInlineWrap('<u>', '</u>')}
+              onPress={() => execAction(actions.setUnderline)}
               icon="underline"
             />
           </ToolbarGroup>
@@ -236,32 +367,55 @@ export function LongTextField({
           <ToolbarGroup>
             <ToolbarButton
               accessibilityLabel="Ordered list"
-              onPress={() => applyListPrefix('ol')}
+              onPress={() => execAction(actions.insertOrderedList)}
               icon="listOrdered"
             />
             <ToolbarButton
               accessibilityLabel="Bulleted list"
-              onPress={() => applyListPrefix('ul')}
+              onPress={() => execAction(actions.insertBulletsList)}
               icon="listBulleted"
             />
             <ToolbarButton
               accessibilityLabel="Insert hyperlink"
-              onPress={applyHyperlink}
+              onPress={openLinkDialog}
               icon="link"
             />
           </ToolbarGroup>
 
-          {showAi ? (
-            <ToolbarButton
-              accessibilityLabel="Refine with AI"
-              onPress={() => {
-                if (!onRequestAiHelp || !aiContext) return;
-                onRequestAiHelp({ ...aiContext, currentText: draft });
-              }}
-              icon="sparkles"
-              label="Refine"
-              variant="primary"
-            />
+          {enableAi ? (
+            <View
+              ref={refineAnchorRef}
+              collapsable={false}
+              onLayout={(e) => setRefineAnchorLayout(e.nativeEvent.layout)}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Refine"
+                disabled={disabled}
+                onPress={() => {
+                  if (refineMenuVisible) {
+                    closeRefineMenu();
+                  } else {
+                    openRefineMenu();
+                  }
+                }}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.refineTrigger,
+                  pressed ? { opacity: 0.92 } : null,
+                  disabled || isRefining ? { opacity: 0.6 } : null,
+                ]}
+              >
+                <View style={styles.refineTriggerInner}>
+                  {isRefining ? (
+                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                  ) : (
+                    <Icon name="sparkles" size={14} color={colors.primaryForeground} />
+                  )}
+                  <Text style={styles.refineTriggerText}>Refine</Text>
+                </View>
+              </Pressable>
+            </View>
           ) : null}
         </Toolbar>
       </View>
@@ -288,36 +442,39 @@ export function LongTextField({
           cardElevation.soft,
         ]}
       >
-        {value?.length ? (
-          <Text style={styles.valueText}>{value}</Text>
+        {htmlToPlainText(normalizeToHtml(value)).length ? (
+          <RichTextBlock value={value} horizontalPaddingPx={spacing.md} />
         ) : (
           <Text style={styles.placeholderText}>{placeholder}</Text>
         )}
       </Pressable>
 
-      <BottomDrawer
+      <UnderKeyboardDrawer
         visible={editorVisible}
         onClose={closeEditor}
         snapPoints={snapPoints}
         // Make this read as a dedicated editor surface, not a typical rounded "guide" drawer.
+        topRadius="sm"
+        elevationToken="lift"
+        shadowDirection="up"
+        includeKeyboardSpacer
+        // On iOS, the OS/RN keyboard height often already accounts for the accessory area.
+        // Reserving it again makes the editor shorter than necessary.
+        keyboardSpacerExtraHeightPx={0}
         sheetStyle={{
           backgroundColor: colors.canvas,
-          paddingHorizontal: 0,
-          paddingTop: 0,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
         }}
         handleContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
         handleStyle={{ width: 0, height: 0, opacity: 0 }}
-        // Avoid double keyboard handling:
-        // - BottomDrawer's KeyboardAvoidingView lifts the whole sheet
-        // - EditorSurface handles keyboard height tracking and padding internally
-        // Using both can create large "dead space" and janky scroll.
-        keyboardAvoidanceEnabled={false}
       >
         <EditorSurface
           visible={editorVisible}
-          accessoryId={accessoryId}
+          toolbarAttachment="absolute"
+          bodyTopPadding={spacing.sm}
+          // Reserve room so the last line isn't hidden behind the bottom toolbar.
+          bodyBottomPadding={56}
+          keyboardClearance={0}
+          disableBodyKeyboardPadding
           header={
             <EditorHeader
               left={
@@ -326,40 +483,241 @@ export function LongTextField({
                 </Text>
               }
               right={
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Done"
-                  onPress={closeEditor}
-                  hitSlop={8}
-                  style={{ alignItems: 'flex-end' }}
-                >
-                  <Text style={styles.headerActionText}>Done</Text>
-                </Pressable>
+                <View style={styles.headerRightActions}>
+                  <View ref={undoButtonRef} collapsable={false}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Undo"
+                      onPress={() => {
+                        if (maybeUndoRefine()) return;
+                        execAction(actions.undo);
+                      }}
+                      hitSlop={8}
+                      style={({ pressed }) => [
+                        styles.headerHistoryButton,
+                        pressed ? { opacity: 0.7 } : null,
+                      ]}
+                    >
+                      <Icon name="undo" size={16} color={colors.textPrimary} />
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Redo"
+                    onPress={() => {
+                      if (maybeRedoRefine()) return;
+                      execAction(actions.redo);
+                    }}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.headerHistoryButton,
+                      pressed ? { opacity: 0.7 } : null,
+                    ]}
+                  >
+                    <Icon name="redo" size={16} color={colors.textPrimary} />
+                  </Pressable>
+                  <View style={{ width: spacing.sm }} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Done"
+                    onPress={closeEditor}
+                    hitSlop={8}
+                    style={{ alignItems: 'flex-end' }}
+                  >
+                    <Text style={styles.headerActionText}>Done</Text>
+                  </Pressable>
+                </View>
               }
             />
           }
           toolbar={renderToolbar()}
           bodyStyle={styles.editorBodyContent}
         >
-          <TextInput
-            ref={inputRef}
-            value={draft}
-            onChangeText={setDraft}
+          <RichEditor
+            ref={(node: RichEditor | null) => {
+              richEditorRef.current = node;
+            }}
+            initialContentHTML={draftHtml}
+            // Important: when `useContainer` is true, the library auto-grows the native
+            // wrapper height to fit content, which prevents vertical scrolling in-place.
+            // We want the editor to behave like a normal multiline input: fixed viewport + vertical scroll.
+            useContainer={false}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator
+            // Hide WKWebView's input accessory (prev/next + done arrows) so we only show our toolbar.
+            // This does NOT disable iOS QuickType suggestions (those live in the keyboard itself).
+            hideKeyboardAccessoryView
+            autoCorrect
+            // Best-effort: request initial focus for supported platforms,
+            // but we still explicitly focus once initialized.
+            initialFocus
             placeholder={placeholder}
-            placeholderTextColor={colors.muted}
-            multiline
-            scrollEnabled
-            textAlignVertical="top"
-            style={styles.editorTextInput}
-            inputAccessoryViewID={Platform.OS === 'ios' ? accessoryId : undefined}
-            selection={selection}
-            onSelectionChange={(e) => {
-              const next = e.nativeEvent.selection;
-              setSelection(next);
+            style={styles.editorRich}
+            editorStyle={{
+              backgroundColor: colors.canvas,
+              color: colors.textPrimary,
+              placeholderColor: colors.muted,
+              // The WebView cannot access the Expo-loaded Inter font by name, so we use
+              // a system font stack to match native typography closely (and avoid serif fallbacks).
+              initialCSSText: `
+                html, body, .content, .pell-content {
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+                  font-size: ${typography.body.fontSize}px !important;
+                  line-height: ${typography.body.lineHeight}px !important;
+                }
+                html, body { overflow-x: hidden !important; }
+                .content, .pell, .pell-content { overflow-x: hidden !important; }
+                .pell-content {
+                  /* Keep the text itself aligned with the native gutter, but reserve a small
+                     right-side lane so the scroll indicator doesn't sit on top of text. */
+                  padding: 0 ${spacing.sm}px 0 0 !important;
+                  word-break: break-word !important;
+                  overflow-wrap: anywhere !important;
+                }
+                p { margin: 0 !important; }
+              `,
+              contentCSSText: `
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+                font-size: ${typography.body.fontSize}px !important;
+                line-height: ${typography.body.lineHeight}px !important;
+                overflow-x: hidden !important;
+                word-break: break-word !important;
+                overflow-wrap: anywhere !important;
+              `,
+            }}
+            onChange={(html: string) => {
+              setDraftHtml(html);
+              if (isProgrammaticHtmlSetRef.current) {
+                // setContentHTML causes an onChange — don't treat that as user editing.
+                isProgrammaticHtmlSetRef.current = false;
+                return;
+              }
+              if (refineHistoryRef.current) hasUserEditedSinceRefineRef.current = true;
+            }}
+            editorInitializedCallback={() => {
+              if (!shouldAutoFocusRef.current) return;
+              // Let the WebView finish layout before focusing.
+              requestAnimationFrame(() => {
+                richEditorRef.current?.focusContentEditor?.();
+                shouldAutoFocusRef.current = false;
+              });
             }}
           />
         </EditorSurface>
-      </BottomDrawer>
+
+        <Coachmark
+          visible={Boolean(editorVisible && undoCoachmarkVisible && undoButtonRef.current)}
+          targetRef={undoButtonRef}
+          onDismiss={() => {
+            setUndoCoachmarkVisible(false);
+            setHasSeenRefineUndoCoachmark(true);
+          }}
+          placement="below"
+          spotlight="ring"
+          attentionPulse
+          title={<KwiltText style={{ fontSize: 14, color: colors.textPrimary }}>Undo is available</KwiltText>}
+          body={
+            <KwiltText style={{ fontSize: 13, color: colors.textSecondary }}>
+              Want the original text back? Tap Undo to restore what you had before refining.
+            </KwiltText>
+          }
+        />
+      </UnderKeyboardDrawer>
+
+      <Dialog
+        visible={linkDialogVisible}
+        onClose={() => setLinkDialogVisible(false)}
+        title="Insert link"
+        description="Add a URL (and optional label)."
+        footer={
+          <View style={styles.customDialogFooter}>
+            <Button variant="secondary" onPress={() => setLinkDialogVisible(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onPress={() => {
+                const url = linkUrl.trim();
+                if (!url) {
+                  Alert.alert('Add a URL', 'Paste a link like https://example.com');
+                  return;
+                }
+                const title = linkText.trim() || url;
+                (richEditorRef.current as any)?.insertLink?.(title, url);
+                setLinkDialogVisible(false);
+              }}
+            >
+              Insert
+            </Button>
+          </View>
+        }
+      >
+        <View style={styles.customDialogBody}>
+          <Text style={[styles.label, { paddingLeft: 2, marginBottom: spacing.xs }]}>URL</Text>
+          <TextInput
+            value={linkUrl}
+            onChangeText={setLinkUrl}
+            placeholder="https://…"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.customDialogInput}
+          />
+          <View style={{ height: spacing.sm }} />
+          <Text style={[styles.label, { paddingLeft: 2, marginBottom: spacing.xs }]}>Label (optional)</Text>
+          <TextInput
+            value={linkText}
+            onChangeText={setLinkText}
+            placeholder="e.g. My site"
+            placeholderTextColor={colors.muted}
+            style={styles.customDialogInput}
+          />
+        </View>
+      </Dialog>
+
+      <Dialog
+        visible={customDialogVisible}
+        onClose={() => setCustomDialogVisible(false)}
+        title="Custom refine"
+        description="Tell kwilt how you want this text rewritten."
+        footer={
+          <View style={styles.customDialogFooter}>
+            <Button
+              variant="secondary"
+              onPress={() => setCustomDialogVisible(false)}
+              disabled={isRefining}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onPress={async () => {
+                const instruction = customInstruction.trim();
+                if (!instruction) {
+                  Alert.alert('Add an instruction', 'For example: “Make this warmer and more concise.”');
+                  return;
+                }
+                setCustomDialogVisible(false);
+                await runRefine('custom', instruction);
+              }}
+              disabled={isRefining}
+            >
+              Apply
+            </Button>
+          </View>
+        }
+      >
+        <View style={styles.customDialogBody}>
+          <TextInput
+            value={customInstruction}
+            onChangeText={setCustomInstruction}
+            placeholder="e.g. Make this more concise and friendly"
+            placeholderTextColor={colors.muted}
+            multiline
+            style={styles.customDialogInput}
+          />
+        </View>
+      </Dialog>
     </View>
   );
 }
@@ -412,19 +770,29 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.accent,
   },
-  editorBodyContent: {
-    // Small padding around the actual copy area, like the reference.
-    paddingHorizontal: spacing.sm,
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 6,
+    justifyContent: 'flex-end',
   },
-  editorTextInput: {
+  headerHistoryButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editorBodyContent: {
+    // Restore the native-feeling horizontal gutter around the text area.
+    paddingHorizontal: spacing.md,
+  },
+  editorRich: {
     flex: 1,
     minHeight: 0,
-    ...typography.body,
-    color: colors.textPrimary,
-    // Give the copy area its own comfortable inset, but keep the overall surface
-    // edge-to-edge white.
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 0,
+    backgroundColor: colors.canvas,
+    // Keep padding on the EditorSurface body, not inside the WebView container.
+    paddingHorizontal: 0,
   },
   accessoryBarContainer: {
     backgroundColor: colors.canvas,
@@ -432,6 +800,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     // Center the toolbar group within the available width (matches the reference).
     alignItems: 'center',
+    // Allow the inline menu to render above the bar.
+    overflow: 'visible',
   },
   toolbarFloating: {
     // keep the pills visually floating over the white surface
@@ -440,6 +810,73 @@ const styles = StyleSheet.create({
     // This makes the toolbar feel centered rather than "full bleed".
     width: '100%',
     maxWidth: 520,
+  },
+  refineTrigger: {
+    backgroundColor: colors.accent,
+    borderRadius: 8,
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  refineTriggerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  refineTriggerText: {
+    ...typography.bodySm,
+    color: colors.primaryForeground,
+  },
+  refineMenuCard: {
+    backgroundColor: colors.canvas,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    ...cardElevation.overlay,
+  },
+  refineMenuDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xs,
+    marginHorizontal: -spacing.xs,
+  },
+  refineMenuItem: {
+    minHeight: 36,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  refineMenuItemPressed: {
+    backgroundColor: colors.shellAlt,
+  },
+  refineMenuItemDisabled: {
+    opacity: 0.55,
+  },
+  refineMenuItemText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  customDialogBody: {
+    // Let the TextInput own its spacing.
+  },
+  customDialogInput: {
+    ...typography.body,
+    color: colors.textPrimary,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    minHeight: 96,
+  },
+  customDialogFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    columnGap: spacing.sm,
   },
 });
 

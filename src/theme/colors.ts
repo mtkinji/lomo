@@ -79,7 +79,8 @@ export const colors = {
   border: '#E4E4E7',
 
   // ShadCN-inspired primitives
-  primary: '#18181B',
+  // Primary (dark) – aligned to Sumi so copy + primary controls share the same ink.
+  primary: '#1C1A19',
   primaryForeground: '#FAFAFA',
   secondary: '#F4F4F5',
   secondaryForeground: '#18181B',
@@ -95,6 +96,18 @@ export const colors = {
   accent: '#315545',
   // Muted accent: slightly softer/desaturated green for secondary fills (badges, info surfaces, etc.).
   accentMuted: '#3F6F5C',
+
+  /**
+   * AI brand tokens (used for AI actions like "AI Suggestion").
+   * Intentionally aligned with the existing pine + success palette for a
+   * recognizable "AI" treatment across the app.
+   */
+  aiGradientStart: '#315545', // pine / kwilt green
+  // Keep this subtle (no neon mid-stop); prefer a low-contrast linear sweep.
+  aiGradientMid: '#3F6F5C', // pine600
+  aiGradientEnd: '#3F6F5C',
+  aiForeground: '#FAFAFA',
+  aiBorder: 'rgba(0,0,0,0.18)',
 
   // Cream / parchment tone used for high-contrast warm text on saturated greens.
   parchment: '#FAF7ED',
