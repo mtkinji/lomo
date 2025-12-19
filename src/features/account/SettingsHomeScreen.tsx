@@ -57,8 +57,8 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       },
       {
         id: 'takado',
-        title: 'kwilt Agent',
-        description: 'Choose which LLM powers the kwilt Agent.',
+        title: 'Kwilt Agent',
+        description: 'Choose which LLM powers the Kwilt Agent.',
         icon: 'aiGuide',
         route: 'SettingsAiModel',
         tags: ['ai', 'agent', 'model'],
@@ -66,7 +66,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         id: 'notifications',
         title: 'Notifications',
-        description: 'Plan gentle reminders from kwilt.',
+        description: 'Plan gentle reminders from Kwilt.',
         icon: 'activities',
         route: 'SettingsNotifications',
         tags: ['reminders', 'nudges', 'alerts'],
@@ -329,7 +329,7 @@ export function SettingsHomeScreen() {
         >
           <View style={styles.sheetContent}>
             <Heading style={styles.sheetTitle}>Update photo</Heading>
-            <Text style={styles.sheetSubtitle}>Make kwilt feel unmistakably yours.</Text>
+            <Text style={styles.sheetSubtitle}>Make Kwilt feel unmistakably yours.</Text>
             <VStack space="sm">
               <Pressable
                 style={styles.sheetOption}

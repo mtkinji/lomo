@@ -26,7 +26,7 @@ envFiles.forEach((file) => {
 });
 
 const config: ExpoConfig = {
-  name: 'kwilt',
+  name: 'Kwilt',
   // Ensure this project is owned/billed under the Kwilt organization in Expo.
   // (You still need to transfer the existing project in the Expo dashboard.)
   owner: 'kwilt',
@@ -104,6 +104,15 @@ const config: ExpoConfig = {
       process.env.EXPO_PUBLIC_POSTHOG_HOST ??
       process.env.POSTHOG_API_HOST ??
       process.env.EXPO_PUBLIC_POSTHOG_API_HOST,
+    // Control analytics behavior in dev/preview without changing code.
+    // - POSTHOG_ENABLED=true  -> enable PostHog even outside production
+    // - POSTHOG_DEBUG=true    -> enable verbose PostHog SDK logging in dev
+    posthogEnabled:
+      process.env.POSTHOG_ENABLED ??
+      process.env.EXPO_PUBLIC_POSTHOG_ENABLED,
+    posthogDebug:
+      process.env.POSTHOG_DEBUG ??
+      process.env.EXPO_PUBLIC_POSTHOG_DEBUG,
     // Expose the resolved environment to the app runtime so we can distinguish
     // production installs from development/preview for things like demo data.
     environment: NODE_ENV,

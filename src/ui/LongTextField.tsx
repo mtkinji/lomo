@@ -21,7 +21,7 @@ import { Coachmark } from './Coachmark';
 import { Text as KwiltText } from './Typography';
 import { refineWritingWithAI, type WritingRefinePreset } from '../services/ai';
 import { RichTextBlock } from './RichTextBlock';
-import { htmlToPlainText, normalizeToHtml } from './richText';
+import { htmlToPlainText, normalizeToHtml, sanitizeRichTextHtml } from './richText';
 import { useAppStore } from '../store/useAppStore';
 
 type AiHelpContext = {
@@ -77,6 +77,22 @@ export function LongTextField({
   onRequestAiHelp,
   aiContext,
 }: LongTextFieldProps) {
+  /**
+   * Canonical keyboard + toolbar behavior (iOS):
+   *
+   * `UnderKeyboardDrawer` already reserves space equal to the keyboard height, but in practice
+   * (depending on iOS keyboard mode, predictive bar, etc) the reported height can under-shoot
+   * by a small amount. That causes our bottom toolbar (rendered inside the drawer) to land in
+   * the "covered" region.
+   *
+   * We treat this small buffer as canonical: it nudges the visible area up just enough so the
+   * toolbar consistently clears the keyboard without making the editor feel overly compressed.
+   */
+  const KEYBOARD_CLEARANCE_BUFFER_PX = 30;
+
+  // The toolbar itself is measured at runtime; use a conservative fallback for the first render.
+  const FALLBACK_TOOLBAR_HEIGHT_PX = 56;
+
   const [editorVisible, setEditorVisible] = useState(false);
   const [draftHtml, setDraftHtml] = useState<string>(() => normalizeToHtml(value));
   const richEditorRef = useRef<RichEditor | null>(null);
@@ -99,6 +115,8 @@ export function LongTextField({
   const [accessoryBarLayout, setAccessoryBarLayout] = useState<LayoutRectangle | null>(null);
   const [refineAnchorLayout, setRefineAnchorLayout] = useState<LayoutRectangle | null>(null);
   const [undoCoachmarkVisible, setUndoCoachmarkVisible] = useState(false);
+
+  const measuredToolbarHeightPx = accessoryBarLayout?.height ?? FALLBACK_TOOLBAR_HEIGHT_PX;
 
   const hasSeenRefineUndoCoachmark = useAppStore((state) => state.hasSeenRefineUndoCoachmark);
   const setHasSeenRefineUndoCoachmark = useAppStore((state) => state.setHasSeenRefineUndoCoachmark);
@@ -458,9 +476,8 @@ export function LongTextField({
         elevationToken="lift"
         shadowDirection="up"
         includeKeyboardSpacer
-        // On iOS, the OS/RN keyboard height often already accounts for the accessory area.
-        // Reserving it again makes the editor shorter than necessary.
-        keyboardSpacerExtraHeightPx={0}
+        // Canonical: add a small buffer so the toolbar never ends up in the under-keyboard region.
+        keyboardSpacerExtraHeightPx={KEYBOARD_CLEARANCE_BUFFER_PX}
         sheetStyle={{
           backgroundColor: colors.canvas,
         }}
@@ -472,7 +489,7 @@ export function LongTextField({
           toolbarAttachment="absolute"
           bodyTopPadding={spacing.sm}
           // Reserve room so the last line isn't hidden behind the bottom toolbar.
-          bodyBottomPadding={56}
+          bodyBottomPadding={measuredToolbarHeightPx}
           keyboardClearance={0}
           disableBodyKeyboardPadding
           header={
@@ -586,6 +603,15 @@ export function LongTextField({
               `,
             }}
             onChange={(html: string) => {
+              const sanitized = sanitizeRichTextHtml(html);
+              if (sanitized !== html) {
+                // Keep paste behavior predictable: strip inline styles (like background colors)
+                // and reflect the sanitized content back into the editor.
+                setDraftHtml(sanitized);
+                applyHtmlToEditor(sanitized);
+                return;
+              }
+
               setDraftHtml(html);
               if (isProgrammaticHtmlSetRef.current) {
                 // setContentHTML causes an onChange — don't treat that as user editing.
@@ -679,7 +705,7 @@ export function LongTextField({
         visible={customDialogVisible}
         onClose={() => setCustomDialogVisible(false)}
         title="Custom refine"
-        description="Tell kwilt how you want this text rewritten."
+        description="Tell Kwilt how you want this text rewritten."
         footer={
           <View style={styles.customDialogFooter}>
             <Button

@@ -85,6 +85,7 @@ const iconMap: Record<string, IconEntry> = {
   // Editor history
   undo: { library: 'feather', name: 'rotate-ccw' },
   redo: { library: 'feather', name: 'rotate-cw' },
+  expand: { library: 'feather', name: 'maximize-2' },
 };
 
 export type IconName = keyof typeof iconMap;

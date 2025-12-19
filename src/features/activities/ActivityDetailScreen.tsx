@@ -22,21 +22,14 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import type { ActivityDifficulty, ActivityStatus, ActivityStep } from '../../domain/types';
 import type {
   ActivitiesStackParamList,
-  ActivityDetailRouteParams,
 } from '../../navigation/RootNavigator';
-import { rootNavigationRef } from '../../navigation/RootNavigator';
+import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
-import {
-  VStack,
-  HStack,
-  Input,
-  ThreeColumnRow,
-  Combobox,
-  KeyboardAwareScrollView,
-} from '../../ui/primitives';
+import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
@@ -1785,9 +1778,7 @@ export function ActivityDetailScreen() {
             {/* Linked goal */}
             <View style={styles.section}>
               <Text style={styles.inputLabel}>Linked Goal</Text>
-              <Combobox
-                open={goalComboboxOpen}
-                onOpenChange={setGoalComboboxOpen}
+              <ObjectPicker
                 value={activity.goalId ?? ''}
                 onValueChange={(nextGoalId) => {
                   const timestamp = new Date().toISOString();
@@ -1798,31 +1789,13 @@ export function ActivityDetailScreen() {
                   }));
                 }}
                 options={goalOptions}
+                placeholder="Select goal…"
                 searchPlaceholder="Search goals…"
                 emptyText="No goals found."
+                accessibilityLabel="Change linked goal"
                 allowDeselect
                 presentation="drawer"
                 drawerSnapPoints={['60%']}
-                trigger={
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Change linked goal"
-                    style={styles.comboboxTrigger}
-                  >
-                    <View pointerEvents="none">
-                      <Input
-                        value={goalTitle ?? ''}
-                        placeholder="Select goal…"
-                        editable={false}
-                        variant="outline"
-                        elevation="flat"
-                        trailingIcon="chevronsUpDown"
-                        containerStyle={styles.comboboxValueContainer}
-                        inputStyle={styles.comboboxValueInput}
-                      />
-                    </View>
-                  </Pressable>
-                }
               />
             </View>
 

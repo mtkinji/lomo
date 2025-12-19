@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Keyboard, Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomDrawer, type BottomDrawerSnapPoint } from './BottomDrawer';
 import { cardElevation, colors } from '../theme';
 
@@ -29,6 +30,19 @@ type UnderKeyboardDrawerProps = {
    * `dynamicHeightUnderKeyboard` is true).
    */
   visibleContentHeightFallbackPx?: number;
+  /**
+   * Optional cap on the measured visible content height (only relevant when
+   * `dynamicHeightUnderKeyboard` is true). This prevents tall content (e.g. long
+   * lists) from expanding the drawer too far; the content can scroll instead.
+   */
+  maxVisibleContentHeightPx?: number;
+  /**
+   * Optional minimum for the visible content height (only relevant when
+   * `dynamicHeightUnderKeyboard` is true). This prevents the drawer from
+   * collapsing to a tiny height when the child view doesn't naturally expand
+   * (e.g. when list content uses flex but isn't height-constrained).
+   */
+  minVisibleContentHeightPx?: number;
 
   /**
    * Android emits keyboard events after animations; when opening we optionally
@@ -60,6 +74,8 @@ type UnderKeyboardDrawerProps = {
   dismissable?: boolean;
   dismissOnBackdropPress?: boolean;
   keyboardAvoidanceEnabled?: boolean;
+  enableContentPanningGesture?: boolean;
+  dynamicSizing?: boolean;
 
   /**
    * Visual tokens for the drawer surface.
@@ -111,6 +127,8 @@ export function UnderKeyboardDrawer({
   children,
   dynamicHeightUnderKeyboard = false,
   visibleContentHeightFallbackPx = DEFAULT_VISIBLE_CONTENT_FALLBACK_PX,
+  maxVisibleContentHeightPx,
+  minVisibleContentHeightPx,
   defaultKeyboardHeightGuessPx = DEFAULT_KEYBOARD_GUESS_PX,
   includeKeyboardSpacer,
   keyboardSpacerExtraHeightPx = 0,
@@ -122,6 +140,8 @@ export function UnderKeyboardDrawer({
   // For under-keyboard drawers, default to disabling BottomDrawer's KAV so the
   // sheet doesn't lift above the keyboard.
   keyboardAvoidanceEnabled = false,
+  enableContentPanningGesture = false,
+  dynamicSizing = false,
   backgroundColor = colors.canvas,
   elevationToken = 'lift',
   shadowDirection = 'up',
@@ -130,6 +150,7 @@ export function UnderKeyboardDrawer({
   handleContainerStyle,
   handleStyle,
 }: UnderKeyboardDrawerProps) {
+  const insets = useSafeAreaInsets();
   const shouldIncludeKeyboardSpacer = includeKeyboardSpacer ?? dynamicHeightUnderKeyboard;
 
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
@@ -138,8 +159,13 @@ export function UnderKeyboardDrawer({
 
   React.useEffect(() => {
     const setTo = (nextHeight: number) => {
-      setKeyboardHeight(nextHeight);
-      if (nextHeight > 0) lastKnownKeyboardHeightRef.current = nextHeight;
+      // iOS `endCoordinates.height` typically includes the home-indicator safe area.
+      // BottomDrawer already pads its sheet by `insets.bottom`, so if we use the raw
+      // keyboard height here we double-count and the visible content floats too high.
+      const adjusted =
+        Platform.OS === 'ios' ? Math.max(0, nextHeight - insets.bottom) : nextHeight;
+      setKeyboardHeight(adjusted);
+      if (adjusted > 0) lastKnownKeyboardHeightRef.current = adjusted;
     };
 
     if (Platform.OS === 'ios') {
@@ -191,7 +217,13 @@ export function UnderKeyboardDrawer({
   const radiusPx = resolveTopRadius(topRadius);
   const shadowStyle = resolveDrawerShadow({ token: elevationToken, direction: shadowDirection });
 
-  const visibleHeight = measuredVisibleHeight ?? visibleContentHeightFallbackPx;
+  const unclampedVisibleHeight = measuredVisibleHeight ?? visibleContentHeightFallbackPx;
+  const visibleHeight = (() => {
+    const min = typeof minVisibleContentHeightPx === 'number' ? minVisibleContentHeightPx : 0;
+    const max = typeof maxVisibleContentHeightPx === 'number' ? maxVisibleContentHeightPx : undefined;
+    const lowerBounded = Math.max(0, Math.max(unclampedVisibleHeight, min));
+    return typeof max === 'number' ? Math.min(lowerBounded, max) : lowerBounded;
+  })();
   const dynamicSnapPoints = React.useMemo<BottomDrawerSnapPoint[]>(() => {
     const h = Math.max(0, Math.round(effectiveSpacerHeight + visibleHeight));
     return [h];
@@ -207,6 +239,8 @@ export function UnderKeyboardDrawer({
       dismissOnBackdropPress={dismissOnBackdropPress}
       keyboardAvoidanceEnabled={keyboardAvoidanceEnabled}
       snapPoints={dynamicHeightUnderKeyboard ? dynamicSnapPoints : snapPoints}
+      enableContentPanningGesture={enableContentPanningGesture}
+      dynamicSizing={dynamicSizing}
       sheetStyle={[
         styles.sheetBase,
         {
@@ -235,6 +269,7 @@ export function UnderKeyboardDrawer({
       >
         {dynamicHeightUnderKeyboard ? (
           <View
+            style={{ height: visibleHeight }}
             onLayout={(event) => {
               const next = Math.round(event.nativeEvent.layout.height);
               if (next > 0 && next !== measuredVisibleHeight) {

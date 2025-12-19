@@ -18,8 +18,8 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
-import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
-import { rootNavigationRef } from '../../navigation/RootNavigator';
+import type { GoalDetailRouteParams } from '../../navigation/routeParams';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
@@ -31,6 +31,7 @@ import {
   HStack,
   EmptyState,
   KeyboardAwareScrollView,
+  ObjectPicker,
 } from '../../ui/primitives';
 import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
@@ -63,8 +64,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import type { ComboboxOption } from '../../ui/Combobox';
-import { Combobox } from '../../ui/Combobox';
+import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
@@ -137,7 +137,6 @@ export function GoalDetailScreen() {
     }
     return [DEFAULT_THUMBNAIL_STYLE];
   }, [visuals]);
-  const [linkedArcComboboxOpen, setLinkedArcComboboxOpen] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingForces, setEditingForces] = useState(false);
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
@@ -203,13 +202,14 @@ export function GoalDetailScreen() {
 
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
-  const arcOptions = useMemo<ComboboxOption[]>(() => {
+  const arcOptions = useMemo<ObjectPickerOption[]>(() => {
     const list = [...arcs];
     list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
     return list.map((a) => ({
       value: a.id,
       label: a.name,
-      keywords: a.narrative ? [a.narrative] : undefined,
+      // Keep keywords tight—narratives are long and cause noisy matches for short queries.
+      keywords: undefined,
     }));
   }, [arcs]);
   const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>('details');
@@ -1202,8 +1202,18 @@ export function GoalDetailScreen() {
             </VStack>
 
             {activeTab === 'details' && (
-              <VStack space="md">
-                <View style={{ marginTop: spacing.md }}>
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{
+                  paddingHorizontal: spacing.md,
+                  paddingBottom: spacing['2xl'],
+                  paddingTop: spacing.md,
+                }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <VStack space="md">
+                  <View style={{ marginTop: spacing.md }}>
                   <HStack style={styles.timeRow}>
                     <VStack space="xs" style={styles.lifecycleColumn}>
                       <Text style={styles.timeLabel}>Status</Text>
@@ -1226,9 +1236,9 @@ export function GoalDetailScreen() {
                       </Text>
                     </VStack>
                   </HStack>
-                </View>
+                  </View>
 
-                <View style={{ marginTop: spacing.md }}>
+                  <View style={{ marginTop: spacing.md }}>
                   <LongTextField
                     label="Description"
                     value={goal.description ?? ''}
@@ -1258,43 +1268,25 @@ export function GoalDetailScreen() {
                       });
                     }}
                   />
-                </View>
+                  </View>
 
-                <View style={{ marginTop: spacing.md }}>
+                  <View style={{ marginTop: spacing.md }}>
                   <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
-                  <Combobox
-                    open={linkedArcComboboxOpen}
-                    onOpenChange={setLinkedArcComboboxOpen}
+                  <ObjectPicker
                     value={goal.arcId ?? ''}
                     onValueChange={(nextArcId) => {
                       handleUpdateArc(nextArcId ? nextArcId : null);
                     }}
                     options={arcOptions}
+                    placeholder="Select Arc…"
                     searchPlaceholder="Search arcs…"
                     emptyText="No arcs found."
+                    accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
                     allowDeselect
-                    trigger={
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
-                        style={styles.arcRow}
-                      >
-                        <HStack alignItems="center" justifyContent="space-between">
-                          <Text
-                            style={arc ? styles.arcChipTextConnected : styles.arcChipText}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {arc ? arc.name : 'Select Arc…'}
-                          </Text>
-                          <Icon name="chevronsUpDown" size={16} color={colors.textSecondary} />
-                        </HStack>
-                      </Pressable>
-                    }
                   />
-                </View>
+                  </View>
 
-                <View ref={vectorsSectionRef} collapsable={false}>
+                  <View ref={vectorsSectionRef} collapsable={false}>
                   <HStack justifyContent="space-between" alignItems="center">
                     <HStack alignItems="center" space="xs">
                       <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
@@ -1382,11 +1374,12 @@ export function GoalDetailScreen() {
                       );
                     })}
                   </VStack>
-                </View>
-                {createdAtLabel && (
-                  <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
-                )}
-              </VStack>
+                  </View>
+                  {createdAtLabel && (
+                    <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
+                  )}
+                </VStack>
+              </ScrollView>
             )}
 
             {activeTab === 'history' && (
@@ -2324,7 +2317,14 @@ function GoalActivityCoachDrawer({
   );
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['100%']}
+      // AgentWorkspace/AiChatScreen implements its own keyboard strategy (padding + scroll-to-focus).
+      // Avoid double offsets from BottomDrawer's default keyboard avoidance.
+      keyboardAvoidanceEnabled={false}
+    >
       <View style={styles.activityCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
@@ -2355,6 +2355,7 @@ function GoalActivityCoachDrawer({
               resumeDraft={false}
               hideBrandHeader
               hidePromptSuggestions
+              hostBottomInsetAlreadyApplied
               onComplete={handleAiComplete}
               onTransportError={handleSwitchToManual}
               onAdoptActivitySuggestion={handleAdoptActivitySuggestion}

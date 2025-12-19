@@ -168,4 +168,34 @@ export function richTextToPlainText(value: string): string {
   return htmlToPlainText(normalizeToHtml(value));
 }
 
+/**
+ * Sanitize user-entered rich text HTML from the WebView editor.
+ *
+ * Goal: prevent "surprising" formatting on paste (e.g. Google Docs / Notes often
+ * inject background colors and inline styles).
+ *
+ * We intentionally keep semantic tags produced by the editor (p/strong/em/u/ul/ol/li/a)
+ * and strip presentational attributes/tags that tend to sneak in via paste.
+ */
+export function sanitizeRichTextHtml(html: string): string {
+  const raw = html ?? '';
+  if (!raw) return raw;
+
+  // 1) Strip inline style attributes (these are the primary source of pasted bg colors).
+  let out = raw
+    .replace(/\sstyle="[^"]*"/gi, '')
+    .replace(/\sstyle='[^']*'/gi, '')
+    .replace(/\sbgcolor="[^"]*"/gi, '')
+    .replace(/\sbgcolor='[^']*'/gi, '');
+
+  // 2) Remove common presentational wrapper tags while preserving inner text.
+  out = out
+    .replace(/<\/?span[^>]*>/gi, '')
+    .replace(/<\/?font[^>]*>/gi, '');
+
+  // 3) Defensive: remove empty style attributes left behind (rare).
+  out = out.replace(/\sstyle=\s*(?:""|''|\s)/gi, '');
+
+  return out;
+}
 

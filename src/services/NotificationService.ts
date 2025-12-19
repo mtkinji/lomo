@@ -2,7 +2,7 @@ import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Activity } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
-import { rootNavigationRef } from '../navigation/RootNavigator';
+import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { posthogClient } from './analytics/posthogClient';
 import { track } from './analytics/analytics';
 import { AnalyticsEvent } from './analytics/events';
@@ -279,7 +279,7 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Align your day with your arcs',
-        body: 'Open kwilt to review Today and choose one tiny step.',
+        body: 'Open Kwilt to review Today and choose one tiny step.',
         data: {
           type: 'dailyShowUp',
         } satisfies NotificationData,
@@ -623,10 +623,10 @@ async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily
   if (currentStatus === 'denied' || currentStatus === 'restricted') {
     // Respect OS-level denial; direct the user to system settings via in-app copy.
     const friendlyPlatform =
-      Platform.OS === 'ios' ? 'Settings → Notifications → kwilt' : 'Settings → Apps → kwilt → Notifications';
+      Platform.OS === 'ios' ? 'Settings → Notifications → Kwilt' : 'Settings → Apps → Kwilt → Notifications';
     Alert.alert(
       'Notifications disabled',
-      `Notifications are currently disabled for kwilt in system settings. You can re-enable them from ${friendlyPlatform}.`,
+      `Notifications are currently disabled for Kwilt in system settings. You can re-enable them from ${friendlyPlatform}.`,
     );
     return false;
   }
@@ -636,8 +636,8 @@ async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily
     Alert.alert(
       'Allow gentle reminders?',
       reason === 'activity'
-        ? 'kwilt can send you gentle reminders when Activities are due so tiny steps don’t slip through the cracks.'
-        : 'kwilt can send a daily nudge to review Today and choose one tiny step for your arcs.',
+        ? 'Kwilt can send you gentle reminders when Activities are due so tiny steps don’t slip through the cracks.'
+        : 'Kwilt can send a daily nudge to review Today and choose one tiny step for your arcs.',
       [
         {
           text: 'Not now',

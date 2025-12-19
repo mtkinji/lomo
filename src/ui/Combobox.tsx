@@ -14,13 +14,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
-import { BottomDrawer, BottomDrawerScrollView } from './BottomDrawer';
+import { BottomDrawerScrollView } from './BottomDrawer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './DropdownMenu';
 import { Input } from './Input';
 import { HStack, VStack } from './Stack';
 import { Text } from './Typography';
 import { Icon } from './Icon';
 import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
+import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
 
 const MAX_MENU_HEIGHT = 320; // ShadCN-ish: keeps long lists scrollable without feeling huge.
 const MIN_MENU_HEIGHT = 180;
@@ -196,8 +197,13 @@ export function Combobox({
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter((opt) => {
-      const hay = [opt.label, ...(opt.keywords ?? [])].join(' ').toLowerCase();
-      return hay.includes(q);
+      const label = opt.label.toLowerCase();
+      if (label.includes(q)) return true;
+      // For short queries (1–2 chars), only match against the label so "Search arcs"
+      // feels predictable (avoids accidental matches in long narrative keywords).
+      if (q.length < 3) return false;
+      const keywords = opt.keywords ?? [];
+      return keywords.some((k) => String(k).toLowerCase().includes(q));
     });
   }, [options, query]);
 
@@ -273,14 +279,19 @@ export function Combobox({
           {triggerWithDrawerOpen}
         </View>
 
-        <BottomDrawer
+        <UnderKeyboardDrawer
           visible={open}
           onClose={() => handleOpenChange(false)}
-          snapPoints={drawerSnapPoints ?? DEFAULT_DRAWER_SNAP_POINTS}
-          keyboardAvoidanceEnabled
+          // Match the LongText editor behavior: keep the visible content above the keyboard
+          // while extending the sheet background under the keyboard to avoid iOS corner gaps.
+          dynamicHeightUnderKeyboard
+          visibleContentHeightFallbackPx={400}
+          // Long lists (25+ arcs) should scroll rather than expanding to a huge sheet.
+          maxVisibleContentHeightPx={480}
+          // Don't let the drawer collapse below the intended visible height.
+          minVisibleContentHeightPx={400}
           dismissOnBackdropPress
           enableContentPanningGesture
-          dynamicSizing
         >
           <View style={styles.drawerCommand}>
             <View style={styles.searchRow}>
@@ -341,7 +352,7 @@ export function Combobox({
               )}
             </BottomDrawerScrollView>
           </View>
-        </BottomDrawer>
+        </UnderKeyboardDrawer>
       </>
     );
   }
@@ -478,7 +489,10 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
+    // Give the first/last option breathing room so the top spacing matches the
+    // bottom gap (especially noticeable with the keyboard open).
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   items: {
     gap: 2,

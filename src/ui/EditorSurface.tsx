@@ -266,6 +266,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    // Ensure toolbars render above WebView-based editors (RichEditor) which can
+    // otherwise visually occlude sibling views on iOS.
+    zIndex: 50,
+    elevation: 50,
   },
 });
 

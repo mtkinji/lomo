@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Input } from '../../ui/Input';
+import { LongTextField } from '../../ui/LongTextField';
 import { QuestionCard } from '../../ui/QuestionCard';
 import { Text } from '../../ui/primitives';
 import { ButtonLabel } from '../../ui/Typography';
@@ -11,6 +11,7 @@ import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import type { ArchetypeAdmiredQualityId, ArchetypeRoleModelTypeId } from '../../domain/archetypeTaps';
 import { ARCHETYPE_ADMIRED_QUALITIES, ARCHETYPE_ROLE_MODEL_TYPES } from '../../domain/archetypeTaps';
+import { htmlToPlainText } from '../../ui/richText';
 
 type ArcCreationFlowProps = {
   /**
@@ -87,7 +88,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
   const handleSubmit = useCallback(async () => {
     if (!workflowRuntime || !isArcCreationWorkflow) return;
 
-    const trimmedDream = dreamInput.trim();
+    const trimmedDream = htmlToPlainText(dreamInput).trim();
     if (!trimmedDream) return;
     if (!whyNowId) return;
     if (!roleModelTypeId) return;
@@ -119,7 +120,8 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
   }
 
   if (step === 'dream') {
-    const hasDream = dreamInput.trim().length > 0;
+    const dreamPlain = htmlToPlainText(dreamInput).trim();
+    const hasDream = dreamPlain.length > 0;
     return (
       <QuestionCard
         stepLabel={stepLabel}
@@ -127,12 +129,13 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
         style={styles.card}
       >
         <View style={styles.body}>
-          <Input
+          <LongTextField
+            label="Dream"
             value={dreamInput}
-            onChangeText={setDreamInput}
-            multiline
+            onChange={setDreamInput}
+            hideLabel
             placeholder="e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home."
-            autoCapitalize="sentences"
+            snapPoints={['75%']}
           />
           <View style={styles.inlineActions}>
             <Button
@@ -140,7 +143,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
               style={[styles.primaryButton, !hasDream && styles.primaryButtonDisabled]}
               disabled={!hasDream}
               onPress={() => {
-                chatControllerRef?.current?.appendUserMessage(dreamInput.trim());
+                chatControllerRef?.current?.appendUserMessage(dreamPlain);
                 setStep('whyNow');
               }}
             >

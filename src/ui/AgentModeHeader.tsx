@@ -17,6 +17,11 @@ type AgentModeHeaderProps = {
    */
   objectLabel: string;
   /**
+   * Optional override for the AI tab label content.
+   * Use this when you want a non-"{objectLabel} AI" label (e.g. just "Coach").
+   */
+  aiLabel?: React.ReactNode;
+  /**
    * Optional handler for the info icon on the AI tab. When omitted, the info
    * icon is hidden.
    */
@@ -35,6 +40,7 @@ export function AgentModeHeader({
   activeMode,
   onChangeMode,
   objectLabel,
+  aiLabel,
   onPressInfo,
   infoAccessibilityLabel,
   manualLabel,
@@ -52,7 +58,7 @@ export function AgentModeHeader({
           activeMode === 'ai' && styles.segmentedOptionLabelActive,
         ]}
       >
-        {`${objectLabel} AI`}
+        {aiLabel ?? `${objectLabel} AI`}
       </Text>
       {onPressInfo ? (
         <Pressable
@@ -61,7 +67,7 @@ export function AgentModeHeader({
             onPressInfo();
           }}
           accessibilityRole="button"
-          accessibilityLabel={infoAccessibilityLabel ?? `Show context for ${objectLabel} AI`}
+          accessibilityLabel={infoAccessibilityLabel ?? 'Show context'}
         >
           <Icon
             name="info"

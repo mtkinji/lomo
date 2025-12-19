@@ -12,11 +12,13 @@ import React, {
 } from 'react';
 import {
   Keyboard,
+  Dimensions,
   Platform,
   ScrollView,
   type ScrollViewProps,
   StyleSheet,
   TextInput,
+  UIManager,
   findNodeHandle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -112,12 +114,36 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
     const insets = useSafeAreaInsets();
     const scrollRef = useRef<ScrollView | null>(null);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const keyboardTopYRef = useRef<number | null>(null);
     const pendingRevealRef = useRef(false);
     const nextRevealTargetRef = useRef<{ nodeHandle: number; extraOffset: number } | null>(null);
 
-    const scrollToNodeHandle = useCallback(
-      (nodeHandle: number, extraOffset: number = keyboardClearance) => {
+    const measureInWindow = useCallback(async (nodeHandle: number) => {
+      return await new Promise<{ x: number; y: number; width: number; height: number } | null>(
+        (resolve) => {
+          try {
+            UIManager.measureInWindow(nodeHandle, (x, y, width, height) => {
+              resolve({ x, y, width, height });
+            });
+          } catch {
+            resolve(null);
+          }
+        },
+      );
+    }, []);
+
+    const maybeScrollNodeAboveKeyboard = useCallback(
+      async (nodeHandle: number, extraOffset: number) => {
         if (!nodeHandle || !scrollRef.current) return;
+        const topY = keyboardTopYRef.current;
+        if (!topY || topY <= 0) return;
+
+        const layout = await measureInWindow(nodeHandle);
+        if (!layout) return;
+        const inputBottom = layout.y + layout.height;
+        // If the focused input won't be covered, keep it exactly where it is.
+        if (inputBottom + extraOffset <= topY) return;
+
         try {
           (scrollRef.current as any).scrollResponderScrollNativeHandleToKeyboard(
             nodeHandle,
@@ -128,7 +154,15 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
           // Best-effort: if the responder API isn't available, do nothing.
         }
       },
-      [keyboardClearance],
+      [measureInWindow],
+    );
+
+    const scrollToNodeHandle = useCallback(
+      (nodeHandle: number, extraOffset: number = keyboardClearance) => {
+        if (!nodeHandle || !scrollRef.current) return;
+        void maybeScrollNodeAboveKeyboard(nodeHandle, extraOffset);
+      },
+      [keyboardClearance, maybeScrollNodeAboveKeyboard],
     );
 
     const scrollToFocusedInput = useCallback(
@@ -166,13 +200,24 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
       const hideEvent = 'keyboardDidHide';
 
       const onShow = (e: any) => {
+        const screenY =
+          typeof e?.endCoordinates?.screenY === 'number'
+            ? e.endCoordinates.screenY
+            : (() => {
+                const h = typeof e?.endCoordinates?.height === 'number' ? e.endCoordinates.height : 0;
+                return Dimensions.get('window').height - h;
+              })();
+        keyboardTopYRef.current = screenY;
         const next = e?.endCoordinates?.height ?? 0;
         setKeyboardHeight(next);
         // Defer the reveal until *after* the paddingBottom update has been committed,
         // otherwise we can get a second "settling" scroll when layout changes.
         pendingRevealRef.current = true;
       };
-      const onHide = () => setKeyboardHeight(0);
+      const onHide = () => {
+        keyboardTopYRef.current = null;
+        setKeyboardHeight(0);
+      };
 
       const showSub = Keyboard.addListener(showEvent, onShow);
       const hideSub = Keyboard.addListener(hideEvent, onHide);

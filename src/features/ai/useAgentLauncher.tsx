@@ -145,6 +145,8 @@ export function useAgentLauncher(workspaceSnapshot?: string, options?: AgentLaun
             workflowDefinitionId={undefined}
             resumeDraft={false}
             hideBrandHeader={hideBrandHeader}
+            // BottomDrawer pads its sheet by safe-area bottom; AiChatPane should subtract it.
+            hostBottomInsetAlreadyApplied
           />
         ) : null}
       </BottomDrawer>

@@ -10,17 +10,19 @@ import { GOAL_CREATION_SYSTEM_PROMPT } from '../systemPrompts';
 export const goalCreationWorkflow: WorkflowDefinition = {
   id: 'goalCreation', // Matches ChatMode
   label: 'Goal Coach',
-  version: 1,
+  version: 2,
   chatMode: 'goalCreation',
   systemPrompt: GOAL_CREATION_SYSTEM_PROMPT,
   tools: [],
-  autoBootstrapFirstMessage: true,
+  // Goal creation opens with a workflow-driven step card (Arc pick + prompt capture).
+  // Do not auto-bootstrap an LLM message on mount or we end up with competing intros.
+  autoBootstrapFirstMessage: false,
   renderableComponents: ['InstructionCard'],
   outcomeSchema: {
     kind: 'goal_creation_outcome',
     fields: {
+      arcId: 'string?',
       prompt: 'string',
-      timeHorizon: 'string?',
       constraints: 'string?',
       title: 'string',
       description: 'string?',
@@ -30,14 +32,27 @@ export const goalCreationWorkflow: WorkflowDefinition = {
   },
   steps: [
     {
+      id: 'arc_select',
+      type: 'collect_fields',
+      label: 'Pick an Arc (optional)',
+      fieldsCollected: ['arcId'],
+      promptTemplate:
+        'Ask which Arc the user wants this goal to live in. They can skip and choose later.',
+      validationHint:
+        'If an Arc is selected, capture its id; otherwise leave it null/empty so the user can pick later when adopting.',
+      hideFreeformChatInput: true,
+      nextStepId: 'context_collect',
+    },
+    {
       id: 'context_collect',
       type: 'collect_fields',
-      label: 'Collect context',
-      fieldsCollected: ['prompt', 'timeHorizon', 'constraints'],
+      label: 'Collect prompt',
+      fieldsCollected: ['prompt', 'constraints'],
       promptTemplate:
-        'Briefly clarify what the user wants to make progress on over the next 30–90 days and, if needed, infer a rough time horizon. Keep this light and concrete so you can move quickly into goal options.',
+        'Ask the user (in one short question) what they want to make progress on over the next 30–90 days. Optionally, if needed, ask at most one short follow-up about constraints.',
       validationHint:
-        'Ensure there is at least a short free-text prompt describing the kind of progress the user wants and a rough time horizon.',
+        'Ensure there is at least a short free-text prompt describing the kind of progress the user wants. Constraints are optional.',
+      hideFreeformChatInput: false,
       nextStepId: 'agent_generate_goals',
     },
     {
@@ -46,12 +61,12 @@ export const goalCreationWorkflow: WorkflowDefinition = {
       label: 'Generate goal options',
       fieldsCollected: [],
       promptTemplate:
-        "Given the user's context and any focused Arc or workspace snapshot, propose 1–3 candidate goals with titles, short descriptions, and natural-language time horizons.",
+        "Given the user's Arc choice (if any), focused Arc (if launched from Arc detail), and workspace snapshot, propose exactly ONE candidate goal with a title and short description. If you include a timeframe, weave it into the description rather than as a separate field.",
       validationHint:
-        'Goals should be concrete, realistic over 30–90 days, and not simply restate existing goals verbatim.',
+        'Produce exactly one concrete, realistic 30–90 day goal that does not duplicate existing goals verbatim.',
       agentBehavior: {
         loadingMessage:
-          'Got it — I’m shaping a few concrete 30–90 day goals that fit this season and the Arc you’re working from. Once they’re ready, you can accept one as-is or tweak the wording.',
+          'Got it — I’m shaping one concrete 30–90 day goal that fits this season and the Arc you’re working from. Once it’s ready, you can accept it as-is or tweak the wording.',
         loadingMessageId: 'assistant-goal-status',
       },
       nextStepId: 'confirm_goal',

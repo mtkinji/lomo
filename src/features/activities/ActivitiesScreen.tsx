@@ -2787,7 +2787,14 @@ function ActivityCoachDrawer({
   );
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['100%']}
+      // AgentWorkspace/AiChatScreen implements its own keyboard strategy (padding + scroll-to-focus).
+      // Avoid double offsets from BottomDrawer's default keyboard avoidance.
+      keyboardAvoidanceEnabled={false}
+    >
       <View style={styles.activityCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
@@ -2822,6 +2829,7 @@ function ActivityCoachDrawer({
             resumeDraft={false}
             hideBrandHeader
             hidePromptSuggestions
+            hostBottomInsetAlreadyApplied
             onComplete={handleAiComplete}
             onTransportError={handleSwitchToManual}
             onAdoptActivitySuggestion={handleAdoptActivitySuggestion}

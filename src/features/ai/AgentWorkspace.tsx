@@ -76,6 +76,12 @@ export type AgentWorkspaceProps = {
    */
   hidePromptSuggestions?: boolean;
   /**
+   * When true, the host surface already includes bottom safe-area padding
+   * (e.g. BottomDrawer sheet padding). This is forwarded to AiChatPane so
+   * its keyboard inset math doesn’t double-count `insets.bottom`.
+   */
+  hostBottomInsetAlreadyApplied?: boolean;
+  /**
    * Optional hook fired when the underlying chat transport fails. Hosts can
    * use this to surface manual fallbacks.
    */
@@ -91,6 +97,12 @@ export type AgentWorkspaceProps = {
    * activity suggestion card in activityCreation mode.
    */
   onAdoptActivitySuggestion?: (suggestion: ActivitySuggestion) => void;
+
+  /**
+   * Optional hook fired when the user adopts a Goal proposal inside goalCreation mode.
+   * Hosts can use this to close the sheet or navigate to the new Goal canvas.
+   */
+  onGoalCreated?: (goalId: string) => void;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -163,6 +175,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     onComplete,
     hideBrandHeader,
     hidePromptSuggestions,
+    onGoalCreated,
+    hostBottomInsetAlreadyApplied,
   } = props;
 
   const chatPaneRef = useRef<AiChatPaneController | null>(null);
@@ -440,9 +454,6 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     }
 
     if (workflowDefinition.chatMode === 'goalCreation') {
-      // Goal creation uses a lightweight, tap-first presenter for the initial
-      // context step, then hands off to the shared chat surface for the rest
-      // of the workflow.
       return (
         <GoalCreationFlow
           chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
@@ -530,7 +541,9 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         resumeDraft={resumeDraft}
         hideBrandHeader={hideBrandHeader}
         hidePromptSuggestions={hidePromptSuggestions}
+        hostBottomInsetAlreadyApplied={hostBottomInsetAlreadyApplied}
         onConfirmArc={onConfirmArc}
+        onGoalCreated={onGoalCreated}
         onComplete={onComplete}
         stepCard={workflowStepCard}
         onTransportError={props.onTransportError}

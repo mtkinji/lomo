@@ -267,7 +267,7 @@ export function BottomDrawer({
     // Close animation for both modal + inline; unmount after.
     if (!mounted) return;
     isAnimating.value = true;
-    translateY.value = withTiming(closedOffset, { duration: 220 }, (finished) => {
+    translateY.value = withTiming(closedOffset, { duration: 280 }, (finished) => {
       isAnimating.value = false;
       if (finished) {
         runOnJS(setMounted)(false);
@@ -284,7 +284,7 @@ export function BottomDrawer({
     translateY.value = closedOffset;
     const targetHeight = snapHeights[openToIndex] ?? maxSnapHeight;
     sheetHeight.value = targetHeight;
-    translateY.value = withTiming(0, { duration: 240 }, (finished) => {
+    translateY.value = withTiming(0, { duration: 320 }, (finished) => {
       isAnimating.value = false;
       if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
     });
@@ -296,7 +296,7 @@ export function BottomDrawer({
     if (!mounted || !visible) return;
     if (dynamicTargetHeight === null) return;
     // Once content has laid out, animate down to the measured compact height.
-    sheetHeight.value = withTiming(clamp(dynamicTargetHeight, 0, maxSnapHeight), { duration: 220 }, (finished) => {
+    sheetHeight.value = withTiming(clamp(dynamicTargetHeight, 0, maxSnapHeight), { duration: 260 }, (finished) => {
       if (finished && onSnapIndexChange) {
         runOnJS(onSnapIndexChange)(0);
       }
@@ -373,7 +373,7 @@ export function BottomDrawer({
 
         if (shouldDismiss) {
           isAnimating.value = true;
-          translateY.value = withTiming(closedOffset, { duration: 200 }, (finished) => {
+          translateY.value = withTiming(closedOffset, { duration: 260 }, (finished) => {
             isAnimating.value = false;
             if (finished) {
               runOnJS(closeIfAllowed)();
@@ -384,13 +384,13 @@ export function BottomDrawer({
 
         // Ensure we settle back to the base position (no close translation).
         if (currentTranslate !== 0) {
-          translateY.value = withTiming(0, { duration: 180 });
+          translateY.value = withTiming(0, { duration: 220 });
         }
 
         const projectedHeight = clamp(currentHeight - vY * 0.15, minSnapHeight, maxSnapHeight);
         const idx = getClosestIndex({ snapY: projectedHeight, snapYs: snapHeights });
         isAnimating.value = true;
-        sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, { duration: 220 }, (finished) => {
+        sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, { duration: 260 }, (finished) => {
           isAnimating.value = false;
           if (finished && onSnapIndexChange) {
             runOnJS(onSnapIndexChange)(idx);

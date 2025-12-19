@@ -4,12 +4,13 @@ import { richTextToPlainText } from '../../ui/richText';
 /**
  * Shared helper for building a natural-language snapshot of the user's
  * existing Arcs and Goals. This is passed into AgentWorkspace as a hidden
- * context string so the Arc / Goals AI surfaces can propose complementary
+ * context string so the Arc / Goal coach surfaces can propose complementary
  * Arcs or Goals.
  */
 export function buildArcCoachLaunchContext(
   arcs: Arc[],
-  goals: Goal[]
+  goals: Goal[],
+  focusArcId?: string,
 ): string | undefined {
   if (arcs.length === 0 && goals.length === 0) {
     return undefined;
@@ -23,7 +24,37 @@ export function buildArcCoachLaunchContext(
   lines.push(`Total arcs: ${arcs.length}. Total goals: ${goals.length}.`);
   lines.push('');
 
+  const focusArc =
+    focusArcId ? arcs.find((candidate) => candidate.id === focusArcId) ?? null : null;
+  if (focusArc) {
+    lines.push(
+      'FOCUSED ARC (this is the arc you must anchor goal recommendations to):',
+      `- ${focusArc.name} (status: ${focusArc.status}, id: ${focusArc.id})`,
+    );
+    if (focusArc.narrative) {
+      lines.push(`Narrative: ${richTextToPlainText(focusArc.narrative)}`);
+    }
+    const focusGoals = goals.filter((goal) => goal.arcId === focusArc.id);
+    if (focusGoals.length > 0) {
+      lines.push('Existing goals in this arc (avoid duplicates):');
+      focusGoals.slice(0, 8).forEach((goal) => {
+        lines.push(`- ${goal.title} (status: ${goal.status})`);
+      });
+      if (focusGoals.length > 8) {
+        lines.push(`…and ${focusGoals.length - 8} more.`);
+      }
+    } else {
+      lines.push('No goals are currently attached to the focused arc.');
+    }
+    lines.push(''); // spacer after focused arc
+  }
+
   arcs.forEach((arc) => {
+    // When we include a focused arc section above, keep the full list below for
+    // general context, but avoid duplicating the exact same arc header twice.
+    if (focusArc && arc.id === focusArc.id) {
+      return;
+    }
     const arcGoals = goals.filter((goal) => goal.arcId === arc.id);
 
     lines.push(`Arc: ${arc.name} (status: ${arc.status}).`);

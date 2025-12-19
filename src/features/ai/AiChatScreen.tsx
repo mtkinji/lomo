@@ -1,8 +1,18 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   Easing,
   Keyboard,
   InteractionManager,
@@ -16,17 +26,19 @@ import {
   findNodeHandle,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing, typography, colors, fonts } from '../../theme';
+import { cardElevation, spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { BrandLockup } from '../../ui/BrandLockup';
+import { EditorHeader, EditorSurface } from '../../ui/EditorSurface';
 import {
   CoachChatTurn,
   GeneratedArc,
@@ -475,7 +487,19 @@ function extractGoalProposalFromAssistantMessage(content: string): ParsedGoalPro
     if (!parsed.title || typeof parsed.title !== 'string') {
       return { displayContent: visiblePart || content, goalProposal: null };
     }
-    return { displayContent: visiblePart || content, goalProposal: parsed };
+    // Avoid showing the goal twice (once in assistant prose, once in the proposal card).
+    // Keep a short, non-duplicative lead-in only.
+    const strippedLeadIn = visiblePart
+      .split('\n')
+      .filter((line) => !/^\s*(title|description|time\s*horizon)\s*:/i.test(line))
+      .join('\n')
+      .trim();
+    const shouldSuppressLeadIn =
+      /(title\s*:|description\s*:|time\s*horizon\s*:)/i.test(visiblePart) || strippedLeadIn.length > 240;
+    return {
+      displayContent: shouldSuppressLeadIn ? '' : strippedLeadIn,
+      goalProposal: parsed,
+    };
   } catch {
     return { displayContent: visiblePart || content, goalProposal: null };
   }
@@ -840,6 +864,11 @@ export type AiChatPaneProps = {
    */
   onConfirmArc?: (proposal: GeneratedArc) => void;
   /**
+   * Optional callback fired when the user adopts a Goal proposal inside
+   * goalCreation mode. Hosts can close the sheet or navigate to Goal detail.
+   */
+  onGoalCreated?: (goalId: string) => void;
+  /**
    * Optional callback fired when a hosted flow (such as first-time onboarding)
    * completes inside the chat surface.
    */
@@ -871,6 +900,16 @@ export type AiChatPaneProps = {
    * want the surface to stay on-task without generic prompts.
    */
   hidePromptSuggestions?: boolean;
+  /**
+   * When true, the host surface already includes bottom safe-area padding
+   * (e.g. BottomDrawer sheets which pad their sheet by `insets.bottom`).
+   *
+   * In that case, iOS keyboard heights (which often include the home-indicator
+   * area) must subtract `insets.bottom` to avoid double-offsetting.
+   *
+   * Default: false (full-screen surfaces like AppShell do not pad bottom).
+   */
+  hostBottomInsetAlreadyApplied?: boolean;
   /**
    * Optional hook fired when the user taps "Accept" on an AI-generated
    * activity suggestion card in activityCreation mode.
@@ -945,10 +984,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
     launchContext,
     resumeDraft = true,
     onConfirmArc,
+    onGoalCreated,
     onComplete,
     stepCard,
     hideBrandHeader = false,
     hidePromptSuggestions = false,
+    hostBottomInsetAlreadyApplied = false,
     onTransportError,
     onManualFallbackRequested,
     onAdoptActivitySuggestion,
@@ -959,8 +1000,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const insets = useSafeAreaInsets();
   const isArcCreationMode = mode === 'arcCreation';
   const isOnboardingMode = mode === 'firstTimeOnboarding';
-  // Extra breathing room so “inline card” CTAs (like Continue) clear the keyboard.
-  const keyboardClearance = 140;
+  const hasStepCard = Boolean(stepCard);
 
   const workflowRuntime = useWorkflowRuntime();
   const currentWorkflowStepId = workflowRuntime?.instance?.currentStepId;
@@ -977,12 +1017,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const shouldShowComposer =
     !shouldHideComposerForWorkflowStep && mode !== 'activityCreation' && !isOnboardingMode;
 
+  const composerPlaceholder =
+    mode === 'goalCreation' ? 'Describe your goal…' : 'Ask, Search or Chat…';
+
   const modeConfig = mode ? WORKFLOW_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
   const shouldBootstrapAssistant = Boolean(modeConfig?.autoBootstrapFirstMessage);
   const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
+  // Clearance between the focused input and the keyboard.
+  //
+  // For inline step-card forms (Arc creation / onboarding), we want enough room for
+  // the card’s bottom CTA row, but not so much that a tall card gets shoved off the
+  // top of the viewport when focusing the field.
+  const keyboardClearance = !shouldShowComposer && hasStepCard ? 0 : spacing.lg;
+
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasStepCard = Boolean(stepCard);
 
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
@@ -1067,23 +1116,29 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [sending, setSending] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [composerHeight, setComposerHeight] = useState(0);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [arcProposal, setArcProposal] = useState<GeneratedArc | null>(null);
   const [goalProposal, setGoalProposal] = useState<ProposedGoalDraft | null>(null);
   const [goalDraftTitle, setGoalDraftTitle] = useState('');
   const [goalDraftDescription, setGoalDraftDescription] = useState('');
+  const [selectedGoalArcId, setSelectedGoalArcId] = useState<string | null>(null);
+  const [isGoalArcPickerVisible, setIsGoalArcPickerVisible] = useState(false);
   const [activitySuggestions, setActivitySuggestions] = useState<ActivitySuggestion[] | null>(
     null
   );
   const [arcDraftName, setArcDraftName] = useState('');
   const [arcDraftNarrative, setArcDraftNarrative] = useState('');
   const [isFeedbackInlineVisible, setIsFeedbackInlineVisible] = useState(false);
-  const [isUploadComingSoonVisible, setIsUploadComingSoonVisible] = useState(false);
+  const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [feedbackReasons, setFeedbackReasons] = useState<ArcProposalFeedbackReason[]>([]);
   const [feedbackNote, setFeedbackNote] = useState('');
   const scrollRef = useRef<ScrollView | null>(null);
+  const scrollOffsetRef = useRef(0);
+  const keyboardRawHeightRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const inputRef = useRef<TextInput | null>(null);
+  const expandedInputRef = useRef<TextInput | null>(null);
   const dictationBaseRef = useRef('');
   const typingControllerRef = useRef<{ skip: () => void } | null>(null);
   const [dictationState, setDictationState] = useState<DictationState>(
@@ -1093,6 +1148,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [isDictationAvailable, setIsDictationAvailable] = useState(Boolean(iosSpeechModule));
   const [hasTransportError, setHasTransportError] = useState(false);
   const [agentOffers, setAgentOffers] = useState<AgentOffer[] | null>(null);
+  const [isAssistantTyping, setIsAssistantTyping] = useState(false);
 
   const hasVisibleMessages = (messages ?? []).some((message) => message.role !== 'system');
 
@@ -1101,7 +1157,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const hasUserMessages = messages.some((m) => m.role === 'user');
   const hasContextMeta = Boolean(launchContext || modeSystemPrompt);
   const shouldShowSuggestionsRail =
-    !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode && mode !== 'activityGuidance';
+    // The prompt suggestions are only for the generic entry point.
+    // In dedicated coach modes they read as off-topic.
+    !hidePromptSuggestions && !hasUserMessages && !isOnboardingMode && !mode;
   const hasWorkflowContextMeta = Boolean(mode || workflowRuntime?.definition || hasContextMeta);
   const modeLabel = modeConfig?.label;
   const workflowLabel = workflowRuntime?.definition?.label;
@@ -1111,6 +1169,67 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // the greeting copy can stand on its own.
   const shouldShowContextPill =
     !isOnboardingMode && hasWorkflowContextMeta && Boolean(contextPillLabel);
+
+  const hostBottomInset = hostBottomInsetAlreadyApplied ? 0 : insets.bottom;
+  const composerRestingBottom = hostBottomInset + spacing.sm;
+  // Keep a small gap between the composer and the keyboard so it reads like a floating surface.
+  const composerKeyboardGap = spacing.sm;
+  const composerBottom =
+    keyboardHeight > 0 ? keyboardHeight + composerKeyboardGap : composerRestingBottom;
+  const resolvedPaddingBottom = useMemo(() => {
+    const base = spacing['2xl'];
+    const composerContribution = shouldShowComposer ? composerHeight : 0;
+    const restingBottomForPadding = shouldShowComposer ? composerRestingBottom : hostBottomInset;
+    const bottomInsetForPadding =
+      keyboardHeight > 0
+        ? keyboardHeight + composerKeyboardGap + keyboardClearance
+        : restingBottomForPadding;
+    return base + bottomInsetForPadding + composerContribution;
+  }, [
+    composerHeight,
+    composerKeyboardGap,
+    composerRestingBottom,
+    hostBottomInset,
+    keyboardClearance,
+    keyboardHeight,
+    shouldShowComposer,
+  ]);
+
+  const pendingRevealRef = useRef(false);
+
+  const focusedArcIdForGoal = useMemo(
+    () => extractFocusedArcIdFromLaunchContext(launchContext),
+    [launchContext],
+  );
+  const workflowSelectedArcId = useMemo(() => {
+    const raw = workflowRuntime?.instance?.collectedData?.arcId;
+    return typeof raw === 'string' ? raw : null;
+  }, [workflowRuntime?.instance?.collectedData]);
+  const selectedGoalArc = useMemo(() => {
+    if (!selectedGoalArcId) return null;
+    return arcs.find((arc) => arc.id === selectedGoalArcId) ?? null;
+  }, [arcs, selectedGoalArcId]);
+  const shouldRequireGoalArcPick =
+    Boolean(goalProposal) && !focusedArcIdForGoal && (arcs?.length ?? 0) > 1;
+
+  useEffect(() => {
+    if (!goalProposal) {
+      setSelectedGoalArcId(null);
+      setIsGoalArcPickerVisible(false);
+      return;
+    }
+    // Prefer the focused arc (Arc detail launch). If there's only one arc,
+    // default to it. Otherwise require explicit selection.
+    setSelectedGoalArcId((current) => {
+      if (focusedArcIdForGoal) return focusedArcIdForGoal;
+      if (workflowSelectedArcId && arcs.some((arc) => arc.id === workflowSelectedArcId)) {
+        return workflowSelectedArcId;
+      }
+      if (current) return current;
+      if (arcs.length === 1) return arcs[0]?.id ?? null;
+      return null;
+    });
+  }, [arcs, focusedArcIdForGoal, goalProposal, workflowSelectedArcId]);
 
   const scheduleDraftSave = (nextMessages: ChatMessage[], nextInput: string) => {
     if (!isArcCreationMode) return;
@@ -1129,6 +1248,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const focusedActivityTitle = extractFocusedActivityTitleFromLaunchContext(launchContext);
   const focusedGoalTitle = extractFocusedGoalTitleFromLaunchContext(launchContext);
   const focusedArcName = extractFocusedArcNameFromLaunchContext(launchContext);
+
+  const goalCreationDefaultLeadIn = useMemo(() => {
+    if (mode !== 'goalCreation') {
+      return "Here’s a goal based on what you shared.";
+    }
+    if (focusedArcName) {
+      return `Here’s a starter goal for your ${focusedArcName} Arc — a concrete step toward realizing that identity direction.`;
+    }
+    return "Here’s a starter goal to help you make progress.";
+  }, [focusedArcName, mode]);
 
   const isDictationActive = dictationState === 'recording' || dictationState === 'starting';
   const voiceButtonLabel = isDictationActive ? 'Stop voice input' : 'Start voice input';
@@ -1296,6 +1425,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
   };
 
   const streamAssistantReply = (fullText: string, baseId: string, opts?: { onDone?: () => void }) => {
+    // Don't create blank assistant bubbles; just treat as an immediate completion.
+    if (!fullText || fullText.trim().length === 0) {
+      opts?.onDone?.();
+      return;
+    }
+
     const messageId = `${baseId}-${Date.now()}`;
 
     let finished = false;
@@ -1305,6 +1440,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       if (finished) return;
       finished = true;
       typingControllerRef.current = null;
+      setIsAssistantTyping(false);
       opts?.onDone?.();
     };
 
@@ -1321,6 +1457,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
     // Seed an empty assistant message so the user sees something appear
     // immediately, then gradually reveal the full content.
+    setIsAssistantTyping(true);
     setMessages((prev) => {
       const next: ChatMessage[] = [
         ...prev,
@@ -1421,6 +1558,18 @@ export const AiChatPane = forwardRef(function AiChatPane(
     timeoutId = setTimeout(step, 20);
   };
 
+  const commitGoalProposal = useCallback((proposal: ProposedGoalDraft | null) => {
+    if (proposal) {
+      setGoalProposal(proposal);
+      setGoalDraftTitle(proposal.title ?? '');
+      setGoalDraftDescription(proposal.description ?? '');
+      return;
+    }
+    setGoalProposal(null);
+    setGoalDraftTitle('');
+    setGoalDraftDescription('');
+  }, []);
+
   useImperativeHandle(
     ref,
     (): AiChatPaneController => ({
@@ -1473,14 +1622,27 @@ export const AiChatPane = forwardRef(function AiChatPane(
           streamAssistantReply(parsed.displayContent, baseId, opts);
         } else if (mode === 'goalCreation') {
           const parsed = extractGoalProposalFromAssistantMessage(fullText);
-          if (parsed.goalProposal) {
-            setGoalProposal(parsed.goalProposal);
-            setGoalDraftTitle(parsed.goalProposal.title ?? '');
-            setGoalDraftDescription(parsed.goalProposal.description ?? '');
+          // Defer proposal card rendering until after the typed assistant message finishes.
+          const nextProposal = parsed.goalProposal ?? null;
+          if (nextProposal) {
+            // Clear any previous proposal so we don't show stale data while typing.
+            commitGoalProposal(null);
           } else {
-            setGoalProposal(null);
+            commitGoalProposal(null);
           }
-          streamAssistantReply(parsed.displayContent, baseId, opts);
+          const leadIn =
+            nextProposal && (!parsed.displayContent || parsed.displayContent.trim().length === 0)
+              ? goalCreationDefaultLeadIn
+              : parsed.displayContent;
+          streamAssistantReply(leadIn, baseId, {
+            ...opts,
+            onDone: () => {
+              if (nextProposal) {
+                commitGoalProposal(nextProposal);
+              }
+              opts?.onDone?.();
+            },
+          });
         } else if (mode === 'arcCreation') {
           const parsed = extractArcProposalFromAssistantMessage(fullText);
           if (parsed.arcProposal) {
@@ -1563,14 +1725,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
         }
 
         const goalParsed = extractGoalProposalFromAssistantMessage(arcParsed.displayContent);
-        if (goalParsed.goalProposal) {
-          setGoalProposal(goalParsed.goalProposal);
-          setGoalDraftTitle(goalParsed.goalProposal.title ?? '');
-          setGoalDraftDescription(goalParsed.goalProposal.description ?? '');
+        const bootGoalProposal = goalParsed.goalProposal ?? null;
+        if (bootGoalProposal) {
+          // Defer showing the proposal card until after the bootstrap text finishes typing.
+          commitGoalProposal(null);
         }
         if (cancelled) return;
-        streamAssistantReply(goalParsed.displayContent, 'assistant-bootstrap', {
+        const bootLeadIn =
+          bootGoalProposal && (!goalParsed.displayContent || goalParsed.displayContent.trim().length === 0)
+            ? goalCreationDefaultLeadIn
+            : goalParsed.displayContent;
+        streamAssistantReply(bootLeadIn, 'assistant-bootstrap', {
           onDone: () => {
+            if (bootGoalProposal) {
+              commitGoalProposal(bootGoalProposal);
+            }
             if (!cancelled) {
               setBootstrapped(true);
               setThinking(false);
@@ -1702,6 +1871,25 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
     }
 
+    // For goal creation, treat the first free-form message after Arc selection
+    // as satisfying the context collection step, then invoke the agent_generate
+    // step via the workflow runtime (so the step-specific loading message is used).
+    if (
+      workflowRuntime?.definition?.chatMode === 'goalCreation' &&
+      currentWorkflowStepId === 'context_collect'
+    ) {
+      workflowRuntime.completeStep('context_collect', {
+        prompt: trimmed,
+      });
+      try {
+        await workflowRuntime.invokeAgentStep?.({ stepId: 'agent_generate_goals' });
+      } finally {
+        setSending(false);
+        setThinking(false);
+      }
+      return;
+    }
+
     // In first-time onboarding, some steps (like desire_clarify) use the user's
     // free-form answer purely as structured workflow data that feeds the next
     // agent_generate step. For these, we complete the workflow step but do NOT
@@ -1741,12 +1929,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
       }
 
       const goalParsed = extractGoalProposalFromAssistantMessage(arcParsed.displayContent);
-      if (goalParsed.goalProposal) {
-        setGoalProposal(goalParsed.goalProposal);
-        setGoalDraftTitle(goalParsed.goalProposal.title ?? '');
-        setGoalDraftDescription(goalParsed.goalProposal.description ?? '');
+      const nextGoalProposal = goalParsed.goalProposal ?? null;
+      if (nextGoalProposal) {
+        // Defer showing the proposal card until after the assistant message finishes typing.
+        commitGoalProposal(null);
       } else {
-        setGoalProposal(null);
+        commitGoalProposal(null);
       }
 
       if (mode === 'activityCreation') {
@@ -1782,8 +1970,15 @@ export const AiChatPane = forwardRef(function AiChatPane(
         return;
       }
 
-      streamAssistantReply(goalParsed.displayContent, 'assistant', {
+      const leadIn =
+        nextGoalProposal && (!goalParsed.displayContent || goalParsed.displayContent.trim().length === 0)
+          ? goalCreationDefaultLeadIn
+          : goalParsed.displayContent;
+      streamAssistantReply(leadIn, 'assistant', {
         onDone: () => {
+          if (nextGoalProposal) {
+            commitGoalProposal(nextGoalProposal);
+          }
           setSending(false);
           setThinking(false);
         },
@@ -1818,6 +2013,20 @@ export const AiChatPane = forwardRef(function AiChatPane(
     await sendMessageWithContent(input);
     setInput('');
   };
+
+  const openExpandedComposer = useCallback(() => {
+    setIsComposerExpanded(true);
+    requestAnimationFrame(() => {
+      expandedInputRef.current?.focus?.();
+    });
+  }, []);
+
+  const closeExpandedComposer = useCallback(() => {
+    setIsComposerExpanded(false);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus?.();
+    });
+  }, []);
 
   const [adoptedActivityCount, setAdoptedActivityCount] = useState(0);
   const [showActivitySummary, setShowActivitySummary] = useState(false);
@@ -2067,6 +2276,38 @@ export const AiChatPane = forwardRef(function AiChatPane(
     [scrollRef],
   );
 
+  const alignFocusedInputToKeyboard = useCallback(
+    (gapPx: number = 0) => {
+      // Align the *bottom* of the focused input to sit `gapPx` above the keyboard top.
+      // This is more reliable (and less jumpy) than `scrollResponderScrollNativeHandleToKeyboard`
+      // when the chat is hosted inside transformed surfaces (e.g., BottomDrawer).
+      const rawKeyboardHeight = keyboardRawHeightRef.current;
+      if (!rawKeyboardHeight || !scrollRef.current) return;
+
+      const getter = (TextInput.State as any)?.currentlyFocusedInput;
+      const focused = typeof getter === 'function' ? getter() : null;
+      const nodeHandle =
+        typeof focused === 'number' ? focused : focused ? findNodeHandle(focused) : null;
+      if (!nodeHandle) return;
+
+      const windowHeight = Dimensions.get('window').height;
+      const keyboardTopY = windowHeight - rawKeyboardHeight;
+      const desiredBottomY = keyboardTopY - gapPx;
+
+      UIManager.measureInWindow(nodeHandle, (_x, y, _w, h) => {
+        const bottomY = y + h;
+        const delta = bottomY - desiredBottomY;
+        // If we're within a couple pixels, avoid jitter.
+        if (Math.abs(delta) < 2) return;
+        // Positive delta => input is too low (covered); increase scroll offset.
+        // Negative delta => input is too high; decrease scroll offset.
+        const targetY = Math.max(0, scrollOffsetRef.current + delta);
+        scrollRef.current?.scrollTo({ y: targetY, animated: true });
+      });
+    },
+    [scrollRef],
+  );
+
   useEffect(() => {
     scrollToLatest();
   }, [messages.length]);
@@ -2090,30 +2331,58 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // Keyboard strategy reference:
   // - `docs/keyboard-input-safety-implementation.md`
   useEffect(() => {
-    // Use DidShow/DidHide even on iOS to avoid RN "Error measuring text field."
-    // warnings that can happen when measuring during the keyboard's animation.
-    const showEvent = 'keyboardDidShow';
-    const hideEvent = 'keyboardDidHide';
-
-    const onShow = (e: any) => {
-      const rawHeight = e?.endCoordinates?.height ?? 0;
-      // BottomDrawer already applies safe-area padding; avoid double-lifting the composer.
-      const adjusted =
-        Platform.OS === 'ios' ? Math.max(0, rawHeight - insets.bottom) : Math.max(0, rawHeight);
+    const setTo = (rawHeight: number) => {
+      keyboardRawHeightRef.current = rawHeight;
+      // iOS keyboard heights often include the home-indicator safe area.
+      // If the host already pads its surface by `insets.bottom` (e.g. BottomDrawer),
+      // subtract it to avoid double-offsetting. Full-screen hosts should use the raw height.
+      const safeAreaToSubtract =
+        Platform.OS === 'ios' && hostBottomInsetAlreadyApplied ? insets.bottom : 0;
+      const adjusted = Math.max(0, rawHeight - safeAreaToSubtract);
       setKeyboardHeight(adjusted);
-      // Wait until layout/animations settle, then ensure the focused input is visible.
-      InteractionManager.runAfterInteractions(() => {
-        requestAnimationFrame(() => {
-          scrollToFocusedInput(keyboardClearance);
-        });
-      });
-    };
-    const onHide = () => {
-      setKeyboardHeight(0);
+
+      if (adjusted > 0) {
+        // Defer the reveal until after the ScrollView padding + composer positioning
+        // updates have been committed to layout.
+        pendingRevealRef.current = true;
+      }
     };
 
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    // iOS: keyboard height can change without hide/show (QuickType bar, emoji keyboard,
+    // dictation, etc). Track frame changes so our padding/margins don’t go stale.
+    if (Platform.OS === 'ios') {
+      const showSub = Keyboard.addListener('keyboardWillShow', (e: any) => {
+        const next = e?.endCoordinates?.height ?? 0;
+        setTo(next);
+      });
+      const frameSub = Keyboard.addListener('keyboardWillChangeFrame', (e: any) => {
+        const next = e?.endCoordinates?.height ?? 0;
+        setTo(next);
+      });
+      const hideSub = Keyboard.addListener('keyboardWillHide', () => {
+        pendingRevealRef.current = false;
+        setTo(0);
+      });
+
+      return () => {
+        showSub.remove();
+        frameSub.remove();
+        hideSub.remove();
+        if (draftSaveTimeoutRef.current) {
+          clearTimeout(draftSaveTimeoutRef.current);
+        }
+      };
+    }
+
+    // Android: events arrive after animations; DidShow/DidHide is fine.
+    const showSub = Keyboard.addListener('keyboardDidShow', (e: any) => {
+      const next = e?.endCoordinates?.height ?? 0;
+      setTo(next);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      pendingRevealRef.current = false;
+      setTo(0);
+    });
 
     return () => {
       showSub.remove();
@@ -2122,7 +2391,27 @@ export const AiChatPane = forwardRef(function AiChatPane(
         clearTimeout(draftSaveTimeoutRef.current);
       }
     };
-  }, [insets.bottom, keyboardClearance, scrollToFocusedInput]);
+  }, [
+    alignFocusedInputToKeyboard,
+    hostBottomInsetAlreadyApplied,
+    insets.bottom,
+    keyboardClearance,
+  ]);
+
+  // Run the reveal after the keyboard-driven layout update has been applied.
+  // This avoids the “scroll to correct spot, then settle to a wrong spot” behavior
+  // that happens when we measure/scroll during the keyboard animation.
+  useLayoutEffect(() => {
+    if (keyboardHeight <= 0) return;
+    if (!pendingRevealRef.current) return;
+    pendingRevealRef.current = false;
+
+    // At this point our keyboard-driven padding + composer positioning has been
+    // applied; do a single measurement-based alignment pass.
+    requestAnimationFrame(() => {
+      alignFocusedInputToKeyboard(keyboardClearance);
+    });
+  }, [alignFocusedInputToKeyboard, keyboardClearance, keyboardHeight, resolvedPaddingBottom]);
 
   const workflowInfoTitle = modeLabel ?? workflowLabel ?? 'AI coach';
   const workflowInfoSubtitle =
@@ -2157,17 +2446,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
           <ScrollView
             ref={scrollRef}
             style={styles.scroll}
-            contentContainerStyle={[
-              styles.scrollContent,
-              // Provide additional scroll room when the keyboard is open so inline
-              // inputs (like FTUE free-response) can always scroll above it.
-              keyboardHeight > 0
-                ? { paddingBottom: spacing['2xl'] + keyboardHeight + keyboardClearance }
-                : null,
-            ]}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: resolvedPaddingBottom }]}
             showsVerticalScrollIndicator={false}
-            automaticallyAdjustKeyboardInsets
+            // AiChatScreen already manages keyboard-safe layout (keyboard height padding + scroll-to-focus).
+            // Leaving RN's automatic keyboard inset adjustment on can double-apply offsets,
+            // especially when hosted inside BottomDrawer or other transformed surfaces.
+            automaticallyAdjustKeyboardInsets={false}
             keyboardShouldPersistTaps="handled"
+            onScroll={(event) => {
+              scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
             onContentSizeChange={scrollToLatest}
           >
               <View style={styles.timeline}>
@@ -2622,7 +2911,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
                 {mode === 'goalCreation' && goalProposal && (
                   <View style={styles.goalDraftCard}>
-                    <Text style={styles.goalDraftLabel}>Proposed Goal</Text>
+                    <View style={styles.goalDraftLabelRow}>
+                      <Icon name="sparkles" size={14} color={CHAT_COLORS.textSecondary} />
+                      <Text style={styles.goalDraftLabel}>AI Goal Proposal</Text>
+                    </View>
                     <TextInput
                       style={styles.goalDraftTitleInput}
                       value={goalDraftTitle}
@@ -2638,9 +2930,28 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       placeholderTextColor={CHAT_COLORS.textSecondary}
                       multiline
                     />
-                    {goalProposal.timeHorizon ? (
-                      <Text style={styles.goalDraftMeta}>Time horizon: {goalProposal.timeHorizon}</Text>
-                    ) : null}
+                    {!focusedArcIdForGoal && arcs.length > 0 && (
+                      <View style={styles.goalDraftArcRow}>
+                        <Text style={styles.goalDraftArcLabel}>Attach to</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Choose Arc for this goal"
+                          style={styles.goalDraftArcPicker}
+                          onPress={() => {
+                            if (arcs.length <= 1) return;
+                            setIsGoalArcPickerVisible(true);
+                          }}
+                        >
+                          <Text style={styles.goalDraftArcValue} numberOfLines={1}>
+                            {selectedGoalArc?.name ??
+                              (arcs.length === 1 ? arcs[0]?.name : 'Choose an Arc')}
+                          </Text>
+                          {arcs.length > 1 && (
+                            <Icon name="chevronDown" size={16} color={CHAT_COLORS.textSecondary} />
+                          )}
+                        </Pressable>
+                      </View>
+                    )}
                     <View style={styles.goalDraftButtonsRow}>
                       <Button
                         variant="outline"
@@ -2660,10 +2971,15 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           if (!title) return;
                           const description = (goalDraftDescription || goalProposal.description || '').trim();
 
-                          const focusedArcId = extractFocusedArcIdFromLaunchContext(launchContext);
-                          const fallbackArcId = arcs.length > 0 ? arcs[arcs.length - 1]?.id : null;
-                          const arcId = focusedArcId ?? fallbackArcId;
+                          const arcId =
+                            focusedArcIdForGoal ??
+                            selectedGoalArcId ??
+                            (arcs.length === 1 ? arcs[0]?.id ?? null : null);
                           if (!arcId) {
+                            if (arcs.length > 1) {
+                              setIsGoalArcPickerVisible(true);
+                              return;
+                            }
                             Alert.alert(
                               'No Arc available',
                               'Create an Arc first so this goal has a home.'
@@ -2692,6 +3008,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           };
 
                           addGoal(goal);
+                          onGoalCreated?.(goal.id);
                           setGoalProposal(null);
 
                           if (workflowRuntime?.definition?.chatMode === 'goalCreation') {
@@ -2703,9 +3020,94 @@ export const AiChatPane = forwardRef(function AiChatPane(
                             });
                           }
                         }}
+                        disabled={shouldRequireGoalArcPick && !selectedGoalArcId}
                       >
                         <Text style={styles.goalDraftConfirmText}>Adopt Goal</Text>
                       </Button>
+                    </View>
+                  </View>
+                )}
+                {mode === 'goalCreation' && goalProposal && (
+                  <Dialog
+                    visible={isGoalArcPickerVisible}
+                    onClose={() => setIsGoalArcPickerVisible(false)}
+                    title="Attach goal to an Arc"
+                    description="Choose where this goal should live."
+                  >
+                    <VStack space="xs">
+                      {arcs.map((arc) => {
+                        const selected = arc.id === selectedGoalArcId;
+                        return (
+                          <Pressable
+                            key={arc.id}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Attach to ${arc.name}`}
+                            style={[
+                              styles.goalArcPickerOption,
+                              selected && styles.goalArcPickerOptionSelected,
+                            ]}
+                            onPress={() => {
+                              setSelectedGoalArcId(arc.id);
+                              setIsGoalArcPickerVisible(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.goalArcPickerOptionText,
+                                selected && styles.goalArcPickerOptionTextSelected,
+                              ]}
+                            >
+                              {arc.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </VStack>
+                  </Dialog>
+                )}
+                {mode === 'goalCreation' && goalProposal && (
+                  <View style={styles.goalTweakSection}>
+                    <Text style={styles.goalTweakPrompt}>Want to tweak it?</Text>
+                    <View style={styles.goalTweakCard}>
+                      <View style={styles.goalTweakChipsRow}>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.goalTweakChip}
+                          onPress={() => {
+                            commitGoalProposal(null);
+                            void sendMessageWithContent('Make it smaller and easier to start this week.');
+                          }}
+                          disabled={sending || thinking}
+                        >
+                          <Text style={styles.goalTweakChipText}>Make it smaller</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.goalTweakChip}
+                          onPress={() => {
+                            commitGoalProposal(null);
+                            void sendMessageWithContent(
+                              'Make it more specific and measurable without changing the core idea.'
+                            );
+                          }}
+                          disabled={sending || thinking}
+                        >
+                          <Text style={styles.goalTweakChipText}>More specific</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          style={styles.goalTweakChip}
+                          onPress={() => {
+                            commitGoalProposal(null);
+                            void sendMessageWithContent(
+                              'Add a realistic timeframe and a clear definition of done.'
+                            );
+                          }}
+                          disabled={sending || thinking}
+                        >
+                          <Text style={styles.goalTweakChipText}>Add timeframe</Text>
+                        </Pressable>
+                      </View>
                     </View>
                   </View>
                 )}
@@ -2757,7 +3159,20 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   </QuestionCard>
                 </View>
               )}
-              {stepCard && <View style={styles.stepCardHost}>{stepCard}</View>}
+              {stepCard ? (
+                <View
+                  style={[
+                    styles.stepCardHost,
+                    // Hard rule: step cards should not be visible until after any assistant
+                    // typing animation finishes. Important: keep them mounted so their
+                    // internal state/effects don't restart (which can cause streaming loops).
+                    isAssistantTyping ? styles.stepCardHostHiddenWhileTyping : null,
+                  ]}
+                  pointerEvents={isAssistantTyping ? 'none' : 'auto'}
+                >
+                  {stepCard}
+                </View>
+              ) : null}
             </View>
           </ScrollView>
 
@@ -2766,15 +3181,15 @@ export const AiChatPane = forwardRef(function AiChatPane(
               style={[
                 styles.composerFence,
                 {
-                  // Lift the composer fully above the keyboard on iOS. We still
-                  // keep a small baseline inset when the keyboard is hidden so
-                  // the composer clears the home indicator.
-                  marginBottom:
-                    keyboardHeight > 0
-                      ? keyboardHeight
-                      : spacing.sm,
+                  bottom: composerBottom,
                 },
               ]}
+              onLayout={(event) => {
+                const next = Math.round(event.nativeEvent.layout.height);
+                if (next > 0 && next !== composerHeight) {
+                  setComposerHeight(next);
+                }
+              }}
             >
               {shouldShowSuggestionsRail && (
                 <View style={styles.suggestionsFence}>
@@ -2798,98 +3213,94 @@ export const AiChatPane = forwardRef(function AiChatPane(
               )}
               <View style={styles.composerSection}>
                 <View style={styles.composerRow}>
-                  <Pressable
-                    style={[
-                      styles.inputShell,
-                      keyboardHeight > 0 && styles.inputShellRaised,
-                    ]}
-                    onPress={() => inputRef.current?.focus()}
-                  >
-                    <View style={styles.inputField}>
-                      <TextInput
-                        ref={inputRef}
-                        style={styles.input}
-                        placeholder="Ask, Search or Chat…"
-                        placeholderTextColor={colors.muted}
-                        value={input}
-                        onChangeText={setInput}
-                        multiline
-                        textAlignVertical="top"
-                        returnKeyType="send"
-                        onSubmitEditing={handleSend}
-                      />
-                    </View>
-                    <View style={styles.inputFooterRow}>
-                      <TouchableOpacity
-                        style={styles.composerSecondaryButton}
-                        onPress={() => setIsUploadComingSoonVisible(true)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Upload files (coming soon)"
-                        activeOpacity={0.85}
-                      >
-                        <Icon name="plus" color={CHAT_COLORS.textSecondary} size={16} />
-                      </TouchableOpacity>
-                      {hasInput ? (
+                  <View style={styles.inputShellShadow}>
+                    <Pressable style={styles.inputShell} onPress={() => inputRef.current?.focus()}>
+                      <View style={styles.inputTopRow}>
+                        <View style={styles.inputField}>
+                          <TextInput
+                            ref={inputRef}
+                            style={styles.input}
+                            placeholder={composerPlaceholder}
+                            placeholderTextColor={colors.muted}
+                            value={input}
+                            onChangeText={setInput}
+                            multiline
+                            textAlignVertical="top"
+                            returnKeyType="send"
+                            onSubmitEditing={handleSend}
+                          />
+                        </View>
                         <TouchableOpacity
-                          style={[
-                            styles.sendButton,
-                            (sending || !canSend) && styles.sendButtonInactive,
-                          ]}
-                          onPress={handleSend}
+                          style={styles.expandButton}
+                          onPress={openExpandedComposer}
                           accessibilityRole="button"
-                          accessibilityLabel="Send message"
-                          disabled={sending || !canSend}
+                          accessibilityLabel="Expand composer"
                           activeOpacity={0.85}
                         >
-                          {sending ? (
-                            <ActivityIndicator color={colors.canvas} />
-                          ) : (
-                            <Icon name="arrowUp" color={colors.canvas} size={16} />
-                          )}
+                          <Icon name="expand" color={CHAT_COLORS.textSecondary} size={16} />
                         </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity
-                          style={[
-                            styles.voiceButton,
-                            isDictationActive && styles.voiceButtonActive,
-                          ]}
-                          onPress={handleStartDictation}
-                          accessibilityLabel={voiceButtonLabel}
-                          accessibilityHint="Uses on-device transcription to capture your voice"
-                          accessibilityState={{ busy: isDictationActive }}
-                          disabled={isDictationBusy}
-                          activeOpacity={0.85}
-                        >
-                          {isDictationBusy ? (
-                            <ActivityIndicator color={voiceButtonIconColor} size="small" />
-                          ) : (
-                            <Icon name="mic" color={voiceButtonIconColor} size={16} />
-                          )}
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    {shouldShowDictationStatus && (
-                      <View style={styles.dictationStatusRow}>
-                        <View
-                          style={[
-                            styles.dictationStatusDot,
-                            dictationError
-                              ? styles.dictationStatusDotError
-                              : styles.dictationStatusDotActive,
-                          ]}
-                        />
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.dictationStatusLabel,
-                            dictationError && styles.dictationStatusLabelError,
-                          ]}
-                        >
-                          {dictationStatusMessage}
-                        </Text>
                       </View>
-                    )}
-                  </Pressable>
+
+                      <View style={styles.inputFooterRow}>
+                        {hasInput ? (
+                          <TouchableOpacity
+                            style={[
+                              styles.sendButton,
+                              (sending || !canSend) && styles.sendButtonInactive,
+                            ]}
+                            onPress={handleSend}
+                            accessibilityRole="button"
+                            accessibilityLabel="Send message"
+                            disabled={sending || !canSend}
+                            activeOpacity={0.85}
+                          >
+                            {sending ? (
+                              <ActivityIndicator color={colors.canvas} />
+                            ) : (
+                              <Icon name="arrowUp" color={colors.canvas} size={16} />
+                            )}
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={[styles.voiceButton, isDictationActive && styles.voiceButtonActive]}
+                            onPress={handleStartDictation}
+                            accessibilityLabel={voiceButtonLabel}
+                            accessibilityHint="Uses on-device transcription to capture your voice"
+                            accessibilityState={{ busy: isDictationActive }}
+                            disabled={isDictationBusy}
+                            activeOpacity={0.85}
+                          >
+                            {isDictationBusy ? (
+                              <ActivityIndicator color={voiceButtonIconColor} size="small" />
+                            ) : (
+                              <Icon name="mic" color={voiceButtonIconColor} size={16} />
+                            )}
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {shouldShowDictationStatus && (
+                        <View style={styles.dictationStatusRow}>
+                          <View
+                            style={[
+                              styles.dictationStatusDot,
+                              dictationError
+                                ? styles.dictationStatusDotError
+                                : styles.dictationStatusDotActive,
+                            ]}
+                          />
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.dictationStatusLabel,
+                              dictationError && styles.dictationStatusLabelError,
+                            ]}
+                          >
+                            {dictationStatusMessage}
+                          </Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             </View>
@@ -3009,17 +3420,53 @@ export const AiChatPane = forwardRef(function AiChatPane(
         </Modal>
       )}
 
-      <Dialog
-        visible={isUploadComingSoonVisible}
-        onClose={() => setIsUploadComingSoonVisible(false)}
-        title="File uploads coming soon"
-        description="Soon you’ll be able to attach files here so the agent can use them as context while it thinks and drafts with you."
-      >
-        <Text style={styles.feedbackBody}>
-          For now, you can paste key excerpts or notes directly into the composer and the agent will
-          treat them as part of the conversation.
-        </Text>
-      </Dialog>
+      <Modal visible={isComposerExpanded} animationType="slide" onRequestClose={closeExpandedComposer}>
+        <EditorSurface
+          header={
+            <EditorHeader
+              left={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onPress={closeExpandedComposer}
+                  accessibilityLabel="Close expanded composer"
+                >
+                  <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
+                </Button>
+              }
+              center={<Text style={styles.expandedHeaderTitle}>Message</Text>}
+              right={
+                <Button
+                  variant="ghost"
+                  onPress={handleSend}
+                  accessibilityLabel="Send message"
+                  disabled={sending || !canSend}
+                >
+                  <Text style={styles.expandedHeaderAction}>Send</Text>
+                </Button>
+              }
+            />
+          }
+          bodyTopPadding={spacing.lg}
+          bodyBottomPadding={spacing.lg}
+        >
+          <View style={styles.expandedBody}>
+            <TextInput
+              ref={expandedInputRef}
+              style={styles.expandedInput}
+              placeholder={composerPlaceholder}
+              placeholderTextColor={colors.muted}
+              value={input}
+              onChangeText={setInput}
+              multiline
+              textAlignVertical="top"
+              autoFocus
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
+            />
+          </View>
+        </EditorSurface>
+      </Modal>
 
   </>
   );
@@ -3165,6 +3612,7 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     backgroundColor: colors.shell,
+    position: 'relative',
   },
   scroll: {
     flex: 1,
@@ -3175,10 +3623,12 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   composerFence: {
-    marginTop: 'auto',
+    position: 'absolute',
+    left: 0,
+    right: 0,
   },
   timeline: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
@@ -3444,8 +3894,12 @@ const styles = StyleSheet.create({
     // Let workflow cards (like onboarding identity) sit directly in the chat
     // canvas without being clipped. We keep only a top margin so horizontal
     // shadows can render fully to the sheet gutters.
-    marginTop: spacing.lg,
     alignSelf: 'stretch',
+  },
+  stepCardHostHiddenWhileTyping: {
+    opacity: 0,
+    height: 0,
+    overflow: 'hidden',
   },
   composerSection: {
     gap: spacing.sm,
@@ -3459,6 +3913,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: spacing.md,
   },
+  inputShellShadow: {
+    flex: 1,
+    borderRadius: 18,
+    backgroundColor: CHAT_COLORS.surface,
+    ...cardElevation.composer,
+  },
   inputShell: {
     flex: 1,
     flexDirection: 'column',
@@ -3466,24 +3926,21 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     // ShadCN textarea–like: rectangular surface with gentle radius.
     backgroundColor: CHAT_COLORS.surface,
-    borderRadius: spacing.xl,
+    borderRadius: 18,
     paddingHorizontal: spacing.md,
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
     overflow: 'hidden',
   },
-  inputShellRaised: {
-    // When the keyboard is visible we tuck the composer closer to it and
-    // reduce the exaggerated bottom radius so it visually docks to the top
-    // of the keyboard, similar to ChatGPT.
-    borderRadius: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.sm,
+  inputTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   inputField: {
     justifyContent: 'flex-start',
+    flex: 1,
   },
   input: {
     // Slightly larger text than the rest of the chat body so
@@ -3502,8 +3959,9 @@ const styles = StyleSheet.create({
   inputFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginTop: spacing.sm,
+    gap: spacing.sm,
   },
   trailingIcon: {
     paddingHorizontal: spacing.sm,
@@ -3511,7 +3969,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  composerSecondaryButton: {
+  expandButton: {
     width: 28,
     height: 28,
     borderRadius: 999,
@@ -3520,6 +3978,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: CHAT_COLORS.surface,
+    marginTop: 2,
   },
   sendButton: {
     backgroundColor: '#18181B',
@@ -3567,6 +4026,27 @@ const styles = StyleSheet.create({
   },
   dictationStatusLabelError: {
     color: '#F87171',
+  },
+  expandedHeaderTitle: {
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  expandedHeaderAction: {
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  expandedBody: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+  },
+  expandedInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    lineHeight: typography.body.lineHeight,
+    textAlignVertical: 'top',
   },
   sendButtonInactive: {
     opacity: 0.4,
@@ -3726,7 +4206,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.sm,
-    marginTop: spacing.lg,
   },
   ageQuestionTitle: {
     ...typography.body,
@@ -3754,7 +4233,6 @@ const styles = StyleSheet.create({
     color: CHAT_COLORS.textPrimary,
   },
   arcDraftCard: {
-    marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: 16,
@@ -3800,7 +4278,6 @@ const styles = StyleSheet.create({
     color: CHAT_COLORS.userBubbleText,
   },
   goalDraftCard: {
-    marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: 16,
@@ -3809,9 +4286,64 @@ const styles = StyleSheet.create({
     borderColor: CHAT_COLORS.border,
     gap: spacing.sm,
   },
+  goalDraftArcRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  goalDraftArcLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  goalDraftArcPicker: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+  },
+  goalDraftArcValue: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+    textAlign: 'right',
+    flexShrink: 1,
+  },
+  goalArcPickerOption: {
+    width: '100%',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.assistantBubble,
+  },
+  goalArcPickerOptionSelected: {
+    borderColor: CHAT_COLORS.accent,
+  },
+  goalArcPickerOptionText: {
+    ...typography.body,
+    color: CHAT_COLORS.textPrimary,
+  },
+  goalArcPickerOptionTextSelected: {
+    color: CHAT_COLORS.accent,
+  },
   goalDraftLabel: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  goalDraftLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
   },
   goalDraftTitleInput: {
     ...typography.titleSm,
@@ -3825,15 +4357,44 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: typography.bodySm.lineHeight * 2,
   },
-  goalDraftMeta: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textSecondary,
-  },
   goalDraftButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: spacing.sm,
     marginTop: spacing.sm,
+  },
+  goalTweakSection: {
+  },
+  goalTweakPrompt: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  goalTweakCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  goalTweakChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  goalTweakChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHAT_COLORS.border,
+    backgroundColor: CHAT_COLORS.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    minHeight: 0,
+  },
+  goalTweakChipText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
   },
   goalDraftSecondaryButtonText: {
     ...typography.bodySm,
