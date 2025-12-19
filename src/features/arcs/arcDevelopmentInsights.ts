@@ -46,21 +46,23 @@ const scoreTemplateMatch = (arc: Arc, template: IdealArcTemplate): number => {
 
 const findBestMatchingTemplate = (arc: Arc): IdealArcTemplate | undefined => {
   const templates = listIdealArcTemplates();
-  let best: { template: IdealArcTemplate; score: number } | null = null;
+  let bestTemplate: IdealArcTemplate | undefined;
+  let bestScore = 0;
 
-  templates.forEach((template) => {
+  for (const template of templates) {
     const score = scoreTemplateMatch(arc, template);
-    if (!best || score > best.score) {
-      best = { template, score };
+    if (!bestTemplate || score > bestScore) {
+      bestTemplate = template;
+      bestScore = score;
     }
-  });
+  }
 
   // Require at least a minimal overlap to avoid forcing a weak match.
-  if (!best || best.score <= 0) {
+  if (!bestTemplate || bestScore <= 0) {
     return undefined;
   }
 
-  return best.template;
+  return bestTemplate;
 };
 
 const parseInsightsFromReply = (reply: string): ArcDevelopmentInsights | null => {

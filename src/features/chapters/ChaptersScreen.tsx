@@ -29,7 +29,7 @@ export function ChaptersScreen() {
           primaryAction={{
             label: 'Go to Activities',
             variant: 'accent',
-            onPress: () => navigation.navigate('ActivitiesList'),
+            onPress: () => navigation.navigate('Activities', { screen: 'ActivitiesList' }),
             accessibilityLabel: 'Go to the Activities list',
           }}
           style={styles.emptyState}

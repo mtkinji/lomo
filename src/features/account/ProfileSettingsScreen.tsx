@@ -105,7 +105,7 @@ export function ProfileSettingsScreen() {
               placeholder="Add your name"
               value={fullName}
               onChangeText={setFullName}
-              onBlur={commitProfile}
+              onBlur={() => commitProfile()}
               autoCapitalize="words"
               variant="outline"
             />
@@ -125,7 +125,7 @@ export function ProfileSettingsScreen() {
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
-              onBlur={commitProfile}
+              onBlur={() => commitProfile()}
               variant="outline"
             />
           </View>

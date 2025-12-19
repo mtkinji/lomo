@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { Image, StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  View,
+  type ImageSourcePropType,
+  type ImageStyle,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Button } from './Button';
 import { HStack, VStack } from './Stack';
@@ -37,7 +45,7 @@ export type EmptyStateProps = {
   secondaryAction?: Omit<React.ComponentProps<typeof Button>, 'children'> & { label: ReactNode };
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
-  imageStyle?: StyleProp<ViewStyle>;
+  imageStyle?: StyleProp<ImageStyle>;
 };
 
 const DEFAULT_ILLUSTRATION = require('../../assets/illustrations/empty.png');

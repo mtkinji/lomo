@@ -44,7 +44,7 @@ export function AgentFab({
           >
             <View style={styles.logoStack}>
               {/* Pine green logo mark in a lighter tone so it sits inside the FAB */}
-              <Logo size={32} color={colors.primaryForeground} />
+              <Logo size={32} variant="white" />
             </View>
           </LinearGradient>
         </View>

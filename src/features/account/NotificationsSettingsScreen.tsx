@@ -466,6 +466,20 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.muted,
   },
+  timeLabel: {
+    ...typography.bodySm,
+    color: colors.accent,
+    marginTop: spacing.xs,
+  },
+  timePickerContainer: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
   toggle: {
     width: 42,
     height: 24,

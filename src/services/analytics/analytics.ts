@@ -8,6 +8,8 @@ export type AnalyticsProps = Record<
   string | number | boolean | null | undefined
 >;
 
+type PosthogProps = Record<string, string | number | boolean | null>;
+
 const REDACT_KEYS = new Set([
   'prompt',
   'message',
@@ -23,9 +25,9 @@ const REDACT_KEYS = new Set([
   'fullName',
 ]);
 
-function sanitizeProps(props: AnalyticsProps | undefined): AnalyticsProps | undefined {
+function sanitizeProps(props: AnalyticsProps | undefined): PosthogProps | undefined {
   if (!props) return undefined;
-  const next: AnalyticsProps = {};
+  const next: PosthogProps = {};
 
   for (const [key, value] of Object.entries(props)) {
     if (!key) continue;
@@ -53,7 +55,7 @@ export function track(
   if (!posthog) return;
 
   const environment = getEnvVar<string>('environment');
-  const baseProps: AnalyticsProps = {
+  const baseProps: PosthogProps = {
     app_env: environment ?? 'unknown',
     platform: Platform.OS,
   };

@@ -51,9 +51,7 @@ export function SvgFromAsset({
         let text: string | null = null;
         try {
           if (asset.localUri) {
-            text = await FileSystem.readAsStringAsync(asset.localUri, {
-              encoding: FileSystem.EncodingType.UTF8,
-            });
+            text = await FileSystem.readAsStringAsync(asset.localUri);
           }
         } catch {
           text = null;
