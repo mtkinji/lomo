@@ -833,7 +833,15 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   };
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['100%']}
+      // AgentWorkspace/AiChatScreen implements its own keyboard strategy (padding + scroll-to-focus).
+      // Leaving BottomDrawer's KeyboardAvoidingView on causes double-adjustment where the
+      // step-card input can be pushed off-screen when the keyboard opens.
+      keyboardAvoidanceEnabled={false}
+    >
       <View style={styles.drawerKeyboardContainer}>
         <AgentModeHeader
           activeMode={activeTab}
@@ -863,6 +871,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
             resumeDraft={false}
             hideBrandHeader
             hidePromptSuggestions
+            hostBottomInsetAlreadyApplied
             onConfirmArc={(proposal) => {
               const timestamp = new Date().toISOString();
               const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

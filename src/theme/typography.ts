@@ -5,8 +5,8 @@ export const fonts = {
   bold: 'Inter_700Bold',
   extrabold: 'Inter_800ExtraBold',
   black: 'Inter_900Black',
-  logo: 'Sriracha_400Regular',
-  sriracha: 'Sriracha_400Regular',
+  // Brand wordmark font (loaded in App.tsx).
+  logo: 'Urbanist_900Black',
 };
 
 export const typography = {

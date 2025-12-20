@@ -76,6 +76,12 @@ export type AgentWorkspaceProps = {
    */
   hidePromptSuggestions?: boolean;
   /**
+   * When true, the host surface already includes bottom safe-area padding
+   * (e.g. BottomDrawer sheet padding). This is forwarded to AiChatPane so
+   * its keyboard inset math doesn’t double-count `insets.bottom`.
+   */
+  hostBottomInsetAlreadyApplied?: boolean;
+  /**
    * Optional hook fired when the underlying chat transport fails. Hosts can
    * use this to surface manual fallbacks.
    */
@@ -91,6 +97,12 @@ export type AgentWorkspaceProps = {
    * activity suggestion card in activityCreation mode.
    */
   onAdoptActivitySuggestion?: (suggestion: ActivitySuggestion) => void;
+
+  /**
+   * Optional hook fired when the user adopts a Goal proposal inside goalCreation mode.
+   * Hosts can use this to close the sheet or navigate to the new Goal canvas.
+   */
+  onGoalCreated?: (goalId: string) => void;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -163,6 +175,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     onComplete,
     hideBrandHeader,
     hidePromptSuggestions,
+    onGoalCreated,
+    hostBottomInsetAlreadyApplied,
   } = props;
 
   const chatPaneRef = useRef<AiChatPaneController | null>(null);
@@ -183,6 +197,15 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     // For now, workflowDefinitionId should match a ChatMode.
     return (WORKFLOW_REGISTRY as Record<string, WorkflowDefinition>)[workflowDefinitionId];
   }, [workflowDefinitionId]);
+
+  // If a host only provides `workflowDefinitionId` (common for embedded flows),
+  // default the UI mode to the workflow's declared chatMode so:
+  // - the correct mode system prompt is injected
+  // - structured proposal cards (Goal/Arc/etc.) render and parse correctly
+  const effectiveMode: ChatMode | undefined = useMemo(() => {
+    if (mode) return mode;
+    return workflowDefinition?.chatMode;
+  }, [mode, workflowDefinition]);
 
   const [workflowInstance, setWorkflowInstance] = useState<WorkflowInstance | null>(() => {
     if (!workflowDefinition) {
@@ -339,7 +362,16 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       }
 
       try {
-        const reply = await sendCoachChat(history, coachOptions);
+        const stepGuidanceTurns: CoachChatTurn[] = [];
+        if (step?.promptTemplate) {
+          const validationHint = step.validationHint ? `\n\nValidation hint:\n${step.validationHint}` : '';
+          stepGuidanceTurns.push({
+            role: 'system',
+            content: `Workflow step instruction (${workflowDefinition.chatMode}:${stepId}):\n${step.promptTemplate}${validationHint}`.trim(),
+          });
+        }
+
+        const reply = await sendCoachChat([...history, ...stepGuidanceTurns], coachOptions);
         controller.streamAssistantReplyFromWorkflow(reply, 'assistant-workflow');
       } catch (error) {
         if (__DEV__) {
@@ -440,9 +472,6 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     }
 
     if (workflowDefinition.chatMode === 'goalCreation') {
-      // Goal creation uses a lightweight, tap-first presenter for the initial
-      // context step, then hands off to the shared chat surface for the rest
-      // of the workflow.
       return (
         <GoalCreationFlow
           chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
@@ -525,12 +554,14 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           should exist elsewhere in the app. */}
       <AiChatPane
         ref={chatPaneRef}
-        mode={mode}
+        mode={effectiveMode}
         launchContext={launchContextText}
         resumeDraft={resumeDraft}
         hideBrandHeader={hideBrandHeader}
         hidePromptSuggestions={hidePromptSuggestions}
+        hostBottomInsetAlreadyApplied={hostBottomInsetAlreadyApplied}
         onConfirmArc={onConfirmArc}
+        onGoalCreated={onGoalCreated}
         onComplete={onComplete}
         stepCard={workflowStepCard}
         onTransportError={props.onTransportError}

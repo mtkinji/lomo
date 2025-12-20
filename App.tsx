@@ -14,8 +14,7 @@ import {
   Inter_800ExtraBold,
   Inter_900Black,
 } from '@expo-google-fonts/inter';
-import { Poppins_700Bold } from '@expo-google-fonts/poppins';
-import { Sriracha_400Regular } from '@expo-google-fonts/sriracha';
+import { Urbanist_900Black } from '@expo-google-fonts/urbanist';
 import { PostHogProvider } from 'posthog-react-native';
 import { RootNavigator, RootNavigatorWithPostHog } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
@@ -25,7 +24,7 @@ import { NotificationService } from './src/services/NotificationService';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
-import { isPosthogEnabled } from './src/services/analytics/posthog';
+import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
 
 export default function App() {
@@ -36,8 +35,7 @@ export default function App() {
     Inter_700Bold,
     Inter_800ExtraBold,
     Inter_900Black,
-    Poppins_700Bold,
-    Sriracha_400Regular,
+    Urbanist_900Black,
   });
 
   const arcsCount = useAppStore((state) => state.arcs.length);
@@ -90,7 +88,7 @@ export default function App() {
         <SafeAreaProvider>
           <BottomSheetModalProvider>
             <StatusBar style="dark" backgroundColor={colors.pine400} />
-            {/* Preload the kwilt logo asset without impacting layout to avoid
+            {/* Preload the Kwilt logo asset without impacting layout to avoid
                 a visible "hairline" at the top of launch surfaces. */}
             <Logo size={1} style={styles.logoPreload} />
             <LaunchScreen onAnimationComplete={handleLaunchScreenComplete} />
@@ -106,7 +104,7 @@ export default function App() {
       <SafeAreaProvider>
         <BottomSheetModalProvider>
           <StatusBar style="dark" />
-          {/* Preload the kwilt logo asset as early as possible so coach headers
+          {/* Preload the Kwilt logo asset as early as possible so coach headers
               can render the mark without a visible pop-in the first time the
               Agent workspace opens. */}
           <Logo size={1} style={styles.logoPreload} />
@@ -117,7 +115,9 @@ export default function App() {
                 // React Navigation v7+ requires manual screen capture.
                 captureScreens: false,
               }}
-              debug={__DEV__}
+              // Default to quiet analytics in dev/offline environments; enable explicitly
+              // via `extra.posthogDebug` when needed.
+              debug={__DEV__ && isPosthogDebugEnabled}
             >
               <RootNavigatorWithPostHog />
               <FirstTimeUxFlow />

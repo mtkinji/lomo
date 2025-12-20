@@ -2,7 +2,7 @@ import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Activity } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
-import { rootNavigationRef } from '../navigation/RootNavigator';
+import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { posthogClient } from './analytics/posthogClient';
 import { track } from './analytics/analytics';
 import { AnalyticsEvent } from './analytics/events';
@@ -21,7 +21,7 @@ type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted
 
 type NotificationType = 'activityReminder' | 'dailyShowUp' | 'dailyFocus' | 'streak' | 'reactivation';
 
-type ActivitySnapshot = Pick<Activity, 'id' | 'reminderAt' | 'status'>;
+type ActivitySnapshot = Pick<Activity, 'id' | 'reminderAt' | 'status' | 'repeatRule' | 'repeatCustom'>;
 
 type NotificationPreferences = ReturnType<typeof useAppStore.getState>['notificationPreferences'];
 
@@ -130,17 +130,216 @@ function shouldScheduleNotificationsForActivity(
   if (!activity.reminderAt) {
     return false;
   }
-  // Only schedule for future times.
-  const when = new Date(activity.reminderAt);
-  if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) {
-    return false;
-  }
   // Skip completed activities.
   if (activity.status === 'done') {
     return false;
   }
+  const when = new Date(activity.reminderAt);
+  if (Number.isNaN(when.getTime())) {
+    return false;
+  }
+  // For one-shot reminders, only schedule future times.
+  // For repeating reminders, we schedule based on the local time-of-day/cadence.
+  const isRepeating =
+    Boolean(activity.repeatRule) &&
+    (activity.repeatRule === 'custom' ? Boolean(activity.repeatCustom) : true);
+  if (!isRepeating && when.getTime() <= Date.now()) {
+    return false;
+  }
   return true;
 }
+
+function startOfWeekLocal(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay(); // 0..6 (Sun..Sat)
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - day);
+  return d;
+}
+
+function buildUpcomingCustomWeeklyDates(params: {
+  anchor: Date;
+  hour: number;
+  minute: number;
+  intervalWeeks: number;
+  weekdays: number[];
+  maxOccurrences: number;
+}): Date[] {
+  const { anchor, hour, minute, intervalWeeks, weekdays, maxOccurrences } = params;
+
+  const pickedDays =
+    weekdays.length > 0
+      ? Array.from(new Set(weekdays))
+          .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
+          .sort((a, b) => a - b)
+      : [anchor.getDay()];
+
+  const now = new Date();
+  const results: Date[] = [];
+  const baseWeekStart = startOfWeekLocal(anchor);
+  const stepWeeks = Math.max(1, Math.round(intervalWeeks));
+
+  for (let w = 0; results.length < maxOccurrences && w < 52; w += stepWeeks) {
+    const weekStart = new Date(baseWeekStart);
+    weekStart.setDate(weekStart.getDate() + w * 7);
+    pickedDays.forEach((day) => {
+      if (results.length >= maxOccurrences) return;
+      const dt = new Date(weekStart);
+      dt.setDate(dt.getDate() + day);
+      dt.setHours(hour, minute, 0, 0);
+      if (dt.getTime() > now.getTime() + 60_000) {
+        results.push(dt);
+      }
+    });
+  }
+
+  results.sort((a, b) => a.getTime() - b.getTime());
+  return results.slice(0, maxOccurrences);
+}
+
+function buildUpcomingEveryNDays(params: {
+  anchor: Date;
+  hour: number;
+  minute: number;
+  intervalDays: number;
+  maxOccurrences: number;
+}): Date[] {
+  const { anchor, hour, minute, intervalDays, maxOccurrences } = params;
+  const step = Math.max(1, Math.round(intervalDays));
+  const now = new Date();
+  const out: Date[] = [];
+  let next = new Date(anchor);
+  next.setHours(hour, minute, 0, 0);
+  while (next.getTime() <= now.getTime() + 60_000) {
+    next.setDate(next.getDate() + step);
+  }
+  for (let i = 0; i < maxOccurrences; i += 1) {
+    out.push(new Date(next));
+    next.setDate(next.getDate() + step);
+  }
+  return out;
+}
+
+function daysInMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function addMonthsClamped(date: Date, months: number, desiredDay: number): Date {
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const targetMonthIndex = m + months;
+  const target = new Date(y, targetMonthIndex, 1, d.getHours(), d.getMinutes(), 0, 0);
+  const dim = daysInMonth(target.getFullYear(), target.getMonth());
+  target.setDate(Math.min(Math.max(1, desiredDay), dim));
+  return target;
+}
+
+function buildUpcomingEveryNMonths(params: {
+  anchor: Date;
+  hour: number;
+  minute: number;
+  intervalMonths: number;
+  maxOccurrences: number;
+}): Date[] {
+  const { anchor, hour, minute, intervalMonths, maxOccurrences } = params;
+  const step = Math.max(1, Math.round(intervalMonths));
+  const now = new Date();
+  const out: Date[] = [];
+  const desiredDay = anchor.getDate();
+  let next = new Date(anchor);
+  next.setHours(hour, minute, 0, 0);
+  while (next.getTime() <= now.getTime() + 60_000) {
+    next = addMonthsClamped(next, step, desiredDay);
+  }
+  for (let i = 0; i < maxOccurrences; i += 1) {
+    out.push(new Date(next));
+    next = addMonthsClamped(next, step, desiredDay);
+  }
+  return out;
+}
+
+function buildUpcomingEveryNYears(params: {
+  anchor: Date;
+  hour: number;
+  minute: number;
+  intervalYears: number;
+  maxOccurrences: number;
+}): Date[] {
+  const { anchor, hour, minute, intervalYears, maxOccurrences } = params;
+  const step = Math.max(1, Math.round(intervalYears));
+  const now = new Date();
+  const out: Date[] = [];
+  const desiredDay = anchor.getDate();
+  const desiredMonth = anchor.getMonth(); // 0..11
+  let year = anchor.getFullYear();
+  let next = new Date(year, desiredMonth, 1, hour, minute, 0, 0);
+  next.setDate(Math.min(desiredDay, daysInMonth(next.getFullYear(), next.getMonth())));
+  while (next.getTime() <= now.getTime() + 60_000) {
+    year += step;
+    next = new Date(year, desiredMonth, 1, hour, minute, 0, 0);
+    next.setDate(Math.min(desiredDay, daysInMonth(next.getFullYear(), next.getMonth())));
+  }
+  for (let i = 0; i < maxOccurrences; i += 1) {
+    out.push(new Date(next));
+    year += step;
+    next = new Date(year, desiredMonth, 1, hour, minute, 0, 0);
+    next.setDate(Math.min(desiredDay, daysInMonth(next.getFullYear(), next.getMonth())));
+  }
+  return out;
+}
+
+function jsDayToExpoWeekday(jsDay: number): number {
+  // JS: 0=Sun..6=Sat. Expo calendar trigger: 1=Sun..7=Sat.
+  if (!Number.isFinite(jsDay)) return 1;
+  return jsDay === 0 ? 1 : jsDay + 1;
+}
+
+async function cancelAllScheduledActivityReminders(activityId: string, reason: 'reschedule' | 'explicit_cancel') {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(
+        data &&
+          data.type === 'activityReminder' &&
+          'activityId' in data &&
+          (data as { activityId?: string }).activityId === activityId,
+      );
+    });
+    if (matches.length === 0) {
+      activityNotificationIds.delete(activityId);
+      return;
+    }
+
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+    activityNotificationIds.delete(activityId);
+
+    // Ledger is best-effort: it currently models one-shot schedules, but cancelling here is still useful.
+    await markActivityReminderCancelled(activityId, new Date().toISOString());
+
+    // Analytics: emit one cancellation event per identifier so we can debug scheduling churn.
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'activityReminder',
+        notification_id: req.identifier,
+        activity_id: activityId,
+        reason,
+      });
+    });
+    } catch (error) {
+      if (__DEV__) {
+      console.warn('[notifications] failed to cancel activity reminders', {
+        activityId,
+          error,
+        });
+      }
+    }
+  }
 
 async function scheduleActivityReminderInternal(activity: ActivitySnapshot, prefs: NotificationPreferences) {
   if (!shouldScheduleNotificationsForActivity(activity, prefs)) {
@@ -149,38 +348,160 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshot, pref
 
   const when = new Date(activity.reminderAt!);
 
-  // Cancel any existing scheduled notification for this activity first.
-  const existingId = activityNotificationIds.get(activity.id);
-  if (existingId) {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(existingId);
-      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
-        notification_type: 'activityReminder',
-        notification_id: existingId,
-        activity_id: activity.id,
-        reason: 'reschedule',
-      });
-      await markActivityReminderCancelled(activity.id, new Date().toISOString());
-    } catch (error) {
-      if (__DEV__) {
-        console.warn('[notifications] failed to cancel previous activity notification', {
-          activityId: activity.id,
-          error,
-        });
-      }
-    }
-  }
+  // Cancel any existing scheduled notification(s) for this activity first.
+  await cancelAllScheduledActivityReminders(activity.id, 'reschedule');
 
   try {
-    const identifier = await Notifications.scheduleNotificationAsync({
-      content: {
+    const repeatRule = activity.repeatRule ?? null;
+    const customCadence = repeatRule === 'custom' && activity.repeatCustom ? activity.repeatCustom.cadence : null;
+    const isRepeating = Boolean(repeatRule) && repeatRule !== 'custom';
+
+    const content: Notifications.NotificationContentInput = {
         title: 'Activity reminder',
         body: 'Take a tiny step on this activity.',
         data: {
           type: 'activityReminder',
           activityId: activity.id,
         } satisfies NotificationData,
-      },
+    };
+
+    if (customCadence) {
+      const cfg = activity.repeatCustom!;
+      const hour = when.getHours();
+      const minute = when.getMinutes();
+      const dates =
+        cfg.cadence === 'weeks'
+          ? buildUpcomingCustomWeeklyDates({
+              anchor: when,
+              hour,
+              minute,
+              intervalWeeks: cfg.interval ?? 1,
+              weekdays: Array.isArray(cfg.weekdays) ? cfg.weekdays : [],
+              maxOccurrences: 24,
+            })
+          : cfg.cadence === 'days'
+            ? buildUpcomingEveryNDays({
+                anchor: when,
+                hour,
+                minute,
+                intervalDays: cfg.interval ?? 1,
+                maxOccurrences: 24,
+              })
+            : cfg.cadence === 'months'
+              ? buildUpcomingEveryNMonths({
+                  anchor: when,
+                  hour,
+                  minute,
+                  intervalMonths: cfg.interval ?? 1,
+                  maxOccurrences: 24,
+                })
+              : buildUpcomingEveryNYears({
+                  anchor: when,
+                  hour,
+                  minute,
+                  intervalYears: cfg.interval ?? 1,
+                  maxOccurrences: 24,
+                });
+      const identifiers: string[] = [];
+      for (const date of dates) {
+        const identifier = await Notifications.scheduleNotificationAsync({
+          content,
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
+        });
+        identifiers.push(identifier);
+        track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+          notification_type: 'activityReminder',
+          notification_id: identifier,
+          activity_id: activity.id,
+          scheduled_for: date.toISOString(),
+        });
+      }
+      if (identifiers.length > 0) {
+        activityNotificationIds.set(activity.id, identifiers[0]!);
+      }
+      return;
+    }
+
+    // For repeating triggers, schedule based on the reminder's local time-of-day.
+    if (isRepeating) {
+      const hour = when.getHours();
+      const minute = when.getMinutes();
+
+      const scheduleOne = async (trigger: Notifications.SchedulableTriggerInput) => {
+        const identifier = await Notifications.scheduleNotificationAsync({
+          content,
+          trigger,
+        });
+        track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+          notification_type: 'activityReminder',
+          notification_id: identifier,
+          activity_id: activity.id,
+          scheduled_for: activity.reminderAt ?? null,
+        });
+        return identifier;
+      };
+
+      const weekday = jsDayToExpoWeekday(when.getDay());
+      const dayOfMonth = when.getDate();
+      const month = when.getMonth() + 1;
+
+      const baseCalendar = {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        hour,
+        minute,
+        repeats: true,
+      } as const;
+
+      const identifiers: string[] = [];
+      switch (repeatRule) {
+        case 'daily': {
+          identifiers.push(await scheduleOne(baseCalendar));
+          break;
+        }
+        case 'weekly': {
+          identifiers.push(await scheduleOne({ ...baseCalendar, weekday } as const));
+          break;
+        }
+        case 'weekdays': {
+          // Schedule Monday–Friday (Expo weekday: 2=Mon ... 6=Fri).
+          for (const wd of [2, 3, 4, 5, 6]) {
+            identifiers.push(await scheduleOne({ ...baseCalendar, weekday: wd } as const));
+          }
+          break;
+        }
+        case 'monthly': {
+          identifiers.push(await scheduleOne({ ...baseCalendar, day: dayOfMonth } as const));
+          break;
+        }
+        case 'yearly': {
+          identifiers.push(
+            await scheduleOne({ ...baseCalendar, month, day: dayOfMonth } as const),
+          );
+          break;
+        }
+        default: {
+          // Unknown cadence: fall back to one-shot scheduling.
+          const identifier = await Notifications.scheduleNotificationAsync({
+            content,
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
+          });
+          identifiers.push(identifier);
+        }
+      }
+
+      // Keep one identifier in-memory for quick cancellation, but cancellation is robust even
+      // when multiple notifications exist (we scan scheduled notifications by activityId).
+      if (identifiers.length > 0) {
+        activityNotificationIds.set(activity.id, identifiers[0]!);
+      }
+      // NOTE: We intentionally do not write repeating schedules into the delivery ledger,
+      // which is currently designed for one-shot notifications.
+      return;
+    }
+
+    // One-shot reminder.
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: when,
@@ -209,26 +530,7 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshot, pref
 }
 
 async function cancelActivityReminderInternal(activityId: string) {
-  const existingId = activityNotificationIds.get(activityId);
-  if (!existingId) return;
-  try {
-    await Notifications.cancelScheduledNotificationAsync(existingId);
-    activityNotificationIds.delete(activityId);
-    track(posthogClient, AnalyticsEvent.NotificationCancelled, {
-      notification_type: 'activityReminder',
-      notification_id: existingId,
-      activity_id: activityId,
-      reason: 'explicit_cancel',
-    });
-    await markActivityReminderCancelled(activityId, new Date().toISOString());
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[notifications] failed to cancel activity reminder', {
-        activityId,
-        error,
-      });
-    }
-  }
+  await cancelAllScheduledActivityReminders(activityId, 'explicit_cancel');
 }
 
 async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPreferences) {
@@ -279,7 +581,7 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Align your day with your arcs',
-        body: 'Open kwilt to review Today and choose one tiny step.',
+        body: 'Open Kwilt to review Today and choose one tiny step.',
         data: {
           type: 'dailyShowUp',
         } satisfies NotificationData,
@@ -439,6 +741,8 @@ function attachStoreSubscription() {
     .activities.map((activity) => ({
       id: activity.id,
       reminderAt: activity.reminderAt ?? null,
+      repeatRule: activity.repeatRule ?? null,
+      repeatCustom: activity.repeatCustom ?? null,
       status: activity.status,
     }));
 
@@ -455,6 +759,8 @@ function attachStoreSubscription() {
     const nextActivities: ActivitySnapshot[] = state.activities.map((activity) => ({
       id: activity.id,
       reminderAt: activity.reminderAt ?? null,
+      repeatRule: activity.repeatRule ?? null,
+      repeatCustom: activity.repeatCustom ?? null,
       status: activity.status,
     }));
 
@@ -506,7 +812,12 @@ function attachStoreSubscription() {
         changed.addedOrUpdated.push(next);
         return;
       }
-      if (prev.reminderAt !== next.reminderAt || prev.status !== next.status) {
+      if (
+        prev.reminderAt !== next.reminderAt ||
+        prev.repeatRule !== next.repeatRule ||
+        JSON.stringify(prev.repeatCustom ?? null) !== JSON.stringify(next.repeatCustom ?? null) ||
+        prev.status !== next.status
+      ) {
         changed.addedOrUpdated.push(next);
       }
     });
@@ -623,10 +934,10 @@ async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily
   if (currentStatus === 'denied' || currentStatus === 'restricted') {
     // Respect OS-level denial; direct the user to system settings via in-app copy.
     const friendlyPlatform =
-      Platform.OS === 'ios' ? 'Settings → Notifications → kwilt' : 'Settings → Apps → kwilt → Notifications';
+      Platform.OS === 'ios' ? 'Settings → Notifications → Kwilt' : 'Settings → Apps → Kwilt → Notifications';
     Alert.alert(
       'Notifications disabled',
-      `Notifications are currently disabled for kwilt in system settings. You can re-enable them from ${friendlyPlatform}.`,
+      `Notifications are currently disabled for Kwilt in system settings. You can re-enable them from ${friendlyPlatform}.`,
     );
     return false;
   }
@@ -636,8 +947,8 @@ async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily
     Alert.alert(
       'Allow gentle reminders?',
       reason === 'activity'
-        ? 'kwilt can send you gentle reminders when Activities are due so tiny steps don’t slip through the cracks.'
-        : 'kwilt can send a daily nudge to review Today and choose one tiny step for your arcs.',
+        ? 'Kwilt can send you gentle reminders when Activities are due so tiny steps don’t slip through the cracks.'
+        : 'Kwilt can send a daily nudge to review Today and choose one tiny step for your arcs.',
       [
         {
           text: 'Not now',

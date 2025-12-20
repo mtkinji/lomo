@@ -120,7 +120,14 @@ export interface Metric {
 
 export interface Goal {
   id: string;
-  arcId: string;
+  /**
+   * Optional Arc container for this goal.
+   *
+   * Goals can be drafted/adopted before the user decides where they belong
+   * (or before any Arcs exist). In that case `arcId` is null and the goal is
+   * considered "unassigned" until the user links it to an Arc later.
+   */
+  arcId: string | null;
   title: string;
   description?: string;
   /**
@@ -171,6 +178,21 @@ export interface GoalDraft {
 export type ActivityStatus = 'planned' | 'in_progress' | 'done' | 'skipped' | 'cancelled';
 
 export type ActivityDifficulty = 'very_easy' | 'easy' | 'medium' | 'hard' | 'very_hard';
+
+/**
+ * Activity "kind" used to shape planning + UI behaviors.
+ *
+ * - Keep this small and deterministic so the UI can offer clear affordances.
+ * - We allow an escape hatch via `custom:${string}` so AI / power-users can
+ *   introduce additional types without blocking on a schema change.
+ */
+export type ActivityType =
+  | 'task'
+  | 'checklist'
+  | 'shopping_list'
+  | 'instructions'
+  | 'plan'
+  | `custom:${string}`;
 
 export interface ActivityStep {
   id: string;
@@ -233,6 +255,57 @@ export type ActivitySortMode =
   | 'dueDateDesc'
   | 'priority';
 
+export type ActivityRepeatRule =
+  | 'daily'
+  | 'weekly'
+  | 'weekdays'
+  | 'monthly'
+  | 'yearly'
+  | 'custom';
+
+/**
+ * Custom recurrence config for Activities.
+ * Kept intentionally small: start with "custom weekly" (interval + weekday selection).
+ * Future extensions (monthly patterns, RRULE-style options) can layer on.
+ */
+export type ActivityRepeatCustom =
+  | {
+      cadence: 'days';
+      /**
+       * Repeat every N days (1 = every day).
+       */
+      interval: number;
+    }
+  | {
+      cadence: 'weeks';
+      /**
+       * Repeat every N weeks (1 = weekly).
+       */
+      interval: number;
+      /**
+       * Weekdays selection in JS weekday format: 0=Sunday ... 6=Saturday.
+       */
+      weekdays: number[];
+    }
+  | {
+      cadence: 'months';
+      /**
+       * Repeat every N months (1 = monthly).
+       *
+       * Day-of-month is implied by the Activity's `reminderAt` timestamp.
+       */
+      interval: number;
+    }
+  | {
+      cadence: 'years';
+      /**
+       * Repeat every N years (1 = yearly).
+       *
+       * Month/day are implied by the Activity's `reminderAt` timestamp.
+       */
+      interval: number;
+    };
+
 export interface ActivityForceActual {
   [forceId: string]: ForceLevel;
 }
@@ -241,6 +314,11 @@ export interface Activity {
   id: string;
   goalId: string | null;
   title: string;
+  /**
+   * High-level category of this activity (e.g. task vs shopping list vs recipe).
+   * Used by planning views + AI to generate different *kinds* of helpful activity artifacts.
+   */
+  type: ActivityType;
   /**
    * User-defined tags for lightweight grouping / filtering (e.g. "errands", "outdoors").
    * Stored as simple strings; UI typically edits these as a comma-separated list.
@@ -298,13 +376,12 @@ export interface Activity {
    * intentionally lightweight for now; a future implementation can expand this
    * to a richer RRULE-style structure if needed.
    */
-  repeatRule?:
-    | 'daily'
-    | 'weekly'
-    | 'weekdays'
-    | 'monthly'
-    | 'yearly'
-    | 'custom';
+  repeatRule?: ActivityRepeatRule;
+  /**
+   * Optional details for custom repeat rules (for example, weekly with
+   * selected days). Only used when repeatRule === 'custom'.
+   */
+  repeatCustom?: ActivityRepeatCustom;
   orderIndex?: number | null;
   phase?: string | null;
   status: ActivityStatus;

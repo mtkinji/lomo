@@ -46,11 +46,10 @@ export function BrandLockup({
 }: BrandLockupProps) {
   const baseWordmarkStyle =
     wordmarkSize === 'lg' ? styles.wordmarkLg : styles.wordmarkSm;
-  // Optical alignment: the logo glyph reads slightly "lower" than the wordmark
-  // due to font ascent/descender metrics (especially on iOS). A small downward
+  // Optical alignment: Urbanist's ascent/descender metrics can make the
+  // wordmark read slightly low next to the logo mark on iOS. A small upward
   // nudge keeps the lockup visually centered.
-  const iosWordmarkNudge =
-    Platform.OS === 'ios' ? (wordmarkSize === 'lg' ? 3.5 : 2.25) : 0;
+  const iosWordmarkNudge = Platform.OS === 'ios' ? (wordmarkSize === 'lg' ? -0.75 : -0.5) : 0;
 
   return (
     <View style={[styles.root, style]}>
@@ -63,7 +62,7 @@ export function BrandLockup({
           wordmarkStyle,
         ]}
       >
-        kwilt
+        Kwilt
       </Text>
     </View>
   );

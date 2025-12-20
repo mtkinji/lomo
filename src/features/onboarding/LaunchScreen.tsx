@@ -91,7 +91,7 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
           ]}
         >
           <Logo size={72} variant="parchment" />
-          <Text style={styles.wordmark}>kwilt</Text>
+          <Text style={styles.wordmark}>Kwilt</Text>
         </Animated.View>
       </View>
     </View>
@@ -119,8 +119,8 @@ const styles = StyleSheet.create({
     ...typography.brand,
     color: colors.parchment,
     fontSize: 36,
-    // Sriracha has tall ascenders; give it a touch of extra vertical room so
-    // iOS doesn't clip the very top pixels on certain rasterization passes.
+    // Give the brand font a touch of extra vertical room so iOS doesn't clip
+    // the very top pixels on certain rasterization passes.
     lineHeight: 46,
     paddingTop: 2,
     paddingBottom: 2,

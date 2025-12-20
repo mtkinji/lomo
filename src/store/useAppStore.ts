@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import {
   Activity,
+  ActivityType,
   ActivityView,
   Arc,
   ArcProposalFeedback,
@@ -18,6 +19,126 @@ import type { CelebrationKind, MediaRole } from '../services/gifs';
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
 type Updater<T> = (item: T) => T;
+
+export type ActivityTagUsage = {
+  activityId: string;
+  activityTitle: string;
+  activityType: ActivityType;
+  usedAt: string;
+};
+
+export type ActivityTagHistoryEntry = {
+  tag: string;
+  firstUsedAt: string;
+  lastUsedAt: string;
+  totalUses: number;
+  /**
+   * Recent activity examples where this tag was used. Capped to keep persisted
+   * state + AI context compact.
+   */
+  recentUses: ActivityTagUsage[];
+};
+
+export type ActivityTagHistoryIndex = Record<string, ActivityTagHistoryEntry>;
+
+const normalizeTagKey = (tag: string) => tag.trim().toLowerCase();
+
+const normalizeTagsForCompare = (tags: unknown): string[] => {
+  const arr = Array.isArray(tags) ? tags : [];
+  return arr
+    .filter((t): t is string => typeof t === 'string')
+    .map((t) => normalizeTagKey(t))
+    .filter(Boolean)
+    .sort();
+};
+
+const tagsEqualForCompare = (a: unknown, b: unknown) => {
+  const aa = normalizeTagsForCompare(a);
+  const bb = normalizeTagsForCompare(b);
+  if (aa.length !== bb.length) return false;
+  for (let i = 0; i < aa.length; i += 1) {
+    if (aa[i] !== bb[i]) return false;
+  }
+  return true;
+};
+
+const recordTagUsageForActivity = (
+  index: ActivityTagHistoryIndex | null | undefined,
+  activity: Activity,
+  atIso: string,
+): ActivityTagHistoryIndex => {
+  const tags = Array.isArray(activity.tags) ? activity.tags : [];
+  if (tags.length === 0) return index ?? {};
+
+  const base = index ?? {};
+  let changed = false;
+  const nextIndex: ActivityTagHistoryIndex = { ...base };
+
+  const MAX_RECENT_USES_PER_TAG = 10;
+
+  tags.forEach((raw) => {
+    if (typeof raw !== 'string') return;
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const key = normalizeTagKey(trimmed);
+    if (!key) return;
+
+    const existing = nextIndex[key];
+    const tagLabel = existing?.tag ?? trimmed;
+    const usage: ActivityTagUsage = {
+      activityId: activity.id,
+      activityTitle: activity.title,
+      activityType: activity.type,
+      usedAt: atIso,
+    };
+
+    if (!existing) {
+      changed = true;
+      nextIndex[key] = {
+        tag: tagLabel,
+        firstUsedAt: atIso,
+        lastUsedAt: atIso,
+        totalUses: 1,
+        recentUses: [usage],
+      };
+      return;
+    }
+
+    // Update existing entry
+    const prevUses = Array.isArray(existing.recentUses) ? existing.recentUses : [];
+    const existingUseIdx = prevUses.findIndex((u) => u.activityId === activity.id);
+    const nextUses =
+      existingUseIdx >= 0
+        ? prevUses.map((u, idx) => (idx === existingUseIdx ? usage : u))
+        : [usage, ...prevUses];
+
+    const cappedUses = nextUses.slice(0, MAX_RECENT_USES_PER_TAG);
+
+    // Always update lastUsedAt + metadata for the activity row if present.
+    // Increment totalUses when it's a new usage event for this activity.
+    const nextTotalUses = existingUseIdx >= 0 ? existing.totalUses : existing.totalUses + 1;
+
+    // Detect whether anything changed to avoid unnecessary state churn.
+    const shouldUpdate =
+      existing.lastUsedAt !== atIso ||
+      existing.tag !== tagLabel ||
+      existing.totalUses !== nextTotalUses ||
+      cappedUses !== prevUses;
+
+    if (shouldUpdate) {
+      changed = true;
+      nextIndex[key] = {
+        ...existing,
+        tag: tagLabel,
+        lastUsedAt: atIso,
+        totalUses: nextTotalUses,
+        recentUses: cappedUses,
+      };
+    }
+  });
+
+  return changed ? nextIndex : base;
+};
 
 export type AgentHostAction =
   | {
@@ -74,6 +195,12 @@ interface AppState {
   arcs: Arc[];
   goals: Goal[];
   activities: Activity[];
+  /**
+   * Persisted index of tags used across all Activities (even if an Activity is later deleted),
+   * with lightweight metadata about where they were used. This is fed to AI so it can reuse
+   * the user's existing tagging language before inventing new tags.
+   */
+  activityTagHistory: ActivityTagHistoryIndex;
   /**
    * Dev-only feature flags / experiments. Persisted so we can A/B UX patterns
    * locally across reloads, but always gated behind `__DEV__` at the callsite.
@@ -163,6 +290,17 @@ interface AppState {
    * onboarding-created goal has at least one Activity.
    */
   hasDismissedOnboardingPlanReadyGuide: boolean;
+  /**
+   * Post-onboarding handoff: when a new goal is created after onboarding is complete,
+   * we land the user on the Goal's Plan tab and show a one-time guide inviting them
+   * to create a plan (activities) with AI.
+   */
+  pendingPostGoalPlanGuideGoalId: string | null;
+  /**
+   * Per-goal dismissal state for the post-goal "create a plan" guide so it only
+   * shows once per newly-created goal.
+   */
+  dismissedPostGoalPlanGuideGoalIds: Record<string, true>;
   /**
    * Dismissal flag for the first-time Goal detail "Vectors for this goal" coachmark.
    * Explains how balancing vectors leads to more sustainable goals.
@@ -279,6 +417,8 @@ interface AppState {
   setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingActivitiesGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingPlanReadyGuide: (dismissed: boolean) => void;
+  setPendingPostGoalPlanGuideGoalId: (goalId: string | null) => void;
+  dismissPostGoalPlanGuideForGoal: (goalId: string) => void;
   setHasDismissedGoalVectorsGuide: (dismissed: boolean) => void;
   setHasDismissedActivitiesListGuide: (dismissed: boolean) => void;
   setHasDismissedActivityDetailGuide: (dismissed: boolean) => void;
@@ -418,6 +558,7 @@ export const useAppStore = create(
       arcs: initialArcs,
       goals: initialGoals,
       activities: initialActivities,
+      activityTagHistory: {},
       devBreadcrumbsEnabled: false,
       notificationPreferences: {
         notificationsEnabled: false,
@@ -480,6 +621,8 @@ export const useAppStore = create(
       hasDismissedOnboardingGoalGuide: false,
       hasDismissedOnboardingActivitiesGuide: false,
       hasDismissedOnboardingPlanReadyGuide: false,
+      pendingPostGoalPlanGuideGoalId: null,
+      dismissedPostGoalPlanGuideGoalIds: {},
       hasDismissedGoalVectorsGuide: false,
       hasDismissedActivitiesListGuide: false,
       hasDismissedActivityDetailGuide: false,
@@ -506,7 +649,22 @@ export const useAppStore = create(
             goalRecommendations: restRecommendations,
           };
         }),
-      addGoal: (goal) => set((state) => ({ goals: [...state.goals, goal] })),
+      addGoal: (goal) =>
+        set((state) => {
+          const shouldTriggerPostGoalGuide =
+            state.hasCompletedFirstTimeOnboarding &&
+            Boolean(goal?.id) &&
+            // Don't interfere with the dedicated onboarding-created goal handoffs.
+            state.lastOnboardingGoalId !== goal.id &&
+            !(state.dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id];
+
+          return {
+            goals: [...state.goals, goal],
+            pendingPostGoalPlanGuideGoalId: shouldTriggerPostGoalGuide
+              ? goal.id
+              : state.pendingPostGoalPlanGuideGoalId,
+          };
+        }),
       updateGoal: (goalId, updater) =>
         set((state) => ({
           goals: withUpdate(state.goals, goalId, updater),
@@ -523,13 +681,45 @@ export const useAppStore = create(
             goals: remainingGoals,
             activities: remainingActivities,
             lastOnboardingGoalId: nextLastOnboardingGoalId,
+            pendingPostGoalPlanGuideGoalId:
+              state.pendingPostGoalPlanGuideGoalId === goalId ? null : state.pendingPostGoalPlanGuideGoalId,
           };
         }),
-      addActivity: (activity) => set((state) => ({ activities: [...state.activities, activity] })),
+      addActivity: (activity) =>
+        set((state) => {
+          const atIso = now();
+          return {
+            activities: [...state.activities, activity],
+            activityTagHistory: recordTagUsageForActivity(state.activityTagHistory, activity, atIso),
+          };
+        }),
       updateActivity: (activityId, updater) =>
-        set((state) => ({
-          activities: withUpdate(state.activities, activityId, updater),
-        })),
+        set((state) => {
+          const atIso = now();
+          let nextActivity: Activity | null = null;
+          let prevActivity: Activity | null = null;
+          const nextActivities = state.activities.map((item) => {
+            if (item.id !== activityId) return item;
+            prevActivity = item;
+            const updated = updater(item);
+            nextActivity = updated;
+            return updated;
+          });
+
+          const shouldRecordUsage =
+            nextActivity != null &&
+            prevActivity != null &&
+            (!tagsEqualForCompare(prevActivity.tags, nextActivity.tags) ||
+              prevActivity.title !== nextActivity.title ||
+              prevActivity.type !== nextActivity.type);
+
+          return {
+            activities: nextActivities,
+            activityTagHistory: shouldRecordUsage && nextActivity
+              ? recordTagUsageForActivity(state.activityTagHistory, nextActivity, atIso)
+              : state.activityTagHistory,
+          };
+        }),
       removeActivity: (activityId) =>
         set((state) => ({
           activities: state.activities.filter((activity) => activity.id !== activityId),
@@ -601,6 +791,22 @@ export const useAppStore = create(
         set(() => ({
           hasDismissedOnboardingPlanReadyGuide: dismissed,
         })),
+      setPendingPostGoalPlanGuideGoalId: (goalId) =>
+        set(() => ({
+          pendingPostGoalPlanGuideGoalId: goalId,
+        })),
+      dismissPostGoalPlanGuideForGoal: (goalId) =>
+        set((state) => {
+          const nextDismissed = {
+            ...(state.dismissedPostGoalPlanGuideGoalIds ?? {}),
+            [goalId]: true as const,
+          };
+          return {
+            dismissedPostGoalPlanGuideGoalIds: nextDismissed,
+            pendingPostGoalPlanGuideGoalId:
+              state.pendingPostGoalPlanGuideGoalId === goalId ? null : state.pendingPostGoalPlanGuideGoalId,
+          };
+        }),
       setHasDismissedGoalVectorsGuide: (dismissed) =>
         set(() => ({
           hasDismissedGoalVectorsGuide: dismissed,
@@ -946,13 +1152,38 @@ export const useAppStore = create(
 
         // Backward-compatible normalization: older persisted activities may not have `tags`.
         // Ensure the field is always present as a string[].
+        // Also ensure `type` exists (added later) so the UI / AI can rely on it.
         state.activities = (state.activities ?? []).map((activity) => {
           const rawTags = (activity as any).tags;
           const tags = Array.isArray(rawTags)
             ? rawTags.filter((t) => typeof t === 'string' && t.trim().length > 0)
             : [];
-          return { ...activity, tags };
+          const rawType = (activity as any).type;
+          const maybeType = typeof rawType === 'string' ? rawType.trim() : '';
+          const isValidCanonicalType =
+            maybeType === 'task' ||
+            maybeType === 'checklist' ||
+            maybeType === 'shopping_list' ||
+            maybeType === 'instructions' ||
+            maybeType === 'plan';
+          const isValidCustomType =
+            maybeType.startsWith('custom:') && maybeType.slice('custom:'.length).trim().length > 0;
+          const type: ActivityType =
+            isValidCanonicalType || isValidCustomType ? (maybeType as ActivityType) : 'task';
+          return { ...activity, tags, type };
         });
+
+        // Backfill tag history for older persisted stores.
+        if (!state.activityTagHistory || typeof state.activityTagHistory !== 'object') {
+          state.activityTagHistory = {};
+        }
+        const tagHistoryKeys = Object.keys(state.activityTagHistory ?? {});
+        if (tagHistoryKeys.length === 0 && Array.isArray(state.activities) && state.activities.length > 0) {
+          const atIso = now();
+          state.activities.forEach((activity) => {
+            state.activityTagHistory = recordTagUsageForActivity(state.activityTagHistory, activity, atIso);
+          });
+        }
       },
     }
   )

@@ -206,7 +206,7 @@ export function NotificationsSettingsScreen() {
         >
           <View style={styles.section}>
             <Text style={styles.sectionBody}>
-              kwilt can send gentle, identity-aware reminders so tiny steps on your Activities don&apos;t
+              Kwilt can send gentle, identity-aware reminders so tiny steps on your Activities don&apos;t
               slip through the cracks.
             </Text>
           </View>
@@ -223,13 +223,13 @@ export function NotificationsSettingsScreen() {
                   pressed && styles.rowPressed,
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel="Toggle notifications from kwilt"
+                accessibilityLabel="Toggle notifications from Kwilt"
                 onPress={handleToggleGlobal}
               >
                 <VStack flex={1}>
-                  <Text style={styles.rowTitle}>Allow notifications from kwilt</Text>
+                  <Text style={styles.rowTitle}>Allow notifications from Kwilt</Text>
                   <Text style={styles.rowSubtitle}>
-                    Control whether kwilt can schedule any reminders on this device.
+                    Control whether Kwilt can schedule any reminders on this device.
                   </Text>
                 </VStack>
                 <HStack alignItems="center">

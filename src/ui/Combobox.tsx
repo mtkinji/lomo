@@ -11,16 +11,18 @@ import {
   View,
   findNodeHandle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
-import { BottomDrawer, BottomDrawerScrollView } from './BottomDrawer';
+import { BottomDrawerScrollView } from './BottomDrawer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './DropdownMenu';
 import { Input } from './Input';
 import { HStack, VStack } from './Stack';
 import { Text } from './Typography';
 import { Icon } from './Icon';
 import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
+import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
 
 const MAX_MENU_HEIGHT = 320; // ShadCN-ish: keeps long lists scrollable without feeling huge.
 const MIN_MENU_HEIGHT = 180;
@@ -33,7 +35,23 @@ export type ComboboxOption = {
   value: string;
   label: string;
   keywords?: string[];
+  /**
+   * Optional element shown inline before the label (e.g. an icon).
+   */
+  leftElement?: ReactNode;
+  /**
+   * Optional element shown on the right side of the row.
+   * If provided, the default selection checkmark is suppressed.
+   */
   rightElement?: ReactNode;
+};
+
+export type ComboboxRecommendedOption = ComboboxOption & {
+  /**
+   * Optional short label shown next to the lightning mark.
+   * Defaults to "Recommended".
+   */
+  recommendedLabel?: string;
 };
 
 type ComboboxPresentation = 'popover' | 'drawer' | 'auto';
@@ -57,6 +75,15 @@ type Props = {
    * Matches shadcn combobox demo behavior.
    */
   allowDeselect?: boolean;
+  /**
+   * Optional "recommended" option rendered at the top of the list with a lightning mark.
+   * Only pass this when you have a good recommendation; otherwise leave it undefined.
+   *
+   * Notes:
+   * - If the recommended option exists in `options`, it is "lifted" to the top (not duplicated).
+   * - If the user is searching, it only shows if it matches the query.
+   */
+  recommendedOption?: ComboboxRecommendedOption;
   /**
    * Trigger rendered inline where the combobox is placed.
    * The dropdown content is portaled and anchored to this trigger.
@@ -91,6 +118,7 @@ export function Combobox({
   searchPlaceholder = 'Search…',
   emptyText = 'No results found.',
   allowDeselect = true,
+  recommendedOption,
   trigger,
   presentation = 'auto',
   drawerSnapPoints,
@@ -196,10 +224,35 @@ export function Combobox({
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter((opt) => {
-      const hay = [opt.label, ...(opt.keywords ?? [])].join(' ').toLowerCase();
-      return hay.includes(q);
+      const label = opt.label.toLowerCase();
+      if (label.includes(q)) return true;
+      // For short queries (1–2 chars), only match against the label so "Search arcs"
+      // feels predictable (avoids accidental matches in long narrative keywords).
+      if (q.length < 3) return false;
+      const keywords = opt.keywords ?? [];
+      return keywords.some((k) => String(k).toLowerCase().includes(q));
     });
   }, [options, query]);
+
+  const recommendedResolved = useMemo(() => {
+    if (!recommendedOption) return null;
+    const base = options.find((opt) => opt.value === recommendedOption.value) ?? recommendedOption;
+    if (!base?.label || base.label.trim().length === 0) return null;
+
+    const q = query.trim().toLowerCase();
+    if (!q) return base;
+    const label = base.label.toLowerCase();
+    if (label.includes(q)) return base;
+    if (q.length < 3) return null;
+    const keywords = base.keywords ?? [];
+    return keywords.some((k) => String(k).toLowerCase().includes(q)) ? base : null;
+  }, [options, query, recommendedOption]);
+
+  const displayOptions = useMemo(() => {
+    if (!recommendedResolved) return filtered;
+    const rest = filtered.filter((opt) => opt.value !== recommendedResolved.value);
+    return [recommendedResolved, ...rest];
+  }, [filtered, recommendedResolved]);
 
   // Keep the list scrollable while respecting the overall maxHeight.
   // (Search row + divider consume some vertical space.)
@@ -273,14 +326,19 @@ export function Combobox({
           {triggerWithDrawerOpen}
         </View>
 
-        <BottomDrawer
+        <UnderKeyboardDrawer
           visible={open}
           onClose={() => handleOpenChange(false)}
-          snapPoints={drawerSnapPoints ?? DEFAULT_DRAWER_SNAP_POINTS}
-          keyboardAvoidanceEnabled
+          // Match the LongText editor behavior: keep the visible content above the keyboard
+          // while extending the sheet background under the keyboard to avoid iOS corner gaps.
+          dynamicHeightUnderKeyboard
+          visibleContentHeightFallbackPx={400}
+          // Long lists (25+ arcs) should scroll rather than expanding to a huge sheet.
+          maxVisibleContentHeightPx={480}
+          // Don't let the drawer collapse below the intended visible height.
+          minVisibleContentHeightPx={400}
           dismissOnBackdropPress
           enableContentPanningGesture
-          dynamicSizing
         >
           <View style={styles.drawerCommand}>
             <View style={styles.searchRow}>
@@ -304,12 +362,18 @@ export function Combobox({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {filtered.length === 0 ? (
+              {displayOptions.length === 0 ? (
                 <Text style={styles.empty}>{emptyText}</Text>
               ) : (
                 <View style={styles.items}>
-                  {filtered.map((opt) => {
+                  {displayOptions.map((opt) => {
                     const selected = opt.value === value;
+                    const isRecommended =
+                      Boolean(recommendedResolved) && opt.value === recommendedResolved?.value;
+                    const recommendedLabel =
+                      isRecommended && recommendedOption?.recommendedLabel
+                        ? recommendedOption.recommendedLabel
+                        : 'Recommended';
                     return (
                       <Pressable
                         key={opt.value}
@@ -323,15 +387,38 @@ export function Combobox({
                           justifyContent="space-between"
                           style={styles.itemRow}
                         >
-                          <Text style={styles.itemLabel}>{opt.label}</Text>
+                          <HStack alignItems="center" space="sm" style={styles.itemLeft}>
+                            <View style={styles.leftSlot}>
+                              {opt.leftElement ? opt.leftElement : null}
+                            </View>
+                            <Text style={styles.itemLabel}>{opt.label}</Text>
+                          </HStack>
                           {opt.rightElement ? (
                             opt.rightElement
                           ) : (
-                            <View style={styles.checkSlot}>
-                              {selected ? (
-                                <Icon name="check" size={16} color={colors.textPrimary} />
+                            <HStack alignItems="center" space="xs">
+                              {isRecommended ? (
+                                <HStack alignItems="center" space="xs" pointerEvents="none">
+                                  <Text style={styles.recommendedText}>{recommendedLabel}</Text>
+                                  <View style={styles.recommendedMark}>
+                                    <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+                                      <LinearGradient
+                                        colors={[colors.aiGradientStart, colors.aiGradientEnd]}
+                                        start={{ x: 0, y: 0.5 }}
+                                        end={{ x: 1, y: 0.5 }}
+                                        style={StyleSheet.absoluteFillObject}
+                                      />
+                                    </View>
+                                    <Icon name="sparkles" size={12} color={colors.aiForeground} />
+                                  </View>
+                                </HStack>
                               ) : null}
-                            </View>
+                              <View style={styles.checkSlot}>
+                                {selected ? (
+                                  <Icon name="check" size={16} color={colors.textPrimary} />
+                                ) : null}
+                              </View>
+                            </HStack>
                           )}
                         </HStack>
                       </Pressable>
@@ -341,7 +428,7 @@ export function Combobox({
               )}
             </BottomDrawerScrollView>
           </View>
-        </BottomDrawer>
+        </UnderKeyboardDrawer>
       </>
     );
   }
@@ -401,12 +488,18 @@ export function Combobox({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {filtered.length === 0 ? (
+              {displayOptions.length === 0 ? (
                 <Text style={styles.empty}>{emptyText}</Text>
               ) : (
                 <View style={styles.items}>
-                  {filtered.map((opt) => {
+                  {displayOptions.map((opt) => {
                     const selected = opt.value === value;
+                    const isRecommended =
+                      Boolean(recommendedResolved) && opt.value === recommendedResolved?.value;
+                    const recommendedLabel =
+                      isRecommended && recommendedOption?.recommendedLabel
+                        ? recommendedOption.recommendedLabel
+                        : 'Recommended';
                     return (
                       <Pressable
                         key={opt.value}
@@ -420,15 +513,38 @@ export function Combobox({
                           justifyContent="space-between"
                           style={styles.itemRow}
                         >
-                          <Text style={styles.itemLabel}>{opt.label}</Text>
+                          <HStack alignItems="center" space="sm" style={styles.itemLeft}>
+                            <View style={styles.leftSlot}>
+                              {opt.leftElement ? opt.leftElement : null}
+                            </View>
+                            <Text style={styles.itemLabel}>{opt.label}</Text>
+                          </HStack>
                           {opt.rightElement ? (
                             opt.rightElement
                           ) : (
-                            <View style={styles.checkSlot}>
-                              {selected ? (
-                                <Icon name="check" size={16} color={colors.textPrimary} />
+                            <HStack alignItems="center" space="xs">
+                              {isRecommended ? (
+                                <HStack alignItems="center" space="xs" pointerEvents="none">
+                                  <Text style={styles.recommendedText}>{recommendedLabel}</Text>
+                                  <View style={styles.recommendedMark}>
+                                    <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+                                      <LinearGradient
+                                        colors={[colors.aiGradientStart, colors.aiGradientEnd]}
+                                        start={{ x: 0, y: 0.5 }}
+                                        end={{ x: 1, y: 0.5 }}
+                                        style={StyleSheet.absoluteFillObject}
+                                      />
+                                    </View>
+                                    <Icon name="sparkles" size={12} color={colors.aiForeground} />
+                                  </View>
+                                </HStack>
                               ) : null}
-                            </View>
+                              <View style={styles.checkSlot}>
+                                {selected ? (
+                                  <Icon name="check" size={16} color={colors.textPrimary} />
+                                ) : null}
+                              </View>
+                            </HStack>
                           )}
                         </HStack>
                       </Pressable>
@@ -478,7 +594,10 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs,
+    // Give the first/last option breathing room so the top spacing matches the
+    // bottom gap (especially noticeable with the keyboard open).
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   items: {
     gap: 2,
@@ -499,15 +618,38 @@ const styles = StyleSheet.create({
     backgroundColor: colors.shellAlt,
   },
   itemRow: {},
+  itemLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
   itemLabel: {
     ...typography.bodySm,
     color: colors.textPrimary,
     flexShrink: 1,
   },
+  leftSlot: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   checkSlot: {
     width: 20,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  recommendedText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  recommendedMark: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.aiBorder,
   },
 });
 

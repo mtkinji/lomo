@@ -18,8 +18,8 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
-import type { GoalDetailRouteParams } from '../../navigation/RootNavigator';
-import { rootNavigationRef } from '../../navigation/RootNavigator';
+import type { GoalDetailRouteParams } from '../../navigation/routeParams';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
@@ -31,11 +31,12 @@ import {
   HStack,
   EmptyState,
   KeyboardAwareScrollView,
+  ObjectPicker,
 } from '../../ui/primitives';
 import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Arc, ForceLevel, ThumbnailStyle, Goal } from '../../domain/types';
+import type { Arc, ForceLevel, ThumbnailStyle, Goal, Activity, ActivityType } from '../../domain/types';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -63,18 +64,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import type { ComboboxOption } from '../../ui/Combobox';
-import { Combobox } from '../../ui/Combobox';
+import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
-import type { Activity } from '../../domain/types';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { SegmentedControl } from '../../ui/SegmentedControl';
+import { buildActivityListMeta } from '../../utils/activityListMeta';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -95,7 +95,13 @@ export function GoalDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
+  const hasCompletedFirstTimeOnboarding = useAppStore((state) => state.hasCompletedFirstTimeOnboarding);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
+  const pendingPostGoalPlanGuideGoalId = useAppStore((state) => state.pendingPostGoalPlanGuideGoalId);
+  const dismissedPostGoalPlanGuideGoalIds = useAppStore(
+    (state) => state.dismissedPostGoalPlanGuideGoalIds
+  );
+  const dismissPostGoalPlanGuideForGoal = useAppStore((state) => state.dismissPostGoalPlanGuideForGoal);
   const hasSeenOnboardingSharePrompt = useAppStore((state) => state.hasSeenOnboardingSharePrompt);
   const setHasSeenOnboardingSharePrompt = useAppStore(
     (state) => state.setHasSeenOnboardingSharePrompt
@@ -137,7 +143,6 @@ export function GoalDetailScreen() {
     }
     return [DEFAULT_THUMBNAIL_STYLE];
   }, [visuals]);
-  const [linkedArcComboboxOpen, setLinkedArcComboboxOpen] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingForces, setEditingForces] = useState(false);
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
@@ -203,16 +208,18 @@ export function GoalDetailScreen() {
 
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
-  const arcOptions = useMemo<ComboboxOption[]>(() => {
+  const arcOptions = useMemo<ObjectPickerOption[]>(() => {
     const list = [...arcs];
     list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
     return list.map((a) => ({
       value: a.id,
       label: a.name,
-      keywords: a.narrative ? [a.narrative] : undefined,
+      // Keep keywords tight—narratives are long and cause noisy matches for short queries.
+      keywords: undefined,
     }));
   }, [arcs]);
   const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>('details');
+  const hasAutoSwitchedToPlanRef = useRef(false);
   const goalActivities = useMemo(
     () => activities.filter((activity) => activity.goalId === goalId),
     [activities, goalId]
@@ -239,6 +246,24 @@ export function GoalDetailScreen() {
     activeTab === 'plan' &&
     !activityCoachVisible &&
     !activityComposerVisible;
+
+  const shouldShowPostGoalPlanGuide =
+    hasCompletedFirstTimeOnboarding &&
+    goal?.id === pendingPostGoalPlanGuideGoalId &&
+    !(dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id] &&
+    activeTab === 'plan' &&
+    isPlanEmpty &&
+    !activityCoachVisible &&
+    !activityComposerVisible;
+
+  useEffect(() => {
+    if (!goal?.id) return;
+    if (!hasCompletedFirstTimeOnboarding) return;
+    if (goal.id !== pendingPostGoalPlanGuideGoalId) return;
+    if (hasAutoSwitchedToPlanRef.current) return;
+    hasAutoSwitchedToPlanRef.current = true;
+    setActiveTab('plan');
+  }, [goal?.id, hasCompletedFirstTimeOnboarding, pendingPostGoalPlanGuideGoalId]);
   const shouldShowGoalVectorsCoachmark =
     Boolean(goal) &&
     activeTab === 'details' &&
@@ -692,7 +717,7 @@ export function GoalDetailScreen() {
     }));
   };
 
-  const handleCreateActivityFromPlan = (values: { title: string; notes?: string }) => {
+  const handleCreateActivityFromPlan = (values: { title: string; notes?: string; type: ActivityType }) => {
     const trimmedTitle = values.title.trim();
     if (!trimmedTitle) {
       return;
@@ -705,6 +730,7 @@ export function GoalDetailScreen() {
       id,
       goalId: goal.id,
       title: trimmedTitle,
+      type: values.type,
       tags: [],
       notes: values.notes?.trim().length ? values.notes.trim() : undefined,
       steps: [],
@@ -715,6 +741,7 @@ export function GoalDetailScreen() {
       planGroupId: null,
       scheduledDate: null,
       repeatRule: undefined,
+      repeatCustom: undefined,
       orderIndex: (activities.length || 0) + 1,
       phase: null,
       status: 'planned',
@@ -895,7 +922,44 @@ export function GoalDetailScreen() {
               setShouldPromptAddActivity(true);
             }}
           >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Create plan</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
+          </Button>
+        </HStack>
+      </BottomGuide>
+      <BottomGuide
+        visible={shouldShowPostGoalPlanGuide}
+        onClose={() => {
+          if (goal?.id) {
+            dismissPostGoalPlanGuideForGoal(goal.id);
+          }
+        }}
+        scrim="light"
+      >
+        <Heading variant="sm">Add activities</Heading>
+        <Text style={styles.onboardingGuideBody}>
+          Want help picking your next few Activities? Tap below to generate a starter plan with AI.
+        </Text>
+        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
+          <Button
+            variant="outline"
+            onPress={() => {
+              if (goal?.id) {
+                dismissPostGoalPlanGuideForGoal(goal.id);
+              }
+            }}
+          >
+            <Text style={styles.onboardingGuideSecondaryLabel}>Not now</Text>
+          </Button>
+          <Button
+            variant="turmeric"
+            onPress={() => {
+              if (goal?.id) {
+                dismissPostGoalPlanGuideForGoal(goal.id);
+              }
+              setActivityCoachVisible(true);
+            }}
+          >
+            <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
           </Button>
         </HStack>
       </BottomGuide>
@@ -941,10 +1005,10 @@ export function GoalDetailScreen() {
         attentionPulse
         attentionPulseDelayMs={2500}
         attentionPulseDurationMs={15000}
-        title={<Text style={styles.goalCoachmarkTitle}>Add your first activity</Text>}
+        title={<Text style={styles.goalCoachmarkTitle}>Add your first activities</Text>}
         body={
           <Text style={styles.goalCoachmarkBody}>
-            Tap “Add activity” to generate Activities with AI (or switch to Manual for something you
+            Tap “Add activities” to generate Activities with AI (or switch to Manual for something you
             already know you should do next).
           </Text>
         }
@@ -1202,8 +1266,18 @@ export function GoalDetailScreen() {
             </VStack>
 
             {activeTab === 'details' && (
-              <VStack space="md">
-                <View style={{ marginTop: spacing.md }}>
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{
+                  paddingHorizontal: spacing.md,
+                  paddingBottom: spacing['2xl'],
+                  paddingTop: spacing.md,
+                }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <VStack space="md">
+                  <View style={{ marginTop: spacing.md }}>
                   <HStack style={styles.timeRow}>
                     <VStack space="xs" style={styles.lifecycleColumn}>
                       <Text style={styles.timeLabel}>Status</Text>
@@ -1226,9 +1300,9 @@ export function GoalDetailScreen() {
                       </Text>
                     </VStack>
                   </HStack>
-                </View>
+                  </View>
 
-                <View style={{ marginTop: spacing.md }}>
+                  <View style={{ marginTop: spacing.md }}>
                   <LongTextField
                     label="Description"
                     value={goal.description ?? ''}
@@ -1258,43 +1332,25 @@ export function GoalDetailScreen() {
                       });
                     }}
                   />
-                </View>
+                  </View>
 
-                <View style={{ marginTop: spacing.md }}>
+                  <View style={{ marginTop: spacing.md }}>
                   <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
-                  <Combobox
-                    open={linkedArcComboboxOpen}
-                    onOpenChange={setLinkedArcComboboxOpen}
+                  <ObjectPicker
                     value={goal.arcId ?? ''}
                     onValueChange={(nextArcId) => {
                       handleUpdateArc(nextArcId ? nextArcId : null);
                     }}
                     options={arcOptions}
+                    placeholder="Select Arc…"
                     searchPlaceholder="Search arcs…"
                     emptyText="No arcs found."
+                    accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
                     allowDeselect
-                    trigger={
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
-                        style={styles.arcRow}
-                      >
-                        <HStack alignItems="center" justifyContent="space-between">
-                          <Text
-                            style={arc ? styles.arcChipTextConnected : styles.arcChipText}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                          >
-                            {arc ? arc.name : 'Select Arc…'}
-                          </Text>
-                          <Icon name="chevronsUpDown" size={16} color={colors.textSecondary} />
-                        </HStack>
-                      </Pressable>
-                    }
                   />
-                </View>
+                  </View>
 
-                <View ref={vectorsSectionRef} collapsable={false}>
+                  <View ref={vectorsSectionRef} collapsable={false}>
                   <HStack justifyContent="space-between" alignItems="center">
                     <HStack alignItems="center" space="xs">
                       <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
@@ -1382,11 +1438,12 @@ export function GoalDetailScreen() {
                       );
                     })}
                   </VStack>
-                </View>
-                {createdAtLabel && (
-                  <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
-                )}
-              </VStack>
+                  </View>
+                  {createdAtLabel && (
+                    <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
+                  )}
+                </VStack>
+              </ScrollView>
             )}
 
             {activeTab === 'history' && (
@@ -1463,7 +1520,9 @@ export function GoalDetailScreen() {
                 <ScrollView
                   style={{ flex: 1 }}
                   contentContainerStyle={{
-                    paddingHorizontal: spacing.md,
+                    // AppShell already provides the page gutter. Keep the Plan canvas flush
+                    // with the broader Goal page so Activities align with the header.
+                    paddingHorizontal: 0,
                     paddingBottom: spacing['2xl'],
                     paddingTop: spacing.md,
                   }}
@@ -1485,7 +1544,7 @@ export function GoalDetailScreen() {
                           <IconButton
                             style={styles.addActivityIconButton}
                             onPress={() => setActivityCoachVisible(true)}
-                            accessibilityLabel="Add an activity"
+                            accessibilityLabel="Add activities"
                           >
                             <Icon name="plus" size={18} color={colors.canvas} />
                           </IconButton>
@@ -1497,7 +1556,7 @@ export function GoalDetailScreen() {
                       <EmptyState
                         variant="compact"
                         title="No activities for this goal yet"
-                        instructions="Add your first activity to move this goal forward."
+                        instructions="Add your first activities to move this goal forward."
                         style={[styles.planEmptyState, { marginTop: spacing['2xl'] }]}
                         actions={
                           <View
@@ -1511,9 +1570,9 @@ export function GoalDetailScreen() {
                             <Button
                               variant="accent"
                               onPress={() => setActivityCoachVisible(true)}
-                              accessibilityLabel="Add an activity to this goal"
+                              accessibilityLabel="Add activities to this goal"
                             >
-                              <Text style={styles.primaryCtaText}>Add activity</Text>
+                              <Text style={styles.primaryCtaText}>Add activities</Text>
                             </Button>
                           </View>
                         }
@@ -1523,16 +1582,16 @@ export function GoalDetailScreen() {
                         {activeGoalActivities.length > 0 && (
                           <VStack space="xs">
                             {activeGoalActivities.map((activity) => {
-                              const phase = activity.phase ?? undefined;
-                              const metaParts = [phase].filter(Boolean);
-                              const meta =
-                                metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+                              const { meta, metaLeadingIconName } = buildActivityListMeta({
+                                activity,
+                              });
 
                               return (
                                 <ActivityListItem
                                   key={activity.id}
                                   title={activity.title}
                                   meta={meta}
+                                  metaLeadingIconName={metaLeadingIconName}
                                   isCompleted={activity.status === 'done'}
                                   onToggleComplete={() =>
                                     handleToggleActivityComplete(activity.id)
@@ -1557,16 +1616,16 @@ export function GoalDetailScreen() {
                           >
                             <Heading style={styles.sectionTitle}>Completed</Heading>
                             {completedGoalActivities.map((activity) => {
-                              const phase = activity.phase ?? undefined;
-                              const metaParts = [phase].filter(Boolean);
-                              const meta =
-                                metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+                              const { meta, metaLeadingIconName } = buildActivityListMeta({
+                                activity,
+                              });
 
                               return (
                                 <ActivityListItem
                                   key={activity.id}
                                   title={activity.title}
                                   meta={meta}
+                                  metaLeadingIconName={metaLeadingIconName}
                                   isCompleted={activity.status === 'done'}
                                   onToggleComplete={() =>
                                     handleToggleActivityComplete(activity.id)
@@ -1990,7 +2049,7 @@ function ArcSelectorModal({
 type GoalActivityComposerModalProps = {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (values: { title: string; notes?: string }) => void;
+  onSubmit: (values: { title: string; notes?: string; type: ActivityType }) => void;
   insetTop: number;
 };
 
@@ -2002,11 +2061,13 @@ function GoalActivityComposerModal({
 }: GoalActivityComposerModalProps) {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [activityType, setActivityType] = useState<ActivityType>('task');
 
   useEffect(() => {
     if (visible) {
       setTitle('');
       setNotes('');
+      setActivityType('task');
     }
   }, [visible]);
 
@@ -2014,7 +2075,7 @@ function GoalActivityComposerModal({
 
   const handleSubmit = () => {
     if (disabled) return;
-    onSubmit({ title, notes: notes.trim().length > 0 ? notes : undefined });
+    onSubmit({ title, notes: notes.trim().length > 0 ? notes : undefined, type: activityType });
   };
 
   return (
@@ -2046,6 +2107,20 @@ function GoalActivityComposerModal({
             onChangeText={setTitle}
             placeholder="e.g., Measure the desk area"
             placeholderTextColor="#6B7280"
+          />
+
+          <Text style={styles.modalLabel}>Type</Text>
+          <SegmentedControl<ActivityType>
+            value={activityType}
+            onChange={setActivityType}
+            size="compact"
+            options={[
+              { value: 'task', label: 'Task' },
+              { value: 'checklist', label: 'Checklist' },
+              { value: 'shopping_list', label: 'List' },
+              { value: 'instructions', label: 'Recipe' },
+              { value: 'plan', label: 'Plan' },
+            ]}
           />
 
           <Text style={styles.modalLabel}>Notes (optional)</Text>
@@ -2091,6 +2166,7 @@ function GoalActivityCoachDrawer({
   const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
   const [manualActivityId, setManualActivityId] = useState<string | null>(null);
   const arcs = useAppStore((state) => state.arcs);
+  const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = useState(false);
@@ -2101,8 +2177,8 @@ function GoalActivityCoachDrawer({
   );
 
   const workspaceSnapshot = useMemo(
-    () => buildActivityCoachLaunchContext(goals, activities, focusGoalId, arcs),
-    [goals, activities, focusGoalId, arcs]
+    () => buildActivityCoachLaunchContext(goals, activities, focusGoalId, arcs, undefined, activityTagHistory),
+    [goals, activities, focusGoalId, arcs, activityTagHistory]
   );
 
   const focusGoal = useMemo(
@@ -2138,6 +2214,7 @@ function GoalActivityCoachDrawer({
       id,
       goalId: focusGoalId,
       title: '',
+      type: 'task',
       tags: [],
       notes: undefined,
       steps: [],
@@ -2226,6 +2303,7 @@ function GoalActivityCoachDrawer({
           id,
           goalId: focusGoalId,
           title: trimmedTitle,
+          type: 'task',
           tags: [],
           notes: undefined,
           steps: [],
@@ -2277,6 +2355,7 @@ function GoalActivityCoachDrawer({
         id,
         goalId: focusGoalId,
         title: suggestion.title.trim(),
+        type: suggestion.type ?? 'task',
         tags: [],
         notes: suggestion.why,
         steps,
@@ -2324,7 +2403,14 @@ function GoalActivityCoachDrawer({
   );
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['100%']}
+      // AgentWorkspace/AiChatScreen implements its own keyboard strategy (padding + scroll-to-focus).
+      // Avoid double offsets from BottomDrawer's default keyboard avoidance.
+      keyboardAvoidanceEnabled={false}
+    >
       <View style={styles.activityCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
@@ -2355,6 +2441,7 @@ function GoalActivityCoachDrawer({
               resumeDraft={false}
               hideBrandHeader
               hidePromptSuggestions
+              hostBottomInsetAlreadyApplied
               onComplete={handleAiComplete}
               onTransportError={handleSwitchToManual}
               onAdoptActivitySuggestion={handleAdoptActivitySuggestion}

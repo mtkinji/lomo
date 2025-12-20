@@ -2,6 +2,9 @@
 
 This document is the **execution plan** for launching Kwilt on the Apple App Store by **Jan 1, 2026**, with a **working monetization lever** and no launch‑blocking reliability issues.
 
+**Primary roadmap (source of truth):** `docs/value-realization-roadmap.md`  
+This launch plan corresponds to **Phase 0 (MVP Launch Readiness)** in the primary roadmap.
+
 It is grounded in the current app implementation:
 
 - Local notifications are implemented via `expo-notifications` in `src/services/NotificationService.ts`.
@@ -66,6 +69,7 @@ It is grounded in the current app implementation:
 - No critical flows are blocked by the keyboard (input is never obscured; user can always see what they’re typing).
 - Notification taps deep-link into the correct canvas location while preserving the app shell/canvas structure.
 - Free tier limits are enforced consistently at creation points (no “half-created” objects).
+- Goal creation Agent Workspace flow is launch-safe (explicit Arc attachment behavior, no invalid goals, consistent manual + AI adoption). Plan: `docs/launch/goal-creation-agent-workspace-refinement.md`
 
 ---
 

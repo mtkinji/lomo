@@ -59,6 +59,18 @@ export const cardElevation = {
     shadowRadius: 24,
     elevation: 8,
   },
+  /**
+   * "Floating" elevation tuned for composer surfaces that sit above the page
+   * canvas (e.g. chat composer). Slightly punchier than `raised`, less than
+   * `overlay`, with a softer spread so it feels like it lifts off the page.
+   */
+  composer: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 22,
+    elevation: 6,
+  },
 } as const;
 
 export const cardSurfaceStyle = {

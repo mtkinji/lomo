@@ -6,9 +6,9 @@ import { Platform } from 'react-native';
 import { getFocusAreaLabel } from '../domain/focusAreas';
 import { listIdealArcTemplates } from '../domain/idealArcs';
 import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
-import { mockGenerateArcs, mockGenerateGoals } from './mockAi';
+import { mockGenerateArcs } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
-import { useAppStore, type LlmModel } from '../store/useAppStore';
+import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../store/useAppStore';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
@@ -28,6 +28,31 @@ export type EnrichActivityWithAiParams = {
   goalId: string | null;
   existingNotes?: string;
   existingTags?: string[];
+};
+
+export type SuggestActivityTagsWithAiParams = {
+  activityTitle: string;
+  activityNotes?: string | null;
+  goalTitle?: string | null;
+  tagHistory?: ActivityTagHistoryIndex;
+  maxTags?: number;
+};
+
+const sanitizeSuggestedTags = (input: unknown, maxTags: number): string[] => {
+  const raw = Array.isArray(input) ? input : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const tag = item.trim().replace(/^#/, '');
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+    if (out.length >= maxTags) break;
+  }
+  return out;
 };
 
 type GenerateArcParams = {
@@ -212,14 +237,6 @@ const postProcessGeneratedArcs = (arcs: GeneratedArc[]) => {
   const invalid = results.filter((arc) => arc._reasons) as Array<GeneratedArc & { _reasons: string[] }>;
 
   return { valid: valid.slice(0, 3), invalid };
-};
-
-type GenerateGoalParams = {
-  arcName: string;
-  arcNarrative?: string;
-  prompt?: string;
-  timeHorizon?: string;
-  constraints?: string;
 };
 
 export type GenerateArcHeroImageParams = {
@@ -2168,225 +2185,6 @@ async function requestOpenAiArcs(
   return arcs as GeneratedArc[];
 }
 
-export async function generateGoals(params: GenerateGoalParams): Promise<GoalDraft[]> {
-  if (OPENAI_QUOTA_EXCEEDED) {
-    // In production, quota issues should fail loudly, not silently degrade to mocks
-    if (isProductionEnvironment()) {
-      throw new Error(
-        'OpenAI API quota exceeded. Please check billing and quota limits. ' +
-          'This is a critical production issue that requires immediate attention.'
-      );
-    }
-    // In dev, fall back to mocks for easier testing, but log it so user knows what's happening
-    if (__DEV__) {
-      console.warn(
-        '[ai] generateGoals: Using MOCK goals because OpenAI quota exceeded flag is set.\n' +
-        '  → Restart the app or fix quota to get real AI-generated goals\n' +
-        '  → Check terminal logs for quota error details from when it was first detected'
-      );
-      devLog('generateGoals:quota-exceeded-fallback', {
-        usingMocks: true,
-        reason: 'OPENAI_QUOTA_EXCEEDED flag is set from previous error',
-        note: 'Restart app or fix quota to get real AI-generated goals',
-      });
-    }
-    return mockGenerateGoals(params);
-  }
-  
-  const apiKey = resolveOpenAiApiKey();
-  devLog('generateGoals:init', {
-    arcName: params.arcName,
-    promptPreview: previewText(params.prompt),
-    timeHorizon: params.timeHorizon ?? 'unspecified',
-    constraintsPreview: previewText(params.constraints),
-  });
-  devLog('generateGoals:apiKey', describeKey(apiKey));
-  if (!apiKey) {
-    console.warn('OPENAI_API_KEY missing – using mock goal suggestions.');
-    devLog('generateGoals:fallback-no-key', { reason: 'missing_api_key' });
-    return mockGenerateGoals(params);
-  }
-
-  try {
-    const results = await requestOpenAiGoals(params, apiKey);
-    devLog('generateGoals:success', { suggestionCount: results.length });
-    return results;
-  } catch (err) {
-    console.warn('OpenAI goal request failed, using mock goals.', err);
-    logNetworkErrorDetails('goals', err);
-    devLog('generateGoals:error', {
-      message: err instanceof Error ? err.message : String(err),
-      name: err instanceof Error ? err.name : undefined,
-    });
-    return mockGenerateGoals(params);
-  }
-}
-
-async function requestOpenAiGoals(
-  params: GenerateGoalParams,
-  apiKey: string
-): Promise<GoalDraft[]> {
-  const model = resolveChatModel();
-  const baseSystemPrompt =
-    'You are kwilt Coach, a life architecture coach who helps users translate Arcs into concrete Goals. ' +
-    'Return thoughtful goal drafts with title, description, status, forceIntent (values 0-3 for each canonical force), and optional suggestedActivities.';
-
-  const userProfileSummary = buildUserProfileSummary();
-  const systemPrompt = userProfileSummary
-    ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
-    : baseSystemPrompt;
-
-  const userPrompt = `
-Arc name: ${params.arcName}
-Arc narrative: ${params.arcNarrative ? richTextToPlainText(params.arcNarrative) : 'not provided'}
-User focus: ${params.prompt ?? 'not provided'}
-Time horizon: ${params.timeHorizon ?? 'not specified'}
-Constraints: ${params.constraints ?? 'none'}
-Return 2-3 distinctive goal drafts that respect the arc's heart.
-For each goal:
-- The title should be short and concrete.
-- The description must be a single, clear sentence (no more than about 160 characters) that explains why this is a good next step for the user.
-`;
-
-  const body = {
-    model,
-    temperature: 0.55,
-    response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: 'goal_suggestions',
-        schema: {
-          type: 'object',
-          properties: {
-            goals: {
-              type: 'array',
-              minItems: 1,
-              maxItems: 3,
-              items: {
-                type: 'object',
-                properties: {
-                  title: { type: 'string' },
-                  description: { type: 'string' },
-                  status: { type: 'string', enum: ['planned', 'in_progress', 'completed', 'archived'] },
-                  forceIntent: {
-                    type: 'object',
-                    properties: {
-                      'force-activity': { type: 'integer', minimum: 0, maximum: 3 },
-                      'force-connection': { type: 'integer', minimum: 0, maximum: 3 },
-                      'force-mastery': { type: 'integer', minimum: 0, maximum: 3 },
-                      'force-spirituality': { type: 'integer', minimum: 0, maximum: 3 },
-                    },
-                    required: [
-                      'force-activity',
-                      'force-connection',
-                      'force-mastery',
-                      'force-spirituality',
-                    ],
-                    additionalProperties: false,
-                  },
-                  suggestedActivities: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    minItems: 0,
-                    maxItems: 5,
-                  },
-                },
-                required: ['title', 'description', 'status', 'forceIntent'],
-                additionalProperties: false,
-              },
-            },
-          },
-          required: ['goals'],
-          additionalProperties: false,
-        },
-      },
-    },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-  };
-  devLog('goals:request:prepared', {
-    model: body.model,
-    temperature: body.temperature,
-    promptPreview: previewText(userPrompt),
-  });
-  
-  // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
-    throw new Error('OpenAI quota exceeded');
-  }
-  
-  const requestStartedAt = Date.now();
-
-  const response = await fetchWithTimeout(OPENAI_COMPLETIONS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-  const responseRequestId =
-    typeof response.headers?.get === 'function'
-      ? response.headers.get('x-request-id')
-      : undefined;
-  devLog('goals:response:ok', {
-    status: response.status,
-    ok: response.ok,
-    durationMs: Date.now() - requestStartedAt,
-    requestId: responseRequestId ?? undefined,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    const error = parseOpenAiError(errorText);
-    
-    if (markOpenAiQuotaExceeded('goals', response.status, errorText, apiKey)) {
-      throw new Error(`OpenAI quota exceeded: ${error.message}`);
-    }
-    
-    const isRateLimit = isOpenAiRateLimited(response.status, errorText);
-    if (isRateLimit) {
-      console.warn('OpenAI rate limit (goals) - this is temporary, consider retrying:', {
-        message: error.message,
-        type: error.type,
-        code: error.code,
-        status: response.status,
-      });
-    } else {
-      console.warn('OpenAI error (goals):', {
-        message: error.message,
-        type: error.type,
-        code: error.code,
-        status: response.status,
-        fullResponse: error.raw,
-      });
-    }
-    
-    devLog('goals:response:error', {
-      status: response.status,
-      statusText: response.statusText,
-      errorMessage: error.message,
-      errorType: error.type,
-      errorCode: error.code,
-      fullResponse: error.raw,
-    });
-    throw new Error(`Unable to generate goals: ${error.message}`);
-  }
-
-  const data = await response.json();
-
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('OpenAI goal response malformed');
-  }
-
-  const parsed = JSON.parse(content);
-  devLog('goals:parsed', { goalsReturned: parsed.goals?.length ?? 0 });
-  return parsed.goals as GoalDraft[];
-}
-
 async function requestOpenAiArcHeroImage(
   params: GenerateArcHeroImageParams,
   apiKey: string
@@ -2612,8 +2410,8 @@ export async function sendCoachChat(
   const model = resolveChatModel();
 
   // Lower temperature for Arc generation to ensure more consistent, higher-quality output
-  const arcGenerationModes: ChatMode[] = ['arcCreation', 'firstTimeOnboarding'];
-  const temperature = arcGenerationModes.includes(options?.mode as ChatMode) ? 0.3 : 0.55;
+  const lowVarianceModes: ChatMode[] = ['arcCreation', 'firstTimeOnboarding', 'goalCreation'];
+  const temperature = lowVarianceModes.includes(options?.mode as ChatMode) ? 0.35 : 0.55;
 
   const body: Record<string, unknown> = {
     model,
@@ -3140,6 +2938,111 @@ export async function enrichActivityWithAI(
     }
 
     return Object.keys(normalized).length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cheap/single-shot tag suggestion helper.
+ *
+ * This deliberately avoids the full Coach chat runtime (memory + tools) and always
+ * uses a low-cost model with a tight token budget.
+ */
+export async function suggestActivityTagsWithAi(
+  params: SuggestActivityTagsWithAiParams
+): Promise<string[] | null> {
+  try {
+    if (OPENAI_QUOTA_EXCEEDED) return null;
+    const apiKey = resolveOpenAiApiKey();
+    if (!apiKey) return null;
+
+    const title = (params.activityTitle ?? '').trim();
+    if (!title) return null;
+
+    const maxTags = typeof params.maxTags === 'number' ? Math.max(1, Math.min(8, params.maxTags)) : 4;
+    const notesPlain = params.activityNotes ? richTextToPlainText(params.activityNotes).trim() : '';
+    const goalTitle = (params.goalTitle ?? '').trim();
+
+    const tagHistoryEntries = params.tagHistory ? Object.values(params.tagHistory) : [];
+    const tagHistoryCompact = tagHistoryEntries
+      .slice()
+      .sort((a, b) => {
+        const aT = Date.parse(a.lastUsedAt);
+        const bT = Date.parse(b.lastUsedAt);
+        if (Number.isFinite(aT) && Number.isFinite(bT)) return bT - aT;
+        return (b.totalUses ?? 0) - (a.totalUses ?? 0);
+      })
+      .slice(0, 30)
+      .map((entry) => {
+        const examples = (entry.recentUses ?? [])
+          .slice(0, 1)
+          .map((u) => `${u.activityTitle} [${u.activityType}]`)
+          .join('');
+        return examples ? `${entry.tag} (e.g. ${examples})` : entry.tag;
+      })
+      .join(' | ');
+
+    const model: LlmModel = 'gpt-4o-mini';
+    const systemPrompt =
+      'You suggest a few simple user tags for a single activity.\n' +
+      '- Prefer using tags from TAG HISTORY when they fit.\n' +
+      '- Only invent new tags if none of the existing tags match.\n' +
+      '- Tags should be short (1–2 words), lowercase-ish, no #, no punctuation.\n' +
+      `- Output EXACTLY one line: TAGS_JSON: {"tags":["tag1","tag2",...]}\n` +
+      `- Include 0–${maxTags} tags. Do not include any other text.`;
+
+    const userPrompt = [
+      `Activity title: ${title}`,
+      goalTitle ? `Goal: ${goalTitle}` : null,
+      notesPlain ? `Notes: ${notesPlain.slice(0, 600)}` : null,
+      tagHistoryCompact ? `TAG HISTORY: ${tagHistoryCompact}` : 'TAG HISTORY: (none)',
+      'Pick the best tags for this activity.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const body = {
+      model,
+      temperature: 0.2,
+      max_tokens: 80,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    };
+
+    const response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      markOpenAiQuotaExceeded('suggestTags', response.status, errorText, apiKey);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = (data?.choices?.[0]?.message?.content as string | undefined) ?? '';
+    const line = content
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.toUpperCase().startsWith('TAGS_JSON:')) ?? '';
+    if (!line) return null;
+
+    const jsonPart = line.replace(/^TAGS_JSON:\s*/i, '').trim();
+    const parsed = JSON.parse(jsonPart) as { tags?: unknown };
+    const tags = sanitizeSuggestedTags(parsed?.tags, maxTags);
+    return tags;
   } catch {
     return null;
   }

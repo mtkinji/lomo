@@ -10,6 +10,7 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
+  InteractionManager,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -25,13 +26,13 @@ import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../dom
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
+import { VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView, ObjectPicker } from '../../ui/primitives';
+import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { richTextToPlainText } from '../../ui/richText';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { BrandLockup } from '../../ui/BrandLockup';
-import { generateGoals } from '../../services/ai';
 import { Dialog } from '../../ui/Dialog';
 import { fonts } from '../../theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,6 +40,9 @@ import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import type { ObjectPickerOption } from '../../ui/ObjectPicker';
+import { EditableField } from '../../ui/EditableField';
+import { LongTextField } from '../../ui/LongTextField';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -67,15 +71,6 @@ type GoalCreationDraft = GoalDraft & {
   thumbnailUrl?: string;
   thumbnailVariant?: number | null;
   heroImageMeta?: Goal['heroImageMeta'];
-};
-
-type GoalWizardStep = 'recommendations' | 'direction' | 'form' | 'scale' | 'timeframe' | 'review';
-
-type GoalWizardState = {
-  direction?: string;
-  form?: string;
-  scale?: 'small' | 'medium' | 'big';
-  timeframe?: 'month' | 'quarter' | 'year' | 'none';
 };
 
 const GOAL_FORCE_ORDER: Array<'force-activity' | 'force-connection' | 'force-mastery' | 'force-spirituality'> =
@@ -216,7 +211,7 @@ export function GoalsScreen() {
       {hasGoals ? (
         <VStack space="xs">
           {goals.map((goal) => {
-            const arcName = arcLookup[goal.arcId];
+            const arcName = goal.arcId ? arcLookup[goal.arcId] : undefined;
               const statusLabel = goal.status.replace('_', ' ');
               const activityCount = activityCountByGoal[goal.id] ?? 0;
               const activityLabel =
@@ -224,7 +219,7 @@ export function GoalsScreen() {
                   ? 'No activities yet'
                   : `${activityCount} ${activityCount === 1 ? 'activity' : 'activities'}`;
 
-              const parentArc = arcs.find((arc) => arc.id === goal.arcId);
+              const parentArc = goal.arcId ? arcs.find((arc) => arc.id === goal.arcId) : undefined;
 
             return (
                 <GoalListCard
@@ -414,11 +409,6 @@ type GoalCoachDrawerProps = {
   onGoalCreated?: (goalId: string) => void;
 };
 
-type GoalWizardProps = {
-  arc: Arc;
-  onGoalCreated: (draft: GoalDraft) => void;
-};
-
 export function GoalCoachDrawer({
   visible,
   onClose,
@@ -430,6 +420,7 @@ export function GoalCoachDrawer({
 }: GoalCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = React.useState(false);
+  const manualScrollRef = React.useRef<KeyboardAwareScrollViewHandle | null>(null);
   const buildEmptyDraft = React.useCallback(
     (): GoalCreationDraft => ({
       title: '',
@@ -453,6 +444,16 @@ export function GoalCoachDrawer({
     [arcs, launchFromArcId]
   );
   const [isGoalAiInfoVisible, setIsGoalAiInfoVisible] = React.useState(false);
+  const arcPickerOptions = React.useMemo<ObjectPickerOption[]>(() => {
+    const list = [...arcs];
+    list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    return list.map((a) => ({
+      value: a.id,
+      label: a.name,
+      // Keep keywords tight—narratives are long and cause noisy matches for short queries.
+      keywords: undefined,
+    }));
+  }, [arcs]);
 
   const goalCreationWorkflow = React.useMemo(
     () => getWorkflowLaunchConfig('goalCreation'),
@@ -460,8 +461,8 @@ export function GoalCoachDrawer({
   );
 
   const workspaceSnapshot = React.useMemo(
-    () => buildArcCoachLaunchContext(arcs, goals),
-    [arcs, goals],
+    () => buildArcCoachLaunchContext(arcs, goals, launchFromArcId),
+    [arcs, goals, launchFromArcId],
   );
 
   const launchContext = React.useMemo(
@@ -487,6 +488,18 @@ export function GoalCoachDrawer({
       setDraft(buildEmptyDraft());
     }
   }, [visible, buildEmptyDraft, setDraft]);
+
+  // If the coach was launched from an Arc detail screen, default the manual draft
+  // to that Arc—but do not force it (Goals can exist without an Arc).
+  React.useEffect(() => {
+    if (!visible) return;
+    if (launchFromArcId) {
+      setDraft((current) =>
+        current.arcId === null ? { ...current, arcId: launchFromArcId } : current
+      );
+      return;
+    }
+  }, [launchFromArcId, visible, setDraft]);
 
   const goalThumbnailSeed = React.useMemo(
     () => buildArcThumbnailSeed(undefined, draft.title || 'New goal', draft.thumbnailVariant ?? 0),
@@ -567,12 +580,14 @@ export function GoalCoachDrawer({
       return;
     }
 
+    const resolvedArcId = launchFromArcId ?? draft.arcId ?? null;
+
     const timestamp = new Date().toISOString();
     const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
     const goal: Goal = {
       id,
-      arcId: draft.arcId ?? launchFromArcId ?? '',
+      arcId: resolvedArcId,
       title: trimmedTitle,
       description: trimmedDescription.length > 0 ? trimmedDescription : undefined,
       status: draft.status,
@@ -591,7 +606,7 @@ export function GoalCoachDrawer({
     capture(AnalyticsEvent.GoalCreated, {
       source: 'manual',
       goal_id: goal.id,
-      arc_id: goal.arcId,
+      arc_id: goal.arcId ?? undefined,
       has_description: Boolean(goal.description && richTextToPlainText(goal.description).trim().length > 0),
     });
     onGoalCreated?.(id);
@@ -643,14 +658,21 @@ export function GoalCoachDrawer({
   );
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['100%']}
+      // AgentWorkspace/AiChatScreen implements its own keyboard strategy (padding + scroll-to-focus).
+      // Avoid double offsets from BottomDrawer's default keyboard avoidance.
+      keyboardAvoidanceEnabled={false}
+    >
       <View style={styles.goalCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={setActiveTab}
-          objectLabel="Goals"
+          objectLabel="Goal"
           onPressInfo={() => setIsGoalAiInfoVisible(true)}
-          infoAccessibilityLabel="Show context for Goals AI"
+          infoAccessibilityLabel="Show Goal AI context"
         />
         {/* Keep both panes mounted so users can switch between AI and Manual without
             losing their place in either canvas. We toggle visibility via styles
@@ -661,32 +683,37 @@ export function GoalCoachDrawer({
             activeTab !== 'ai' && { display: 'none' },
           ]}
         >
-          {launchArc ? (
-            <GoalWizard
-              arc={launchArc}
-              onGoalCreated={(draftGoal) => handleCreateGoalFromDraft(launchArc.id, draftGoal)}
-            />
-          ) : (
-            <AgentWorkspace
-              // Goal creation uses the dedicated Goal Creation Agent mode so the
-              // conversation stays tightly focused on drafting one clear goal.
-              mode={goalCreationWorkflow.mode}
-              launchContext={launchContext}
-              workspaceSnapshot={workspaceSnapshot}
-              workflowDefinitionId={goalCreationWorkflow.workflowDefinitionId}
-              // For now, we rely on keeping the workspace mounted to preserve state
-              // instead of resuming a persisted draft.
-              resumeDraft={false}
-              hideBrandHeader
-              hidePromptSuggestions
-            />
-          )}
+          <AgentWorkspace
+            // Goal creation uses the dedicated Goal Creation Agent mode so the
+            // conversation stays tightly focused on drafting one clear goal.
+            mode={goalCreationWorkflow.mode}
+            launchContext={launchContext}
+            workspaceSnapshot={workspaceSnapshot}
+            workflowDefinitionId={goalCreationWorkflow.workflowDefinitionId}
+            // For now, we rely on keeping the workspace mounted to preserve state
+            // instead of resuming a persisted draft.
+            resumeDraft={false}
+            hideBrandHeader
+            hostBottomInsetAlreadyApplied
+            // Let users chat freely with the coach from the composer; keep suggestions visible.
+            hidePromptSuggestions={false}
+            onGoalCreated={(goalId) => {
+              onGoalCreated?.(goalId);
+              onClose();
+              if (navigateToGoalDetailOnCreate) {
+                navigation.push('GoalDetail', {
+                  goalId,
+                  entryPoint: 'goalsTab',
+                });
+              }
+            }}
+          />
         </View>
 
         <Dialog
           visible={isGoalAiInfoVisible}
           onClose={() => setIsGoalAiInfoVisible(false)}
-          title="Goals AI context"
+          title="Context"
           description="This coach shapes one clear goal inside your Arc using your existing context."
         >
           {launchArc && (
@@ -697,113 +724,144 @@ export function GoalCoachDrawer({
         </Dialog>
           <View style={[styles.goalCoachBody, activeTab !== 'manual' && { display: 'none' }]}>
             <KeyboardAwareScrollView
+              ref={manualScrollRef}
               style={styles.manualFormContainer}
               contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
               showsVerticalScrollIndicator={false}
             >
               <Card padding="sm" style={{ width: '100%' }}>
-                <Text style={styles.modalLabel}>Thumbnail</Text>
-                <Pressable
-                  style={styles.goalThumbnailSection}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit goal thumbnail"
-                  onPress={() => setThumbnailSheetVisible(true)}
-                >
-                  <View style={styles.goalThumbnailPreview}>
-                    {draft.thumbnailUrl ? (
-                      <Image
-                        source={{ uri: draft.thumbnailUrl }}
-                        style={styles.goalThumbnailImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <LinearGradient
-                        colors={goalThumbnailColors}
-                        start={goalThumbnailDirection.start}
-                        end={goalThumbnailDirection.end}
-                        style={styles.goalThumbnailImage}
-                      />
-                    )}
+                {/* Pseudo Goal detail canvas (manual create): match layout orientation */}
+                <HStack alignItems="center" space="sm">
+                  <Pressable
+                    style={styles.manualGoalThumbnailWrapper}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit goal thumbnail"
+                    onPress={() => setThumbnailSheetVisible(true)}
+                  >
+                    <View style={styles.manualGoalThumbnailInner}>
+                      {draft.thumbnailUrl ? (
+                        <Image
+                          source={{ uri: draft.thumbnailUrl }}
+                          style={styles.manualGoalThumbnail}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <LinearGradient
+                          colors={goalThumbnailColors}
+                          start={goalThumbnailDirection.start}
+                          end={goalThumbnailDirection.end}
+                          style={styles.manualGoalThumbnail}
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                  <View style={{ flex: 1 }}>
+                    <EditableField
+                      style={styles.manualInlineTitleField}
+                      label="Title"
+                      value={draft.title}
+                      variant="title"
+                      placeholder="Name this Goal"
+                      validate={(next) => (next.trim().length === 0 ? 'Title cannot be empty' : null)}
+                      onChange={(nextTitle) =>
+                        setDraft((current) => ({
+                          ...current,
+                          title: nextTitle,
+                        }))
+                      }
+                    />
                   </View>
-                </Pressable>
-                <Text style={styles.modalLabel}>Goal title</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Build a Birdhouse"
-                  placeholderTextColor={colors.textSecondary}
-                  value={draft.title}
-                  onChangeText={(next) =>
-                    setDraft((current) => ({
-                      ...current,
-                      title: next,
-                    }))
-                  }
-                />
-                <Text style={[styles.modalLabel, { marginTop: spacing.md }]}>
-                  Short description
-                </Text>
-                <TextInput
-                  style={[styles.input, styles.manualNarrativeInput]}
-                  placeholder="Describe the concrete progress you want to make."
-                  placeholderTextColor={colors.textSecondary}
-                  multiline
-                  value={draft.description ?? ''}
-                  onChangeText={(next) =>
-                    setDraft((current) => ({
-                      ...current,
-                      description: next,
-                    }))
-                  }
-                />
-                <View style={{ marginTop: spacing.lg }}>
-                  <Text style={styles.modalLabel}>Force intent (optional)</Text>
-                  {GOAL_FORCE_ORDER.map((forceId) => {
-                    const level = (draft.forceIntent?.[forceId] ?? 0) as ForceLevel;
-                    return (
-                      <View key={forceId} style={styles.forceRow}>
-                        <View style={styles.forceHeaderRow}>
-                          <Text style={styles.forceLabel}>{GOAL_FORCE_LABELS[forceId]}</Text>
-                          <Text style={styles.forceValue}>{level}/3</Text>
-                        </View>
-                        <View style={styles.forceChipsRow}>
-                          {[0, 1, 2, 3].map((value) => {
-                            const isActive = level === value;
-                            return (
-                              <Pressable
-                                // eslint-disable-next-line react/no-array-index-key
-                                key={value}
-                                style={[
-                                  styles.forceChip,
-                                  isActive && styles.forceChipActive,
-                                ]}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Set ${GOAL_FORCE_LABELS[forceId]} to level ${value}`}
-                                onPress={() =>
-                                  setDraft((current) => ({
-                                    ...current,
-                                    forceIntent: {
-                                      ...current.forceIntent,
-                                      [forceId]: value as ForceLevel,
-                                    },
-                                  }))
-                                }
-                              >
-                                <Text
-                                  style={[
-                                    styles.forceChipLabel,
-                                    isActive && styles.forceChipLabelActive,
-                                  ]}
-                                >
-                                  {value}
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    );
-                  })}
+                </HStack>
+
+                <View style={{ marginTop: spacing.md }}>
+                  <LongTextField
+                    label="Description"
+                    value={draft.description ?? ''}
+                    placeholder="Add a short note about this Goal…"
+                    enableAi={false}
+                    onChange={(next) =>
+                      setDraft((current) => ({
+                        ...current,
+                        description: next,
+                      }))
+                    }
+                  />
                 </View>
+
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={styles.arcConnectionLabel}>Linked Arc (optional)</Text>
+                  <ObjectPicker
+                    value={draft.arcId ?? ''}
+                    onValueChange={(nextArcId) =>
+                      setDraft((current) => ({
+                        ...current,
+                        arcId: nextArcId ? nextArcId : null,
+                      }))
+                    }
+                    options={arcPickerOptions}
+                    placeholder={arcs.length === 0 ? 'No Arcs yet' : 'Select Arc…'}
+                    searchPlaceholder="Search arcs…"
+                    emptyText="No arcs found."
+                    accessibilityLabel="Change linked arc"
+                    allowDeselect
+                    disabled={arcs.length === 0}
+                  />
+                </View>
+
+                <View style={{ marginTop: spacing.md }}>
+                  <HStack justifyContent="space-between" alignItems="center">
+                    <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
+                  </HStack>
+                  <VStack style={styles.forceCard} space="xs">
+                    {GOAL_FORCE_ORDER.map((forceId) => {
+                      const level = (draft.forceIntent?.[forceId] ?? 0) as ForceLevel;
+                      return (
+                        <VStack key={forceId} space="xs">
+                          <HStack justifyContent="space-between" alignItems="center">
+                            <Text style={styles.forceLabel}>{GOAL_FORCE_LABELS[forceId]}</Text>
+                            <Text style={styles.forceValue}>{level}/3</Text>
+                          </HStack>
+                          <HStack space="xs" style={styles.forceSliderRow}>
+                            {[0, 1, 2, 3].map((value) => {
+                              const isActive = level === value;
+                              return (
+                                <Pressable
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  key={value}
+                                  style={[
+                                    styles.forceLevelChip,
+                                    isActive && styles.forceLevelChipActive,
+                                  ]}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Set ${GOAL_FORCE_LABELS[forceId]} to level ${value}`}
+                                  onPress={() =>
+                                    setDraft((current) => ({
+                                      ...current,
+                                      forceIntent: {
+                                        ...current.forceIntent,
+                                        [forceId]: value as ForceLevel,
+                                      },
+                                    }))
+                                  }
+                                >
+                                  <Text
+                                    style={[
+                                      styles.forceLevelChipText,
+                                      isActive && styles.forceLevelChipTextActive,
+                                    ]}
+                                  >
+                                    {value}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </HStack>
+                        </VStack>
+                      );
+                    })}
+                  </VStack>
+                </View>
+
                 <View style={{ marginTop: spacing.xl }}>
                   <Button
                     disabled={draft.title.trim().length === 0}
@@ -869,594 +927,9 @@ export function GoalCoachDrawer({
   );
 }
 
-function GoalWizard({ arc, onGoalCreated }: GoalWizardProps) {
-  const [step, setStep] = React.useState<GoalWizardStep>('recommendations');
-  const [state, setState] = React.useState<GoalWizardState>({});
-  const [recommended, setRecommended] = React.useState<GoalDraft[] | null>(null);
-  const [loadingRecommendations, setLoadingRecommendations] = React.useState(false);
-  const [recommendationsError, setRecommendationsError] = React.useState<string | null>(null);
-  const [draft, setDraft] = React.useState<GoalDraft | null>(null);
-  const [generating, setGenerating] = React.useState(false);
-  const [introLine1, setIntroLine1] = React.useState('');
-  const [introLine2, setIntroLine2] = React.useState('');
-  const [introDone, setIntroDone] = React.useState(false);
-  const [recommendedIndex, setRecommendedIndex] = React.useState(0);
-  const [refineDrawerVisible, setRefineDrawerVisible] = React.useState(false);
-  const [refinementHint, setRefinementHint] = React.useState('');
-  const [refining, setRefining] = React.useState(false);
-
-  const handleRefineRecommendation = React.useCallback(
-    async (hint: string) => {
-      const trimmed = hint.trim();
-      if (!trimmed) return;
-
-      setRefining(true);
-      setRecommendationsError(null);
-      try {
-        const current = recommended?.[recommendedIndex];
-        const currentSummary = current
-          ? `Current suggestion:\nTitle: ${current.title}\nDescription: ${current.description ?? ''}`
-          : '';
-        const prompt = [
-          'The user generally likes the goal, but wants to refine it.',
-          currentSummary,
-          `Refinement request: ${trimmed}`,
-          'Keep the same general intent. Produce 3 alternative versions with slightly different scope/wording, each with a short title + 1–2 sentence description.',
-        ]
-          .filter(Boolean)
-          .join('\n\n');
-
-        const goals = await generateGoals({
-          arcName: arc.name,
-          arcNarrative: arc.narrative ?? undefined,
-          prompt,
-          timeHorizon: undefined,
-          constraints: undefined,
-        });
-
-        if (goals && goals.length > 0) {
-          setRecommended(goals);
-          setRecommendedIndex(0);
-          setRefinementHint('');
-          setRefineDrawerVisible(false);
-        } else {
-          setRecommendationsError('Unable to refine suggestion right now.');
-        }
-      } catch {
-        setRecommendationsError('Unable to refine suggestion right now.');
-      } finally {
-        setRefining(false);
-      }
-    },
-    [arc.name, arc.narrative, recommended, recommendedIndex]
-  );
-
-  React.useEffect(() => {
-    if (recommended || loadingRecommendations || step !== 'recommendations') return;
-    setLoadingRecommendations(true);
-    setRecommendationsError(null);
-    void generateGoals({
-      arcName: arc.name,
-      arcNarrative: arc.narrative ?? undefined,
-      prompt: undefined,
-      timeHorizon: undefined,
-      constraints: undefined,
-    })
-      .then((goals) => {
-        setRecommended(goals);
-        setRecommendedIndex(0);
-        if (!goals || goals.length === 0) {
-          setStep('direction');
-        }
-      })
-      .catch(() => {
-        setRecommendationsError('Unable to load suggestions right now.');
-        setStep('direction');
-      })
-      .finally(() => {
-        setLoadingRecommendations(false);
-      });
-  }, [arc.name, arc.narrative, loadingRecommendations, recommended, step]);
-
-  React.useEffect(() => {
-    if (step !== 'recommendations') return;
-
-    const fullLine1 = `Let\u2019s add a goal to your ${arc.name} Arc.`;
-    const fullLine2 =
-      'Here’s one goal I’d recommend as a first step—you can try a different idea if this doesn’t feel right.';
-
-    let line1Index = 0;
-    let line2Index = 0;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const typeLine2 = () => {
-      if (line2Index > fullLine2.length) {
-        setIntroDone(true);
-        return;
-      }
-      setIntroLine2(fullLine2.slice(0, line2Index));
-      line2Index += 1;
-      timeoutId = setTimeout(typeLine2, 18);
-    };
-
-    const typeLine1 = () => {
-      if (line1Index > fullLine1.length) {
-        timeoutId = setTimeout(typeLine2, 240);
-        return;
-      }
-      setIntroLine1(fullLine1.slice(0, line1Index));
-      line1Index += 1;
-      timeoutId = setTimeout(typeLine1, 18);
-    };
-
-    typeLine1();
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [arc.name, step]);
-
-  const handleGenerateDraft = React.useCallback(
-    async (refinementHint?: string) => {
-      if (!state.direction || !state.form || !state.scale || !state.timeframe) {
-        return;
-      }
-      setGenerating(true);
-      const timeHorizonMap: Record<NonNullable<GoalWizardState['timeframe']>, string> = {
-        month: '1 month',
-        quarter: '3 months',
-        year: '12 months',
-        none: 'unspecified',
-      };
-      const promptParts = [
-        `Direction inside the arc: ${state.direction}.`,
-        `Goal form: ${state.form}.`,
-        `Scale: ${state.scale}.`,
-        `Timeframe: ${state.timeframe}.`,
-      ];
-      if (refinementHint) {
-        promptParts.push(`Refinement hint from user: ${refinementHint}.`);
-      }
-      const prompt = promptParts.join(' ');
-      try {
-        const goals = await generateGoals({
-          arcName: arc.name,
-          arcNarrative: arc.narrative ?? undefined,
-          prompt,
-          timeHorizon: timeHorizonMap[state.timeframe],
-          constraints: undefined,
-        });
-        if (goals && goals.length > 0) {
-          setDraft(goals[0]);
-          setStep('review');
-        }
-      } finally {
-        setGenerating(false);
-      }
-    },
-    [arc.name, arc.narrative, state.direction, state.form, state.scale, state.timeframe]
-  );
-
-  const renderChipRow = (
-    options: string[],
-    selected: string | undefined,
-    onSelect: (value: string) => void
-  ) => (
-    <View style={styles.wizardChipRow}>
-      {options.map((option) => (
-        <Pressable
-          key={option}
-          onPress={() => onSelect(option)}
-          style={[
-            styles.wizardChip,
-            selected === option && styles.wizardChipSelected,
-          ]}
-          accessibilityRole="button"
-        >
-          <Text
-            style={[
-              styles.wizardChipLabel,
-              selected === option && styles.wizardChipLabelSelected,
-            ]}
-          >
-            {option}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-
-  if (step === 'recommendations') {
-    return (
-      <>
-        <ScrollView
-          style={styles.wizardScroll}
-          contentContainerStyle={styles.wizardContainer}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {introLine1.length > 0 && (
-            <>
-              {(() => {
-                const text = introLine1;
-                const name = arc.name;
-                const idx = text.indexOf(name);
-                if (idx === -1) {
-                  return <Text style={styles.wizardTitle}>{text}</Text>;
-                }
-                const before = text.slice(0, idx);
-                const namePart = text.slice(idx, idx + name.length);
-                const after = text.slice(idx + name.length);
-                return (
-                  <Text style={styles.wizardTitle}>
-                    {before}
-                    <Text style={styles.wizardTitleEmphasis}>{namePart}</Text>
-                    {after}
-                  </Text>
-                );
-              })()}
-              {introLine2.length > 0 && <Text style={styles.wizardBody}>{introLine2}</Text>}
-            </>
-          )}
-          {introDone && (
-            <View style={styles.wizardOuterCard}>
-              {loadingRecommendations && (
-                <View style={styles.wizardLoadingRow}>
-                  <ActivityIndicator color={colors.accent} />
-                  <Text style={styles.wizardLoadingLabel}>Loading a goal suggestion…</Text>
-                </View>
-              )}
-              {recommendationsError && (
-                <Text style={styles.wizardErrorText}>{recommendationsError}</Text>
-              )}
-              {!loadingRecommendations &&
-                !recommendationsError &&
-                recommended &&
-                recommended.length > 0 && (
-                  <View style={styles.wizardRecommendationCard}>
-                    {(() => {
-                      const draftGoal = recommended[recommendedIndex];
-                      if (!draftGoal) return null;
-                      const previewGoal: Goal = {
-                        id: `recommendation-${arc.id}-${recommendedIndex}`,
-                        arcId: arc.id,
-                        title: draftGoal.title,
-                        description: draftGoal.description,
-                        status: draftGoal.status,
-                        forceIntent: { ...defaultForceLevels(0), ...draftGoal.forceIntent },
-                        metrics: [],
-                        createdAt: 'draft',
-                        updatedAt: 'draft',
-                      };
-                      return (
-                        <GoalListCard
-                          goal={previewGoal}
-                          parentArc={arc}
-                          padding="xs"
-                          density="dense"
-                          showThumbnail={false}
-                          showActivityMeta={false}
-                          compact
-                          headerLabel={
-                            <HStack
-                              space="xs"
-                              alignItems="center"
-                              style={styles.wizardRecommendationHeaderLabel}
-                            >
-                              <Icon name="sparkles" size={14} color={colors.textSecondary} />
-                              <Text style={styles.wizardRecommendationBadgeText}>
-                                AI recommendation
-                              </Text>
-                            </HStack>
-                          }
-                        >
-                          <VStack space="sm">
-                            {draftGoal.description && (
-                              <Text style={styles.wizardDraftBody}>{draftGoal.description}</Text>
-                            )}
-                            <HStack
-                              style={styles.wizardDraftActions}
-                              alignItems="center"
-                              justifyContent="flex-end"
-                              space="sm"
-                            >
-                              {recommended.length > 1 && (
-                                <Button
-                                  variant="outline"
-                                  size="small"
-                                  onPress={() =>
-                                    setRecommendedIndex((current) =>
-                                      (current + 1) % (recommended.length || 1)
-                                    )
-                                  }
-                                >
-                                  <HStack space="xs" alignItems="center">
-                                    <Icon name="refresh" size={14} color={colors.textSecondary} />
-                                    <Text>Try again</Text>
-                                  </HStack>
-                                </Button>
-                              )}
-                              <Button
-                                variant="accent"
-                                size="small"
-                                onPress={() => {
-                                  const goal = recommended[recommendedIndex];
-                                  if (goal) {
-                                    onGoalCreated(goal);
-                                  }
-                                }}
-                              >
-                                <Text style={styles.primaryButtonLabel}>Accept</Text>
-                              </Button>
-                            </HStack>
-                          </VStack>
-                        </GoalListCard>
-                      );
-                    })()}
-
-                    <View style={styles.wizardRefinePanel}>
-                      <HStack space="xs" alignItems="center">
-                        <Text style={styles.wizardRefinePrompt}>Want to tweak it?</Text>
-                        {refining && <ActivityIndicator color={colors.accent} />}
-                      </HStack>
-                      <View style={styles.wizardRefineChipRow}>
-                        <Pressable
-                          accessibilityRole="button"
-                          style={styles.wizardRefineChip}
-                          onPress={() =>
-                            void handleRefineRecommendation(
-                              'Make it smaller and easier to start this week.'
-                            )
-                          }
-                          disabled={refining}
-                        >
-                          <Text style={styles.wizardRefineChipText}>Make it smaller</Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          style={styles.wizardRefineChip}
-                          onPress={() =>
-                            void handleRefineRecommendation(
-                              'Make it more specific and measurable without changing the core idea.'
-                            )
-                          }
-                          disabled={refining}
-                        >
-                          <Text style={styles.wizardRefineChipText}>More specific</Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          style={styles.wizardRefineChip}
-                          onPress={() =>
-                            void handleRefineRecommendation(
-                              'Add a realistic timeframe and a clear definition of done.'
-                            )
-                          }
-                          disabled={refining}
-                        >
-                          <Text style={styles.wizardRefineChipText}>Add timeframe</Text>
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          style={styles.wizardRefineChip}
-                          onPress={() => setRefineDrawerVisible(true)}
-                          disabled={refining}
-                        >
-                          <Text style={styles.wizardRefineChipText}>Tell us more…</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  </View>
-                )}
-            </View>
-          )}
-        </ScrollView>
-
-        <BottomDrawer
-          visible={refineDrawerVisible}
-          onClose={() => setRefineDrawerVisible(false)}
-          snapPoints={['60%']}
-        >
-          <KeyboardAwareScrollView
-            style={styles.wizardRefineDrawer}
-            contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
-            showsVerticalScrollIndicator={false}
-          >
-            <Heading style={styles.wizardRefineDrawerTitle}>Refine this goal</Heading>
-            <Text style={styles.modalBody}>
-              Add a sentence or two about what you want to change (scope, wording, timeframe, or what “done”
-              means). We’ll keep the same core idea.
-            </Text>
-
-            <Text style={styles.modalLabel}>Your refinement</Text>
-            <TextInput
-              style={[styles.input, styles.wizardRefineInput]}
-              value={refinementHint}
-              onChangeText={setRefinementHint}
-              placeholder="e.g., I only have ~20 minutes per day; make this feel lighter and more realistic."
-              placeholderTextColor={colors.textSecondary}
-              multiline
-            />
-
-            <HStack space="sm" marginTop={spacing.md}>
-              <Button
-                variant="outline"
-                style={{ flex: 1 }}
-                onPress={() => setRefineDrawerVisible(false)}
-                disabled={refining}
-              >
-                <Text style={styles.wizardRefineDrawerSecondaryText}>Cancel</Text>
-              </Button>
-              <Button
-                variant="accent"
-                style={{ flex: 1 }}
-                onPress={() => void handleRefineRecommendation(refinementHint)}
-                disabled={refining || refinementHint.trim().length === 0}
-              >
-                <Text style={styles.primaryButtonLabel}>{refining ? 'Updating…' : 'Update'}</Text>
-              </Button>
-            </HStack>
-          </KeyboardAwareScrollView>
-        </BottomDrawer>
-      </>
-    );
-  }
-
-  if (step === 'direction') {
-    const options = [
-      'Learning the craft',
-      'Building a habit of consistency',
-      'Strengthening my courage',
-      'Improving my skills',
-      'Supporting others generously',
-      'Making something real',
-      'Something else',
-    ];
-    return (
-      <ScrollView
-        style={styles.wizardScroll}
-        contentContainerStyle={styles.wizardContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.wizardTitle}>
-          Which direction inside this Arc do you want to strengthen first?
-        </Text>
-        {renderChipRow(options, state.direction, (value) => {
-          setState((current) => ({ ...current, direction: value }));
-          setStep('form');
-        })}
-      </ScrollView>
-    );
-  }
-
-  if (step === 'form') {
-    const options = [
-      'Build a habit',
-      'Build a skill',
-      'Start a project',
-      'Finish a project',
-      'Reach a milestone',
-      'Make a decision',
-      'Explore something curious',
-    ];
-    return (
-      <ScrollView
-        style={styles.wizardScroll}
-        contentContainerStyle={styles.wizardContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.wizardTitle}>What type of goal is this?</Text>
-        {renderChipRow(options, state.form, (value) => {
-          setState((current) => ({ ...current, form: value }));
-          setStep('scale');
-        })}
-      </ScrollView>
-    );
-  }
-
-  if (step === 'scale') {
-    const labels: { key: GoalWizardState['scale']; label: string }[] = [
-      { key: 'small', label: 'Something small and steady' },
-      { key: 'medium', label: 'Something medium and meaningful' },
-      { key: 'big', label: 'Something big and challenging' },
-    ];
-    return (
-      <ScrollView
-        style={styles.wizardScroll}
-        contentContainerStyle={styles.wizardContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.wizardTitle}>What’s the scale of this goal?</Text>
-        {renderChipRow(
-          labels.map((entry) => entry.label),
-          labels.find((entry) => entry.key === state.scale)?.label,
-          (label) => {
-            const match = labels.find((entry) => entry.label === label);
-            setState((current) => ({ ...current, scale: match?.key }));
-            setStep('timeframe');
-          }
-        )}
-      </ScrollView>
-    );
-  }
-
-  if (step === 'timeframe') {
-    const labels: { key: NonNullable<GoalWizardState['timeframe']>; label: string }[] = [
-      { key: 'month', label: 'This month' },
-      { key: 'quarter', label: 'Next 3 months' },
-      { key: 'year', label: 'This year' },
-      { key: 'none', label: 'No specific timeframe' },
-    ];
-    return (
-      <ScrollView
-        style={styles.wizardScroll}
-        contentContainerStyle={styles.wizardContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.wizardTitle}>What timeframe do you imagine?</Text>
-        {renderChipRow(
-          labels.map((entry) => entry.label),
-          labels.find((entry) => entry.key === state.timeframe)?.label,
-          (label) => {
-            const match = labels.find((entry) => entry.label === label);
-            setState((current) => ({ ...current, timeframe: match?.key }));
-            void handleGenerateDraft();
-          }
-        )}
-        {generating && (
-          <View style={styles.wizardLoadingRow}>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={styles.wizardLoadingLabel}>Shaping your goal…</Text>
-          </View>
-        )}
-      </ScrollView>
-    );
-  }
-
-  // review
-  if (!draft) {
-    return (
-      <View style={styles.wizardContainer}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView
-      style={styles.wizardScroll}
-      contentContainerStyle={styles.wizardContainer}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.wizardTitle}>Here’s a goal that fits this Arc</Text>
-      <View style={styles.wizardDraftCard}>
-        <Text style={styles.wizardDraftTitle}>{draft.title}</Text>
-        {draft.description && (
-          <Text style={styles.wizardDraftBody}>{draft.description}</Text>
-        )}
-      </View>
-      <View style={styles.wizardFooterRow}>
-        <Button onPress={() => onGoalCreated(draft)}>
-          <Text>Yes, save this goal</Text>
-        </Button>
-        <Button
-          variant="outline"
-          onPress={() => handleGenerateDraft('Make it a little different')}
-          disabled={generating}
-        >
-          <Text>Tweak it</Text>
-        </Button>
-      </View>
-    </ScrollView>
-  );
-}
+// Legacy GoalWizard removed — Goal creation AI is now exclusively workflow-driven
+// (AgentWorkspace + `goalCreation`), with the AI Goal Proposal card as the canonical
+// recommendation + adoption UI.
 
 const styles = StyleSheet.create({
   scroll: {
@@ -1797,6 +1270,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.shellAlt,
   },
+  manualGoalThumbnailWrapper: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  manualGoalThumbnailInner: {
+    width: '100%',
+    height: '100%',
+  },
+  manualGoalThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  manualInlineTitleField: {
+    // Pull the inline title field tighter so it visually matches the Goal detail header row.
+    marginTop: 0,
+  },
   goalThumbnailImage: {
     width: '100%',
     height: '100%',
@@ -1935,9 +1427,60 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  arcConnectionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  forceIntentLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  forceCard: {
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  forceSliderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  forceLevelChip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  forceLevelChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  forceLevelChipText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  forceLevelChipTextActive: {
+    color: colors.canvas,
+  },
   buttonText: {
     ...typography.bodySm,
     color: colors.canvas,
+  },
+  manualArcRequiredHint: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
   forceRow: {
     marginTop: spacing.sm,

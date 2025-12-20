@@ -8,7 +8,6 @@ import {
   DrawerActions,
   NavigatorScreenParams,
   type NavigationState,
-  createNavigationContainerRef,
 } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import {
@@ -37,6 +36,8 @@ import { ArcTestingResultsPage } from '../features/dev/ArcTestingResultsPage';
 import { useAppStore } from '../store/useAppStore';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Badge } from '../ui/Badge';
+import { rootNavigationRef } from './rootNavigationRef';
+import type { ActivityDetailRouteParams, GoalDetailRouteParams } from './routeParams';
 
 export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
@@ -69,26 +70,7 @@ export type RootDrawerParamList = {
     | undefined;
 };
 
-export type GoalDetailRouteParams = {
-  goalId: string;
-  /**
-   * Optional hint about where the user navigated from. When set to
-   * "goalsTab", the Goal detail back affordance should return to the Goals
-   * canvas rather than stepping back through any existing Arcs stack
-   * history.
-   */
-  entryPoint?: 'goalsTab' | 'arcsStack';
-};
-
-export type ActivityDetailRouteParams = {
-  activityId: string;
-  /**
-   * Optional hint about where the Activity detail screen was opened from.
-   * When set to "goalPlan", the back affordance should return to the
-   * originating Goal canvas instead of the Activities list.
-   */
-  entryPoint?: 'activitiesCanvas' | 'goalPlan';
-};
+export type { ActivityDetailRouteParams, GoalDetailRouteParams } from './routeParams';
 
 export type ArcsStackParamList = {
   ArcsList: undefined;
@@ -134,7 +116,6 @@ const GoalsStack = createNativeStackNavigator<GoalsStackParamList>();
 const ActivitiesStack = createNativeStackNavigator<ActivitiesStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
-export const rootNavigationRef = createNavigationContainerRef<RootDrawerParamList>();
 // Match the AppShell's top gutter so the drawer content aligns with the page header.
 const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // Bump this key whenever the top-level navigator structure changes in a way

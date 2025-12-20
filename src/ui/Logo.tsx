@@ -11,7 +11,7 @@ const LOGO_WHITE_SOURCE = require('../../assets/logo-white.png');
 const LOGO_PARCHMENT_SOURCE = require('../../assets/logo-parchment.png');
 
 /**
- * Primary kwilt logo mark, rendered directly from the app icon asset.
+ * Primary Kwilt logo mark, rendered directly from the app icon asset.
  *
  * We use a raster app icon here instead of the original SVG path to avoid
  * depending on native SVG support in development. This keeps the FAB and
@@ -42,7 +42,7 @@ export function Logo({ size = 32, variant = 'default', style }: LogoProps) {
       resizeMode="contain"
       accessibilityRole="image"
       accessible
-      accessibilityLabel="kwilt"
+      accessibilityLabel="Kwilt"
     />
   );
 }

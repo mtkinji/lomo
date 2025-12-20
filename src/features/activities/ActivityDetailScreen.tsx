@@ -11,6 +11,7 @@ import {
   Keyboard,
   Modal,
   Share,
+  Linking,
   findNodeHandle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,24 +20,24 @@ import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
-import type { ActivityDifficulty, ActivityStatus, ActivityStep } from '../../domain/types';
+import type {
+  ActivityDifficulty,
+  ActivityRepeatCustom,
+  ActivityStatus,
+  ActivityStep,
+  ActivityType,
+} from '../../domain/types';
 import type {
   ActivitiesStackParamList,
-  ActivityDetailRouteParams,
 } from '../../navigation/RootNavigator';
-import { rootNavigationRef } from '../../navigation/RootNavigator';
+import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
+import { Picker } from '@react-native-picker/picker';
 import { preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
-import {
-  VStack,
-  HStack,
-  Input,
-  ThreeColumnRow,
-  Combobox,
-  KeyboardAwareScrollView,
-} from '../../ui/primitives';
+import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
@@ -54,9 +55,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { parseTags } from '../../utils/tags';
+import { parseTags, suggestTagsFromText } from '../../utils/tags';
+import { suggestActivityTagsWithAi } from '../../services/ai';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
@@ -64,6 +66,7 @@ import * as Calendar from 'expo-calendar';
 import { buildIcsEvent } from '../../utils/ics';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 
 type FocusSessionState =
   | {
@@ -105,6 +108,7 @@ export function ActivityDetailScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const arcs = useAppStore((state) => state.arcs);
+  const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
@@ -136,8 +140,15 @@ export function ActivityDetailScreen() {
     // can offer grounded help (next steps, reframes, timeboxing, etc.).
     const focusGoalId = activity?.goalId ?? undefined;
     const focusActivityId = activity?.id ?? undefined;
-    return buildActivityCoachLaunchContext(goals, activities, focusGoalId, arcs, focusActivityId);
-  }, [activities, activity?.goalId, activity?.id, arcs, goals]);
+    return buildActivityCoachLaunchContext(
+      goals,
+      activities,
+      focusGoalId,
+      arcs,
+      focusActivityId,
+      activityTagHistory
+    );
+  }, [activities, activity?.goalId, activity?.id, activityTagHistory, arcs, goals]);
 
   const { openForScreenContext: openAgentForActivity, AgentWorkspaceSheet } = useAgentLauncher(
     activityWorkspaceSnapshot,
@@ -173,6 +184,58 @@ export function ActivityDetailScreen() {
     [goals],
   );
 
+  const recommendedGoalOption = useMemo(() => {
+    // Only recommend when the activity is currently unlinked.
+    if (activity?.goalId) return null;
+    if (!goals || goals.length === 0) return null;
+    if (!activities || activities.length === 0) return null;
+
+    const tagKeys = new Set((activity?.tags ?? []).map((t) => String(t).trim().toLowerCase()).filter(Boolean));
+    const candidates = goals.map((g) => {
+      const related = activities.filter((a) => a.goalId === g.id && a.id !== activity?.id);
+      const overlapCount =
+        tagKeys.size === 0
+          ? 0
+          : related.filter((a) => (a.tags ?? []).some((t) => tagKeys.has(String(t).trim().toLowerCase()))).length;
+
+      // Most recent activity recency for this goal.
+      const mostRecent = related
+        .map((a) => Date.parse(a.updatedAt))
+        .filter((ms) => Number.isFinite(ms))
+        .sort((a, b) => b - a)[0];
+      const recencyMs = typeof mostRecent === 'number' ? mostRecent : -Infinity;
+
+      return {
+        goal: g,
+        overlapCount,
+        recencyMs,
+        // Score: tag overlap dominates; recency breaks ties.
+        score: overlapCount * 10 + (Number.isFinite(recencyMs) ? recencyMs / 1e12 : 0),
+      };
+    });
+
+    const ordered = candidates.slice().sort((a, b) => b.score - a.score);
+    const best = ordered[0];
+    const second = ordered[1];
+    if (!best) return null;
+
+    // Only show if we have a "good" recommendation:
+    // - If the activity has tags, require at least one overlapping activity under that goal.
+    // - If no tags, require the best goal to have a clearly more recent activity than the runner-up.
+    const hasTags = tagKeys.size > 0;
+    if (hasTags) {
+      if (best.overlapCount < 1) return null;
+    } else {
+      const bestRecency = best.recencyMs;
+      const secondRecency = second?.recencyMs ?? -Infinity;
+      const recencyGapMs = bestRecency - secondRecency;
+      // Require at least ~2 days gap to avoid noisy recommendations.
+      if (!Number.isFinite(bestRecency) || recencyGapMs < 2 * 24 * 60 * 60 * 1000) return null;
+    }
+
+    return { value: best.goal.id, label: best.goal.title, recommendedLabel: 'Recommended' };
+  }, [activity?.goalId, activity?.id, activity?.tags, activities, goals]);
+
   const difficultyOptions = useMemo(
     () => [
       { value: 'very_easy', label: 'Very easy' },
@@ -184,10 +247,62 @@ export function ActivityDetailScreen() {
     [],
   );
 
+  const activityTypeOptions = useMemo(
+    () => [
+      {
+        value: 'task',
+        label: 'Task',
+        keywords: ['todo', 'to-do', 'action'],
+        leftElement: <Icon name="activity" size={16} color={colors.textSecondary} />,
+      },
+      {
+        value: 'checklist',
+        label: 'Checklist',
+        keywords: ['checklist', 'list', 'packing', 'prep'],
+        leftElement: <Icon name="clipboard" size={16} color={colors.textSecondary} />,
+      },
+      {
+        value: 'shopping_list',
+        label: 'Shopping list',
+        keywords: ['grocery', 'groceries', 'shopping', 'list'],
+        leftElement: <Icon name="cart" size={16} color={colors.textSecondary} />,
+      },
+      {
+        value: 'instructions',
+        label: 'Recipe / instructions',
+        keywords: ['recipe', 'instructions', 'how-to', 'steps'],
+        leftElement: <Icon name="chapters" size={16} color={colors.textSecondary} />,
+      },
+      {
+        value: 'plan',
+        label: 'Plan',
+        keywords: ['plan', 'timeline', 'overview'],
+        // Use a list-style glyph (distinct from calendar/today).
+        leftElement: <Icon name="listOrdered" size={16} color={colors.textSecondary} />,
+      },
+    ],
+    [],
+  );
+
   const [reminderSheetVisible, setReminderSheetVisible] = useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = useState(false);
   const [repeatSheetVisible, setRepeatSheetVisible] = useState(false);
+  const [customRepeatSheetVisible, setCustomRepeatSheetVisible] = useState(false);
+  const [customRepeatInterval, setCustomRepeatInterval] = useState<number>(1);
+  const [customRepeatCadence, setCustomRepeatCadence] = useState<ActivityRepeatCustom['cadence']>('weeks');
+  const [customRepeatWeekdays, setCustomRepeatWeekdays] = useState<number[]>(() => [new Date().getDay()]);
   const [isDueDatePickerVisible, setIsDueDatePickerVisible] = useState(false);
+
+  // Avoid stacking modal BottomDrawers during transitions (can leave an invisible backdrop).
+  const repeatDrawerTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (repeatDrawerTransitionTimeoutRef.current) {
+        clearTimeout(repeatDrawerTransitionTimeoutRef.current);
+        repeatDrawerTransitionTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(activity?.title ?? '');
@@ -196,6 +311,8 @@ export function ActivityDetailScreen() {
   const [tagsInputDraft, setTagsInputDraft] = useState('');
   const tagsInputRef = useRef<TextInput | null>(null);
   const tagsFieldContainerRef = useRef<View | null>(null);
+  const tagsAutofillInFlightRef = useRef(false);
+  const [isTagsAutofillThinking, setIsTagsAutofillThinking] = useState(false);
   const [stepsDraft, setStepsDraft] = useState<ActivityStep[]>(activity?.steps ?? []);
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isAddingStepInline, setIsAddingStepInline] = useState(false);
@@ -234,6 +351,7 @@ export function ActivityDetailScreen() {
   const [isCalendarListVisible, setIsCalendarListVisible] = useState(false);
   const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
+  const [sendToSheetVisible, setSendToSheetVisible] = useState(false);
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
@@ -248,6 +366,96 @@ export function ActivityDetailScreen() {
       navigation.navigate('ActivitiesList');
     }
   };
+
+  const canSendTo = useMemo(() => {
+    if (!activity) return false;
+    // Keep this high-signal to avoid UI clutter.
+    return activity.type === 'shopping_list' || activity.type === 'instructions';
+  }, [activity]);
+
+  const buildActivityExportText = useCallback(() => {
+    if (!activity) return '';
+    const lines: string[] = [];
+    const title = activity.title?.trim();
+    if (title) lines.push(title);
+
+    const notes = (activity.notes ?? '').trim();
+    if (notes) {
+      lines.push('', notes);
+    }
+
+    const steps = (activity.steps ?? [])
+      .map((s) => (s.title ?? '').trim())
+      .filter(Boolean);
+    if (steps.length > 0) {
+      lines.push('', activity.type === 'shopping_list' ? 'Items:' : 'Steps:');
+      for (const step of steps) {
+        lines.push(`- ${step}`);
+      }
+    }
+
+    return lines.join('\n').trim();
+  }, [activity]);
+
+  const buildSendToSearchQuery = useCallback(() => {
+    if (!activity) return '';
+    const base = activity.title?.trim() ?? '';
+    const stepTitles = (activity.steps ?? [])
+      .map((s) => (s.title ?? '').trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    const combined = [base, ...stepTitles].filter(Boolean).join(', ');
+    // Keep URLs reasonably short.
+    return combined.length > 140 ? combined.slice(0, 140) : combined;
+  }, [activity]);
+
+  const openExternalUrl = useCallback(async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Could not open link', 'Unable to open that app or link on this device right now.');
+    }
+  }, []);
+
+  const handleSendToCopy = useCallback(async () => {
+    try {
+      const text = buildActivityExportText();
+      if (!text) return;
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied', 'Activity details copied to clipboard.');
+    } catch {
+      Alert.alert('Copy failed', 'Unable to copy to clipboard on this device right now.');
+    }
+  }, [buildActivityExportText]);
+
+  const handleSendToShare = useCallback(async () => {
+    try {
+      const text = buildActivityExportText();
+      if (!text) return;
+      await Share.share({ message: text });
+    } catch {
+      // No-op: Share sheets can be dismissed or unavailable on some platforms.
+    }
+  }, [buildActivityExportText]);
+
+  const handleSendToAmazon = useCallback(async () => {
+    const q = buildSendToSearchQuery();
+    if (!q) return;
+    await openExternalUrl(`https://www.amazon.com/s?k=${encodeURIComponent(q)}`);
+  }, [buildSendToSearchQuery, openExternalUrl]);
+
+  const handleSendToHomeDepot = useCallback(async () => {
+    const q = buildSendToSearchQuery();
+    if (!q) return;
+    await openExternalUrl(`https://www.homedepot.com/s/${encodeURIComponent(q)}`);
+  }, [buildSendToSearchQuery, openExternalUrl]);
+
+  const handleSendToInstacart = useCallback(async () => {
+    const q = buildSendToSearchQuery();
+    if (!q) return;
+    // Best-effort web fallback (native deep links can be added later).
+    await openExternalUrl(`https://www.instacart.com/store/s?k=${encodeURIComponent(q)}`);
+  }, [buildSendToSearchQuery, openExternalUrl]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
@@ -266,6 +474,7 @@ export function ActivityDetailScreen() {
   // Equivalent to 64 with current spacing scale; keep it expressed in tokens so it
   // tracks design-system changes.
   const TAGS_REVEAL_EXTRA_OFFSET = spacing['2xl'] + spacing['2xl'];
+  const TAGS_AI_AUTOFILL_SIZE = 26;
   const prepareRevealTagsField = () => {
     const handle = tagsFieldContainerRef.current
       ? findNodeHandle(tagsFieldContainerRef.current)
@@ -290,6 +499,8 @@ export function ActivityDetailScreen() {
 
   const isCompleted = activity.status === 'done';
   const showDoneButton = isKeyboardVisible || isAnyInputFocused || isEditingTitle || isAddingStepInline;
+  const showTagsAutofill =
+    (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0;
 
   // Only show coachmarks for activities belonging to the onboarding goal
   const isOnboardingActivity = Boolean(
@@ -1132,9 +1343,60 @@ export function ActivityDetailScreen() {
     updateActivity(activity.id, (prev) => ({
       ...prev,
       repeatRule: rule,
+      repeatCustom: rule === 'custom' ? prev.repeatCustom : undefined,
       updatedAt: timestamp,
     }));
     setRepeatSheetVisible(false);
+  };
+
+  const openCustomRepeat = () => {
+    // Hydrate from existing custom config if present.
+    if (activity.repeatRule === 'custom' && activity.repeatCustom) {
+      const cfg = activity.repeatCustom;
+      setCustomRepeatCadence(cfg.cadence);
+      const interval = Math.max(1, Math.round(cfg.interval ?? 1));
+      setCustomRepeatInterval(interval);
+      if (cfg.cadence === 'weeks') {
+        const list = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
+        setCustomRepeatWeekdays(list.length > 0 ? list : [new Date().getDay()]);
+      } else {
+        setCustomRepeatWeekdays([new Date().getDay()]);
+      }
+    } else {
+      setCustomRepeatCadence('weeks');
+      setCustomRepeatInterval(1);
+      setCustomRepeatWeekdays([new Date().getDay()]);
+    }
+    setRepeatSheetVisible(false);
+    if (repeatDrawerTransitionTimeoutRef.current) {
+      clearTimeout(repeatDrawerTransitionTimeoutRef.current);
+    }
+    repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
+      setCustomRepeatSheetVisible(true);
+    }, 260);
+  };
+
+  const commitCustomRepeat = () => {
+    const interval = Math.max(1, Math.round(customRepeatInterval));
+    const weekdays =
+      customRepeatWeekdays.length > 0
+        ? Array.from(new Set(customRepeatWeekdays))
+            .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
+            .sort((a, b) => a - b)
+        : [new Date().getDay()];
+
+    const payload: ActivityRepeatCustom =
+      customRepeatCadence === 'weeks'
+        ? { cadence: 'weeks', interval, weekdays }
+        : { cadence: customRepeatCadence, interval };
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      repeatRule: 'custom',
+      repeatCustom: payload,
+      updatedAt: timestamp,
+    }));
+    setCustomRepeatSheetVisible(false);
   };
 
   const handleClearReminder = () => {
@@ -1168,17 +1430,50 @@ export function ActivityDetailScreen() {
     });
   }, [activity.scheduledDate]);
 
-  const repeatLabel = activity.repeatRule
-    ? activity.repeatRule === 'weekdays'
-      ? 'Weekdays'
-      : activity.repeatRule.charAt(0).toUpperCase() + activity.repeatRule.slice(1)
-    : 'Off';
+  const repeatLabel = (() => {
+    const rule = activity.repeatRule ?? null;
+    if (!rule) return 'Off';
+    if (rule === 'weekdays') return 'Weekdays';
+    if (rule === 'custom') {
+      const cfg = activity.repeatCustom;
+      if (cfg && cfg.cadence === 'weeks') {
+        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
+        const names = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+        const days: number[] = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
+        const picked =
+          days.length > 0
+            ? Array.from(new Set(days))
+                .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
+                .sort((a, b) => a - b)
+            : [];
+        const dayLabel = picked.length > 0 ? picked.map((d) => names[d] ?? '').filter(Boolean).join(' ') : '';
+        return interval === 1
+          ? (dayLabel ? `Weekly (${dayLabel})` : 'Weekly')
+          : (dayLabel ? `Every ${interval} weeks (${dayLabel})` : `Every ${interval} weeks`);
+      }
+      if (cfg) {
+        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
+        const unit =
+          cfg.cadence === 'days'
+            ? 'day'
+            : cfg.cadence === 'months'
+              ? 'month'
+              : cfg.cadence === 'years'
+                ? 'year'
+                : 'week';
+        return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
+      }
+      return 'Custom';
+    }
+    return rule.charAt(0).toUpperCase() + rule.slice(1);
+  })();
 
   const handleClearRepeatRule = () => {
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       repeatRule: undefined,
+      repeatCustom: undefined,
       updatedAt: timestamp,
     }));
     setRepeatSheetVisible(false);
@@ -1696,7 +1991,8 @@ export function ActivityDetailScreen() {
                   right={null}
                   onPress={beginAddStepInline}
                   accessibilityLabel="Add a step to this activity"
-                  style={styles.addStepRow}
+                  style={[styles.stepRow, styles.addStepRow]}
+                  contentStyle={styles.stepRowContent}
                 >
                   {isAddingStepInline ? (
                     <Input
@@ -1776,58 +2072,33 @@ export function ActivityDetailScreen() {
                           openAgentForActivity({ objectType: 'activity', objectId: activity.id });
                         },
                       },
+                      ...(canSendTo
+                        ? ([
+                            {
+                              id: 'sendTo',
+                              icon: 'share',
+                              label: 'Send to…',
+                              tileBackgroundColor: colors.canvas,
+                              badgeColor: colors.sumi,
+                              onPress: () => {
+                                capture(AnalyticsEvent.ActivityActionInvoked, {
+                                  activityId: activity.id,
+                                  action: 'sendTo',
+                                });
+                                setSendToSheetVisible(true);
+                              },
+                            },
+                          ] as const)
+                        : []),
                     ]}
                   />
                 </VStack>
               </View>
             </View>
 
-            {/* Linked goal */}
+            {/* 3) Triggers (time-based) */}
             <View style={styles.section}>
-              <Text style={styles.inputLabel}>Linked Goal</Text>
-              <Combobox
-                open={goalComboboxOpen}
-                onOpenChange={setGoalComboboxOpen}
-                value={activity.goalId ?? ''}
-                onValueChange={(nextGoalId) => {
-                  const timestamp = new Date().toISOString();
-                  updateActivity(activity.id, (prev) => ({
-                    ...prev,
-                    goalId: nextGoalId ? nextGoalId : null,
-                    updatedAt: timestamp,
-                  }));
-                }}
-                options={goalOptions}
-                searchPlaceholder="Search goals…"
-                emptyText="No goals found."
-                allowDeselect
-                presentation="drawer"
-                drawerSnapPoints={['60%']}
-                trigger={
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Change linked goal"
-                    style={styles.comboboxTrigger}
-                  >
-                    <View pointerEvents="none">
-                      <Input
-                        value={goalTitle ?? ''}
-                        placeholder="Select goal…"
-                        editable={false}
-                        variant="outline"
-                        elevation="flat"
-                        trailingIcon="chevronsUpDown"
-                        containerStyle={styles.comboboxValueContainer}
-                        inputStyle={styles.comboboxValueInput}
-                      />
-                    </View>
-                  </Pressable>
-                }
-              />
-            </View>
-
-            {/* 3) Reminder / Due date / Recurrence */}
-            <View style={styles.section}>
+              <Text style={styles.inputLabel}>TRIGGERS</Text>
               <View
                 ref={scheduleAndPlanningCardRef}
                 collapsable={false}
@@ -1839,7 +2110,6 @@ export function ActivityDetailScreen() {
               >
                 <View style={styles.rowPadding}>
                   <VStack space="xs">
-                  {/* Timing */}
                   <VStack space="sm">
                     <Pressable
                       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -1868,11 +2138,11 @@ export function ActivityDetailScreen() {
                         <Text
                           style={[
                             styles.rowValue,
-                            reminderLabel !== 'None' && styles.rowLabelActive,
+                            reminderLabel !== 'None' && styles.rowValueSet,
                           ]}
                           numberOfLines={1}
                         >
-                          {reminderLabel === 'None' ? 'Add reminder' : reminderLabel}
+                          {reminderLabel === 'None' ? 'Time trigger (reminder)' : reminderLabel}
                         </Text>
                       </ThreeColumnRow>
                     </Pressable>
@@ -1906,11 +2176,11 @@ export function ActivityDetailScreen() {
                         <Text
                           style={[
                             styles.rowValue,
-                            activity.scheduledDate && styles.rowLabelActive,
+                            activity.scheduledDate && styles.rowValueSet,
                           ]}
                           numberOfLines={1}
                         >
-                          {activity.scheduledDate ? dueDateLabel : 'Add due date'}
+                          {activity.scheduledDate ? dueDateLabel : 'Deadline (due date)'}
                         </Text>
                       </ThreeColumnRow>
                     </Pressable>
@@ -1944,19 +2214,26 @@ export function ActivityDetailScreen() {
                         <Text
                           style={[
                             styles.rowValue,
-                            repeatLabel !== 'Off' && styles.rowLabelActive,
+                            repeatLabel !== 'Off' && styles.rowValueSet,
                           ]}
                           numberOfLines={1}
                         >
-                          {repeatLabel === 'Off' ? 'Repeat' : repeatLabel}
+                          {repeatLabel === 'Off' ? 'Repeat trigger' : repeatLabel}
                         </Text>
                       </ThreeColumnRow>
                     </Pressable>
                   </VStack>
+                </VStack>
+                </View>
+              </View>
+            </View>
 
-                  <View style={styles.cardSectionDivider} />
-
-                  {/* Planning (no group label; treated as part of the same metadata card) */}
+            {/* 4) Planning */}
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>PLANNING</Text>
+              <View style={styles.rowsCard}>
+                <View style={styles.rowPadding}>
+                  <VStack space="xs">
                   <View style={styles.row}>
                     <ThreeColumnRow
                       left={<Icon name="estimate" size={16} color={colors.textSecondary} />}
@@ -1983,6 +2260,7 @@ export function ActivityDetailScreen() {
                       <Text
                         style={[
                           styles.rowValue,
+                            hasTimeEstimate && !timeEstimateIsAi && styles.rowValueSet,
                           timeEstimateIsAi && styles.rowValueAi,
                         ]}
                         numberOfLines={1}
@@ -2037,6 +2315,7 @@ export function ActivityDetailScreen() {
                           <Text
                             style={[
                               styles.rowValue,
+                              hasDifficulty && !difficultyIsAi && styles.rowValueSet,
                               difficultyIsAi && styles.rowValueAi,
                             ]}
                             numberOfLines={1}
@@ -2052,7 +2331,30 @@ export function ActivityDetailScreen() {
               </View>
             </View>
 
-            {/* 5) Notes */}
+            {/* Notes */}
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>NOTES</Text>
+              <LongTextField
+                label="Notes"
+                hideLabel
+                value={activity.notes ?? ''}
+                placeholder="Add context or reminders for this activity."
+                autosaveDebounceMs={900}
+                onChange={(next) => {
+                  const nextValue = next.trim().length ? next : '';
+                  const current = activity.notes ?? '';
+                  if (nextValue === current) return;
+                  const timestamp = new Date().toISOString();
+                  updateActivity(activity.id, (prev) => ({
+                    ...prev,
+                    notes: nextValue.length ? nextValue : undefined,
+                    updatedAt: timestamp,
+                  }));
+                }}
+              />
+            </View>
+
+            {/* Tags */}
             <View style={styles.section}>
               <Text style={styles.inputLabel}>TAGS</Text>
               <Pressable
@@ -2064,7 +2366,12 @@ export function ActivityDetailScreen() {
                   prepareRevealTagsField();
                   tagsInputRef.current?.focus();
                 }}
-                style={styles.tagsFieldContainer}
+                style={[
+                  styles.tagsFieldContainer,
+                  showTagsAutofill
+                    ? { paddingRight: spacing.md + TAGS_AI_AUTOFILL_SIZE + spacing.sm }
+                    : null,
+                ]}
                 ref={tagsFieldContainerRef}
               >
                 <View style={styles.tagsFieldInner}>
@@ -2110,8 +2417,7 @@ export function ActivityDetailScreen() {
                       // If the keyboard is already open, we won't get a keyboardDidShow event,
                       // so run the reveal immediately.
                       if (handle && isKeyboardVisible) {
-                        const totalOffset =
-                          KEYBOARD_CLEARANCE + spacing.lg + TAGS_REVEAL_EXTRA_OFFSET;
+                        const totalOffset = KEYBOARD_CLEARANCE + spacing.lg + TAGS_REVEAL_EXTRA_OFFSET;
                         requestAnimationFrame(() => {
                           scrollRef.current?.scrollToNodeHandle(handle, totalOffset);
                         });
@@ -2142,29 +2448,99 @@ export function ActivityDetailScreen() {
                     }}
                   />
                 </View>
+                {showTagsAutofill ? (
+                  <View
+                    pointerEvents="box-none"
+                    style={[
+                      styles.tagsAutofillBadge,
+                      { right: spacing.md, top: 22 - TAGS_AI_AUTOFILL_SIZE / 2 },
+                    ]}
+                  >
+                    <AiAutofillBadge
+                      accessibilityLabel="Autofill tags with AI"
+                      size={TAGS_AI_AUTOFILL_SIZE}
+                      loading={isTagsAutofillThinking}
+                      onPress={() => {
+                        if (tagsAutofillInFlightRef.current) return;
+                        tagsAutofillInFlightRef.current = true;
+                        setIsTagsAutofillThinking(true);
+                        (async () => {
+                          const aiTags = await suggestActivityTagsWithAi({
+                            activityTitle: activity.title,
+                            activityNotes: activity.notes,
+                            goalTitle: goalTitle ?? null,
+                            tagHistory: activityTagHistory,
+                            maxTags: 4,
+                          });
+                          const suggested =
+                            aiTags && aiTags.length > 0
+                              ? aiTags
+                              : suggestTagsFromText(activity.title, activity.notes, goalTitle);
+                          addTags(suggested);
+                        })()
+                          .catch(() => undefined)
+                          .finally(() => {
+                            tagsAutofillInFlightRef.current = false;
+                            setIsTagsAutofillThinking(false);
+                          });
+                      }}
+                    />
+                  </View>
+                ) : null}
               </Pressable>
             </View>
 
-            {/* 6) Notes */}
+            {/* Linked Goal */}
             <View style={styles.section}>
-              <Text style={styles.inputLabel}>NOTES</Text>
-              <LongTextField
-                label="Notes"
-                hideLabel
-                value={activity.notes ?? ''}
-                placeholder="Add context or reminders for this activity."
-                autosaveDebounceMs={900}
-                onChange={(next) => {
-                  const nextValue = next.trim().length ? next : '';
-                  const current = activity.notes ?? '';
-                  if (nextValue === current) return;
+              <Text style={styles.inputLabel}>Linked Goal</Text>
+              <ObjectPicker
+                value={activity.goalId ?? ''}
+                onValueChange={(nextGoalId) => {
                   const timestamp = new Date().toISOString();
                   updateActivity(activity.id, (prev) => ({
                     ...prev,
-                    notes: nextValue.length ? nextValue : undefined,
+                    goalId: nextGoalId ? nextGoalId : null,
                     updatedAt: timestamp,
                   }));
                 }}
+                options={goalOptions}
+                recommendedOption={recommendedGoalOption ?? undefined}
+                placeholder="Select goal…"
+                searchPlaceholder="Search goals…"
+                emptyText="No goals found."
+                accessibilityLabel="Change linked goal"
+                allowDeselect
+                presentation="drawer"
+                drawerSnapPoints={['60%']}
+                size="compact"
+                leadingIcon="goals"
+              />
+            </View>
+
+            {/* Type */}
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>Type</Text>
+              <ObjectPicker
+                value={activity.type}
+                onValueChange={(nextType) => {
+                  const timestamp = new Date().toISOString();
+                  const normalized = (nextType || 'task') as ActivityType;
+                  updateActivity(activity.id, (prev) => ({
+                    ...prev,
+                    type: normalized,
+                    updatedAt: timestamp,
+                  }));
+                }}
+                options={activityTypeOptions}
+                placeholder="Select type…"
+                searchPlaceholder="Search types…"
+                emptyText="No type options found."
+                accessibilityLabel="Change activity type"
+                allowDeselect={false}
+                presentation="drawer"
+                drawerSnapPoints={['45%']}
+                size="compact"
+                leadingIcon="listBulleted"
               />
             </View>
           </KeyboardAwareScrollView>
@@ -2261,7 +2637,8 @@ export function ActivityDetailScreen() {
       <BottomDrawer
         visible={repeatSheetVisible}
         onClose={() => setRepeatSheetVisible(false)}
-        snapPoints={['45%']}
+        snapPoints={['60%']}
+        presentation="inline"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Repeat</Text>
@@ -2271,9 +2648,162 @@ export function ActivityDetailScreen() {
             <SheetOption label="Weekdays" onPress={() => handleSelectRepeat('weekdays')} />
             <SheetOption label="Monthly" onPress={() => handleSelectRepeat('monthly')} />
             <SheetOption label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
+            <SheetOption label="Custom…" onPress={openCustomRepeat} />
           </VStack>
         </View>
       </BottomDrawer>
+
+      <BottomDrawer
+        visible={customRepeatSheetVisible}
+        onClose={() => setCustomRepeatSheetVisible(false)}
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['60%']}
+        presentation="inline"
+      >
+        <View style={styles.sheetContent}>
+          <HStack alignItems="center" justifyContent="space-between" style={styles.customRepeatHeaderRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back to repeat options"
+              onPress={() => {
+                setCustomRepeatSheetVisible(false);
+                if (repeatDrawerTransitionTimeoutRef.current) {
+                  clearTimeout(repeatDrawerTransitionTimeoutRef.current);
+                }
+                repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
+                  setRepeatSheetVisible(true);
+                }, 260);
+              }}
+              hitSlop={8}
+            >
+              <Icon name="arrowLeft" size={18} color={colors.textSecondary} />
+            </Pressable>
+            <Text style={styles.customRepeatHeaderTitle}>Repeat every…</Text>
+              <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Set custom repeat rule"
+                onPress={commitCustomRepeat}
+              hitSlop={8}
+            >
+              <Text style={styles.customRepeatSetLabel}>Set</Text>
+            </Pressable>
+          </HStack>
+
+          <View style={styles.customRepeatPickerBlock}>
+            <HStack space="md" alignItems="center" justifyContent="center">
+              {Platform.OS === 'ios' ? (
+                <>
+                  <View style={styles.iosWheelFrame}>
+                    <Picker
+                      selectedValue={customRepeatInterval}
+                      onValueChange={(value) => setCustomRepeatInterval(Number(value))}
+                      itemStyle={styles.iosWheelItem}
+                    >
+                      {Array.from(
+                        {
+                          length:
+                            customRepeatCadence === 'days'
+                              ? 30
+                              : customRepeatCadence === 'weeks'
+                                ? 12
+                                : customRepeatCadence === 'months'
+                                  ? 24
+                                  : 10,
+                        },
+                        (_, idx) => idx + 1,
+                      ).map((n) => (
+                        <Picker.Item key={String(n)} label={String(n)} value={n} />
+                      ))}
+                    </Picker>
+                  </View>
+                  <View style={styles.iosWheelFrame}>
+                    <Picker
+                      selectedValue={customRepeatCadence}
+                      onValueChange={(value) => setCustomRepeatCadence(value)}
+                      itemStyle={styles.iosWheelItem}
+                    >
+                      <Picker.Item label="Days" value="days" />
+                      <Picker.Item label="Weeks" value="weeks" />
+                      <Picker.Item label="Months" value="months" />
+                      <Picker.Item label="Years" value="years" />
+                    </Picker>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <NumberWheelPicker
+                    value={customRepeatInterval}
+                    onChange={setCustomRepeatInterval}
+                    min={1}
+                    max={
+                      customRepeatCadence === 'days'
+                        ? 30
+                        : customRepeatCadence === 'weeks'
+                          ? 12
+                          : customRepeatCadence === 'months'
+                            ? 24
+                            : 10
+                    }
+                  />
+                  <NumberWheelPicker
+                    value={['days', 'weeks', 'months', 'years'].indexOf(customRepeatCadence)}
+                    onChange={(idx) => {
+                      const next = (['days', 'weeks', 'months', 'years'] as const)[idx] ?? 'weeks';
+                      setCustomRepeatCadence(next);
+                    }}
+                    min={0}
+                    max={3}
+                    formatLabel={(idx) => {
+                      const v = (['Days', 'Weeks', 'Months', 'Years'] as const)[idx] ?? 'Weeks';
+                      return v;
+                    }}
+                  />
+                </>
+              )}
+            </HStack>
+          </View>
+
+          {customRepeatCadence === 'weeks' ? (
+            <>
+              <Text style={styles.customRepeatSectionLabel}>Repeat on</Text>
+              <HStack space="sm" alignItems="center" style={styles.customRepeatWeekdayRow}>
+                {(['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const).map((label, idx) => {
+                  const selected = customRepeatWeekdays.includes(idx);
+                  return (
+                    <Pressable
+                      key={label}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Toggle ${label}`}
+                      onPress={() => {
+                        setCustomRepeatWeekdays((prev) => {
+                          if (prev.includes(idx)) {
+                            const next = prev.filter((d) => d !== idx);
+                            return next.length > 0 ? next : prev; // keep at least one selected
+                          }
+                          return [...prev, idx];
+                        });
+                      }}
+                      style={[
+                        styles.customRepeatWeekdayChip,
+                        selected && styles.customRepeatWeekdayChipSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.customRepeatWeekdayChipText,
+                          selected && styles.customRepeatWeekdayChipTextSelected,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </HStack>
+            </>
+          ) : null}
+        </View>
+      </BottomDrawer>
+
 
       <BottomDrawer
         visible={estimateSheetVisible}
@@ -2786,6 +3316,59 @@ export function ActivityDetailScreen() {
       </Modal>
 
       {AgentWorkspaceSheet}
+
+      <BottomDrawer
+        visible={sendToSheetVisible}
+        onClose={() => setSendToSheetVisible(false)}
+        snapPoints={['45%']}
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Send to…</Text>
+          <SheetOption
+            label="Amazon"
+            onPress={() => {
+              capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToAmazon' });
+              setSendToSheetVisible(false);
+              handleSendToAmazon().catch(() => undefined);
+            }}
+          />
+          <SheetOption
+            label="Home Depot"
+            onPress={() => {
+              capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToHomeDepot' });
+              setSendToSheetVisible(false);
+              handleSendToHomeDepot().catch(() => undefined);
+            }}
+          />
+          <SheetOption
+            label="Instacart"
+            onPress={() => {
+              capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToInstacart' });
+              setSendToSheetVisible(false);
+              handleSendToInstacart().catch(() => undefined);
+            }}
+          />
+          <View style={styles.cardSectionDivider} />
+          <SheetOption
+            label="Copy details"
+            onPress={() => {
+              capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToCopy' });
+              setSendToSheetVisible(false);
+              handleSendToCopy().catch(() => undefined);
+            }}
+          />
+          <SheetOption
+            label="Share…"
+            onPress={() => {
+              capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToShare' });
+              setSendToSheetVisible(false);
+              handleSendToShare().catch(() => undefined);
+            }}
+          />
+          <View style={styles.cardSectionDivider} />
+          <SheetOption label="Cancel" onPress={() => setSendToSheetVisible(false)} />
+        </View>
+      </BottomDrawer>
     </AppShell>
   );
 }
@@ -2871,12 +3454,18 @@ const styles = StyleSheet.create({
   tagsTextInput: {
     flexGrow: 1,
     flexShrink: 1,
-    minWidth: 120,
+    // Important: keep this small so the presence of an (empty) TextInput does NOT
+    // force a second wrapped row when chips still fit on the current row.
+    flexBasis: 40,
+    minWidth: 40,
     fontFamily: typography.bodySm.fontFamily,
     fontSize: typography.bodySm.fontSize,
     lineHeight: typography.bodySm.lineHeight + 2,
     color: colors.textPrimary,
     paddingVertical: 0,
+  },
+  tagsAutofillBadge: {
+    position: 'absolute',
   },
   scroll: {
     flex: 1,
@@ -2890,9 +3479,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   keyActionsInset: {
-    // Give tile shadows room to render inside the scroll viewport so they
-    // don't get clipped at the canvas edges.
-    paddingHorizontal: spacing.sm,
+    // AppShell already provides the page gutter. Keep Key Actions aligned with the
+    // rest of the Activity canvas (and avoid double-padding).
+    paddingHorizontal: 0,
     paddingVertical: spacing.xs,
   },
   activityHeaderRow: {
@@ -3005,6 +3594,9 @@ const styles = StyleSheet.create({
   rowLabelActive: {
     color: colors.accent,
   },
+  rowValueSet: {
+    color: colors.sumi,
+  },
   rowContent: {
     // Slightly taller than default row height without feeling oversized.
     paddingVertical: spacing.sm,
@@ -3018,6 +3610,8 @@ const styles = StyleSheet.create({
   },
   rowsCard: {
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.canvas,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
@@ -3098,7 +3692,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   addStepRow: {
-    marginTop: 2,
+    marginTop: 0,
   },
   addStepInlineText: {
     ...typography.bodySm,
@@ -3151,6 +3745,69 @@ const styles = StyleSheet.create({
   sheetRowLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  customRepeatHeaderRow: {
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  customRepeatHeaderTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  customRepeatSetLabel: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.semibold,
+  },
+  customRepeatPickerBlock: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  iosWheelFrame: {
+    width: 140,
+    height: 190,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.canvas,
+    overflow: 'hidden',
+  },
+  iosWheelItem: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  customRepeatSectionLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  customRepeatWeekdayRow: {
+    flexWrap: 'wrap',
+  },
+  customRepeatWeekdayChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customRepeatWeekdayChipSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  customRepeatWeekdayChipText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  customRepeatWeekdayChipTextSelected: {
+    color: colors.primaryForeground,
   },
   datePickerContainer: {
     marginTop: spacing.sm,

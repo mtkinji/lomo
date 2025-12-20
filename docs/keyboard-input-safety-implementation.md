@@ -53,6 +53,7 @@ This is the “never covered” default for most forms.
 `AiChatScreen` (hosted by `AgentWorkspace`) implements its own keyboard strategy because it can be mounted inside transformed sheet surfaces:
 
 - listens for keyboard show/hide
+- tracks iOS keyboard frame changes (QuickType/predictive bar, emoji keyboard, dictation) so keyboard height doesn’t go stale
 - pads transcript scroll content and scrolls focused inline inputs into view
 
 If you are hosting **Agent chat** inside `BottomDrawer`, set:
@@ -60,6 +61,8 @@ If you are hosting **Agent chat** inside `BottomDrawer`, set:
 - `keyboardAvoidanceEnabled={false}`
 
 …to avoid double-lifting/double-padding (BottomDrawer + chat both adjusting).
+
+Also pass `hostBottomInsetAlreadyApplied={true}` into `AgentWorkspace` (or rely on `useAgentLauncher`, which sets this automatically). This tells `AiChatPane` to subtract `insets.bottom` from iOS keyboard heights so it doesn’t double-count the home-indicator area when the sheet already includes safe-area padding.
 
 ### 4) Dialogs: `Dialog` is keyboard-safe
 
@@ -105,5 +108,6 @@ Run on a small iPhone simulator/device:
 - Switch between two inputs while keyboard stays open: no “stuck under keyboard”.
 - In a sheet: focus an input near the bottom: it lifts/scrolls above keyboard.
 - In Agent chat: focus an inline card input while keyboard is already open: it scrolls into view.
+- In Agent chat (iOS): toggle QuickType bar / emoji keyboard while an input is focused: no big gaps, no jump-off-screen.
 
 

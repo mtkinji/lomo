@@ -4,12 +4,13 @@ import { richTextToPlainText } from '../../ui/richText';
 /**
  * Shared helper for building a natural-language snapshot of the user's
  * existing Arcs and Goals. This is passed into AgentWorkspace as a hidden
- * context string so the Arc / Goals AI surfaces can propose complementary
+ * context string so the Arc / Goal coach surfaces can propose complementary
  * Arcs or Goals.
  */
 export function buildArcCoachLaunchContext(
   arcs: Arc[],
-  goals: Goal[]
+  goals: Goal[],
+  focusArcId?: string,
 ): string | undefined {
   if (arcs.length === 0 && goals.length === 0) {
     return undefined;
@@ -23,7 +24,37 @@ export function buildArcCoachLaunchContext(
   lines.push(`Total arcs: ${arcs.length}. Total goals: ${goals.length}.`);
   lines.push('');
 
+  const focusArc =
+    focusArcId ? arcs.find((candidate) => candidate.id === focusArcId) ?? null : null;
+  if (focusArc) {
+    lines.push(
+      'FOCUSED ARC (this is the arc you must anchor goal recommendations to):',
+      `- ${focusArc.name} (status: ${focusArc.status}, id: ${focusArc.id})`,
+    );
+    if (focusArc.narrative) {
+      lines.push(`Narrative: ${richTextToPlainText(focusArc.narrative)}`);
+    }
+    const focusGoals = goals.filter((goal) => goal.arcId === focusArc.id);
+    if (focusGoals.length > 0) {
+      lines.push('Existing goals in this arc (avoid duplicates):');
+      focusGoals.slice(0, 8).forEach((goal) => {
+        lines.push(`- ${goal.title} (status: ${goal.status})`);
+      });
+      if (focusGoals.length > 8) {
+        lines.push(`…and ${focusGoals.length - 8} more.`);
+      }
+    } else {
+      lines.push('No goals are currently attached to the focused arc.');
+    }
+    lines.push(''); // spacer after focused arc
+  }
+
   arcs.forEach((arc) => {
+    // When we include a focused arc section above, keep the full list below for
+    // general context, but avoid duplicating the exact same arc header twice.
+    if (focusArc && arc.id === focusArc.id) {
+      return;
+    }
     const arcGoals = goals.filter((goal) => goal.arcId === arc.id);
 
     lines.push(`Arc: ${arc.name} (status: ${arc.status}).`);
@@ -48,6 +79,22 @@ export function buildArcCoachLaunchContext(
     lines.push(''); // spacer between arcs
   });
 
+  const unassignedGoals = goals.filter((g) => !g.arcId);
+  if (unassignedGoals.length > 0) {
+    lines.push('Unassigned goals (not yet attached to an Arc):');
+    unassignedGoals.slice(0, 10).forEach((goal) => {
+      const descriptionPlain = goal.description ? richTextToPlainText(goal.description) : '';
+      const trimmedDescription =
+        descriptionPlain && descriptionPlain.length > 200 ? `${descriptionPlain.slice(0, 197)}…` : descriptionPlain;
+      const base = `- ${goal.title} (status: ${goal.status})`;
+      lines.push(trimmedDescription ? `${base} – ${trimmedDescription}` : base);
+    });
+    if (unassignedGoals.length > 10) {
+      lines.push(`…and ${unassignedGoals.length - 10} more.`);
+    }
+    lines.push('');
+  }
+
   return lines.join('\n');
 }
 
@@ -61,7 +108,16 @@ export function buildActivityCoachLaunchContext(
   activities: Activity[],
   focusGoalId?: string,
   arcs?: Arc[],
-  focusActivityId?: string
+  focusActivityId?: string,
+  activityTagHistory?: Record<
+    string,
+    {
+      tag: string;
+      lastUsedAt: string;
+      totalUses: number;
+      recentUses: Array<{ activityTitle: string; activityType: string; usedAt: string }>;
+    }
+  >
 ): string | undefined {
   if (goals.length === 0 && activities.length === 0) {
     return undefined;
@@ -74,6 +130,35 @@ export function buildActivityCoachLaunchContext(
   );
   lines.push(`Total goals: ${goals.length}. Total activities: ${activities.length}.`);
   lines.push('');
+
+  // User tag vocabulary: reuse before inventing new ones.
+  const tagHistoryEntries = activityTagHistory ? Object.values(activityTagHistory) : [];
+  if (tagHistoryEntries.length > 0) {
+    const ordered = tagHistoryEntries
+      .slice()
+      .sort((a, b) => {
+        const aT = Date.parse(a.lastUsedAt);
+        const bT = Date.parse(b.lastUsedAt);
+        if (Number.isFinite(aT) && Number.isFinite(bT)) return bT - aT;
+        if (Number.isFinite(aT)) return -1;
+        if (Number.isFinite(bT)) return 1;
+        return (b.totalUses ?? 0) - (a.totalUses ?? 0);
+      })
+      .slice(0, 24);
+
+    lines.push('TAG HISTORY (the user’s existing tag vocabulary; reuse these before creating new tags):');
+    ordered.forEach((entry) => {
+      const examples = (entry.recentUses ?? [])
+        .slice(0, 2)
+        .map((u) => `${u.activityTitle} [${u.activityType}]`)
+        .join('; ');
+      lines.push(`- ${entry.tag} (uses: ${entry.totalUses}${examples ? `; examples: ${examples}` : ''})`);
+    });
+    lines.push(
+      'Guideline: when asked to suggest/add tags, first pick from TAG HISTORY that fit the context. Only invent new tags if none of the existing tags match.'
+    );
+    lines.push('');
+  }
 
   const focusActivity =
     focusActivityId
