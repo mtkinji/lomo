@@ -41,7 +41,6 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
 import { ActivityListItem } from '../../ui/ActivityListItem';
-import type { IconName } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import {
   DropdownMenu,
@@ -50,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
@@ -69,7 +69,10 @@ import { fonts } from '../../theme/typography';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
-import { formatTags, parseTags } from '../../utils/tags';
+import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
+import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
+import { buildActivityListMeta } from '../../utils/activityListMeta';
+import { suggestActivityTagsWithAi } from '../../services/ai';
 
 type ViewMenuItemProps = {
   view: ActivityView;
@@ -113,80 +116,6 @@ type CompletedActivitySectionProps = {
   onPressActivity: (activityId: string) => void;
   isMetaLoading?: (activityId: string) => boolean;
 };
-
-function formatActivityMinutes(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (mins === 0) return `${hrs} hr${hrs === 1 ? '' : 's'}`;
-  return `${hrs} hr${hrs === 1 ? '' : 's'} ${mins} min`;
-}
-
-function formatActivityRepeatRule(rule: Activity['repeatRule'] | undefined): string | null {
-  if (!rule) return null;
-  return rule === 'weekdays' ? 'Weekdays' : rule.charAt(0).toUpperCase() + rule.slice(1);
-}
-
-function formatActivityDueDateLabel(iso: string): string {
-  const date = new Date(iso);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function formatActivityReminderLabel(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-
-  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  if (sameDay) return time;
-
-  const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  return `${day} ${time}`;
-}
-
-function buildActivityListMeta(args: {
-  activity: Activity;
-  goalTitle?: string;
-}): { meta?: string; metaLeadingIconName?: IconName } {
-  const { activity, goalTitle } = args;
-
-  const parts: string[] = [];
-
-  // Scheduling / effort metadata (these are what quick-add sets today).
-  if (activity.scheduledDate) {
-    parts.push(formatActivityDueDateLabel(activity.scheduledDate));
-  }
-  if (activity.reminderAt) {
-    parts.push(formatActivityReminderLabel(activity.reminderAt));
-  }
-  if (activity.estimateMinutes != null) {
-    parts.push(formatActivityMinutes(activity.estimateMinutes));
-  }
-  const repeatLabel = formatActivityRepeatRule(activity.repeatRule);
-  if (repeatLabel) {
-    parts.push(repeatLabel);
-  }
-
-  // Contextual metadata (these are often null for quick-add).
-  if (activity.phase) {
-    parts.push(activity.phase);
-  }
-  if (goalTitle) {
-    parts.push(goalTitle);
-  }
-
-  const meta = parts.length > 0 ? parts.join(' · ') : undefined;
-  const metaLeadingIconName: IconName | undefined = activity.scheduledDate
-    ? 'today'
-    : activity.reminderAt
-      ? 'bell'
-      : undefined;
-
-  return { meta, metaLeadingIconName };
-}
 
 function CompletedActivitySection({
   activities,
@@ -265,6 +194,7 @@ export function ActivitiesScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
+  const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const activityViews = useAppStore((state) => state.activityViews);
@@ -305,6 +235,14 @@ export function ActivitiesScreen() {
   const [quickAddScheduledDate, setQuickAddScheduledDate] = React.useState<string | null>(null);
   const [quickAddRepeatRule, setQuickAddRepeatRule] = React.useState<Activity['repeatRule']>(undefined);
   const [quickAddEstimateMinutes, setQuickAddEstimateMinutes] = React.useState<number | null>(null);
+
+  // Post-create "add a trigger" nudge (Option A): encourage a lightweight if/then
+  // trigger after quick-add activity creation without forcing navigation.
+  const [postCreateTriggerActivityId, setPostCreateTriggerActivityId] = React.useState<string | null>(null);
+  const [triggerGuideVisible, setTriggerGuideVisible] = React.useState(false);
+  const [triggerPickerVisible, setTriggerPickerVisible] = React.useState(false);
+  const [triggerPickerActivityId, setTriggerPickerActivityId] = React.useState<string | null>(null);
+  const [isTriggerDateTimePickerVisible, setIsTriggerDateTimePickerVisible] = React.useState(false);
 
   React.useEffect(() => {
     enrichingActivityIdsRef.current = enrichingActivityIds;
@@ -612,7 +550,14 @@ export function ActivitiesScreen() {
 
     try {
       const arcSnapshot = buildArcCoachLaunchContext(arcs, goals);
-      const activitySnapshot = buildActivityCoachLaunchContext(goals, activities, undefined, arcs);
+      const activitySnapshot = buildActivityCoachLaunchContext(
+        goals,
+        activities,
+        undefined,
+        arcs,
+        undefined,
+        activityTagHistory
+      );
       const combinedSnapshot = [arcSnapshot, activitySnapshot].filter(Boolean).join('\n\n').trim();
       const snapshot = combinedSnapshot.length > 8000 ? `${combinedSnapshot.slice(0, 7999)}…` : combinedSnapshot;
 
@@ -708,6 +653,7 @@ export function ActivitiesScreen() {
       id,
       goalId: null,
       title: trimmed,
+      type: 'task',
       tags: [],
       notes: undefined,
       steps: proPlan.steps,
@@ -718,6 +664,7 @@ export function ActivitiesScreen() {
       planGroupId: null,
       scheduledDate: quickAddScheduledDate ?? null,
       repeatRule: quickAddRepeatRule,
+      repeatCustom: undefined,
       orderIndex: (activities.length || 0) + 1,
       phase: null,
       status: 'planned',
@@ -732,6 +679,13 @@ export function ActivitiesScreen() {
 
     addActivity(activity);
     pendingScrollToActivityIdRef.current = activity.id;
+    // If the user didn't add any scheduling/reminder info during quick-add,
+    // queue a gentle "add a trigger" guide for when the dock is collapsed.
+    const hasTrigger =
+      Boolean(activity.reminderAt) || Boolean(activity.scheduledDate) || Boolean(activity.repeatRule);
+    if (!hasTrigger && !triggerGuideVisible && !triggerPickerVisible) {
+      setPostCreateTriggerActivityId(activity.id);
+    }
     capture(AnalyticsEvent.ActivityCreated, {
       source: 'quick_add',
       activity_id: activity.id,
@@ -825,7 +779,112 @@ export function ActivitiesScreen() {
     quickAddScheduledDate,
     quickAddTitle,
     markActivityEnrichment,
+    triggerGuideVisible,
+    triggerPickerVisible,
   ]);
+
+  // Show the post-create trigger guide once the quick-add dock is collapsed, so it
+  // doesn't compete with rapid entry (keyboard-open flow).
+  React.useEffect(() => {
+    if (triggerGuideVisible || triggerPickerVisible) return;
+    if (isQuickAddFocused) return;
+    if (activityCoachVisible || viewEditorVisible) return;
+    const pendingId = postCreateTriggerActivityId;
+    if (!pendingId) return;
+    // Ensure the activity still exists (it might have been deleted).
+    if (!activities.some((a) => a.id === pendingId)) {
+      setPostCreateTriggerActivityId(null);
+      return;
+    }
+    setTriggerGuideVisible(true);
+  }, [
+    activities,
+    activityCoachVisible,
+    isQuickAddFocused,
+    postCreateTriggerActivityId,
+    triggerGuideVisible,
+    triggerPickerVisible,
+    viewEditorVisible,
+  ]);
+
+  const dismissTriggerGuide = React.useCallback(() => {
+    setTriggerGuideVisible(false);
+    setPostCreateTriggerActivityId(null);
+  }, []);
+
+  const openTriggerPickerForGuide = React.useCallback(() => {
+    if (!postCreateTriggerActivityId) return;
+    setTriggerGuideVisible(false);
+    setTriggerPickerActivityId(postCreateTriggerActivityId);
+    setTriggerPickerVisible(true);
+    setIsTriggerDateTimePickerVisible(false);
+    // Close keyboard/dock so the trigger picker feels like a deliberate next step.
+    setQuickAddFocused(false);
+  }, [postCreateTriggerActivityId, setQuickAddFocused]);
+
+  const setTriggerReminderByOffsetDays = React.useCallback(
+    (offsetDays: number, hours = 9, minutes = 0) => {
+      if (!triggerPickerActivityId) return;
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(hours, minutes, 0, 0);
+      const timestamp = new Date().toISOString();
+      updateActivity(triggerPickerActivityId, (prev) => ({
+        ...prev,
+        reminderAt: date.toISOString(),
+        updatedAt: timestamp,
+      }));
+      setTriggerPickerVisible(false);
+      setIsTriggerDateTimePickerVisible(false);
+      setTriggerPickerActivityId(null);
+      setPostCreateTriggerActivityId(null);
+    },
+    [triggerPickerActivityId, updateActivity],
+  );
+
+  const clearTriggerReminder = React.useCallback(() => {
+    if (!triggerPickerActivityId) return;
+    const timestamp = new Date().toISOString();
+    updateActivity(triggerPickerActivityId, (prev) => ({
+      ...prev,
+      reminderAt: null,
+      updatedAt: timestamp,
+    }));
+    setTriggerPickerVisible(false);
+    setIsTriggerDateTimePickerVisible(false);
+    setTriggerPickerActivityId(null);
+    setPostCreateTriggerActivityId(null);
+  }, [triggerPickerActivityId, updateActivity]);
+
+  const getInitialTriggerDateTime = React.useCallback(() => {
+    const base = new Date();
+    base.setMinutes(0, 0, 0);
+    base.setHours(base.getHours() + 1);
+    return base;
+  }, []);
+
+  const handleTriggerDateTimeChange = React.useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      if (Platform.OS !== 'ios') {
+        setIsTriggerDateTimePickerVisible(false);
+      }
+      if (!triggerPickerActivityId) return;
+      if (!date || event.type === 'dismissed') {
+        return;
+      }
+      const next = new Date(date);
+      const timestamp = new Date().toISOString();
+      updateActivity(triggerPickerActivityId, (prev) => ({
+        ...prev,
+        reminderAt: next.toISOString(),
+        updatedAt: timestamp,
+      }));
+      setTriggerPickerVisible(false);
+      setTriggerPickerActivityId(null);
+      setPostCreateTriggerActivityId(null);
+    },
+    [triggerPickerActivityId, updateActivity],
+  );
 
   // After creating a new activity, scroll so it becomes visible just above the dock.
   // This relies on the reserved bottom padding from `quickAddReservedHeight`.
@@ -1441,8 +1500,73 @@ export function ActivitiesScreen() {
         onPressGenerateActivityTitle={handleGenerateQuickAddActivityTitle}
         isGeneratingActivityTitle={isQuickAddAiGenerating}
         hasGeneratedActivityTitle={hasQuickAddAiGenerated}
+        postCreateTriggerNudgeVisible={Boolean(postCreateTriggerActivityId) && !triggerPickerVisible}
+        onPressPostCreateTrigger={openTriggerPickerForGuide}
         onReservedHeightChange={setQuickAddReservedHeight}
       />
+      <BottomGuide
+        visible={triggerGuideVisible && Boolean(postCreateTriggerActivityId)}
+        onClose={dismissTriggerGuide}
+        scrim="none"
+        snapPoints={['32%']}
+      >
+        <Text style={styles.triggerGuideTitle}>Add a trigger?</Text>
+        <Text style={styles.triggerGuideBody}>
+          Pick a moment (time/context) so this activity is much more likely to happen.
+        </Text>
+        <HStack space="sm" alignItems="center" style={styles.triggerGuideActions}>
+          <Button variant="ghost" onPress={dismissTriggerGuide}>
+            <ButtonLabel size="md">Not now</ButtonLabel>
+          </Button>
+          <Button onPress={openTriggerPickerForGuide}>
+            <ButtonLabel size="md" tone="inverse">
+              Add trigger
+            </ButtonLabel>
+          </Button>
+        </HStack>
+      </BottomGuide>
+
+      <BottomDrawer
+        visible={triggerPickerVisible}
+        onClose={() => {
+          setTriggerPickerVisible(false);
+          setTriggerPickerActivityId(null);
+          setIsTriggerDateTimePickerVisible(false);
+        }}
+        snapPoints={['45%']}
+        presentation="inline"
+        hideBackdrop
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Trigger (reminder)</Text>
+          <VStack space="sm">
+            <SheetOption
+              label="Later today (6pm)"
+              onPress={() => setTriggerReminderByOffsetDays(0, 18, 0)}
+            />
+            <SheetOption
+              label="Tomorrow morning (9am)"
+              onPress={() => setTriggerReminderByOffsetDays(1, 9, 0)}
+            />
+            <SheetOption
+              label="Next week (Mon 9am)"
+              onPress={() => setTriggerReminderByOffsetDays(7, 9, 0)}
+            />
+            <SheetOption label="Pick date & time…" onPress={() => setIsTriggerDateTimePickerVisible(true)} />
+            <SheetOption label="Clear trigger" onPress={clearTriggerReminder} />
+          </VStack>
+          {isTriggerDateTimePickerVisible && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialTriggerDateTime()}
+                onChange={handleTriggerDateTimeChange}
+              />
+            </View>
+          )}
+        </View>
+      </BottomDrawer>
       <BottomDrawer
         visible={quickAddReminderSheetVisible}
         onClose={() => closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false))}
@@ -1951,6 +2075,18 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
+  triggerGuideTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  triggerGuideBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  triggerGuideActions: {
+    marginTop: spacing.sm,
+    justifyContent: 'flex-end',
+  },
   sheetRow: {
     paddingVertical: spacing.sm,
   },
@@ -2109,6 +2245,8 @@ function ActivityCoachDrawer({
   const [manualActivityId, setManualActivityId] = React.useState<string | null>(null);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
+  const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const [isManualTagsThinking, setIsManualTagsThinking] = React.useState(false);
   const [reminderSheetVisible, setReminderSheetVisible] = React.useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
   const [repeatSheetVisible, setRepeatSheetVisible] = React.useState(false);
@@ -2130,8 +2268,8 @@ function ActivityCoachDrawer({
   const [newStepHeight, setNewStepHeight] = React.useState<number>(STEP_MIN_HEIGHT);
 
   const workspaceSnapshot = React.useMemo(
-    () => buildActivityCoachLaunchContext(goals, activities),
-    [goals, activities],
+    () => buildActivityCoachLaunchContext(goals, activities, undefined, undefined, undefined, activityTagHistory),
+    [goals, activities, activityTagHistory],
   );
 
   const launchContext = React.useMemo(
@@ -2196,6 +2334,7 @@ function ActivityCoachDrawer({
       id,
       goalId: null,
       title: '',
+      type: 'task',
       tags: [],
       notes: undefined,
       steps: [],
@@ -2689,6 +2828,7 @@ function ActivityCoachDrawer({
           id,
           goalId: null,
           title: trimmedTitle,
+          type: 'task',
           tags: [],
           notes: undefined,
           steps: [],
@@ -2740,6 +2880,7 @@ function ActivityCoachDrawer({
         id,
         goalId: null,
         title: suggestion.title.trim(),
+        type: suggestion.type ?? 'task',
         tags: [],
         notes: suggestion.why,
         steps,
@@ -2863,6 +3004,38 @@ function ActivityCoachDrawer({
                 label="Tags (comma-separated)"
                 placeholder="e.g., errands, outdoors"
                 value={formatTags(manualActivity?.tags)}
+                trailingElement={
+                  manualActivity && (manualActivity.tags?.length ?? 0) === 0 ? (
+                    <AiAutofillBadge
+                      accessibilityLabel="Autofill tags with AI"
+                      loading={isManualTagsThinking}
+                      onPress={() => {
+                        if (!manualActivity) return;
+                        (async () => {
+                          setIsManualTagsThinking(true);
+                          const aiTags = await suggestActivityTagsWithAi({
+                            activityTitle: manualActivity.title,
+                            activityNotes: manualActivity.notes,
+                            tagHistory: activityTagHistory,
+                            maxTags: 4,
+                          });
+                          const suggested =
+                            aiTags && aiTags.length > 0
+                              ? aiTags
+                              : suggestTagsFromText(manualActivity.title, manualActivity.notes);
+                          const timestamp = new Date().toISOString();
+                          updateActivity(manualActivity.id, (prev) => ({
+                            ...prev,
+                            tags: suggested,
+                            updatedAt: timestamp,
+                          }));
+                        })()
+                          .catch(() => undefined)
+                          .finally(() => setIsManualTagsThinking(false));
+                      }}
+                    />
+                  ) : null
+                }
                 onChangeText={(raw) => {
                   if (!manualActivity) return;
                   const timestamp = new Date().toISOString();

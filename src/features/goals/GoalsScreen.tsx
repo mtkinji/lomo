@@ -211,7 +211,7 @@ export function GoalsScreen() {
       {hasGoals ? (
         <VStack space="xs">
           {goals.map((goal) => {
-            const arcName = arcLookup[goal.arcId];
+            const arcName = goal.arcId ? arcLookup[goal.arcId] : undefined;
               const statusLabel = goal.status.replace('_', ' ');
               const activityCount = activityCountByGoal[goal.id] ?? 0;
               const activityLabel =
@@ -219,7 +219,7 @@ export function GoalsScreen() {
                   ? 'No activities yet'
                   : `${activityCount} ${activityCount === 1 ? 'activity' : 'activities'}`;
 
-              const parentArc = arcs.find((arc) => arc.id === goal.arcId);
+              const parentArc = goal.arcId ? arcs.find((arc) => arc.id === goal.arcId) : undefined;
 
             return (
                 <GoalListCard
@@ -489,21 +489,17 @@ export function GoalCoachDrawer({
     }
   }, [visible, buildEmptyDraft, setDraft]);
 
-  // Manual goal creation should not require the user to pick an arc, but Goals
-  // do require a valid arcId. When not launched from an Arc, preselect a
-  // sensible default and keep it visible/editable in the UI.
+  // If the coach was launched from an Arc detail screen, default the manual draft
+  // to that Arc—but do not force it (Goals can exist without an Arc).
   React.useEffect(() => {
     if (!visible) return;
     if (launchFromArcId) {
-      setDraft((current) => (current.arcId === launchFromArcId ? current : { ...current, arcId: launchFromArcId }));
+      setDraft((current) =>
+        current.arcId === null ? { ...current, arcId: launchFromArcId } : current
+      );
       return;
     }
-    if (draft.arcId) return;
-    if (arcs.length === 0) return;
-    const fallbackArcId = arcs[arcs.length - 1]?.id ?? null;
-    if (!fallbackArcId) return;
-    setDraft((current) => ({ ...current, arcId: fallbackArcId }));
-  }, [arcs, draft.arcId, launchFromArcId, visible]);
+  }, [launchFromArcId, visible, setDraft]);
 
   const goalThumbnailSeed = React.useMemo(
     () => buildArcThumbnailSeed(undefined, draft.title || 'New goal', draft.thumbnailVariant ?? 0),
@@ -584,15 +580,7 @@ export function GoalCoachDrawer({
       return;
     }
 
-    const resolvedArcId =
-      launchFromArcId ?? draft.arcId ?? (arcs.length > 0 ? arcs[arcs.length - 1]?.id ?? null : null);
-    if (!resolvedArcId) {
-      // Goals require an Arc home today. Don't create invalid goals with arcId = ''.
-      // (We can add a "standalone goals" concept later if the domain evolves.)
-      // eslint-disable-next-line no-alert
-      alert('Create an Arc first so this goal has a home.');
-      return;
-    }
+    const resolvedArcId = launchFromArcId ?? draft.arcId ?? null;
 
     const timestamp = new Date().toISOString();
     const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -618,7 +606,7 @@ export function GoalCoachDrawer({
     capture(AnalyticsEvent.GoalCreated, {
       source: 'manual',
       goal_id: goal.id,
-      arc_id: goal.arcId,
+      arc_id: goal.arcId ?? undefined,
       has_description: Boolean(goal.description && richTextToPlainText(goal.description).trim().length > 0),
     });
     onGoalCreated?.(id);
@@ -801,7 +789,7 @@ export function GoalCoachDrawer({
                 </View>
 
                 <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
+                  <Text style={styles.arcConnectionLabel}>Linked Arc (optional)</Text>
                   <ObjectPicker
                     value={draft.arcId ?? ''}
                     onValueChange={(nextArcId) =>
@@ -811,7 +799,7 @@ export function GoalCoachDrawer({
                       }))
                     }
                     options={arcPickerOptions}
-                    placeholder={arcs.length === 0 ? 'Create an Arc first…' : 'Select Arc…'}
+                    placeholder={arcs.length === 0 ? 'No Arcs yet' : 'Select Arc…'}
                     searchPlaceholder="Search arcs…"
                     emptyText="No arcs found."
                     accessibilityLabel="Change linked arc"
@@ -876,16 +864,11 @@ export function GoalCoachDrawer({
 
                 <View style={{ marginTop: spacing.xl }}>
                   <Button
-                    disabled={draft.title.trim().length === 0 || (!launchFromArcId && arcs.length === 0)}
+                    disabled={draft.title.trim().length === 0}
                     onPress={handleCreateManualGoal}
                   >
                     <Text style={styles.buttonText}>Create Goal</Text>
                   </Button>
-                  {!launchFromArcId && arcs.length === 0 && (
-                    <Text style={styles.manualArcRequiredHint}>
-                      Create an Arc first so this goal has a home.
-                    </Text>
-                  )}
                 </View>
               </Card>
             </KeyboardAwareScrollView>

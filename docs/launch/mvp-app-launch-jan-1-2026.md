@@ -2,6 +2,9 @@
 
 This document is the **execution plan** for launching Kwilt on the Apple App Store by **Jan 1, 2026**, with a **working monetization lever** and no launch‑blocking reliability issues.
 
+**Primary roadmap (source of truth):** `docs/value-realization-roadmap.md`  
+This launch plan corresponds to **Phase 0 (MVP Launch Readiness)** in the primary roadmap.
+
 It is grounded in the current app implementation:
 
 - Local notifications are implemented via `expo-notifications` in `src/services/NotificationService.ts`.

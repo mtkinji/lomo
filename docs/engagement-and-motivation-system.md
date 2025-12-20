@@ -238,7 +238,7 @@ These metrics should be reviewed periodically and feed back into copy, timing, a
 **Downstream docs:**
 
 - `docs/notifications-paradigm-prd.md` – channel‑specific PRD for local notifications, including OS permissions, scheduling, and settings.  
-- `docs/ux-flow.md`, `docs/tasks-roadmap.md`, `docs/agent-onboarding-flow.md` – should reference this engagement model when adding new flows or surfaces that motivate behavior.
+- `docs/ux-flow.md`, `docs/value-realization-roadmap.md`, `docs/agent-onboarding-flow.md` – should reference this engagement model when adding new flows or surfaces that motivate behavior.
 
 ---
 

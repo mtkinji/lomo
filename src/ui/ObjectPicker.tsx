@@ -3,11 +3,14 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { spacing, typography, colors } from '../theme';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
-import type { ComboboxOption } from './Combobox';
+import type { ComboboxOption, ComboboxRecommendedOption } from './Combobox';
 import { Combobox } from './Combobox';
 import { Input } from './Input';
+import type { IconName } from './Icon';
 
 export type ObjectPickerOption = ComboboxOption;
+
+type ObjectPickerSize = 'default' | 'compact';
 
 type Props = {
   /**
@@ -33,6 +36,13 @@ type Props = {
   presentation?: 'popover' | 'drawer' | 'auto';
   drawerSnapPoints?: BottomDrawerSnapPoint[];
   disabled?: boolean;
+  recommendedOption?: ComboboxRecommendedOption;
+
+  /**
+   * Visual styling.
+   */
+  size?: ObjectPickerSize;
+  leadingIcon?: IconName;
 };
 
 /**
@@ -53,6 +63,9 @@ export function ObjectPicker({
   presentation = 'auto',
   drawerSnapPoints,
   disabled,
+  recommendedOption,
+  size = 'default',
+  leadingIcon,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -60,6 +73,8 @@ export function ObjectPicker({
     if (!value) return '';
     return options.find((opt) => opt.value === value)?.label ?? '';
   }, [options, value]);
+
+  const inputStyle = size === 'compact' ? styles.valueInputCompact : styles.valueInput;
 
   return (
     <Combobox
@@ -73,6 +88,7 @@ export function ObjectPicker({
       allowDeselect={allowDeselect}
       presentation={presentation}
       drawerSnapPoints={drawerSnapPoints}
+      recommendedOption={recommendedOption}
       trigger={
         <Pressable
           accessibilityRole="button"
@@ -87,9 +103,10 @@ export function ObjectPicker({
               editable={false}
               variant="outline"
               elevation="flat"
+              leadingIcon={leadingIcon}
               trailingIcon="chevronsUpDown"
               containerStyle={styles.valueContainer}
-              inputStyle={styles.valueInput}
+              inputStyle={inputStyle}
             />
           </View>
         </Pressable>
@@ -112,6 +129,11 @@ const styles = StyleSheet.create({
   },
   valueInput: {
     ...typography.body,
+    color: colors.textPrimary,
+    paddingRight: spacing.xl,
+  },
+  valueInputCompact: {
+    ...typography.bodySm,
     color: colors.textPrimary,
     paddingRight: spacing.xl,
   },

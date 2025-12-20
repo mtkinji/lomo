@@ -8,7 +8,7 @@ import { listIdealArcTemplates } from '../domain/idealArcs';
 import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
 import { mockGenerateArcs } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
-import { useAppStore, type LlmModel } from '../store/useAppStore';
+import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../store/useAppStore';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
@@ -28,6 +28,31 @@ export type EnrichActivityWithAiParams = {
   goalId: string | null;
   existingNotes?: string;
   existingTags?: string[];
+};
+
+export type SuggestActivityTagsWithAiParams = {
+  activityTitle: string;
+  activityNotes?: string | null;
+  goalTitle?: string | null;
+  tagHistory?: ActivityTagHistoryIndex;
+  maxTags?: number;
+};
+
+const sanitizeSuggestedTags = (input: unknown, maxTags: number): string[] => {
+  const raw = Array.isArray(input) ? input : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const tag = item.trim().replace(/^#/, '');
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+    if (out.length >= maxTags) break;
+  }
+  return out;
 };
 
 type GenerateArcParams = {
@@ -2385,8 +2410,8 @@ export async function sendCoachChat(
   const model = resolveChatModel();
 
   // Lower temperature for Arc generation to ensure more consistent, higher-quality output
-  const arcGenerationModes: ChatMode[] = ['arcCreation', 'firstTimeOnboarding'];
-  const temperature = arcGenerationModes.includes(options?.mode as ChatMode) ? 0.3 : 0.55;
+  const lowVarianceModes: ChatMode[] = ['arcCreation', 'firstTimeOnboarding', 'goalCreation'];
+  const temperature = lowVarianceModes.includes(options?.mode as ChatMode) ? 0.35 : 0.55;
 
   const body: Record<string, unknown> = {
     model,
@@ -2913,6 +2938,111 @@ export async function enrichActivityWithAI(
     }
 
     return Object.keys(normalized).length > 0 ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cheap/single-shot tag suggestion helper.
+ *
+ * This deliberately avoids the full Coach chat runtime (memory + tools) and always
+ * uses a low-cost model with a tight token budget.
+ */
+export async function suggestActivityTagsWithAi(
+  params: SuggestActivityTagsWithAiParams
+): Promise<string[] | null> {
+  try {
+    if (OPENAI_QUOTA_EXCEEDED) return null;
+    const apiKey = resolveOpenAiApiKey();
+    if (!apiKey) return null;
+
+    const title = (params.activityTitle ?? '').trim();
+    if (!title) return null;
+
+    const maxTags = typeof params.maxTags === 'number' ? Math.max(1, Math.min(8, params.maxTags)) : 4;
+    const notesPlain = params.activityNotes ? richTextToPlainText(params.activityNotes).trim() : '';
+    const goalTitle = (params.goalTitle ?? '').trim();
+
+    const tagHistoryEntries = params.tagHistory ? Object.values(params.tagHistory) : [];
+    const tagHistoryCompact = tagHistoryEntries
+      .slice()
+      .sort((a, b) => {
+        const aT = Date.parse(a.lastUsedAt);
+        const bT = Date.parse(b.lastUsedAt);
+        if (Number.isFinite(aT) && Number.isFinite(bT)) return bT - aT;
+        return (b.totalUses ?? 0) - (a.totalUses ?? 0);
+      })
+      .slice(0, 30)
+      .map((entry) => {
+        const examples = (entry.recentUses ?? [])
+          .slice(0, 1)
+          .map((u) => `${u.activityTitle} [${u.activityType}]`)
+          .join('');
+        return examples ? `${entry.tag} (e.g. ${examples})` : entry.tag;
+      })
+      .join(' | ');
+
+    const model: LlmModel = 'gpt-4o-mini';
+    const systemPrompt =
+      'You suggest a few simple user tags for a single activity.\n' +
+      '- Prefer using tags from TAG HISTORY when they fit.\n' +
+      '- Only invent new tags if none of the existing tags match.\n' +
+      '- Tags should be short (1–2 words), lowercase-ish, no #, no punctuation.\n' +
+      `- Output EXACTLY one line: TAGS_JSON: {"tags":["tag1","tag2",...]}\n` +
+      `- Include 0–${maxTags} tags. Do not include any other text.`;
+
+    const userPrompt = [
+      `Activity title: ${title}`,
+      goalTitle ? `Goal: ${goalTitle}` : null,
+      notesPlain ? `Notes: ${notesPlain.slice(0, 600)}` : null,
+      tagHistoryCompact ? `TAG HISTORY: ${tagHistoryCompact}` : 'TAG HISTORY: (none)',
+      'Pick the best tags for this activity.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const body = {
+      model,
+      temperature: 0.2,
+      max_tokens: 80,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    };
+
+    const response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      markOpenAiQuotaExceeded('suggestTags', response.status, errorText, apiKey);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = (data?.choices?.[0]?.message?.content as string | undefined) ?? '';
+    const line = content
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.toUpperCase().startsWith('TAGS_JSON:')) ?? '';
+    if (!line) return null;
+
+    const jsonPart = line.replace(/^TAGS_JSON:\s*/i, '').trim();
+    const parsed = JSON.parse(jsonPart) as { tags?: unknown };
+    const tags = sanitizeSuggestedTags(parsed?.tags, maxTags);
+    return tags;
   } catch {
     return null;
   }

@@ -579,8 +579,8 @@ export function LongTextField({
               initialCSSText: `
                 html, body, .content, .pell-content {
                   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                  font-size: ${typography.body.fontSize}px !important;
-                  line-height: ${typography.body.lineHeight}px !important;
+                  font-size: ${typography.bodySm.fontSize}px !important;
+                  line-height: ${typography.bodySm.lineHeight}px !important;
                 }
                 html, body { overflow-x: hidden !important; }
                 .content, .pell, .pell-content { overflow-x: hidden !important; }
@@ -595,8 +595,8 @@ export function LongTextField({
               `,
               contentCSSText: `
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                font-size: ${typography.body.fontSize}px !important;
-                line-height: ${typography.body.lineHeight}px !important;
+                font-size: ${typography.bodySm.fontSize}px !important;
+                line-height: ${typography.bodySm.lineHeight}px !important;
                 overflow-x: hidden !important;
                 word-break: break-word !important;
                 overflow-wrap: anywhere !important;
@@ -781,11 +781,11 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   valueText: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.textPrimary,
   },
   placeholderText: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.muted,
   },
   headerTitle: {

@@ -79,6 +79,22 @@ export function buildArcCoachLaunchContext(
     lines.push(''); // spacer between arcs
   });
 
+  const unassignedGoals = goals.filter((g) => !g.arcId);
+  if (unassignedGoals.length > 0) {
+    lines.push('Unassigned goals (not yet attached to an Arc):');
+    unassignedGoals.slice(0, 10).forEach((goal) => {
+      const descriptionPlain = goal.description ? richTextToPlainText(goal.description) : '';
+      const trimmedDescription =
+        descriptionPlain && descriptionPlain.length > 200 ? `${descriptionPlain.slice(0, 197)}…` : descriptionPlain;
+      const base = `- ${goal.title} (status: ${goal.status})`;
+      lines.push(trimmedDescription ? `${base} – ${trimmedDescription}` : base);
+    });
+    if (unassignedGoals.length > 10) {
+      lines.push(`…and ${unassignedGoals.length - 10} more.`);
+    }
+    lines.push('');
+  }
+
   return lines.join('\n');
 }
 
@@ -92,7 +108,16 @@ export function buildActivityCoachLaunchContext(
   activities: Activity[],
   focusGoalId?: string,
   arcs?: Arc[],
-  focusActivityId?: string
+  focusActivityId?: string,
+  activityTagHistory?: Record<
+    string,
+    {
+      tag: string;
+      lastUsedAt: string;
+      totalUses: number;
+      recentUses: Array<{ activityTitle: string; activityType: string; usedAt: string }>;
+    }
+  >
 ): string | undefined {
   if (goals.length === 0 && activities.length === 0) {
     return undefined;
@@ -105,6 +130,35 @@ export function buildActivityCoachLaunchContext(
   );
   lines.push(`Total goals: ${goals.length}. Total activities: ${activities.length}.`);
   lines.push('');
+
+  // User tag vocabulary: reuse before inventing new ones.
+  const tagHistoryEntries = activityTagHistory ? Object.values(activityTagHistory) : [];
+  if (tagHistoryEntries.length > 0) {
+    const ordered = tagHistoryEntries
+      .slice()
+      .sort((a, b) => {
+        const aT = Date.parse(a.lastUsedAt);
+        const bT = Date.parse(b.lastUsedAt);
+        if (Number.isFinite(aT) && Number.isFinite(bT)) return bT - aT;
+        if (Number.isFinite(aT)) return -1;
+        if (Number.isFinite(bT)) return 1;
+        return (b.totalUses ?? 0) - (a.totalUses ?? 0);
+      })
+      .slice(0, 24);
+
+    lines.push('TAG HISTORY (the user’s existing tag vocabulary; reuse these before creating new tags):');
+    ordered.forEach((entry) => {
+      const examples = (entry.recentUses ?? [])
+        .slice(0, 2)
+        .map((u) => `${u.activityTitle} [${u.activityType}]`)
+        .join('; ');
+      lines.push(`- ${entry.tag} (uses: ${entry.totalUses}${examples ? `; examples: ${examples}` : ''})`);
+    });
+    lines.push(
+      'Guideline: when asked to suggest/add tags, first pick from TAG HISTORY that fit the context. Only invent new tags if none of the existing tags match.'
+    );
+    lines.push('');
+  }
 
   const focusActivity =
     focusActivityId

@@ -1,12 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Text } from '../../ui/primitives';
-import { QuestionCard } from '../../ui/QuestionCard';
-import { colors, spacing, typography } from '../../theme';
+import React, { useEffect, useRef, useState } from 'react';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
-import { useAppStore } from '../../store/useAppStore';
-import { ObjectPicker, type ObjectPickerOption } from '../../ui/ObjectPicker';
 
 type GoalCreationFlowProps = {
   /**
@@ -33,40 +27,16 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
   const isGoalCreationWorkflow = definition?.chatMode === 'goalCreation';
   const currentStepId = instance?.currentStepId;
 
-  const isArcSelectStepActive =
-    isGoalCreationWorkflow && (currentStepId === 'arc_select' || !currentStepId);
+  const isContextCollectActive =
+    isGoalCreationWorkflow && (currentStepId === 'context_collect' || !currentStepId);
 
-  const [submitting, setSubmitting] = useState(false);
   const [introStreamed, setIntroStreamed] = useState(false);
   const hasRequestedIntroRef = useRef(false);
-  const arcs = useAppStore((state) => state.arcs);
-  const [selectedArcPickerValue, setSelectedArcPickerValue] = useState<string>('');
-  const SKIP_VALUE = '__skip__';
-
-  const arcOptions = useMemo(() => {
-    const list = arcs ?? [];
-    return list.slice().sort((a, b) => a.name.localeCompare(b.name));
-  }, [arcs]);
-
-  const pickerOptions: ObjectPickerOption[] = useMemo(() => {
-    const options: ObjectPickerOption[] = arcOptions.map((arc) => ({
-      value: arc.id,
-      label: arc.name,
-      keywords: [arc.name],
-    }));
-    options.push({
-      value: SKIP_VALUE,
-      label: 'Skip for now (attach when adopting)',
-      keywords: ['skip', 'later', 'attach', 'adopt'],
-    });
-    return options;
-  }, [SKIP_VALUE, arcOptions]);
 
   // Stream a small helper line into the normal timeline so it reads like typical
-  // assistant copy (not special UI chrome). The choice card should only appear
-  // after this text has finished typing.
+  // assistant copy (not special UI chrome).
   useEffect(() => {
-    if (!isArcSelectStepActive) return;
+    if (!isContextCollectActive) return;
     if (introStreamed) return;
     if (hasRequestedIntroRef.current) return;
     hasRequestedIntroRef.current = true;
@@ -78,116 +48,19 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
     }
 
     controller.streamAssistantReplyFromWorkflow(
-      'Before we draft a goal, where should it live? Pick an Arc (or skip and attach it when adopting).',
-      'goal-arc-select-hint',
+      'What’s one goal you want to work on? If you can, add when (like tomorrow or next month).',
+      'goal-intro-hint',
       {
         onDone: () => setIntroStreamed(true),
       },
     );
-  }, [chatControllerRef, introStreamed, isArcSelectStepActive]);
+  }, [chatControllerRef, introStreamed, isContextCollectActive]);
 
-  const handleSelectArc = useCallback(
-    async (nextArcId: string | null, arcName?: string) => {
-      if (!workflowRuntime || !isGoalCreationWorkflow) {
-        return;
-      }
-
-      const controller = chatControllerRef?.current;
-      const promptSentence = nextArcId
-        ? `I want this goal to live inside my “${arcName ?? 'selected'}” Arc.`
-        : arcOptions.length === 0
-          ? "I don't have an Arc yet — let's still draft a goal and I’ll attach it later."
-          : "Not sure which Arc yet — let's draft a goal and I’ll attach it later.";
-
-      workflowRuntime.completeStep('arc_select', {
-        arcId: nextArcId,
-      });
-
-      // Mirror the answer into the shared chat timeline so the thread clearly
-      // shows what the user shared, even though the input came from a
-      // card instead of the free-form composer.
-      if (controller) {
-        controller.appendUserMessage(promptSentence);
-      }
-
-      // Now that the Arc decision is captured, ask what they want to make progress on.
-      // We intentionally do NOT generate a goal yet — the next step (context_collect)
-      // is satisfied by the user's next free-form message in the composer.
-      if (controller?.streamAssistantReplyFromWorkflow) {
-        controller.streamAssistantReplyFromWorkflow(
-          'What do you want to make progress on over the next 30–90 days? One sentence is plenty.',
-          'goal-context-prompt',
-        );
-      }
-    },
-    [arcOptions.length, chatControllerRef, isGoalCreationWorkflow, workflowRuntime],
-  );
-
-  const handlePickerChange = useCallback(
-    (nextValue: string) => {
-      setSelectedArcPickerValue(nextValue);
-      if (!nextValue) {
-        return;
-      }
-      if (nextValue === SKIP_VALUE) {
-        void handleSelectArc(null);
-        return;
-      }
-      const arc = arcOptions.find((a) => a.id === nextValue);
-      void handleSelectArc(nextValue, arc?.name);
-    },
-    [SKIP_VALUE, arcOptions, handleSelectArc],
-  );
-
-  // Only render the card while the context-collection step is active. Once the
-  // workflow advances, Goal creation continues as a normal chat-driven flow.
-  if (!isArcSelectStepActive) {
+  // Chat-first: no step card. We only stream an intro once.
+  if (!isContextCollectActive || !introStreamed) {
     return null;
   }
 
-  if (!introStreamed) {
     return null;
   }
-
-  return (
-    <QuestionCard
-      title={
-        <>
-          Where should this Goal live?{' '}
-          <Text style={styles.inlineTitleEmphasis}>Pick an Arc</Text>
-        </>
-      }
-      style={styles.card}
-    >
-      <View style={styles.choiceList}>
-        <ObjectPicker
-          options={pickerOptions}
-          value={selectedArcPickerValue}
-          onValueChange={handlePickerChange}
-          placeholder="Choose an Arc…"
-          searchPlaceholder="Search Arcs…"
-          emptyText="No matching Arcs."
-          accessibilityLabel="Choose an Arc for this goal"
-          allowDeselect={false}
-          presentation="drawer"
-          disabled={submitting}
-        />
-      </View>
-    </QuestionCard>
-  );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    marginTop: spacing.lg,
-  },
-  inlineTitleEmphasis: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  choiceList: {
-    gap: spacing.sm,
-  },
-  // (Rows removed — we now use the canonical `ObjectPicker` combobox.)
-});
 

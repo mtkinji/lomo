@@ -198,6 +198,15 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     return (WORKFLOW_REGISTRY as Record<string, WorkflowDefinition>)[workflowDefinitionId];
   }, [workflowDefinitionId]);
 
+  // If a host only provides `workflowDefinitionId` (common for embedded flows),
+  // default the UI mode to the workflow's declared chatMode so:
+  // - the correct mode system prompt is injected
+  // - structured proposal cards (Goal/Arc/etc.) render and parse correctly
+  const effectiveMode: ChatMode | undefined = useMemo(() => {
+    if (mode) return mode;
+    return workflowDefinition?.chatMode;
+  }, [mode, workflowDefinition]);
+
   const [workflowInstance, setWorkflowInstance] = useState<WorkflowInstance | null>(() => {
     if (!workflowDefinition) {
       return null;
@@ -353,7 +362,16 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       }
 
       try {
-        const reply = await sendCoachChat(history, coachOptions);
+        const stepGuidanceTurns: CoachChatTurn[] = [];
+        if (step?.promptTemplate) {
+          const validationHint = step.validationHint ? `\n\nValidation hint:\n${step.validationHint}` : '';
+          stepGuidanceTurns.push({
+            role: 'system',
+            content: `Workflow step instruction (${workflowDefinition.chatMode}:${stepId}):\n${step.promptTemplate}${validationHint}`.trim(),
+          });
+        }
+
+        const reply = await sendCoachChat([...history, ...stepGuidanceTurns], coachOptions);
         controller.streamAssistantReplyFromWorkflow(reply, 'assistant-workflow');
       } catch (error) {
         if (__DEV__) {
@@ -536,7 +554,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           should exist elsewhere in the app. */}
       <AiChatPane
         ref={chatPaneRef}
-        mode={mode}
+        mode={effectiveMode}
         launchContext={launchContextText}
         resumeDraft={resumeDraft}
         hideBrandHeader={hideBrandHeader}

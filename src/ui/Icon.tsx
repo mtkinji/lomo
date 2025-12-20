@@ -38,6 +38,7 @@ const iconMap: Record<string, IconEntry> = {
   panelLeft: { library: 'feather', name: 'sidebar' },
   menu: { library: 'feather', name: 'menu' },
   paperclip: { library: 'feather', name: 'paperclip' },
+  share: { library: 'feather', name: 'share' },
   camera: { library: 'feather', name: 'camera' },
   image: { library: 'feather', name: 'image' },
   mic: { library: 'feather', name: 'mic' },
@@ -62,6 +63,7 @@ const iconMap: Record<string, IconEntry> = {
   dev: { library: 'feather', name: 'code' },
   sparkles: { library: 'feather', name: 'zap' },
   clipboard: { library: 'feather', name: 'clipboard' },
+  cart: { library: 'feather', name: 'shopping-cart' },
   // Star icons: use Ionicons for both outline and filled variants so the shape stays consistent.
   star: { library: 'ion', name: 'star-outline' },
   starFilled: { library: 'ion', name: 'star' },

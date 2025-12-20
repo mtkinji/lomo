@@ -1,7 +1,7 @@
-## LOMO Product Roadmap – Actual User Value Realization
+## Kwilt Product Roadmap – Primary Source of Truth
 
-This doc is the **primary checklist** for tracking progress toward real user value and revenue.  
-It sits above implementation docs like `ux-flow.md`, `tasks-roadmap.md`, and `agent-onboarding-flow.md` and should stay **source‑of‑truth for “are we delivering value yet?”**  
+This doc is the **primary roadmap** for tracking progress toward real user value, launch readiness, and revenue.  
+It sits above execution plans and PRDs (e.g. `docs/launch/mvp-app-launch-jan-1-2026.md`, `docs/prds/*`) and should remain the **single source of truth** for “what are we building next, and why?”
 
 Use it as a living document:
 - Update checkboxes as work progresses.
@@ -14,14 +14,90 @@ Throughout all phases, **preserve the app shell vs canvas structure** described 
 
 ---
 
-## Phase 1 – Agent‑First Core Workflows
+## Roadmap posture (principles)
+
+- **Stable UX surface area**: expand capability via progressive disclosure (e.g. “Send to…”) rather than new top-level navigation.
+- **Launch-safe scope**: for the MVP launch, keep server scope minimal (AI proxy + quotas only), stay local-first elsewhere.
+- **Identity-first**: Arcs are identity directions; all AI creation flows are anchored to the gold-standard Arc model in `docs/arc-aspiration-ftue.md`.
+- **Agent OS**: workflows + tools are the control plane; new capabilities should be expressible as tools/workflows (see `docs/ai-chat-architecture.md`, `docs/agent-os-hardening-checklist.md`).
+
+---
+
+## Phase 0 – MVP Launch Readiness (Target: Jan 1, 2026)
+
+**Goal:** Ship a launch-safe build to the Apple App Store with **monetization**, **cost safety**, and **no launch-blocking reliability issues**, while preserving the app shell + canvas model.
+
+Owner execution plan: `docs/launch/mvp-app-launch-jan-1-2026.md`
+
+### 0.1 Monetization skeleton + gating (RevenueCat)
+
+- [ ] Ship purchase + restore + entitlement caching (offline-safe)
+- [ ] Enforce Free tier limits consistently at creation choke points:
+  - [ ] Free: **1 Arc total**
+  - [ ] Free: **3 active Goals per Arc**
+- [ ] Add canonical upgrade entry points (Settings + limit-triggered affordances)
+
+Owner PRD: `docs/prds/monetization-paywall-revenuecat-prd.md`
+
+### 0.2 AI proxy + quotas (cost + key safety)
+
+- [ ] Remove direct OpenAI calls from the client (no embedded key)
+- [ ] Route AI requests through a minimal proxy with quotas by tier
+- [ ] Degraded mode UX for quota exceeded / provider unavailable
+- [ ] Basic observability: request count, latency, error rate, quota rejects
+
+Owner PRD: `docs/prds/ai-proxy-and-quotas-prd.md`
+
+### 0.3 Notifications v1.5 (clarity + caps)
+
+- [ ] Activity reminders include Activity title + Goal context in copy
+- [ ] Goal nudges (opt-in or clear opt-out) with strict caps/backoff
+- [ ] Deep links preserve shell/canvas model (tap → correct canvas)
+
+Owner PRD: `docs/prds/notifications-v1-5-prd.md`
+
+### 0.4 Arc/Goal lifecycle + limits (avoid destructive deletes)
+
+- [ ] Arc lifecycle actions (pause/archive/make active) so Free users can manage their single Arc without deleting data
+- [ ] Goal lifecycle actions (archive/complete/reopen) in Goal detail
+- [ ] Limits enforced at initiation points (manual + AI)
+
+Owner PRD: `docs/prds/arc-goal-lifecycle-and-limits-prd.md`
+
+### 0.5 Calendar export MVP (ICS) + scheduling model
+
+- [ ] Add `Activity.scheduledAt` (start time) without breaking existing semantics
+- [ ] “Add to calendar” exports `.ics` via share sheet
+- [ ] Gate per monetization posture (Pro or freemium teaser)
+
+Owner PRD: `docs/prds/calendar-export-ics-prd.md`
+
+### 0.6 Keyboard & input safety quality bar
+
+- [ ] Standardize screen + sheet input handling on keyboard-safe primitives
+- [ ] Validate top input-heavy surfaces: Activity detail, Goal creation, AI chat
+
+Owner PRD: `docs/prds/keyboard-input-safety-prd.md`  
+Implementation guide: `docs/keyboard-input-safety-implementation.md`
+
+### 0.7 Explicit MVP cuts (do not expand scope pre-launch)
+
+- [ ] Keep Chapters implemented but **hidden from primary nav** for launch
+- [ ] No server push notifications
+- [ ] No cross-device sync / accounts required for MVP
+- [ ] No Google/Microsoft OAuth calendar sync (ICS only)
+- [ ] Shared goals/social accountability beyond “share message” is post-launch
+
+---
+
+## Phase 1 – Agent‑First Core Workflows (post-launch stabilization → expand capability)
 
 **Goal:** A new user can land in the app and, with the Agent’s help, complete a full story arc: **create an Arc → define Goals → adopt an Activity plan** – all without needing hidden expert knowledge.
 
 ### 1.1 Arc Creation (Agent‑First)
 
-- [ ] Define “happy path” Arc creation UX (from FTUE + Arcs tab), aligned with `ux-flow.md`.
-- [ ] Ensure the Agent can **propose starter Arcs** from a small amount of user input (onboarding flow), using the 5-factor identity model defined in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment).
+- [ ] Align FTUE Arc creation to `docs/arc-aspiration-ftue.md` as the canonical model (tap-first, fast, emotionally resonant).
+- [ ] Ensure the Agent can propose high-quality Arcs consistent with the gold-standard identity model (`docs/arc-aspiration-ftue.md`).
 - [ ] Support **manual Arc creation/editing** (title, narrative, timeframe) in the canvas without the Agent.
 - [ ] Show created Arcs clearly in the Arcs tab canvas (cards, narrative preview, key stats).
 - [ ] Confirm telemetry exists for: Arc created, Arc edited, Arc deleted/archived.
@@ -29,7 +105,7 @@ Throughout all phases, **preserve the app shell vs canvas structure** described 
 ### 1.2 Goal Creation Under an Arc
 
 - [ ] Implement a clear **Goal creation canvas** within Arc detail (manual first, AI‑assisted second).
-- [ ] Wire **AI‑assisted Goal suggestions** (“Ask LOMO for concrete goals”) using the agent components catalog. Goal prompts should take the parent Arc as an identity anchor and respect the 5‑factor Arc model in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment), so suggested Goals clearly express progress inside that specific identity direction.
+- [ ] Wire **AI‑assisted Goal suggestions** (“Ask Kwilt for concrete goals”) using the agent components catalog. Goal prompts should take the parent Arc as an identity anchor and respect the 5‑factor Arc model in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment), so suggested Goals clearly express progress inside that specific identity direction.
 - [ ] Ensure each Goal has: title, description, timeframe, forceIntent vector, status (planned / in progress / completed).
 - [ ] Verify Goals surface correctly in both Arc detail and any relevant Today/Chapter views.
 - [ ] Track metrics: Goals created per Arc, Goals completed, time from creation → first Activity logged.
@@ -42,11 +118,22 @@ Throughout all phases, **preserve the app shell vs canvas structure** described 
 - [ ] Add a **quick‑add Activity** path from Today for “loose tasks” not yet tied to a Goal/Arc.
 - [ ] Confirm there is a single, coherent **Activity detail / logging surface** (even if lightweight).
 
-### 1.4 Shared UI Component System (ShadCN via React Native Reusables)
+### 1.4 Agent OS hardening (workflows as the control plane)
+
+- [ ] Complete workflow-backed presenters for object creation/editing:
+  - [ ] Arc creation presenter
+  - [ ] Goal creation workflow + presenter
+  - [ ] Formalize the Chat timeline controller contract
+  - [ ] Inline edit workflows via `useAgentLauncher`
+  - [ ] Tools/syscalls mutation boundary documentation
+
+Owner checklist: `docs/agent-os-hardening-checklist.md`
+
+### 1.5 Shared UI component system (React Native Reusables adapters)
 
 - [ ] Adopt a ShadCN‑style component system for React Native using [`reactnativereusables.com`](https://reactnativereusables.com/).
-- [ ] Map LOMO’s existing design tokens (`colors`, `spacing`, `typography`, `surfaces`) onto the reusable primitives so **shell vs canvas** styling stays intact.
-- [ ] Identify and implement a small set of base primitives (e.g., `Button`, `Input`, `Card`, `Sheet`, `Tabs`) and wrap them in LOMO‑specific components in `src/ui`.
+- [ ] Map Kwilt’s existing design tokens (`colors`, `spacing`, `typography`, `surfaces`) onto the reusable primitives so **shell vs canvas** styling stays intact.
+- [ ] Identify and implement a small set of base primitives (e.g., `Button`, `Input`, `Card`, `Sheet`, `Tabs`) and wrap them in Kwilt‑specific components in `src/ui`.
 - [ ] Incrementally refactor existing screens to use the new primitives, starting with Today, Arcs, and Chapters canvases.
 - [ ] Document patterns for when to use each primitive so future features automatically align with the shared system.
 
@@ -78,6 +165,8 @@ When **a new user can create at least one Arc, 1–3 Goals, and a small Activity
 - [ ] Design and ship lightweight **celebratory surfaces** (toasts, confetti, copy) that appear inside the canvas but framed by the app shell.
 - [ ] Review metrics monthly and adjust thresholds / copy to better match real behavior.
 
+Owner model: `docs/engagement-and-motivation-system.md`
+
 ### 2.3 Screens That Drive Repeat Use
 
 - [ ] Tighten the **Today** tab so it is the default daily home (fast, legible, low friction).
@@ -107,7 +196,7 @@ When **users can reliably return to the Today tab, log Activities, see small but
 
 ### 3.1 Marketing Site & Top‑of‑Funnel
 
-- [ ] Define the **core narrative** for the marketing site (what problem LOMO solves, for whom, and how).
+- [ ] Define the **core narrative** for the marketing site (what problem Kwilt solves, for whom, and how).
 - [ ] Design and build a simple marketing site that:
   - Explains Arcs → Goals → Activities → Chapters in plain language.
   - Showcases screenshots that respect app shell + canvas visuals.
@@ -127,16 +216,25 @@ When **users can reliably return to the Today tab, log Activities, see small but
 
 ### 3.3 Calendar & External Integrations
 
-- [ ] Define the **role of calendar integration** (e.g., project time‑boxing, reminders, or logging).
-- [ ] Implement calendar permissions and safe, respectful defaults (read vs write).
-- [ ] Map concrete flows, such as:
-  - Push selected Activities into the user’s calendar.
-  - Pull relevant calendar events into Today as candidate Activities.
-- [ ] Ensure calendar interactions still respect shell/canvas patterns and don’t overwhelm the core UX.
-- [ ] Document trade‑offs and edge cases (time zones, all‑day events, reschedules).
+- [ ] Evolve beyond ICS export:
+  - [ ] Optional provider OAuth sync (Google/Microsoft) only when justified
+  - [ ] Bi-directional updates (calendar edits reflect back into Kwilt)
+  - [ ] Recurrence integration (`repeatRule`/RRULE)
+
+Owner context: `docs/prds/calendar-export-ics-prd.md`
+
+### 3.4 “Send to…” connectors (export + integrations without UI clutter)
+
+- [ ] Standardize “Send to…” as a single outbound surface on relevant Activity types
+- [ ] Introduce a connector registry (eligibility + payload + transport)
+- [ ] Start with safe fallbacks (copy/share/web links), then deepen integrations behind stable connector IDs
+
+Strategy docs:
+- `docs/send-to-connector-strategy.md`
+- `docs/mcp-strategic-proposal.md`
 
 **Value checkpoint:**  
-When **a stranger can discover LOMO, install it, complete the core agent‑first workflows, experience real daily value, and optionally pay for deeper reflection or integrations**, mark Phase 3 as complete.
+When **a stranger can discover Kwilt, install it, complete the core agent‑first workflows, experience real daily value, and optionally pay for deeper reflection or integrations**, mark Phase 3 as complete.
 
 ---
 
@@ -151,5 +249,14 @@ This phase is intentionally lightweight; it should evolve as usage data arrives.
   - Engagement and celebration thresholds.
 - [ ] Maintain a small, prioritized list of **product bets** (e.g., web dashboard, richer coaching workflows) tied back to the phases above.
 - [ ] Keep this document updated as the single place to answer: **“Where are we on the path from prototype to real, paid user value?”**
+
+### 4.1 Growth flywheel (post-launch)
+
+- [ ] Phase 0 (launch-safe): share prompt + share affordance (no accounts required)
+- [ ] Phase 1+: shared goals (1:1) with minimal identity (recommended: Sign in with Apple only when needed)
+- [ ] Phase 2+: check-ins, reactions, shared feed, AI-assisted “gentle nudges”
+
+Owner PRD: `docs/prds/growth-evangelism-shared-goals-prd.md` (builds on `docs/shared-goals-feature-spec.md`)
+
 
 

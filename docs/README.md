@@ -1,5 +1,9 @@
 ## Kwilt Docs Index
 
+### Primary roadmap (source of truth)
+
+- **Kwilt Product Roadmap (Primary)**: `docs/value-realization-roadmap.md`
+
 ### Launch planning
 
 - **MVP App Launch (Target: Jan 1, 2026)**: `docs/launch/mvp-app-launch-jan-1-2026.md`
@@ -24,6 +28,6 @@
 - Notifications foundation: `docs/notifications-paradigm-prd.md`
 - UX: `docs/ux-style-guide.md`, `docs/ux-flow.md`
 - UI architecture: `docs/ui-architecture.md`
-- Roadmaps: `docs/tasks-roadmap.md`, `docs/value-realization-roadmap.md`
+- Roadmap (primary): `docs/value-realization-roadmap.md`
 
 
