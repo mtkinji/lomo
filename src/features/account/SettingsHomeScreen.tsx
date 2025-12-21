@@ -11,12 +11,19 @@ import { Icon, IconName } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
 import type {
   RootDrawerParamList,
   SettingsStackParamList,
 } from '../../navigation/RootNavigator';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
+import { openPaywallInterstitial } from '../../services/paywall';
+import { getMonthKey } from '../../domain/generativeCredits';
+import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH } from '../../domain/generativeCredits';
+import { Card } from '../../ui/Card';
+import { LinearGradient } from 'expo-linear-gradient';
+import { paywallTheme } from '../paywall/paywallTheme';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -101,6 +108,10 @@ export function SettingsHomeScreen() {
   const menuOpen = drawerStatus === 'open';
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+  const generativeCredits = useAppStore((state) => state.generativeCredits);
+  const isPro = useEntitlementsStore((state) => state.isPro);
+  const restore = useEntitlementsStore((state) => state.restore);
+  const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
 
   const filteredGroups = useMemo(() => {
     return SETTINGS_GROUPS;
@@ -140,6 +151,12 @@ export function SettingsHomeScreen() {
   const displayName = userProfile?.fullName?.trim() || generatedNameFromFirstArc || 'Kwilter';
   const profileSubtitle = userProfile?.email?.trim() || 'Add your email address';
   const avatarSource = userProfile?.avatarUrl ? { uri: userProfile.avatarUrl } : null;
+
+  const monthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+  const currentKey = getMonthKey(new Date());
+  const usedThisMonth =
+    generativeCredits?.monthKey === currentKey ? Math.max(0, generativeCredits.usedThisMonth ?? 0) : 0;
+  const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);
 
   const updateAvatar = (uri?: string) => {
     updateUserProfile((current) => ({
@@ -223,6 +240,76 @@ export function SettingsHomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.groupSection}>
+            <VStack style={styles.groupHeader}>
+              <Heading style={styles.groupTitle}>Kwilt Pro</Heading>
+              <Text style={styles.groupDescription}>
+                {`AI credits remaining this month: ${remainingCredits} / ${monthlyLimit} (no rollover)`}
+              </Text>
+            </VStack>
+            {isPro ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Manage subscription"
+                onPress={() => navigation.navigate('SettingsManageSubscription')}
+              >
+                <HStack style={styles.itemRow} alignItems="center" space="md">
+                  <View style={styles.itemIcon}>
+                    <Icon name="dot" size={18} color={colors.accent} />
+                  </View>
+                  <VStack flex={1}>
+                    <Text style={styles.itemTitle}>Manage subscription</Text>
+                    <Text style={styles.itemSubtitle}>Kwilt Pro · Annual</Text>
+                  </VStack>
+                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                </HStack>
+              </Pressable>
+            ) : (
+              <LinearGradient colors={paywallTheme.gradientColors} style={styles.proCardGradient}>
+                <VStack space="sm">
+                  <Text style={styles.proCardKicker}>Kwilt Pro</Text>
+                  <Text style={styles.proCardTitle}>Unlimited arcs + goals</Text>
+                  <Text style={styles.proCardBody}>
+                    Unlock family plans, longer focus sessions, Unsplash banners, and a much larger monthly AI budget.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Upgrade to Pro"
+                    onPress={() =>
+                      openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'settings' })
+                    }
+                    style={styles.proCardCta}
+                  >
+                    <Text style={styles.proCardCtaLabel}>Upgrade</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Already subscribed? Restore purchases"
+                    onPress={() => {
+                      restore()
+                        .then(() => {
+                          Alert.alert('Restored', 'We refreshed your subscription status.');
+                        })
+                        .catch(() => {
+                          Alert.alert(
+                            'Restore failed',
+                            'We could not restore purchases right now. Please try again.',
+                          );
+                        })
+                        .finally(() => {
+                          refreshEntitlements({ force: true }).catch(() => undefined);
+                        });
+                    }}
+                    style={styles.proCardLink}
+                  >
+                    <Text style={styles.proCardLinkLabel}>Already subscribed? Restore purchases</Text>
+                  </Pressable>
+                </VStack>
+              </LinearGradient>
+            )}
+
+          </View>
+
           <View style={styles.profileRow}>
             <RNPressable
               style={styles.profileAvatarButton}
@@ -427,6 +514,59 @@ const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  groupDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  proCard: {
+    borderRadius: 18,
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  proCardGradient: {
+    borderRadius: paywallTheme.cornerRadius,
+    padding: paywallTheme.padding,
+  },
+  proCardKicker: {
+    ...typography.bodySm,
+    color: paywallTheme.foreground,
+    opacity: 0.9,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  proCardTitle: {
+    ...typography.titleLg,
+    color: paywallTheme.foreground,
+  },
+  proCardBody: {
+    ...typography.bodySm,
+    color: paywallTheme.foreground,
+    opacity: 0.92,
+  },
+  proCardCta: {
+    marginTop: spacing.xs,
+    backgroundColor: paywallTheme.ctaBackground,
+    paddingVertical: spacing.sm,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  proCardCtaLabel: {
+    ...typography.body,
+    color: paywallTheme.ctaForeground,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  proCardLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.xs,
+  },
+  proCardLinkLabel: {
+    ...typography.bodySm,
+    color: paywallTheme.foreground,
+    opacity: 0.92,
+    textDecorationLine: 'underline',
+  },
   itemRow: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -447,6 +587,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontFamily: typography.titleSm.fontFamily,
+  },
+  itemSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   badge: {
     borderRadius: 999,

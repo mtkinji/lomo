@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
@@ -55,6 +56,7 @@ import {
 } from '../../ui/DropdownMenu';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { BottomDrawer } from '../../ui/BottomDrawer';
+import { openPaywallInterstitial } from '../../services/paywall';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -130,6 +132,8 @@ export function ArcDetailScreen() {
   const setHasDismissedArcExploreGuide = useAppStore((state) => state.setHasDismissedArcExploreGuide);
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
+
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
   const completedArcGoals = useMemo(
     () => arcGoals.filter((goal) => goal.status === 'completed'),
@@ -1102,6 +1106,10 @@ export function ArcDetailScreen() {
         arcName={arc.name}
         arcNarrative={arc.narrative}
         arcGoalTitles={arcGoals.map((goal) => goal.title)}
+        canUseUnsplash={isPro}
+        onRequestUpgrade={() =>
+          openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' })
+        }
         heroSeed={
           heroSeed ??
           buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant)

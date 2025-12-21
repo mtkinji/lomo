@@ -130,6 +130,7 @@ export function GoalDetailScreen() {
   );
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
   const removeGoal = useAppStore((state) => state.removeGoal);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
@@ -664,6 +665,36 @@ export function GoalDetailScreen() {
     );
   };
 
+  const handleToggleArchiveGoal = () => {
+    const isArchived = goal.status === 'archived';
+    const nextStatus = isArchived ? 'planned' : 'archived';
+    const actionLabel = isArchived ? 'Restore' : 'Archive';
+    const detail = isArchived
+      ? 'This will make the goal active again.'
+      : 'Archived goals stay in your history, but won’t count toward your active goal limit.';
+
+    Alert.alert(`${actionLabel} goal?`, detail, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: actionLabel,
+        onPress: () => {
+          const timestamp = new Date().toISOString();
+          updateGoal(goal.id, (prev) => ({
+            ...prev,
+            status: nextStatus,
+            updatedAt: timestamp,
+          }));
+
+          // After archiving, return to the previous canvas so users don't end up
+          // "stuck" in an archived detail surface.
+          if (!isArchived) {
+            handleBack();
+          }
+        },
+      },
+    ]);
+  };
+
   const handleUpdateArc = (nextArcId: string | null) => {
     const timestamp = new Date().toISOString();
     updateGoal(goal.id, (prev) => ({
@@ -753,6 +784,8 @@ export function GoalDetailScreen() {
       updatedAt: timestamp,
     };
 
+    // Creating an Activity counts as showing up (planning is still engagement).
+    recordShowUp();
     addActivity(nextActivity);
     setActivityComposerVisible(false);
 
@@ -1102,14 +1135,7 @@ export function GoalDetailScreen() {
                             <Text style={styles.menuItemLabel}>Edit details</Text>
                           </View>
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onPress={() => {
-                            Alert.alert(
-                              'Archive goal',
-                              'Archiving is not yet implemented. This will be wired to an archive action in the store.',
-                            );
-                          }}
-                        >
+                        <DropdownMenuItem onPress={handleToggleArchiveGoal}>
                           <View style={styles.menuItemRow}>
                             <Icon name="info" size={16} color={colors.textSecondary} />
                             <Text style={styles.menuItemLabel}>Archive</Text>
@@ -1165,14 +1191,7 @@ export function GoalDetailScreen() {
                         <Text style={styles.menuItemLabel}>Edit details</Text>
                       </View>
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onPress={() => {
-                        Alert.alert(
-                          'Archive goal',
-                          'Archiving is not yet implemented. This will be wired to an archive action in the store.',
-                        );
-                      }}
-                    >
+                    <DropdownMenuItem onPress={handleToggleArchiveGoal}>
                       <View style={styles.menuItemRow}>
                         <Icon name="info" size={16} color={colors.textSecondary} />
                         <Text style={styles.menuItemLabel}>Archive</Text>
@@ -2236,6 +2255,8 @@ function GoalActivityCoachDrawer({
       updatedAt: timestamp,
     };
 
+    // Creating an Activity counts as showing up.
+    recordShowUp();
     addActivity(activity);
     capture(AnalyticsEvent.ActivityCreated, {
       source: 'goal_detail_manual',
@@ -2325,6 +2346,8 @@ function GoalActivityCoachDrawer({
           updatedAt: timestamp,
         };
 
+        // Creating an Activity counts as showing up.
+        recordShowUp();
         addActivity(nextActivity);
         capture(AnalyticsEvent.ActivityCreated, {
           source: 'goal_detail_ai_workflow',
@@ -2390,6 +2413,8 @@ function GoalActivityCoachDrawer({
         updatedAt: timestamp,
       };
 
+      // Creating an Activity counts as showing up.
+      recordShowUp();
       addActivity(nextActivity);
       capture(AnalyticsEvent.ActivityCreated, {
         source: 'goal_detail_ai_suggestion',
@@ -2399,7 +2424,7 @@ function GoalActivityCoachDrawer({
         has_estimate: Boolean(nextActivity.estimateMinutes),
       });
     },
-    [activities.length, addActivity, capture, focusGoalId]
+    [activities.length, addActivity, capture, focusGoalId, recordShowUp]
   );
 
   return (

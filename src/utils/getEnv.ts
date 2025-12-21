@@ -26,4 +26,8 @@ export function getPosthogHost(): string | undefined {
   return getEnvVar<string>('posthogHost');
 }
 
+export function getRevenueCatApiKey(): string | undefined {
+  return getEnvVar<string>('revenueCatApiKey');
+}
+
 

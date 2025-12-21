@@ -14,6 +14,11 @@ import {
   GoalDraft,
   UserProfile,
 } from '../domain/types';
+import {
+  FREE_GENERATIVE_CREDITS_PER_MONTH,
+  PRO_GENERATIVE_CREDITS_PER_MONTH,
+  getMonthKey,
+} from '../domain/generativeCredits';
 import type { CelebrationKind, MediaRole } from '../services/gifs';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
@@ -253,6 +258,14 @@ interface AppState {
   userProfile: UserProfile | null;
   llmModel: LlmModel;
   /**
+   * Local-first "generative credits" ledger (monthly, no rollover).
+   * Used as a UX/cost-safety layer until the AI proxy + quotas backend exists.
+   */
+  generativeCredits: {
+    monthKey: string;
+    usedThisMonth: number;
+  };
+  /**
    * One-time flag indicating that the user has completed the first-time
    * onboarding flow. Used to avoid re-triggering FTUE on subsequent launches.
    */
@@ -408,6 +421,9 @@ interface AppState {
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
   setLlmModel: (model: LlmModel) => void;
+  tryConsumeGenerativeCredit: (params: {
+    tier: 'free' | 'pro';
+  }) => { ok: boolean; remaining: number; limit: number };
   setLastOnboardingArcId: (arcId: string | null) => void;
   setHasSeenFirstArcCelebration: (seen: boolean) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
@@ -611,6 +627,10 @@ export const useAppStore = create(
       },
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
+      generativeCredits: {
+        monthKey: getMonthKey(new Date()),
+        usedThisMonth: 0,
+      },
       hasCompletedFirstTimeOnboarding: false,
       lastOnboardingArcId: null,
       lastOnboardingGoalId: null,
@@ -890,6 +910,31 @@ export const useAppStore = create(
         }),
       clearUserProfile: () => set({ userProfile: null }),
       setLlmModel: (model) => set({ llmModel: model }),
+      tryConsumeGenerativeCredit: ({ tier }) => {
+        const limit =
+          tier === 'pro'
+            ? PRO_GENERATIVE_CREDITS_PER_MONTH
+            : FREE_GENERATIVE_CREDITS_PER_MONTH;
+        const currentKey = getMonthKey(new Date());
+        const ledger = get().generativeCredits ?? { monthKey: currentKey, usedThisMonth: 0 };
+        const normalized =
+          ledger.monthKey === currentKey
+            ? ledger
+            : { monthKey: currentKey, usedThisMonth: 0 };
+        const used = Math.max(0, Math.floor(normalized.usedThisMonth ?? 0));
+        const remaining = Math.max(0, limit - used);
+        if (remaining <= 0) {
+          if (ledger.monthKey !== currentKey) {
+            set(() => ({ generativeCredits: normalized }));
+          }
+          return { ok: false, remaining: 0, limit };
+        }
+        const nextUsed = used + 1;
+        set(() => ({
+          generativeCredits: { monthKey: currentKey, usedThisMonth: nextUsed },
+        }));
+        return { ok: true, remaining: Math.max(0, limit - nextUsed), limit };
+      },
       setHasCompletedFirstTimeOnboarding: (completed) =>
         set(() => ({
           hasCompletedFirstTimeOnboarding: completed,
@@ -915,7 +960,8 @@ export const useAppStore = create(
       recordShowUp: () =>
         set((state) => {
           const nowDate = new Date();
-          const todayKey = nowDate.toISOString().slice(0, 10);
+          // Use local calendar days (not UTC) so streaks match user intuition.
+          const todayKey = localDateKey(nowDate);
           const prevKey = state.lastShowUpDate;
           const prevStreak = state.currentShowUpStreak ?? 0;
 
@@ -929,21 +975,21 @@ export const useAppStore = create(
 
           let nextStreak = 1;
           if (prevKey) {
-            const prevDate = new Date(prevKey);
-            const startOfPrev = new Date(
-              prevDate.getFullYear(),
-              prevDate.getMonth(),
-              prevDate.getDate(),
-            );
+            const prevDate = parseLocalDateKey(prevKey);
+            const startOfPrev = prevDate
+              ? new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate())
+              : null;
             const startOfToday = new Date(
               nowDate.getFullYear(),
               nowDate.getMonth(),
               nowDate.getDate(),
             );
-            const diffMs = startOfToday.getTime() - startOfPrev.getTime();
-            const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
-            if (diffDays === 1) {
-              nextStreak = prevStreak + 1;
+            if (startOfPrev) {
+              const diffMs = startOfToday.getTime() - startOfPrev.getTime();
+              const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+              if (diffDays === 1) {
+                nextStreak = prevStreak + 1;
+              }
             }
           }
 
@@ -1184,6 +1230,21 @@ export const useAppStore = create(
             state.activityTagHistory = recordTagUsageForActivity(state.activityTagHistory, activity, atIso);
           });
         }
+
+        // Backward-compatible normalization: initialize and reset generative credits monthly ledger.
+        const currentMonthKey = getMonthKey(new Date());
+        const rawLedger = (state as any).generativeCredits as
+          | { monthKey?: unknown; usedThisMonth?: unknown }
+          | undefined;
+        const monthKey =
+          rawLedger && typeof rawLedger.monthKey === 'string' ? rawLedger.monthKey : currentMonthKey;
+        const usedRaw = rawLedger?.usedThisMonth;
+        const usedThisMonth =
+          typeof usedRaw === 'number' && Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
+        state.generativeCredits =
+          monthKey === currentMonthKey
+            ? { monthKey, usedThisMonth }
+            : { monthKey: currentMonthKey, usedThisMonth: 0 };
       },
     }
   )

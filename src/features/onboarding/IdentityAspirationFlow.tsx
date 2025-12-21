@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View, Alert } from 'react-native';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Heading, Text } from '../../ui/primitives';
@@ -13,7 +13,9 @@ import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { Arc } from '../../domain/types';
+import { canCreateArc } from '../../domain/limits';
 import { buildHybridArcGuidelinesBlock } from '../../domain/arcHybridPrompt';
 import type {
   ArchetypeAdmiredQualityId,
@@ -31,6 +33,7 @@ import type { ChatTimelineController } from '../ai/AiChatScreen';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
+import { openPaywallInterstitial } from '../../services/paywall';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -2078,6 +2081,25 @@ export function IdentityAspirationFlow({
   const handleConfirmAspiration = () => {
     if (!aspiration) return;
 
+    const isPro = useEntitlementsStore.getState().isPro;
+    const canCreate = canCreateArc({ isPro, arcs: useAppStore.getState().arcs });
+    if (!canCreate.ok) {
+      Alert.alert(
+        'Arc limit reached',
+        `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Upgrade',
+            onPress: () => openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' }),
+          },
+        ],
+      );
+      return;
+    }
+
+    // Creating an Arc counts as showing up (planning is still engagement).
+    useAppStore.getState().recordShowUp();
     const nowIso = new Date().toISOString();
     const arc: Arc = {
       id: draftArcId,

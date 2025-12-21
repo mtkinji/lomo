@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import type {
@@ -67,6 +68,8 @@ import { buildIcsEvent } from '../../utils/ics';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
+import { openPaywallInterstitial } from '../../services/paywall';
+import { Toast } from '../../ui/Toast';
 
 type FocusSessionState =
   | {
@@ -92,9 +95,9 @@ type ActivityDetailNavigationProp = NativeStackNavigationProp<
 
 export function ActivityDetailScreen() {
   // Focus duration limits:
-  // TODO(paywall): when monetization is implemented, free users should be capped at 5 minutes.
-  // For now, keep this generous.
-  const focusMaxMinutes = 180;
+  // MVP gating: free users are capped at 10 minutes. Pro removes the cap.
+  const isPro = useEntitlementsStore((state) => state.isPro);
+  const focusMaxMinutes = isPro ? 180 : 10;
   const isFocused = useIsFocused();
   const { capture } = useAnalytics();
   const insets = useSafeAreaInsets();
@@ -129,6 +132,7 @@ export function ActivityDetailScreen() {
   const setHasDismissedActivityDetailGuide = useAppStore(
     (state) => state.setHasDismissedActivityDetailGuide,
   );
+  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
 
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
@@ -300,6 +304,28 @@ export function ActivityDetailScreen() {
       if (repeatDrawerTransitionTimeoutRef.current) {
         clearTimeout(repeatDrawerTransitionTimeoutRef.current);
         repeatDrawerTransitionTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const [creditToastMessage, setCreditToastMessage] = useState<string>('');
+  const creditToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showCreditToast = useCallback((message: string) => {
+    if (creditToastTimeoutRef.current) {
+      clearTimeout(creditToastTimeoutRef.current);
+      creditToastTimeoutRef.current = null;
+    }
+    setCreditToastMessage(message);
+    creditToastTimeoutRef.current = setTimeout(() => {
+      setCreditToastMessage('');
+      creditToastTimeoutRef.current = null;
+    }, 2200);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (creditToastTimeoutRef.current) {
+        clearTimeout(creditToastTimeoutRef.current);
+        creditToastTimeoutRef.current = null;
       }
     };
   }, []);
@@ -613,7 +639,7 @@ export function ActivityDetailScreen() {
       return;
     }
     if (minutes > focusMaxMinutes) {
-      Alert.alert('Duration too long', `Focus mode is currently limited to ${focusMaxMinutes} minutes.`);
+      openPaywallInterstitial({ reason: 'pro_only_focus_mode', source: 'activity_focus_mode' });
       return;
     }
     setLastFocusMinutes(minutes);
@@ -804,6 +830,10 @@ export function ActivityDetailScreen() {
               style: desired ? 'default' : 'destructive',
               onPress: () => {
                 const timestamp = new Date().toISOString();
+                if (desired && !step.completedAt) {
+                  // Completing a step counts as "showing up".
+                  recordShowUp();
+                }
                 updateActivity(activity.id, (prev) => {
                   const prevSteps = prev.steps ?? [];
                   const nextSteps = prevSteps.map((s, idx) => {
@@ -1182,6 +1212,11 @@ export function ActivityDetailScreen() {
   };
 
   const handleToggleStepComplete = (stepId: string) => {
+    const existing = (stepsDraft ?? []).find((s) => s.id === stepId);
+    // Marking a step complete is meaningful progress; count it as "showing up".
+    if (existing && !existing.completedAt) {
+      recordShowUp();
+    }
     const completedAt = new Date().toISOString();
     applyStepUpdate((steps) =>
       steps.map((step) =>
@@ -1272,6 +1307,8 @@ export function ActivityDetailScreen() {
     // Default to 9am local time for quick picks.
     date.setHours(9, 0, 0, 0);
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up (reminders are a commitment device).
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       reminderAt: date.toISOString(),
@@ -1285,6 +1322,8 @@ export function ActivityDetailScreen() {
     date.setDate(date.getDate() + offsetDays);
     date.setHours(23, 0, 0, 0);
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up.
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       scheduledDate: date.toISOString(),
@@ -1328,6 +1367,8 @@ export function ActivityDetailScreen() {
     next.setHours(23, 0, 0, 0);
 
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up.
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       scheduledDate: next.toISOString(),
@@ -1340,6 +1381,8 @@ export function ActivityDetailScreen() {
 
   const handleSelectRepeat = (rule: NonNullable<typeof activity.repeatRule>) => {
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up.
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       repeatRule: rule,
@@ -1654,6 +1697,11 @@ export function ActivityDetailScreen() {
   return (
     <AppShell>
       <View style={styles.screen}>
+        <Toast
+          visible={creditToastMessage.length > 0}
+          message={creditToastMessage}
+          bottomOffset={spacing['2xl']}
+        />
         <VStack space="lg" style={styles.pageContent}>
           <HStack alignItems="center">
             {breadcrumbsEnabled ? (
@@ -2462,6 +2510,21 @@ export function ActivityDetailScreen() {
                       loading={isTagsAutofillThinking}
                       onPress={() => {
                         if (tagsAutofillInFlightRef.current) return;
+                        // TODO(entitlements): replace tier selection with real Pro state.
+                        const tier: 'free' | 'pro' = 'free';
+                        const consumed = tryConsumeGenerativeCredit({ tier });
+                        if (!consumed.ok) {
+                          openPaywallInterstitial({
+                            reason: 'generative_quota_exceeded',
+                            source: 'activity_tags_ai',
+                          });
+                          return;
+                        }
+                        if (consumed.remaining <= 5) {
+                          showCreditToast(
+                            `AI credits remaining this month: ${consumed.remaining} / ${consumed.limit}`,
+                          );
+                        }
                         tagsAutofillInFlightRef.current = true;
                         setIsTagsAutofillThinking(true);
                         (async () => {

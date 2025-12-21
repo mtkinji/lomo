@@ -58,6 +58,9 @@ import type {
 } from '../../domain/types';
 import type { Activity, ActivityStep, ActivityType, Goal, GoalForceIntent } from '../../domain/types';
 import { defaultForceLevels } from '../../store/useAppStore';
+import { canCreateGoalInArc } from '../../domain/limits';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { openPaywallInterstitial } from '../../services/paywall';
 import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import { QuestionCard } from '../../ui/QuestionCard';
@@ -1135,6 +1138,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const addActivity = useAppStore((state) => state.addActivity);
   const activities = useAppStore((state) => state.activities);
   const arcs = useAppStore((state) => state.arcs);
+  const goals = useAppStore((state) => state.goals);
   const hasAgeRange = Boolean(userProfile?.ageRange);
   // Arc creation previously asked for an age range inline, but this felt
   // intrusive and overlapped with onboarding responsibilities. We now keep
@@ -1884,6 +1888,28 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     const trimmedDescription = (goalDraftDescription || proposal.description || '').trim();
 
                     const arcId = focusedArcIdForGoal ?? selectedGoalArcId ?? null;
+                    if (arcId) {
+                      const isPro = useEntitlementsStore.getState().isPro;
+                      const canCreate = canCreateGoalInArc({ isPro, goals, arcId });
+                      if (!canCreate.ok) {
+                        Alert.alert(
+                          'Goal limit reached',
+                          `Free tier supports up to ${canCreate.limit} active goals per Arc. Archive a goal to make room, or upgrade to Pro.`,
+                          [
+                            { text: 'Not now', style: 'cancel' },
+                            {
+                              text: 'Upgrade',
+                              onPress: () =>
+                                openPaywallInterstitial({
+                                  reason: 'limit_goals_per_arc',
+                                  source: 'ai_chat_goal_adopt',
+                                }),
+                            },
+                          ],
+                        );
+                        return;
+                      }
+                    }
                     const timestamp = new Date().toISOString();
                     const mergedForceIntent = {
                       ...defaultForceLevels(0),
@@ -1904,6 +1930,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       updatedAt: timestamp,
                     };
 
+                    // Creating a Goal counts as showing up.
+                    useAppStore.getState().recordShowUp();
                     addGoal(goal);
                     onGoalCreated?.(goal.id);
                     dismissActiveGoalProposal();
@@ -1942,6 +1970,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     [
       activeGoalProposalId,
       addGoal,
+      goals,
       arcs.length,
       dismissActiveGoalProposal,
       dismissGoalProposalById,

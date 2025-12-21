@@ -44,6 +44,8 @@ export type ArcBannerSheetProps = {
   arcName: string;
   arcNarrative?: string;
   arcGoalTitles?: string[];
+  canUseUnsplash?: boolean;
+  onRequestUpgrade?: () => void;
   heroSeed: string;
   hasHero: boolean;
   loading: boolean;
@@ -70,6 +72,8 @@ export function ArcBannerSheet({
   arcName,
   arcNarrative,
   arcGoalTitles,
+  canUseUnsplash = true,
+  onRequestUpgrade,
   heroSeed,
   hasHero,
   loading,
@@ -90,7 +94,8 @@ export function ArcBannerSheet({
   const shouldShowGeoMosaic = showGeoMosaic && !thumbnailUrl;
   const showRefreshAction = !thumbnailUrl;
 
-  const [sourceTab, setSourceTab] = useState<HeroImageSourceTab>(DEFAULT_SOURCE_TAB);
+  const defaultTab: HeroImageSourceTab = canUseUnsplash ? DEFAULT_SOURCE_TAB : 'curated';
+  const [sourceTab, setSourceTab] = useState<HeroImageSourceTab>(defaultTab);
   const [unsplashQuery, setUnsplashQuery] = useState('');
   const [unsplashLoading, setUnsplashLoading] = useState(false);
   const [unsplashError, setUnsplashError] = useState<string | null>(null);
@@ -100,6 +105,10 @@ export function ArcBannerSheet({
 
   const performUnsplashSearch = useCallback(
     async (explicitQuery?: string) => {
+      if (!canUseUnsplash) {
+        setUnsplashError('Unsplash banners are a Pro feature.');
+        return;
+      }
       const query = (explicitQuery ?? unsplashQuery).trim() || arcName.trim();
       if (!query) {
         return;
@@ -137,13 +146,13 @@ export function ArcBannerSheet({
         setUnsplashLoading(false);
       }
     },
-    [arcName, unsplashQuery]
+    [arcName, canUseUnsplash, unsplashQuery]
   );
 
   useEffect(() => {
     logArcBannerSheetDebug('visible-prop-changed', { visible });
     if (!visible) {
-      setSourceTab(DEFAULT_SOURCE_TAB);
+      setSourceTab(defaultTab);
       setUnsplashQuery('');
       setUnsplashError(null);
       setUnsplashResults([]);
@@ -153,8 +162,12 @@ export function ArcBannerSheet({
       return;
     }
 
-    // Default to Unsplash and pre-load a search using the Arc name.
-    setSourceTab(DEFAULT_SOURCE_TAB);
+    // Default to Unsplash (Pro) or Curated (Free).
+    setSourceTab(defaultTab);
+    if (!canUseUnsplash) {
+      hasAutoSearchedRef.current = true;
+      return;
+    }
     if (!hasAutoSearchedRef.current) {
       hasAutoSearchedRef.current = true;
       let cancelled = false;
@@ -177,7 +190,7 @@ export function ArcBannerSheet({
         cancelled = true;
       };
     }
-  }, [arcGoalTitles, arcName, arcNarrative, performUnsplashSearch, visible]);
+  }, [arcGoalTitles, arcName, arcNarrative, canUseUnsplash, defaultTab, performUnsplashSearch, visible]);
 
   const masonryColumnWidth = useMemo(() => {
     if (gridWidth <= 0) return 0;
@@ -276,10 +289,17 @@ export function ArcBannerSheet({
           <Heading style={[styles.modalTitle, { marginBottom: spacing.md }]}>Arc Banner</Heading>
           <SegmentedControl<HeroImageSourceTab>
             value={sourceTab}
-            onChange={setSourceTab}
+            onChange={(next) => {
+              if (next === 'unsplash' && !canUseUnsplash) {
+                onRequestUpgrade?.();
+                setSourceTab('curated');
+                return;
+              }
+              setSourceTab(next);
+            }}
             options={[
               { value: 'curated', label: 'Curated' },
-              { value: 'unsplash', label: 'Search' },
+              { value: 'unsplash', label: canUseUnsplash ? 'Search' : 'Search · Pro' },
               { value: 'upload', label: 'Upload' },
             ]}
             style={styles.heroModalSourceTabs}

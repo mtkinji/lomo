@@ -28,6 +28,9 @@ import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
+import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
+import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
+import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
@@ -109,6 +112,12 @@ export type SettingsStackParamList = {
   SettingsProfile: undefined;
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
+  SettingsManageSubscription: undefined;
+  SettingsChangePlan: undefined;
+  SettingsPaywall: {
+    reason: import('../services/paywall').PaywallReason;
+    source: import('../services/paywall').PaywallSource;
+  };
 };
 
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
@@ -443,6 +452,18 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsNotifications"
         component={NotificationsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsManageSubscription"
+        component={ManageSubscriptionScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsChangePlan"
+        component={ChangePlanScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsPaywall"
+        component={PaywallInterstitialScreen}
       />
     </SettingsStack.Navigator>
   );

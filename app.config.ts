@@ -91,6 +91,11 @@ const config: ExpoConfig = {
       process.env.UNSPLASH_ACCESS_KEY ??
       process.env.EXPO_PUBLIC_UNSPLASH_ACCESS_KEY ??
       process.env.UNSPLASH_API_KEY,
+    // RevenueCat (iOS subscriptions)
+    revenueCatApiKey:
+      process.env.REVENUECAT_API_KEY ??
+      process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ??
+      process.env.REVENUE_CAT_API_KEY,
     // PostHog (analytics)
     // Recommended host values:
     // - US Cloud: https://us.i.posthog.com

@@ -20,6 +20,7 @@ import { RootNavigator, RootNavigatorWithPostHog } from './src/navigation/RootNa
 import { colors } from './src/theme';
 import { FirstTimeUxFlow } from './src/features/onboarding/FirstTimeUxFlow';
 import { useAppStore } from './src/store/useAppStore';
+import { useEntitlementsStore } from './src/store/useEntitlementsStore';
 import { NotificationService } from './src/services/NotificationService';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
@@ -46,6 +47,7 @@ export default function App() {
   );
   const isFirstTimeFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
+  const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
@@ -56,6 +58,13 @@ export default function App() {
     NotificationService.init().catch((error) => {
       if (__DEV__) {
         console.warn('[notifications] init failed', error);
+      }
+    });
+
+    // Refresh subscription entitlements early so gating surfaces don’t feel stale.
+    refreshEntitlements({ force: false }).catch((error) => {
+      if (__DEV__) {
+        console.warn('[entitlements] refresh failed', error);
       }
     });
 
@@ -72,6 +81,7 @@ export default function App() {
     hasCompletedFirstTimeOnboarding,
     isFirstTimeFlowActive,
     startFirstTimeFlow,
+    refreshEntitlements,
   ]);
 
   const handleLaunchScreenComplete = () => {

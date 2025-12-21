@@ -73,6 +73,8 @@ import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
+import { openPaywallInterstitial } from '../../services/paywall';
+import { Toast } from '../../ui/Toast';
 
 type ViewMenuItemProps = {
   view: ActivityView;
@@ -197,6 +199,8 @@ export function ActivitiesScreen() {
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const activityViews = useAppStore((state) => state.activityViews);
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
@@ -229,6 +233,27 @@ export function ActivitiesScreen() {
   const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
   const [hasQuickAddAiGenerated, setHasQuickAddAiGenerated] = React.useState(false);
   const lastQuickAddAiTitleRef = React.useRef<string | null>(null);
+  const [creditToastMessage, setCreditToastMessage] = React.useState('');
+  const creditToastTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showCreditToast = React.useCallback((message: string) => {
+    if (creditToastTimeoutRef.current) {
+      clearTimeout(creditToastTimeoutRef.current);
+      creditToastTimeoutRef.current = null;
+    }
+    setCreditToastMessage(message);
+    creditToastTimeoutRef.current = setTimeout(() => {
+      setCreditToastMessage('');
+      creditToastTimeoutRef.current = null;
+    }, 2200);
+  }, []);
+  React.useEffect(() => {
+    return () => {
+      if (creditToastTimeoutRef.current) {
+        clearTimeout(creditToastTimeoutRef.current);
+        creditToastTimeoutRef.current = null;
+      }
+    };
+  }, []);
   const [enrichingActivityIds, setEnrichingActivityIds] = React.useState<Set<string>>(() => new Set());
   const enrichingActivityIdsRef = React.useRef<Set<string>>(new Set());
   const [quickAddReminderAt, setQuickAddReminderAt] = React.useState<string | null>(null);
@@ -677,6 +702,8 @@ export function ActivitiesScreen() {
       updatedAt: timestamp,
     };
 
+    // Creating an Activity (even as planning) counts as showing up.
+    recordShowUp();
     addActivity(activity);
     pendingScrollToActivityIdRef.current = activity.id;
     // If the user didn't add any scheduling/reminder info during quick-add,
@@ -1153,6 +1180,11 @@ export function ActivitiesScreen() {
 
   return (
     <AppShell>
+      <Toast
+        visible={creditToastMessage.length > 0}
+        message={creditToastMessage}
+        bottomOffset={spacing['2xl']}
+      />
       <PageHeader
         title="Activities"
         iconName="activities"
@@ -3011,6 +3043,21 @@ function ActivityCoachDrawer({
                       loading={isManualTagsThinking}
                       onPress={() => {
                         if (!manualActivity) return;
+                        // TODO(entitlements): replace tier selection with real Pro state.
+                        const tier: 'free' | 'pro' = 'free';
+                        const consumed = tryConsumeGenerativeCredit({ tier });
+                        if (!consumed.ok) {
+                          openPaywallInterstitial({
+                            reason: 'generative_quota_exceeded',
+                            source: 'activity_tags_ai',
+                          });
+                          return;
+                        }
+                        if (consumed.remaining <= 5) {
+                          showCreditToast(
+                            `AI credits remaining this month: ${consumed.remaining} / ${consumed.limit}`,
+                          );
+                        }
                         (async () => {
                           setIsManualTagsThinking(true);
                           const aiTags = await suggestActivityTagsWithAi({
