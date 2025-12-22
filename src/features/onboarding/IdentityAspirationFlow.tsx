@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -695,6 +695,73 @@ export function IdentityAspirationFlow({
   const arcGenerationRunIdRef = useRef(0);
   const arcHeroPrefetchRunIdRef = useRef(0);
   const [isSurveySummaryExpanded, setIsSurveySummaryExpanded] = useState(false);
+  const surveyAnswersAnim = useRef(new Animated.Value(0)).current;
+  const [surveyAnswersContentHeight, setSurveyAnswersContentHeight] = useState(0);
+
+  useEffect(() => {
+    Animated.timing(surveyAnswersAnim, {
+      toValue: isSurveySummaryExpanded ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  }, [isSurveySummaryExpanded, surveyAnswersAnim]);
+
+  const ReviewAnswersPanel = useCallback(
+    (props: {
+      expanded: boolean;
+      onToggle: () => void;
+      lines: Array<{ label: string; value: string }>;
+    }) => {
+      const { expanded, onToggle, lines } = props;
+      const height = surveyAnswersAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, surveyAnswersContentHeight],
+      });
+      const opacity = surveyAnswersAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+      });
+
+      return (
+        <View style={styles.reviewPanel}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expanded ? 'Hide answers' : 'Review answers'}
+            onPress={onToggle}
+            style={styles.reviewPanelHeader}
+          >
+            <Text style={styles.reviewPanelTitle}>Review answers</Text>
+            <Icon
+              name={expanded ? 'chevronUp' : 'chevronDown'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+
+          <Animated.View style={[styles.reviewPanelBody, { height, opacity }]}>
+            <View
+              onLayout={(e) => {
+                const next = Math.ceil(e.nativeEvent.layout.height);
+                if (next > 0 && next !== surveyAnswersContentHeight) {
+                  setSurveyAnswersContentHeight(next);
+                }
+              }}
+              style={styles.reviewPanelBodyInner}
+            >
+              {lines.map((row) => (
+                <View key={row.label} style={styles.reviewRow}>
+                  <Text style={styles.summaryLabel}>{row.label}</Text>
+                  <Text style={styles.summaryValue}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        </View>
+      );
+    },
+    [surveyAnswersAnim, surveyAnswersContentHeight]
+  );
 
   const [identitySignature, setIdentitySignature] = useState<Record<IdentityTag, number>>(
     {} as Record<IdentityTag, number>
@@ -842,6 +909,26 @@ export function IdentityAspirationFlow({
   const vocation = formatSelectionLabels(vocationIds, VOCATION_OPTIONS);
   const bigDreams =
     dreamInput.trim().length > 0 ? [dreamInput.trim()] : [];
+
+  const surveySummaryLines = useMemo(() => {
+    const safe = (value: string) => value.trim();
+    const roleModelTypeLabel = labelForArchetype(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId) ?? '';
+    const admiredLabels = admiredQualityIds
+      .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
+      .filter((l): l is string => Boolean(l))
+      .join(', ');
+
+    const rows: Array<{ label: string; value: string }> = [
+      { label: 'Big dream', value: safe(dreamInput) },
+      { label: 'Growth lane', value: safe(domain) },
+      { label: 'Quietly proud moment', value: safe(proudMoment) },
+      { label: 'Motivation', value: safe(motivation) },
+      { label: 'Role models', value: safe(roleModelTypeLabel) },
+      { label: 'Admired qualities', value: safe(admiredLabels) },
+    ];
+
+    return rows.filter((r) => r.value.length > 0);
+  }, [admiredQualityIds, domain, dreamInput, motivation, proudMoment, roleModelTypeId]);
 
   const canGenerate =
     domainIds.length > 0 &&
@@ -4585,51 +4672,53 @@ export function IdentityAspirationFlow({
       <SurveyCard
         mode="completed"
         variant="stacked"
+        footerLeft={
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={handleStartOver}
+            accessibilityLabel="Start over"
+            style={styles.surveyCompleteFooterButton}
+          >
+            <View style={styles.surveyCompleteFooterButtonInner}>
+              <Icon name="refresh" size={16} color={colors.textSecondary} />
+              <ButtonLabel size="sm" tone="secondary">
+                Start over
+              </ButtonLabel>
+            </View>
+          </Button>
+        }
+        footerRight={
+          <Button
+            variant="primary"
+            size="small"
+            disabled
+            accessibilityLabel="Done"
+            style={styles.surveyCompleteDoneButton}
+          >
+            <ButtonLabel size="sm" tone="inverse">
+              Done
+            </ButtonLabel>
+          </Button>
+        }
         steps={[
           {
             id: 'completed',
             title: 'Survey complete',
             render: () => (
               <View style={styles.surveyCompleteBody}>
-                <Text style={styles.bodyText} tone="secondary">
-                  Saved. Drafting your first Arc…
-                </Text>
-                <View style={styles.surveyCompleteActionsRow}>
-                  <Button
-                    variant="link"
-                    size="small"
-                    onPress={() => setIsSurveySummaryExpanded((v) => !v)}
-                    accessibilityLabel={isSurveySummaryExpanded ? 'Hide answers' : 'Review answers'}
-                  >
-                    <ButtonLabel size="sm" tone="accent">
-                      {isSurveySummaryExpanded ? 'Hide answers' : 'Review answers'}
-                    </ButtonLabel>
-                  </Button>
-                  <Button variant="link" size="small" onPress={handleStartOver}>
-                    <ButtonLabel size="sm" tone="destructive">
-                      Start over
-                    </ButtonLabel>
-                  </Button>
-                </View>
-                {isSurveySummaryExpanded ? (
-                  <View style={styles.surveyCompleteAnswers}>
-                    <Text style={styles.summaryLabel}>Big dream</Text>
-                    <Text style={styles.summaryValue}>{dreamInput.trim()}</Text>
-                    <Text style={styles.summaryLabel}>Growth lane</Text>
-                    <Text style={styles.summaryValue}>{domain}</Text>
-                    <Text style={styles.summaryLabel}>Quietly proud moment</Text>
-                    <Text style={styles.summaryValue}>{proudMoment}</Text>
-                    <Text style={styles.summaryLabel}>Motivation</Text>
-                    <Text style={styles.summaryValue}>{motivation}</Text>
-                  </View>
-                ) : null}
+                <ReviewAnswersPanel
+                  expanded={isSurveySummaryExpanded}
+                  onToggle={() => setIsSurveySummaryExpanded((v) => !v)}
+                  lines={surveySummaryLines}
+                />
               </View>
             ),
           },
         ]}
         currentStepIndex={0}
-        stepLabel="Saved"
-        completedLabel="Done"
+        stepLabel={undefined}
+        completedLabel=""
       />
     );
   }
@@ -4781,6 +4870,48 @@ const styles = StyleSheet.create({
   surveyCompleteAnswers: {
     gap: spacing.xs,
     paddingTop: spacing.xs,
+  },
+  surveyCompleteFooterButton: {
+    paddingHorizontal: 0,
+  },
+  surveyCompleteFooterButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  surveyCompleteDoneButton: {
+    opacity: 0.55,
+  },
+  reviewPanel: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    overflow: 'hidden',
+  },
+  reviewPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  reviewPanelTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  reviewPanelBody: {
+    overflow: 'hidden',
+  },
+  reviewPanelBodyInner: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  reviewRow: {
+    gap: 2,
   },
   questionMeta: {
     ...typography.bodySm,

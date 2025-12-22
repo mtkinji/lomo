@@ -45,6 +45,15 @@ type SurveyCardProps = {
    * Defaults to "Completed".
    */
   completedLabel?: string;
+  /**
+   * Optional override for the footer left slot. When provided, replaces the step label text.
+   */
+  footerLeft?: ReactNode;
+  /**
+   * Optional override for the footer right slot. When provided, replaces the default
+   * actions (active mode) or completion badge (completed mode).
+   */
+  footerRight?: ReactNode;
   style?: StyleProp<ViewStyle>;
   cardStyle?: StyleProp<ViewStyle>;
 };
@@ -62,6 +71,8 @@ export function SurveyCard({
   variant = 'stacked',
   mode = 'active',
   completedLabel = 'Completed',
+  footerLeft,
+  footerRight,
   style,
   cardStyle,
 }: SurveyCardProps) {
@@ -101,8 +112,12 @@ export function SurveyCard({
               space="sm"
               style={styles.footerRow}
             >
-              <Text style={styles.footerStepLabel}>{resolvedStepLabel}</Text>
-              {isCompleted ? (
+              {footerLeft ? footerLeft : (
+                <Text style={styles.footerStepLabel}>{resolvedStepLabel}</Text>
+              )}
+              {footerRight ? (
+                footerRight
+              ) : isCompleted ? (
                 <View style={styles.completedBadge} accessibilityLabel={completedLabel}>
                   <Text style={styles.completedBadgeText}>✓ {completedLabel}</Text>
                 </View>
