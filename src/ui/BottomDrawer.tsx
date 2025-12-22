@@ -333,15 +333,24 @@ export function BottomDrawer({
 
   const panStartY = useSharedValue(0);
   const panStartHeight = useSharedValue(0);
-  const panGesture = useMemo(() => {
-    const base = Gesture.Pan()
+  const makePanGesture = useMemo(() => {
+    return (opts: { ignoreScrollLock: boolean }) => {
+      const { ignoreScrollLock } = opts;
+      const base = Gesture.Pan()
       .onBegin(() => {
         panStartY.value = translateY.value;
         panStartHeight.value = sheetHeight.value;
       })
       .onUpdate((event) => {
         // If content is scrollable and not at top, avoid stealing downward drags.
-        if (enableContentPanningGesture && scrollY.value > 0 && event.translationY > 0) {
+        // Note: dragging from the handle should always work, even when nested
+        // content is scrolled.
+        if (
+          !ignoreScrollLock &&
+          enableContentPanningGesture &&
+          scrollY.value > 0 &&
+          event.translationY > 0
+        ) {
           return;
         }
         // Dragging down reduces height; dragging up increases height.
@@ -398,11 +407,12 @@ export function BottomDrawer({
         });
       });
 
-    // If a nested scroll gesture is registered, run simultaneously to reduce conflicts.
-    if (scrollableGesture) {
-      return base.simultaneousWithExternalGesture(scrollableGesture);
-    }
-    return base;
+      // If a nested scroll gesture is registered, run simultaneously to reduce conflicts.
+      if (scrollableGesture) {
+        return base.simultaneousWithExternalGesture(scrollableGesture);
+      }
+      return base;
+    };
   }, [
     closeIfAllowed,
     closedOffset,
@@ -419,16 +429,19 @@ export function BottomDrawer({
     isAnimating,
     panStartY,
     panStartHeight,
+    translateY,
   ]);
 
   const handlePanGesture = useMemo(() => {
-    // Always allow dragging from the handle.
-    return panGesture;
-  }, [panGesture]);
+    // Always allow dragging from the handle, even when content is scrolled.
+    return makePanGesture({ ignoreScrollLock: true });
+  }, [makePanGesture]);
 
   const contentPanGesture = useMemo(() => {
-    return enableContentPanningGesture ? panGesture : Gesture.Pan().enabled(false);
-  }, [enableContentPanningGesture, panGesture]);
+    return enableContentPanningGesture
+      ? makePanGesture({ ignoreScrollLock: false })
+      : Gesture.Pan().enabled(false);
+  }, [enableContentPanningGesture, makePanGesture]);
 
   if (!mounted) return null;
 

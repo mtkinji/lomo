@@ -35,6 +35,16 @@ const PRO_SKUS: Record<ProPlan, Record<BillingCadence, string>> = {
   },
 };
 
+export function getProSku(plan: ProPlan, cadence: BillingCadence): string {
+  return PRO_SKUS[plan][cadence];
+}
+
+export type ProSkuPricing = {
+  sku: string;
+  priceString?: string;
+  currencyCode?: string;
+};
+
 type RevenueCatCustomerInfo = {
   entitlements?: {
     active?: Record<string, unknown>;
@@ -240,7 +250,7 @@ export async function purchaseProSku(params: {
     ? currentOffering.availablePackages
     : [];
 
-  const desiredSku = PRO_SKUS[params.plan][params.cadence];
+  const desiredSku = getProSku(params.plan, params.cadence);
   const matchingPackage = availablePackages.find(
     (pkg) => pkg?.product?.identifier === desiredSku || pkg?.product?.productIdentifier === desiredSku,
   );
@@ -268,6 +278,37 @@ export async function openManageSubscription(): Promise<void> {
     return;
   }
   // Fallback: do nothing (Android/Web not in scope for MVP PRD).
+}
+
+export async function getProSkuPricing(): Promise<Record<string, ProSkuPricing>> {
+  const purchases = getPurchasesModule();
+  const apiKey = getEnvVar<string>('revenueCatApiKey');
+  if (!purchases || !apiKey) return {};
+
+  try {
+    await configureRevenueCatIfNeeded(purchases);
+    const offerings = await purchases.getOfferings?.();
+    const currentOffering = offerings?.current;
+    const availablePackages: any[] = Array.isArray(currentOffering?.availablePackages)
+      ? currentOffering.availablePackages
+      : [];
+
+    const pricing: Record<string, ProSkuPricing> = {};
+    for (const pkg of availablePackages) {
+      const sku = pkg?.product?.identifier ?? pkg?.product?.productIdentifier;
+      if (typeof sku !== 'string') continue;
+      const priceString = pkg?.product?.priceString;
+      const currencyCode = pkg?.product?.currencyCode;
+      pricing[sku] = {
+        sku,
+        ...(typeof priceString === 'string' ? { priceString } : {}),
+        ...(typeof currencyCode === 'string' ? { currencyCode } : {}),
+      };
+    }
+    return pricing;
+  } catch {
+    return {};
+  }
 }
 
 

@@ -20,6 +20,7 @@ import {
   getMonthKey,
 } from '../domain/generativeCredits';
 import type { CelebrationKind, MediaRole } from '../services/gifs';
+import { useToastStore } from './useToastStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
@@ -424,6 +425,12 @@ interface AppState {
   tryConsumeGenerativeCredit: (params: {
     tier: 'free' | 'pro';
   }) => { ok: boolean; remaining: number; limit: number };
+  /**
+   * Dev-only helpers to make monetization/quota testing deterministic.
+   * (No-op outside __DEV__.)
+   */
+  devResetGenerativeCredits: () => void;
+  devSetGenerativeCreditsUsedThisMonth: (usedThisMonth: number) => void;
   setLastOnboardingArcId: (arcId: string | null) => void;
   setHasSeenFirstArcCelebration: (seen: boolean) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
@@ -933,7 +940,30 @@ export const useAppStore = create(
         set(() => ({
           generativeCredits: { monthKey: currentKey, usedThisMonth: nextUsed },
         }));
-        return { ok: true, remaining: Math.max(0, limit - nextUsed), limit };
+        const remainingAfterConsume = Math.max(0, limit - nextUsed);
+        if (remainingAfterConsume > 0 && remainingAfterConsume <= 5) {
+          // Global warning toast: show no matter where the user is when they cross the threshold.
+          // This avoids per-screen duplication and keeps the UX consistent across AI entrypoints.
+          useToastStore.getState().showToast({
+            message: `AI credits remaining this month: ${remainingAfterConsume} / ${limit}`,
+            variant: 'credits',
+          });
+        }
+        return { ok: true, remaining: remainingAfterConsume, limit };
+      },
+      devResetGenerativeCredits: () => {
+        if (!__DEV__) return;
+        const currentKey = getMonthKey(new Date());
+        set(() => ({ generativeCredits: { monthKey: currentKey, usedThisMonth: 0 } }));
+      },
+      devSetGenerativeCreditsUsedThisMonth: (usedThisMonth) => {
+        if (!__DEV__) return;
+        const currentKey = getMonthKey(new Date());
+        const normalizedUsed =
+          typeof usedThisMonth === 'number' && Number.isFinite(usedThisMonth)
+            ? Math.max(0, Math.floor(usedThisMonth))
+            : 0;
+        set(() => ({ generativeCredits: { monthKey: currentKey, usedThisMonth: normalizedUsed } }));
       },
       setHasCompletedFirstTimeOnboarding: (completed) =>
         set(() => ({

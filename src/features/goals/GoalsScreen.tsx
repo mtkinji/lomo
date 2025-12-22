@@ -23,6 +23,7 @@ import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../domain/types';
 import { canCreateGoalInArc } from '../../domain/limits';
 import { Button, IconButton } from '../../ui/Button';
@@ -464,6 +465,7 @@ export function GoalCoachDrawer({
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const { capture } = useAnalytics();
+  const showToast = useToastStore((state) => state.showToast);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList>>();
   const launchArc = React.useMemo(
@@ -650,6 +652,7 @@ export function GoalCoachDrawer({
     // Creating a Goal counts as showing up.
     recordShowUp();
     addGoal(goal);
+    showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
     capture(AnalyticsEvent.GoalCreated, {
       source: 'manual',
       goal_id: goal.id,
@@ -705,6 +708,7 @@ export function GoalCoachDrawer({
       // Creating a Goal counts as showing up.
       recordShowUp();
       addGoal(goal);
+      showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
       capture(AnalyticsEvent.GoalCreated, {
         source: 'ai_coach',
         goal_id: goal.id,
@@ -764,6 +768,7 @@ export function GoalCoachDrawer({
             // Let users chat freely with the coach from the composer; keep suggestions visible.
             hidePromptSuggestions={false}
             onGoalCreated={(goalId) => {
+              showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
               onGoalCreated?.(goalId);
               onClose();
               if (navigateToGoalDetailOnCreate) {

@@ -16,6 +16,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import { Card } from '../../ui/Card';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -792,6 +793,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   const isPro = useEntitlementsStore((state) => state.isPro);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
   const { capture } = useAnalytics();
+  const showToast = useToastStore((state) => state.showToast);
 
   const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
   const [manualName, setManualName] = useState('');
@@ -868,6 +870,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
     // Creating an Arc counts as showing up (planning is still engagement).
     recordShowUp();
     addArc(arc);
+    showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
     capture(AnalyticsEvent.ArcCreated, {
       source: 'manual',
       arc_id: arc.id,
@@ -957,6 +960,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
               // Creating an Arc counts as showing up.
               recordShowUp();
               addArc(arc);
+              showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
               capture(AnalyticsEvent.ArcCreated, {
                 source: 'ai',
                 arc_id: arc.id,

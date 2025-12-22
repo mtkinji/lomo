@@ -9,6 +9,8 @@ import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
 import { mockGenerateArcs } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../store/useAppStore';
+import { useEntitlementsStore } from '../store/useEntitlementsStore';
+import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
@@ -705,6 +707,11 @@ export type CoachChatOptions = {
   workflowInstanceId?: string;
   workflowStepId?: string;
   launchContextSummary?: string;
+  /**
+   * Optional paywall attribution used when generative credits are exhausted.
+   * If omitted, we fall back to 'unknown'.
+   */
+  paywallSource?: PaywallSource;
 };
 
 export const COACH_CONVERSATION_SUMMARY_PREFIX = 'kwilt-coach-summary:v1:';
@@ -2312,6 +2319,20 @@ export async function sendCoachChat(
   if (!apiKey) {
     console.warn('OPENAI_API_KEY missing – unable to call coach chat.');
     throw new Error('Missing OpenAI API key');
+  }
+
+  // Enforce kwilt's generative credit gate at the shared service layer so
+  // any UI path that calls sendCoachChat cannot bypass paywall restrictions.
+  // Note: We intentionally consume at the start to match existing patterns
+  // elsewhere in the app (credits are treated as "attempts").
+  const tier: 'free' | 'pro' = useEntitlementsStore.getState().isPro ? 'pro' : 'free';
+  const consumed = useAppStore.getState().tryConsumeGenerativeCredit({ tier });
+  if (!consumed.ok) {
+    openPaywallInterstitial({
+      reason: 'generative_quota_exceeded',
+      source: options?.paywallSource ?? 'unknown',
+    });
+    throw new Error('Generative credits exhausted');
   }
 
   const baseSystemPrompt =

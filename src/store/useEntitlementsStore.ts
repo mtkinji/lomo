@@ -15,6 +15,12 @@ export type EntitlementsState = {
   refreshEntitlements: (params?: { force?: boolean }) => Promise<EntitlementsSnapshot>;
   restore: () => Promise<EntitlementsSnapshot>;
   purchase: (params: { plan: ProPlan; cadence: BillingCadence }) => Promise<EntitlementsSnapshot>;
+
+  /**
+   * Dev-only helper for testing gating surfaces without RevenueCat.
+   * (No-op outside __DEV__.)
+   */
+  devSetIsPro: (isPro: boolean) => void;
 };
 
 const applySnapshot = (snapshot: EntitlementsSnapshot) => ({
@@ -88,6 +94,18 @@ export const useEntitlementsStore = create(
           set({ isRefreshing: false, lastError: message, isStale: true });
           throw e;
         }
+      },
+
+      devSetIsPro: (nextIsPro) => {
+        if (!__DEV__) return;
+        const checkedAt = new Date().toISOString();
+        set({
+          isPro: Boolean(nextIsPro),
+          lastCheckedAt: checkedAt,
+          lastSource: 'cache',
+          lastError: null,
+          isStale: true,
+        });
       },
     }),
     {

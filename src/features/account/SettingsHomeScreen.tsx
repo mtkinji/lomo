@@ -24,6 +24,7 @@ import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH } f
 import { Card } from '../../ui/Card';
 import { LinearGradient } from 'expo-linear-gradient';
 import { paywallTheme } from '../paywall/paywallTheme';
+import { openManageSubscription } from '../../services/entitlements';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -55,44 +56,12 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     description: 'Visual identity, tone, and how the app feels.',
     items: [
       {
-        id: 'appearance',
-        title: 'Appearance',
-        description: 'Choose thumbnail treatments and visual accents.',
-        icon: 'image',
-        route: 'SettingsAppearance',
-        tags: ['visuals', 'thumbnail', 'theme'],
-      },
-      {
-        id: 'takado',
-        title: 'Kwilt Agent',
-        description: 'Choose which LLM powers the Kwilt Agent.',
-        icon: 'aiGuide',
-        route: 'SettingsAiModel',
-        tags: ['ai', 'agent', 'model'],
-      },
-      {
         id: 'notifications',
         title: 'Notifications',
         description: 'Plan gentle reminders from Kwilt.',
         icon: 'activities',
         route: 'SettingsNotifications',
         tags: ['reminders', 'nudges', 'alerts'],
-      },
-    ],
-  },
-  {
-    id: 'account',
-    title: 'Account & trust',
-    description: 'Privacy, supervision, and data sharing preferences.',
-    items: [
-      {
-        id: 'profile',
-        title: 'Profile & family',
-        description: 'Update who is connected to this account.',
-        icon: 'goals',
-        disabled: true,
-        status: 'soon',
-        tags: ['family', 'profile', 'household'],
       },
     ],
   },
@@ -113,13 +82,8 @@ export function SettingsHomeScreen() {
   const restore = useEntitlementsStore((state) => state.restore);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
 
-  const filteredGroups = useMemo(() => {
-    return SETTINGS_GROUPS;
-  }, []);
-
-  const hasMatches =
-    filteredGroups.length > 0 &&
-    filteredGroups.some((group) => group.items.length > 0);
+  const settingsItems = useMemo(() => SETTINGS_GROUPS.flatMap((group) => group.items), []);
+  const hasMatches = settingsItems.length > 0;
 
   const handleNavigate = (item: SettingsItem) => {
     if (item.disabled || !item.route) {
@@ -240,47 +204,25 @@ export function SettingsHomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.groupSection}>
-            <VStack style={styles.groupHeader}>
-              <Heading style={styles.groupTitle}>Kwilt Pro</Heading>
-              <Text style={styles.groupDescription}>
-                {`AI credits remaining this month: ${remainingCredits} / ${monthlyLimit} (no rollover)`}
-              </Text>
-            </VStack>
-            {isPro ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Manage subscription"
-                onPress={() => navigation.navigate('SettingsManageSubscription')}
-              >
-                <HStack style={styles.itemRow} alignItems="center" space="md">
-                  <View style={styles.itemIcon}>
-                    <Icon name="dot" size={18} color={colors.accent} />
-                  </View>
-                  <VStack flex={1}>
-                    <Text style={styles.itemTitle}>Manage subscription</Text>
-                    <Text style={styles.itemSubtitle}>Kwilt Pro · Annual</Text>
-                  </VStack>
-                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-                </HStack>
-              </Pressable>
-            ) : (
+          {/* Pro upsell (Free only). Keep this as a single, clear "Get Kwilt Pro" card. */}
+          {!isPro ? (
+            <View style={styles.proCardSection}>
               <LinearGradient colors={paywallTheme.gradientColors} style={styles.proCardGradient}>
                 <VStack space="sm">
-                  <Text style={styles.proCardKicker}>Kwilt Pro</Text>
+                  <Text style={styles.proCardKicker}>Get Kwilt Pro</Text>
                   <Text style={styles.proCardTitle}>Unlimited arcs + goals</Text>
                   <Text style={styles.proCardBody}>
                     Unlock family plans, longer focus sessions, Unsplash banners, and a much larger monthly AI budget.
                   </Text>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Upgrade to Pro"
+                    accessibilityLabel="Get Kwilt Pro"
                     onPress={() =>
                       openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'settings' })
                     }
                     style={styles.proCardCta}
                   >
-                    <Text style={styles.proCardCtaLabel}>Upgrade</Text>
+                    <Text style={styles.proCardCtaLabel}>Get Kwilt Pro</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
@@ -306,9 +248,8 @@ export function SettingsHomeScreen() {
                   </Pressable>
                 </VStack>
               </LinearGradient>
-            )}
-
-          </View>
+            </View>
+          ) : null}
 
           <View style={styles.profileRow}>
             <RNPressable
@@ -348,13 +289,11 @@ export function SettingsHomeScreen() {
               <Icon name="chevronRight" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          {filteredGroups.map((group) => (
-            <View key={group.id} style={styles.groupSection}>
-              <VStack style={styles.groupHeader}>
-                <Heading style={styles.groupTitle}>{group.title}</Heading>
-              </VStack>
-              <VStack space="sm">
-                {group.items.map((item) => {
+          {/* Hide category labels; render a single flat list of settings items. */}
+          {settingsItems.length > 0 && (
+            <View style={styles.groupSection}>
+              <VStack space="xs">
+                {settingsItems.map((item) => {
                   const disabled = item.disabled || !item.route;
                   return (
                     <Pressable
@@ -395,7 +334,7 @@ export function SettingsHomeScreen() {
                 })}
               </VStack>
             </View>
-          ))}
+          )}
           {!hasMatches && (
             <View style={styles.emptyState}>
               <Heading style={styles.emptyTitle}>No settings yet</Heading>
@@ -404,6 +343,36 @@ export function SettingsHomeScreen() {
               </Text>
             </View>
           )}
+
+          {/* Subscriptions entry (moved to bottom of the list). */}
+          <View style={styles.groupSection}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isPro ? 'Manage subscription' : 'View subscription plans'}
+              onPress={() => {
+                if (isPro) {
+                  openManageSubscription().catch(() =>
+                    navigation.navigate('SettingsManageSubscription')
+                  );
+                  return;
+                }
+                navigation.navigate('SettingsManageSubscription');
+              }}
+            >
+              <HStack style={styles.itemRow} alignItems="center" space="md">
+                <View style={styles.itemIcon}>
+                  <Icon name="dot" size={18} color={colors.accent} />
+                </View>
+                <VStack flex={1}>
+                  <Text style={styles.itemTitle}>Subscriptions</Text>
+                  <Text style={styles.itemSubtitle}>
+                    {`${isPro ? 'Manage in App Store' : 'See plans and pricing'} • AI credits: ${remainingCredits}/${monthlyLimit}`}
+                  </Text>
+                </VStack>
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+              </HStack>
+            </Pressable>
+          </View>
         </ScrollView>
         <BottomDrawer
           visible={avatarSheetVisible}
@@ -467,7 +436,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing['2xl'],
-    gap: spacing.lg,
+    // Keep global spacing tight; we handle larger separations with section wrappers.
+    gap: spacing.xs,
+  },
+  proCardSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
   },
   profileRow: {
     borderWidth: 1,
@@ -504,20 +478,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   groupSection: {
-    marginTop: spacing.lg,
-    gap: spacing.md,
-  },
-  groupHeader: {
-    marginBottom: spacing.xs / 2,
-  },
-  groupTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  groupDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+    // Don't introduce extra vertical spacing; let the parent ScrollView `gap`
+    // control spacing between adjacent blocks (XS).
+    marginTop: 0,
+    gap: 0,
   },
   proCard: {
     borderRadius: 18,

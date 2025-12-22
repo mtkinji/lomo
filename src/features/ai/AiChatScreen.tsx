@@ -1126,7 +1126,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // For inline step-card forms (Arc creation / onboarding), we want enough room for
   // the card’s bottom CTA row, but not so much that a tall card gets shoved off the
   // top of the viewport when focusing the field.
-  const keyboardClearance = !shouldShowComposer && hasStepCard ? 0 : spacing.lg;
+  // NOTE: When the composer is hidden, step cards often include their own primary CTA
+  // below the focused input (e.g. onboarding "Continue"). If clearance is 0, the
+  // focused input may be visible but the CTA row will be covered by the keyboard.
+  // Use a moderate, step-card-specific clearance to keep the entire card actionable.
+  const STEP_CARD_KEYBOARD_CLEARANCE = 72;
+  const keyboardClearance =
+    !shouldShowComposer && hasStepCard ? STEP_CARD_KEYBOARD_CLEARANCE : spacing.lg;
 
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

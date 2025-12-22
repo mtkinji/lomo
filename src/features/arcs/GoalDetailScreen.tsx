@@ -18,6 +18,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import type { GoalDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { Button, IconButton } from '../../ui/Button';
@@ -91,6 +92,7 @@ export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
   const navigation = useNavigation();
   const { goalId, entryPoint } = route.params;
+  const showToast = useToastStore((state) => state.showToast);
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -787,6 +789,7 @@ export function GoalDetailScreen() {
     // Creating an Activity counts as showing up (planning is still engagement).
     recordShowUp();
     addActivity(nextActivity);
+    showToast({ message: 'Activity created', variant: 'success', durationMs: 2200 });
     setActivityComposerVisible(false);
 
     // Enrich activity with AI details asynchronously
@@ -2187,6 +2190,7 @@ function GoalActivityCoachDrawer({
   const arcs = useAppStore((state) => state.arcs);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const addActivity = useAppStore((state) => state.addActivity);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = useState(false);
 
@@ -2264,7 +2268,7 @@ function GoalActivityCoachDrawer({
       goal_id: focusGoalId,
     });
     setManualActivityId(id);
-  }, [activities.length, addActivity, capture, focusGoalId, manualActivityId]);
+  }, [activities.length, addActivity, capture, focusGoalId, manualActivityId, recordShowUp]);
 
   useEffect(() => {
     if (!visible) {

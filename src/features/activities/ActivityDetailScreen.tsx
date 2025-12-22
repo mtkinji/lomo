@@ -308,27 +308,7 @@ export function ActivityDetailScreen() {
     };
   }, []);
 
-  const [creditToastMessage, setCreditToastMessage] = useState<string>('');
-  const creditToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showCreditToast = useCallback((message: string) => {
-    if (creditToastTimeoutRef.current) {
-      clearTimeout(creditToastTimeoutRef.current);
-      creditToastTimeoutRef.current = null;
-    }
-    setCreditToastMessage(message);
-    creditToastTimeoutRef.current = setTimeout(() => {
-      setCreditToastMessage('');
-      creditToastTimeoutRef.current = null;
-    }, 2200);
-  }, []);
-  useEffect(() => {
-    return () => {
-      if (creditToastTimeoutRef.current) {
-        clearTimeout(creditToastTimeoutRef.current);
-        creditToastTimeoutRef.current = null;
-      }
-    };
-  }, []);
+  // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(activity?.title ?? '');
@@ -752,7 +732,18 @@ export function ActivityDetailScreen() {
 
   const openCalendarSheet = () => {
     const existingStart = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-    const draftStart = existingStart && !Number.isNaN(existingStart.getTime()) ? existingStart : new Date();
+    const existingIsValid = Boolean(existingStart && !Number.isNaN(existingStart.getTime()));
+    const existingIsReasonablyFuture =
+      existingIsValid && (existingStart as Date).getTime() > Date.now() - 60_000 /* 1 min grace */;
+
+    const base = existingIsReasonablyFuture ? (existingStart as Date) : new Date();
+    const draftStart = (() => {
+      if (existingIsReasonablyFuture) return base;
+      // Round up to the next 15-minute boundary so the default feels intentional.
+      const intervalMs = 15 * 60_000;
+      return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
+    })();
+
     setCalendarStartDraft(draftStart);
     setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
     setCalendarSheetVisible(true);
@@ -793,13 +784,16 @@ export function ActivityDetailScreen() {
       if (action.type === 'openCalendar') {
         const fromAction = action.startAtISO ? new Date(action.startAtISO) : null;
         const fromExisting = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-        const fallback = new Date();
         const draftStart =
           fromAction && !Number.isNaN(fromAction.getTime())
             ? fromAction
             : fromExisting && !Number.isNaN(fromExisting.getTime())
               ? fromExisting
-              : fallback;
+              : (() => {
+                  const base = new Date();
+                  const intervalMs = 15 * 60_000;
+                  return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
+                })();
 
         const duration =
           typeof action.durationMinutes === 'number' && Number.isFinite(action.durationMinutes)
@@ -943,10 +937,19 @@ export function ActivityDetailScreen() {
     if (calendarPermissionStatus !== 'granted') {
       const ok = await loadWritableCalendars();
       if (!ok) {
-        Alert.alert(
-          'Calendar access needed',
-          'Enable Calendar access in system settings, or use the “Share calendar file” option.',
-        );
+        Alert.alert('Calendar access needed', 'Enable Calendar access in system settings, or use “Share calendar file”.', [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              try {
+                void Linking.openSettings();
+              } catch {
+                // no-op
+              }
+            },
+          },
+        ]);
         return;
       }
     }
@@ -1034,15 +1037,6 @@ export function ActivityDetailScreen() {
       endAt,
     });
 
-    // Persist scheduledAt (additive model).
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      scheduledAt: startAt.toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
-
-    setCalendarSheetVisible(false);
-
     try {
       const filename = `kwilt-${activity.title.trim().slice(0, 48).replace(/[^a-z0-9-_]+/gi, '-') || 'activity'}.ics`;
       const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
@@ -1053,19 +1047,43 @@ export function ActivityDetailScreen() {
 
       if (Platform.OS === 'web') {
         await Clipboard.setStringAsync(ics);
+        updateActivity(activity.id, (prev) => ({
+          ...prev,
+          scheduledAt: startAt.toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+        setCalendarSheetVisible(false);
         Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
         return;
       }
 
-      await Share.share({
+      const result = await Share.share({
         title: 'Add to calendar',
         message: activity.title,
         url: fileUri,
       });
+
+      if ((result as any)?.action === (Share as any).dismissedAction) {
+        // User cancelled share; don't mutate the Activity.
+        return;
+      }
+
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        scheduledAt: startAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      setCalendarSheetVisible(false);
     } catch (error) {
       // Last-ditch fallback: copy the ICS text.
       try {
         await Clipboard.setStringAsync(ics);
+        updateActivity(activity.id, (prev) => ({
+          ...prev,
+          scheduledAt: startAt.toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+        setCalendarSheetVisible(false);
         Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
       } catch {
         Alert.alert('Could not share', 'Something went wrong while exporting to calendar.');
@@ -1697,11 +1715,7 @@ export function ActivityDetailScreen() {
   return (
     <AppShell>
       <View style={styles.screen}>
-        <Toast
-          visible={creditToastMessage.length > 0}
-          message={creditToastMessage}
-          bottomOffset={spacing['2xl']}
-        />
+        {/* Credits warning toasts are rendered globally via AppShell. */}
         <VStack space="lg" style={styles.pageContent}>
           <HStack alignItems="center">
             {breadcrumbsEnabled ? (
@@ -2511,7 +2525,7 @@ export function ActivityDetailScreen() {
                       onPress={() => {
                         if (tagsAutofillInFlightRef.current) return;
                         // TODO(entitlements): replace tier selection with real Pro state.
-                        const tier: 'free' | 'pro' = 'free';
+                        const tier: 'free' | 'pro' = isPro ? 'pro' : 'free';
                         const consumed = tryConsumeGenerativeCredit({ tier });
                         if (!consumed.ok) {
                           openPaywallInterstitial({
@@ -2519,11 +2533,6 @@ export function ActivityDetailScreen() {
                             source: 'activity_tags_ai',
                           });
                           return;
-                        }
-                        if (consumed.remaining <= 5) {
-                          showCreditToast(
-                            `AI credits remaining this month: ${consumed.remaining} / ${consumed.limit}`,
-                          );
                         }
                         tagsAutofillInFlightRef.current = true;
                         setIsTagsAutofillThinking(true);
@@ -3173,6 +3182,30 @@ export function ActivityDetailScreen() {
                 <Text style={styles.sheetDescription}>
                   Calendar access is disabled. You can enable it in system settings, or share a calendar file instead.
                 </Text>
+                <HStack space="sm" style={{ marginTop: spacing.sm }}>
+                  <Button
+                    variant="outline"
+                    style={{ flex: 1 }}
+                    onPress={() => {
+                      try {
+                        void Linking.openSettings();
+                      } catch {
+                        // no-op
+                      }
+                    }}
+                  >
+                    <Text style={styles.sheetRowLabel}>Open Settings</Text>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    style={{ flex: 1 }}
+                    onPress={() => {
+                      loadWritableCalendars().catch(() => undefined);
+                    }}
+                  >
+                    <Text style={styles.sheetRowLabel}>Try again</Text>
+                  </Button>
+                </HStack>
               </View>
             ) : (
               <>

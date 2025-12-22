@@ -46,14 +46,6 @@ type QuickAddDockProps = {
   hasGeneratedActivityTitle?: boolean;
 
   /**
-   * Post-create nudge to add an if/then trigger for the last created activity.
-   * This is shown inline while the quick add dock remains focused (keyboard up),
-   * so users don't have to collapse the dock to discover it.
-   */
-  postCreateTriggerNudgeVisible?: boolean;
-  onPressPostCreateTrigger?: () => void;
-
-  /**
    * Reserve enough space so the last list rows can scroll above the dock.
    * This should be fed into the scroll view content container.
    */
@@ -79,8 +71,6 @@ export function QuickAddDock({
   onPressGenerateActivityTitle,
   isGeneratingActivityTitle,
   hasGeneratedActivityTitle,
-  postCreateTriggerNudgeVisible,
-  onPressPostCreateTrigger,
   onReservedHeightChange,
 }: QuickAddDockProps) {
   const insets = useSafeAreaInsets();
@@ -346,24 +336,6 @@ export function QuickAddDock({
                   </View>
                 </View>
               </View>
-              {postCreateTriggerNudgeVisible ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Add a trigger for your last created activity"
-                  onPress={() => onPressPostCreateTrigger?.()}
-                  style={styles.postCreateTriggerNudge}
-                >
-                  <HStack alignItems="center" justifyContent="space-between" space="sm">
-                    <HStack alignItems="center" space="sm" style={{ flex: 1 }}>
-                      <Icon name="bell" size={16} color={colors.accent} />
-                      <Text style={styles.postCreateTriggerNudgeText} numberOfLines={2}>
-                        Add a trigger so it actually happens
-                      </Text>
-                    </HStack>
-                    <Text style={styles.postCreateTriggerNudgeCta}>Add</Text>
-                  </HStack>
-                </Pressable>
-              ) : null}
               {renderToolbar()}
             </View>
           </EditorSurface>
@@ -437,25 +409,6 @@ const styles = StyleSheet.create({
     width: '100%',
     // Keep the toolbar visually attached to the input (no big gap).
     rowGap: spacing.xs,
-  },
-  postCreateTriggerNudge: {
-    width: '100%',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.shellAlt,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  postCreateTriggerNudgeText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  postCreateTriggerNudgeCta: {
-    ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.medium,
   },
   composerRow: {
     width: '100%',

@@ -22,6 +22,15 @@ export const AnalyticsEvent = {
   ActivityCreated: 'activity_created',
   ActivityCompletionToggled: 'activity_completion_toggled',
   ActivityActionInvoked: 'activity_action_invoked',
+
+  // Monetization / paywall (MVP)
+  PaywallViewed: 'paywall_viewed',
+  PurchaseStarted: 'purchase_started',
+  PurchaseSucceeded: 'purchase_succeeded',
+  PurchaseFailed: 'purchase_failed',
+  RestoreStarted: 'restore_started',
+  RestoreSucceeded: 'restore_succeeded',
+  RestoreFailed: 'restore_failed',
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];

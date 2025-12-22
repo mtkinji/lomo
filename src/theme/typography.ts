@@ -38,6 +38,11 @@ export const typography = {
     fontSize: 17,
     lineHeight: 24,
   },
+  bodyBold: {
+    fontFamily: fonts.bold,
+    fontSize: 17,
+    lineHeight: 24,
+  },
   bodySm: {
     fontFamily: fonts.regular,
     fontSize: 14,
