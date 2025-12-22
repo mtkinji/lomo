@@ -106,7 +106,7 @@ export function ArcBannerSheet({
   const performUnsplashSearch = useCallback(
     async (explicitQuery?: string) => {
       if (!canUseUnsplash) {
-        setUnsplashError('Unsplash banners are a Pro feature.');
+        setUnsplashError('Image library search is a Pro feature.');
         return;
       }
       const query = (explicitQuery ?? unsplashQuery).trim() || arcName.trim();
@@ -119,7 +119,7 @@ export function ArcBannerSheet({
         // Don't force landscape here; masonry feels better with mixed orientations.
         const results = await searchUnsplashPhotos(query, { perPage: 30, page: 1 });
         if (!results || results.length === 0) {
-          setUnsplashError('No Unsplash results found for that query.');
+          setUnsplashError('No results found for that query.');
         }
         setUnsplashResults(results ?? []);
       } catch (err) {
@@ -127,21 +127,21 @@ export function ArcBannerSheet({
           if (err.code === 'missing_access_key') {
             setUnsplashError(
               __DEV__
-                ? 'Unsplash is not configured. Set `UNSPLASH_ACCESS_KEY` and ensure `extra.unsplashAccessKey` is provided in `app.config.ts`.'
-                : 'Unsplash search is not available right now.'
+                ? 'Image library search is not configured. Set `UNSPLASH_ACCESS_KEY` and ensure `extra.unsplashAccessKey` is provided in `app.config.ts`.'
+                : 'Image library search is not available right now.'
             );
             return;
           }
           if (err.code === 'http_error') {
             setUnsplashError(
               __DEV__
-                ? `Unsplash request failed (${err.status ?? 'unknown'}). ${err.message}`
-                : 'Unable to load Unsplash images right now.'
+                ? `Image library request failed (${err.status ?? 'unknown'}). ${err.message}`
+                : 'Unable to load image library results right now.'
             );
             return;
           }
         }
-        setUnsplashError('Unable to load Unsplash images right now.');
+        setUnsplashError('Unable to load image library results right now.');
       } finally {
         setUnsplashLoading(false);
       }
@@ -162,7 +162,7 @@ export function ArcBannerSheet({
       return;
     }
 
-    // Default to Unsplash (Pro) or Curated (Free).
+    // Default to image search (Pro) or Curated (Free).
     setSourceTab(defaultTab);
     if (!canUseUnsplash) {
       hasAutoSearchedRef.current = true;
@@ -559,7 +559,7 @@ export function ArcBannerSheet({
 
               {sourceTab === 'unsplash' && (
                 <View style={{ marginTop: spacing.lg }}>
-                  <Text style={styles.heroModalSupportText}>Search Unsplash</Text>
+                  <Text style={styles.heroModalSupportText}>Search the image library</Text>
                   <View style={styles.heroUnsplashSearchRow}>
                     <View style={styles.heroUnsplashInputWrapper}>
                       <Input

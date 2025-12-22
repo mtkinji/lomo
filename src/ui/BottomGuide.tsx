@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { colors, scrims, spacing } from '../theme';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
 import { BottomDrawer } from './BottomDrawer';
+import { useToastStore } from '../store/useToastStore';
 
 interface BottomGuideProps {
   visible: boolean;
@@ -64,6 +66,18 @@ export function BottomGuide({
   children,
   dynamicSizing = false,
 }: BottomGuideProps) {
+  const suppressionKeyRef = useRef(
+    `bottomGuide-${Math.random().toString(36).slice(2)}-${Date.now()}`,
+  );
+
+  useEffect(() => {
+    const key = suppressionKeyRef.current;
+    useToastStore.getState().setToastsSuppressed({ key, suppressed: visible });
+    return () => {
+      useToastStore.getState().setToastsSuppressed({ key, suppressed: false });
+    };
+  }, [visible]);
+
   const scrimToken = scrim === 'light' ? 'pineSubtle' : 'default';
   const shouldHideBackdrop = scrim === 'none';
   const canDismiss = Boolean(onClose);

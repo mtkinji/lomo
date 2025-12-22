@@ -2327,7 +2327,7 @@ export function IdentityAspirationFlow({
 
   const INTRO_MESSAGES: string[] = [
     // Message 1 (handoff from FTUE)
-    'Perfect — you probably have aspirations in a few areas of life. For now, we’ll pick one and turn it into an **Arc** — a clear picture of **who you want to become**.',
+    'You probably have aspirations in a few areas of life. For now, we’ll pick one and turn it into an **Arc** — a clear picture of **who you want to become**.',
     // Message 2 (connect Arc → Goals → Activities)
     "Then we’ll turn it into clear **Goals** and small daily **Activities**. I’ll use AI and behavior-change best practices to draft high-quality options, and then you’ll be able to review and tweak them anytime. (Tap “Learn more” below.)",
     // Message 3 (lead-in to the minimal + archetype flow)
@@ -4590,26 +4590,29 @@ export function IdentityAspirationFlow({
             id: 'completed',
             title: 'Survey complete',
             render: () => (
-              <View style={{ gap: spacing.sm }}>
+              <View style={styles.surveyCompleteBody}>
                 <Text style={styles.bodyText} tone="secondary">
-                  Saved. Drafting your first Arc now…
+                  Saved. Drafting your first Arc…
                 </Text>
-                <View style={styles.inlineActions}>
-                  <Button variant="ghost" onPress={handleStartOver}>
-                    <ButtonLabel size="md">Start over</ButtonLabel>
-                  </Button>
+                <View style={styles.surveyCompleteActionsRow}>
                   <Button
-                    variant="ghost"
+                    variant="link"
+                    size="small"
                     onPress={() => setIsSurveySummaryExpanded((v) => !v)}
-                    accessibilityLabel={isSurveySummaryExpanded ? 'Hide answers' : 'Show answers'}
+                    accessibilityLabel={isSurveySummaryExpanded ? 'Hide answers' : 'Review answers'}
                   >
-                    <ButtonLabel size="md">
-                      {isSurveySummaryExpanded ? 'Hide answers' : 'Show answers'}
+                    <ButtonLabel size="sm" tone="accent">
+                      {isSurveySummaryExpanded ? 'Hide answers' : 'Review answers'}
+                    </ButtonLabel>
+                  </Button>
+                  <Button variant="link" size="small" onPress={handleStartOver}>
+                    <ButtonLabel size="sm" tone="destructive">
+                      Start over
                     </ButtonLabel>
                   </Button>
                 </View>
                 {isSurveySummaryExpanded ? (
-                  <View style={{ gap: spacing.xs }}>
+                  <View style={styles.surveyCompleteAnswers}>
                     <Text style={styles.summaryLabel}>Big dream</Text>
                     <Text style={styles.summaryValue}>{dreamInput.trim()}</Text>
                     <Text style={styles.summaryLabel}>Growth lane</Text>
@@ -4625,7 +4628,7 @@ export function IdentityAspirationFlow({
           },
         ]}
         currentStepIndex={0}
-        stepLabel="Survey complete"
+        stepLabel="Saved"
         completedLabel="Done"
       />
     );
@@ -4765,6 +4768,19 @@ const styles = StyleSheet.create({
   summaryValue: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  surveyCompleteBody: {
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  surveyCompleteActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  surveyCompleteAnswers: {
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
   },
   questionMeta: {
     ...typography.bodySm,

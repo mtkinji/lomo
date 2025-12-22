@@ -63,7 +63,7 @@ export async function ensureArcBannerPrefill(
     });
     return;
   } catch (err) {
-    // Fall back to curated selection (best-effort) when Unsplash is unavailable.
+    // Fall back to curated selection (best-effort) when image library search is unavailable.
     if (!options.fallbackCurated) {
       return;
     }

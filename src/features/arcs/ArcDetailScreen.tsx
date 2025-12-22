@@ -1193,7 +1193,7 @@ export function ArcDetailScreen() {
         body={
           <Text style={styles.arcExploreCoachmarkBody}>
             {arcExploreGuideStep === 0
-              ? 'Tap the banner to change the image (upload, curated picks, or Unsplash).'
+              ? 'Tap the banner to change the image (upload, curated picks, or search the image library).'
               : arcExploreGuideStep === 1
                 ? 'Use these tabs to move between Details, Goals, and your progress history.'
                 : 'We generated Arc Development Insights to help you steer this chapter. Tap a section to expand it.'}

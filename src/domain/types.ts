@@ -56,7 +56,7 @@ export interface Arc {
      */
     curatedId?: string;
     /**
-     * When the hero image originates from Unsplash, capture the photo id and
+     * When the hero image originates from the searchable image library, capture the photo id and
      * lightweight attribution details so we can render proper credit and
      * reconstruct links.
      */

@@ -1317,7 +1317,7 @@ export function DevToolsScreen() {
                   }
                   style={styles.cardAction}
                 >
-                  <ButtonLabel size="md">Paywall: Unsplash</ButtonLabel>
+                  <ButtonLabel size="md">Paywall: Image library</ButtonLabel>
                 </Button>
               </HStack>
 

@@ -247,7 +247,7 @@ export function ManageSubscriptionScreen() {
                       <Text style={styles.upgradeKicker}>Kwilt Pro</Text>
                       <Heading style={styles.upgradeTitle}>Scale your progress</Heading>
                       <Text style={styles.upgradeBody}>
-                        Unlimited arcs + goals, family plans, longer focus sessions, Unsplash banners, and a larger monthly AI budget.
+                        Unlimited arcs + goals, family plans, longer focus sessions, searchable banner images, and a larger monthly AI budget.
                       </Text>
                     </VStack>
                     <Pressable

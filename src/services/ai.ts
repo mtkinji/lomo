@@ -1903,7 +1903,7 @@ export type ArcBannerVibeQueryInput = {
 };
 
 /**
- * Generate a short, "vibe"-based Unsplash search query for an Arc.
+ * Generate a short, "vibe"-based image-library search query for an Arc.
  * Uses a cheap/fast chat model and returns a compact phrase (2–5 words).
  */
 export async function generateArcBannerVibeQuery(
@@ -1927,7 +1927,7 @@ export async function generateArcBannerVibeQuery(
 
   const model: LlmModel = 'gpt-4o-mini';
   const systemPrompt =
-    'You generate short search queries for Unsplash images. ' +
+    'You generate short search queries for a photo library. ' +
     'Return a single line containing ONLY a compact search phrase (2–5 words). ' +
     'No quotes. No hashtags. No punctuation. No emojis. ' +
     'Prefer concrete visual nouns + adjectives (e.g., "misty alpine sunrise", "cozy reading nook").';
@@ -1937,7 +1937,7 @@ Arc name: ${arcName || '(missing)'}
 Arc narrative: ${narrative || '(none)'}
 Goal titles: ${goalTitles.length > 0 ? goalTitles.join(' | ') : '(none)'}
 
-Return one Unsplash search phrase that matches the Arc's vibe.
+Return one photo-library search phrase that matches the Arc's vibe.
 `;
 
   const body = {
@@ -1997,7 +1997,7 @@ Return one Unsplash search phrase that matches the Arc's vibe.
     return null;
   }
 
-  // Keep it reasonably short for Unsplash search.
+  // Keep it reasonably short for image search.
   return cleaned.split(' ').slice(0, 5).join(' ');
 }
 

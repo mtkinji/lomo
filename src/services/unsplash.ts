@@ -61,7 +61,7 @@ export async function searchUnsplashPhotos(
   if (!accessKey) {
     throw new UnsplashError(
       'missing_access_key',
-      'Unsplash is not configured for this build (missing access key).'
+      'Image library search is not configured for this build (missing access key).'
     );
   }
 
@@ -87,8 +87,8 @@ export async function searchUnsplashPhotos(
   });
 
   if (!response.ok) {
-    // Attempt to surface a meaningful message from Unsplash.
-    let message = `Unsplash request failed (HTTP ${response.status}).`;
+    // Attempt to surface a meaningful message from the image library API.
+    let message = `Image library request failed (HTTP ${response.status}).`;
     try {
       const maybeJson = (await response.json()) as unknown;
       if (
@@ -110,6 +110,6 @@ export async function searchUnsplashPhotos(
     const data: UnsplashSearchResponse = await response.json();
     return data.results ?? [];
   } catch {
-    throw new UnsplashError('invalid_response', 'Unable to parse Unsplash response.');
+    throw new UnsplashError('invalid_response', 'Unable to parse image library response.');
   }
 }

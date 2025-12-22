@@ -213,7 +213,7 @@ export function SettingsHomeScreen() {
                   <Text style={styles.proCardKicker}>Get Kwilt Pro</Text>
                   <Text style={styles.proCardTitle}>Unlimited arcs + goals</Text>
                   <Text style={styles.proCardBody}>
-                    Unlock family plans, longer focus sessions, Unsplash banners, and a much larger monthly AI budget.
+                    Unlock family plans, longer focus sessions, searchable banner images, and a much larger monthly AI budget.
                   </Text>
                   <Pressable
                     accessibilityRole="button"

@@ -943,6 +943,8 @@ export const useAppStore = create(
           useToastStore.getState().showToast({
             message: `AI credits remaining this month: ${remainingAfterConsume} / ${limit}`,
             variant: 'credits',
+            // Don't compete with onboarding guides / coachmarks; show once the overlay is gone.
+            behaviorDuringSuppression: 'queue',
           });
         }
         return { ok: true, remaining: remainingAfterConsume, limit };
