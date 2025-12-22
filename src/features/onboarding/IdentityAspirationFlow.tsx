@@ -2824,13 +2824,13 @@ export function IdentityAspirationFlow({
     setPhase('roleModelType');
   };
 
-  const labelForArchetype = <T extends { id: string; label: string }>(
+  function labelForArchetype<T extends { id: string; label: string }>(
     options: T[],
     id: string | null | undefined
-  ): string | null => {
+  ): string | null {
     if (!id) return null;
     return options.find((o) => o.id === id)?.label ?? null;
-  };
+  }
 
   const renderRadioIndicator = (selected: boolean) => (
     <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
