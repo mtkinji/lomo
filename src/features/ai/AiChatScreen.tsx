@@ -1133,7 +1133,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // For onboarding, the first step-card contains a multiline textarea. We bias a bit more
   // clearance so the entire card (including footer / CTA row) stays in-frame when the
   // keyboard is up.
-  const STEP_CARD_KEYBOARD_CLEARANCE = isOnboardingMode ? 104 : 72;
+  const STEP_CARD_KEYBOARD_CLEARANCE = isOnboardingMode ? 104 : 104;
   const keyboardClearance =
     !shouldShowComposer && hasStepCard ? STEP_CARD_KEYBOARD_CLEARANCE : spacing.lg;
 
@@ -2988,9 +2988,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
             // In workflows that collect input inside the timeline (e.g. FTUE),
             // a user may focus an input while the keyboard is already open.
             // Nudge the ScrollView to reveal the focused field on every tap.
+            // Important: prefer the measure-based alignment (less "jumpy" than
+            // scrollResponderScrollNativeHandleToKeyboard) so repeated taps don't
+            // subtly change the card's resting position.
             if (!shouldShowComposer) {
               requestAnimationFrame(() => {
-                scrollToFocusedInput(keyboardClearance);
+                alignFocusedInputToKeyboard(keyboardClearance);
               });
             }
           }}

@@ -4421,7 +4421,7 @@ export function IdentityAspirationFlow({
     );
   };
 
-  const renderFirstTimeSurveyCompleted = () => {
+  function renderFirstTimeSurveyCompleted() {
     const roleModelTypeLabel = labelForArchetype(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId) ?? '';
     const admiredLabels = admiredQualityIds
       .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
@@ -4466,7 +4466,7 @@ export function IdentityAspirationFlow({
         completedLabel="Completed"
       />
     );
-  };
+  }
 
   // Generating/reveal phases should take precedence regardless of the survey
   // phase list so we never accidentally treat them as unreachable.
