@@ -22,6 +22,8 @@ import { QuestionCard } from '../../ui/QuestionCard';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
+import { generateArcBannerVibeQuery } from '../../services/ai';
+import { searchUnsplashPhotos, UnsplashError } from '../../services/unsplash';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { Arc } from '../../domain/types';
@@ -41,6 +43,7 @@ import {
 } from '../../domain/archetypeTaps';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
+import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { openPaywallInterstitial } from '../../services/paywall';
@@ -684,6 +687,14 @@ export function IdentityAspirationFlow({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [arcInsights, setArcInsights] = useState<ArcDevelopmentInsights | null>(null);
+  const [prefetchedArcHero, setPrefetchedArcHero] = useState<{
+    thumbnailUrl: string;
+    heroImageMeta: NonNullable<Arc['heroImageMeta']>;
+    thumbnailVariant?: number;
+  } | null>(null);
+  const arcGenerationRunIdRef = useRef(0);
+  const arcHeroPrefetchRunIdRef = useRef(0);
+  const [isSurveySummaryExpanded, setIsSurveySummaryExpanded] = useState(false);
 
   const [identitySignature, setIdentitySignature] = useState<Record<IdentityTag, number>>(
     {} as Record<IdentityTag, number>
@@ -1709,8 +1720,12 @@ export function IdentityAspirationFlow({
 
   const generateArc = useCallback(
     async (tweakHint?: string) => {
+      const runId = (arcGenerationRunIdRef.current += 1);
       setIsGenerating(true);
       setError(null);
+      // New draft => new banner vibe.
+      setPrefetchedArcHero(null);
+      arcHeroPrefetchRunIdRef.current += 1;
 
       // HYBRID-MINIMAL INPUT SUMMARY:
       // We intentionally keep the required input set small:
@@ -2020,6 +2035,7 @@ export function IdentityAspirationFlow({
         }
 
         if (bestCandidate && bestQuality && bestQuality.score >= QUALITY_THRESHOLD) {
+          if (runId !== arcGenerationRunIdRef.current) return;
           setAspiration(bestCandidate);
           if (workflowRuntime) {
             workflowRuntime.completeStep('aspiration_generate', {
@@ -2043,6 +2059,7 @@ export function IdentityAspirationFlow({
             throw new Error('Unable to build local aspiration fallback.');
           }
 
+          if (runId !== arcGenerationRunIdRef.current) return;
           setAspiration(fallback);
           if (workflowRuntime) {
             workflowRuntime.completeStep('aspiration_generate', {
@@ -2065,6 +2082,7 @@ export function IdentityAspirationFlow({
               bestScore: bestQuality?.score ?? null,
             }
           );
+          if (runId !== arcGenerationRunIdRef.current) return;
           setAspiration(fallback);
           if (workflowRuntime) {
             workflowRuntime.completeStep('aspiration_generate', {
@@ -2078,6 +2096,7 @@ export function IdentityAspirationFlow({
         }
 
         // If no fallback is possible, use the best candidate we have.
+        if (runId !== arcGenerationRunIdRef.current) return;
         setAspiration(bestCandidate);
         if (workflowRuntime) {
           workflowRuntime.completeStep('aspiration_generate', {
@@ -2088,6 +2107,7 @@ export function IdentityAspirationFlow({
         }
         setPhase('reveal');
       } catch (err) {
+        if (runId !== arcGenerationRunIdRef.current) return;
         console.error('[onboarding] Failed to generate identity aspiration', err);
         if (isLikelyOfflineError(err)) {
           setError(
@@ -2099,7 +2119,9 @@ export function IdentityAspirationFlow({
           );
         }
       } finally {
-        setIsGenerating(false);
+        if (runId === arcGenerationRunIdRef.current) {
+          setIsGenerating(false);
+        }
       }
     },
     [
@@ -2151,6 +2173,10 @@ export function IdentityAspirationFlow({
       id: draftArcId,
       name: aspiration.arcName,
       narrative: aspiration.aspirationSentence,
+      thumbnailUrl: prefetchedArcHero?.thumbnailUrl,
+      thumbnailVariant: prefetchedArcHero?.thumbnailVariant,
+      heroImageMeta: prefetchedArcHero?.heroImageMeta,
+      heroHidden: false,
       status: 'active',
       startDate: nowIso,
       endDate: null,
@@ -2186,7 +2212,11 @@ export function IdentityAspirationFlow({
   }));
 
     addArc(arc);
-    void ensureArcBannerPrefill(arc);
+    // If we already prefetched a hero image for the draft, keep it.
+    // Otherwise, best-effort prefill after Arc creation.
+    if (!prefetchedArcHero?.thumbnailUrl) {
+      void ensureArcBannerPrefill(arc);
+    }
     // Fire-and-forget: generate Arc Development Insights in the background so
     // they are ready (or gracefully fall back) by the time the user lands on
     // the Arc detail screen. This should never block the onboarding flow.
@@ -2216,6 +2246,84 @@ export function IdentityAspirationFlow({
     }
     onComplete?.();
   };
+
+  useEffect(() => {
+    // Prefetch a real hero image as soon as we have a draft Arc (aspiration),
+    // so the preview uses the same image that will be saved on confirm.
+    if (!aspiration) return;
+    if (prefetchedArcHero) return;
+
+    const runId = (arcHeroPrefetchRunIdRef.current += 1);
+    const nowIso = new Date().toISOString();
+    const draft: Arc = {
+      id: draftArcId,
+      name: aspiration.arcName,
+      narrative: aspiration.aspirationSentence,
+      status: 'active',
+      startDate: nowIso,
+      endDate: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    let cancelled = false;
+    void (async () => {
+      const queryBase = (draft.name || '').trim();
+      if (!queryBase) return;
+
+      try {
+        const vibeQuery =
+          (await generateArcBannerVibeQuery({
+            arcName: draft.name,
+            arcNarrative: draft.narrative,
+          })) ?? '';
+        const query = (vibeQuery || queryBase).trim();
+        if (!query) return;
+
+        const results = await searchUnsplashPhotos(query, { perPage: 20, page: 1 });
+        const photo = results?.[0];
+        if (!photo) {
+          throw new UnsplashError('http_error', 'No results', 200);
+        }
+
+        if (cancelled) return;
+        if (runId !== arcHeroPrefetchRunIdRef.current) return;
+        setPrefetchedArcHero({
+          thumbnailUrl: photo.urls.regular,
+          heroImageMeta: {
+            source: 'unsplash',
+            prompt: vibeQuery || query,
+            createdAt: nowIso,
+            unsplashPhotoId: photo.id,
+            unsplashAuthorName: photo.user.name,
+            unsplashAuthorLink: photo.user.links.html,
+            unsplashLink: photo.links.html,
+          },
+        });
+      } catch {
+        if (cancelled) return;
+        if (runId !== arcHeroPrefetchRunIdRef.current) return;
+        // Curated fallback image (still a real image, not just a gradient).
+        const selection = pickHeroForArc(draft, {
+          userFocusAreas: userProfile?.focusAreas,
+        });
+        if (!selection.image) return;
+        setPrefetchedArcHero({
+          thumbnailUrl: selection.image.uri,
+          thumbnailVariant: draft.thumbnailVariant ?? 0,
+          heroImageMeta: {
+            source: 'curated',
+            createdAt: nowIso,
+            curatedId: selection.image.id,
+          },
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [aspiration, draftArcId, prefetchedArcHero, userProfile?.focusAreas]);
 
   const INTRO_MESSAGES: string[] = [
     // Message 1 (handoff from FTUE)
@@ -3630,6 +3738,10 @@ export function IdentityAspirationFlow({
       id: draftArcId,
       name: 'Shaping your Arc…',
       narrative: '',
+      thumbnailUrl: prefetchedArcHero?.thumbnailUrl,
+      thumbnailVariant: prefetchedArcHero?.thumbnailVariant,
+      heroImageMeta: prefetchedArcHero?.heroImageMeta,
+      heroHidden: false,
       status: 'active',
       startDate: nowIso,
       endDate: null,
@@ -3693,6 +3805,10 @@ export function IdentityAspirationFlow({
       id: draftArcId,
       name: aspiration.arcName,
       narrative: aspiration.aspirationSentence,
+      thumbnailUrl: prefetchedArcHero?.thumbnailUrl,
+      thumbnailVariant: prefetchedArcHero?.thumbnailVariant,
+      heroImageMeta: prefetchedArcHero?.heroImageMeta,
+      heroHidden: false,
       status: 'active',
       startDate: nowIso,
       endDate: null,
@@ -3765,7 +3881,7 @@ export function IdentityAspirationFlow({
         {isFirstTimeOnboarding && hasSubmittedFirstTimeSurvey ? renderFirstTimeSurveyCompleted() : null}
         <View style={styles.revealIntroText}>
           <Text style={styles.bodyText}>
-            Based on what you tapped, here’s a draft Arc that fits what you picked. You can rename
+            Here’s a draft Arc based on what you picked. You can rename
             this Arc or edit the description later from your Arcs list.
           </Text>
         </View>
@@ -4422,48 +4538,95 @@ export function IdentityAspirationFlow({
   };
 
   function renderFirstTimeSurveyCompleted() {
-    const roleModelTypeLabel = labelForArchetype(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId) ?? '';
-    const admiredLabels = admiredQualityIds
-      .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
-      .filter((l): l is string => Boolean(l));
+    const handleStartOver = () => {
+      Alert.alert(
+        'Start over?',
+        'This will clear your answers and restart the survey.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Start over',
+            style: 'destructive',
+            onPress: () => {
+              // Invalidate any in-flight generation so late responses don't override the reset.
+              arcGenerationRunIdRef.current += 1;
+              arcHeroPrefetchRunIdRef.current += 1;
+              setPrefetchedArcHero(null);
+              setAspiration(null);
+              setArcInsights(null);
+              setError(null);
+              setIsGenerating(false);
+              setHasSubmittedFirstTimeSurvey(false);
+              setIsSurveySummaryExpanded(false);
 
-    const lines: Array<{ label: string; value: string }> = [
-      { label: 'Big dream', value: dreamInput.trim() },
-      { label: 'Growth lane', value: domain },
-      { label: 'Quietly proud moment', value: proudMoment },
-      { label: 'Motivation', value: motivation },
-      { label: 'Role models', value: roleModelTypeLabel },
-      { label: 'Admired qualities', value: admiredLabels.join(', ') },
-    ].filter((row) => Boolean(row.value));
+              // Clear answers.
+              setDreamInput('');
+              setDomainIds([]);
+              setMotivationIds([]);
+              setProudMomentIds([]);
+              setRoleModelTypeId(null);
+              setSpecificRoleModelId(null);
+              setRoleModelWhyId(null);
+              setAdmiredQualityIds([]);
+              setIdentitySignature({} as Record<IdentityTag, number>);
+              setExpandedOptionSets({});
+
+              // Back to step 1 and autofocus the dream textarea.
+              setHasStreamedDreamsIntroCopy(true);
+              shouldAutofocusDreamsRef.current = true;
+              setSurveyPhaseByIndex(0);
+            },
+          },
+        ]
+      );
+    };
 
     return (
       <SurveyCard
         mode="completed"
-        variant="flat"
+        variant="stacked"
         steps={[
           {
             id: 'completed',
-            title: 'Identity survey',
+            title: 'Survey complete',
             render: () => (
               <View style={{ gap: spacing.sm }}>
                 <Text style={styles.bodyText} tone="secondary">
-                  Saved. I’ll use this to draft your first Arc.
+                  Saved. Drafting your first Arc now…
                 </Text>
-                <View style={{ gap: spacing.xs }}>
-                  {lines.map((row) => (
-                    <View key={row.label} style={{ gap: 2 }}>
-                      <Text style={styles.summaryLabel}>{row.label}</Text>
-                      <Text style={styles.summaryValue}>{row.value}</Text>
-                    </View>
-                  ))}
+                <View style={styles.inlineActions}>
+                  <Button variant="ghost" onPress={handleStartOver}>
+                    <ButtonLabel size="md">Start over</ButtonLabel>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onPress={() => setIsSurveySummaryExpanded((v) => !v)}
+                    accessibilityLabel={isSurveySummaryExpanded ? 'Hide answers' : 'Show answers'}
+                  >
+                    <ButtonLabel size="md">
+                      {isSurveySummaryExpanded ? 'Hide answers' : 'Show answers'}
+                    </ButtonLabel>
+                  </Button>
                 </View>
+                {isSurveySummaryExpanded ? (
+                  <View style={{ gap: spacing.xs }}>
+                    <Text style={styles.summaryLabel}>Big dream</Text>
+                    <Text style={styles.summaryValue}>{dreamInput.trim()}</Text>
+                    <Text style={styles.summaryLabel}>Growth lane</Text>
+                    <Text style={styles.summaryValue}>{domain}</Text>
+                    <Text style={styles.summaryLabel}>Quietly proud moment</Text>
+                    <Text style={styles.summaryValue}>{proudMoment}</Text>
+                    <Text style={styles.summaryLabel}>Motivation</Text>
+                    <Text style={styles.summaryValue}>{motivation}</Text>
+                  </View>
+                ) : null}
               </View>
             ),
           },
         ]}
         currentStepIndex={0}
-        stepLabel="Completed"
-        completedLabel="Completed"
+        stepLabel="Survey complete"
+        completedLabel="Done"
       />
     );
   }

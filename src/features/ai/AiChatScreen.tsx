@@ -2983,7 +2983,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
             // can inadvertently skip the very next assistant message, making it look
             // like typing never happened.
             if (!shouldShowComposer) {
-            typingControllerRef.current?.skip();
+              // Avoid skipping while the user is actively interacting with an input
+              // (e.g. onboarding textarea). Otherwise, focusing/tapping can instantly
+              // "fast-forward" the next assistant message and break gradual disclosure.
+              const getter = (TextInput.State as any)?.currentlyFocusedInput;
+              const focused = typeof getter === 'function' ? getter() : null;
+              const hasFocusedInput = Boolean(focused);
+              const isKeyboardOpen = keyboardHeight > 0;
+              if (!hasFocusedInput && !isKeyboardOpen) {
+                typingControllerRef.current?.skip();
+              }
             }
             // In workflows that collect input inside the timeline (e.g. FTUE),
             // a user may focus an input while the keyboard is already open.
