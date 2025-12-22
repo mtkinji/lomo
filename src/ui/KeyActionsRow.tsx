@@ -15,6 +15,11 @@ export type KeyActionItem = {
    */
   tileBackgroundColor?: string;
   /**
+   * Optional overrides for dark / branded tiles.
+   */
+  tileBorderColor?: string;
+  tileLabelColor?: string;
+  /**
    * Accent color used for the icon badge background.
    */
   badgeColor: string;
@@ -35,7 +40,10 @@ export function KeyActionsRow({ items }: KeyActionsRowProps) {
           accessibilityLabel={item.label}
           style={({ pressed }) => [
             styles.tile,
-            { backgroundColor: item.tileBackgroundColor ?? colors.canvas },
+            {
+              backgroundColor: item.tileBackgroundColor ?? colors.canvas,
+              borderColor: item.tileBorderColor ?? colors.border,
+            },
             pressed && styles.tilePressed,
           ]}
         >
@@ -50,7 +58,10 @@ export function KeyActionsRow({ items }: KeyActionsRowProps) {
             <Icon name={item.icon} size={18} color={colors.primaryForeground} />
           </View>
           <Text
-            style={styles.tileLabel}
+            style={[
+              styles.tileLabel,
+              { color: item.tileLabelColor ?? colors.textPrimary },
+            ]}
             numberOfLines={1}
           >
             {item.label}

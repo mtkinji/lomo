@@ -101,17 +101,17 @@ export function RichTextBlock({
         fontFamily: fonts.semibold,
       },
       em: {
-        fontStyle: 'italic',
+        fontStyle: 'italic' as const,
       },
       i: {
-        fontStyle: 'italic',
+        fontStyle: 'italic' as const,
       },
       u: {
-        textDecorationLine: 'underline',
+        textDecorationLine: 'underline' as const,
       },
       a: {
         color: colors.accent,
-        textDecorationLine: 'underline',
+        textDecorationLine: 'underline' as const,
       },
       ul: {
         marginTop: 0,

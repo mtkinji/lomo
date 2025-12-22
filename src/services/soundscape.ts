@@ -194,8 +194,12 @@ async function ensureAudioMode() {
   await Audio.setAudioModeAsync({
     playsInSilentModeIOS: true,
     allowsRecordingIOS: false,
-    staysActiveInBackground: false,
+    // Keep soundscape playing when the screen locks / app backgrounds (Focus mode).
+    staysActiveInBackground: true,
     shouldDuckAndroid: true,
+    interruptionModeIOS: Audio.InterruptionModeIOS.DuckOthers,
+    interruptionModeAndroid: Audio.InterruptionModeAndroid.DuckOthers,
+    playThroughEarpieceAndroid: false,
   });
   audioModeConfigured = true;
 }

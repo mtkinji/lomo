@@ -140,6 +140,22 @@ Owner checklist: `docs/agent-os-hardening-checklist.md`
 **Value checkpoint:**  
 When **a new user can create at least one Arc, 1–3 Goals, and a small Activity plan in a single guided session**, mark Phase 1 as complete.
 
+### 1.6 iOS ecosystem surfaces (retention + glanceability without new navigation)
+
+Strategic doc: `docs/apple-ecosystem-opportunities.md`
+
+- [ ] Establish “glanceable state” layer (App Group-backed shared state) to power extensions
+- [ ] App Intents foundation (Shortcuts + widget buttons) for core actions:
+  - [ ] Start/End Focus
+  - [ ] Open Today
+  - [ ] Toggle soundscape
+- [ ] Live Activity for Focus (Lock Screen + Dynamic Island) with pause/resume/end
+- [ ] Widgets v1:
+  - [ ] Lock Screen widget: Start/Resume Focus
+  - [ ] Home widget: Next up / Today snapshot
+- [ ] Spotlight indexing for Activities (deep link to detail canvas)
+- [ ] Optional: Focus Filters v1 (minimal “context” binding; preserve shell/canvas)
+
 ---
 
 ## Phase 2 – Activity Object & Engagement Model

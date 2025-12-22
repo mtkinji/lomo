@@ -48,7 +48,7 @@ export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Goals: NavigatorScreenParams<GoalsStackParamList> | undefined;
   Activities: NavigatorScreenParams<ActivitiesStackParamList> | undefined;
-  Settings: undefined;
+  Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {
         initialTab?: 'tools' | 'gallery' | 'typeColor' | 'arcTesting';

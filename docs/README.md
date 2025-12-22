@@ -28,6 +28,7 @@
 - Notifications foundation: `docs/notifications-paradigm-prd.md`
 - UX: `docs/ux-style-guide.md`, `docs/ux-flow.md`
 - UI architecture: `docs/ui-architecture.md`
+- Apple ecosystem opportunities (widgets/live activities/shortcuts/spotlight): `docs/apple-ecosystem-opportunities.md`
 - Roadmap (primary): `docs/value-realization-roadmap.md`
 
 

@@ -723,27 +723,23 @@ export const useAppStore = create(
       updateActivity: (activityId, updater) =>
         set((state) => {
           const atIso = now();
-          let nextActivity: Activity | null = null;
-          let prevActivity: Activity | null = null;
-          const nextActivities = state.activities.map((item) => {
-            if (item.id !== activityId) return item;
-            prevActivity = item;
-            const updated = updater(item);
-            nextActivity = updated;
-            return updated;
-          });
-
+          const prev = state.activities.find((item) => item.id === activityId) ?? null;
+          const next = prev ? updater(prev) : null;
+          const nextActivities =
+            prev && next
+              ? state.activities.map((item) => (item.id === activityId ? next : item))
+              : state.activities;
           const shouldRecordUsage =
-            nextActivity != null &&
-            prevActivity != null &&
-            (!tagsEqualForCompare(prevActivity.tags, nextActivity.tags) ||
-              prevActivity.title !== nextActivity.title ||
-              prevActivity.type !== nextActivity.type);
+            prev != null &&
+            next != null &&
+            (!tagsEqualForCompare(prev.tags, next.tags) ||
+              prev.title !== next.title ||
+              prev.type !== next.type);
 
           return {
             activities: nextActivities,
-            activityTagHistory: shouldRecordUsage && nextActivity
-              ? recordTagUsageForActivity(state.activityTagHistory, nextActivity, atIso)
+            activityTagHistory: shouldRecordUsage && next
+              ? recordTagUsageForActivity(state.activityTagHistory, next, atIso)
               : state.activityTagHistory,
           };
         }),

@@ -12,6 +12,7 @@ export { DropdownMenu } from './DropdownMenu';
 export { Dialog } from './Dialog';
 export { VStack, HStack } from './Stack';
 export { Text, Heading, ButtonLabel } from './Typography';
+export { SurveyCard } from './SurveyCard';
 export { CelebrationGif } from './CelebrationGif';
 export { EmptyState } from './EmptyState';
 export { ThreeColumnRow } from './layout/ThreeColumnRow';

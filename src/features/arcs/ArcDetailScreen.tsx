@@ -693,8 +693,8 @@ export function ArcDetailScreen() {
       >
         <Heading variant="sm">🚀 Your first Arc is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Now that we have your first identity Arc, we can create a Goal to help you get there. Tap “Go to
-          Goals” and we’ll guide you from there.
+          This Arc is saved to your Arcs list. Next we’ll turn it into a Goal (and then small Activities) so you
+          have a clear next step. Tap “Go to Goals” to continue.
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button

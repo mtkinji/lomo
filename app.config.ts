@@ -60,7 +60,8 @@ const config: ExpoConfig = {
     buildNumber: '10',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
-      UIBackgroundModes: ['fetch', 'remote-notification'],
+      // Needed for soundscapes to continue playing when the screen locks.
+      UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
     },
   },
   android: {

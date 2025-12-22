@@ -31,8 +31,8 @@ const applySnapshot = (snapshot: EntitlementsSnapshot) => ({
   isStale: Boolean(snapshot.isStale),
 });
 
-export const useEntitlementsStore = create(
-  persist<EntitlementsState>(
+export const useEntitlementsStore = create<EntitlementsState>()(
+  persist(
     (set, get) => ({
       isPro: false,
       lastCheckedAt: null,

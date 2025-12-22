@@ -36,7 +36,8 @@ type SettingsItem = {
   title: string;
   description: string;
   icon: IconName;
-  route?: keyof SettingsStackParamList;
+  // This screen is a flat menu of direct navigations; exclude routes that require params.
+  route?: Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
   disabled?: boolean;
   status?: 'new' | 'soon';
   tags?: string[];

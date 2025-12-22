@@ -1130,7 +1130,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // below the focused input (e.g. onboarding "Continue"). If clearance is 0, the
   // focused input may be visible but the CTA row will be covered by the keyboard.
   // Use a moderate, step-card-specific clearance to keep the entire card actionable.
-  const STEP_CARD_KEYBOARD_CLEARANCE = 72;
+  // For onboarding, the first step-card contains a multiline textarea. We bias a bit more
+  // clearance so the entire card (including footer / CTA row) stays in-frame when the
+  // keyboard is up.
+  const STEP_CARD_KEYBOARD_CLEARANCE = isOnboardingMode ? 104 : 72;
   const keyboardClearance =
     !shouldShowComposer && hasStepCard ? STEP_CARD_KEYBOARD_CLEARANCE : spacing.lg;
 

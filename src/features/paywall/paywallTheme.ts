@@ -10,6 +10,6 @@ export const paywallTheme = {
   ctaBorder: 'rgba(255,255,255,0.35)',
   cornerRadius: 18,
   padding: spacing.lg,
-} as const;
+};
 
 

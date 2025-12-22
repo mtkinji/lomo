@@ -2267,6 +2267,8 @@ function ActivityCoachDrawer({
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const [isManualTagsThinking, setIsManualTagsThinking] = React.useState(false);
   const [reminderSheetVisible, setReminderSheetVisible] = React.useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);

@@ -7,7 +7,7 @@ export type CardPadding = 'none' | 'xs' | 'sm' | 'md' | 'lg';
 type SpaceToken = keyof typeof spacing;
 type SpaceValue = SpaceToken | number;
 
-type CardElevation = keyof typeof cardElevation;
+export type CardElevation = keyof typeof cardElevation;
 
 const paddingBySize: Record<Exclude<CardPadding, 'none'>, number> = {
   // For card interiors, use slightly larger gutters than raw spacing so

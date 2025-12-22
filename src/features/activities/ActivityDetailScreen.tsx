@@ -2091,7 +2091,9 @@ export function ActivityDetailScreen() {
                         id: 'focusMode',
                         icon: 'estimate',
                         label: 'Focus mode',
-                        tileBackgroundColor: colors.canvas,
+                        tileBackgroundColor: colors.sumi,
+                        tileBorderColor: 'rgba(255,255,255,0.10)',
+                        tileLabelColor: colors.primaryForeground,
                         badgeColor: colors.indigo700,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
@@ -2105,7 +2107,9 @@ export function ActivityDetailScreen() {
                         id: 'addToCalendar',
                         icon: 'today',
                         label: 'Add to calendar',
-                        tileBackgroundColor: colors.canvas,
+                        tileBackgroundColor: colors.sumi,
+                        tileBorderColor: 'rgba(255,255,255,0.10)',
+                        tileLabelColor: colors.primaryForeground,
                         badgeColor: colors.accent,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
@@ -2124,7 +2128,9 @@ export function ActivityDetailScreen() {
                         id: 'chatWithAi',
                         icon: 'sparkles',
                         label: 'Get help from AI',
-                        tileBackgroundColor: colors.canvas,
+                        tileBackgroundColor: colors.sumi,
+                        tileBorderColor: 'rgba(255,255,255,0.10)',
+                        tileLabelColor: colors.primaryForeground,
                         badgeColor: colors.turmeric600,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
@@ -2140,8 +2146,10 @@ export function ActivityDetailScreen() {
                               id: 'sendTo',
                               icon: 'share',
                               label: 'Send to…',
-                              tileBackgroundColor: colors.canvas,
-                              badgeColor: colors.sumi,
+                              tileBackgroundColor: colors.sumi,
+                              tileBorderColor: 'rgba(255,255,255,0.10)',
+                              tileLabelColor: colors.primaryForeground,
+                              badgeColor: 'rgba(255,255,255,0.14)',
                               onPress: () => {
                                 capture(AnalyticsEvent.ActivityActionInvoked, {
                                   activityId: activity.id,
