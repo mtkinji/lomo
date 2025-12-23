@@ -34,6 +34,7 @@ import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
+import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import {
   VStack,
   Heading,
@@ -110,6 +111,9 @@ export function ArcDetailScreen() {
 
   const arcs = useAppStore((state) => state.arcs);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
+  const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
+  const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
+  const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
@@ -135,6 +139,17 @@ export function ArcDetailScreen() {
   const setHasDismissedArcExploreGuide = useAppStore((state) => state.setHasDismissedArcExploreGuide);
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
+
+  const handleShareArc = useCallback(async () => {
+    try {
+      if (!arc) return;
+      await Share.share({
+        message: `Arc in kwilt: “${arc.name ?? 'Arc'}”.`,
+      });
+    } catch {
+      // No-op: Share sheets can be dismissed or unavailable on some platforms.
+    }
+  }, [arc]);
 
   const isPro = useEntitlementsStore((state) => state.isPro);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
@@ -790,105 +805,150 @@ export function ArcDetailScreen() {
                     />
                   </View>
                   <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger accessibilityLabel="Arc actions">
-                        <IconButton
-                          style={styles.optionsButton}
-                          pointerEvents="none"
-                          accessible={false}
-                        >
-                          <Icon name="more" size={18} color={colors.canvas} />
-                        </IconButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                        {/* Primary, non-destructive action(s) first */}
-                        <DropdownMenuItem
-                          onPress={handleToggleArchiveArc}
-                        >
-                          <View style={styles.menuItemRow}>
-                            <Icon
-                              name={arc?.status === 'archived' ? 'refresh' : 'archive'}
-                              size={16}
-                              color={colors.textSecondary}
-                            />
-                            <Text style={styles.menuItemLabel}>
-                              {arc?.status === 'archived' ? 'Restore' : 'Archive'}
-                            </Text>
-                          </View>
-                        </DropdownMenuItem>
+                    {headerV2Enabled ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onPress={() => {
+                          handleShareArc().catch(() => undefined);
+                        }}
+                        accessibilityLabel="Share arc"
+                      >
+                        <Icon name="share" size={18} color={colors.textPrimary} />
+                      </Button>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                          <IconButton
+                            style={styles.optionsButton}
+                            pointerEvents="none"
+                            accessible={false}
+                          >
+                            <Icon name="more" size={18} color={colors.canvas} />
+                          </IconButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                          {/* Primary, non-destructive action(s) first */}
+                          <DropdownMenuItem onPress={handleToggleArchiveArc}>
+                            <View style={styles.menuItemRow}>
+                              <Icon
+                                name={arc?.status === 'archived' ? 'refresh' : 'archive'}
+                                size={16}
+                                color={colors.textSecondary}
+                              />
+                              <Text style={styles.menuItemLabel}>
+                                {arc?.status === 'archived' ? 'Restore' : 'Archive'}
+                              </Text>
+                            </View>
+                          </DropdownMenuItem>
 
-                        {/* Divider before destructive actions */}
-                        <DropdownMenuSeparator />
+                          {/* Divider before destructive actions */}
+                          <DropdownMenuSeparator />
 
-                        {/* Destructive action pinned to the bottom */}
-                        <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                          <View style={styles.menuItemRow}>
-                            <Icon name="trash" size={16} color={colors.destructive} />
-                            <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                          </View>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {/* Destructive action pinned to the bottom */}
+                          <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                            <View style={styles.menuItemRow}>
+                              <Icon name="trash" size={16} color={colors.destructive} />
+                              <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                            </View>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </View>
                 </>
               ) : (
                 <>
-                  <View style={styles.headerSide}>
-                    <IconButton
-                      style={styles.backButton}
-                      onPress={handleBackToArcs}
-                      accessibilityLabel="Back to Arcs"
-                    >
-                      <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                    </IconButton>
-                  </View>
-                  <View style={styles.headerCenter}>
-                    <View style={styles.objectTypeRow}>
-                      <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
-                      <Text style={styles.objectTypeLabel}>Arc</Text>
+                  {headerV2Enabled ? (
+                    <View style={styles.headerV2}>
+                      <View style={styles.headerV2TopRow}>
+                        <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onPress={handleBackToArcs}
+                            accessibilityLabel="Back to Arcs"
+                          >
+                            <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                          </Button>
+                          <View style={styles.objectTypeRow}>
+                            <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
+                            <Text style={styles.objectTypeLabelV2}>Arc</Text>
+                          </View>
+                        </HStack>
+                        <HStack alignItems="center" space="xs">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onPress={handleShareArc}
+                            accessibilityLabel="Share arc"
+                          >
+                            <Icon name="share" size={18} color={colors.textPrimary} />
+                          </Button>
+                        </HStack>
+                      </View>
+                      <Text style={styles.headerV2Title} numberOfLines={1} ellipsizeMode="tail">
+                        {arc?.name ?? 'Arc'}
+                      </Text>
                     </View>
-                  </View>
-                  <View style={styles.headerSideRight}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                  ) : (
+                    <>
+                      <View style={styles.headerSide}>
                         <IconButton
-                          style={styles.optionsButton}
-                          pointerEvents="none"
-                          accessible={false}
+                          style={styles.backButton}
+                          onPress={handleBackToArcs}
+                          accessibilityLabel="Back to Arcs"
                         >
-                          <Icon name="more" size={18} color={colors.canvas} />
+                          <Icon name="arrowLeft" size={20} color={colors.canvas} />
                         </IconButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                    {/* Primary, non-destructive action(s) first */}
-                    <DropdownMenuItem
-                      onPress={handleToggleArchiveArc}
-                    >
-                      <View style={styles.menuItemRow}>
-                        <Icon
-                          name={arc?.status === 'archived' ? 'refresh' : 'archive'}
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                        <Text style={styles.menuItemLabel}>
-                          {arc?.status === 'archived' ? 'Restore' : 'Archive'}
-                        </Text>
                       </View>
-                    </DropdownMenuItem>
-
-                    {/* Divider before destructive actions */}
-                    <DropdownMenuSeparator />
-
-                    {/* Destructive action pinned to the bottom */}
-                    <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                      <View style={styles.menuItemRow}>
-                        <Icon name="trash" size={16} color={colors.destructive} />
-                        <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                      <View style={styles.headerCenter}>
+                        <View style={styles.objectTypeRow}>
+                          <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
+                          <Text style={styles.objectTypeLabel}>Arc</Text>
+                        </View>
                       </View>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                  </View>
+                      <View style={styles.headerSideRight}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                            <IconButton
+                              style={styles.optionsButton}
+                              pointerEvents="none"
+                              accessible={false}
+                            >
+                              <Icon name="more" size={18} color={colors.canvas} />
+                            </IconButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                            {/* Primary, non-destructive action(s) first */}
+                            <DropdownMenuItem onPress={handleToggleArchiveArc}>
+                              <View style={styles.menuItemRow}>
+                                <Icon
+                                  name={arc?.status === 'archived' ? 'refresh' : 'archive'}
+                                  size={16}
+                                  color={colors.textSecondary}
+                                />
+                                <Text style={styles.menuItemLabel}>
+                                  {arc?.status === 'archived' ? 'Restore' : 'Archive'}
+                                </Text>
+                              </View>
+                            </DropdownMenuItem>
+
+                            {/* Divider before destructive actions */}
+                            <DropdownMenuSeparator />
+
+                            {/* Destructive action pinned to the bottom */}
+                            <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                              <View style={styles.menuItemRow}>
+                                <Icon name="trash" size={16} color={colors.destructive} />
+                                <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                              </View>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </View>
+                    </>
+                  )}
                 </>
               )}
             </View>
@@ -1187,6 +1247,34 @@ export function ArcDetailScreen() {
                   )}
                 </View>
               )}
+
+              {headerV2Enabled ? (
+                <View style={[styles.paddedSection, { paddingTop: spacing.lg, paddingBottom: spacing['2xl'] }]}>
+                  <Card>
+                    <Text style={styles.actionsTitle}>Actions</Text>
+                    <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                      <Button
+                        variant="secondary"
+                        fullWidth
+                        onPress={handleToggleArchiveArc}
+                        accessibilityLabel={arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
+                      >
+                        <Text style={styles.actionsButtonLabel}>
+                          {arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
+                        </Text>
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        fullWidth
+                        onPress={handleDeleteArc}
+                        accessibilityLabel="Delete arc"
+                      >
+                        <Text style={styles.actionsButtonLabelDestructive}>Delete arc</Text>
+                      </Button>
+                    </VStack>
+                  </Card>
+                </View>
+              ) : null}
             </View>
           </KeyboardAwareScrollView>
         </View>
@@ -1880,6 +1968,44 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: colors.textSecondary,
+  },
+  objectTypeLabelV2: {
+    ...typography.label,
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  headerV2: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+  },
+  headerV2TopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  headerV2Title: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  actionsTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  actionsButtonLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  actionsButtonLabelDestructive: {
+    ...typography.body,
+    color: colors.canvas,
+    fontFamily: fonts.medium,
   },
   sectionTitle: {
     ...typography.titleSm,

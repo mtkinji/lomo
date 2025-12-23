@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { spacing, typography, colors } from '../theme';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
@@ -7,6 +7,7 @@ import type { ComboboxOption, ComboboxRecommendedOption } from './Combobox';
 import { Combobox } from './Combobox';
 import { Input } from './Input';
 import type { IconName } from './Icon';
+import { Icon } from './Icon';
 
 export type ObjectPickerOption = ComboboxOption;
 
@@ -74,6 +75,15 @@ export function ObjectPicker({
     return options.find((opt) => opt.value === value)?.label ?? '';
   }, [options, value]);
 
+  const showClear = Boolean(value) && allowDeselect && !disabled;
+
+  const handleClear = useCallback(() => {
+    if (disabled) return;
+    // Clear selection without opening the picker.
+    setOpen(false);
+    onValueChange('');
+  }, [disabled, onValueChange]);
+
   const inputStyle = size === 'compact' ? styles.valueInputCompact : styles.valueInput;
 
   return (
@@ -104,10 +114,25 @@ export function ObjectPicker({
               variant="outline"
               elevation="flat"
               leadingIcon={leadingIcon}
-              trailingIcon="chevronsUpDown"
               containerStyle={styles.valueContainer}
               inputStyle={inputStyle}
             />
+          </View>
+          <View style={styles.accessoryRow} pointerEvents="box-none">
+            {showClear ? (
+              <Pressable
+                hitSlop={10}
+                onPress={handleClear}
+                accessibilityRole="button"
+                accessibilityLabel="Remove selection"
+                style={styles.clearButton}
+              >
+                <Icon name="close" size={16} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
+            <View pointerEvents="none" style={styles.chevronWrapper}>
+              <Icon name="chevronsUpDown" size={16} color={colors.textSecondary} />
+            </View>
           </View>
         </Pressable>
       }
@@ -118,6 +143,7 @@ export function ObjectPicker({
 const styles = StyleSheet.create({
   trigger: {
     width: '100%',
+    position: 'relative',
   },
   triggerDisabled: {
     opacity: 0.6,
@@ -130,12 +156,35 @@ const styles = StyleSheet.create({
   valueInput: {
     ...typography.body,
     color: colors.textPrimary,
-    paddingRight: spacing.xl,
+    // Reserve space for (optional) clear button + chevron indicator.
+    paddingRight: spacing['2xl'] + spacing.lg,
   },
   valueInputCompact: {
     ...typography.bodySm,
     color: colors.textPrimary,
-    paddingRight: spacing.xl,
+    paddingRight: spacing['2xl'] + spacing.lg,
+  },
+  accessoryRow: {
+    position: 'absolute',
+    right: spacing.md,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  clearButton: {
+    height: 28,
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+  },
+  chevronWrapper: {
+    height: 28,
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

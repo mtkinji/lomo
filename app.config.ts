@@ -27,13 +27,15 @@ envFiles.forEach((file) => {
 
 const config: ExpoConfig = {
   name: 'Kwilt',
+  // Custom URL scheme for deep links like `kwilt://activity/<id>?openFocus=1`.
+  scheme: 'kwilt',
   // Ensure this project is owned/billed under the Kwilt organization in Expo.
   // (You still need to transfer the existing project in the Expo dashboard.)
   owner: 'kwilt',
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.4',
+  version: '1.0.5',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -57,9 +59,11 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '10',
+    buildNumber: '11',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
+      LSApplicationQueriesSchemes: ['ms-outlook'],
       // Needed for soundscapes to continue playing when the screen locks.
       UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
     },

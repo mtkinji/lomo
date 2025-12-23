@@ -42,9 +42,9 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
   switch (reason) {
     case 'generative_quota_exceeded':
       return {
-        title: 'You just ran out of AI credits',
+        title: 'You’re out of AI credits',
         subtitle:
-          'Upgrade to Pro for a much larger monthly AI budget so you can keep refining your plan when inspiration hits.',
+          'Upgrade to Pro for more monthly AI credits so you can keep shaping goals in Kwilt.',
       };
     case 'limit_goals_per_arc':
       return {
@@ -91,12 +91,14 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
   }
 }
 
-function PaywallDrawerContent(props: {
+export function PaywallContent(props: {
   reason: PaywallReason;
   source: PaywallSource;
   onClose: () => void;
+  onUpgrade?: () => void;
+  showHeader?: boolean;
 }) {
-  const { reason, source, onClose } = props;
+  const { reason, source, onClose, onUpgrade, showHeader = true } = props;
   const { capture } = useAnalytics();
   const isPro = useEntitlementsStore((s) => s.isPro);
   const generativeCredits = useAppStore((s) => s.generativeCredits);
@@ -105,10 +107,9 @@ function PaywallDrawerContent(props: {
   const quotaSubtitle = useMemo(() => {
     const limit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
     const currentKey = getMonthKey(new Date());
-    const usedThisMonth =
-      generativeCredits?.monthKey === currentKey
-        ? Math.max(0, Math.floor(generativeCredits.usedThisMonth ?? 0))
-        : 0;
+    const usedRaw =
+      generativeCredits?.monthKey === currentKey ? Number((generativeCredits as any).usedThisMonth ?? 0) : 0;
+    const usedThisMonth = Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
     // If we hit the quota paywall, remaining is 0. Still, be defensive in copy.
     const displayedUsed = Math.min(Math.max(usedThisMonth, limit), limit);
     return `You’ve used all ${limit} AI credits for this month (${displayedUsed}/${limit}).`;
@@ -120,6 +121,7 @@ function PaywallDrawerContent(props: {
 
   return (
     <View style={styles.surface}>
+      {showHeader ? (
       <View style={styles.headerRow}>
         <View style={styles.brandRow}>
           <BrandLockup
@@ -135,6 +137,7 @@ function PaywallDrawerContent(props: {
           <Icon name="close" size={18} color={colors.textPrimary} />
         </IconButton>
       </View>
+      ) : null}
 
       {/* Hero card = the full-color moment */}
       <LinearGradient colors={[...paywallTheme.gradientColors]} style={styles.heroGradient}>
@@ -155,6 +158,10 @@ function PaywallDrawerContent(props: {
             accessibilityRole="button"
             accessibilityLabel="Upgrade to Pro"
             onPress={() => {
+              if (onUpgrade) {
+                onUpgrade();
+                return;
+              }
               onClose();
               // Avoid stacking two Modal-based BottomDrawers (paywall closing + pricing opening)
               // which can leave an invisible backdrop intercepting touches on iOS.
@@ -226,7 +233,7 @@ export function PaywallDrawerHost() {
       handleContainerStyle={styles.paywallHandleContainer}
       handleStyle={styles.paywallHandle}
     >
-      <PaywallDrawerContent reason={reason} source={source} onClose={close} />
+      <PaywallContent reason={reason} source={source} onClose={close} />
     </BottomDrawer>
   );
 }
@@ -248,7 +255,7 @@ export function PaywallDrawerScreenFallback(props: {
       handleContainerStyle={styles.paywallHandleContainer}
       handleStyle={styles.paywallHandle}
     >
-      <PaywallDrawerContent reason={reason} source={source} onClose={onClose} />
+      <PaywallContent reason={reason} source={source} onClose={onClose} />
     </BottomDrawer>
   );
 }

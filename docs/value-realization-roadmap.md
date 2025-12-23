@@ -122,6 +122,18 @@ Implementation guide: `docs/keyboard-input-safety-implementation.md`
 - [ ] Add a **quick‑add Activity** path from Today for “loose tasks” not yet tied to a Goal/Arc.
 - [ ] Confirm there is a single, coherent **Activity detail / logging surface** (even if lightweight).
 
+### 1.3b Auto‑Schedule Assist (calendar placement, V1)
+
+- [ ] Ship **Auto‑Schedule Assist**: propose a weekly plan and let the user **Preview → Apply** to write time blocks to their calendar and set `Activity.scheduledAt`.
+- [ ] Keep Kwilt lightweight: **no new Plan screen** in V1. Treat the **calendar app as the plan**, and add only minimal in-app affordances:
+  - Today: compact “Scheduled today” block + quick actions
+  - Activities: filter/segment for Scheduled vs Unscheduled
+  - Activity detail: Reschedule / Unschedule / Open in calendar
+- [ ] Implement device calendar integration (no OAuth) using native calendar access, defaulting to a dedicated “Kwilt” calendar for easy opt-out.
+- [ ] Undo + safety semantics: apply creates a change set; undo removes created calendar events and reverts `scheduledAt` for affected activities.
+
+Owner PRD: `docs/prds/auto-schedule-prd.md`
+
 ### 1.4 Agent OS hardening (workflows as the control plane)
 
 - [ ] Complete workflow-backed presenters for object creation/editing:
@@ -240,8 +252,12 @@ When **users can reliably return to the Today tab, log Activities, see small but
   - [ ] Optional provider OAuth sync (Google/Microsoft) only when justified
   - [ ] Bi-directional updates (calendar edits reflect back into Kwilt)
   - [ ] Recurrence integration (`repeatRule`/RRULE)
+  - [ ] Auto‑Schedule V2+: continuous placement + conflict repair with stability windows and user “locks”
+  - [ ] MCP-backed calendar connectors (server-side) so the Agent can call a standard interface:
+    - `calendar.freebusy`, `calendar.create_event`, `calendar.update_event`, `calendar.delete_event`
 
 Owner context: `docs/prds/calendar-export-ics-prd.md`
+Owner PRD: `docs/prds/auto-schedule-prd.md`
 
 ### 3.4 “Send to…” connectors (export + integrations without UI clutter)
 

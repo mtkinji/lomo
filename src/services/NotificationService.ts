@@ -1696,6 +1696,13 @@ export const NotificationService = {
           data: { type: 'dailyShowUp' satisfies NotificationData['type'] },
         };
         break;
+      case 'setupNextStep':
+        content = {
+          title: 'Dev: Setup next step test',
+          body: 'Tap to open Activities and highlight Suggested.',
+          data: { type: 'setupNextStep', reason: 'no_goals' } satisfies NotificationData,
+        };
+        break;
       case 'goalNudge':
         content = {
           title: 'Dev: Goal nudge test',

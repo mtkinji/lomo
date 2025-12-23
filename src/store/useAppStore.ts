@@ -212,6 +212,7 @@ interface AppState {
    * locally across reloads, but always gated behind `__DEV__` at the callsite.
    */
   devBreadcrumbsEnabled: boolean;
+  devObjectDetailHeaderV2Enabled: boolean;
   /**
    * App-level notification preferences and OS permission status.
    * Used by the notifications service to decide what to schedule.
@@ -455,6 +456,7 @@ interface AppState {
   blockCelebrationGif: (gifId: string) => void;
   likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
   setDevBreadcrumbsEnabled: (enabled: boolean) => void;
+  setDevObjectDetailHeaderV2Enabled: (enabled: boolean) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
@@ -585,6 +587,7 @@ export const useAppStore = create(
       activities: initialActivities,
       activityTagHistory: {},
       devBreadcrumbsEnabled: false,
+      devObjectDetailHeaderV2Enabled: false,
       notificationPreferences: {
         notificationsEnabled: false,
         osPermissionStatus: 'notRequested',
@@ -898,6 +901,10 @@ export const useAppStore = create(
         set(() => ({
           devBreadcrumbsEnabled: enabled,
         })),
+      setDevObjectDetailHeaderV2Enabled: (enabled) =>
+        set(() => ({
+          devObjectDetailHeaderV2Enabled: enabled,
+        })),
       setUserProfile: (profile) =>
         set(() => ({
           userProfile: {
@@ -929,7 +936,8 @@ export const useAppStore = create(
           ledger.monthKey === currentKey
             ? ledger
             : { monthKey: currentKey, usedThisMonth: 0 };
-        const used = Math.max(0, Math.floor(normalized.usedThisMonth ?? 0));
+        const usedRaw = Number((normalized as any).usedThisMonth ?? 0);
+        const used = Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
         const remaining = Math.max(0, limit - used);
         if (remaining <= 0) {
           if (ledger.monthKey !== currentKey) {
@@ -1138,6 +1146,7 @@ export const useAppStore = create(
           goals: [],
           activities: [],
           devBreadcrumbsEnabled: false,
+          devObjectDetailHeaderV2Enabled: false,
           goalRecommendations: {},
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,

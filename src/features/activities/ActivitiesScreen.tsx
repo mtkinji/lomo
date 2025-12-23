@@ -58,6 +58,7 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildActivityCoachLaunchContext, buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
+import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
 import type {
   Activity,
   ActivityDifficulty,
@@ -76,8 +77,10 @@ import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
-import { openPaywallInterstitial } from '../../services/paywall';
+import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from '../../services/recommendations/nextStep';
+import { PaywallContent } from '../paywall/PaywallDrawer';
+import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 
 type ViewMenuItemProps = {
   view: ActivityView;
@@ -2021,6 +2024,14 @@ const styles = StyleSheet.create({
   activityCoachBody: {
     flex: 1,
   },
+  activityAiCreditsEmpty: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+    borderRadius: 18,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
   headerSideRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2392,36 +2403,28 @@ function ActivityCoachDrawer({
 }: ActivityCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const { capture } = useAnalytics();
-  const [manualActivityId, setManualActivityId] = React.useState<string | null>(null);
-  const updateActivity = useAppStore((state) => state.updateActivity);
-  const removeActivity = useAppStore((state) => state.removeActivity);
-  const activityTagHistory = useAppStore((state) => state.activityTagHistory);
-  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
-  const [isManualTagsThinking, setIsManualTagsThinking] = React.useState(false);
-  const [reminderSheetVisible, setReminderSheetVisible] = React.useState(false);
-  const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
-  const [repeatSheetVisible, setRepeatSheetVisible] = React.useState(false);
-  const [isDueDatePickerVisible, setIsDueDatePickerVisible] = React.useState(false);
+  const generativeCredits = useAppStore((state) => state.generativeCredits);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = React.useState(false);
-  const [isAddingStepInline, setIsAddingStepInline] = React.useState(false);
-  const [newStepTitle, setNewStepTitle] = React.useState('');
-  const newStepInputRef = React.useRef<TextInput | null>(null);
-  // Step titles should wrap to show their content, but stay bounded so the list remains scannable.
-  const STEP_MAX_LINES = 4;
-  const STEP_LINE_HEIGHT = typography.bodySm.lineHeight;
-  const STEP_MIN_HEIGHT = STEP_LINE_HEIGHT;
-  const STEP_MAX_HEIGHT = STEP_LINE_HEIGHT * STEP_MAX_LINES + spacing.sm;
-  const clampStepHeight = React.useCallback(
-    (height: number) => Math.max(STEP_MIN_HEIGHT, Math.min(height, STEP_MAX_HEIGHT)),
-    [STEP_MIN_HEIGHT, STEP_MAX_HEIGHT],
-  );
-  const [manualStepHeights, setManualStepHeights] = React.useState<Record<string, number>>({});
-  const [newStepHeight, setNewStepHeight] = React.useState<number>(STEP_MIN_HEIGHT);
+  const showToast = useToastStore((state) => state.showToast);
+
+  const [manualDraft, setManualDraft] = React.useState<ActivityDraft>({
+    title: '',
+    type: 'task',
+    notes: '',
+    steps: [],
+    tags: [],
+    reminderAt: null,
+    scheduledDate: null,
+    repeatRule: undefined,
+    estimateMinutes: null,
+    difficulty: undefined,
+  });
 
   const workspaceSnapshot = React.useMemo(
-    () => buildActivityCoachLaunchContext(goals, activities, undefined, undefined, undefined, activityTagHistory),
-    [goals, activities, activityTagHistory],
+    () => buildActivityCoachLaunchContext(goals, activities, undefined, undefined, undefined, undefined),
+    [goals, activities],
   );
 
   const launchContext = React.useMemo(
@@ -2432,71 +2435,79 @@ function ActivityCoachDrawer({
     [],
   );
 
-  const manualActivity = React.useMemo(
-    () => (manualActivityId ? activities.find((a) => a.id === manualActivityId) ?? null : null),
-    [activities, manualActivityId],
+  const aiCreditsRemaining = React.useMemo(() => {
+    const limit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+    const currentKey = getMonthKey(new Date());
+    const ledger =
+      generativeCredits && generativeCredits.monthKey === currentKey
+        ? generativeCredits
+        : { monthKey: currentKey, usedThisMonth: 0 };
+    const usedRaw = Number((ledger as any).usedThisMonth ?? 0);
+    const used = Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
+    return Math.max(0, limit - used);
+  }, [generativeCredits, isPro]);
+
+  const handleChangeMode = React.useCallback(
+    (next: 'ai' | 'manual') => {
+      // Allow switching into AI even when credits are exhausted; we show the paywall content inline.
+      setActiveTab(next);
+    },
+    [],
   );
 
   React.useEffect(() => {
     if (!visible) {
-      // When the drawer closes, clean up any empty "scratch" Activity that was
-      // created for the Manual tab but never meaningfully edited. This prevents
-      // a new object from lingering in the store every time someone opens the
-      // create flow and immediately bails.
-      if (manualActivityId && manualActivity) {
-        const title = manualActivity.title?.trim() ?? '';
-        const hasTitle = title.length > 0;
-        const hasTags = (manualActivity.tags ?? []).length > 0;
-        const hasNotes = (manualActivity.notes ?? '').trim().length > 0;
-        const hasSteps = (manualActivity.steps ?? []).length > 0;
-        const hasReminder = Boolean(manualActivity.reminderAt);
-        const hasScheduledDate = Boolean(manualActivity.scheduledDate);
-        const hasRepeatRule = Boolean(manualActivity.repeatRule);
-        const hasEstimate = manualActivity.estimateMinutes != null;
-
-        const isTriviallyEmpty =
-          !hasTitle &&
-          !hasTags &&
-          !hasNotes &&
-          !hasSteps &&
-          !hasReminder &&
-          !hasScheduledDate &&
-          !hasRepeatRule &&
-          !hasEstimate;
-
-        if (isTriviallyEmpty) {
-          removeActivity(manualActivity.id);
-        }
-      }
-
       setActiveTab('ai');
-      setManualActivityId(null);
+      setIsActivityAiInfoVisible(false);
+      setManualDraft({
+        title: '',
+        type: 'task',
+        notes: '',
+        steps: [],
+        tags: [],
+        reminderAt: null,
+        scheduledDate: null,
+        repeatRule: undefined,
+        estimateMinutes: null,
+        difficulty: undefined,
+      });
     }
-  }, [visible, manualActivityId, manualActivity, removeActivity]);
+  }, [visible]);
 
-  const handleCreateManualActivity = React.useCallback(() => {
-    if (manualActivityId) {
-      return;
-    }
+  const handleConfirmManualActivity = React.useCallback(() => {
+    const trimmedTitle = manualDraft.title.trim();
+    if (!trimmedTitle) return;
 
     const timestamp = new Date().toISOString();
     const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const tags = manualDraft.tags ?? [];
+    const notes = (manualDraft.notes ?? '').trim();
+    const steps = (manualDraft.steps ?? [])
+      .map((s) => ({ title: (s.title ?? '').trim() }))
+      .filter((s) => s.title.length > 0)
+      .map((s, idx) => ({
+        id: `step-${id}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+        title: s.title,
+        completedAt: null,
+        isOptional: false,
+        orderIndex: idx,
+      }));
 
     const activity: Activity = {
       id,
       goalId: null,
-      title: '',
-      type: 'task',
-      tags: [],
-      notes: undefined,
-      steps: [],
-      reminderAt: null,
+      title: trimmedTitle,
+      type: manualDraft.type ?? 'task',
+      tags,
+      notes: notes.length > 0 ? notes : undefined,
+      steps,
+      reminderAt: manualDraft.reminderAt ?? null,
       priority: undefined,
-      estimateMinutes: null,
+      estimateMinutes: manualDraft.estimateMinutes ?? null,
       creationSource: 'manual',
       planGroupId: null,
-      scheduledDate: null,
-      repeatRule: undefined,
+      scheduledDate: manualDraft.scheduledDate ?? null,
+      repeatRule: manualDraft.repeatRule,
       orderIndex: (activities.length || 0) + 1,
       phase: null,
       status: 'planned',
@@ -2504,447 +2515,42 @@ function ActivityCoachDrawer({
       startedAt: null,
       completedAt: null,
       forceActual: defaultForceLevels(0),
+      difficulty: manualDraft.difficulty,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
 
+    recordShowUp();
     addActivity(activity);
     capture(AnalyticsEvent.ActivityCreated, {
       source: 'manual_drawer',
       activity_id: activity.id,
       goal_id: null,
     });
-    setManualActivityId(id);
-  }, [activities.length, addActivity, capture, manualActivityId]);
-
-  // Enrich activity with AI when title becomes non-empty
-  React.useEffect(() => {
-    if (!manualActivity) return;
-    const title = manualActivity.title?.trim() ?? '';
-    if (title.length === 0) return;
-    // Only enrich if we haven't enriched yet (check if aiPlanning exists and was set by us)
-    if (manualActivity.aiPlanning?.source === 'quick_suggest') return;
-
-    // Debounce: wait a bit after user stops typing
-    const timeoutId = setTimeout(() => {
-      if (isActivityEnriching(manualActivity.id)) {
-        return;
-      }
-      markActivityEnrichment(manualActivity.id, true);
-      enrichActivityWithAI({
-        title,
-        goalId: manualActivity.goalId,
-        existingNotes: manualActivity.notes,
-        existingTags: manualActivity.tags,
-      })
-        .then((enrichment) => {
-          if (!enrichment) return;
-
-          const timestamp = new Date().toISOString();
-          updateActivity(manualActivity.id, (prev) => {
-            const updates: Partial<Activity> = {
-              updatedAt: timestamp,
-            };
-
-            // Only update fields that weren't already set by the user
-            if (enrichment.notes && !prev.notes) {
-              updates.notes = enrichment.notes;
-            }
-            if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
-              updates.tags = enrichment.tags;
-            }
-            if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
-              updates.steps = enrichment.steps.map((step, idx) => ({
-                id: `step-${manualActivity.id}-${idx}`,
-                title: step.title,
-                orderIndex: idx,
-                completedAt: null,
-              }));
-            }
-            if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
-              updates.estimateMinutes = enrichment.estimateMinutes;
-            }
-            if (enrichment.priority != null && prev.priority == null) {
-              updates.priority = enrichment.priority;
-            }
-
-            // Update aiPlanning with difficulty suggestion
-            if (enrichment.difficulty) {
-              updates.aiPlanning = {
-                ...prev.aiPlanning,
-                difficulty: enrichment.difficulty,
-                estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
-                confidence: 0.7,
-                lastUpdatedAt: timestamp,
-                source: 'quick_suggest' as const,
-              };
-            }
-
-            return { ...prev, ...updates };
-          });
-        })
-        .catch((err) => {
-          // Silently fail - activity creation should succeed even if enrichment fails
-          if (__DEV__) {
-            console.warn('[ActivityCoachDrawer] Failed to enrich activity:', err);
-          }
-        })
-        .finally(() => {
-          markActivityEnrichment(manualActivity.id, false);
-        });
-    }, 1500); // Wait 1.5 seconds after user stops typing
-
-    return () => clearTimeout(timeoutId);
+    showToast({ message: 'Activity created', variant: 'success', durationMs: 2200 });
+    onClose();
   }, [
-    manualActivity?.title,
-    manualActivity?.id,
-    manualActivity?.goalId,
-    manualActivity?.notes,
-    manualActivity?.tags,
-    manualActivity?.aiPlanning?.source,
-    enrichActivityWithAI,
-    isActivityEnriching,
-    markActivityEnrichment,
-    updateActivity,
+    activities.length,
+    addActivity,
+    capture,
+    manualDraft.difficulty,
+    manualDraft.estimateMinutes,
+    manualDraft.notes,
+    manualDraft.reminderAt,
+    manualDraft.repeatRule,
+    manualDraft.scheduledDate,
+    manualDraft.steps,
+    manualDraft.tags,
+    manualDraft.title,
+    manualDraft.type,
+    onClose,
+    recordShowUp,
+    showToast,
   ]);
-
-  React.useEffect(() => {
-    if (!visible) return;
-    if (activeTab !== 'manual') return;
-    if (manualActivityId) return;
-    handleCreateManualActivity();
-  }, [visible, activeTab, manualActivityId, handleCreateManualActivity]);
 
   const handleSwitchToManual = React.useCallback(() => {
     setActiveTab('manual');
   }, []);
-
-  const handleUpdateManualSteps = React.useCallback(
-    (updater: (steps: ActivityStep[]) => ActivityStep[]) => {
-      if (!manualActivity) return;
-      const timestamp = new Date().toISOString();
-      updateActivity(manualActivity.id, (prev) => {
-        const currentSteps = prev.steps ?? [];
-        const nextSteps = updater(currentSteps);
-        return {
-          ...prev,
-          steps: nextSteps,
-          updatedAt: timestamp,
-        };
-      });
-    },
-    [manualActivity, updateActivity],
-  );
-
-  const handleAddManualStep = React.useCallback(() => {
-    if (!manualActivity) return;
-    handleUpdateManualSteps((steps) => {
-      const nextIndex = steps.length;
-      const newStep: ActivityStep = {
-        id: `step-${manualActivity.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        title: '',
-        completedAt: null,
-        isOptional: false,
-        orderIndex: nextIndex,
-      };
-      return [...steps, newStep];
-    });
-  }, [handleUpdateManualSteps, manualActivity]);
-
-  const beginAddManualStepInline = React.useCallback(() => {
-    setIsAddingStepInline(true);
-    setNewStepTitle('');
-    requestAnimationFrame(() => {
-      newStepInputRef.current?.focus();
-    });
-  }, []);
-
-  const commitManualInlineStep = React.useCallback(() => {
-    if (!manualActivity) {
-      setIsAddingStepInline(false);
-      setNewStepTitle('');
-      return;
-    }
-
-    const trimmed = newStepTitle.trim();
-    if (!trimmed) {
-      setIsAddingStepInline(false);
-      setNewStepTitle('');
-      return;
-    }
-
-    handleUpdateManualSteps((steps) => {
-      const nextIndex = steps.length;
-      const newStep: ActivityStep = {
-        id: `step-${manualActivity.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        title: trimmed,
-        completedAt: null,
-        isOptional: false,
-        orderIndex: nextIndex,
-      };
-      return [...steps, newStep];
-    });
-    setIsAddingStepInline(false);
-    setNewStepTitle('');
-  }, [handleUpdateManualSteps, manualActivity, newStepTitle]);
-
-  const handleChangeManualStepTitle = React.useCallback(
-    (stepId: string, title: string) => {
-      handleUpdateManualSteps((steps) =>
-        steps.map((step) => (step.id === stepId ? { ...step, title } : step)),
-      );
-    },
-    [handleUpdateManualSteps],
-  );
-
-  const handleToggleManualStepOptional = React.useCallback(
-    (stepId: string) => {
-      handleUpdateManualSteps((steps) =>
-        steps.map((step) =>
-          step.id === stepId ? { ...step, isOptional: !step.isOptional } : step,
-        ),
-      );
-    },
-    [handleUpdateManualSteps],
-  );
-
-  const handleRemoveManualStep = React.useCallback(
-    (stepId: string) => {
-      handleUpdateManualSteps((steps) => steps.filter((step) => step.id !== stepId));
-    },
-    [handleUpdateManualSteps],
-  );
-
-  const handleSelectManualReminder = React.useCallback(
-    (offsetDays: number) => {
-      if (!manualActivity) return;
-      const date = new Date();
-      date.setDate(date.getDate() + offsetDays);
-      date.setHours(9, 0, 0, 0);
-      const timestamp = new Date().toISOString();
-      updateActivity(manualActivity.id, (prev) => ({
-        ...prev,
-        reminderAt: date.toISOString(),
-        updatedAt: timestamp,
-      }));
-      setReminderSheetVisible(false);
-    },
-    [manualActivity, updateActivity],
-  );
-
-  const handleSelectManualDueDate = React.useCallback(
-    (offsetDays: number) => {
-      if (!manualActivity) return;
-      const date = new Date();
-      date.setDate(date.getDate() + offsetDays);
-      date.setHours(23, 0, 0, 0);
-      const timestamp = new Date().toISOString();
-      updateActivity(manualActivity.id, (prev) => ({
-        ...prev,
-        scheduledDate: date.toISOString(),
-        updatedAt: timestamp,
-      }));
-      setDueDateSheetVisible(false);
-    },
-    [manualActivity, updateActivity],
-  );
-
-  const handleClearManualDueDate = React.useCallback(() => {
-    if (!manualActivity) return;
-    const timestamp = new Date().toISOString();
-    updateActivity(manualActivity.id, (prev) => ({
-      ...prev,
-      scheduledDate: null,
-      updatedAt: timestamp,
-    }));
-    setDueDateSheetVisible(false);
-    setIsDueDatePickerVisible(false);
-  }, [manualActivity, updateActivity]);
-
-  const getInitialManualDueDateForPicker = React.useCallback(() => {
-    if (manualActivity?.scheduledDate) {
-      const parsed = new Date(manualActivity.scheduledDate);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-    return new Date();
-  }, [manualActivity?.scheduledDate]);
-
-  const handleManualDueDateChange = React.useCallback(
-    (event: DateTimePickerEvent, date?: Date) => {
-      if (Platform.OS !== 'ios') {
-        setIsDueDatePickerVisible(false);
-      }
-
-      if (!manualActivity) return;
-      if (!date || event.type === 'dismissed') {
-        return;
-      }
-
-      const next = new Date(date);
-      next.setHours(23, 0, 0, 0);
-
-      const timestamp = new Date().toISOString();
-      updateActivity(manualActivity.id, (prev) => ({
-        ...prev,
-        scheduledDate: next.toISOString(),
-        updatedAt: timestamp,
-      }));
-      setDueDateSheetVisible(false);
-    },
-    [manualActivity, updateActivity],
-  );
-
-  const handleSelectManualRepeat = React.useCallback(
-    (rule: NonNullable<Activity['repeatRule']>) => {
-      if (!manualActivity) return;
-      const timestamp = new Date().toISOString();
-      updateActivity(manualActivity.id, (prev) => ({
-        ...prev,
-        repeatRule: rule,
-        updatedAt: timestamp,
-      }));
-      setRepeatSheetVisible(false);
-    },
-    [manualActivity, updateActivity],
-  );
-
-  const reminderLabel = React.useMemo(() => {
-    if (!manualActivity?.reminderAt) return 'None';
-    const date = new Date(manualActivity.reminderAt);
-    return date.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }, [manualActivity?.reminderAt]);
-
-  const dueDateLabel = React.useMemo(() => {
-    if (!manualActivity?.scheduledDate) return 'None';
-    const date = new Date(manualActivity.scheduledDate);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  }, [manualActivity?.scheduledDate]);
-
-  const repeatLabel = React.useMemo(() => {
-    if (!manualActivity?.repeatRule) return 'Off';
-    return manualActivity.repeatRule === 'weekdays'
-      ? 'Weekdays'
-      : manualActivity.repeatRule.charAt(0).toUpperCase() +
-          manualActivity.repeatRule.slice(1);
-  }, [manualActivity?.repeatRule]);
-
-  const formatMinutes = (minutes: number) => {
-    if (minutes < 60) return `${minutes} min`;
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (mins === 0) return `${hrs} hr${hrs === 1 ? '' : 's'}`;
-    return `${hrs} hr${hrs === 1 ? '' : 's'} ${mins} min`;
-  };
-
-  const {
-    timeEstimateLabel,
-    timeEstimateIsAi,
-    difficultyLabel,
-    difficultyIsAi,
-  } = React.useMemo(() => {
-    if (!manualActivity) {
-      return {
-        timeEstimateLabel: 'Add a rough time estimate',
-        timeEstimateIsAi: false,
-        difficultyLabel: 'Optional: how heavy does this feel?',
-        difficultyIsAi: false,
-      };
-    }
-
-    const manualMinutes = manualActivity.estimateMinutes ?? null;
-    const aiMinutes = manualActivity.aiPlanning?.estimateMinutes ?? null;
-
-    const pickMinutes = () => {
-      if (manualMinutes != null) {
-        return {
-          label: formatMinutes(manualMinutes),
-          isAi: false,
-        };
-      }
-      if (aiMinutes != null) {
-        return {
-          label: `${formatMinutes(aiMinutes)} · AI suggestion`,
-          isAi: true,
-        };
-      }
-      return {
-        label: 'Add a rough time estimate',
-        isAi: false,
-      };
-    };
-
-    const manualDifficulty = manualActivity.difficulty ?? null;
-    const aiDifficulty = manualActivity.aiPlanning?.difficulty ?? null;
-
-    const formatDifficulty = (value: string) => {
-      switch (value) {
-        case 'very_easy':
-          return 'Very easy';
-        case 'easy':
-          return 'Easy';
-        case 'medium':
-          return 'Medium';
-        case 'hard':
-          return 'Hard';
-        case 'very_hard':
-          return 'Very hard';
-        default:
-          return value;
-      }
-    };
-
-    const pickDifficulty = () => {
-      if (manualDifficulty) {
-        return {
-          label: formatDifficulty(manualDifficulty),
-          isAi: false,
-        };
-      }
-      if (aiDifficulty) {
-        return {
-          label: `${formatDifficulty(aiDifficulty)} · AI suggestion`,
-          isAi: true,
-        };
-      }
-      return {
-        label: 'Optional: how heavy does this feel?',
-        isAi: false,
-      };
-    };
-
-    const minutes = pickMinutes();
-    const difficulty = pickDifficulty();
-
-    return {
-      timeEstimateLabel: minutes.label,
-      timeEstimateIsAi: minutes.isAi,
-      difficultyLabel: difficulty.label,
-      difficultyIsAi: difficulty.isAi,
-    };
-  }, [manualActivity]);
-
-  const handleConfirmManualActivity = React.useCallback(() => {
-    if (!manualActivity) return;
-    const trimmedTitle = manualActivity.title.trim();
-    const timestamp = new Date().toISOString();
-    updateActivity(manualActivity.id, (prev) => ({
-      ...prev,
-      title: trimmedTitle || 'Untitled activity',
-      updatedAt: timestamp,
-    }));
-    onClose();
-  }, [manualActivity, onClose, updateActivity]);
 
   const handleAiComplete = React.useCallback(
     (outcome: unknown) => {
@@ -3091,7 +2697,7 @@ function ActivityCoachDrawer({
       <View style={styles.activityCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
-          onChangeMode={setActiveTab}
+          onChangeMode={handleChangeMode}
           objectLabel="Activities"
           onPressInfo={() => setIsActivityAiInfoVisible(true)}
           infoAccessibilityLabel="Show context for Activities AI"
@@ -3114,444 +2720,59 @@ function ActivityCoachDrawer({
             activeTab !== 'ai' && { display: 'none' },
           ]}
         >
-          <AgentWorkspace
-            mode="activityCreation"
-            launchContext={launchContext}
-            workspaceSnapshot={workspaceSnapshot}
-            workflowDefinitionId={ACTIVITY_CREATION_WORKFLOW_ID}
-            resumeDraft={false}
-            hideBrandHeader
-            hidePromptSuggestions
-            hostBottomInsetAlreadyApplied
-            onComplete={handleAiComplete}
-            onTransportError={handleSwitchToManual}
-            onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
-            onDismiss={onClose}
-          />
+          {aiCreditsRemaining <= 0 ? (
+            <View style={styles.activityAiCreditsEmpty}>
+              <PaywallContent
+                reason="generative_quota_exceeded"
+                source="activity_quick_add_ai"
+                showHeader={false}
+                onClose={() => setActiveTab('manual')}
+                onUpgrade={() => {
+                  onClose();
+                  setTimeout(() => openPaywallPurchaseEntry(), 360);
+                }}
+              />
+            </View>
+          ) : (
+            <AgentWorkspace
+              mode="activityCreation"
+              launchContext={launchContext}
+              workspaceSnapshot={workspaceSnapshot}
+              workflowDefinitionId={ACTIVITY_CREATION_WORKFLOW_ID}
+              resumeDraft={false}
+              hideBrandHeader
+              hidePromptSuggestions
+              hostBottomInsetAlreadyApplied
+              onComplete={handleAiComplete}
+              onTransportError={handleSwitchToManual}
+              onAdoptActivitySuggestion={handleAdoptActivitySuggestion}
+              onDismiss={onClose}
+            />
+          )}
         </View>
 
         <View style={[styles.activityCoachBody, activeTab !== 'manual' && { display: 'none' }]}>
           <KeyboardAwareScrollView
             style={styles.manualFormContainer}
-            contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.lg }}
+            contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.xs }}
             showsVerticalScrollIndicator={false}
           >
-            <Card padding="sm" style={{ width: '100%' }}>
-              <Input
-                label="Activity title"
-                placeholder="e.g., Clear the workbench"
-                value={manualActivity?.title ?? ''}
-                onChangeText={(next) => {
-                  if (!manualActivity) return;
-                  const timestamp = new Date().toISOString();
-                  updateActivity(manualActivity.id, (prev) => ({
-                    ...prev,
-                    title: next,
-                    updatedAt: timestamp,
-                  }));
-                }}
-                variant="outline"
+            <View style={{ width: '100%' }}>
+              <ActivityDraftDetailFields
+                draft={manualDraft}
+                onChange={(updater) => setManualDraft((prev) => updater(prev))}
               />
-              <Input
-                label="Tags (comma-separated)"
-                placeholder="e.g., errands, outdoors"
-                value={formatTags(manualActivity?.tags)}
-                trailingElement={
-                  manualActivity && (manualActivity.tags?.length ?? 0) === 0 ? (
-                    <AiAutofillBadge
-                      accessibilityLabel="Autofill tags with AI"
-                      loading={isManualTagsThinking}
-                      onPress={() => {
-                        if (!manualActivity) return;
-                        // TODO(entitlements): replace tier selection with real Pro state.
-                        const tier: 'free' | 'pro' = isPro ? 'pro' : 'free';
-                        const consumed = tryConsumeGenerativeCredit({ tier });
-                        if (!consumed.ok) {
-                          openPaywallInterstitial({
-                            reason: 'generative_quota_exceeded',
-                            source: 'activity_tags_ai',
-                          });
-                          return;
-                        }
-                        (async () => {
-                          setIsManualTagsThinking(true);
-                          const aiTags = await suggestActivityTagsWithAi({
-                            activityTitle: manualActivity.title,
-                            activityNotes: manualActivity.notes,
-                            tagHistory: activityTagHistory,
-                            maxTags: 4,
-                          });
-                          const suggested =
-                            aiTags && aiTags.length > 0
-                              ? aiTags
-                              : suggestTagsFromText(manualActivity.title, manualActivity.notes);
-                          const timestamp = new Date().toISOString();
-                          updateActivity(manualActivity.id, (prev) => ({
-                            ...prev,
-                            tags: suggested,
-                            updatedAt: timestamp,
-                          }));
-                        })()
-                          .catch(() => undefined)
-                          .finally(() => setIsManualTagsThinking(false));
-                      }}
-                    />
-                  ) : null
-                }
-                onChangeText={(raw) => {
-                  if (!manualActivity) return;
-                  const timestamp = new Date().toISOString();
-                  updateActivity(manualActivity.id, (prev) => ({
-                    ...prev,
-                    tags: parseTags(raw),
-                    updatedAt: timestamp,
-                  }));
-                }}
-                variant="outline"
-              />
-              <Textarea
-                label="Notes (optional)"
-                placeholder="Add a short note or checklist for this activity."
-                value={manualActivity?.notes ?? ''}
-                onChangeText={(next) => {
-                  if (!manualActivity) return;
-                  const timestamp = new Date().toISOString();
-                  updateActivity(manualActivity.id, (prev) => ({
-                    ...prev,
-                    notes: next.trim().length > 0 ? next : undefined,
-                    updatedAt: timestamp,
-                  }));
-                }}
-                multiline
-              />
-              <View>
-                <HStack alignItems="center" style={styles.sectionLabelRow}>
-                  <Text style={styles.inputLabel}>STEPS</Text>
-                </HStack>
-                <View style={styles.rowsCard}>
-                  {(manualActivity?.steps?.length ?? 0) === 0 ? (
-                    <Text style={styles.stepsEmpty}>
-                      Add 2–6 small steps so this activity is crystal clear.
-                    </Text>
-                  ) : (
-                    <VStack space="xs">
-                      {manualActivity?.steps?.map((step) => (
-                        <HStack
-                          key={step.id}
-                          space="xs"
-                          alignItems="center"
-                          style={styles.stepRow}
-                        >
-                          <View
-                            style={[
-                              styles.checkboxBase,
-                              styles.checkboxPlanned,
-                              styles.stepCheckbox,
-                            ]}
-                          />
-                          <TextInput
-                            value={step.title}
-                            onChangeText={(text) => handleChangeManualStepTitle(step.id, text)}
-                            placeholder="Describe the step"
-                            placeholderTextColor={colors.muted}
-                            multiline
-                            textAlignVertical="top"
-                            blurOnSubmit
-                            returnKeyType="done"
-                            scrollEnabled={(manualStepHeights[step.id] ?? STEP_MIN_HEIGHT) >= STEP_MAX_HEIGHT}
-                            onContentSizeChange={(event) => {
-                              const nextHeight = clampStepHeight(event.nativeEvent.contentSize.height);
-                              setManualStepHeights((prev) =>
-                                prev[step.id] === nextHeight ? prev : { ...prev, [step.id]: nextHeight },
-                              );
-                            }}
-                            // Drive height so the field expands up to 4 visible lines, then stays bounded.
-                            // (When bounded, `scrollEnabled` flips on so longer content remains editable.)
-                            // eslint-disable-next-line react-native/no-inline-styles
-                            style={[
-                              styles.stepInput,
-                              { height: manualStepHeights[step.id] ?? STEP_MIN_HEIGHT, maxHeight: STEP_MAX_HEIGHT },
-                            ]}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            iconButtonSize={24}
-                            onPress={() => handleRemoveManualStep(step.id)}
-                            accessibilityLabel="Remove step"
-                            style={styles.removeStepButton}
-                          >
-                            <Icon name="close" size={14} color={colors.textSecondary} />
-                          </Button>
-                        </HStack>
-                      ))}
-                    </VStack>
-                  )}
-                  <View style={styles.addStepInlineRow}>
-                    {isAddingStepInline ? (
-                      <HStack space="xs" alignItems="center" style={styles.stepRow}>
-                        <View
-                          style={[
-                            styles.checkboxBase,
-                            styles.checkboxPlanned,
-                            styles.stepCheckbox,
-                          ]}
-                        />
-                        <TextInput
-                          ref={newStepInputRef}
-                          // eslint-disable-next-line react-native/no-inline-styles
-                          style={[styles.stepInput, { height: newStepHeight, maxHeight: STEP_MAX_HEIGHT }]}
-                          value={newStepTitle}
-                          onChangeText={setNewStepTitle}
-                          placeholder="Add step"
-                          placeholderTextColor={colors.muted}
-                          multiline
-                          textAlignVertical="top"
-                          returnKeyType="done"
-                          blurOnSubmit
-                          scrollEnabled={newStepHeight >= STEP_MAX_HEIGHT}
-                          onContentSizeChange={(event) => {
-                            setNewStepHeight(clampStepHeight(event.nativeEvent.contentSize.height));
-                          }}
-                          onSubmitEditing={commitManualInlineStep}
-                          onBlur={commitManualInlineStep}
-                        />
-                      </HStack>
-                    ) : (
-                      <Pressable
-                        onPress={beginAddManualStepInline}
-                        accessibilityRole="button"
-                        accessibilityLabel="Add a step to this activity"
-                      >
-                        <HStack space="xs" alignItems="center">
-                          <Icon name="plus" size={16} color={colors.primary} />
-                          <Text style={styles.addStepInlineText}>Add step</Text>
-                        </HStack>
-                      </Pressable>
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              <View>
-                <View style={styles.rowsCard}>
-                  <VStack space="xs">
-                    <VStack space="sm">
-                      <Pressable
-                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                        onPress={() => setReminderSheetVisible(true)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit reminder"
-                      >
-                        <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                          <Icon name="daily" size={16} color={colors.textSecondary} />
-                          <Text
-                            style={[
-                              styles.rowValue,
-                              reminderLabel !== 'None' && styles.rowLabelActive,
-                            ]}
-                          >
-                            {reminderLabel === 'None' ? 'Add reminder' : reminderLabel}
-                          </Text>
-                        </HStack>
-                      </Pressable>
-                    </VStack>
-
-                    <VStack space="sm">
-                      <Pressable
-                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                        onPress={() => setDueDateSheetVisible(true)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit due date"
-                      >
-                        <HStack
-                          space="sm"
-                          alignItems="center"
-                          justifyContent="space-between"
-                          style={styles.rowContent}
-                        >
-                          <HStack space="sm" alignItems="center" flex={1}>
-                            <Icon name="today" size={16} color={colors.textSecondary} />
-                            <Text
-                              style={[
-                                styles.rowValue,
-                                manualActivity?.scheduledDate && styles.rowLabelActive,
-                              ]}
-                            >
-                              {manualActivity?.scheduledDate ? dueDateLabel : 'Add due date'}
-                            </Text>
-                          </HStack>
-                          {manualActivity?.scheduledDate ? (
-                            <Pressable
-                              onPress={(event) => {
-                                event.stopPropagation();
-                                handleClearManualDueDate();
-                              }}
-                              accessibilityRole="button"
-                              accessibilityLabel="Clear due date"
-                              hitSlop={8}
-                            >
-                              <Icon name="close" size={16} color={colors.textSecondary} />
-                            </Pressable>
-                          ) : null}
-                        </HStack>
-                      </Pressable>
-                    </VStack>
-
-                    <VStack space="sm">
-                      <Pressable
-                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                        onPress={() => setRepeatSheetVisible(true)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit repeat schedule"
-                      >
-                        <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                          <Icon name="refresh" size={16} color={colors.textSecondary} />
-                          <Text
-                            style={[
-                              styles.rowValue,
-                              repeatLabel !== 'Off' && styles.rowLabelActive,
-                            ]}
-                          >
-                            {repeatLabel === 'Off' ? 'Off' : repeatLabel}
-                          </Text>
-                        </HStack>
-                      </Pressable>
-                    </VStack>
-                  </VStack>
-                </View>
-              </View>
-
-              <View>
-                <View style={styles.rowsCard}>
-                  <VStack space="xs">
-                    <Text style={styles.planningHeader}>Planning</Text>
-                    <View style={styles.row}>
-                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                        <Icon name="time" size={16} color={colors.textSecondary} />
-                        <Text style={styles.rowLabel}>Time estimate</Text>
-                      </HStack>
-                      <View style={styles.rowRight}>
-                        <Text
-                          style={[
-                            styles.rowValue,
-                            timeEstimateIsAi && styles.rowValueAi,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {timeEstimateLabel}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.row}>
-                      <HStack space="sm" alignItems="center" style={styles.rowContent}>
-                        <Icon name="signal" size={16} color={colors.textSecondary} />
-                        <Text style={styles.rowLabel}>Difficulty</Text>
-                      </HStack>
-                      <View style={styles.rowRight}>
-                        <Text
-                          style={[
-                            styles.rowValue,
-                            difficultyIsAi && styles.rowValueAi,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {difficultyLabel}
-                        </Text>
-                      </View>
-                    </View>
-                  </VStack>
-                </View>
-              </View>
-
               <Button
+                style={{ marginTop: spacing.xs }}
                 onPress={handleConfirmManualActivity}
-                disabled={!manualActivity || !manualActivity.title.trim()}
+                disabled={manualDraft.title.trim().length === 0}
               >
-                <Text>Add activity</Text>
+                <Text style={{ color: colors.canvas }}>Create activity</Text>
               </Button>
-            </Card>
+            </View>
           </KeyboardAwareScrollView>
         </View>
       </View>
-      {activeTab === 'manual' && (
-        <>
-          <BottomDrawer
-            visible={reminderSheetVisible}
-            onClose={() => setReminderSheetVisible(false)}
-            snapPoints={['40%']}
-            presentation="inline"
-            hideBackdrop
-          >
-            <View style={styles.sheetContent}>
-              <Text style={styles.sheetTitle}>Remind me</Text>
-              <VStack space="sm">
-                <SheetOption label="Later Today" onPress={() => handleSelectManualReminder(0)} />
-                <SheetOption label="Tomorrow" onPress={() => handleSelectManualReminder(1)} />
-                <SheetOption label="Next Week" onPress={() => handleSelectManualReminder(7)} />
-              </VStack>
-            </View>
-          </BottomDrawer>
-
-          <BottomDrawer
-            visible={dueDateSheetVisible}
-            onClose={() => {
-              setDueDateSheetVisible(false);
-              setIsDueDatePickerVisible(false);
-            }}
-            snapPoints={['40%']}
-            presentation="inline"
-            hideBackdrop
-          >
-            <View style={styles.sheetContent}>
-              <Text style={styles.sheetTitle}>Due</Text>
-              <VStack space="sm">
-                <SheetOption label="Today" onPress={() => handleSelectManualDueDate(0)} />
-                <SheetOption label="Tomorrow" onPress={() => handleSelectManualDueDate(1)} />
-                <SheetOption label="Next Week" onPress={() => handleSelectManualDueDate(7)} />
-                <SheetOption
-                  label="Pick a date…"
-                  onPress={() => setIsDueDatePickerVisible(true)}
-                />
-                <SheetOption label="Clear due date" onPress={handleClearManualDueDate} />
-              </VStack>
-              {isDueDatePickerVisible && (
-                <View style={styles.datePickerContainer}>
-                  <DateTimePicker
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                    value={getInitialManualDueDateForPicker()}
-                    onChange={handleManualDueDateChange}
-                  />
-                </View>
-              )}
-            </View>
-          </BottomDrawer>
-
-          <BottomDrawer
-            visible={repeatSheetVisible}
-            onClose={() => setRepeatSheetVisible(false)}
-            snapPoints={['45%']}
-            presentation="inline"
-            hideBackdrop
-          >
-            <View style={styles.sheetContent}>
-              <Text style={styles.sheetTitle}>Repeat</Text>
-              <VStack space="sm">
-                <SheetOption label="Daily" onPress={() => handleSelectManualRepeat('daily')} />
-                <SheetOption label="Weekly" onPress={() => handleSelectManualRepeat('weekly')} />
-                <SheetOption
-                  label="Weekdays"
-                  onPress={() => handleSelectManualRepeat('weekdays')}
-                />
-                <SheetOption label="Monthly" onPress={() => handleSelectManualRepeat('monthly')} />
-                <SheetOption label="Yearly" onPress={() => handleSelectManualRepeat('yearly')} />
-              </VStack>
-            </View>
-          </BottomDrawer>
-        </>
-      )}
     </BottomDrawer>
   );
 }

@@ -1338,8 +1338,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
     if (!selectedGoalArcId) return null;
     return arcs.find((arc) => arc.id === selectedGoalArcId) ?? null;
   }, [arcs, selectedGoalArcId]);
-  // Goal arc attachment is optional at adoption time; users can link the goal
-  // later from the Goal detail screen.
+  // Goal arc attachment is optional at adoption time; users can link/unlink later.
+  // We may still default to a focused or suggested Arc when available.
   const shouldRequireGoalArcPick = false;
 
   const arcPickerOptions: ObjectPickerOption[] = useMemo(() => {
@@ -1358,10 +1358,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
       setSelectedGoalArcId(null);
       return;
     }
-    // Prefer the focused arc (Arc detail launch). Otherwise, only preselect
-    // an Arc if the model confidently suggested an existing Arc by name.
+    // Prefer the focused arc (Arc detail launch). Otherwise:
+    // - If exactly one Arc exists, default to it (no extra step).
+    // - If multiple Arcs exist, only preselect when the model suggests a matching Arc name.
     setSelectedGoalArcId((current) => {
       if (focusedArcIdForGoal) return focusedArcIdForGoal;
+      if (arcs.length === 1) return arcs[0]?.id ?? null;
       const suggested = goalProposal.suggestedArcName;
       if (typeof suggested === 'string' && suggested.trim().length > 0) {
         const match = arcs.find(
@@ -1858,16 +1860,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
               containerStyle={styles.goalDraftInputContainer}
             />
 
-            {isActive &&
-              !focusedArcIdForGoal &&
-              arcs.length > 0 &&
-              proposal?.suggestedArcName &&
-              selectedGoalArcId && (
+            {isActive && !focusedArcIdForGoal && arcs.length > 0 && (
                 <View style={styles.goalDraftArcRow}>
                   <Text style={styles.goalDraftArcLabel}>Arc</Text>
                   <ObjectPicker
                     options={arcPickerOptions}
-                    value={selectedGoalArcId}
+                    value={selectedGoalArcId ?? ''}
                     onValueChange={(next) => setSelectedGoalArcId(next || null)}
                     placeholder="Choose an Arc…"
                     searchPlaceholder="Search Arcs…"

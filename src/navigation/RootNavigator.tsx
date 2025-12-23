@@ -8,6 +8,7 @@ import {
   DrawerActions,
   NavigatorScreenParams,
   type NavigationState,
+  type LinkingOptions,
 } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import {
@@ -248,11 +249,32 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
     return null;
   }
 
+  // Deep links embedded in calendar events and share surfaces.
+  // Example: `kwilt://activity/<id>?openFocus=1`
+  const linking: LinkingOptions<RootDrawerParamList> = {
+    prefixes: ['kwilt://'],
+    config: {
+      screens: {
+        Activities: {
+          screens: {
+            ActivityDetail: {
+              path: 'activity/:activityId',
+              parse: {
+                openFocus: (v: string) => v === '1' || v === 'true',
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
   return (
     <NavigationContainer
       ref={rootNavigationRef}
       theme={navTheme}
       initialState={initialState}
+      linking={linking}
       onReady={() => {
         const currentRoute = rootNavigationRef.getCurrentRoute();
         if (currentRoute?.name) {

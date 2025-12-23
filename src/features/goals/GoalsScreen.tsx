@@ -2,7 +2,6 @@ import React from 'react';
 import {
   StyleSheet,
   View,
-  ScrollView,
   StyleProp,
   ViewStyle,
   Pressable,
@@ -18,6 +17,7 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
@@ -44,10 +44,17 @@ import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { openPaywallPurchaseEntry } from '../../services/paywall';
+import { PaywallContent } from '../paywall/PaywallDrawer';
 import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import {
+  FREE_GENERATIVE_CREDITS_PER_MONTH,
+  PRO_GENERATIVE_CREDITS_PER_MONTH,
+  getMonthKey,
+} from '../../domain/generativeCredits';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -237,7 +244,7 @@ export function GoalsScreen() {
           </IconButton>
         }
       />
-      <ScrollView
+      <CanvasScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -331,7 +338,7 @@ export function GoalsScreen() {
             onDismiss={(entry) => dismissGoalRecommendation(entry.arcId, entry.draft.title)}
           />
         )}
-      </ScrollView>
+      </CanvasScrollView>
       <GoalCoachDrawer
         visible={goalCoachVisible}
         onClose={() => setGoalCoachVisible(false)}
@@ -488,6 +495,7 @@ export function GoalCoachDrawer({
   onGoalCreated,
 }: GoalCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
+  const hasShownCreditsBlockedToastRef = React.useRef(false);
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = React.useState(false);
   const manualScrollRef = React.useRef<KeyboardAwareScrollViewHandle | null>(null);
   const buildEmptyDraft = React.useCallback(
@@ -507,6 +515,7 @@ export function GoalCoachDrawer({
   const addGoal = useAppStore((state) => state.addGoal);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const generativeCredits = useAppStore((state) => state.generativeCredits);
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
@@ -554,12 +563,66 @@ export function GoalCoachDrawer({
     [launchFromArcId],
   );
 
+  const aiCreditsRemaining = React.useMemo(() => {
+    const limit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+    const currentKey = getMonthKey(new Date());
+    const ledger =
+      generativeCredits && generativeCredits.monthKey === currentKey
+        ? generativeCredits
+        : { monthKey: currentKey, usedThisMonth: 0 };
+    const usedRaw = Number((ledger as any).usedThisMonth ?? 0);
+    const used = Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
+    return Math.max(0, limit - used);
+  }, [generativeCredits, isPro]);
+
+  const openCreditsPaywall = React.useCallback(() => {
+    // Avoid stacked RN Modals: close this Goal drawer first, then open the global paywall.
+    onClose();
+    setTimeout(() => {
+      openPaywallInterstitial({ reason: 'generative_quota_exceeded', source: 'goals_create_ai' });
+    }, 360);
+  }, [onClose]);
+
   React.useEffect(() => {
     if (!visible) {
-      setActiveTab('ai');
+      // Reset tab on next open. If credits are exhausted, default to Manual to avoid flashing
+      // the Goal AI surface for a frame.
+      setActiveTab(aiCreditsRemaining > 0 ? 'ai' : 'manual');
+      hasShownCreditsBlockedToastRef.current = false;
       setDraft(buildEmptyDraft());
     }
-  }, [visible, buildEmptyDraft, setDraft]);
+  }, [aiCreditsRemaining, visible, buildEmptyDraft, setDraft]);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    if (aiCreditsRemaining > 0) return;
+    // If credits are exhausted, keep the user on Manual (Goal AI will fail later anyway).
+    // Show a single lightweight toast so the user understands why (and can upgrade).
+    setActiveTab('manual');
+    if (!hasShownCreditsBlockedToastRef.current) {
+      hasShownCreditsBlockedToastRef.current = true;
+      showToast({
+        message: 'No AI credits left this month.',
+        variant: 'credits',
+        durationMs: 4500,
+        actionLabel: 'Upgrade',
+        actionOnPress: openCreditsPaywall,
+      });
+    }
+  }, [aiCreditsRemaining, openCreditsPaywall, showToast, visible]);
+
+  const handleChangeMode = React.useCallback(
+    (next: 'ai' | 'manual') => {
+      if (next === 'ai' && aiCreditsRemaining <= 0) {
+        // Let the user "enter" Goal AI, but show an inline upgrade message instead of
+        // launching the agent workspace.
+        setActiveTab('ai');
+        return;
+      }
+      setActiveTab(next);
+    },
+    [aiCreditsRemaining, openCreditsPaywall],
+  );
 
   // If the coach was launched from an Arc detail screen, default the manual draft
   // to that Arc—but do not force it (Goals can exist without an Arc).
@@ -572,6 +635,15 @@ export function GoalCoachDrawer({
       return;
     }
   }, [launchFromArcId, visible, setDraft]);
+
+  // If the coach is launched from the Goals tab and there is exactly one Arc,
+  // default new Goals to that Arc (no extra decision step).
+  React.useEffect(() => {
+    if (!visible) return;
+    if (launchFromArcId) return;
+    if (arcs.length !== 1) return;
+    setDraft((current) => (current.arcId === null ? { ...current, arcId: arcs[0]?.id ?? null } : current));
+  }, [arcs, launchFromArcId, visible]);
 
   const goalThumbnailSeed = React.useMemo(
     () => buildArcThumbnailSeed(undefined, draft.title || 'New goal', draft.thumbnailVariant ?? 0),
@@ -652,7 +724,9 @@ export function GoalCoachDrawer({
       return;
     }
 
-    const resolvedArcId = launchFromArcId ?? draft.arcId ?? null;
+    // Note: `launchFromArcId` is a *default* when starting goal creation from an Arc canvas,
+    // but the user can clear or change it via the "Linked Arc (optional)" field.
+    const resolvedArcId = draft.arcId ?? null;
     if (resolvedArcId) {
       const canCreate = canCreateGoalInArc({ isPro, goals, arcId: resolvedArcId });
       if (!canCreate.ok) {
@@ -782,7 +856,7 @@ export function GoalCoachDrawer({
       <View style={styles.goalCoachContainer}>
         <AgentModeHeader
           activeMode={activeTab}
-          onChangeMode={setActiveTab}
+          onChangeMode={handleChangeMode}
           objectLabel="Goal"
           onPressInfo={() => setIsGoalAiInfoVisible(true)}
           infoAccessibilityLabel="Show Goal AI context"
@@ -796,6 +870,24 @@ export function GoalCoachDrawer({
             activeTab !== 'ai' && { display: 'none' },
           ]}
         >
+          {aiCreditsRemaining <= 0 ? (
+            <View style={styles.goalAiCreditsEmpty}>
+              <PaywallContent
+                reason="generative_quota_exceeded"
+                source="goals_create_ai"
+                showHeader={false}
+                // In the embedded context, "Not now" and the close icon should just return
+                // the user to Manual without dismissing the whole Goal drawer.
+                onClose={() => setActiveTab('manual')}
+                // But upgrading should close this modal drawer first to avoid stacked-modals
+                // when navigating into Settings purchase surfaces.
+                onUpgrade={() => {
+                  onClose();
+                  setTimeout(() => openPaywallPurchaseEntry(), 360);
+                }}
+              />
+            </View>
+          ) : (
           <AgentWorkspace
             // Goal creation uses the dedicated Goal Creation Agent mode so the
             // conversation stays tightly focused on drafting one clear goal.
@@ -822,6 +914,7 @@ export function GoalCoachDrawer({
               }
             }}
           />
+          )}
         </View>
 
         <Dialog
@@ -1118,6 +1211,15 @@ const styles = StyleSheet.create({
   },
   goalCoachBody: {
     flex: 1,
+  },
+  goalAiCreditsEmpty: {
+    flex: 1,
+    // Mimic the paywall drawer sheet surface inside the Goal AI pane.
+    backgroundColor: colors.canvas,
+    borderRadius: 18,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   headerSideRight: {
     flexDirection: 'row',
@@ -1601,12 +1703,6 @@ const styles = StyleSheet.create({
   buttonText: {
     ...typography.bodySm,
     color: colors.canvas,
-  },
-  manualArcRequiredHint: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
   },
   forceRow: {
     marginTop: spacing.sm,

@@ -19,7 +19,7 @@ type BrandLockupProps = {
    */
   wordmarkSize?: 'sm' | 'lg';
   /**
-   * Optional override for the wordmark color. Defaults to the brand accent.
+   * Optional override for the wordmark color. Defaults to Sumi (our primary ink).
    */
   color?: string;
   /**
@@ -39,7 +39,7 @@ type BrandLockupProps = {
 export function BrandLockup({
   logoSize = 32,
   wordmarkSize = 'sm',
-  color = colors.accent,
+  color = colors.sumi,
   logoVariant = 'default',
   style,
   wordmarkStyle,
