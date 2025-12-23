@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View, Pressable, Platform } from 'react-native';
+import { ScrollView, StyleSheet, View, Pressable, Platform, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -21,7 +21,7 @@ export function NotificationsSettingsScreen() {
   const preferences = useAppStore((state) => state.notificationPreferences);
   const setPreferences = useAppStore((state) => state.setNotificationPreferences);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
-  const [timePickerTarget, setTimePickerTarget] = useState<'dailyShowUp' | 'dailyFocus'>(
+  const [timePickerTarget, setTimePickerTarget] = useState<'dailyShowUp' | 'dailyFocus' | 'goalNudge'>(
     'dailyShowUp',
   );
 
@@ -54,6 +54,22 @@ export function NotificationsSettingsScreen() {
       minute: '2-digit',
     });
   }, [preferences.dailyFocusTime]);
+
+  const goalNudgeTimeLabel = useMemo(() => {
+    const raw = (preferences as any).goalNudgeTime as string | null | undefined;
+    if (!raw) {
+      return '4:00 PM';
+    }
+    const [hourString, minuteString] = raw.split(':');
+    const hour = Number.parseInt(hourString ?? '16', 10);
+    const minute = Number.parseInt(minuteString ?? '0', 10);
+    const date = new Date();
+    date.setHours(hour, minute, 0, 0);
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }, [(preferences as any).goalNudgeTime]);
 
   const osStatusLabel = useMemo(() => {
     switch (preferences.osPermissionStatus) {
@@ -143,11 +159,30 @@ export function NotificationsSettingsScreen() {
     await NotificationService.applySettings(next);
   };
 
+  const handleToggleGoalNudges = async () => {
+    if (!preferences.notificationsEnabled || !preferences.allowGoalNudges) {
+      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+      if (!granted) {
+        return;
+      }
+    }
+    const nextTime = (preferences as any).goalNudgeTime ?? '16:00';
+    const next = {
+      ...preferences,
+      notificationsEnabled: true,
+      allowGoalNudges: !preferences.allowGoalNudges,
+      goalNudgeTime: nextTime,
+    };
+    await NotificationService.applySettings(next);
+  };
+
   const getInitialTimeForPicker = () => {
     const raw =
       timePickerTarget === 'dailyFocus'
         ? preferences.dailyFocusTime
-        : preferences.dailyShowUpTime;
+        : timePickerTarget === 'goalNudge'
+          ? ((preferences as any).goalNudgeTime as string | null | undefined)
+          : preferences.dailyShowUpTime;
     if (raw) {
       const [hourString, minuteString] = raw.split(':');
       const hour = Number.parseInt(hourString ?? '8', 10);
@@ -179,6 +214,13 @@ export function NotificationsSettingsScreen() {
             allowDailyFocus: true,
             dailyFocusTime: time,
           }
+        : timePickerTarget === 'goalNudge'
+          ? {
+              ...preferences,
+              notificationsEnabled: true,
+              allowGoalNudges: true,
+              goalNudgeTime: time,
+            }
         : {
             ...preferences,
             notificationsEnabled: true,
@@ -217,37 +259,29 @@ export function NotificationsSettingsScreen() {
                 <Text style={styles.sectionTitle}>System notifications</Text>
                 <Text style={styles.helperText}>{osStatusLabel}</Text>
               </VStack>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && styles.rowPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Toggle notifications from Kwilt"
-                onPress={handleToggleGlobal}
-              >
-                <VStack flex={1}>
-                  <Text style={styles.rowTitle}>Allow notifications from Kwilt</Text>
-                  <Text style={styles.rowSubtitle}>
-                    Control whether Kwilt can schedule any reminders on this device.
-                  </Text>
-                </VStack>
-                <HStack alignItems="center">
-                  <View
-                    style={[
-                      styles.toggle,
-                      preferences.notificationsEnabled && styles.toggleOn,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.toggleThumb,
-                        preferences.notificationsEnabled && styles.toggleThumbOn,
-                      ]}
-                    />
-                  </View>
-                </HStack>
-              </Pressable>
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle notifications from Kwilt"
+                  onPress={handleToggleGlobal}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Allow notifications from Kwilt</Text>
+                    <Text style={styles.rowSubtitle}>
+                      Control whether Kwilt can schedule any reminders on this device.
+                    </Text>
+                  </VStack>
+                </Pressable>
+                <Switch
+                  value={preferences.notificationsEnabled}
+                  onValueChange={() => {
+                    void handleToggleGlobal();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
             </VStack>
           </View>
 
@@ -255,57 +289,46 @@ export function NotificationsSettingsScreen() {
             <VStack space="md">
               <Text style={styles.sectionTitle}>Reminder types</Text>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && styles.rowPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Toggle Activity reminders"
-                onPress={handleToggleActivityReminders}
-              >
-                <VStack flex={1}>
-                  <Text style={styles.rowTitle}>Activity reminders</Text>
-                  <Text style={styles.rowSubtitle}>
-                    Use reminders you set on Activities to schedule local notifications.
-                  </Text>
-                </VStack>
-                <HStack alignItems="center">
-                  <View
-                    style={[
-                      styles.toggle,
-                      preferences.notificationsEnabled &&
-                        preferences.allowActivityReminders &&
-                        styles.toggleOn,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.toggleThumb,
-                        preferences.notificationsEnabled &&
-                          preferences.allowActivityReminders &&
-                          styles.toggleThumbOn,
-                      ]}
-                    />
-                  </View>
-                </HStack>
-              </Pressable>
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle Activity reminders"
+                  onPress={handleToggleActivityReminders}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Activity reminders</Text>
+                    <Text style={styles.rowSubtitle}>
+                      Use reminders you set on Activities to schedule local notifications.
+                    </Text>
+                  </VStack>
+                </Pressable>
+                <Switch
+                  value={preferences.notificationsEnabled && preferences.allowActivityReminders}
+                  onValueChange={() => {
+                    void handleToggleActivityReminders();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && styles.rowPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Toggle daily show-up reminder"
-                onPress={handleToggleDailyShowUp}
-              >
-                <VStack flex={1}>
-                  <Text style={styles.rowTitle}>Daily show-up reminder</Text>
-                  <Text style={styles.rowSubtitle}>
-                    Get a gentle nudge once a day to review Today and choose one tiny step.
-                  </Text>
-                  {preferences.allowDailyShowUp && (
+              <View style={styles.row}>
+                <View style={styles.rowPressable}>
+                  <Pressable
+                    style={({ pressed }) => [pressed && styles.rowPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Toggle daily show-up reminder"
+                    onPress={handleToggleDailyShowUp}
+                  >
+                    <VStack>
+                      <Text style={styles.rowTitle}>Daily show-up reminder</Text>
+                      <Text style={styles.rowSubtitle}>
+                        Get a gentle nudge once a day to review Today and choose one tiny step.
+                      </Text>
+                    </VStack>
+                  </Pressable>
+                  {preferences.notificationsEnabled && preferences.allowDailyShowUp && (
                     <Pressable
                       onPress={() => {
                         setTimePickerTarget('dailyShowUp');
@@ -313,47 +336,38 @@ export function NotificationsSettingsScreen() {
                       }}
                       accessibilityRole="button"
                       accessibilityLabel="Change daily reminder time"
+                      hitSlop={8}
                     >
                       <Text style={styles.timeLabel}>Time · {dailyShowUpTimeLabel}</Text>
                     </Pressable>
                   )}
-                </VStack>
-                <HStack alignItems="center">
-                  <View
-                    style={[
-                      styles.toggle,
-                      preferences.notificationsEnabled &&
-                        preferences.allowDailyShowUp &&
-                        styles.toggleOn,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.toggleThumb,
-                        preferences.notificationsEnabled &&
-                          preferences.allowDailyShowUp &&
-                          styles.toggleThumbOn,
-                      ]}
-                    />
-                  </View>
-                </HStack>
-              </Pressable>
+                </View>
+                <Switch
+                  value={preferences.notificationsEnabled && preferences.allowDailyShowUp}
+                  onValueChange={() => {
+                    void handleToggleDailyShowUp();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && styles.rowPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Toggle daily focus reminder"
-                onPress={handleToggleDailyFocus}
-              >
-                <VStack flex={1}>
-                  <Text style={styles.rowTitle}>Daily focus session</Text>
-                  <Text style={styles.rowSubtitle}>
-                    A once-a-day nudge to finish one full Focus timer (clarity + momentum).
-                  </Text>
-                  {preferences.allowDailyFocus && (
+              <View style={styles.row}>
+                <View style={styles.rowPressable}>
+                  <Pressable
+                    style={({ pressed }) => [pressed && styles.rowPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Toggle daily focus reminder"
+                    onPress={handleToggleDailyFocus}
+                  >
+                    <VStack>
+                      <Text style={styles.rowTitle}>Daily focus session</Text>
+                      <Text style={styles.rowSubtitle}>
+                        A once-a-day nudge to finish one full Focus timer (clarity + momentum).
+                      </Text>
+                    </VStack>
+                  </Pressable>
+                  {preferences.notificationsEnabled && preferences.allowDailyFocus && (
                     <Pressable
                       onPress={() => {
                         setTimePickerTarget('dailyFocus');
@@ -361,31 +375,58 @@ export function NotificationsSettingsScreen() {
                       }}
                       accessibilityRole="button"
                       accessibilityLabel="Change daily focus reminder time"
+                      hitSlop={8}
                     >
                       <Text style={styles.timeLabel}>Time · {dailyFocusTimeLabel}</Text>
                     </Pressable>
                   )}
-                </VStack>
-                <HStack alignItems="center">
-                  <View
-                    style={[
-                      styles.toggle,
-                      preferences.notificationsEnabled &&
-                        preferences.allowDailyFocus &&
-                        styles.toggleOn,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.toggleThumb,
-                        preferences.notificationsEnabled &&
-                          preferences.allowDailyFocus &&
-                          styles.toggleThumbOn,
-                      ]}
-                    />
-                  </View>
-                </HStack>
-              </Pressable>
+                </View>
+                <Switch
+                  value={preferences.notificationsEnabled && preferences.allowDailyFocus}
+                  onValueChange={() => {
+                    void handleToggleDailyFocus();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
+
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle goal nudges"
+                  onPress={handleToggleGoalNudges}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Goal nudges</Text>
+                    <Text style={styles.rowSubtitle}>
+                      A gentle daily nudge to take one tiny step when you have Goals with incomplete Activities.
+                    </Text>
+                  </VStack>
+                </Pressable>
+                <Switch
+                  value={preferences.notificationsEnabled && preferences.allowGoalNudges}
+                  onValueChange={() => {
+                    void handleToggleGoalNudges();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
+              {preferences.notificationsEnabled && preferences.allowGoalNudges && (
+                <Pressable
+                  onPress={() => {
+                    setTimePickerTarget('goalNudge');
+                    setIsTimePickerVisible(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change goal nudge time"
+                  hitSlop={8}
+                >
+                  <Text style={styles.timeLabel}>Time · {goalNudgeTimeLabel}</Text>
+                </Pressable>
+              )}
 
               <Text style={styles.helperText}>
                 Streak nudges and reactivation flows will be added here as they roll out.
@@ -447,6 +488,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
     gap: spacing.md,
+  },
+  rowPressable: {
+    flex: 1,
   },
   rowPressed: {
     backgroundColor: colors.shellAlt,

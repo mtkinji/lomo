@@ -42,7 +42,11 @@ import { useAppStore } from '../store/useAppStore';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Badge } from '../ui/Badge';
 import { rootNavigationRef } from './rootNavigationRef';
-import type { ActivityDetailRouteParams, GoalDetailRouteParams } from './routeParams';
+import type {
+  ActivityDetailRouteParams,
+  GoalDetailRouteParams,
+  ActivitiesListRouteParams,
+} from './routeParams';
 
 export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
@@ -104,7 +108,7 @@ export type GoalsStackParamList = {
 };
 
 export type ActivitiesStackParamList = {
-  ActivitiesList: undefined;
+  ActivitiesList: ActivitiesListRouteParams | undefined;
   ActivityDetail: ActivityDetailRouteParams;
 };
 

@@ -9,12 +9,14 @@ import { Badge } from '../../ui/Badge';
 import { Logo } from '../../ui/Logo';
 import { Card } from '../../ui/Card';
 import { VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
+import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from '../../services/recommendations/nextStep';
 
 const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 
 export function TodayScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
+  const arcs = useAppStore((state) => state.arcs);
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isFocused = useIsFocused();
@@ -24,6 +26,20 @@ export function TodayScreen() {
   }, {});
   const [networkCheck, setNetworkCheck] = useState<string>('pending');
   const today = useMemo(() => new Date(), []);
+  const suggested = useMemo(
+    () =>
+      getSuggestedNextStep({
+        arcs,
+        goals,
+        activities,
+        now: new Date(),
+      }),
+    [activities, arcs, goals],
+  );
+  const showSuggestedCard = useMemo(() => {
+    if (!suggested) return false;
+    return !hasAnyActivitiesScheduledForToday({ activities, now: new Date() });
+  }, [activities, suggested]);
   const greeting = useMemo(
     () =>
       today.toLocaleDateString(undefined, {
@@ -172,6 +188,26 @@ export function TodayScreen() {
               </VStack>
             </Card>
 
+            {showSuggestedCard && (
+              <Card style={[styles.heroCard, styles.suggestedCard]}>
+                <VStack space="sm">
+                  <HStack justifyContent="space-between" alignItems="center">
+                    <Text style={styles.suggestedTitle}>Suggested</Text>
+                    <Text style={styles.suggestedPill}>
+                      {suggested?.kind === 'setup' ? 'Setup' : 'Next step'}
+                    </Text>
+                  </HStack>
+                  <Text style={styles.heroBody}>
+                    {suggested?.kind === 'setup'
+                      ? suggested.reason === 'no_goals'
+                        ? 'Create your first Goal so Kwilt can help you stay consistent.'
+                        : 'Add one Activity so you can build momentum today.'
+                      : 'Here’s a tiny step you can complete today.'}
+                  </Text>
+                </VStack>
+              </Card>
+            )}
+
             <Text style={styles.sectionTitle}>Priorities</Text>
           </VStack>
         }
@@ -210,6 +246,18 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     padding: spacing.xl,
+  },
+  suggestedCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  suggestedTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  suggestedPill: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   heroTitle: {
     ...typography.titleSm,

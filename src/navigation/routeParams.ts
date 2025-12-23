@@ -9,6 +9,11 @@
 export type GoalDetailRouteParams = {
   goalId: string;
   /**
+   * Optional initial tab hint. Used by notification deep links (goal nudges)
+   * and post-goal handoff flows to land on the most relevant canvas.
+   */
+  initialTab?: 'details' | 'plan' | 'history';
+  /**
    * Optional hint about where the user navigated from. When set to
    * "goalsTab", the Goal detail back affordance should return to the Goals
    * canvas rather than stepping back through any existing Arcs stack
@@ -25,6 +30,18 @@ export type ActivityDetailRouteParams = {
    * originating Goal canvas instead of the Activities list.
    */
   entryPoint?: 'activitiesCanvas' | 'goalPlan';
+};
+
+export type ActivitiesListRouteParams = {
+  /**
+   * When true, the Activities canvas will scroll to and highlight the Suggested card.
+   * Used by notification deep links (setupNextStep).
+   */
+  highlightSuggested?: boolean;
+  /**
+   * Optional hint for showing the most relevant Suggested content.
+   */
+  suggestedSource?: 'notification' | 'manual';
 };
 
 

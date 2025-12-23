@@ -4,14 +4,20 @@ import * as Notifications from 'expo-notifications';
 import { posthogClient } from '../analytics/posthogClient';
 import { track } from '../analytics/analytics';
 import { AnalyticsEvent } from '../analytics/events';
+import { NotificationService } from '../NotificationService';
 import {
   deleteActivityReminderLedgerEntry,
   loadActivityReminderLedger,
   loadDailyFocusLedger,
   loadDailyShowUpLedger,
+  loadGoalNudgeLedger,
+  loadSetupNextStepLedger,
   markActivityReminderFired,
+  recordSystemNudgeFiredEstimated,
   saveDailyFocusLedger,
   saveDailyShowUpLedger,
+  saveGoalNudgeLedger,
+  saveSetupNextStepLedger,
 } from './NotificationDeliveryLedger';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -36,6 +42,18 @@ function hasPassedLocalTime(scheduleTimeLocal: string, now: Date): boolean {
   const minutesNow = now.getHours() * 60 + now.getMinutes();
   const minutesTarget = hour * 60 + minute;
   return minutesNow >= minutesTarget;
+}
+
+function nextLocalOccurrence(timeLocal: string, now: Date): Date {
+  const [h, m] = timeLocal.split(':');
+  const hour = Number.parseInt(h ?? '9', 10);
+  const minute = Number.parseInt(m ?? '0', 10);
+  const fireAt = new Date(now);
+  fireAt.setHours(Number.isNaN(hour) ? 9 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+  if (fireAt.getTime() <= now.getTime()) {
+    fireAt.setDate(fireAt.getDate() + 1);
+  }
+  return fireAt;
 }
 
 export async function reconcileNotificationsFiredEstimated(
@@ -76,29 +94,86 @@ export async function reconcileNotificationsFiredEstimated(
     await deleteActivityReminderLedgerEntry(entry.activityId);
   }
 
-  // 2) Daily show-up: repeating notifications do not “disappear”, so we estimate once/day after the time.
+  // 2) Daily show-up: one-shot notification; estimate fired when it disappears from scheduled list.
   const prefs = useAppStore.getState().notificationPreferences;
   if (prefs.notificationsEnabled && prefs.allowDailyShowUp && prefs.osPermissionStatus === 'authorized') {
     const daily = await loadDailyShowUpLedger();
     const timeLocal = daily.scheduleTimeLocal ?? prefs.dailyShowUpTime ?? null;
     if (timeLocal) {
-      const today = dateKeyNow();
-      const alreadyMarked = daily.lastFiredDateKey === today;
-      if (!alreadyMarked && hasPassedLocalTime(timeLocal, now)) {
-        track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
-          notification_type: 'dailyShowUp',
-          notification_id: daily.notificationId ?? null,
-          date_key: today,
-          schedule_time_local: timeLocal,
-          detected_at: nowIso,
-          detection_source: source,
-        });
+      const scheduledMorningNudges = scheduled.filter((req) => {
+        const data = req.content.data as any;
+        return data && (data.type === 'dailyShowUp' || data.type === 'setupNextStep');
+      });
 
-        await saveDailyShowUpLedger({
-          ...daily,
-          scheduleTimeLocal: timeLocal,
-          lastFiredDateKey: today,
-        });
+      if (daily.scheduledForIso && daily.notificationId) {
+        const when = new Date(daily.scheduledForIso);
+        if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+          const stillScheduled = scheduledIds.has(daily.notificationId);
+          if (!stillScheduled) {
+            const todayLocal = localDateKey(now);
+            track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
+              notification_type: 'dailyShowUp',
+              notification_id: daily.notificationId ?? null,
+              date_key: todayLocal,
+              schedule_time_local: timeLocal,
+              detected_at: nowIso,
+              detection_source: source,
+            });
+            await recordSystemNudgeFiredEstimated({
+              dateKey: todayLocal,
+              type: 'dailyShowUp',
+              notificationId: daily.notificationId,
+              firedAtIso: nowIso,
+            });
+            await saveDailyShowUpLedger({
+              notificationId: null,
+              scheduleTimeLocal: timeLocal,
+              scheduledForIso: null,
+              lastFiredDateKey: todayLocal,
+            });
+          }
+        }
+      }
+
+      // Ensure there is a future daily show-up scheduled (best-effort).
+      if (scheduledMorningNudges.length === 0) {
+        // Delegate to NotificationService so caps/suppression/backoff stay consistent.
+        await NotificationService.scheduleDailyShowUp(timeLocal);
+      }
+    }
+  }
+
+  // 2b) setupNextStep: estimate fired when it disappears from scheduled list (one-shot).
+  if (prefs.notificationsEnabled && prefs.allowDailyShowUp && prefs.osPermissionStatus === 'authorized') {
+    const setupLedger = await loadSetupNextStepLedger();
+    if (setupLedger.scheduledForIso && setupLedger.notificationId) {
+      const when = new Date(setupLedger.scheduledForIso);
+      if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+        const stillScheduled = scheduledIds.has(setupLedger.notificationId);
+        if (!stillScheduled) {
+          const todayLocal = localDateKey(now);
+          track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
+            notification_type: 'setupNextStep',
+            notification_id: setupLedger.notificationId ?? null,
+            date_key: todayLocal,
+            schedule_time_local: setupLedger.scheduleTimeLocal ?? null,
+            detected_at: nowIso,
+            detection_source: source,
+          });
+          await recordSystemNudgeFiredEstimated({
+            dateKey: todayLocal,
+            type: 'setupNextStep',
+            notificationId: setupLedger.notificationId,
+            firedAtIso: nowIso,
+          });
+          await saveSetupNextStepLedger({
+            notificationId: null,
+            scheduleTimeLocal: setupLedger.scheduleTimeLocal ?? null,
+            scheduledForIso: null,
+            lastFiredDateKey: todayLocal,
+            reason: setupLedger.reason ?? null,
+          });
+        }
       }
     }
   }
@@ -118,88 +193,85 @@ export async function reconcileNotificationsFiredEstimated(
         return data && data.type === 'dailyFocus';
       });
 
-      // If focus is completed today, cancel any scheduled daily-focus nudges and schedule tomorrow.
-      if (completedToday) {
-        await Promise.all(
-          scheduledDailyFocus.map((req) =>
-            Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
-          ),
-        );
-
-        const [h, m] = timeLocal.split(':');
-        const hour = Number.parseInt(h ?? '8', 10);
-        const minute = Number.parseInt(m ?? '0', 10);
-        const fireAt = new Date(now);
-        fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
-        fireAt.setDate(fireAt.getDate() + 1);
-
-        const identifier = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Finish one focus session today',
-            body:
-              'Complete one full timer—earn clarity now, and build momentum that makes tomorrow easier.',
-            data: { type: 'dailyFocus' },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: fireAt,
-          },
-        });
-
-        await saveDailyFocusLedger({
-          notificationId: identifier,
-          scheduleTimeLocal: timeLocal,
-        });
-      } else {
-        // If nothing is scheduled, schedule the next occurrence (today if still upcoming; else tomorrow).
-        if (scheduledDailyFocus.length === 0) {
-          const [h, m] = timeLocal.split(':');
-          const hour = Number.parseInt(h ?? '8', 10);
-          const minute = Number.parseInt(m ?? '0', 10);
-          const fireAt = new Date(now);
-          fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
-          if (fireAt.getTime() <= now.getTime()) {
-            fireAt.setDate(fireAt.getDate() + 1);
+      // Estimate fired when it disappears.
+      if (focusLedger.scheduledForIso && focusLedger.notificationId) {
+        const when = new Date(focusLedger.scheduledForIso);
+        if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+          const stillScheduled = scheduledIds.has(focusLedger.notificationId);
+          if (!stillScheduled) {
+            track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
+              notification_type: 'dailyFocus',
+              notification_id: focusLedger.notificationId ?? null,
+              date_key: todayLocal,
+              schedule_time_local: timeLocal,
+              detected_at: nowIso,
+              detection_source: source,
+            });
+            await recordSystemNudgeFiredEstimated({
+              dateKey: todayLocal,
+              type: 'dailyFocus',
+              notificationId: focusLedger.notificationId,
+              firedAtIso: nowIso,
+            });
+            await saveDailyFocusLedger({
+              ...focusLedger,
+              notificationId: null,
+              scheduleTimeLocal: timeLocal,
+              scheduledForIso: null,
+              lastFiredDateKey: todayLocal,
+            });
           }
-
-          const identifier = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Finish one focus session today',
-              body:
-                'Complete one full timer—earn clarity now, and build momentum that makes tomorrow easier.',
-              data: { type: 'dailyFocus' },
-            },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.DATE,
-              date: fireAt,
-            },
-          });
-
-          await saveDailyFocusLedger({
-            notificationId: identifier,
-            scheduleTimeLocal: timeLocal,
-          });
         }
       }
 
-      // Best-effort: estimate "fired" once/day after the scheduled time.
-      const alreadyMarked = focusLedger.lastFiredDateKey === todayLocal;
-      if (!alreadyMarked && hasPassedLocalTime(timeLocal, now)) {
-        track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
-          notification_type: 'dailyFocus',
-          notification_id: focusLedger.notificationId ?? null,
-          date_key: todayLocal,
-          schedule_time_local: timeLocal,
-          detected_at: nowIso,
-          detection_source: source,
-        });
-
-        await saveDailyFocusLedger({
-          ...focusLedger,
-          scheduleTimeLocal: timeLocal,
-          lastFiredDateKey: todayLocal,
-        });
+      // If focus is completed today, cancel any scheduled daily-focus nudges and schedule tomorrow.
+      // Delegate to NotificationService so focus scheduling stays consistent (and avoids duplicates on cold start).
+      if (completedToday || scheduledDailyFocus.length === 0) {
+        await NotificationService.scheduleDailyFocus(timeLocal);
       }
+    }
+  }
+
+  // 4) Goal nudges: one-shot notification; estimate fired when it disappears from scheduled list.
+  if (prefs.notificationsEnabled && prefs.allowGoalNudges && prefs.osPermissionStatus === 'authorized') {
+    const goalNudgeLedger = await loadGoalNudgeLedger();
+    const timeLocal = goalNudgeLedger.scheduleTimeLocal ?? (prefs as any).goalNudgeTime ?? '16:00';
+
+    const scheduledGoalNudges = scheduled.filter((req) => {
+      const data = req.content.data as any;
+      return data && data.type === 'goalNudge';
+    });
+
+    // If we had a recorded scheduledForIso and it is in the past, but the notification is no longer scheduled,
+    // treat it as fired and update system-nudge caps.
+    if (goalNudgeLedger.scheduledForIso && goalNudgeLedger.notificationId) {
+      const when = new Date(goalNudgeLedger.scheduledForIso);
+      if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+        const stillScheduled = scheduledIds.has(goalNudgeLedger.notificationId);
+        if (!stillScheduled) {
+          const todayLocal = localDateKey(now);
+          await recordSystemNudgeFiredEstimated({
+            dateKey: todayLocal,
+            type: 'goalNudge',
+            notificationId: goalNudgeLedger.notificationId,
+            firedAtIso: nowIso,
+          });
+
+          await saveGoalNudgeLedger({
+            notificationId: null,
+            scheduleTimeLocal: timeLocal,
+            lastFiredDateKey: todayLocal,
+            goalId: goalNudgeLedger.goalId ?? null,
+            scheduledForIso: null,
+          });
+        }
+      }
+    }
+
+    // Ensure there is a future goal nudge scheduled if eligible (best-effort).
+    if (scheduledGoalNudges.length === 0) {
+      // Delegate to NotificationService so caps/suppression/backoff/personalization stay consistent.
+      await NotificationService.scheduleGoalNudge();
     }
   }
 }
