@@ -1255,6 +1255,7 @@ export const NotificationService = {
       await Promise.all(ids.map((id) => cancelActivityReminderInternal(id)));
       await cancelDailyShowUpInternal();
       await cancelDailyFocusInternal();
+      await cancelGoalNudgeInternal();
       return;
     }
 
@@ -1321,6 +1322,13 @@ export const NotificationService = {
           title: 'Dev: Daily show-up test',
           body: 'This is a dev-mode daily show-up notification.',
           data: { type: 'dailyShowUp' satisfies NotificationData['type'] },
+        };
+        break;
+      case 'goalNudge':
+        content = {
+          title: 'Dev: Goal nudge test',
+          body: 'Tap to open a Goal plan.',
+          data: { type: 'goalNudge', goalId: useAppStore.getState().goals[0]?.id ?? 'missing' },
         };
         break;
       case 'dailyFocus':
