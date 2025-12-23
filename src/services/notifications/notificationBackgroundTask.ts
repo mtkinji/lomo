@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { posthogClient } from '../analytics/posthogClient';
 import { track } from '../analytics/analytics';
 import { AnalyticsEvent } from '../analytics/events';
+import { NotificationService } from '../NotificationService';
 import {
   deleteActivityReminderLedgerEntry,
   loadActivityReminderLedger,
@@ -13,15 +14,12 @@ import {
   loadSetupNextStepLedger,
   markActivityReminderFired,
   recordSystemNudgeFiredEstimated,
-  recordSystemNudgeScheduled,
   saveDailyFocusLedger,
   saveDailyShowUpLedger,
   saveGoalNudgeLedger,
   saveSetupNextStepLedger,
 } from './NotificationDeliveryLedger';
 import { useAppStore } from '../../store/useAppStore';
-import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './goalNudge';
-import { getSuggestedNextStep } from '../recommendations/nextStep';
 
 export const NOTIFICATION_RECONCILE_TASK = 'kwilt-notification-reconcile-v1';
 
@@ -139,80 +137,8 @@ export async function reconcileNotificationsFiredEstimated(
 
       // Ensure there is a future daily show-up scheduled (best-effort).
       if (scheduledMorningNudges.length === 0) {
-        const state = useAppStore.getState();
-        const suggested = getSuggestedNextStep({
-          arcs: state.arcs,
-          goals: state.goals,
-          activities: state.activities,
-          now,
-        });
-        const isSetup = suggested?.kind === 'setup';
-
-        const fireAt = nextLocalOccurrence(timeLocal, now);
-        const type = isSetup ? 'setupNextStep' : 'dailyShowUp';
-        const identifier = await Notifications.scheduleNotificationAsync({
-          content: {
-            title:
-              type === 'setupNextStep'
-                ? suggested?.kind === 'setup' && suggested.reason === 'no_goals'
-                  ? 'Start your first goal'
-                  : 'Add one tiny step'
-                : 'Align your day with your arcs',
-            body:
-              type === 'setupNextStep'
-                ? suggested?.kind === 'setup' && suggested.reason === 'no_goals'
-                  ? 'Create one goal so Kwilt can start nudging you at the right moments.'
-                  : 'Add one Activity so you can build momentum today.'
-                : 'Open Kwilt to review Today and choose one tiny step.',
-            data:
-              type === 'setupNextStep'
-                ? { type: 'setupNextStep', reason: suggested?.kind === 'setup' ? suggested.reason : 'no_activities' }
-                : { type: 'dailyShowUp' },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: fireAt,
-          },
-        });
-        track(posthogClient, AnalyticsEvent.NotificationScheduled, {
-          notification_type: type,
-          notification_id: identifier,
-          scheduled_for: fireAt.toISOString(),
-          schedule_time_local: timeLocal,
-          scheduled_source: source,
-        });
-        if (type === 'setupNextStep') {
-          await saveSetupNextStepLedger({
-            notificationId: identifier,
-            scheduleTimeLocal: timeLocal,
-            reason: suggested?.kind === 'setup' ? suggested.reason : 'no_activities',
-            scheduledForIso: fireAt.toISOString(),
-          });
-          // Clear the opposite ledger so fired estimation doesn't double-count.
-          await saveDailyShowUpLedger({
-            notificationId: null,
-            scheduleTimeLocal: timeLocal,
-            scheduledForIso: null,
-          });
-        } else {
-          await saveDailyShowUpLedger({
-            notificationId: identifier,
-            scheduleTimeLocal: timeLocal,
-            scheduledForIso: fireAt.toISOString(),
-          });
-          await saveSetupNextStepLedger({
-            notificationId: null,
-            scheduleTimeLocal: timeLocal,
-            scheduledForIso: null,
-            reason: null,
-          });
-        }
-        await recordSystemNudgeScheduled({
-          dateKey: localDateKey(fireAt),
-          type,
-          notificationId: identifier,
-          scheduledForIso: fireAt.toISOString(),
-        });
+        // Delegate to NotificationService so caps/suppression/backoff stay consistent.
+        await NotificationService.scheduleDailyShowUp(timeLocal);
       }
     }
   }
@@ -299,81 +225,9 @@ export async function reconcileNotificationsFiredEstimated(
       }
 
       // If focus is completed today, cancel any scheduled daily-focus nudges and schedule tomorrow.
-      if (completedToday) {
-        await Promise.all(
-          scheduledDailyFocus.map((req) =>
-            Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
-          ),
-        );
-
-        const [h, m] = timeLocal.split(':');
-        const hour = Number.parseInt(h ?? '8', 10);
-        const minute = Number.parseInt(m ?? '0', 10);
-        const fireAt = new Date(now);
-        fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
-        fireAt.setDate(fireAt.getDate() + 1);
-
-        const identifier = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Finish one focus session today',
-            body:
-              'Complete one full timer—earn clarity now, and build momentum that makes tomorrow easier.',
-            data: { type: 'dailyFocus' },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: fireAt,
-          },
-        });
-
-        await saveDailyFocusLedger({
-          notificationId: identifier,
-          scheduleTimeLocal: timeLocal,
-          scheduledForIso: fireAt.toISOString(),
-        });
-        await recordSystemNudgeScheduled({
-          dateKey: localDateKey(fireAt),
-          type: 'dailyFocus',
-          notificationId: identifier,
-          scheduledForIso: fireAt.toISOString(),
-        });
-      } else {
-        // If nothing is scheduled, schedule the next occurrence (today if still upcoming; else tomorrow).
-        if (scheduledDailyFocus.length === 0) {
-          const [h, m] = timeLocal.split(':');
-          const hour = Number.parseInt(h ?? '8', 10);
-          const minute = Number.parseInt(m ?? '0', 10);
-          const fireAt = new Date(now);
-          fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
-          if (fireAt.getTime() <= now.getTime()) {
-            fireAt.setDate(fireAt.getDate() + 1);
-          }
-
-          const identifier = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Finish one focus session today',
-              body:
-                'Complete one full timer—earn clarity now, and build momentum that makes tomorrow easier.',
-              data: { type: 'dailyFocus' },
-            },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.DATE,
-              date: fireAt,
-            },
-          });
-
-          await saveDailyFocusLedger({
-            notificationId: identifier,
-            scheduleTimeLocal: timeLocal,
-            scheduledForIso: fireAt.toISOString(),
-          });
-          await recordSystemNudgeScheduled({
-            dateKey: localDateKey(fireAt),
-            type: 'dailyFocus',
-            notificationId: identifier,
-            scheduledForIso: fireAt.toISOString(),
-          });
-        }
+      // Delegate to NotificationService so focus scheduling stays consistent (and avoids duplicates on cold start).
+      if (completedToday || scheduledDailyFocus.length === 0) {
+        await NotificationService.scheduleDailyFocus(timeLocal);
       }
     }
   }
@@ -416,52 +270,8 @@ export async function reconcileNotificationsFiredEstimated(
 
     // Ensure there is a future goal nudge scheduled if eligible (best-effort).
     if (scheduledGoalNudges.length === 0) {
-      const state = useAppStore.getState();
-      const candidate = pickGoalNudgeCandidate({
-        arcs: state.arcs,
-        goals: state.goals,
-        activities: state.activities,
-        now,
-      });
-      if (candidate) {
-        // v2 caps/backoff are enforced by NotificationService scheduling, but background reconcile
-        // should still record scheduled entries for telemetry + future caps.
-          const fireAt = nextLocalOccurrence(timeLocal, now);
-          const identifier = await Notifications.scheduleNotificationAsync({
-            content: {
-              ...buildGoalNudgeContent({ goalTitle: candidate.goalTitle, arcName: candidate.arcName }),
-              data: { type: 'goalNudge', goalId: candidate.goalId },
-            },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.DATE,
-              date: fireAt,
-            },
-          });
-
-          track(posthogClient, AnalyticsEvent.NotificationScheduled, {
-            notification_type: 'goalNudge',
-            notification_id: identifier,
-            goal_id: candidate.goalId,
-            scheduled_for: fireAt.toISOString(),
-            schedule_time_local: timeLocal,
-            scheduled_source: source,
-          });
-
-          await saveGoalNudgeLedger({
-            notificationId: identifier,
-            scheduleTimeLocal: timeLocal,
-            goalId: candidate.goalId,
-            scheduledForIso: fireAt.toISOString(),
-          });
-
-          const dateKey = localDateKey(fireAt);
-          await recordSystemNudgeScheduled({
-            dateKey,
-            type: 'goalNudge',
-            notificationId: identifier,
-            scheduledForIso: fireAt.toISOString(),
-          });
-      }
+      // Delegate to NotificationService so caps/suppression/backoff/personalization stay consistent.
+      await NotificationService.scheduleGoalNudge();
     }
   }
 }

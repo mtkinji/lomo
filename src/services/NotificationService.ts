@@ -19,10 +19,6 @@ import {
 } from './notifications/NotificationDeliveryLedger';
 import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './notifications/goalNudge';
 import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from './recommendations/nextStep';
-import {
-  reconcileNotificationsFiredEstimated,
-  registerNotificationReconcileTask,
-} from './notifications/notificationBackgroundTask';
 
 type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted';
 
@@ -207,6 +203,40 @@ async function cancelAllScheduledSetupNextSteps(reason: 'reschedule' | 'explicit
     }
   } finally {
     setupNextStepNotificationId = null;
+  }
+}
+
+async function cancelAllScheduledDailyFocuses(reason: 'reschedule' | 'explicit_cancel') {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(data && data.type === 'dailyFocus');
+    });
+    if (matches.length === 0) {
+      dailyFocusNotificationId = null;
+      return;
+    }
+
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'dailyFocus',
+        notification_id: req.identifier,
+        reason,
+      });
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to cancel daily focus notification(s)', { error });
+    }
+  } finally {
+    dailyFocusNotificationId = null;
   }
 }
 
@@ -814,23 +844,7 @@ async function scheduleDailyFocusInternal(time: string, prefs: NotificationPrefe
   }
 
   // Cancel any existing daily focus notification before scheduling a new one.
-  if (dailyFocusNotificationId) {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(dailyFocusNotificationId);
-      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
-        notification_type: 'dailyFocus',
-        notification_id: dailyFocusNotificationId,
-        reason: 'reschedule',
-      });
-    } catch (error) {
-      if (__DEV__) {
-        console.warn('[notifications] failed to cancel previous daily focus notification', {
-          error,
-        });
-      }
-    }
-    dailyFocusNotificationId = null;
-  }
+  await cancelAllScheduledDailyFocuses('reschedule');
 
   try {
     const identifier = await Notifications.scheduleNotificationAsync({
@@ -874,14 +888,8 @@ async function scheduleDailyFocusInternal(time: string, prefs: NotificationPrefe
 }
 
 async function cancelDailyFocusInternal() {
-  if (!dailyFocusNotificationId) return;
   try {
-    await Notifications.cancelScheduledNotificationAsync(dailyFocusNotificationId);
-    track(posthogClient, AnalyticsEvent.NotificationCancelled, {
-      notification_type: 'dailyFocus',
-      notification_id: dailyFocusNotificationId,
-      reason: 'explicit_cancel',
-    });
+    await cancelAllScheduledDailyFocuses('explicit_cancel');
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to cancel daily focus notification', { error });
@@ -1401,14 +1409,6 @@ export const NotificationService = {
     attachNotificationReceivedListener();
     attachNotificationResponseListener();
     await captureLastNotificationOpenIfAny();
-    // Best-effort background reconciliation for "fired" notifications without a server.
-    await registerNotificationReconcileTask().catch((error) => {
-      if (__DEV__) {
-        console.warn('[notifications] failed to register background reconcile task', error);
-      }
-    });
-    // Reconcile on launch too (covers cases where background fetch doesn't run).
-    await reconcileNotificationsFiredEstimated('app_launch');
   },
 
   async ensurePermissionWithRationale(reason: 'activity' | 'daily'): Promise<boolean> {
@@ -1474,6 +1474,11 @@ export const NotificationService = {
 
   async cancelDailyFocus() {
     await cancelDailyFocusInternal();
+  },
+
+  async scheduleGoalNudge() {
+    const prefs = getPreferences();
+    await scheduleGoalNudgeInternal(prefs);
   },
 
   /**

@@ -22,6 +22,10 @@ import { FirstTimeUxFlow } from './src/features/onboarding/FirstTimeUxFlow';
 import { useAppStore } from './src/store/useAppStore';
 import { useEntitlementsStore } from './src/store/useEntitlementsStore';
 import { NotificationService } from './src/services/NotificationService';
+import {
+  reconcileNotificationsFiredEstimated,
+  registerNotificationReconcileTask,
+} from './src/services/notifications/notificationBackgroundTask';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
@@ -58,6 +62,18 @@ export default function App() {
     NotificationService.init().catch((error) => {
       if (__DEV__) {
         console.warn('[notifications] init failed', error);
+      }
+    });
+    // Best-effort background reconciliation for "fired" notifications without a server.
+    registerNotificationReconcileTask().catch((error) => {
+      if (__DEV__) {
+        console.warn('[notifications] failed to register background reconcile task', error);
+      }
+    });
+    // Reconcile on launch too (covers cases where background fetch doesn't run).
+    reconcileNotificationsFiredEstimated('app_launch').catch((error) => {
+      if (__DEV__) {
+        console.warn('[notifications] launch reconcile failed', error);
       }
     });
 
