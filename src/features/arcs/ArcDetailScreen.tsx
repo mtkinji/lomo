@@ -372,6 +372,38 @@ export function ArcDetailScreen() {
     );
   }, [arc, handleBackToArcs, removeArc]);
 
+  const handleToggleArchiveArc = useCallback(() => {
+    if (!arc) return;
+
+    const isArchived = arc.status === 'archived';
+    const nextStatus = isArchived ? 'active' : 'archived';
+    const actionLabel = isArchived ? 'Restore' : 'Archive';
+    const detail = isArchived
+      ? 'This will make the arc active again.'
+      : 'Archived arcs stay in your history, but are hidden from your main list.';
+
+    Alert.alert(`${actionLabel} arc?`, detail, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: actionLabel,
+        onPress: () => {
+          const timestamp = new Date().toISOString();
+          updateArc(arc.id, (prev) => ({
+            ...prev,
+            status: nextStatus,
+            updatedAt: timestamp,
+          }));
+
+          // After archiving, return to the Arcs canvas so users don't end up
+          // "stuck" in an archived detail surface.
+          if (!isArchived) {
+            handleBackToArcs();
+          }
+        },
+      },
+    ]);
+  }, [arc, handleBackToArcs, updateArc]);
+
   const handleShuffleHeroThumbnail = useCallback(() => {
     if (!arc) {
       return;
@@ -757,17 +789,17 @@ export function ArcDetailScreen() {
                       <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                         {/* Primary, non-destructive action(s) first */}
                         <DropdownMenuItem
-                          onPress={() => {
-                            // TODO: wire up real archive behavior once the store exposes it.
-                            Alert.alert(
-                              'Archive arc',
-                              'Archiving is not yet implemented. This will be wired to an archive action in the store.'
-                            );
-                          }}
+                          onPress={handleToggleArchiveArc}
                         >
                           <View style={styles.menuItemRow}>
-                            <Icon name="info" size={16} color={colors.textSecondary} />
-                            <Text style={styles.menuItemLabel}>Archive</Text>
+                            <Icon
+                              name={arc?.status === 'archived' ? 'refresh' : 'archive'}
+                              size={16}
+                              color={colors.textSecondary}
+                            />
+                            <Text style={styles.menuItemLabel}>
+                              {arc?.status === 'archived' ? 'Restore' : 'Archive'}
+                            </Text>
                           </View>
                         </DropdownMenuItem>
 
@@ -816,17 +848,17 @@ export function ArcDetailScreen() {
                       <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                     {/* Primary, non-destructive action(s) first */}
                     <DropdownMenuItem
-                      onPress={() => {
-                        // TODO: wire up real archive behavior once the store exposes it.
-                        Alert.alert(
-                          'Archive arc',
-                          'Archiving is not yet implemented. This will be wired to an archive action in the store.'
-                        );
-                      }}
+                      onPress={handleToggleArchiveArc}
                     >
                       <View style={styles.menuItemRow}>
-                        <Icon name="info" size={16} color={colors.textSecondary} />
-                        <Text style={styles.menuItemLabel}>Archive</Text>
+                        <Icon
+                          name={arc?.status === 'archived' ? 'refresh' : 'archive'}
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.menuItemLabel}>
+                          {arc?.status === 'archived' ? 'Restore' : 'Archive'}
+                        </Text>
                       </View>
                     </DropdownMenuItem>
 
