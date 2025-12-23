@@ -48,6 +48,7 @@ Configure these as **Supabase Function secrets** (never in the client):
 - `KWILT_AI_IMAGE_ACTION_COST` (default: 10)
 - `KWILT_AI_MAX_REQUEST_BYTES` (default: 120000)
 - `KWILT_AI_MAX_OUTPUT_TOKENS` (default: 1200)
+- `KWILT_AI_RPM_LIMIT` (requests/minute per installId; recommended: 50)
 
 ---
 
@@ -85,6 +86,8 @@ npx supabase functions deploy ai-chat
 - Add daily rails to prevent burst spend:
   - Free: 2–3/day
   - Pro: 50–100/day
+- Add a per-minute safety rail to prevent runaway loops:
+  - Free + Pro: 50 requests/minute
 
 ### How to tune using real usage (recommended)
 

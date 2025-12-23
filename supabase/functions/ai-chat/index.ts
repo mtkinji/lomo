@@ -53,12 +53,26 @@ function nextUtcMonthIso(now: Date): string {
   return next.toISOString();
 }
 
+function nextUtcMinuteIso(now: Date): string {
+  const next = new Date(now.getTime());
+  next.setUTCSeconds(0, 0);
+  next.setUTCMinutes(next.getUTCMinutes() + 1);
+  return next.toISOString();
+}
+
 function getMonthlyActionsLimit(isPro: boolean): number {
   const raw = Deno.env.get(isPro ? 'KWILT_AI_MONTHLY_PRO_ACTIONS' : 'KWILT_AI_MONTHLY_FREE_ACTIONS');
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
   // Defaults match app posture: Free 25/mo, Pro 1000/mo.
   return isPro ? 1000 : 25;
+}
+
+function getRpmLimit(): number {
+  const raw = Deno.env.get('KWILT_AI_RPM_LIMIT');
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return 50;
 }
 
 function getDailyRailLimit(isPro: boolean): number | null {
@@ -169,6 +183,18 @@ async function incrementMonthlyUsage(params: {
   return typeof data === 'number' ? data : null;
 }
 
+async function incrementMinutelyUsage(params: { quotaKey: string; minuteIso: string }): Promise<number | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin.rpc('kwilt_increment_ai_usage_minutely', {
+    p_quota_key: params.quotaKey,
+    p_minute: params.minuteIso,
+  });
+  if (error) return null;
+  return typeof data === 'number' ? data : null;
+}
+
 function safeJsonParse(text: string): any | null {
   try {
     return JSON.parse(text);
@@ -247,6 +273,7 @@ serve(async (req) => {
   const month = getUtcMonthKey(now);
   const monthlyLimit = getMonthlyActionsLimit(isPro);
   const dailyRail = getDailyRailLimit(isPro);
+  const rpmLimit = getRpmLimit();
 
   // Basic payload size guardrails (prevents accidental huge context).
   const maxBytes = getMaxRequestBytes();
@@ -275,6 +302,41 @@ serve(async (req) => {
 
   // Determine action cost: 1 per chat completion call; higher for image generation.
   const actionsCost = route === '/v1/images/generations' ? getImageActionsCost() : 1;
+
+  // Per-minute request limiter (applies equally to Free + Pro).
+  // This is independent of actionsCost and exists to stop runaway loops / abuse bursts.
+  if (rpmLimit > 0) {
+    const minuteIso = now.toISOString();
+    const minuteCount = await incrementMinutelyUsage({ quotaKey, minuteIso });
+    if (minuteCount == null) {
+      return json(503, {
+        error: { message: 'AI proxy misconfigured (rate limiter)', code: 'provider_unavailable' },
+      });
+    }
+    if (minuteCount > rpmLimit) {
+      const retryAt = nextUtcMinuteIso(now);
+      await recordRequest({
+        quotaKey,
+        isPro,
+        route,
+        status: 429,
+        durationMs: 0,
+        errorCode: 'rate_limited',
+        actionsCost,
+      });
+      return json(
+        429,
+        {
+          error: {
+            message: 'Rate limit exceeded. Please retry shortly.',
+            code: 'rate_limited',
+            retryAt,
+          },
+        },
+        { 'Retry-After': retryAt }
+      );
+    }
+  }
 
   // Daily rail (optional) uses the existing daily counter RPC.
   if (dailyRail) {
