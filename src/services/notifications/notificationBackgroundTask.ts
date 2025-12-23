@@ -102,9 +102,9 @@ export async function reconcileNotificationsFiredEstimated(
     const daily = await loadDailyShowUpLedger();
     const timeLocal = daily.scheduleTimeLocal ?? prefs.dailyShowUpTime ?? null;
     if (timeLocal) {
-      const scheduledShowUps = scheduled.filter((req) => {
+      const scheduledMorningNudges = scheduled.filter((req) => {
         const data = req.content.data as any;
-        return data && data.type === 'dailyShowUp';
+        return data && (data.type === 'dailyShowUp' || data.type === 'setupNextStep');
       });
 
       if (daily.scheduledForIso && daily.notificationId) {
@@ -138,7 +138,7 @@ export async function reconcileNotificationsFiredEstimated(
       }
 
       // Ensure there is a future daily show-up scheduled (best-effort).
-      if (scheduledShowUps.length === 0) {
+      if (scheduledMorningNudges.length === 0) {
         const state = useAppStore.getState();
         const suggested = getSuggestedNextStep({
           arcs: state.arcs,
@@ -188,11 +188,23 @@ export async function reconcileNotificationsFiredEstimated(
             reason: suggested?.kind === 'setup' ? suggested.reason : 'no_activities',
             scheduledForIso: fireAt.toISOString(),
           });
+          // Clear the opposite ledger so fired estimation doesn't double-count.
+          await saveDailyShowUpLedger({
+            notificationId: null,
+            scheduleTimeLocal: timeLocal,
+            scheduledForIso: null,
+          });
         } else {
           await saveDailyShowUpLedger({
             notificationId: identifier,
             scheduleTimeLocal: timeLocal,
             scheduledForIso: fireAt.toISOString(),
+          });
+          await saveSetupNextStepLedger({
+            notificationId: null,
+            scheduleTimeLocal: timeLocal,
+            scheduledForIso: null,
+            reason: null,
           });
         }
         await recordSystemNudgeScheduled({

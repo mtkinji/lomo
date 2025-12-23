@@ -1240,7 +1240,7 @@ function attachNotificationResponseListener() {
         // If the user has already completed an Activity today, we can quietly
         // skip the daily show-up navigation to avoid redundant nudges.
         const state = useAppStore.getState();
-        const todayKey = new Date().toISOString().slice(0, 10);
+        const todayKey = localDateKey(new Date());
         if (state.lastShowUpDate === todayKey) {
           return;
         }

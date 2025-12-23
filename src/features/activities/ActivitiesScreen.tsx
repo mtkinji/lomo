@@ -1339,6 +1339,10 @@ export function ActivitiesScreen() {
                         return;
                       }
                       if (suggested.kind === 'setup') {
+                        if (suggested.reason === 'no_goals') {
+                          navigation.navigate('Goals', { screen: 'GoalsList' });
+                          return;
+                        }
                         setActivityCoachVisible(true);
                         return;
                       }
@@ -1346,7 +1350,11 @@ export function ActivitiesScreen() {
                     }}
                   >
                     <ButtonLabel size="sm" tone="inverse">
-                      {suggested?.kind === 'setup' ? 'Add activity' : 'Open activity'}
+                      {suggested?.kind === 'setup'
+                        ? suggested.reason === 'no_goals'
+                          ? 'Create goal'
+                          : 'Add activity'
+                        : 'Open activity'}
                     </ButtonLabel>
                   </Button>
                   <Button
