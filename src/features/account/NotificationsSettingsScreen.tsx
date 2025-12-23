@@ -287,31 +287,34 @@ export function NotificationsSettingsScreen() {
               </View>
 
               <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle daily show-up reminder"
-                  onPress={handleToggleDailyShowUp}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Daily show-up reminder</Text>
-                    <Text style={styles.rowSubtitle}>
-                      Get a gentle nudge once a day to review Today and choose one tiny step.
-                    </Text>
-                    {preferences.allowDailyShowUp && (
-                      <Pressable
-                        onPress={() => {
-                          setTimePickerTarget('dailyShowUp');
-                          setIsTimePickerVisible(true);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Change daily reminder time"
-                      >
-                        <Text style={styles.timeLabel}>Time · {dailyShowUpTimeLabel}</Text>
-                      </Pressable>
-                    )}
-                  </VStack>
-                </Pressable>
+                <View style={styles.rowPressable}>
+                  <Pressable
+                    style={({ pressed }) => [pressed && styles.rowPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Toggle daily show-up reminder"
+                    onPress={handleToggleDailyShowUp}
+                  >
+                    <VStack>
+                      <Text style={styles.rowTitle}>Daily show-up reminder</Text>
+                      <Text style={styles.rowSubtitle}>
+                        Get a gentle nudge once a day to review Today and choose one tiny step.
+                      </Text>
+                    </VStack>
+                  </Pressable>
+                  {preferences.notificationsEnabled && preferences.allowDailyShowUp && (
+                    <Pressable
+                      onPress={() => {
+                        setTimePickerTarget('dailyShowUp');
+                        setIsTimePickerVisible(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change daily reminder time"
+                      hitSlop={8}
+                    >
+                      <Text style={styles.timeLabel}>Time · {dailyShowUpTimeLabel}</Text>
+                    </Pressable>
+                  )}
+                </View>
                 <Switch
                   value={preferences.notificationsEnabled && preferences.allowDailyShowUp}
                   onValueChange={() => {
@@ -323,31 +326,34 @@ export function NotificationsSettingsScreen() {
               </View>
 
               <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle daily focus reminder"
-                  onPress={handleToggleDailyFocus}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Daily focus session</Text>
-                    <Text style={styles.rowSubtitle}>
-                      A once-a-day nudge to finish one full Focus timer (clarity + momentum).
-                    </Text>
-                    {preferences.allowDailyFocus && (
-                      <Pressable
-                        onPress={() => {
-                          setTimePickerTarget('dailyFocus');
-                          setIsTimePickerVisible(true);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Change daily focus reminder time"
-                      >
-                        <Text style={styles.timeLabel}>Time · {dailyFocusTimeLabel}</Text>
-                      </Pressable>
-                    )}
-                  </VStack>
-                </Pressable>
+                <View style={styles.rowPressable}>
+                  <Pressable
+                    style={({ pressed }) => [pressed && styles.rowPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Toggle daily focus reminder"
+                    onPress={handleToggleDailyFocus}
+                  >
+                    <VStack>
+                      <Text style={styles.rowTitle}>Daily focus session</Text>
+                      <Text style={styles.rowSubtitle}>
+                        A once-a-day nudge to finish one full Focus timer (clarity + momentum).
+                      </Text>
+                    </VStack>
+                  </Pressable>
+                  {preferences.notificationsEnabled && preferences.allowDailyFocus && (
+                    <Pressable
+                      onPress={() => {
+                        setTimePickerTarget('dailyFocus');
+                        setIsTimePickerVisible(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change daily focus reminder time"
+                      hitSlop={8}
+                    >
+                      <Text style={styles.timeLabel}>Time · {dailyFocusTimeLabel}</Text>
+                    </Pressable>
+                  )}
+                </View>
                 <Switch
                   value={preferences.notificationsEnabled && preferences.allowDailyFocus}
                   onValueChange={() => {
