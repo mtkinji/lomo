@@ -64,6 +64,7 @@ const SYSTEM_NUDGE_TYPES: Array<NotificationData['type']> = [
 ];
 const SYSTEM_NUDGE_DAILY_CAP = 2;
 const SYSTEM_NUDGE_MIN_SPACING_MS = 6 * 60 * 60 * 1000;
+const SYSTEM_NUDGE_SUPPRESS_UPCOMING_ACTIVITY_REMINDER_MS = 3 * 60 * 60 * 1000;
 
 let responseSubscription:
   | Notifications.Subscription
@@ -152,6 +153,23 @@ function addLocalDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
+}
+
+function hasUpcomingExplicitActivityReminder(params: {
+  activities: ActivitySnapshotExtended[];
+  now: Date;
+  windowMs: number;
+}): boolean {
+  const { activities, now, windowMs } = params;
+  const nowMs = now.getTime();
+  const endMs = nowMs + windowMs;
+  return activities.some((a) => {
+    if (!a.reminderAt) return false;
+    if (a.status === 'done' || a.status === 'cancelled') return false;
+    const whenMs = new Date(a.reminderAt).getTime();
+    if (Number.isNaN(whenMs)) return false;
+    return whenMs > nowMs && whenMs <= endMs;
+  });
 }
 
 async function applyGlobalSystemNudgeGuards(params: {
@@ -771,6 +789,27 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
     fireAt.setDate(fireAt.getDate() + 1);
   }
 
+  // Suppression: if the user already has an explicit Activity reminder coming up soon,
+  // avoid stacking an additional system nudge in the same window.
+  const activitySnapshots: ActivitySnapshotExtended[] = useAppStore.getState().activities.map((activity) => ({
+    id: activity.id,
+    title: activity.title,
+    goalId: activity.goalId,
+    reminderAt: activity.reminderAt ?? null,
+    status: activity.status,
+    repeatRule: activity.repeatRule ?? undefined,
+    repeatCustom: activity.repeatCustom ?? undefined,
+  }));
+  if (
+    hasUpcomingExplicitActivityReminder({
+      activities: activitySnapshots,
+      now,
+      windowMs: SYSTEM_NUDGE_SUPPRESS_UPCOMING_ACTIVITY_REMINDER_MS,
+    })
+  ) {
+    fireAt.setDate(fireAt.getDate() + 1);
+  }
+
   fireAt = await applyGlobalSystemNudgeGuards({
     fireAt,
     type: isSetup ? 'setupNextStep' : 'dailyShowUp',
@@ -1082,6 +1121,27 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
   if (noOpenCount >= 2) {
+    fireAt.setDate(fireAt.getDate() + 1);
+  }
+
+  // Suppression: if the user already has an explicit Activity reminder coming up soon,
+  // avoid stacking a goal nudge in the same window.
+  const activitySnapshots: ActivitySnapshotExtended[] = state.activities.map((activity) => ({
+    id: activity.id,
+    title: activity.title,
+    goalId: activity.goalId,
+    reminderAt: activity.reminderAt ?? null,
+    status: activity.status,
+    repeatRule: activity.repeatRule ?? undefined,
+    repeatCustom: activity.repeatCustom ?? undefined,
+  }));
+  if (
+    hasUpcomingExplicitActivityReminder({
+      activities: activitySnapshots,
+      now,
+      windowMs: SYSTEM_NUDGE_SUPPRESS_UPCOMING_ACTIVITY_REMINDER_MS,
+    })
+  ) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
 

@@ -44,6 +44,7 @@ jest.mock('./recommendations/nextStep', () => ({
 import { useAppStore } from '../store/useAppStore';
 import { loadSystemNudgeLedger } from './notifications/NotificationDeliveryLedger';
 import { NotificationService } from './NotificationService';
+import { getSuggestedNextStep } from './recommendations/nextStep';
 
 function setStoreState(overrides: any = {}) {
   (useAppStore.getState as jest.Mock).mockReturnValue({
@@ -99,6 +100,42 @@ describe('NotificationService system-nudge policy', () => {
     expect(fireAt.getMinutes()).toBe(0);
   });
 
+  it('suppresses daily show-up if an explicit Activity reminder is coming up soon (push to tomorrow)', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000'));
+
+    setStoreState({
+      activities: [
+        {
+          id: 'a1',
+          title: 'Reminder soon',
+          goalId: 'goal-1',
+          status: 'planned',
+          reminderAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // +1h
+          repeatRule: null,
+          repeatCustom: null,
+        },
+      ],
+    });
+
+    (loadSystemNudgeLedger as jest.Mock).mockResolvedValueOnce({
+      days: {},
+      lastOpenedAtByType: {},
+      lastSentAtByType: {},
+      consecutiveNoOpenByType: {},
+      sentCountByDate: { '2026-01-01': 0 },
+      openHourCountsByType: {},
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleDailyShowUp('09:00');
+
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    const fireAt = arg.trigger.date as Date;
+    expect(fireAt.getDate()).toBe(2);
+    expect(fireAt.getHours()).toBe(9);
+    expect(fireAt.getMinutes()).toBe(0);
+  });
+
   it('enforces global spacing: if a system nudge fired <6h ago, focus schedules next day (keeps time-of-day)', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000'));
 
@@ -126,6 +163,72 @@ describe('NotificationService system-nudge policy', () => {
     expect(fireAt.getDate()).toBe(2); // pushed to tomorrow (avoid unexpected time shift)
     expect(fireAt.getHours()).toBe(14);
     expect(fireAt.getMinutes()).toBe(0);
+  });
+
+  it('suppresses goal nudge if an explicit Activity reminder is coming up soon (push to tomorrow)', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000'));
+
+    setStoreState({
+      goals: [{ id: 'goal-1' }],
+      activities: [
+        {
+          id: 'a1',
+          title: 'Reminder soon',
+          goalId: 'goal-1',
+          status: 'planned',
+          reminderAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // +30m
+          repeatRule: null,
+          repeatCustom: null,
+        },
+      ],
+    });
+
+    (loadSystemNudgeLedger as jest.Mock).mockResolvedValueOnce({
+      days: {},
+      lastOpenedAtByType: {},
+      lastSentAtByType: {},
+      consecutiveNoOpenByType: {},
+      sentCountByDate: { '2026-01-01': 0 },
+      openHourCountsByType: {},
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleGoalNudge();
+
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    const fireAt = arg.trigger.date as Date;
+    expect(fireAt.getDate()).toBe(2);
+    // still should be roughly afternoon-ish (goal nudge defaults to 16:00)
+    expect(fireAt.getHours()).toBe(16);
+  });
+
+  it('backoff: if daily show-up was ignored twice, it skips the next day', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000'));
+
+    // Ensure this schedules a dailyShowUp (not setupNextStep), otherwise the backoff key differs.
+    (getSuggestedNextStep as unknown as jest.Mock).mockReturnValueOnce({
+      kind: 'activity',
+      activityId: 'a1',
+      goalId: 'goal-1',
+    });
+
+    (loadSystemNudgeLedger as jest.Mock).mockResolvedValueOnce({
+      days: {},
+      lastOpenedAtByType: {},
+      lastSentAtByType: {},
+      consecutiveNoOpenByType: { dailyShowUp: 2 },
+      sentCountByDate: { '2026-01-01': 0 },
+      openHourCountsByType: {},
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleDailyShowUp('09:00');
+
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    const fireAt = arg.trigger.date as Date;
+    // +1 day due to backoff
+    expect(fireAt.getDate()).toBe(2);
+    expect(fireAt.getHours()).toBe(9);
   });
 
   it('suppresses goal nudges after the user already showed up today (does not schedule)', async () => {
