@@ -9,6 +9,8 @@ import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
 import { mockGenerateArcs } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../store/useAppStore';
+import { useEntitlementsStore } from '../store/useEntitlementsStore';
+import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
@@ -705,6 +707,11 @@ export type CoachChatOptions = {
   workflowInstanceId?: string;
   workflowStepId?: string;
   launchContextSummary?: string;
+  /**
+   * Optional paywall attribution used when generative credits are exhausted.
+   * If omitted, we fall back to 'unknown'.
+   */
+  paywallSource?: PaywallSource;
 };
 
 export const COACH_CONVERSATION_SUMMARY_PREFIX = 'kwilt-coach-summary:v1:';
@@ -1896,7 +1903,7 @@ export type ArcBannerVibeQueryInput = {
 };
 
 /**
- * Generate a short, "vibe"-based Unsplash search query for an Arc.
+ * Generate a short, "vibe"-based image-library search query for an Arc.
  * Uses a cheap/fast chat model and returns a compact phrase (2–5 words).
  */
 export async function generateArcBannerVibeQuery(
@@ -1920,7 +1927,7 @@ export async function generateArcBannerVibeQuery(
 
   const model: LlmModel = 'gpt-4o-mini';
   const systemPrompt =
-    'You generate short search queries for Unsplash images. ' +
+    'You generate short search queries for a photo library. ' +
     'Return a single line containing ONLY a compact search phrase (2–5 words). ' +
     'No quotes. No hashtags. No punctuation. No emojis. ' +
     'Prefer concrete visual nouns + adjectives (e.g., "misty alpine sunrise", "cozy reading nook").';
@@ -1930,7 +1937,7 @@ Arc name: ${arcName || '(missing)'}
 Arc narrative: ${narrative || '(none)'}
 Goal titles: ${goalTitles.length > 0 ? goalTitles.join(' | ') : '(none)'}
 
-Return one Unsplash search phrase that matches the Arc's vibe.
+Return one photo-library search phrase that matches the Arc's vibe.
 `;
 
   const body = {
@@ -1990,7 +1997,7 @@ Return one Unsplash search phrase that matches the Arc's vibe.
     return null;
   }
 
-  // Keep it reasonably short for Unsplash search.
+  // Keep it reasonably short for image search.
   return cleaned.split(' ').slice(0, 5).join(' ');
 }
 
@@ -2312,6 +2319,20 @@ export async function sendCoachChat(
   if (!apiKey) {
     console.warn('OPENAI_API_KEY missing – unable to call coach chat.');
     throw new Error('Missing OpenAI API key');
+  }
+
+  // Enforce kwilt's generative credit gate at the shared service layer so
+  // any UI path that calls sendCoachChat cannot bypass paywall restrictions.
+  // Note: We intentionally consume at the start to match existing patterns
+  // elsewhere in the app (credits are treated as "attempts").
+  const tier: 'free' | 'pro' = useEntitlementsStore.getState().isPro ? 'pro' : 'free';
+  const consumed = useAppStore.getState().tryConsumeGenerativeCredit({ tier });
+  if (!consumed.ok) {
+    openPaywallInterstitial({
+      reason: 'generative_quota_exceeded',
+      source: options?.paywallSource ?? 'unknown',
+    });
+    throw new Error('Generative credits exhausted');
   }
 
   const baseSystemPrompt =

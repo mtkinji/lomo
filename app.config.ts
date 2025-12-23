@@ -33,7 +33,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.3',
+  version: '1.0.4',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -57,10 +57,11 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '9',
+    buildNumber: '10',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
-      UIBackgroundModes: ['fetch', 'remote-notification'],
+      // Needed for soundscapes to continue playing when the screen locks.
+      UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
     },
   },
   android: {
@@ -91,6 +92,11 @@ const config: ExpoConfig = {
       process.env.UNSPLASH_ACCESS_KEY ??
       process.env.EXPO_PUBLIC_UNSPLASH_ACCESS_KEY ??
       process.env.UNSPLASH_API_KEY,
+    // RevenueCat (iOS subscriptions)
+    revenueCatApiKey:
+      process.env.REVENUECAT_API_KEY ??
+      process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ??
+      process.env.REVENUE_CAT_API_KEY,
     // PostHog (analytics)
     // Recommended host values:
     // - US Cloud: https://us.i.posthog.com

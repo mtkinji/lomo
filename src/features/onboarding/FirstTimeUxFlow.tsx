@@ -67,11 +67,9 @@ export function FirstTimeUxFlow() {
 
   const introAnim = useRef(new Animated.Value(1)).current;
   const workflowAnim = useRef(new Animated.Value(0)).current;
-  const shouldShowNotificationsStep =
-    notificationPreferences.osPermissionStatus !== 'authorized';
-  const flowSteps: FtueStep[] = shouldShowNotificationsStep
-    ? ['welcome', 'notifications', 'path']
-    : ['welcome', 'path'];
+  // FTUE is only shown for onboarding runs. Keep the interstitial sequence stable
+  // (1/3 → 2/3 → 3/3) even if notifications are already enabled.
+  const flowSteps: FtueStep[] = ['welcome', 'notifications', 'path'];
 
   useEffect(() => {
     if (!isVisible) {
@@ -86,14 +84,14 @@ export function FirstTimeUxFlow() {
       hasTrackedVisible.current = true;
       capture(AnalyticsEvent.FtueStarted, {
         trigger_count: triggerCount,
-        includes_notifications_step: shouldShowNotificationsStep,
+        includes_notifications_step: true,
       });
     }
 
     if (!isVisible) {
       hasTrackedVisible.current = false;
     }
-  }, [capture, isVisible, shouldShowNotificationsStep, triggerCount]);
+  }, [capture, isVisible, triggerCount]);
 
   // Reset the FTUE sequence whenever the flow (re)opens so repeated runs
   // always start at the first interstitial.
@@ -133,6 +131,8 @@ export function FirstTimeUxFlow() {
     if (!isVisible) return;
     if (ftueStep !== 'notifications') return;
     if (hasAutoRequestedNotifications.current) return;
+    // If notifications are already enabled, do not request again.
+    if (notificationPreferences.osPermissionStatus === 'authorized') return;
 
     hasAutoRequestedNotifications.current = true;
     setNotificationError(null);
@@ -198,7 +198,7 @@ export function FirstTimeUxFlow() {
     // Intentionally not depending on `notificationPreferences` as a whole to avoid
     // restarting the timer while we update preferences during the request flow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ftueStep, isVisible]);
+  }, [ftueStep, isVisible, notificationPreferences.osPermissionStatus]);
 
   // Animate each interstitial screen in with a light slide-from-right +
   // fade so the sequence feels premium but not busy.
@@ -312,7 +312,7 @@ export function FirstTimeUxFlow() {
       case 'welcome':
         title = 'Welcome to Kwilt';
         body =
-          'A simple way to understand who you’re becoming and grow into the best version of yourself.';
+          'Kwilt makes it easier to clarify who you want to become and grow into the best version of yourself.';
         ctaLabel = totalSteps > 2 ? 'Next' : 'Continue';
         nextStep = totalSteps > 2 ? 'notifications' : 'path';
         break;
@@ -327,7 +327,7 @@ export function FirstTimeUxFlow() {
       default:
         title = 'Build your path forward';
         body =
-          'Kwilt uses AI to help you describe the character Arcs you’re developing, create Goals to get there, and plan tiny Activities so you always know the next step.';
+          'We’ll start by turning an aspiration you have into an identity Arc (a clear picture of who you want to become), then shape Goals and small daily Activities. Next, you’ll answer a few quick questions in chat to build your first Arc.';
         ctaLabel = 'Let’s begin';
         nextStep = 'workflow';
         break;
@@ -336,9 +336,11 @@ export function FirstTimeUxFlow() {
     const bodyContent: ReactNode =
       ftueStep === 'path' ? (
         <>
-          Kwilt uses AI to help you describe the character <Text style={styles.ftueBodyEmphasis}>Arcs</Text>{' '}
-          you’re developing, create <Text style={styles.ftueBodyEmphasis}>Goals</Text> to get there, and plan
-          tiny <Text style={styles.ftueBodyEmphasis}>Activities</Text> so you always know the next step.
+          We’ll start by turning one aspiration into your first identity{' '}
+          <Text style={styles.ftueBodyEmphasis}>Arc</Text> (a clear picture of who you’re becoming), then
+          shape <Text style={styles.ftueBodyEmphasis}>Goals</Text> and small daily{' '}
+          <Text style={styles.ftueBodyEmphasis}>Activities</Text>. Next, you’ll answer a few quick questions
+          in chat to build your first Arc.
         </>
       ) : (
         body
@@ -553,7 +555,7 @@ export function FirstTimeUxFlow() {
                   >
                     <View style={styles.devMenuItemContent}>
                       <Icon name="refresh" size={16} color={colors.textPrimary} />
-                      <Text style={styles.devMenuItemLabel}>Restart onboarding (v2 workflow)</Text>
+                      <Text style={styles.devMenuItemLabel}>Restart onboarding</Text>
                     </View>
                   </Pressable>
                   <Pressable

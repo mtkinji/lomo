@@ -133,6 +133,9 @@ Owner doc: `docs/prds/keyboard-input-safety-prd.md`
 - Growth flywheel rollout (evangelism → lightweight accountability → shared goals) — see:
   - `docs/prds/growth-evangelism-shared-goals-prd.md`
   - `docs/shared-goals-feature-spec.md`
+- Apple ecosystem integrations (retention + “glanceable state” + Focus timer reliability):
+  - `docs/apple-ecosystem-opportunities.md`
+  - Target: Live Activities (Focus countdown), Lock Screen widget, App Intents (Shortcuts), Spotlight indexing
 - Server push notifications (only if needed; keep local-first as default)
 - Cross-device sync (requires identity)
 - Deeper engagement loops (streak save/reactivation) under strict caps

@@ -1,8 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  View,
+  Alert,
+  Keyboard,
+  TextInput,
+} from 'react-native';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
-import { Heading, Text } from '../../ui/primitives';
+import { Heading, Text, SurveyCard } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { ButtonLabel } from '../../ui/Typography';
 import { Input } from '../../ui/Input';
@@ -12,8 +22,12 @@ import { QuestionCard } from '../../ui/QuestionCard';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
+import { generateArcBannerVibeQuery } from '../../services/ai';
+import { searchUnsplashPhotos, trackUnsplashDownload, UnsplashError, withUnsplashReferral } from '../../services/unsplash';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { Arc } from '../../domain/types';
+import { canCreateArc } from '../../domain/limits';
 import { buildHybridArcGuidelinesBlock } from '../../domain/arcHybridPrompt';
 import type {
   ArchetypeAdmiredQualityId,
@@ -29,8 +43,10 @@ import {
 } from '../../domain/archetypeTaps';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
+import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
+import { openPaywallInterstitial } from '../../services/paywall';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -501,6 +517,15 @@ type Phase =
   | 'reveal'
   | 'tweak';
 
+const FIRST_TIME_ONBOARDING_SURVEY_PHASES: Phase[] = [
+  'dreams',
+  'domain',
+  'proudMoment',
+  'motivation',
+  'roleModelType',
+  'admiredQualities',
+];
+
 type ArcIdentitySlices = {
   identity: string;
   why: string;
@@ -618,8 +643,10 @@ export function IdentityAspirationFlow({
   const userProfile = useAppStore((state) => state.userProfile);
 
   const [phase, setPhase] = useState<Phase>(
-    mode === 'reuseIdentityForNewArc' ? 'dreams' : 'domain',
+    mode === 'reuseIdentityForNewArc' ? 'dreams' : 'dreams',
   );
+  const [surveyStepIndex, setSurveyStepIndex] = useState(0);
+  const [hasSubmittedFirstTimeSurvey, setHasSubmittedFirstTimeSurvey] = useState(false);
   const [introPlayed, setIntroPlayed] = useState(false);
   const [introIndex, setIntroIndex] = useState(0);
   const [lastIntroStreamedIndex, setLastIntroStreamedIndex] = useState<number | null>(null);
@@ -660,6 +687,81 @@ export function IdentityAspirationFlow({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [arcInsights, setArcInsights] = useState<ArcDevelopmentInsights | null>(null);
+  const [prefetchedArcHero, setPrefetchedArcHero] = useState<{
+    thumbnailUrl: string;
+    heroImageMeta: NonNullable<Arc['heroImageMeta']>;
+    thumbnailVariant?: number;
+  } | null>(null);
+  const arcGenerationRunIdRef = useRef(0);
+  const arcHeroPrefetchRunIdRef = useRef(0);
+  const [isSurveySummaryExpanded, setIsSurveySummaryExpanded] = useState(false);
+  const surveyAnswersAnim = useRef(new Animated.Value(0)).current;
+  const [surveyAnswersContentHeight, setSurveyAnswersContentHeight] = useState(0);
+
+  useEffect(() => {
+    Animated.timing(surveyAnswersAnim, {
+      toValue: isSurveySummaryExpanded ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  }, [isSurveySummaryExpanded, surveyAnswersAnim]);
+
+  const ReviewAnswersPanel = useCallback(
+    (props: {
+      expanded: boolean;
+      onToggle: () => void;
+      lines: Array<{ label: string; value: string }>;
+    }) => {
+      const { expanded, onToggle, lines } = props;
+      const height = surveyAnswersAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, surveyAnswersContentHeight],
+      });
+      const opacity = surveyAnswersAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+      });
+
+      return (
+        <View style={styles.reviewPanel}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expanded ? 'Hide answers' : 'Review answers'}
+            onPress={onToggle}
+            style={styles.reviewPanelHeader}
+          >
+            <Text style={styles.reviewPanelTitle}>Review answers</Text>
+            <Icon
+              name={expanded ? 'chevronUp' : 'chevronDown'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+
+          <Animated.View style={[styles.reviewPanelBody, { height, opacity }]}>
+            <View
+              onLayout={(e) => {
+                const next = Math.ceil(e.nativeEvent.layout.height);
+                if (next > 0 && next !== surveyAnswersContentHeight) {
+                  setSurveyAnswersContentHeight(next);
+                }
+              }}
+              style={styles.reviewPanelBodyInner}
+            >
+              {lines.map((row) => (
+                <View key={row.label} style={styles.reviewRow}>
+                  <Text style={styles.summaryLabel}>{row.label}</Text>
+                  <Text style={styles.summaryValue}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        </View>
+      );
+    },
+    [surveyAnswersAnim, surveyAnswersContentHeight]
+  );
 
   const [identitySignature, setIdentitySignature] = useState<Record<IdentityTag, number>>(
     {} as Record<IdentityTag, number>
@@ -667,6 +769,31 @@ export function IdentityAspirationFlow({
   const [showResearchExplainer, setShowResearchExplainer] = useState(false);
   const [openQuestionInfoKey, setOpenQuestionInfoKey] = useState<string | null>(null);
   const [dreamInput, setDreamInput] = useState('');
+  const dreamInputRef = useRef<TextInput | null>(null);
+  const shouldAutofocusDreamsRef = useRef(false);
+  const [expandedOptionSets, setExpandedOptionSets] = useState<Record<string, boolean>>({});
+
+  const isFirstTimeOnboarding = mode === 'firstTimeOnboarding';
+
+  const setSurveyPhaseByIndex = useCallback(
+    (index: number) => {
+      const bounded = Math.max(
+        0,
+        Math.min(index, FIRST_TIME_ONBOARDING_SURVEY_PHASES.length - 1)
+      );
+      setSurveyStepIndex(bounded);
+      setPhase(FIRST_TIME_ONBOARDING_SURVEY_PHASES[bounded] ?? 'dreams');
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!isFirstTimeOnboarding) return;
+    const idx = FIRST_TIME_ONBOARDING_SURVEY_PHASES.indexOf(phase);
+    if (idx === -1) return;
+    if (idx === surveyStepIndex) return;
+    setSurveyStepIndex(idx);
+  }, [isFirstTimeOnboarding, phase, surveyStepIndex]);
 
   const callOnboardingAgentStep = useCallback(
     async (stepId: string, messages: CoachChatTurn[]): Promise<string> => {
@@ -782,6 +909,26 @@ export function IdentityAspirationFlow({
   const vocation = formatSelectionLabels(vocationIds, VOCATION_OPTIONS);
   const bigDreams =
     dreamInput.trim().length > 0 ? [dreamInput.trim()] : [];
+
+  const surveySummaryLines = useMemo(() => {
+    const safe = (value: string) => value.trim();
+    const roleModelTypeLabel = labelForArchetype(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId) ?? '';
+    const admiredLabels = admiredQualityIds
+      .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
+      .filter((l): l is string => Boolean(l))
+      .join(', ');
+
+    const rows: Array<{ label: string; value: string }> = [
+      { label: 'Big dream', value: safe(dreamInput) },
+      { label: 'Growth lane', value: safe(domain) },
+      { label: 'Quietly proud moment', value: safe(proudMoment) },
+      { label: 'Motivation', value: safe(motivation) },
+      { label: 'Role models', value: safe(roleModelTypeLabel) },
+      { label: 'Admired qualities', value: safe(admiredLabels) },
+    ];
+
+    return rows.filter((r) => r.value.length > 0);
+  }, [admiredQualityIds, domain, dreamInput, motivation, proudMoment, roleModelTypeId]);
 
   const canGenerate =
     domainIds.length > 0 &&
@@ -1660,8 +1807,12 @@ export function IdentityAspirationFlow({
 
   const generateArc = useCallback(
     async (tweakHint?: string) => {
+      const runId = (arcGenerationRunIdRef.current += 1);
       setIsGenerating(true);
       setError(null);
+      // New draft => new banner vibe.
+      setPrefetchedArcHero(null);
+      arcHeroPrefetchRunIdRef.current += 1;
 
       // HYBRID-MINIMAL INPUT SUMMARY:
       // We intentionally keep the required input set small:
@@ -1971,6 +2122,7 @@ export function IdentityAspirationFlow({
         }
 
         if (bestCandidate && bestQuality && bestQuality.score >= QUALITY_THRESHOLD) {
+          if (runId !== arcGenerationRunIdRef.current) return;
           setAspiration(bestCandidate);
           if (workflowRuntime) {
             workflowRuntime.completeStep('aspiration_generate', {
@@ -1994,6 +2146,7 @@ export function IdentityAspirationFlow({
             throw new Error('Unable to build local aspiration fallback.');
           }
 
+          if (runId !== arcGenerationRunIdRef.current) return;
           setAspiration(fallback);
           if (workflowRuntime) {
             workflowRuntime.completeStep('aspiration_generate', {
@@ -2016,6 +2169,7 @@ export function IdentityAspirationFlow({
               bestScore: bestQuality?.score ?? null,
             }
           );
+          if (runId !== arcGenerationRunIdRef.current) return;
           setAspiration(fallback);
           if (workflowRuntime) {
             workflowRuntime.completeStep('aspiration_generate', {
@@ -2029,6 +2183,7 @@ export function IdentityAspirationFlow({
         }
 
         // If no fallback is possible, use the best candidate we have.
+        if (runId !== arcGenerationRunIdRef.current) return;
         setAspiration(bestCandidate);
         if (workflowRuntime) {
           workflowRuntime.completeStep('aspiration_generate', {
@@ -2039,6 +2194,7 @@ export function IdentityAspirationFlow({
         }
         setPhase('reveal');
       } catch (err) {
+        if (runId !== arcGenerationRunIdRef.current) return;
         console.error('[onboarding] Failed to generate identity aspiration', err);
         if (isLikelyOfflineError(err)) {
           setError(
@@ -2050,7 +2206,9 @@ export function IdentityAspirationFlow({
           );
         }
       } finally {
-        setIsGenerating(false);
+        if (runId === arcGenerationRunIdRef.current) {
+          setIsGenerating(false);
+        }
       }
     },
     [
@@ -2078,11 +2236,34 @@ export function IdentityAspirationFlow({
   const handleConfirmAspiration = () => {
     if (!aspiration) return;
 
+    const isPro = useEntitlementsStore.getState().isPro;
+    const canCreate = canCreateArc({ isPro, arcs: useAppStore.getState().arcs });
+    if (!canCreate.ok) {
+      Alert.alert(
+        'Arc limit reached',
+        `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Upgrade',
+            onPress: () => openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' }),
+          },
+        ],
+      );
+      return;
+    }
+
+    // Creating an Arc counts as showing up (planning is still engagement).
+    useAppStore.getState().recordShowUp();
     const nowIso = new Date().toISOString();
     const arc: Arc = {
       id: draftArcId,
       name: aspiration.arcName,
       narrative: aspiration.aspirationSentence,
+      thumbnailUrl: prefetchedArcHero?.thumbnailUrl,
+      thumbnailVariant: prefetchedArcHero?.thumbnailVariant,
+      heroImageMeta: prefetchedArcHero?.heroImageMeta,
+      heroHidden: false,
       status: 'active',
       startDate: nowIso,
       endDate: null,
@@ -2118,7 +2299,18 @@ export function IdentityAspirationFlow({
   }));
 
     addArc(arc);
-    void ensureArcBannerPrefill(arc);
+    const unsplashPhotoId =
+      prefetchedArcHero?.heroImageMeta?.source === 'unsplash'
+        ? prefetchedArcHero?.heroImageMeta?.unsplashPhotoId
+        : undefined;
+    if (unsplashPhotoId) {
+      trackUnsplashDownload(unsplashPhotoId).catch(() => undefined);
+    }
+    // If we already prefetched a hero image for the draft, keep it.
+    // Otherwise, best-effort prefill after Arc creation.
+    if (!prefetchedArcHero?.thumbnailUrl) {
+      void ensureArcBannerPrefill(arc);
+    }
     // Fire-and-forget: generate Arc Development Insights in the background so
     // they are ready (or gracefully fall back) by the time the user lands on
     // the Arc detail screen. This should never block the onboarding flow.
@@ -2149,8 +2341,95 @@ export function IdentityAspirationFlow({
     onComplete?.();
   };
 
+  useEffect(() => {
+    // Prefetch a real hero image as soon as we have a draft Arc (aspiration),
+    // so the preview uses the same image that will be saved on confirm.
+    if (!aspiration) return;
+    if (prefetchedArcHero) return;
+
+    const runId = (arcHeroPrefetchRunIdRef.current += 1);
+    const nowIso = new Date().toISOString();
+    const draft: Arc = {
+      id: draftArcId,
+      name: aspiration.arcName,
+      narrative: aspiration.aspirationSentence,
+      status: 'active',
+      startDate: nowIso,
+      endDate: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    let cancelled = false;
+    void (async () => {
+      const queryBase = (draft.name || '').trim();
+      if (!queryBase) return;
+
+      try {
+        const vibeQuery =
+          (await generateArcBannerVibeQuery({
+            arcName: draft.name,
+            arcNarrative: draft.narrative,
+          })) ?? '';
+        const query = (vibeQuery || queryBase).trim();
+        if (!query) return;
+
+        const results = await searchUnsplashPhotos(query, { perPage: 20, page: 1 });
+        const photo = results?.[0];
+        if (!photo) {
+          throw new UnsplashError('http_error', 'No results', 200);
+        }
+
+        if (cancelled) return;
+        if (runId !== arcHeroPrefetchRunIdRef.current) return;
+        setPrefetchedArcHero({
+          thumbnailUrl: photo.urls.regular,
+          heroImageMeta: {
+            source: 'unsplash',
+            prompt: vibeQuery || query,
+            createdAt: nowIso,
+            unsplashPhotoId: photo.id,
+            unsplashAuthorName: photo.user.name,
+            unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+            unsplashLink: withUnsplashReferral(photo.links.html),
+          },
+        });
+      } catch {
+        if (cancelled) return;
+        if (runId !== arcHeroPrefetchRunIdRef.current) return;
+        // Curated fallback image (still a real image, not just a gradient).
+        const selection = pickHeroForArc(draft, {
+          userFocusAreas: userProfile?.focusAreas,
+        });
+        if (!selection.image) return;
+        setPrefetchedArcHero({
+          thumbnailUrl: selection.image.uri,
+          thumbnailVariant: draft.thumbnailVariant ?? 0,
+          heroImageMeta: {
+            source: 'curated',
+            createdAt: nowIso,
+            curatedId: selection.image.id,
+          },
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [aspiration, draftArcId, prefetchedArcHero, userProfile?.focusAreas]);
+
+  const INTRO_MESSAGES: string[] = [
+    // Message 1 (handoff from FTUE)
+    'You probably have aspirations in a few areas of life. For now, we’ll pick one and turn it into an **Arc** — a clear picture of **who you want to become**.',
+    // Message 2 (connect Arc → Goals → Activities)
+    "Then we’ll turn it into clear **Goals** and small daily **Activities**. I’ll use AI and behavior-change best practices to draft high-quality options, and then you’ll be able to review and tweak them anytime. (Tap “Learn more” below.)",
+    // Message 3 (lead-in to the minimal + archetype flow)
+    'Next, a few quick questions to focus on one aspiration and build your first Arc.',
+  ];
+
   // Number of scripted intro messages we stream during the soft-start phase.
-  const INTRO_MESSAGE_COUNT = 4;
+  const INTRO_MESSAGE_COUNT = INTRO_MESSAGES.length;
 
   // Orchestrate the soft-start message as a typed assistant bubble rather than
   // a card. When the workflow lands on `soft_start`, we stream a short
@@ -2166,18 +2445,7 @@ export function IdentityAspirationFlow({
       (step?.staticCopy as string | undefined) ??
       'Let’s uncover the version of you that feels the most you.';
 
-    const messages: string[] = [
-      // Message 1 (big-picture promise)
-      'Hello 👋 and welcome to **kwilt** — I’m here to help you design a future you’d actually be proud to live in, then make it feel doable with clear goals and daily activities.',
-      // Message 2 (introduce Arcs, lightly hint at Goals + Activities)
-      'We’ll start by sketching a short **identity Arc** that captures the kind of **person you want to become**.\n\nThen kwilt can use that Arc to shape better **Goals** and small everyday **Activities**, so your effort lines up with a purpose that feels real to you.',
-      // Message 3 (light research grounding)
-      'Under the hood I’m borrowing from **research-backed psychology**, so the plan we build actually **fits you**—not someone else’s idea of who you should be.',
-      // Message 4 (lead-in to the minimal + archetype flow)
-      'To do that well, we’ll keep it **simple and fast**: **4 quick questions** (tap‑based + one short free response), then a **quick personalization step** about who you admire (taps only). You can skip any of that personalization if nothing comes to mind. All together it should take just a few minutes, and it helps me surface a future version of you you’d genuinely want to grow into.',
-    ];
-
-    const queue = messages.length > 0 ? messages : [fallback];
+    const queue = INTRO_MESSAGES.length > 0 ? INTRO_MESSAGES : [fallback];
     const current = queue[introIndex];
 
     if (current == null) {
@@ -2238,9 +2506,6 @@ export function IdentityAspirationFlow({
   useEffect(() => {
     if (workflowRuntime?.instance?.currentStepId !== 'soft_start') return;
     if (lastIntroStreamedIndex === null) return;
-    // For the very last intro message we skip rendering tap actions entirely
-    // and instead auto-advance into the first structured step.
-    if (lastIntroStreamedIndex === INTRO_MESSAGE_COUNT - 1) return;
     if (introActionsVisibleIndex === lastIntroStreamedIndex) return;
 
     const timeout = setTimeout(() => {
@@ -2250,32 +2515,21 @@ export function IdentityAspirationFlow({
     return () => clearTimeout(timeout);
   }, [workflowRuntime?.instance?.currentStepId, lastIntroStreamedIndex, introActionsVisibleIndex]);
 
-  // Once the final intro message has fully streamed, automatically complete the
-  // soft_start workflow step and move into the first tap-centric card without
-  // requiring an extra "I'm ready" confirmation tap, unless the user is
-  // currently reading the research explainer.
-  useEffect(() => {
-    if (workflowRuntime?.instance?.currentStepId !== 'soft_start') return;
-    if (introPlayed) return;
-    if (showResearchExplainer) return;
-    if (lastIntroStreamedIndex !== INTRO_MESSAGE_COUNT - 1) return;
-
-    const timeout = setTimeout(() => {
-      if (workflowRuntime) {
-        workflowRuntime.completeStep('soft_start');
-      }
+  const handleBeginSurvey = () => {
+    appendChatUserMessage('💪 Lets do it!');
+    workflowRuntime?.completeStep('soft_start');
       setIntroPlayed(true);
+    if (isFirstTimeOnboarding) {
+      setHasSubmittedFirstTimeSurvey(false);
+      // Skip the next typed "dreams intro" message and show the SurveyCard immediately.
+      setHasStreamedDreamsIntroCopy(true);
+      // One-shot: autofocus the first free-response field when the survey card mounts.
+      shouldAutofocusDreamsRef.current = true;
+      setSurveyPhaseByIndex(0);
+    } else {
       advancePhase('domain');
-    }, 1200);
-
-    return () => clearTimeout(timeout);
-  }, [
-    workflowRuntime?.instance?.currentStepId,
-    lastIntroStreamedIndex,
-    introPlayed,
-    showResearchExplainer,
-    advancePhase,
-  ]);
+    }
+  };
 
   useEffect(() => {
     if (introActionsVisibleIndex === null) return;
@@ -2303,6 +2557,16 @@ export function IdentityAspirationFlow({
   useEffect(() => {
     if (phase !== 'dreams') return;
     if (hasStreamedDreamsIntroCopy) return;
+    // FTUE can start with phase='dreams' while the workflow is still in the
+    // `soft_start` intro step. In that case, avoid streaming a second assistant
+    // message concurrently with the intro sequence.
+    if (
+      isFirstTimeOnboarding &&
+      workflowRuntime?.instance?.currentStepId === 'soft_start' &&
+      !introPlayed
+    ) {
+      return;
+    }
 
     const controller = chatControllerRef?.current;
     if (!controller) {
@@ -2313,7 +2577,13 @@ export function IdentityAspirationFlow({
       return;
     }
 
-    const copy = 'That gives me a solid sketch of who your future self is becoming. 🎉';
+    const copy =
+      isFirstTimeOnboarding &&
+      domainIds.length === 0 &&
+      motivationIds.length === 0 &&
+      proudMomentIds.length === 0
+        ? "Let’s start with one big thing you’d love to bring to life. You can always refine it later."
+        : 'That gives me a solid sketch of who your future self is becoming. 🎉';
 
     controller.streamAssistantReplyFromWorkflow(copy, 'assistant-dreams-intro', {
       onDone: () => {
@@ -2323,27 +2593,72 @@ export function IdentityAspirationFlow({
         setHasStreamedDreamsIntroCopy(true);
       },
     });
-  }, [phase, hasStreamedDreamsIntroCopy, chatControllerRef]);
+  }, [
+    phase,
+    hasStreamedDreamsIntroCopy,
+    chatControllerRef,
+    isFirstTimeOnboarding,
+    workflowRuntime?.instance?.currentStepId,
+    introPlayed,
+    domainIds.length,
+    motivationIds.length,
+    proudMomentIds.length,
+  ]);
+
+  // After the user taps "Let's do it!", autofocus the big-dream textarea (once).
+  // This avoids an extra tap and ensures the keyboard + scroll alignment lands correctly.
+  useEffect(() => {
+    if (!isFirstTimeOnboarding) return;
+    if (!shouldAutofocusDreamsRef.current) return;
+    if (phase !== 'dreams') return;
+    if (!hasStreamedDreamsIntroCopy) return;
+
+    const currentSurveyPhase = FIRST_TIME_ONBOARDING_SURVEY_PHASES[surveyStepIndex] ?? phase;
+    if (currentSurveyPhase !== 'dreams') return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryFocus = () => {
+      if (cancelled) return;
+      attempts += 1;
+      const node = dreamInputRef.current;
+      if (node && typeof (node as any).focus === 'function') {
+        (node as any).focus();
+        shouldAutofocusDreamsRef.current = false;
+        return;
+      }
+      if (attempts >= 8) {
+        // Give up after a few frames; better to do nothing than to loop.
+        shouldAutofocusDreamsRef.current = false;
+        return;
+      }
+      requestAnimationFrame(tryFocus);
+    };
+
+    requestAnimationFrame(tryFocus);
+    return () => {
+      cancelled = true;
+    };
+  }, [isFirstTimeOnboarding, phase, surveyStepIndex, hasStreamedDreamsIntroCopy]);
 
   const introResponseOptions: ChoiceOption[][] = [
-    [{ id: 'sounds_good', label: 'I\'m here for that! 👍' }],
-    [{ id: 'makes_sense', label: '✅ Got it' }],
+    [{ id: 'sounds_good', label: '👍 Sounds good — let’s pick one' }],
     [
-      { id: 'love_that', label: '🧠 Sounds smart!' },
-      { id: 'just_work', label: 'Tell me about the research 🤓' },
+      { id: 'makes_sense', label: '✅ Got it' },
+      { id: 'learn_more', label: 'Learn more' },
     ],
+    [],
   ];
 
-  const handleIntroResponse = (label: string) => {
+  const handleIntroResponse = (option: ChoiceOption) => {
     const controller = chatControllerRef?.current;
     if (controller) {
-      controller.appendUserMessage(label);
+      controller.appendUserMessage(option.label);
     }
 
-    const normalized = label.toLowerCase();
-    const isResearchQuestion =
-      normalized.includes('research') && !normalized.includes('sounds smart');
-    if (isResearchQuestion) {
+    const isLearnMore = option.id === 'learn_more';
+    if (isLearnMore) {
       setShowResearchExplainer(true);
     }
 
@@ -2372,7 +2687,7 @@ export function IdentityAspirationFlow({
       }),
     ]).start(() => {
       setIntroActionsVisibleIndex(null);
-      if (!isResearchQuestion) {
+      if (!isLearnMore) {
         setIntroIndex((current) => current + 1);
       }
     });
@@ -2420,6 +2735,43 @@ export function IdentityAspirationFlow({
     const contrast = [...remaining].sort((a, b) => scoreOption(a) - scoreOption(b)).slice(0, 2);
 
     return [...primary, ...contrast];
+  };
+
+  const getAdaptiveOptionsCollapsed = (params: {
+    base: ChoiceOption[];
+    topN: number;
+    expanded: boolean;
+    selectedIds?: string[];
+  }): { visibleOptions: ChoiceOption[]; allOptions: ChoiceOption[]; hasMore: boolean } => {
+    const { base, topN, expanded, selectedIds } = params;
+    const allOptions = [...base].sort((a, b) => scoreOption(b) - scoreOption(a));
+
+    // Guardrail: if there isn't meaningful signal yet, don't hide options.
+    const maxScore =
+      allOptions.length === 0 ? 0 : Math.max(...allOptions.map((option) => scoreOption(option)));
+    if (expanded || maxScore <= 0 || topN >= allOptions.length) {
+      return { visibleOptions: allOptions, allOptions, hasMore: false };
+    }
+
+    const baseVisible = allOptions.slice(0, Math.max(1, topN));
+    const visibleIds = new Set(baseVisible.map((o) => o.id));
+
+    // If the user has already selected an option that falls outside the Top N
+    // (e.g., after expanding), keep it visible when collapsed so it doesn't
+    // feel like their selection “disappeared”.
+    (selectedIds ?? []).forEach((id) => {
+      if (visibleIds.has(id)) return;
+      const match = allOptions.find((o) => o.id === id);
+      if (!match) return;
+      baseVisible.push(match);
+      visibleIds.add(id);
+    });
+
+    return {
+      visibleOptions: baseVisible,
+      allOptions,
+      hasMore: allOptions.length > baseVisible.length,
+    };
   };
 
   const handleConfirmDomain = (selectedDomain: string, displayLabel?: string) => {
@@ -2479,13 +2831,13 @@ export function IdentityAspirationFlow({
     setPhase('roleModelType');
   };
 
-  const labelForArchetype = <T extends { id: string; label: string }>(
+  function labelForArchetype<T extends { id: string; label: string }>(
     options: T[],
     id: string | null | undefined
-  ): string | null => {
+  ): string | null {
     if (!id) return null;
     return options.find((o) => o.id === id)?.label ?? null;
-  };
+  }
 
   const renderRadioIndicator = (selected: boolean) => (
     <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
@@ -2799,8 +3151,7 @@ export function IdentityAspirationFlow({
       <View style={styles.stepBody}>
           <Text style={styles.questionMeta}>2 of 6</Text>
         <Text style={styles.questionTitle}>
-          Thinking about that future version of you, what do you think would motivate them the most
-            here?{' '}
+          What do you think would motivate future you the most here?{' '}
             <Text
               style={styles.questionInfoTrigger}
               accessibilityRole="button"
@@ -2909,7 +3260,7 @@ export function IdentityAspirationFlow({
                   handleConfirmTrait(option.label);
                 }}
               >
-                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                <ButtonLabel size="md">{option.label}</ButtonLabel>
               </Button>
             );
           })}
@@ -2969,7 +3320,7 @@ export function IdentityAspirationFlow({
                   handleConfirmGrowth(option.label);
                 }}
               >
-                <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                <ButtonLabel size="md">{option.label}</ButtonLabel>
               </Button>
             );
           })}
@@ -3254,7 +3605,7 @@ export function IdentityAspirationFlow({
                     handleConfirmValues(option.label, option.id);
                   }}
                 >
-                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                  <ButtonLabel size="md">{option.label}</ButtonLabel>
                 </Button>
               );
             })}
@@ -3442,8 +3793,13 @@ export function IdentityAspirationFlow({
             value={dreamInput}
             onChangeText={setDreamInput}
             multiline
-            placeholder="e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home."
+            multilineMinHeight={180}
+            multilineMaxHeight={180}
+            placeholder="e.g., Start a creative side project I’m proud of."
             autoCapitalize="sentences"
+            returnKeyType="done"
+            blurOnSubmit
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
           <View style={styles.inlineActions}>
             <Button
@@ -3476,6 +3832,10 @@ export function IdentityAspirationFlow({
       id: draftArcId,
       name: 'Shaping your Arc…',
       narrative: '',
+      thumbnailUrl: prefetchedArcHero?.thumbnailUrl,
+      thumbnailVariant: prefetchedArcHero?.thumbnailVariant,
+      heroImageMeta: prefetchedArcHero?.heroImageMeta,
+      heroHidden: false,
       status: 'active',
       startDate: nowIso,
       endDate: null,
@@ -3484,47 +3844,50 @@ export function IdentityAspirationFlow({
     };
 
     return (
-      <ArcListCard
-        arc={skeletonArc}
-        narrativeTone="strong"
-        style={styles.arcPreviewCard}
-        customNarrative={
-          <View style={styles.revealNarrativeBlock}>
-            <View style={styles.arcIdentityRow}>
-              <View style={styles.arcIdentityLabelRow}>
-                <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
+      <>
+        {isFirstTimeOnboarding && hasSubmittedFirstTimeSurvey ? renderFirstTimeSurveyCompleted() : null}
+        <ArcListCard
+          arc={skeletonArc}
+          narrativeTone="strong"
+          style={styles.arcPreviewCard}
+          customNarrative={
+            <View style={styles.revealNarrativeBlock}>
+              <View style={styles.arcIdentityRow}>
+                <View style={styles.arcIdentityLabelRow}>
+                  <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
+                </View>
+                <View style={styles.skeletonSentenceBlockRow}>
+                  <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
+                  <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
+                </View>
               </View>
-              <View style={styles.skeletonSentenceBlockRow}>
-                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
-                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
+              <View style={styles.arcIdentityRow}>
+                <View style={styles.arcIdentityLabelRow}>
+                  <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
+                </View>
+                <View style={styles.skeletonSentenceBlockRow}>
+                  <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
+                  <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
+                </View>
               </View>
+              <View style={styles.arcIdentityRow}>
+                <View style={styles.arcIdentityLabelRow}>
+                  <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
+                </View>
+                <View style={styles.skeletonSentenceBlockRow}>
+                  <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
+                  <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
+                </View>
+              </View>
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={colors.textPrimary} />
+                <Text style={styles.bodyText}>Pulling the threads together…</Text>
+              </View>
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
-            <View style={styles.arcIdentityRow}>
-              <View style={styles.arcIdentityLabelRow}>
-                <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
-              </View>
-              <View style={styles.skeletonSentenceBlockRow}>
-                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
-                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
-              </View>
-            </View>
-            <View style={styles.arcIdentityRow}>
-              <View style={styles.arcIdentityLabelRow}>
-                <View style={[styles.skeletonBlock, styles.skeletonLabelBlock]} />
-              </View>
-              <View style={styles.skeletonSentenceBlockRow}>
-                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlock]} />
-                <View style={[styles.skeletonBlock, styles.skeletonSentenceBlockShort]} />
-              </View>
-            </View>
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.textPrimary} />
-              <Text style={styles.bodyText}>Pulling the threads together…</Text>
-            </View>
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          </View>
-        }
-      />
+          }
+        />
+      </>
     );
   };
 
@@ -3536,6 +3899,10 @@ export function IdentityAspirationFlow({
       id: draftArcId,
       name: aspiration.arcName,
       narrative: aspiration.aspirationSentence,
+      thumbnailUrl: prefetchedArcHero?.thumbnailUrl,
+      thumbnailVariant: prefetchedArcHero?.thumbnailVariant,
+      heroImageMeta: prefetchedArcHero?.heroImageMeta,
+      heroHidden: false,
       status: 'active',
       startDate: nowIso,
       endDate: null,
@@ -3605,9 +3972,10 @@ export function IdentityAspirationFlow({
 
     return (
       <>
+        {isFirstTimeOnboarding && hasSubmittedFirstTimeSurvey ? renderFirstTimeSurveyCompleted() : null}
         <View style={styles.revealIntroText}>
           <Text style={styles.bodyText}>
-            Based on what you tapped, here’s a draft Arc that fits what you picked. You can rename
+            Here’s a draft Arc based on what you picked. You can rename
             this Arc or edit the description later from your Arcs list.
           </Text>
         </View>
@@ -3641,6 +4009,7 @@ export function IdentityAspirationFlow({
 
   const renderTweak = () => (
     <>
+      {isFirstTimeOnboarding && hasSubmittedFirstTimeSurvey ? renderFirstTimeSurveyCompleted() : null}
       <View style={styles.arcPreviewContainer}>{renderArcPreview()}</View>
       <Card style={styles.stepCard}>
         <View style={styles.stepBody}>
@@ -3661,7 +4030,7 @@ export function IdentityAspirationFlow({
                     void generateArc(option.id);
                   }}
                 >
-                  <ButtonLabel size="sm">{option.label}</ButtonLabel>
+                  <ButtonLabel size="md">{option.label}</ButtonLabel>
                 </Button>
               );
             })}
@@ -3734,6 +4103,10 @@ export function IdentityAspirationFlow({
       !showResearchExplainer && introActionsVisibleIndex === introIndex
         ? introResponseOptions[introIndex] ?? []
         : [];
+    const shouldShowFinalGate =
+      !showResearchExplainer &&
+      introActionsVisibleIndex === introIndex &&
+      introIndex === INTRO_MESSAGE_COUNT - 1;
     return (
       <>
         {responses.length > 0 ? (
@@ -3754,11 +4127,34 @@ export function IdentityAspirationFlow({
                 key={option.id}
                 style={styles.introActionButton}
                 variant="secondary"
-                onPress={() => handleIntroResponse(option.label)}
+                onPress={() => handleIntroResponse(option)}
               >
                 <ButtonLabel size="md">{option.label}</ButtonLabel>
               </Button>
             ))}
+          </Animated.View>
+        ) : shouldShowFinalGate ? (
+          <Animated.View
+            style={[
+              styles.introActionsContainer,
+              {
+                opacity: introActionsOpacity,
+                transform: [
+                  { translateY: introActionsTranslateY },
+                  { translateX: introActionsTranslateX },
+                ],
+              },
+            ]}
+          >
+            <Button
+              style={styles.introActionButton}
+              variant="accent"
+              onPress={handleBeginSurvey}
+            >
+              <ButtonLabel size="md" tone="inverse">
+                💪 Let's do it!
+              </ButtonLabel>
+            </Button>
           </Animated.View>
         ) : null}
         {showResearchExplainer ? renderResearchExplainer() : null}
@@ -3766,12 +4162,590 @@ export function IdentityAspirationFlow({
     );
   }
 
-  if (phase === 'domain') {
-    return renderDomain();
+  const renderFirstTimeSurvey = () => {
+    const total = FIRST_TIME_ONBOARDING_SURVEY_PHASES.length;
+    const stepLabel = `${surveyStepIndex + 1} of ${total}`;
+    const currentSurveyPhase = FIRST_TIME_ONBOARDING_SURVEY_PHASES[surveyStepIndex] ?? phase;
+
+    const handleNext = () => {
+      if (currentSurveyPhase === 'dreams') {
+        const trimmed = dreamInput.trim();
+        if (!trimmed) return;
+        workflowRuntime?.completeStep('big_dream', { bigDream: trimmed });
+        setError(null);
+        setSurveyPhaseByIndex(surveyStepIndex + 1);
+        return;
+      }
+
+      setSurveyPhaseByIndex(surveyStepIndex + 1);
+    };
+
+    const handleSubmit = () => {
+      const labels = admiredQualityIds
+        .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
+        .filter((l): l is string => Boolean(l));
+      if (labels.length === 0) return;
+      setHasSubmittedFirstTimeSurvey(true);
+      setPhase('generating');
+      void generateArc();
+    };
+
+    return (
+      <SurveyCard
+        variant="stacked"
+        steps={[
+          {
+            id: 'dreams',
+            title: 'Looking ahead, what’s one big thing you’d love to bring to life?',
+            canProceed: hasStreamedDreamsIntroCopy && dreamInput.trim().length > 0,
+            render: () => {
+              if (!hasStreamedDreamsIntroCopy) {
+                return (
+                  <Text style={styles.bodyText} tone="secondary">
+                    One sec…
+                  </Text>
+                );
+              }
+              return (
+                <Input
+                  ref={dreamInputRef}
+                  value={dreamInput}
+                  onChangeText={setDreamInput}
+                  multiline
+                  // Keep the textarea fully visible above the keyboard by using a stable height
+                  // (avoid auto-growing off-screen during placeholder/content size changes).
+                  multilineMinHeight={140}
+                  multilineMaxHeight={140}
+                  placeholder="e.g., Start a creative side project I’m proud of."
+                  autoCapitalize="sentences"
+                  returnKeyType="done"
+                  blurOnSubmit
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                />
+              );
+            },
+          },
+          {
+            id: 'domain',
+            title: (
+              <>
+                Which part of yourself are you most excited to grow right now?{' '}
+                <Pressable
+                  style={styles.questionInfoTrigger}
+                  accessibilityRole="button"
+                  accessibilityLabel="Why this question?"
+                  onPress={() => toggleQuestionInfo('domain')}
+                >
+                  <Icon name="info" size={16} color={colors.textSecondary} />
+                </Pressable>
+              </>
+            ),
+            canProceed: domainIds.length > 0,
+            render: () => (
+              <>
+                <Text style={styles.selectOnlyOneLabel}>PICK ONLY ONE</Text>
+                <View style={styles.fullWidthList}>
+                  {DOMAIN_OPTIONS.map((option) => {
+                    const selected = domainIds.includes(option.id);
+                    const labelWithEmoji = option.emoji
+                      ? `${option.emoji} ${option.label}`
+                      : option.label;
+                    return (
+                      <Pressable
+                        key={option.id}
+                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        onPress={() => {
+                          const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
+                          previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                          updateSignatureForOption(option, true);
+                          setDomainIds([option.id]);
+                          workflowRuntime?.completeStep('vibe_select', { domain: option.label });
+                          setError(null);
+                          setSurveyPhaseByIndex(2);
+                        }}
+                      >
+                        <View style={styles.fullWidthOptionContent}>
+                          {renderRadioIndicator(selected)}
+                          {option.emoji ? (
+                            <Text
+                              style={[
+                                styles.fullWidthOptionEmoji,
+                                selected && styles.fullWidthOptionEmojiSelected,
+                              ]}
+                            >
+                              {option.emoji}
+                            </Text>
+                          ) : null}
+                          <Text
+                            style={[
+                              styles.fullWidthOptionLabel,
+                              selected && styles.fullWidthOptionLabelSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Dialog
+                  visible={openQuestionInfoKey === 'domain'}
+                  onClose={() => setOpenQuestionInfoKey(null)}
+                  title="Why this question matters"
+                  description="This first choice helps me understand which part of you most wants to grow so I can anchor your Identity Arc there."
+                >
+                  <Text style={styles.bodyText}>
+                    The options are based on research in motivation and values. Each one is a different
+                    growth lane—creativity, craft, leadership, relationships, contribution, courage,
+                    habits, adventure, or inner life—so your choice gives a strong signal about which
+                    future self to focus your Arc around.
+                  </Text>
+                </Dialog>
+              </>
+            ),
+          },
+          {
+            id: 'proudMoment',
+            title: (
+              <>
+                On a normal day in that future—not a big moment—what could you do that would make you feel
+                quietly proud of yourself?{' '}
+                <Text
+                  style={styles.questionInfoTrigger}
+                  accessibilityRole="button"
+                  accessibilityLabel="Why this question?"
+                  onPress={() => toggleQuestionInfo('proud')}
+                >
+                  ⓘ
+                </Text>
+              </>
+            ),
+            canProceed: proudMomentIds.length > 0,
+            render: () => (
+              <>
+                <Text style={styles.selectOnlyOneLabel}>SELECT ONLY ONE</Text>
+                <View style={styles.fullWidthList}>
+                  {(() => {
+                    const expanded = Boolean(expandedOptionSets.proudMoment);
+                    const { visibleOptions, hasMore } = getAdaptiveOptionsCollapsed({
+                      base: PROUD_MOMENT_OPTIONS,
+                      topN: 6,
+                      expanded,
+                      selectedIds: proudMomentIds,
+                    });
+                    return (
+                      <>
+                        {visibleOptions.map((option) => {
+                    const selected = proudMomentIds.includes(option.id);
+                    return (
+                      <Pressable
+                        key={option.id}
+                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        onPress={() => {
+                          const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
+                            proudMomentIds.includes(o.id)
+                          );
+                          previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                          updateSignatureForOption(option, true);
+                          setProudMomentIds([option.id]);
+                          workflowRuntime?.completeStep('everyday_moment', { proudMoment: option.label });
+                          setError(null);
+                          setSurveyPhaseByIndex(3);
+                        }}
+                      >
+                        <View style={styles.fullWidthOptionContent}>
+                          {renderRadioIndicator(selected)}
+                          <Text
+                            style={[
+                              styles.fullWidthOptionLabel,
+                              selected && styles.fullWidthOptionLabelSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                        })}
+                        {hasMore ? (
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            onPress={() =>
+                              setExpandedOptionSets((prev) => ({
+                                ...prev,
+                                proudMoment: true,
+                              }))
+                            }
+                          >
+                            <ButtonLabel size="md">Show more options</ButtonLabel>
+                          </Button>
+                        ) : expanded ? (
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            onPress={() =>
+                              setExpandedOptionSets((prev) => ({
+                                ...prev,
+                                proudMoment: false,
+                              }))
+                            }
+                          >
+                            <ButtonLabel size="md">Show fewer options</ButtonLabel>
+                          </Button>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </View>
+                <Dialog
+                  visible={openQuestionInfoKey === 'proud'}
+                  onClose={() => setOpenQuestionInfoKey(null)}
+                  title="Why this question matters"
+                  description="This question turns your future identity into something you can picture on an ordinary day."
+                >
+                  <Text style={styles.bodyText}>
+                    Research on habits and identity—from implementation intentions to tiny‑habits work
+                    (Gollwitzer, Fogg, and others)—suggests that small, repeatable actions do more to change who
+                    we are than occasional big wins. That includes things like caring for your body and energy,
+                    following through on a small promise, or quietly helping someone. Choosing a 'quietly proud'
+                    moment helps your Identity Arc translate into daily behavior, not just an inspiring headline.
+                  </Text>
+                </Dialog>
+              </>
+            ),
+          },
+          {
+            id: 'motivation',
+            title: (
+              <>
+                Thinking about that future version of you, what do you think would motivate them the most
+                here?{' '}
+                <Text
+                  style={styles.questionInfoTrigger}
+                  accessibilityRole="button"
+                  accessibilityLabel="Why this question?"
+                  onPress={() => toggleQuestionInfo('motivation')}
+                >
+                  ⓘ
+                </Text>
+              </>
+            ),
+            canProceed: motivationIds.length > 0,
+            render: () => (
+              <>
+                <Text style={styles.selectOnlyOneLabel}>SELECT ONLY ONE</Text>
+                <View style={styles.fullWidthList}>
+                  {(() => {
+                    const expanded = Boolean(expandedOptionSets.motivation);
+                    const { visibleOptions, hasMore } = getAdaptiveOptionsCollapsed({
+                      base: MOTIVATION_OPTIONS,
+                      topN: 5,
+                      expanded,
+                      selectedIds: motivationIds,
+                    });
+                    return (
+                      <>
+                        {visibleOptions.map((option) => {
+                    const selected = motivationIds.includes(option.id);
+                    return (
+                      <Pressable
+                        key={option.id}
+                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        onPress={() => {
+                          const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
+                            motivationIds.includes(o.id)
+                          );
+                          previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
+                          updateSignatureForOption(option, true);
+                          setMotivationIds([option.id]);
+                          workflowRuntime?.completeStep('social_mirror', { motivation: option.label });
+                          setError(null);
+                          setSurveyPhaseByIndex(4);
+                        }}
+                      >
+                        <View style={styles.fullWidthOptionContent}>
+                          {renderRadioIndicator(selected)}
+                          {option.emoji ? (
+                            <Text
+                              style={[
+                                styles.fullWidthOptionEmoji,
+                                selected && styles.fullWidthOptionEmojiSelected,
+                              ]}
+                            >
+                              {option.emoji}
+                            </Text>
+                          ) : null}
+                          <Text
+                            style={[
+                              styles.fullWidthOptionLabel,
+                              selected && styles.fullWidthOptionLabelSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                        })}
+                        {hasMore ? (
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            onPress={() =>
+                              setExpandedOptionSets((prev) => ({
+                                ...prev,
+                                motivation: true,
+                              }))
+                            }
+                          >
+                            <ButtonLabel size="md">Show more options</ButtonLabel>
+                          </Button>
+                        ) : expanded ? (
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            onPress={() =>
+                              setExpandedOptionSets((prev) => ({
+                                ...prev,
+                                motivation: false,
+                              }))
+                            }
+                          >
+                            <ButtonLabel size="md">Show fewer options</ButtonLabel>
+                          </Button>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </View>
+                <Dialog
+                  visible={openQuestionInfoKey === 'motivation'}
+                  onClose={() => setOpenQuestionInfoKey(null)}
+                  title="Why this question matters"
+                  description="This question looks past today’s mood and focuses on what really fuels that future version of you in this area."
+                >
+                  <Text style={styles.bodyText}>
+                    Motivation science—especially work on intrinsic motivation and Self‑Determination Theory
+                    (Deci & Ryan)—shows people stick with change longer when their goals match their deeper
+                    drives, like caring for others, mastering hard things, or bringing new ideas into the world.
+                    Your choice here is a quick way of capturing those drives so your Identity Arc reflects why
+                    you do things, not just what you do.
+                  </Text>
+                </Dialog>
+              </>
+            ),
+          },
+          {
+            id: 'roleModelType',
+            title: 'What kind of people do you look up to?',
+            canProceed: Boolean(roleModelTypeId),
+            render: () => (
+              <>
+                <Text style={styles.selectOnlyOneLabel}>SELECT ONLY ONE</Text>
+                <View style={styles.fullWidthList}>
+                  {ARCHETYPE_ROLE_MODEL_TYPES.map((option) => {
+                    const selected = roleModelTypeId === option.id;
+                    return (
+                      <Pressable
+                        key={option.id}
+                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        onPress={() => {
+                          setRoleModelTypeId(option.id);
+                          setSurveyPhaseByIndex(5);
+                        }}
+                      >
+                        <View style={styles.fullWidthOptionContent}>
+                          {renderRadioIndicator(selected)}
+                          <Text
+                            style={[
+                              styles.fullWidthOptionLabel,
+                              selected && styles.fullWidthOptionLabelSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ),
+          },
+          {
+            id: 'admiredQualities',
+            title: 'What qualities do you admire in them? (Pick 1–3)',
+            canProceed: admiredQualityIds.length > 0,
+            render: () => (
+              <View style={styles.fullWidthList}>
+                {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
+                  const selected = admiredQualityIds.includes(option.id);
+                  return (
+                    <Pressable
+                      key={option.id}
+                      style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      onPress={() => {
+                        const next = toggleIdInList(option.id, admiredQualityIds);
+                        if (next.length > 3) return;
+                        setAdmiredQualityIds(next as ArchetypeAdmiredQualityId[]);
+                      }}
+                    >
+                      <View style={styles.fullWidthOptionContent}>
+                        {renderCheckboxIndicator(selected)}
+                        <Text
+                          style={[
+                            styles.fullWidthOptionLabel,
+                            selected && styles.fullWidthOptionLabelSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ),
+          },
+        ]}
+        currentStepIndex={surveyStepIndex}
+        stepLabel={stepLabel}
+        nextLabel="Next"
+        submitLabel="Submit"
+        onBack={() => setSurveyPhaseByIndex(surveyStepIndex - 1)}
+        onNext={handleNext}
+        onSubmit={handleSubmit}
+      />
+    );
+  };
+
+  function renderFirstTimeSurveyCompleted() {
+    const handleStartOver = () => {
+      Alert.alert(
+        'Start over?',
+        'This will clear your answers and restart the survey.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Start over',
+            style: 'destructive',
+            onPress: () => {
+              // Invalidate any in-flight generation so late responses don't override the reset.
+              arcGenerationRunIdRef.current += 1;
+              arcHeroPrefetchRunIdRef.current += 1;
+              setPrefetchedArcHero(null);
+              setAspiration(null);
+              setArcInsights(null);
+              setError(null);
+              setIsGenerating(false);
+              setHasSubmittedFirstTimeSurvey(false);
+              setIsSurveySummaryExpanded(false);
+
+              // Clear answers.
+              setDreamInput('');
+              setDomainIds([]);
+              setMotivationIds([]);
+              setProudMomentIds([]);
+              setRoleModelTypeId(null);
+              setSpecificRoleModelId(null);
+              setRoleModelWhyId(null);
+              setAdmiredQualityIds([]);
+              setIdentitySignature({} as Record<IdentityTag, number>);
+              setExpandedOptionSets({});
+
+              // Back to step 1 and autofocus the dream textarea.
+              setHasStreamedDreamsIntroCopy(true);
+              shouldAutofocusDreamsRef.current = true;
+              setSurveyPhaseByIndex(0);
+            },
+          },
+        ]
+      );
+    };
+
+    return (
+      <SurveyCard
+        mode="completed"
+        variant="stacked"
+        footerLeft={
+          <Button
+            variant="ghost"
+            size="small"
+            onPress={handleStartOver}
+            accessibilityLabel="Start over"
+            style={styles.surveyCompleteFooterButton}
+          >
+            <View style={styles.surveyCompleteFooterButtonInner}>
+              <Icon name="refresh" size={16} color={colors.textSecondary} />
+              <ButtonLabel size="sm" tone="secondary">
+                Start over
+              </ButtonLabel>
+            </View>
+          </Button>
+        }
+        footerRight={
+          <Button
+            variant="primary"
+            size="small"
+            disabled
+            accessibilityLabel="Done"
+            style={styles.surveyCompleteDoneButton}
+          >
+            <ButtonLabel size="sm" tone="inverse">
+              Done
+            </ButtonLabel>
+          </Button>
+        }
+        steps={[
+          {
+            id: 'completed',
+            title: 'Survey complete',
+            render: () => (
+              <View style={styles.surveyCompleteBody}>
+                <ReviewAnswersPanel
+                  expanded={isSurveySummaryExpanded}
+                  onToggle={() => setIsSurveySummaryExpanded((v) => !v)}
+                  lines={surveySummaryLines}
+                />
+              </View>
+            ),
+          },
+        ]}
+        currentStepIndex={0}
+        stepLabel={undefined}
+        completedLabel=""
+      />
+    );
   }
 
-  if (phase === 'motivation') {
-    return renderMotivation();
+  // Generating/reveal phases should take precedence regardless of the survey
+  // phase list so we never accidentally treat them as unreachable.
+  if ((phase as Phase) === 'reveal') {
+    return renderReveal();
+  }
+
+  if ((phase as Phase) === 'tweak') {
+    return renderTweak();
+  }
+
+  if ((phase as Phase) === 'generating') {
+    return renderGenerating();
+  }
+
+  if (isFirstTimeOnboarding && FIRST_TIME_ONBOARDING_SURVEY_PHASES.includes(phase)) {
+    return renderFirstTimeSurvey();
   }
 
   if (phase === 'trait') {
@@ -3824,18 +4798,6 @@ export function IdentityAspirationFlow({
 
   if (phase === 'admiredQualities') {
     return renderAdmiredQualities();
-  }
-
-  if (phase === 'reveal') {
-    return renderReveal();
-  }
-
-  if (phase === 'tweak') {
-    return renderTweak();
-  }
-
-  if (phase === 'generating') {
-    return renderGenerating();
   }
 
   return null;
@@ -3892,6 +4854,71 @@ const styles = StyleSheet.create({
   bodyText: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  summaryLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  summaryValue: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  surveyCompleteBody: {
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  surveyCompleteActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  surveyCompleteAnswers: {
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  surveyCompleteFooterButton: {
+    paddingHorizontal: 0,
+  },
+  surveyCompleteFooterButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  surveyCompleteDoneButton: {
+    opacity: 0.55,
+  },
+  reviewPanel: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    overflow: 'hidden',
+  },
+  reviewPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  reviewPanelTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  reviewPanelBody: {
+    overflow: 'hidden',
+  },
+  reviewPanelBodyInner: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  reviewRow: {
+    gap: 2,
   },
   questionMeta: {
     ...typography.bodySm,
@@ -3952,17 +4979,24 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: spacing.xs,
   },
+  selectOnlyOneLabel: {
+    ...typography.label,
+    color: colors.muted,
+    letterSpacing: 0.6,
+    marginBottom: spacing.sm,
+  },
   fullWidthOption: {
     borderRadius: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    // paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.shell,
+    backgroundColor: 'transparent',
   },
   fullWidthOptionSelected: {
-    borderColor: colors.accent,
-    backgroundColor: '#DCFCE7',
+    // Keep selection simple (no filled pill); rely on the radio + label styling.
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
   fullWidthOptionContent: {
     flexDirection: 'row',
@@ -3973,19 +5007,19 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.sumi,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterSelected: {
-    borderColor: colors.accent,
+    borderColor: colors.sumi,
   },
   radioInner: {
     width: 8,
     height: 8,
     borderRadius: 999,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.sumi,
   },
   checkboxOuter: {
     width: 18,
@@ -4002,15 +5036,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   fullWidthOptionEmoji: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.textPrimary,
   },
   fullWidthOptionEmojiSelected: {
     color: colors.accent,
   },
   fullWidthOptionLabel: {
-    // Use the same readable size as core body copy so options feel like
-    // first-class choices, not secondary metadata.
     ...typography.body,
     color: colors.textPrimary,
   },
@@ -4047,11 +5079,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing['2xl'] ?? spacing.xl,
     paddingVertical: spacing.sm,
     borderRadius: 999,
-    // Slightly darker than the agent workspace canvas/shell so the pill reads
-    // as a clear control, even on light backgrounds.
-    backgroundColor: '#E5E7EB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   revealIntroText: {
     marginBottom: spacing.lg,

@@ -427,7 +427,7 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshot, pref
       const hour = when.getHours();
       const minute = when.getMinutes();
 
-      const scheduleOne = async (trigger: Notifications.SchedulableTriggerInput) => {
+      const scheduleOne = async (trigger: Notifications.NotificationTriggerInput) => {
         const identifier = await Notifications.scheduleNotificationAsync({
           content,
           trigger,
@@ -741,8 +741,8 @@ function attachStoreSubscription() {
     .activities.map((activity) => ({
       id: activity.id,
       reminderAt: activity.reminderAt ?? null,
-      repeatRule: activity.repeatRule ?? null,
-      repeatCustom: activity.repeatCustom ?? null,
+      repeatRule: activity.repeatRule ?? undefined,
+      repeatCustom: activity.repeatCustom ?? undefined,
       status: activity.status,
     }));
 
@@ -759,8 +759,8 @@ function attachStoreSubscription() {
     const nextActivities: ActivitySnapshot[] = state.activities.map((activity) => ({
       id: activity.id,
       reminderAt: activity.reminderAt ?? null,
-      repeatRule: activity.repeatRule ?? null,
-      repeatCustom: activity.repeatCustom ?? null,
+      repeatRule: activity.repeatRule ?? undefined,
+      repeatCustom: activity.repeatCustom ?? undefined,
       status: activity.status,
     }));
 

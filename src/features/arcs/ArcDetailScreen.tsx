@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Linking,
   TouchableOpacity,
   TouchableWithoutFeedback,
   Image,
@@ -25,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
@@ -55,6 +57,7 @@ import {
 } from '../../ui/DropdownMenu';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { BottomDrawer } from '../../ui/BottomDrawer';
+import { openPaywallInterstitial } from '../../services/paywall';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -68,7 +71,7 @@ import {
   buildArcThumbnailSeed,
 } from './thumbnailVisuals';
 import { type ArcHeroImage } from './arcHeroLibrary';
-import type { UnsplashPhoto } from '../../services/unsplash';
+import { trackUnsplashDownload, withUnsplashReferral, type UnsplashPhoto } from '../../services/unsplash';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
 import { ArcBannerSheet } from './ArcBannerSheet';
@@ -130,6 +133,8 @@ export function ArcDetailScreen() {
   const setHasDismissedArcExploreGuide = useAppStore((state) => state.setHasDismissedArcExploreGuide);
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
+
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
   const completedArcGoals = useMemo(
     () => arcGoals.filter((goal) => goal.status === 'completed'),
@@ -460,12 +465,13 @@ export function ArcDetailScreen() {
           createdAt: nowIso,
           unsplashPhotoId: photo.id,
           unsplashAuthorName: photo.user.name,
-          unsplashAuthorLink: photo.user.links.html,
-          unsplashLink: photo.links.html,
+          unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+          unsplashLink: withUnsplashReferral(photo.links.html),
         },
         heroHidden: false,
         updatedAt: nowIso,
       }));
+      trackUnsplashDownload(photo.id).catch(() => undefined);
     },
     [arc, updateArc]
   );
@@ -576,7 +582,7 @@ export function ArcDetailScreen() {
           <Text style={styles.emptyTitle}>Arc not found</Text>
           <Text style={styles.emptyBody}>
             This Arc may have been deleted or is no longer available. You can return to your
-            Arcs canvas and choose another Arc to open.
+            Arcs screen and choose another Arc to open.
           </Text>
           <Button
             variant="accent"
@@ -689,8 +695,8 @@ export function ArcDetailScreen() {
       >
         <Heading variant="sm">🚀 Your first Arc is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Now that we have your first identity Arc, we can create a Goal to help you get there. Tap “Go to
-          Goals” and we’ll guide you from there.
+          This Arc is saved to your Arcs list. Next we’ll turn it into a Goal (and then small Activities) so you
+          have a clear next step. Tap “Go to Goals” to continue.
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
@@ -879,6 +885,39 @@ export function ArcDetailScreen() {
                             style={styles.heroImage}
                           />
                         )}
+                        {arc.heroImageMeta?.source === 'unsplash' &&
+                        arc.heroImageMeta.unsplashAuthorName &&
+                        arc.heroImageMeta.unsplashAuthorLink &&
+                        arc.heroImageMeta.unsplashLink ? (
+                          <View pointerEvents="box-none" style={styles.heroAttributionOverlay}>
+                            <View style={styles.heroAttributionPill}>
+                              <Text
+                                style={styles.heroAttributionText}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
+                                Photo by{' '}
+                                <Text
+                                  style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                  onPress={() => {
+                                    Linking.openURL(arc.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
+                                  }}
+                                >
+                                  {arc.heroImageMeta.unsplashAuthorName}
+                                </Text>{' '}
+                                on{' '}
+                                <Text
+                                  style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                  onPress={() => {
+                                    Linking.openURL(arc.heroImageMeta!.unsplashLink!).catch(() => {});
+                                  }}
+                                >
+                                  Unsplash
+                                </Text>
+                              </Text>
+                            </View>
+                          </View>
+                        ) : null}
                         <View style={styles.heroEditButton}>
                           <Icon name="edit" size={16} color={colors.canvas} />
                         </View>
@@ -1102,6 +1141,10 @@ export function ArcDetailScreen() {
         arcName={arc.name}
         arcNarrative={arc.narrative}
         arcGoalTitles={arcGoals.map((goal) => goal.title)}
+        canUseUnsplash={isPro}
+        onRequestUpgrade={() =>
+          openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' })
+        }
         heroSeed={
           heroSeed ??
           buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant)
@@ -1178,14 +1221,14 @@ export function ArcDetailScreen() {
             {arcExploreGuideStep === 0
               ? 'Make this Arc yours'
               : arcExploreGuideStep === 1
-                ? 'Switch canvases'
+                ? 'Switch tabs'
                 : 'Review your insights'}
           </Text>
         }
         body={
           <Text style={styles.arcExploreCoachmarkBody}>
             {arcExploreGuideStep === 0
-              ? 'Tap the banner to change the image (upload, curated picks, or Unsplash).'
+              ? 'Tap the banner to change the image (upload, curated picks, or search the image library).'
               : arcExploreGuideStep === 1
                 ? 'Use these tabs to move between Details, Goals, and your progress history.'
                 : 'We generated Arc Development Insights to help you steer this chapter. Tap a section to expand it.'}
@@ -1408,11 +1451,11 @@ const styles = StyleSheet.create({
     width: '100%',
     // Match the Arc list card hero: a wide banner that still leaves room
     // for content below.
-    aspectRatio: 3 / 1,
+    aspectRatio: 12 / 5,
   },
   heroMinimal: {
     width: '100%',
-    aspectRatio: 3 / 1,
+    aspectRatio: 12 / 5,
     backgroundColor: colors.shellAlt,
   },
   buttonTextAlt: {
@@ -1460,7 +1503,7 @@ const styles = StyleSheet.create({
   heroModalPreviewFrame: {
     width: '100%',
       // Match the main Arc hero banner aspect ratio so the preview feels 1:1.
-      aspectRatio: 3 / 1,
+      aspectRatio: 12 / 5,
       borderRadius: 24,
       overflow: 'hidden',
       backgroundColor: colors.shellAlt,
@@ -1571,7 +1614,7 @@ const styles = StyleSheet.create({
   heroEditButton: {
     position: 'absolute',
     right: spacing.sm,
-    bottom: spacing.sm,
+    top: spacing.sm,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -1584,6 +1627,30 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
     marginHorizontal: spacing.xl,
+  },
+  heroAttributionOverlay: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.sm,
+    left: spacing.sm,
+    alignItems: 'flex-end',
+  },
+  heroAttributionPill: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  heroAttributionText: {
+    ...typography.bodySm,
+    // Micro caption: keep it subtle and compact.
+    fontSize: 11,
+    lineHeight: 13,
+    color: colors.textPrimary,
+  },
+  heroAttributionLink: {
+    textDecorationLine: 'underline',
   },
   // Thumbnail used in the header row – smaller, card-like image.
   arcThumbnailWrapper: {

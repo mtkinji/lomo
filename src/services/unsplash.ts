@@ -49,6 +49,42 @@ function getUnsplashAccessKey(): string | undefined {
   return getEnvVar<string>('unsplashAccessKey');
 }
 
+export function withUnsplashReferral(url: string): string {
+  const raw = String(url ?? '').trim();
+  if (!raw) return raw;
+  try {
+    const parsed = new URL(raw);
+    // Required by Unsplash guidelines.
+    if (!parsed.searchParams.get('utm_source')) {
+      parsed.searchParams.set('utm_source', 'Kwilt');
+    }
+    if (!parsed.searchParams.get('utm_medium')) {
+      parsed.searchParams.set('utm_medium', 'referral');
+    }
+    return parsed.toString();
+  } catch {
+    // If the URL can't be parsed (shouldn't happen for Unsplash html links),
+    // return it unchanged.
+    return raw;
+  }
+}
+
+export async function trackUnsplashDownload(photoId: string): Promise<void> {
+  const accessKey = getUnsplashAccessKey();
+  const id = String(photoId ?? '').trim();
+  if (!accessKey || !id) return;
+
+  // Unsplash API guideline: trigger the download endpoint when a user uses a photo.
+  await fetch(`${UNSPLASH_API_BASE}/photos/${encodeURIComponent(id)}/download`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Client-ID ${accessKey}`,
+      Accept: 'application/json',
+      'Accept-Version': 'v1',
+    },
+  }).then(() => undefined);
+}
+
 export async function searchUnsplashPhotos(
   query: string,
   options: {
@@ -61,7 +97,7 @@ export async function searchUnsplashPhotos(
   if (!accessKey) {
     throw new UnsplashError(
       'missing_access_key',
-      'Unsplash is not configured for this build (missing access key).'
+      'Image library search is not configured for this build (missing access key).'
     );
   }
 
@@ -87,8 +123,8 @@ export async function searchUnsplashPhotos(
   });
 
   if (!response.ok) {
-    // Attempt to surface a meaningful message from Unsplash.
-    let message = `Unsplash request failed (HTTP ${response.status}).`;
+    // Attempt to surface a meaningful message from the image library API.
+    let message = `Image library request failed (HTTP ${response.status}).`;
     try {
       const maybeJson = (await response.json()) as unknown;
       if (
@@ -110,6 +146,6 @@ export async function searchUnsplashPhotos(
     const data: UnsplashSearchResponse = await response.json();
     return data.results ?? [];
   } catch {
-    throw new UnsplashError('invalid_response', 'Unable to parse Unsplash response.');
+    throw new UnsplashError('invalid_response', 'Unable to parse image library response.');
   }
 }

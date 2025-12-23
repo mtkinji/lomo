@@ -1,5 +1,5 @@
 import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -19,12 +19,15 @@ import { BottomDrawer } from '../../ui/BottomDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { Logo } from '../../ui/Logo';
+import { Toast, type ToastVariant } from '../../ui/Toast';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import {
   DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
   clearAllCoachConversationMemory,
@@ -88,6 +91,11 @@ export function DevToolsScreen() {
   );
   const devBreadcrumbsEnabled = useAppStore((state) => state.devBreadcrumbsEnabled);
   const setDevBreadcrumbsEnabled = useAppStore((state) => state.setDevBreadcrumbsEnabled);
+  const devResetGenerativeCredits = useAppStore((state) => state.devResetGenerativeCredits);
+  const devSetGenerativeCreditsUsedThisMonth = useAppStore((state) => state.devSetGenerativeCreditsUsedThisMonth);
+  const generativeCredits = useAppStore((state) => state.generativeCredits);
+  const isPro = useEntitlementsStore((state) => state.isPro);
+  const devSetIsPro = useEntitlementsStore((state) => state.devSetIsPro);
 
   const initialTab = route.params?.initialTab ?? 'tools';
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
@@ -113,6 +121,13 @@ export function DevToolsScreen() {
   const [authBody, setAuthBody] = useState(
     'Save your arcs and sync your progress across devices.'
   );
+
+  const [devToastMessage, setDevToastMessage] = useState('');
+  const [devToastVariant, setDevToastVariant] = useState<ToastVariant>('default');
+  const showDevToast = useCallback((message: string, variant: ToastVariant = 'default') => {
+    setDevToastVariant(variant);
+    setDevToastMessage(message);
+  }, []);
   const [streakDays, setStreakDays] = useState('21');
   const [streakBody, setStreakBody] = useState(
     'You’ve shown up 21 days in a row. Keep the thread going with one small action.'
@@ -1235,6 +1250,129 @@ export function DevToolsScreen() {
             </View>
 
             <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Monetization (dev)</Text>
+              <Text style={styles.cardBody}>
+                Force paywall moments, simulate Pro, and set AI credits so you can verify upgrade prompts + the credits toast quickly.
+              </Text>
+              <Text style={styles.meta}>
+                Tier: {isPro ? 'Pro' : 'Free'} • Credits: {generativeCredits?.usedThisMonth ?? 0} used ({generativeCredits?.monthKey ?? 'unknown'})
+              </Text>
+
+              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
+                <Button
+                  variant="secondary"
+                  onPress={() => devSetIsPro(false)}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Simulate Free</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => devSetIsPro(true)}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Simulate Pro</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => openPaywallPurchaseEntry()}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Open Subscriptions screen</ButtonLabel>
+                </Button>
+              </HStack>
+
+              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: Arc limit</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'limit_goals_per_arc', source: 'goals_create_manual' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: Goal limit</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'generative_quota_exceeded', source: 'activity_tags_ai' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: AI quota</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' })
+                  }
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Paywall: Image library</ButtonLabel>
+                </Button>
+              </HStack>
+
+              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
+                <Button variant="secondary" onPress={devResetGenerativeCredits} style={styles.cardAction}>
+                  <ButtonLabel size="md">Reset AI credits</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => devSetGenerativeCreditsUsedThisMonth(20)}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Set credits to “warning” (5 left)</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => devSetGenerativeCreditsUsedThisMonth(25)}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Set credits to exhausted</ButtonLabel>
+                </Button>
+              </HStack>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Toast (dev)</Text>
+              <Text style={styles.cardBody}>
+                Fire an in-app toast on demand to verify the UI and safe-area positioning.
+              </Text>
+              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
+                <Button
+                  variant="secondary"
+                  onPress={() => showDevToast('This is a test toast.')}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Show toast</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => showDevToast('Saved successfully.', 'success')}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Success</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => showDevToast('Warning: you are nearing a limit.', 'warning')}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Warning</ButtonLabel>
+                </Button>
+              </HStack>
+            </View>
+
+            <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardEyebrow}>Navigation experiments</Text>
               </View>
@@ -1413,6 +1551,14 @@ export function DevToolsScreen() {
           </View>
         </CanvasScrollView>
       )}
+      <Toast
+        visible={devToastMessage.length > 0}
+        message={devToastMessage}
+        variant={devToastVariant}
+        bottomOffset={insets.bottom + spacing.lg}
+        durationMs={3000}
+        onDismiss={() => setDevToastMessage('')}
+      />
     </AppShell>
   );
 }

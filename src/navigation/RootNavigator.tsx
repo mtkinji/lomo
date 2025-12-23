@@ -28,6 +28,11 @@ import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
+import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
+import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
+import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
+import { PaywallDrawerHost } from '../features/paywall/PaywallDrawer';
+import { ToastHost } from '../ui/ToastHost';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
@@ -43,7 +48,7 @@ export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Goals: NavigatorScreenParams<GoalsStackParamList> | undefined;
   Activities: NavigatorScreenParams<ActivitiesStackParamList> | undefined;
-  Settings: undefined;
+  Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {
         initialTab?: 'tools' | 'gallery' | 'typeColor' | 'arcTesting';
@@ -109,6 +114,25 @@ export type SettingsStackParamList = {
   SettingsProfile: undefined;
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
+  SettingsManageSubscription:
+    | {
+        /**
+         * When true, open the plan/pricing bottom drawer immediately on mount/focus.
+         * Useful when arriving from an in-context paywall CTA.
+         */
+        openPricingDrawer?: boolean;
+        /**
+         * Optional nonce to force re-opening the drawer even if already on the
+         * subscriptions screen (e.g. paywall overlay).
+         */
+        openPricingDrawerNonce?: number;
+      }
+    | undefined;
+  SettingsChangePlan: undefined;
+  SettingsPaywall: {
+    reason: import('../services/paywall').PaywallReason;
+    source: import('../services/paywall').PaywallSource;
+  };
 };
 
 const ArcsStack = createNativeStackNavigator<ArcsStackParamList>();
@@ -351,6 +375,8 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           options={{ title: 'Settings' }}
         />
       </Drawer.Navigator>
+      <PaywallDrawerHost />
+      <ToastHost />
     </NavigationContainer>
   );
 }
@@ -443,6 +469,18 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsNotifications"
         component={NotificationsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsManageSubscription"
+        component={ManageSubscriptionScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsChangePlan"
+        component={ChangePlanScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsPaywall"
+        component={PaywallInterstitialScreen}
       />
     </SettingsStack.Navigator>
   );

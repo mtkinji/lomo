@@ -240,6 +240,15 @@ export function BottomDrawer({
   const translateY = useSharedValue(0);
   const isAnimating = useSharedValue(false);
 
+  // Safety: if the modal ever remains mounted after `visible` becomes false (e.g. an interrupted
+  // animation completion callback), ensure it cannot block taps on the underlying canvas.
+  const overlayPointerEvents = useMemo(() => {
+    // Inline drawers can optionally be "non-blocking" to allow interaction with the canvas.
+    if (presentation === 'inline' && hideBackdrop) return 'box-none' as const;
+    // For modal presentation, treat `visible=false` as fully transparent to touch input.
+    return (visible ? 'auto' : 'none') as const;
+  }, [hideBackdrop, presentation, visible]);
+
   const setScrollableGesture = (gesture: ReturnType<typeof Gesture.Native> | null) => {
     setScrollableGestureState(gesture);
   };
@@ -264,8 +273,13 @@ export function BottomDrawer({
       if (!mounted) setMounted(true);
       return;
     }
+
     // Close animation for both modal + inline; unmount after.
+    // Important: if Reanimated's completion callback is interrupted (or fails to run),
+    // we still need a JS-side fallback to avoid leaving a transparent full-screen
+    // overlay that blocks taps.
     if (!mounted) return;
+
     isAnimating.value = true;
     translateY.value = withTiming(closedOffset, { duration: 280 }, (finished) => {
       isAnimating.value = false;
@@ -273,8 +287,16 @@ export function BottomDrawer({
         runOnJS(setMounted)(false);
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+
+    const fallbackUnmountMs = 360; // slightly > duration to avoid cutting off the close animation
+    const timeoutId = setTimeout(() => {
+      setMounted(false);
+    }, fallbackUnmountMs);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [closedOffset, mounted, visible, isAnimating, translateY]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -333,15 +355,24 @@ export function BottomDrawer({
 
   const panStartY = useSharedValue(0);
   const panStartHeight = useSharedValue(0);
-  const panGesture = useMemo(() => {
-    const base = Gesture.Pan()
+  const makePanGesture = useMemo(() => {
+    return (opts: { ignoreScrollLock: boolean }) => {
+      const { ignoreScrollLock } = opts;
+      const base = Gesture.Pan()
       .onBegin(() => {
         panStartY.value = translateY.value;
         panStartHeight.value = sheetHeight.value;
       })
       .onUpdate((event) => {
         // If content is scrollable and not at top, avoid stealing downward drags.
-        if (enableContentPanningGesture && scrollY.value > 0 && event.translationY > 0) {
+        // Note: dragging from the handle should always work, even when nested
+        // content is scrolled.
+        if (
+          !ignoreScrollLock &&
+          enableContentPanningGesture &&
+          scrollY.value > 0 &&
+          event.translationY > 0
+        ) {
           return;
         }
         // Dragging down reduces height; dragging up increases height.
@@ -398,11 +429,12 @@ export function BottomDrawer({
         });
       });
 
-    // If a nested scroll gesture is registered, run simultaneously to reduce conflicts.
-    if (scrollableGesture) {
-      return base.simultaneousWithExternalGesture(scrollableGesture);
-    }
-    return base;
+      // If a nested scroll gesture is registered, run simultaneously to reduce conflicts.
+      if (scrollableGesture) {
+        return base.simultaneousWithExternalGesture(scrollableGesture);
+      }
+      return base;
+    };
   }, [
     closeIfAllowed,
     closedOffset,
@@ -419,16 +451,19 @@ export function BottomDrawer({
     isAnimating,
     panStartY,
     panStartHeight,
+    translateY,
   ]);
 
   const handlePanGesture = useMemo(() => {
-    // Always allow dragging from the handle.
-    return panGesture;
-  }, [panGesture]);
+    // Always allow dragging from the handle, even when content is scrolled.
+    return makePanGesture({ ignoreScrollLock: true });
+  }, [makePanGesture]);
 
   const contentPanGesture = useMemo(() => {
-    return enableContentPanningGesture ? panGesture : Gesture.Pan().enabled(false);
-  }, [enableContentPanningGesture, panGesture]);
+    return enableContentPanningGesture
+      ? makePanGesture({ ignoreScrollLock: false })
+      : Gesture.Pan().enabled(false);
+  }, [enableContentPanningGesture, makePanGesture]);
 
   if (!mounted) return null;
 
@@ -445,7 +480,7 @@ export function BottomDrawer({
           style={styles.overlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
-          pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
+          pointerEvents={overlayPointerEvents}
         >
           <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
@@ -499,7 +534,7 @@ export function BottomDrawer({
       ) : (
         <View
           style={styles.overlay}
-          pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
+          pointerEvents={overlayPointerEvents}
         >
           <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
@@ -559,7 +594,7 @@ export function BottomDrawer({
 
   return (
     <Modal
-      visible
+      visible={mounted}
       transparent
       animationType="none"
       onRequestClose={dismissable ? onClose : undefined}

@@ -37,6 +37,8 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
@@ -73,6 +75,7 @@ import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
+import { openPaywallInterstitial } from '../../services/paywall';
 
 type ViewMenuItemProps = {
   view: ActivityView;
@@ -190,6 +193,7 @@ export function ActivitiesScreen() {
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
   const { capture } = useAnalytics();
+  const showToast = useToastStore((state) => state.showToast);
 
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
@@ -197,6 +201,9 @@ export function ActivitiesScreen() {
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const activityViews = useAppStore((state) => state.activityViews);
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
@@ -229,6 +236,7 @@ export function ActivitiesScreen() {
   const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
   const [hasQuickAddAiGenerated, setHasQuickAddAiGenerated] = React.useState(false);
   const lastQuickAddAiTitleRef = React.useRef<string | null>(null);
+  // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
   const [enrichingActivityIds, setEnrichingActivityIds] = React.useState<Set<string>>(() => new Set());
   const enrichingActivityIdsRef = React.useRef<Set<string>>(new Set());
   const [quickAddReminderAt, setQuickAddReminderAt] = React.useState<string | null>(null);
@@ -587,7 +595,10 @@ export function ActivitiesScreen() {
         },
       ];
 
-      const reply = await sendCoachChat(turns, { launchContextSummary });
+      const reply = await sendCoachChat(turns, {
+        launchContextSummary,
+        paywallSource: 'activity_quick_add_ai',
+      });
       const title = normalizeQuickAddAiTitle(reply);
       if (!title) return;
 
@@ -677,7 +688,16 @@ export function ActivitiesScreen() {
       updatedAt: timestamp,
     };
 
+    // Creating an Activity (even as planning) counts as showing up.
+    recordShowUp();
     addActivity(activity);
+    showToast({
+      message: 'Activity created',
+      variant: 'success',
+      // Keep it above the quick add dock (and above the keyboard when open).
+      bottomOffset: quickAddReservedHeight + spacing.sm,
+      durationMs: 2200,
+    });
     pendingScrollToActivityIdRef.current = activity.id;
     // If the user didn't add any scheduling/reminder info during quick-add,
     // queue a gentle "add a trigger" guide for when the dock is collapsed.
@@ -775,10 +795,13 @@ export function ActivitiesScreen() {
     capture,
     quickAddEstimateMinutes,
     quickAddReminderAt,
+    quickAddReservedHeight,
     quickAddRepeatRule,
     quickAddScheduledDate,
     quickAddTitle,
     markActivityEnrichment,
+    recordShowUp,
+    showToast,
     triggerGuideVisible,
     triggerPickerVisible,
   ]);
@@ -1500,8 +1523,6 @@ export function ActivitiesScreen() {
         onPressGenerateActivityTitle={handleGenerateQuickAddActivityTitle}
         isGeneratingActivityTitle={isQuickAddAiGenerating}
         hasGeneratedActivityTitle={hasQuickAddAiGenerated}
-        postCreateTriggerNudgeVisible={Boolean(postCreateTriggerActivityId) && !triggerPickerVisible}
-        onPressPostCreateTrigger={openTriggerPickerForGuide}
         onReservedHeightChange={setQuickAddReservedHeight}
       />
       <BottomGuide
@@ -2246,6 +2267,8 @@ function ActivityCoachDrawer({
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const [isManualTagsThinking, setIsManualTagsThinking] = React.useState(false);
   const [reminderSheetVisible, setReminderSheetVisible] = React.useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
@@ -3011,6 +3034,16 @@ function ActivityCoachDrawer({
                       loading={isManualTagsThinking}
                       onPress={() => {
                         if (!manualActivity) return;
+                        // TODO(entitlements): replace tier selection with real Pro state.
+                        const tier: 'free' | 'pro' = isPro ? 'pro' : 'free';
+                        const consumed = tryConsumeGenerativeCredit({ tier });
+                        if (!consumed.ok) {
+                          openPaywallInterstitial({
+                            reason: 'generative_quota_exceeded',
+                            source: 'activity_tags_ai',
+                          });
+                          return;
+                        }
                         (async () => {
                           setIsManualTagsThinking(true);
                           const aiTags = await suggestActivityTagsWithAi({

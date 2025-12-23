@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, FlatList, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
@@ -15,6 +16,8 @@ export function TodayScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const isFocused = useIsFocused();
   const goalLookup = goals.reduce<Record<string, string>>((acc, goal) => {
     acc[goal.id] = goal.title;
     return acc;
@@ -36,6 +39,12 @@ export function TodayScreen() {
       }),
     [today]
   );
+
+  // Visiting the Today canvas counts as "showing up".
+  useEffect(() => {
+    if (!isFocused) return;
+    recordShowUp();
+  }, [isFocused, recordShowUp]);
 
   useEffect(() => {
     let cancelled = false;

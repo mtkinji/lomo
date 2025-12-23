@@ -28,7 +28,8 @@ Implement the MVP limits in a way that avoids destructive data loss and sets up 
 ### Definitions
 
 - Active Arc: `Arc.status === 'active'`
-- Active Goal: `Goal.status !== 'completed' && Goal.status !== 'archived'`
+- Active Goal (confirmed): `Goal.status !== 'archived'`
+  - Users can use **Archive** as the primary way to stop a goal counting toward the Free cap (including completed goals).
 
 ### Free limits
 

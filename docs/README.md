@@ -22,12 +22,17 @@
 
 - **Keyboard & Input Safety — Implementation Guide**: `docs/keyboard-input-safety-implementation.md` (companion to `docs/prds/keyboard-input-safety-prd.md`)
 
+### Backend & infra strategy
+
+- **Backend services strategy (Supabase-first)**: `docs/backend-services-supabase-strategy.md`
+
 ### Core background docs
 
 - Engagement: `docs/engagement-and-motivation-system.md`
 - Notifications foundation: `docs/notifications-paradigm-prd.md`
 - UX: `docs/ux-style-guide.md`, `docs/ux-flow.md`
 - UI architecture: `docs/ui-architecture.md`
+- Apple ecosystem opportunities (widgets/live activities/shortcuts/spotlight): `docs/apple-ecosystem-opportunities.md`
 - Roadmap (primary): `docs/value-realization-roadmap.md`
 
 

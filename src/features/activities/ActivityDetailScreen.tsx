@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import type {
@@ -67,6 +68,8 @@ import { buildIcsEvent } from '../../utils/ics';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
+import { openPaywallInterstitial } from '../../services/paywall';
+import { Toast } from '../../ui/Toast';
 
 type FocusSessionState =
   | {
@@ -92,9 +95,9 @@ type ActivityDetailNavigationProp = NativeStackNavigationProp<
 
 export function ActivityDetailScreen() {
   // Focus duration limits:
-  // TODO(paywall): when monetization is implemented, free users should be capped at 5 minutes.
-  // For now, keep this generous.
-  const focusMaxMinutes = 180;
+  // MVP gating: free users are capped at 10 minutes. Pro removes the cap.
+  const isPro = useEntitlementsStore((state) => state.isPro);
+  const focusMaxMinutes = isPro ? 180 : 10;
   const isFocused = useIsFocused();
   const { capture } = useAnalytics();
   const insets = useSafeAreaInsets();
@@ -129,6 +132,7 @@ export function ActivityDetailScreen() {
   const setHasDismissedActivityDetailGuide = useAppStore(
     (state) => state.setHasDismissedActivityDetailGuide,
   );
+  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
 
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
@@ -303,6 +307,8 @@ export function ActivityDetailScreen() {
       }
     };
   }, []);
+
+  // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(activity?.title ?? '');
@@ -613,7 +619,7 @@ export function ActivityDetailScreen() {
       return;
     }
     if (minutes > focusMaxMinutes) {
-      Alert.alert('Duration too long', `Focus mode is currently limited to ${focusMaxMinutes} minutes.`);
+      openPaywallInterstitial({ reason: 'pro_only_focus_mode', source: 'activity_focus_mode' });
       return;
     }
     setLastFocusMinutes(minutes);
@@ -726,7 +732,18 @@ export function ActivityDetailScreen() {
 
   const openCalendarSheet = () => {
     const existingStart = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-    const draftStart = existingStart && !Number.isNaN(existingStart.getTime()) ? existingStart : new Date();
+    const existingIsValid = Boolean(existingStart && !Number.isNaN(existingStart.getTime()));
+    const existingIsReasonablyFuture =
+      existingIsValid && (existingStart as Date).getTime() > Date.now() - 60_000 /* 1 min grace */;
+
+    const base = existingIsReasonablyFuture ? (existingStart as Date) : new Date();
+    const draftStart = (() => {
+      if (existingIsReasonablyFuture) return base;
+      // Round up to the next 15-minute boundary so the default feels intentional.
+      const intervalMs = 15 * 60_000;
+      return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
+    })();
+
     setCalendarStartDraft(draftStart);
     setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
     setCalendarSheetVisible(true);
@@ -767,13 +784,16 @@ export function ActivityDetailScreen() {
       if (action.type === 'openCalendar') {
         const fromAction = action.startAtISO ? new Date(action.startAtISO) : null;
         const fromExisting = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-        const fallback = new Date();
         const draftStart =
           fromAction && !Number.isNaN(fromAction.getTime())
             ? fromAction
             : fromExisting && !Number.isNaN(fromExisting.getTime())
               ? fromExisting
-              : fallback;
+              : (() => {
+                  const base = new Date();
+                  const intervalMs = 15 * 60_000;
+                  return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
+                })();
 
         const duration =
           typeof action.durationMinutes === 'number' && Number.isFinite(action.durationMinutes)
@@ -804,6 +824,10 @@ export function ActivityDetailScreen() {
               style: desired ? 'default' : 'destructive',
               onPress: () => {
                 const timestamp = new Date().toISOString();
+                if (desired && !step.completedAt) {
+                  // Completing a step counts as "showing up".
+                  recordShowUp();
+                }
                 updateActivity(activity.id, (prev) => {
                   const prevSteps = prev.steps ?? [];
                   const nextSteps = prevSteps.map((s, idx) => {
@@ -913,10 +937,19 @@ export function ActivityDetailScreen() {
     if (calendarPermissionStatus !== 'granted') {
       const ok = await loadWritableCalendars();
       if (!ok) {
-        Alert.alert(
-          'Calendar access needed',
-          'Enable Calendar access in system settings, or use the “Share calendar file” option.',
-        );
+        Alert.alert('Calendar access needed', 'Enable Calendar access in system settings, or use “Share calendar file”.', [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              try {
+                void Linking.openSettings();
+              } catch {
+                // no-op
+              }
+            },
+          },
+        ]);
         return;
       }
     }
@@ -1004,15 +1037,6 @@ export function ActivityDetailScreen() {
       endAt,
     });
 
-    // Persist scheduledAt (additive model).
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      scheduledAt: startAt.toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
-
-    setCalendarSheetVisible(false);
-
     try {
       const filename = `kwilt-${activity.title.trim().slice(0, 48).replace(/[^a-z0-9-_]+/gi, '-') || 'activity'}.ics`;
       const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
@@ -1023,19 +1047,43 @@ export function ActivityDetailScreen() {
 
       if (Platform.OS === 'web') {
         await Clipboard.setStringAsync(ics);
+        updateActivity(activity.id, (prev) => ({
+          ...prev,
+          scheduledAt: startAt.toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+        setCalendarSheetVisible(false);
         Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
         return;
       }
 
-      await Share.share({
+      const result = await Share.share({
         title: 'Add to calendar',
         message: activity.title,
         url: fileUri,
       });
+
+      if ((result as any)?.action === (Share as any).dismissedAction) {
+        // User cancelled share; don't mutate the Activity.
+        return;
+      }
+
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        scheduledAt: startAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      setCalendarSheetVisible(false);
     } catch (error) {
       // Last-ditch fallback: copy the ICS text.
       try {
         await Clipboard.setStringAsync(ics);
+        updateActivity(activity.id, (prev) => ({
+          ...prev,
+          scheduledAt: startAt.toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+        setCalendarSheetVisible(false);
         Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
       } catch {
         Alert.alert('Could not share', 'Something went wrong while exporting to calendar.');
@@ -1182,6 +1230,11 @@ export function ActivityDetailScreen() {
   };
 
   const handleToggleStepComplete = (stepId: string) => {
+    const existing = (stepsDraft ?? []).find((s) => s.id === stepId);
+    // Marking a step complete is meaningful progress; count it as "showing up".
+    if (existing && !existing.completedAt) {
+      recordShowUp();
+    }
     const completedAt = new Date().toISOString();
     applyStepUpdate((steps) =>
       steps.map((step) =>
@@ -1272,6 +1325,8 @@ export function ActivityDetailScreen() {
     // Default to 9am local time for quick picks.
     date.setHours(9, 0, 0, 0);
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up (reminders are a commitment device).
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       reminderAt: date.toISOString(),
@@ -1285,6 +1340,8 @@ export function ActivityDetailScreen() {
     date.setDate(date.getDate() + offsetDays);
     date.setHours(23, 0, 0, 0);
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up.
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       scheduledDate: date.toISOString(),
@@ -1328,6 +1385,8 @@ export function ActivityDetailScreen() {
     next.setHours(23, 0, 0, 0);
 
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up.
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       scheduledDate: next.toISOString(),
@@ -1340,6 +1399,8 @@ export function ActivityDetailScreen() {
 
   const handleSelectRepeat = (rule: NonNullable<typeof activity.repeatRule>) => {
     const timestamp = new Date().toISOString();
+    // Planning counts as showing up.
+    recordShowUp();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       repeatRule: rule,
@@ -1654,6 +1715,7 @@ export function ActivityDetailScreen() {
   return (
     <AppShell>
       <View style={styles.screen}>
+        {/* Credits warning toasts are rendered globally via AppShell. */}
         <VStack space="lg" style={styles.pageContent}>
           <HStack alignItems="center">
             {breadcrumbsEnabled ? (
@@ -2029,7 +2091,9 @@ export function ActivityDetailScreen() {
                         id: 'focusMode',
                         icon: 'estimate',
                         label: 'Focus mode',
-                        tileBackgroundColor: colors.canvas,
+                        tileBackgroundColor: colors.sumi,
+                        tileBorderColor: 'rgba(255,255,255,0.10)',
+                        tileLabelColor: colors.primaryForeground,
                         badgeColor: colors.indigo700,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
@@ -2043,7 +2107,9 @@ export function ActivityDetailScreen() {
                         id: 'addToCalendar',
                         icon: 'today',
                         label: 'Add to calendar',
-                        tileBackgroundColor: colors.canvas,
+                        tileBackgroundColor: colors.sumi,
+                        tileBorderColor: 'rgba(255,255,255,0.10)',
+                        tileLabelColor: colors.primaryForeground,
                         badgeColor: colors.accent,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
@@ -2062,7 +2128,9 @@ export function ActivityDetailScreen() {
                         id: 'chatWithAi',
                         icon: 'sparkles',
                         label: 'Get help from AI',
-                        tileBackgroundColor: colors.canvas,
+                        tileBackgroundColor: colors.sumi,
+                        tileBorderColor: 'rgba(255,255,255,0.10)',
+                        tileLabelColor: colors.primaryForeground,
                         badgeColor: colors.turmeric600,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
@@ -2078,8 +2146,10 @@ export function ActivityDetailScreen() {
                               id: 'sendTo',
                               icon: 'share',
                               label: 'Send to…',
-                              tileBackgroundColor: colors.canvas,
-                              badgeColor: colors.sumi,
+                              tileBackgroundColor: colors.sumi,
+                              tileBorderColor: 'rgba(255,255,255,0.10)',
+                              tileLabelColor: colors.primaryForeground,
+                              badgeColor: 'rgba(255,255,255,0.14)',
                               onPress: () => {
                                 capture(AnalyticsEvent.ActivityActionInvoked, {
                                   activityId: activity.id,
@@ -2462,6 +2532,16 @@ export function ActivityDetailScreen() {
                       loading={isTagsAutofillThinking}
                       onPress={() => {
                         if (tagsAutofillInFlightRef.current) return;
+                        // TODO(entitlements): replace tier selection with real Pro state.
+                        const tier: 'free' | 'pro' = isPro ? 'pro' : 'free';
+                        const consumed = tryConsumeGenerativeCredit({ tier });
+                        if (!consumed.ok) {
+                          openPaywallInterstitial({
+                            reason: 'generative_quota_exceeded',
+                            source: 'activity_tags_ai',
+                          });
+                          return;
+                        }
                         tagsAutofillInFlightRef.current = true;
                         setIsTagsAutofillThinking(true);
                         (async () => {
@@ -3110,6 +3190,30 @@ export function ActivityDetailScreen() {
                 <Text style={styles.sheetDescription}>
                   Calendar access is disabled. You can enable it in system settings, or share a calendar file instead.
                 </Text>
+                <HStack space="sm" style={{ marginTop: spacing.sm }}>
+                  <Button
+                    variant="outline"
+                    style={{ flex: 1 }}
+                    onPress={() => {
+                      try {
+                        void Linking.openSettings();
+                      } catch {
+                        // no-op
+                      }
+                    }}
+                  >
+                    <Text style={styles.sheetRowLabel}>Open Settings</Text>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    style={{ flex: 1 }}
+                    onPress={() => {
+                      loadWritableCalendars().catch(() => undefined);
+                    }}
+                  >
+                    <Text style={styles.sheetRowLabel}>Try again</Text>
+                  </Button>
+                </HStack>
               </View>
             ) : (
               <>

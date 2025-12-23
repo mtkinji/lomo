@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     width: '100%',
     // Flatter banner so the Arc text has more room to breathe below.
     // 3:1 is a common hero ratio for cards.
-    aspectRatio: 3 / 1,
+    aspectRatio: 12 / 5,
     borderRadius: 12,
     overflow: 'hidden',
   },

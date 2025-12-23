@@ -11,12 +11,20 @@ import { Icon, IconName } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
 import type {
   RootDrawerParamList,
   SettingsStackParamList,
 } from '../../navigation/RootNavigator';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
+import { openPaywallInterstitial } from '../../services/paywall';
+import { getMonthKey } from '../../domain/generativeCredits';
+import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH } from '../../domain/generativeCredits';
+import { Card } from '../../ui/Card';
+import { LinearGradient } from 'expo-linear-gradient';
+import { paywallTheme } from '../paywall/paywallTheme';
+import { openManageSubscription } from '../../services/entitlements';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -28,7 +36,8 @@ type SettingsItem = {
   title: string;
   description: string;
   icon: IconName;
-  route?: keyof SettingsStackParamList;
+  // This screen is a flat menu of direct navigations; exclude routes that require params.
+  route?: Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
   disabled?: boolean;
   status?: 'new' | 'soon';
   tags?: string[];
@@ -48,44 +57,12 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     description: 'Visual identity, tone, and how the app feels.',
     items: [
       {
-        id: 'appearance',
-        title: 'Appearance',
-        description: 'Choose thumbnail treatments and visual accents.',
-        icon: 'image',
-        route: 'SettingsAppearance',
-        tags: ['visuals', 'thumbnail', 'theme'],
-      },
-      {
-        id: 'takado',
-        title: 'Kwilt Agent',
-        description: 'Choose which LLM powers the Kwilt Agent.',
-        icon: 'aiGuide',
-        route: 'SettingsAiModel',
-        tags: ['ai', 'agent', 'model'],
-      },
-      {
         id: 'notifications',
         title: 'Notifications',
         description: 'Plan gentle reminders from Kwilt.',
         icon: 'activities',
         route: 'SettingsNotifications',
         tags: ['reminders', 'nudges', 'alerts'],
-      },
-    ],
-  },
-  {
-    id: 'account',
-    title: 'Account & trust',
-    description: 'Privacy, supervision, and data sharing preferences.',
-    items: [
-      {
-        id: 'profile',
-        title: 'Profile & family',
-        description: 'Update who is connected to this account.',
-        icon: 'goals',
-        disabled: true,
-        status: 'soon',
-        tags: ['family', 'profile', 'household'],
       },
     ],
   },
@@ -101,14 +78,13 @@ export function SettingsHomeScreen() {
   const menuOpen = drawerStatus === 'open';
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+  const generativeCredits = useAppStore((state) => state.generativeCredits);
+  const isPro = useEntitlementsStore((state) => state.isPro);
+  const restore = useEntitlementsStore((state) => state.restore);
+  const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
 
-  const filteredGroups = useMemo(() => {
-    return SETTINGS_GROUPS;
-  }, []);
-
-  const hasMatches =
-    filteredGroups.length > 0 &&
-    filteredGroups.some((group) => group.items.length > 0);
+  const settingsItems = useMemo(() => SETTINGS_GROUPS.flatMap((group) => group.items), []);
+  const hasMatches = settingsItems.length > 0;
 
   const handleNavigate = (item: SettingsItem) => {
     if (item.disabled || !item.route) {
@@ -140,6 +116,12 @@ export function SettingsHomeScreen() {
   const displayName = userProfile?.fullName?.trim() || generatedNameFromFirstArc || 'Kwilter';
   const profileSubtitle = userProfile?.email?.trim() || 'Add your email address';
   const avatarSource = userProfile?.avatarUrl ? { uri: userProfile.avatarUrl } : null;
+
+  const monthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+  const currentKey = getMonthKey(new Date());
+  const usedThisMonth =
+    generativeCredits?.monthKey === currentKey ? Math.max(0, generativeCredits.usedThisMonth ?? 0) : 0;
+  const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);
 
   const updateAvatar = (uri?: string) => {
     updateUserProfile((current) => ({
@@ -223,6 +205,53 @@ export function SettingsHomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Pro upsell (Free only). Keep this as a single, clear "Get Kwilt Pro" card. */}
+          {!isPro ? (
+            <View style={styles.proCardSection}>
+              <LinearGradient colors={paywallTheme.gradientColors} style={styles.proCardGradient}>
+                <VStack space="sm">
+                  <Text style={styles.proCardKicker}>Get Kwilt Pro</Text>
+                  <Text style={styles.proCardTitle}>Unlimited arcs + goals</Text>
+                  <Text style={styles.proCardBody}>
+                    Unlock family plans, longer focus sessions, searchable banner images, and a much larger monthly AI budget.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Get Kwilt Pro"
+                    onPress={() =>
+                      openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'settings' })
+                    }
+                    style={styles.proCardCta}
+                  >
+                    <Text style={styles.proCardCtaLabel}>Get Kwilt Pro</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Already subscribed? Restore purchases"
+                    onPress={() => {
+                      restore()
+                        .then(() => {
+                          Alert.alert('Restored', 'We refreshed your subscription status.');
+                        })
+                        .catch(() => {
+                          Alert.alert(
+                            'Restore failed',
+                            'We could not restore purchases right now. Please try again.',
+                          );
+                        })
+                        .finally(() => {
+                          refreshEntitlements({ force: true }).catch(() => undefined);
+                        });
+                    }}
+                    style={styles.proCardLink}
+                  >
+                    <Text style={styles.proCardLinkLabel}>Already subscribed? Restore purchases</Text>
+                  </Pressable>
+                </VStack>
+              </LinearGradient>
+            </View>
+          ) : null}
+
           <View style={styles.profileRow}>
             <RNPressable
               style={styles.profileAvatarButton}
@@ -261,13 +290,11 @@ export function SettingsHomeScreen() {
               <Icon name="chevronRight" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          {filteredGroups.map((group) => (
-            <View key={group.id} style={styles.groupSection}>
-              <VStack style={styles.groupHeader}>
-                <Heading style={styles.groupTitle}>{group.title}</Heading>
-              </VStack>
-              <VStack space="sm">
-                {group.items.map((item) => {
+          {/* Hide category labels; render a single flat list of settings items. */}
+          {settingsItems.length > 0 && (
+            <View style={styles.groupSection}>
+              <VStack space="xs">
+                {settingsItems.map((item) => {
                   const disabled = item.disabled || !item.route;
                   return (
                     <Pressable
@@ -308,7 +335,7 @@ export function SettingsHomeScreen() {
                 })}
               </VStack>
             </View>
-          ))}
+          )}
           {!hasMatches && (
             <View style={styles.emptyState}>
               <Heading style={styles.emptyTitle}>No settings yet</Heading>
@@ -317,6 +344,36 @@ export function SettingsHomeScreen() {
               </Text>
             </View>
           )}
+
+          {/* Subscriptions entry (moved to bottom of the list). */}
+          <View style={styles.groupSection}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isPro ? 'Manage subscription' : 'View subscription plans'}
+              onPress={() => {
+                if (isPro) {
+                  openManageSubscription().catch(() =>
+                    navigation.navigate('SettingsManageSubscription')
+                  );
+                  return;
+                }
+                navigation.navigate('SettingsManageSubscription');
+              }}
+            >
+              <HStack style={styles.itemRow} alignItems="center" space="md">
+                <View style={styles.itemIcon}>
+                  <Icon name="dot" size={18} color={colors.accent} />
+                </View>
+                <VStack flex={1}>
+                  <Text style={styles.itemTitle}>Subscriptions</Text>
+                  <Text style={styles.itemSubtitle}>
+                    {`${isPro ? 'Manage in App Store' : 'See plans and pricing'} • AI credits: ${remainingCredits}/${monthlyLimit}`}
+                  </Text>
+                </VStack>
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+              </HStack>
+            </Pressable>
+          </View>
         </ScrollView>
         <BottomDrawer
           visible={avatarSheetVisible}
@@ -380,7 +437,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing['2xl'],
-    gap: spacing.lg,
+    // Keep global spacing tight; we handle larger separations with section wrappers.
+    gap: spacing.xs,
+  },
+  proCardSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
   },
   profileRow: {
     borderWidth: 1,
@@ -417,15 +479,58 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   groupSection: {
-    marginTop: spacing.lg,
-    gap: spacing.md,
+    // Don't introduce extra vertical spacing; let the parent ScrollView `gap`
+    // control spacing between adjacent blocks (XS).
+    marginTop: 0,
+    gap: 0,
   },
-  groupHeader: {
-    marginBottom: spacing.xs / 2,
+  proCard: {
+    borderRadius: 18,
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  groupTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
+  proCardGradient: {
+    borderRadius: paywallTheme.cornerRadius,
+    padding: paywallTheme.padding,
+  },
+  proCardKicker: {
+    ...typography.bodySm,
+    color: paywallTheme.foreground,
+    opacity: 0.9,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  proCardTitle: {
+    ...typography.titleLg,
+    color: paywallTheme.foreground,
+  },
+  proCardBody: {
+    ...typography.bodySm,
+    color: paywallTheme.foreground,
+    opacity: 0.92,
+  },
+  proCardCta: {
+    marginTop: spacing.xs,
+    backgroundColor: paywallTheme.ctaBackground,
+    paddingVertical: spacing.sm,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  proCardCtaLabel: {
+    ...typography.body,
+    color: paywallTheme.ctaForeground,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  proCardLink: {
+    alignSelf: 'center',
+    paddingVertical: spacing.xs,
+  },
+  proCardLinkLabel: {
+    ...typography.bodySm,
+    color: paywallTheme.foreground,
+    opacity: 0.92,
+    textDecorationLine: 'underline',
   },
   itemRow: {
     borderWidth: 1,
@@ -447,6 +552,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontFamily: typography.titleSm.fontFamily,
+  },
+  itemSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   badge: {
     borderRadius: 999,

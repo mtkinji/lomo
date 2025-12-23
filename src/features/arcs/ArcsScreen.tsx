@@ -8,6 +8,7 @@ import {
   Pressable,
   TextInput,
   Platform,
+  Alert,
 } from 'react-native';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -15,6 +16,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import { Card } from '../../ui/Card';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -23,6 +25,7 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
 import type { Arc, Goal } from '../../domain/types';
+import { canCreateArc } from '../../domain/limits';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
@@ -38,6 +41,8 @@ import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { LinearGradient } from 'expo-linear-gradient';
 import { buildArcThumbnailSeed, getArcGradient } from './thumbnailVisuals';
+import { openPaywallInterstitial } from '../../services/paywall';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -52,12 +57,33 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
 export function ArcsScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
   const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
+
+  const handleOpenNewArc = () => {
+    const canCreate = canCreateArc({ isPro, arcs });
+    if (!canCreate.ok) {
+      Alert.alert(
+        'Arc limit reached',
+        `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Upgrade',
+            onPress: () =>
+              openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' }),
+          },
+        ],
+      );
+      return;
+    }
+    setNewArcModalVisible(true);
+  };
 
   const arcCreationWorkflow = useMemo(
     () => getWorkflowLaunchConfig('arcCreation'),
@@ -102,7 +128,7 @@ export function ArcsScreen() {
                 style={styles.newArcButton}
                 onPress={() => {
                   logArcsDebug('newArc:create-pressed');
-                  setNewArcModalVisible(true);
+                  handleOpenNewArc();
                 }}
               >
                 <Icon name="plus" size={18} color="#FFFFFF" />
@@ -133,7 +159,7 @@ export function ArcsScreen() {
                 primaryAction={{
                   label: 'Create Arc',
                   variant: 'accent',
-                  onPress: () => setNewArcModalVisible(true),
+                  onPress: handleOpenNewArc,
                   accessibilityLabel: 'Create a new Arc',
                 }}
                 style={styles.emptyState}
@@ -728,7 +754,7 @@ const styles = StyleSheet.create({
   },
   manualHeroImage: {
     width: '100%',
-    aspectRatio: 3 / 1,
+    aspectRatio: 12 / 5,
   },
 });
 
@@ -763,8 +789,11 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const userProfile = useAppStore((state) => state.userProfile);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
   const { capture } = useAnalytics();
+  const showToast = useToastStore((state) => state.showToast);
 
   const [activeTab, setActiveTab] = useState<'ai' | 'manual'>('ai');
   const [manualName, setManualName] = useState('');
@@ -800,6 +829,25 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   }, [visible]);
 
   const handleCreateManualArc = () => {
+    const canCreate = canCreateArc({ isPro, arcs });
+    if (!canCreate.ok) {
+      Alert.alert(
+        'Arc limit reached',
+        `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Upgrade',
+            onPress: () => {
+              onClose();
+              openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     const trimmedName = manualName.trim();
     const trimmedNarrative = manualNarrative.trim();
     if (!trimmedName) {
@@ -819,7 +867,10 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
       updatedAt: timestamp,
     };
 
+    // Creating an Arc counts as showing up (planning is still engagement).
+    recordShowUp();
     addArc(arc);
+    showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
     capture(AnalyticsEvent.ArcCreated, {
       source: 'manual',
       arc_id: arc.id,
@@ -873,6 +924,25 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
             hidePromptSuggestions
             hostBottomInsetAlreadyApplied
             onConfirmArc={(proposal) => {
+              const canCreate = canCreateArc({ isPro, arcs });
+              if (!canCreate.ok) {
+                Alert.alert(
+                  'Arc limit reached',
+                  `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
+                  [
+                    { text: 'Not now', style: 'cancel' },
+                    {
+                      text: 'Upgrade',
+                      onPress: () => {
+                        onClose();
+                        openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
+                      },
+                    },
+                  ],
+                );
+                return;
+              }
+
               const timestamp = new Date().toISOString();
               const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -887,7 +957,10 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
                 updatedAt: timestamp,
               };
 
+              // Creating an Arc counts as showing up.
+              recordShowUp();
               addArc(arc);
+              showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
               capture(AnalyticsEvent.ArcCreated, {
                 source: 'ai',
                 arc_id: arc.id,

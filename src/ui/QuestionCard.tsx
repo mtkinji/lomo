@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Card } from './Card';
+import { Card, type CardElevation, type CardPadding } from './Card';
 import { Heading, Text, VStack, HStack } from './primitives';
 import { spacing } from '../theme';
 
@@ -15,6 +15,10 @@ type QuestionCardProps = {
   children: ReactNode;
   /** Allow callers to tweak outer margins if needed. */
   style?: StyleProp<ViewStyle>;
+  /** Card padding preset. Defaults to "sm" (matches legacy QuestionCard). */
+  padding?: CardPadding;
+  /** Card elevation preset. Defaults to "raised" (hero-style question cards). */
+  elevation?: CardElevation;
 };
 
 export function QuestionCard({
@@ -23,13 +27,15 @@ export function QuestionCard({
   titleAccessory,
   children,
   style,
+  padding = 'sm',
+  elevation = 'raised',
 }: QuestionCardProps) {
   return (
-    <Card padding="sm" elevation="raised" style={style}>
+    <Card padding={padding} elevation={elevation} style={style}>
       <VStack space="sm">
         {stepLabel ? (
-          <Text variant="bodySm" tone="secondary">
-            {stepLabel}
+          <Text variant="bodySm" tone="default">
+            {stepLabel.toUpperCase()}
           </Text>
         ) : null}
 

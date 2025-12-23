@@ -18,6 +18,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { useToastStore } from '../store/useToastStore';
 
 type Rect = { x: number; y: number; width: number; height: number };
 
@@ -136,6 +137,9 @@ export function Coachmark({
 }: CoachmarkProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const suppressionKeyRef = React.useRef(
+    `coachmark-${Math.random().toString(36).slice(2)}-${Date.now()}`,
+  );
 
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [bubbleSize, setBubbleSize] = useState<{ width: number; height: number } | null>(null);
@@ -147,6 +151,14 @@ export function Coachmark({
   const ripple = useSharedValue(0);
   const spotlightW = useSharedValue(0);
   const spotlightH = useSharedValue(0);
+
+  useEffect(() => {
+    const key = suppressionKeyRef.current;
+    useToastStore.getState().setToastsSuppressed({ key, suppressed: visible });
+    return () => {
+      useToastStore.getState().setToastsSuppressed({ key, suppressed: false });
+    };
+  }, [visible]);
 
   const measureTarget = useCallback(() => {
     const node = targetRef.current;

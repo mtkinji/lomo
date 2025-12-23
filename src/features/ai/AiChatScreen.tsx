@@ -58,6 +58,9 @@ import type {
 } from '../../domain/types';
 import type { Activity, ActivityStep, ActivityType, Goal, GoalForceIntent } from '../../domain/types';
 import { defaultForceLevels } from '../../store/useAppStore';
+import { canCreateGoalInArc } from '../../domain/limits';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { openPaywallInterstitial } from '../../services/paywall';
 import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import { QuestionCard } from '../../ui/QuestionCard';
@@ -1123,7 +1126,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // For inline step-card forms (Arc creation / onboarding), we want enough room for
   // the card’s bottom CTA row, but not so much that a tall card gets shoved off the
   // top of the viewport when focusing the field.
-  const keyboardClearance = !shouldShowComposer && hasStepCard ? 0 : spacing.lg;
+  // NOTE: When the composer is hidden, step cards often include their own primary CTA
+  // below the focused input (e.g. onboarding "Continue"). If clearance is 0, the
+  // focused input may be visible but the CTA row will be covered by the keyboard.
+  // Use a moderate, step-card-specific clearance to keep the entire card actionable.
+  // For onboarding, the first step-card contains a multiline textarea. We bias a bit more
+  // clearance so the entire card (including footer / CTA row) stays in-frame when the
+  // keyboard is up.
+  const STEP_CARD_KEYBOARD_CLEARANCE = isOnboardingMode ? 104 : 104;
+  const keyboardClearance =
+    !shouldShowComposer && hasStepCard ? STEP_CARD_KEYBOARD_CLEARANCE : spacing.lg;
 
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1135,6 +1147,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const addActivity = useAppStore((state) => state.addActivity);
   const activities = useAppStore((state) => state.activities);
   const arcs = useAppStore((state) => state.arcs);
+  const goals = useAppStore((state) => state.goals);
   const hasAgeRange = Boolean(userProfile?.ageRange);
   // Arc creation previously asked for an age range inline, but this felt
   // intrusive and overlapped with onboarding responsibilities. We now keep
@@ -1884,6 +1897,28 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     const trimmedDescription = (goalDraftDescription || proposal.description || '').trim();
 
                     const arcId = focusedArcIdForGoal ?? selectedGoalArcId ?? null;
+                    if (arcId) {
+                      const isPro = useEntitlementsStore.getState().isPro;
+                      const canCreate = canCreateGoalInArc({ isPro, goals, arcId });
+                      if (!canCreate.ok) {
+                        Alert.alert(
+                          'Goal limit reached',
+                          `Free tier supports up to ${canCreate.limit} active goals per Arc. Archive a goal to make room, or upgrade to Pro.`,
+                          [
+                            { text: 'Not now', style: 'cancel' },
+                            {
+                              text: 'Upgrade',
+                              onPress: () =>
+                                openPaywallInterstitial({
+                                  reason: 'limit_goals_per_arc',
+                                  source: 'ai_chat_goal_adopt',
+                                }),
+                            },
+                          ],
+                        );
+                        return;
+                      }
+                    }
                     const timestamp = new Date().toISOString();
                     const mergedForceIntent = {
                       ...defaultForceLevels(0),
@@ -1904,6 +1939,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       updatedAt: timestamp,
                     };
 
+                    // Creating a Goal counts as showing up.
+                    useAppStore.getState().recordShowUp();
                     addGoal(goal);
                     onGoalCreated?.(goal.id);
                     dismissActiveGoalProposal();
@@ -1942,6 +1979,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     [
       activeGoalProposalId,
       addGoal,
+      goals,
       arcs.length,
       dismissActiveGoalProposal,
       dismissGoalProposalById,
@@ -2945,14 +2983,26 @@ export const AiChatPane = forwardRef(function AiChatPane(
             // can inadvertently skip the very next assistant message, making it look
             // like typing never happened.
             if (!shouldShowComposer) {
-            typingControllerRef.current?.skip();
+              // Avoid skipping while the user is actively interacting with an input
+              // (e.g. onboarding textarea). Otherwise, focusing/tapping can instantly
+              // "fast-forward" the next assistant message and break gradual disclosure.
+              const getter = (TextInput.State as any)?.currentlyFocusedInput;
+              const focused = typeof getter === 'function' ? getter() : null;
+              const hasFocusedInput = Boolean(focused);
+              const isKeyboardOpen = keyboardHeight > 0;
+              if (!hasFocusedInput && !isKeyboardOpen) {
+                typingControllerRef.current?.skip();
+              }
             }
             // In workflows that collect input inside the timeline (e.g. FTUE),
             // a user may focus an input while the keyboard is already open.
             // Nudge the ScrollView to reveal the focused field on every tap.
+            // Important: prefer the measure-based alignment (less "jumpy" than
+            // scrollResponderScrollNativeHandleToKeyboard) so repeated taps don't
+            // subtly change the card's resting position.
             if (!shouldShowComposer) {
               requestAnimationFrame(() => {
-                scrollToFocusedInput(keyboardClearance);
+                alignFocusedInputToKeyboard(keyboardClearance);
               });
             }
           }}

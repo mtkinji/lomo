@@ -9,6 +9,12 @@ import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objec
 type PageHeaderProps = {
   title: string;
   /**
+   * Visual style for the header content.
+   * - default: standard canvas header styling.
+   * - inverse: white/bright text and icons for use on dark/gradient surfaces (paywall, change plan, etc.).
+   */
+  variant?: 'default' | 'inverse';
+  /**
    * Optional leading icon that visually anchors the page.
    * For main tab screens we currently avoid this to reduce redundancy
    * with the bottom navigation icon.
@@ -58,6 +64,7 @@ type PageHeaderProps = {
 
 export function PageHeader({
   title,
+  variant = 'default',
   iconName,
   iconTone = 'default',
   onPressMenu,
@@ -72,6 +79,9 @@ export function PageHeader({
   const headerBadgeRadius = Math.round(headerBadgeSize * 0.32);
   const badgeColors = getObjectTypeBadgeColors(iconTone);
 
+  const iconColor = variant === 'inverse' ? colors.aiForeground : colors.canvas;
+  const titleColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
@@ -82,7 +92,7 @@ export function PageHeader({
               onPress={onPressBack}
               style={styles.headerIconButton}
             >
-              <Icon name="arrowLeft" size={18} color={colors.canvas} />
+              <Icon name="arrowLeft" size={18} color={iconColor} />
             </IconButton>
           ) : onPressMenu ? (
             <IconButton
@@ -127,7 +137,7 @@ export function PageHeader({
                     badgeSize={headerBadgeSize}
                   />
                 ) : null}
-                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title}>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.title, { color: titleColor }]}>
                   {title}
                 </Text>
               </>
@@ -138,7 +148,7 @@ export function PageHeader({
                 onPress={onPressInfo}
                 style={styles.headerIconButton}
               >
-                <Icon name="info" size={18} color={colors.canvas} />
+                <Icon name="info" size={18} color={iconColor} />
               </IconButton>
             ) : null}
           </View>

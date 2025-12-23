@@ -11,6 +11,7 @@ import {
   Image,
   ActivityIndicator,
   InteractionManager,
+  Alert,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -22,7 +23,9 @@ import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../domain/types';
+import { canCreateGoalInArc } from '../../domain/limits';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
@@ -40,9 +43,11 @@ import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { openPaywallInterstitial } from '../../services/paywall';
 import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -99,6 +104,8 @@ export function GoalsScreen() {
   const goalRecommendations = useAppStore((state) => state.goalRecommendations);
   const addGoal = useAppStore((state) => state.addGoal);
   const dismissGoalRecommendation = useAppStore((state) => state.dismissGoalRecommendation);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const isPro = useEntitlementsStore((state) => state.isPro);
 
   const arcLookup = arcs.reduce<Record<string, string>>((acc, arc) => {
     acc[arc.id] = arc.name;
@@ -148,7 +155,26 @@ export function GoalsScreen() {
     const timestamp = new Date().toISOString();
     const mergedForceIntent = { ...defaultForceLevels(0), ...draft.forceIntent };
 
+    const canCreate = canCreateGoalInArc({ isPro, goals, arcId });
+    if (!canCreate.ok) {
+      Alert.alert(
+        'Goal limit reached',
+        `Free tier supports up to ${canCreate.limit} active goals per Arc. Archive a goal to make room, or upgrade to Pro.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Upgrade',
+              onPress: () =>
+                openPaywallInterstitial({ reason: 'limit_goals_per_arc', source: 'goals_draft_adopt' }),
+          },
+        ],
+      );
+      return;
+    }
+
     const goalId = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    // Creating a Goal counts as showing up (planning is still engagement).
+    recordShowUp();
     addGoal({
       id: goalId,
       arcId,
@@ -436,7 +462,10 @@ export function GoalCoachDrawer({
   );
   const [draft, setDraft] = React.useState<GoalCreationDraft>(() => buildEmptyDraft());
   const addGoal = useAppStore((state) => state.addGoal);
+  const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const { capture } = useAnalytics();
+  const showToast = useToastStore((state) => state.showToast);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList>>();
   const launchArc = React.useMemo(
@@ -581,6 +610,24 @@ export function GoalCoachDrawer({
     }
 
     const resolvedArcId = launchFromArcId ?? draft.arcId ?? null;
+    if (resolvedArcId) {
+      const canCreate = canCreateGoalInArc({ isPro, goals, arcId: resolvedArcId });
+      if (!canCreate.ok) {
+        Alert.alert(
+          'Goal limit reached',
+          `Free tier supports up to ${canCreate.limit} active goals per Arc. Archive a goal to make room, or upgrade to Pro.`,
+          [
+            { text: 'Not now', style: 'cancel' },
+            {
+              text: 'Upgrade',
+              onPress: () =>
+                openPaywallInterstitial({ reason: 'limit_goals_per_arc', source: 'goals_create_manual' }),
+            },
+          ],
+        );
+        return;
+      }
+    }
 
     const timestamp = new Date().toISOString();
     const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -602,7 +649,10 @@ export function GoalCoachDrawer({
       heroImageMeta: draft.heroImageMeta,
     };
 
+    // Creating a Goal counts as showing up.
+    recordShowUp();
     addGoal(goal);
+    showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
     capture(AnalyticsEvent.GoalCreated, {
       source: 'manual',
       goal_id: goal.id,
@@ -624,6 +674,23 @@ export function GoalCoachDrawer({
       const timestamp = new Date().toISOString();
       const mergedForceIntent = { ...defaultForceLevels(0), ...goalDraft.forceIntent };
 
+      const canCreate = canCreateGoalInArc({ isPro, goals, arcId });
+      if (!canCreate.ok) {
+        Alert.alert(
+          'Goal limit reached',
+          `Free tier supports up to ${canCreate.limit} active goals per Arc. Archive a goal to make room, or upgrade to Pro.`,
+          [
+            { text: 'Not now', style: 'cancel' },
+            {
+              text: 'Upgrade',
+              onPress: () =>
+                openPaywallInterstitial({ reason: 'limit_goals_per_arc', source: 'goals_create_ai' }),
+            },
+          ],
+        );
+        return;
+      }
+
       const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
       const goal: Goal = {
@@ -638,7 +705,10 @@ export function GoalCoachDrawer({
         updatedAt: timestamp,
       };
 
+      // Creating a Goal counts as showing up.
+      recordShowUp();
       addGoal(goal);
+      showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
       capture(AnalyticsEvent.GoalCreated, {
         source: 'ai_coach',
         goal_id: goal.id,
@@ -654,7 +724,7 @@ export function GoalCoachDrawer({
         });
       }
     },
-    [addGoal, capture, navigateToGoalDetailOnCreate, navigation, onClose, onGoalCreated]
+    [addGoal, capture, goals, isPro, navigateToGoalDetailOnCreate, navigation, onClose, onGoalCreated, recordShowUp]
   );
 
   return (
@@ -698,6 +768,7 @@ export function GoalCoachDrawer({
             // Let users chat freely with the coach from the composer; keep suggestions visible.
             hidePromptSuggestions={false}
             onGoalCreated={(goalId) => {
+              showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
               onGoalCreated?.(goalId);
               onClose();
               if (navigateToGoalDetailOnCreate) {

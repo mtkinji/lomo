@@ -19,9 +19,10 @@ Ship **Kwilt Pro** subscriptions on iOS with reliable entitlement gating, **no a
 
 ### Subscription product
 
-- **Product**: “Kwilt Pro”
-- **Billing**: iOS auto-renewing subscription
-- **Entitlement**: `pro`
+- **Products**: “Kwilt Pro” (Individual) + “Kwilt Pro Family”
+- **Billing**: iOS auto-renewing subscriptions (Monthly + Annual options)
+- **Entitlement**: `pro` (paid subscribers, including Family)
+- **Trial entitlement concept**: `pro_tools_trial` (trial only; does *not* expand object limits)
 
 ### Must-have user flows
 
@@ -83,14 +84,25 @@ Ship **Kwilt Pro** subscriptions on iOS with reliable entitlement gating, **no a
 
 ### What Pro unlocks (MVP)
 
-- **Unlimited Arcs**
-- **Goal scale**
-  - Free: 3 active goals per Arc
-  - Pro: configurable; recommend “unlimited active goals per Arc”
-- **AI scheduling features**
-  - “Auto-schedule this activity” (writes `scheduledAt` / scheduling hints)
-- **Calendar export**
-  - “Add to calendar” exports `.ics` (see Calendar PRD)
+- **All features / unlimited** (no feature flags within Pro for MVP).
+  - This includes unlimited Arcs and unlimited Goals per Arc.
+  - It also includes “Pro tools” features like AI scheduling + Calendar export (ICS).
+
+### Product lineup (MVP)
+
+We will offer both Individual and Family purchase options, each with Monthly + Annual.
+
+- **Individual**
+  - Monthly (SKU: `pro_monthly`) — TBD price
+  - Annual (SKU: `pro_annual`) — TBD price (~25% annual discount)
+- **Family**
+  - Monthly (SKU: `pro_family_monthly`) — TBD price
+  - Annual (SKU: `pro_family_annual`) — TBD price (~25% annual discount)
+
+Notes:
+
+- “Family” here means Apple subscription **Family Sharing** enabled on the Family product(s).
+- Keep the implementation entitlement surface simple: both Individual + Family map to `isPro === true`.
 
 ---
 
@@ -111,6 +123,7 @@ Implementation approach (iOS + RevenueCat friendly):
     - Calendar export (ICS)
   - **Not unlocked in trial**:
     - Unlimited Arcs (Free remains **1 Arc total**)
+    - Unlimited Goals per Arc (Free remains **3 active goals per Arc**)
     - Any other “structural” expansions that create downgrade complexity
 
 Key implication:
@@ -153,7 +166,7 @@ Important implication:
 
 MVP recommendation:
 
-- If configuration/testing is straightforward, **enable Family Sharing at launch**.
+- Ship a **Family plan SKU** and enable Family Sharing on that product at launch if configuration/testing is straightforward.
 - Do not build “seat management” in-app for MVP; Apple controls the roster.
 
 ### What stays free (MVP)
@@ -168,7 +181,8 @@ MVP recommendation:
 ### Definitions
 
 - **Active Arc**: `Arc.status === 'active'`
-- **Active Goal**: `Goal.status !== 'completed' && Goal.status !== 'archived'`
+- **Active Goal (confirmed)**: `Goal.status !== 'archived'`
+  - Users can use **Archive** as the primary way to stop a goal counting toward the Free cap (including completed goals).
 
 ### Free tier constraints
 
@@ -182,6 +196,75 @@ MVP recommendation:
 
 - No caps for Arcs.
 - Goal cap removed entirely.
+
+---
+
+## Pay-gated features matrix (MVP)
+
+This section is where we finalize *exactly* what is pay-gated. We should keep it small for launch and gate only at high-intent choke points.
+
+Legend:
+
+- **Free**: available without purchase
+- **Pro Tools Trial**: 30-day trial that unlocks non-structural tools (does not expand Arc/Goal limits)
+- **Pro (Individual or Family)**: everything unlimited
+
+| Capability / action | Free | Pro Tools Trial | Pro | Gate location | Gate UX pattern |
+| --- | --- | --- | --- | --- | --- |
+| Create a 4th goal in an Arc (goal cap) | ❌ | ❌ | ✅ | Goal create (manual + AI + adopt draft) | Alert with “Upgrade” → Settings paywall entry + suggest Archive |
+| Create a 2nd Arc (arc cap) | ❌ | ❌ | ✅ | Arc create entry points (manual + AI) | Alert with “Upgrade” → Settings paywall entry |
+| Arc banner Unsplash search | ❌ | ❌ (recommended) | ✅ | Arc banner sheet → “Search” tab | Full-screen interstitial (value copy) → Upgrade |
+| Focus mode (long sessions) | ✅ (≤ 10 min) | ✅ (≤ 10 min) | ✅ (unlimited) | Focus mode start | Full-screen interstitial when > 10 min |
+| Calendar export (ICS) | ✅ | ✅ | ✅ | “Add to calendar” action | No gate (keep the planning loop accessible) |
+| AI scheduling tools | ❌ | ✅ | ✅ | “Auto-schedule” action | Pro badge + open paywall interstitial |
+
+### Generative action quotas (MVP recommendation)
+
+We should treat “generative actions” as a **single, easy-to-understand monthly budget**, not a bunch of tiny limits:
+
+- **Definition (suggested):** any **user-initiated** action that calls an LLM to *create or transform* content (e.g. generate arcs/goals/activities, AI autofill on rich text fields, tag suggestion, “regenerate”, “refresh”).
+- **Metering unit:** “Generations” (1 generation = 1 request that produces new content).
+- **Free:** **25 generations / month** (reset monthly).
+  - **No rollover**: unused credits do not carry forward (“use it or lose it”).
+- **Pro Tools Trial (30 days):** **200 generations total per trial window** (expires with trial).
+  - Optional safety: also cap at **~25/day** so a single binge session can’t consume the entire trial budget instantly.
+- **Pro:** **1,000 generations / month** (reset monthly; still bounded to prevent runaway spend).
+  - **No rollover**: unused credits do not carry forward (“use it or lose it”).
+
+#### How credits should behave (so it feels fair)
+
+We should count **one credit per explicit user action** (one button press / one “generate” request), even if it updates multiple fields.
+
+Examples:
+
+- “Suggest tags” on an activity → **1 credit**
+- “Generate goals” inside an Arc (returns multiple goal drafts) → **1 credit**
+- “Generate an activity plan” (creates multiple activities) → **1 credit**
+- “Regenerate” / “Try again” → **1 credit each time**
+
+To prevent “one action creates 200 objects” abuse, add a separate, non-monetary safety rule:
+
+- **Per-generation output caps** (especially for Free) e.g. max 3–5 goals per request, max 3–5 activities per request, max 1 banner query per request.
+
+This keeps the user mental model simple (“one action costs one credit”) while bounding cost.
+
+#### Bonus credits (optional, later)
+
+We can offer small “bonus credit” grants for things we like (profile completion, referrals, sharing), but this is **abuse-prone without a backend**.
+
+Recommendation:
+
+- **Do not ship bonus credits until the AI proxy + quotas backend exists** (server must validate events).
+- When we do, keep bonuses small and one-time (e.g., +10 for completing profile, +25 for a verified referral) and never allow unlimited farming.
+
+Note: true cost safety requires the **AI proxy + quotas** workstream (server-side). Client-side gating is only a UX layer.
+
+### Model-tier gating (optional, recommended)
+
+If we add multiple models:
+
+- **Free:** cheaper “standard” model only
+- **Trial/Pro:** allow “better” model(s), but still bounded by monthly quota
 
 ---
 
