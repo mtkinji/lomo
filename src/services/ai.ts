@@ -291,6 +291,16 @@ let OPENAI_QUOTA_FALLBACK_WARNING_EMITTED = false; // For the "using mocks" fall
 let OPENAI_QUOTA_RESET_TIMEOUT: ReturnType<typeof setTimeout> | null = null;
 let KWILT_PROXY_QUOTA_RETRY_AT: string | null = null;
 
+function isAiQuotaBlocked(): boolean {
+  if (!OPENAI_QUOTA_EXCEEDED) return false;
+  // If quota exceeded came from our proxy, allow retry when the user is Pro since the
+  // server-side limit is higher. The proxy will still return 429 if the Pro cap is hit.
+  if (KWILT_PROXY_QUOTA_RETRY_AT && useEntitlementsStore.getState().isPro) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Reset the OpenAI quota exceeded flag (dev-only).
  * Useful for testing after fixing quota issues without restarting the app.
@@ -312,7 +322,7 @@ export function resetOpenAiQuotaFlag(): void {
  * Check if OpenAI quota is currently marked as exceeded (dev-only).
  */
 export function getOpenAiQuotaExceededStatus(): boolean {
-  return OPENAI_QUOTA_EXCEEDED;
+  return isAiQuotaBlocked();
 }
 
 const isProductionEnvironment = (): boolean => {
@@ -1449,7 +1459,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
 };
 
 export async function generateArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     // In production, quota issues should fail loudly, not silently degrade to mocks
     if (isProductionEnvironment()) {
       throw new Error(
@@ -1564,7 +1574,7 @@ export async function judgeArcRubric(
   params: JudgeArcRubricParams
 ): Promise<ArcRubricJudgeResult | null> {
   // Judge functions are dev-only (Arc Testing), so returning null is acceptable
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
   const apiKey = resolveOpenAiApiKey();
@@ -1661,7 +1671,7 @@ export async function judgeArcRubric(
   };
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
 
@@ -1738,7 +1748,7 @@ export async function judgeArcComparisonRubric(
   params: JudgeArcComparisonRubricParams
 ): Promise<ArcComparisonRubricJudgeResult | null> {
   // Judge functions are dev-only (Arc Testing), so returning null is acceptable
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
   const apiKey = resolveOpenAiApiKey();
@@ -1869,7 +1879,7 @@ export async function judgeArcComparisonRubric(
   };
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
 
@@ -2173,7 +2183,7 @@ async function requestOpenAiArcs(
   });
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     throw new Error('OpenAI quota exceeded');
   }
   
@@ -2295,7 +2305,7 @@ async function requestOpenAiArcHeroImage(
   });
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     throw new Error('OpenAI quota exceeded');
   }
 
@@ -2357,7 +2367,7 @@ export async function sendCoachChat(
   messages: CoachChatTurn[],
   options?: CoachChatOptions
 ): Promise<string> {
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     // If this came from the Kwilt AI proxy (per-day quota), treat it as a user-facing limit,
     // not a billing outage.
     if (KWILT_PROXY_QUOTA_RETRY_AT) {
@@ -2915,7 +2925,7 @@ export async function enrichActivityWithAI(
   params: EnrichActivityWithAiParams
 ): Promise<ActivityAiEnrichment | null> {
   try {
-    if (OPENAI_QUOTA_EXCEEDED) return null;
+    if (isAiQuotaBlocked()) return null;
     const apiKey = resolveOpenAiApiKey();
     if (!apiKey) return null;
 
@@ -3072,7 +3082,7 @@ export async function suggestActivityTagsWithAi(
   params: SuggestActivityTagsWithAiParams
 ): Promise<string[] | null> {
   try {
-    if (OPENAI_QUOTA_EXCEEDED) return null;
+    if (isAiQuotaBlocked()) return null;
     const apiKey = resolveOpenAiApiKey();
     if (!apiKey) return null;
 
@@ -3196,7 +3206,7 @@ type RefineWritingParams = {
  */
 export async function refineWritingWithAI(params: RefineWritingParams): Promise<string | null> {
   try {
-    if (OPENAI_QUOTA_EXCEEDED) return null;
+    if (isAiQuotaBlocked()) return null;
     const apiKey = resolveOpenAiApiKey();
     if (!apiKey) return null;
 
