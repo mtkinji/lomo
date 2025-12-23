@@ -7,15 +7,15 @@ Ship “Add to calendar” as an MVP feature without requiring Google/Microsoft 
 ### References
 
 - Launch plan: `docs/launch/mvp-app-launch-jan-1-2026.md`
-- Activity model: `src/domain/types.ts` (currently has `scheduledDate?: string | null`)
+- Activity model: `src/domain/types.ts` (includes `scheduledAt?: string | null` and `scheduledDate?: string | null`)
 - Activity detail UI: `src/features/activities/ActivityDetailScreen.tsx`
 - Today view rendering: `src/features/home/TodayScreen.tsx` (currently interprets `scheduledDate` as time-of-day)
 
 ---
 
-## Problem (current ambiguity)
+## Problem (resolved by additive model)
 
-The current `Activity.scheduledDate` is used inconsistently:
+Historically `Activity.scheduledDate` was used inconsistently:
 
 - In some places it behaves like a “due date / end of day”.
 - In Today it’s rendered like a scheduled time.
@@ -24,7 +24,7 @@ For calendar export, we need a consistent “start time” concept.
 
 ---
 
-## MVP requirements
+## MVP requirements (implemented)
 
 ### Data model (additive)
 

@@ -27,6 +27,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useToastStore } from '../../store/useToastStore';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
@@ -114,6 +115,7 @@ export function ArcDetailScreen() {
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const removeArc = useAppStore((state) => state.removeArc);
   const updateArc = useAppStore((state) => state.updateArc);
+  const showToast = useToastStore((state) => state.showToast);
   const addGoal = useAppStore((state) => state.addGoal);
   const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
@@ -365,12 +367,18 @@ export function ArcDetailScreen() {
           style: 'destructive',
           onPress: () => {
             removeArc(arc.id);
+            showToast({
+              message: 'Arc deleted',
+              variant: 'danger',
+              durationMs: 2200,
+              behaviorDuringSuppression: 'queue',
+            });
             handleBackToArcs();
           },
         },
       ],
     );
-  }, [arc, handleBackToArcs, removeArc]);
+  }, [arc, handleBackToArcs, removeArc, showToast]);
 
   const handleToggleArchiveArc = useCallback(() => {
     if (!arc) return;
@@ -393,6 +401,12 @@ export function ArcDetailScreen() {
             status: nextStatus,
             updatedAt: timestamp,
           }));
+          showToast({
+            message: isArchived ? 'Arc restored' : 'Arc archived',
+            variant: isArchived ? 'success' : 'default',
+            durationMs: 2200,
+            behaviorDuringSuppression: 'queue',
+          });
 
           // After archiving, return to the Arcs canvas so users don't end up
           // "stuck" in an archived detail surface.
@@ -402,7 +416,7 @@ export function ArcDetailScreen() {
         },
       },
     ]);
-  }, [arc, handleBackToArcs, updateArc]);
+  }, [arc, handleBackToArcs, showToast, updateArc]);
 
   const handleShuffleHeroThumbnail = useCallback(() => {
     if (!arc) {
@@ -972,6 +986,16 @@ export function ArcDetailScreen() {
                         name: trimmed,
                         updatedAt: new Date().toISOString(),
                       }));
+                    }}
+                    onSubmit={(nextName) => {
+                      const trimmed = nextName.trim();
+                      if (!trimmed || trimmed === arc.name) return;
+                      showToast({
+                        message: 'Arc renamed',
+                        variant: 'success',
+                        durationMs: 1800,
+                        behaviorDuringSuppression: 'queue',
+                      });
                     }}
                     placeholder="Name this Arc"
                     validate={(next) => {

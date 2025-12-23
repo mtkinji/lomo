@@ -5,6 +5,8 @@ export type ToastPayload = {
   message: string;
   variant?: ToastVariant;
   durationMs?: number;
+  actionLabel?: string;
+  actionOnPress?: () => void;
   /**
    * Absolute bottom offset within the current screen container.
    * If omitted, the ToastHost will choose a safe default.
@@ -26,6 +28,8 @@ export type ToastState = {
   message: string;
   variant: ToastVariant;
   durationMs: number;
+  actionLabel?: string;
+  actionOnPress?: () => void;
   bottomOffset?: number;
   /**
    * When non-empty, toasts can be considered suppressed by other overlays
@@ -49,6 +53,8 @@ export const useToastStore = create<ToastState>((set) => ({
   message: '',
   variant: 'default',
   durationMs: 3000,
+  actionLabel: undefined,
+  actionOnPress: undefined,
   bottomOffset: undefined,
   suppressionKeys: {},
   queuedToasts: [],
@@ -56,6 +62,8 @@ export const useToastStore = create<ToastState>((set) => ({
     message,
     variant = 'default',
     durationMs = 3000,
+    actionLabel,
+    actionOnPress,
     bottomOffset,
     behaviorDuringSuppression = 'show',
   }) =>
@@ -68,7 +76,10 @@ export const useToastStore = create<ToastState>((set) => ({
         if (behaviorDuringSuppression === 'drop') {
           return prev;
         }
-        const nextQueue = [...(prev.queuedToasts ?? []), { message: trimmed, variant, durationMs, bottomOffset, behaviorDuringSuppression }];
+        const nextQueue = [
+          ...(prev.queuedToasts ?? []),
+          { message: trimmed, variant, durationMs, actionLabel, actionOnPress, bottomOffset, behaviorDuringSuppression },
+        ];
         const capped = nextQueue.slice(Math.max(0, nextQueue.length - MAX_QUEUED_TOASTS));
         return { ...prev, queuedToasts: capped };
       }
@@ -79,13 +90,15 @@ export const useToastStore = create<ToastState>((set) => ({
         message: trimmed,
         variant,
         durationMs,
+        actionLabel,
+        actionOnPress,
         bottomOffset,
       };
     }),
   clearToast: () =>
     set((prev) => {
       const isSuppressed = Object.keys(prev.suppressionKeys ?? {}).length > 0;
-      const nextBase = { ...prev, message: '', bottomOffset: undefined };
+      const nextBase = { ...prev, message: '', bottomOffset: undefined, actionLabel: undefined, actionOnPress: undefined };
       if (isSuppressed) {
         return nextBase;
       }
@@ -105,6 +118,8 @@ export const useToastStore = create<ToastState>((set) => ({
         message: trimmed,
         variant: next.variant ?? 'default',
         durationMs: next.durationMs ?? 3000,
+        actionLabel: next.actionLabel,
+        actionOnPress: next.actionOnPress,
         bottomOffset: next.bottomOffset,
       };
     }),
@@ -138,6 +153,8 @@ export const useToastStore = create<ToastState>((set) => ({
           message: trimmed,
           variant: next.variant ?? 'default',
           durationMs: next.durationMs ?? 3000,
+          actionLabel: next.actionLabel,
+          actionOnPress: next.actionOnPress,
           bottomOffset: next.bottomOffset,
         };
       }

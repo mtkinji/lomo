@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Text } from './primitives';
+import { Icon } from './Icon';
 
-export type ToastVariant = 'default' | 'success' | 'warning' | 'credits';
+export type ToastVariant = 'default' | 'success' | 'warning' | 'danger' | 'credits';
 
 export function Toast(props: {
   visible: boolean;
@@ -11,6 +12,8 @@ export function Toast(props: {
   bottomOffset?: number;
   variant?: ToastVariant;
   durationMs?: number;
+  actionLabel?: string;
+  onPressAction?: () => void;
   onDismiss?: () => void;
 }) {
   const {
@@ -19,6 +22,8 @@ export function Toast(props: {
     bottomOffset = spacing.lg,
     variant = 'default',
     durationMs = 3000,
+    actionLabel,
+    onPressAction,
     onDismiss,
   } = props;
 
@@ -37,18 +42,28 @@ export function Toast(props: {
           backgroundColor: colors.pine700,
           borderColor: colors.pine800,
           textColor: colors.parchment,
+          icon: 'check' as const,
         };
       case 'warning':
         return {
           backgroundColor: colors.turmeric700,
           borderColor: colors.turmeric800,
           textColor: colors.parchment,
+          icon: 'warning' as const,
+        };
+      case 'danger':
+        return {
+          backgroundColor: colors.destructive,
+          borderColor: colors.madder800,
+          textColor: colors.destructiveForeground,
+          icon: 'danger' as const,
         };
       case 'credits':
         return {
           backgroundColor: colors.turmeric700,
           borderColor: colors.turmeric800,
           textColor: colors.parchment,
+          icon: 'sparkles' as const,
         };
       case 'default':
       default:
@@ -56,6 +71,7 @@ export function Toast(props: {
           backgroundColor: colors.indigo800,
           borderColor: colors.indigo900,
           textColor: colors.primaryForeground,
+          icon: 'info' as const,
         };
     }
   }, [variant]);
@@ -122,8 +138,10 @@ export function Toast(props: {
 
   if (!shouldRender) return null;
 
+  const canShowAction = typeof actionLabel === 'string' && actionLabel.trim().length > 0 && typeof onPressAction === 'function';
+
   return (
-    <View pointerEvents="none" style={[styles.container, { bottom: bottomOffset }]}>
+    <View pointerEvents="box-none" style={[styles.container, { bottom: bottomOffset }]}>
       <Animated.View
         style={[
           styles.surface,
@@ -135,7 +153,46 @@ export function Toast(props: {
           },
         ]}
       >
-        <Text style={[styles.label, { color: palette.textColor }]}>{trimmed}</Text>
+        <View style={styles.row}>
+          <View style={styles.left}>
+            <Icon name={palette.icon} size={20} color={palette.textColor} />
+          </View>
+
+          <View style={styles.content}>
+            <Text style={[styles.label, { color: palette.textColor }]} numberOfLines={2}>
+              {trimmed}
+            </Text>
+          </View>
+
+          {canShowAction ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={actionLabel.trim()}
+              onPress={() => {
+                try {
+                  onPressAction?.();
+                } finally {
+                  onDismiss?.();
+                }
+              }}
+              style={styles.actionButton}
+            >
+              <Text style={[styles.actionLabel, { color: palette.textColor }]} numberOfLines={1}>
+                {actionLabel.trim()}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss notification"
+            onPress={() => onDismiss?.()}
+            hitSlop={12}
+            style={styles.closeButton}
+          >
+            <Icon name="close" size={18} color={palette.textColor} />
+          </Pressable>
+        </View>
       </Animated.View>
     </View>
   );
@@ -165,9 +222,37 @@ const styles = StyleSheet.create({
     shadowRadius: 34,
     elevation: 14,
   },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+  },
+  left: {
+    width: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    flex: 1,
+    minHeight: 22,
+    justifyContent: 'center',
+  },
   label: {
     ...typography.body,
-    textAlign: 'center',
+    textAlign: 'left',
+  },
+  actionButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  actionLabel: {
+    ...typography.bodySm,
+    fontWeight: '700',
+  },
+  closeButton: {
+    paddingLeft: spacing.xs,
+    paddingVertical: spacing.xs,
   },
 });
 

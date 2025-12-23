@@ -20,7 +20,9 @@ Ensure the keyboard **never covers the user’s active input** and users can alw
 
 ## Current state
 
-The codebase includes keyboard-safe wrappers (`automaticallyAdjustKeyboardInsets`), but screens still mix plain `ScrollView` / `FlatList` with bottom sheets, inline editors, and textareas, causing cases where the keyboard obscures the active field.
+The app now has a consolidated keyboard-safety approach via dedicated primitives (e.g. `KeyboardAwareScrollView`, plus screen/sheet patterns). Key input-heavy screens have been migrated to these patterns to prevent the keyboard from obscuring active fields.
+
+Remaining work is primarily **validation** (device QA across sizes + iOS versions) and tightening any one-off regressions as they appear.
 
 ---
 

@@ -1,4 +1,4 @@
-## PRD — Notifications v1.5 (MVP Launch Addendum)
+## PRD — Notifications v2 (System nudges) — MVP Launch Addendum
 
 ### Purpose
 
@@ -20,17 +20,16 @@ Ship a “v1.5” notifications upgrade that matches the intent of the existing 
 
 ## Current state (in code)
 
-Implemented today:
+Implemented (current):
 
 - Activity reminders scheduled from `Activity.reminderAt`.
 - Daily show-up scheduled from `notificationPreferences.dailyShowUpTime`.
 - Tap handling deep-links to Activities list or Activity detail.
+- Goal nudges (system nudge) with caps/backoff and deep links.
 
-Gaps for launch:
+Remaining launch checks:
 
-- Activity reminders use generic copy (“Activity reminder”).
-- No goal-level nudge.
-- No caps/backoff logic.
+- Run the manual QA checklist (see `docs/notifications-v2-test-plan.md`) to confirm all system nudge rules behave as expected on device.
 
 ---
 

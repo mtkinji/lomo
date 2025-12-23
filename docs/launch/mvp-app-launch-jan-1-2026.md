@@ -9,7 +9,7 @@ It is grounded in the current app implementation:
 
 - Local notifications are implemented via `expo-notifications` in `src/services/NotificationService.ts`.
 - Arcs/Goals/Activities are stored locally in `src/store/useAppStore.ts` (Zustand + persistence).
-- Arc domain already includes `status: 'active' | 'paused' | 'archived'` (`src/domain/types.ts`), but current UX is largely “create/delete”.
+- Arc domain already includes `status: 'active' | 'paused' | 'archived'` (`src/domain/types.ts`), but **Arc pausing is not a product behavior** — lifecycle UX is **archive/restore** (plus destructive delete).
 - AI calls are currently made directly from the client to OpenAI in `src/services/ai.ts` (must be changed for a paid/scalable launch).
 - Chapters is hidden from primary nav for this release (removed from drawer routes in `src/navigation/RootNavigator.tsx`).
 
@@ -77,10 +77,10 @@ It is grounded in the current app implementation:
 
 ### Milestone 1 — “Monetization skeleton + gating”
 
-- Implement subscription provider integration (RevenueCat).
-- Entitlement store + helpers (`isPro`, `restore`, cached status).
-- Paywall UI + upgrade entry points.
-- Enforce limits:
+- [x] Implement subscription provider integration (RevenueCat).
+- [x] Entitlement store + helpers (`isPro`, `restore`, cached status).
+- [x] Paywall UI + upgrade entry points.
+- [x] Enforce limits:
   - Free: block creating a second Arc (manual and AI creation flows both show upgrade path).
   - Free: block creating the 4th active Goal within the same Arc.
 
@@ -88,32 +88,32 @@ Owner doc: `docs/prds/monetization-paywall-revenuecat-prd.md`
 
 ### Milestone 2 — “AI proxy + quotas”
 
-- Replace direct OpenAI calls from `src/services/ai.ts` with a server proxy.
-- Quota enforcement by tier.
-- Degraded mode: if proxy unavailable, user gets a safe fallback (templates/cached suggestion) instead of a hard dead-end.
+- [x] Replace direct OpenAI calls from `src/services/ai.ts` with a server proxy.
+- [x] Quota enforcement by tier.
+- [x] Degraded mode: if proxy unavailable, user gets a safe fallback (templates/cached suggestion) instead of a hard dead-end.
 
 Owner doc: `docs/prds/ai-proxy-and-quotas-prd.md`
 
-### Milestone 3 — “Notifications v1.5”
+### Milestone 3 — “Notifications v2 (system nudges)”
 
-- Activity reminder notifications include clear copy (Activity + Goal context).
-- Add goal-level daily nudge (optional, capped, non-spammy).
-- Add lightweight caps/backoff for non-explicit nudges (never cap explicit `reminderAt` reminders).
+- [x] Activity reminder notifications include clear copy (Activity + Goal context).
+- [x] Add goal-level daily nudge (optional, capped, non-spammy).
+- [x] Add lightweight caps/backoff for non-explicit nudges (never cap explicit `reminderAt` reminders).
 
 Owner doc: `docs/prds/notifications-v1-5-prd.md` (and `docs/notifications-paradigm-prd.md`)
 
 ### Milestone 4 — “Calendar export MVP”
 
-- Add a consistent scheduling model (`scheduledAt`) for Activities.
-- Add “Add to calendar” that exports `.ics` via share sheet.
-- Gate as Pro (or freemium teaser) per Monetization PRD.
+- [x] Add a consistent scheduling model (`scheduledAt`) for Activities.
+- [x] Add “Add to calendar” that exports `.ics` via share sheet.
+- [x] Gate as Pro (or freemium teaser) per Monetization PRD.
 
 Owner doc: `docs/prds/calendar-export-ics-prd.md`
 
 ### Milestone 5 — “Keyboard + input safety”
 
-- Standardize scroll containers on keyboard-safe primitives.
-- Validate the top input-heavy screens (Activity detail, Goal creation, AI chat) meet the bar.
+- [x] Standardize scroll containers on keyboard-safe primitives.
+- [ ] Validate the top input-heavy screens (Activity detail, Goal creation, AI chat) meet the bar.
 
 Owner doc: `docs/prds/keyboard-input-safety-prd.md`
 
@@ -121,9 +121,9 @@ Owner doc: `docs/prds/keyboard-input-safety-prd.md`
 
 ## Risk register (launch blockers)
 
-- **AI key leakage / uncontrolled costs** if OpenAI calls remain client-side.
+- **AI key leakage / uncontrolled costs** if OpenAI calls remain client-side. (Mitigated: proxy routes exist; ensure production builds set `aiProxyBaseUrl` and never ship OpenAI keys.)
 - **IAP review rejection** if restore purchases is missing or paywall messaging is misleading.
-- **Over-notification** if goal-level nudges ship without caps.
+- **Over-notification** if goal-level nudges ship without caps. (Mitigated: system nudge caps + backoff in NotificationService; keep QA coverage tight.)
 - **Destructive data loss** if “active arc” is implemented by forcing deletes rather than using `Arc.status`.
 
 ---

@@ -136,7 +136,7 @@ If you ever decide to trial “unlimited Arcs”:
 
 - On downgrade to Free, keep extra Arcs **visible but locked**:
   - Only 1 Arc can be “active/editable”
-  - All other Arcs become read-only (and optionally auto-marked `paused` or `archived`)
+  - All other Arcs become read-only (recommended: mark them `archived` and provide restore affordance behind Pro)
   - Show a clear upgrade CTA on locked Arcs
 
 ### Referral / signup bonus
@@ -180,7 +180,7 @@ MVP recommendation:
 
 ### Definitions
 
-- **Active Arc**: `Arc.status === 'active'`
+- **Active Arc**: `Arc.status === 'active'` (note: we do not ship Arc “pause” UX)
 - **Active Goal (confirmed)**: `Goal.status !== 'archived'`
   - Users can use **Archive** as the primary way to stop a goal counting toward the Free cap (including completed goals).
 

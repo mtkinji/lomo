@@ -1,5 +1,7 @@
 # Notifications v2 (System nudges) — Test plan
 
+Status: **implemented**. Use this checklist to validate scheduling, deep links, caps/backoff, and telemetry on-device.
+
 This is a focused manual QA checklist for:
 - Daily show-up (one-shot rescheduled)
 - Daily focus (one-shot rescheduled)

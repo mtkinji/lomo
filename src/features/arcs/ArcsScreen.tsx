@@ -64,6 +64,7 @@ export function ArcsScreen() {
   const menuOpen = drawerStatus === 'open';
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
+  const [archivedExpanded, setArchivedExpanded] = useState(false);
 
   const visibleArcs = useMemo(() => arcs.filter((arc) => arc.status !== 'archived'), [arcs]);
   const archivedArcs = useMemo(() => arcs.filter((arc) => arc.status === 'archived'), [arcs]);
@@ -185,19 +186,35 @@ export function ArcsScreen() {
             ListFooterComponent={
               archivedArcs.length > 0 ? (
                 <View style={styles.archivedSection}>
-                  <Text style={styles.archivedTitle}>Archived</Text>
-                  <Text style={styles.archivedHint}>
-                    Archived arcs stay in your history, but are hidden from your main list.
-                  </Text>
-                  <View style={{ height: spacing.md }} />
-                  {archivedArcs.map((arc, idx) => (
-                    <View key={arc.id}>
-                      <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: arc.id })}>
-                        <ArcListCard arc={arc} goalCount={goalCountByArc[arc.id] ?? 0} />
-                      </Pressable>
-                      {idx < archivedArcs.length - 1 ? <View style={styles.separator} /> : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={archivedExpanded ? 'Hide archived arcs' : 'Show archived arcs'}
+                    onPress={() => setArchivedExpanded((prev) => !prev)}
+                    style={styles.archivedToggle}
+                  >
+                    <View style={styles.archivedToggleRow}>
+                      <Text style={styles.archivedTitle}>{`Archived (${archivedArcs.length})`}</Text>
+                      <Icon
+                        name={archivedExpanded ? 'chevronDown' : 'chevronRight'}
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </View>
-                  ))}
+                  </Pressable>
+
+                  {archivedExpanded ? (
+                    <>
+                      <View style={{ height: spacing.md }} />
+                      {archivedArcs.map((arc, idx) => (
+                        <View key={arc.id}>
+                          <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: arc.id })}>
+                            <ArcListCard arc={arc} goalCount={goalCountByArc[arc.id] ?? 0} />
+                          </Pressable>
+                          {idx < archivedArcs.length - 1 ? <View style={styles.separator} /> : null}
+                        </View>
+                      ))}
+                    </>
+                  ) : null}
                   <View style={{ height: spacing['2xl'] }} />
                 </View>
               ) : (
@@ -254,15 +271,19 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   archivedTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  archivedHint: {
     ...typography.bodySm,
     color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  archivedToggle: {
+    alignSelf: 'stretch',
     paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  archivedToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   emptyTitle: {
     ...typography.titleSm,

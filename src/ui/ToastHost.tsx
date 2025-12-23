@@ -10,6 +10,8 @@ export function ToastHost() {
   const variant = useToastStore((s) => s.variant);
   const durationMs = useToastStore((s) => s.durationMs);
   const bottomOffset = useToastStore((s) => s.bottomOffset);
+  const actionLabel = useToastStore((s) => s.actionLabel);
+  const actionOnPress = useToastStore((s) => s.actionOnPress);
   const id = useToastStore((s) => s.id);
   const clearToast = useToastStore((s) => s.clearToast);
 
@@ -22,6 +24,8 @@ export function ToastHost() {
       message={message}
       variant={variant}
       durationMs={durationMs}
+      actionLabel={actionLabel}
+      onPressAction={actionOnPress}
       bottomOffset={bottomOffset ?? Math.max(insets.bottom, spacing.lg)}
       onDismiss={clearToast}
     />

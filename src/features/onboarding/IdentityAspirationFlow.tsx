@@ -47,6 +47,7 @@ import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { useToastStore } from '../../store/useToastStore';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -2299,6 +2300,14 @@ export function IdentityAspirationFlow({
   }));
 
     addArc(arc);
+    // Keep toast messaging consistent with other Arc creation surfaces.
+    // Do not compete with onboarding overlays/coachmarks if they are visible.
+    useToastStore.getState().showToast({
+      message: 'Arc created',
+      variant: 'success',
+      durationMs: 2200,
+      behaviorDuringSuppression: 'queue',
+    });
     const unsplashPhotoId =
       prefetchedArcHero?.heroImageMeta?.source === 'unsplash'
         ? prefetchedArcHero?.heroImageMeta?.unsplashPhotoId

@@ -31,50 +31,53 @@ Owner execution plan: `docs/launch/mvp-app-launch-jan-1-2026.md`
 
 ### 0.1 Monetization skeleton + gating (RevenueCat)
 
-- [ ] Ship purchase + restore + entitlement caching (offline-safe)
-- [ ] Enforce Free tier limits consistently at creation choke points:
-  - [ ] Free: **1 Arc total**
-  - [ ] Free: **3 active Goals per Arc**
-- [ ] Add canonical upgrade entry points (Settings + limit-triggered affordances)
+- [x] Ship purchase + restore + entitlement caching (offline-safe)
+- [x] Enforce Free tier limits consistently at creation choke points:
+  - [x] Free: **1 Arc total**
+  - [x] Free: **3 active Goals per Arc**
+- [x] Add canonical upgrade entry points (Settings + limit-triggered affordances)
 
 Owner PRD: `docs/prds/monetization-paywall-revenuecat-prd.md`
 
 ### 0.2 AI proxy + quotas (cost + key safety)
 
-- [ ] Remove direct OpenAI calls from the client (no embedded key)
-- [ ] Route AI requests through a minimal proxy with quotas by tier
-- [ ] Degraded mode UX for quota exceeded / provider unavailable
-- [ ] Basic observability: request count, latency, error rate, quota rejects
+- [x] Remove direct OpenAI calls from the client (no embedded key)
+- [x] Route AI requests through a minimal proxy with quotas by tier
+- [x] Degraded mode UX for quota exceeded / provider unavailable
+- [x] Basic observability: request count, latency, error rate, quota rejects
 
 Owner PRD: `docs/prds/ai-proxy-and-quotas-prd.md`
 
-### 0.3 Notifications v1.5 (clarity + caps)
+### 0.3 Notifications v2 (system nudges + caps)
 
-- [ ] Activity reminders include Activity title + Goal context in copy
-- [ ] Goal nudges (opt-in or clear opt-out) with strict caps/backoff
-- [ ] Deep links preserve shell/canvas model (tap → correct canvas)
+- [x] Activity reminders include Activity title + Goal context in copy
+- [x] Goal nudges (opt-in or clear opt-out) with strict caps/backoff
+- [x] Deep links preserve shell/canvas model (tap → correct canvas)
 
 Owner PRD: `docs/prds/notifications-v1-5-prd.md`
 
 ### 0.4 Arc/Goal lifecycle + limits (avoid destructive deletes)
 
-- [ ] Arc lifecycle actions (pause/archive/make active) so Free users can manage their single Arc without deleting data
+- [ ] Arc lifecycle actions (archive/restore) so Free users can manage their single Arc without deleting data
+  - [x] Archive/restore Arc (non-destructive)
 - [ ] Goal lifecycle actions (archive/complete/reopen) in Goal detail
-- [ ] Limits enforced at initiation points (manual + AI)
+  - [x] Archive/restore Goal (non-destructive; stops counting toward Free cap)
+  - [ ] Mark complete / reopen affordances
+- [x] Limits enforced at initiation points (manual + AI)
 
 Owner PRD: `docs/prds/arc-goal-lifecycle-and-limits-prd.md`
 
 ### 0.5 Calendar export MVP (ICS) + scheduling model
 
-- [ ] Add `Activity.scheduledAt` (start time) without breaking existing semantics
-- [ ] “Add to calendar” exports `.ics` via share sheet
-- [ ] Gate per monetization posture (Pro or freemium teaser)
+- [x] Add `Activity.scheduledAt` (start time) without breaking existing semantics
+- [x] “Add to calendar” exports `.ics` via share sheet
+- [x] Gate per monetization posture (Pro or freemium teaser)
 
 Owner PRD: `docs/prds/calendar-export-ics-prd.md`
 
 ### 0.6 Keyboard & input safety quality bar
 
-- [ ] Standardize screen + sheet input handling on keyboard-safe primitives
+- [x] Standardize screen + sheet input handling on keyboard-safe primitives
 - [ ] Validate top input-heavy surfaces: Activity detail, Goal creation, AI chat
 
 Owner PRD: `docs/prds/keyboard-input-safety-prd.md`  
@@ -82,11 +85,11 @@ Implementation guide: `docs/keyboard-input-safety-implementation.md`
 
 ### 0.7 Explicit MVP cuts (do not expand scope pre-launch)
 
-- [ ] Keep Chapters implemented but **hidden from primary nav** for launch
-- [ ] No server push notifications
-- [ ] No cross-device sync / accounts required for MVP
-- [ ] No Google/Microsoft OAuth calendar sync (ICS only)
-- [ ] Shared goals/social accountability beyond “share message” is post-launch
+- [x] Keep Chapters implemented but **hidden from primary nav** for launch
+- [x] No server push notifications
+- [x] No cross-device sync / accounts required for MVP
+- [x] No Google/Microsoft OAuth calendar sync (ICS only)
+- [x] Shared goals/social accountability beyond “share message” is post-launch
 
 ---
 

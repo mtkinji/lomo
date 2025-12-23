@@ -17,7 +17,7 @@ Implement the MVP limits in a way that avoids destructive data loss and sets up 
 
 ## Current state
 
-- `Arc.status` exists in the type system (`active | paused | archived`), but UX is primarily create/delete.
+- `Arc.status` exists in the type system (`active | paused | archived`), but **Arc pausing is not a product behavior** (we will not ship pause affordances). UX is primarily create/delete plus archive/restore.
 - `removeArc` is destructive and cascades (removes goals + activities for that arc).
 - `Goal.status` exists (`planned | in_progress | completed | archived`).
 
@@ -41,8 +41,7 @@ Implement the MVP limits in a way that avoids destructive data loss and sets up 
 ### UX requirements (avoid painting into a corner)
 
 - Users must be able to manage the lifecycle of their **single free Arc** without deleting data.
-  - Add “Pause arc” (active → paused)
-  - Add “Archive arc” (active/paused → archived)
+  - Add “Archive arc” and “Restore arc” (non-destructive)
 - Delete remains available but is clearly destructive.
 
 ---
@@ -53,9 +52,8 @@ Implement the MVP limits in a way that avoids destructive data loss and sets up 
 
 Add Arc actions in Arc detail:
 
-- Pause
-- Make active (only if allowed; if free and Arc is archived, require restoring it rather than creating a new Arc)
 - Archive
+- Restore (un-archive)
 - Delete (destructive, confirm; existing behavior)
 
 ### Goal lifecycle actions
@@ -88,7 +86,7 @@ Optional improvements (post-launch):
 
 ## Acceptance criteria
 
-- Free users can pause/archive their Arc without deleting it.
+- Free users can archive/restore their Arc without deleting it.
 - Free users are blocked from creating a second Arc (manual and AI flows both present upgrade path).
 - Free users are blocked from creating a 4th active goal within a single arc.
 - No destructive delete is required to continue using the app.

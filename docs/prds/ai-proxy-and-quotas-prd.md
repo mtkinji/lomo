@@ -11,18 +11,26 @@ AI generation is day‑1 core. For a paid/scalable launch, we must:
 ### References
 
 - Launch plan: `docs/launch/mvp-app-launch-jan-1-2026.md`
-- Current AI client: `src/services/ai.ts` (calls `https://api.openai.com/v1/...`)
+- Current AI client: `src/services/ai.ts` (routes through proxy when `aiProxyBaseUrl` is configured)
+- Supabase Edge Function (proxy): `supabase/functions/ai-chat/index.ts`
 - Existing AI architecture notes: `docs/ai-chat-architecture.md`
 
 ---
 
-## Current state (problem)
+## Current state (implemented)
 
-`src/services/ai.ts` calls OpenAI directly using a bearer token. This is not viable for production monetization:
+The app now supports an **AI proxy + quotas** posture end-to-end:
 
-- Key can be extracted from the app.
-- Costs cannot be bounded per user/tier.
-- Abuse protection is weak.
+- Client routes AI requests through a proxy when `aiProxyBaseUrl` is set.
+- The proxy holds the OpenAI key server-side and enforces:
+  - monthly action quotas (Free vs Pro)
+  - optional daily rail limits
+  - per-minute request limiting
+- Proxy emits best-effort telemetry into Supabase tables/RPCs (request counts, status, latency, quota rejects).
+
+Important guardrail:
+
+- In production, ensure `aiProxyBaseUrl` is set and **no OpenAI key is shipped** in app config/env.
 
 ---
 

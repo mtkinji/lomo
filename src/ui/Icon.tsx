@@ -50,6 +50,8 @@ const iconMap: Record<string, IconEntry> = {
   more: { library: 'feather', name: 'more-horizontal' },
   goals: { library: 'feather', name: 'target' },
   info: { library: 'feather', name: 'info' },
+  warning: { library: 'feather', name: 'alert-triangle' },
+  danger: { library: 'feather', name: 'alert-octagon' },
   edit: { library: 'feather', name: 'edit-3' },
   search: { library: 'feather', name: 'search' },
   close: { library: 'feather', name: 'x' },
