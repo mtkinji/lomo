@@ -9,11 +9,16 @@ import {
   loadActivityReminderLedger,
   loadDailyFocusLedger,
   loadDailyShowUpLedger,
+  loadGoalNudgeLedger,
+  loadSystemNudgeLedger,
   markActivityReminderFired,
   saveDailyFocusLedger,
   saveDailyShowUpLedger,
+  saveGoalNudgeLedger,
+  saveSystemNudgeLedger,
 } from './NotificationDeliveryLedger';
 import { useAppStore } from '../../store/useAppStore';
+import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './goalNudge';
 
 export const NOTIFICATION_RECONCILE_TASK = 'kwilt-notification-reconcile-v1';
 
@@ -36,6 +41,18 @@ function hasPassedLocalTime(scheduleTimeLocal: string, now: Date): boolean {
   const minutesNow = now.getHours() * 60 + now.getMinutes();
   const minutesTarget = hour * 60 + minute;
   return minutesNow >= minutesTarget;
+}
+
+function nextLocalOccurrence(timeLocal: string, now: Date): Date {
+  const [h, m] = timeLocal.split(':');
+  const hour = Number.parseInt(h ?? '9', 10);
+  const minute = Number.parseInt(m ?? '0', 10);
+  const fireAt = new Date(now);
+  fireAt.setHours(Number.isNaN(hour) ? 9 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+  if (fireAt.getTime() <= now.getTime()) {
+    fireAt.setDate(fireAt.getDate() + 1);
+  }
+  return fireAt;
 }
 
 export async function reconcileNotificationsFiredEstimated(
@@ -199,6 +216,98 @@ export async function reconcileNotificationsFiredEstimated(
           scheduleTimeLocal: timeLocal,
           lastFiredDateKey: todayLocal,
         });
+      }
+    }
+  }
+
+  // 4) Goal nudges: one-shot notification; estimate fired when it disappears from scheduled list.
+  if (prefs.notificationsEnabled && prefs.allowGoalNudges && prefs.osPermissionStatus === 'authorized') {
+    const goalNudgeLedger = await loadGoalNudgeLedger();
+    const timeLocal = goalNudgeLedger.scheduleTimeLocal ?? prefs.dailyShowUpTime ?? '09:00';
+
+    const scheduledGoalNudges = scheduled.filter((req) => {
+      const data = req.content.data as any;
+      return data && data.type === 'goalNudge';
+    });
+
+    // If we had a recorded scheduledForIso and it is in the past, but the notification is no longer scheduled,
+    // treat it as fired and update system-nudge caps.
+    if (goalNudgeLedger.scheduledForIso && goalNudgeLedger.notificationId) {
+      const when = new Date(goalNudgeLedger.scheduledForIso);
+      if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+        const stillScheduled = scheduledIds.has(goalNudgeLedger.notificationId);
+        if (!stillScheduled) {
+          const systemLedger = await loadSystemNudgeLedger();
+          const todayLocal = localDateKey(now);
+          const nextCount = (systemLedger.sentCountByDate[todayLocal] ?? 0) + 1;
+          await saveSystemNudgeLedger({
+            lastSentAtByType: {
+              ...(systemLedger.lastSentAtByType ?? {}),
+              goalNudge: nowIso,
+            },
+            sentCountByDate: {
+              ...(systemLedger.sentCountByDate ?? {}),
+              [todayLocal]: nextCount,
+            },
+          });
+
+          await saveGoalNudgeLedger({
+            notificationId: null,
+            scheduleTimeLocal: timeLocal,
+            lastFiredDateKey: todayLocal,
+            goalId: goalNudgeLedger.goalId ?? null,
+            scheduledForIso: null,
+          });
+        }
+      }
+    }
+
+    // Ensure there is a future goal nudge scheduled if eligible (best-effort).
+    if (scheduledGoalNudges.length === 0) {
+      const state = useAppStore.getState();
+      const candidate = pickGoalNudgeCandidate({
+        arcs: state.arcs,
+        goals: state.goals,
+        activities: state.activities,
+        now,
+      });
+      if (candidate) {
+        const systemLedger = await loadSystemNudgeLedger();
+        const todayLocal = localDateKey(now);
+        const alreadySentToday = Boolean(systemLedger.lastSentAtByType?.goalNudge) &&
+          localDateKey(new Date(systemLedger.lastSentAtByType.goalNudge)) === todayLocal;
+        const sentToday = systemLedger.sentCountByDate?.[todayLocal] ?? 0;
+        const globalCap = 2;
+
+        if (!alreadySentToday && sentToday < globalCap) {
+          const fireAt = nextLocalOccurrence(timeLocal, now);
+          const identifier = await Notifications.scheduleNotificationAsync({
+            content: {
+              ...buildGoalNudgeContent({ goalTitle: candidate.goalTitle, arcName: candidate.arcName }),
+              data: { type: 'goalNudge', goalId: candidate.goalId },
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: fireAt,
+            },
+          });
+
+          track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+            notification_type: 'goalNudge',
+            notification_id: identifier,
+            goal_id: candidate.goalId,
+            scheduled_for: fireAt.toISOString(),
+            schedule_time_local: timeLocal,
+            scheduled_source: source,
+          });
+
+          await saveGoalNudgeLedger({
+            notificationId: identifier,
+            scheduleTimeLocal: timeLocal,
+            goalId: candidate.goalId,
+            scheduledForIso: fireAt.toISOString(),
+          });
+        }
       }
     }
   }

@@ -224,6 +224,7 @@ interface AppState {
     dailyShowUpTime: string | null;
     allowDailyFocus: boolean;
     dailyFocusTime: string | null;
+    allowGoalNudges: boolean;
     allowStreakAndReactivation: boolean;
   };
   /**
@@ -591,6 +592,8 @@ export const useAppStore = create(
         dailyShowUpTime: null,
         allowDailyFocus: false,
         dailyFocusTime: null,
+        // System nudge: default ON once notifications are enabled (user can toggle off).
+        allowGoalNudges: true,
         allowStreakAndReactivation: false,
       },
       lastFocusMinutes: null,

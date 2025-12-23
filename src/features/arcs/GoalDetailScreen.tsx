@@ -91,7 +91,7 @@ const FIRST_GOAL_ILLUSTRATION = require('../../../assets/illustrations/goal-set.
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
   const navigation = useNavigation();
-  const { goalId, entryPoint } = route.params;
+  const { goalId, entryPoint, initialTab } = route.params;
   const showToast = useToastStore((state) => state.showToast);
 
   const arcs = useAppStore((state) => state.arcs);
@@ -221,7 +221,13 @@ export function GoalDetailScreen() {
       keywords: undefined,
     }));
   }, [arcs]);
-  const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>(initialTab ?? 'details');
+
+  useEffect(() => {
+    if (!initialTab) return;
+    setActiveTab(initialTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab]);
   const hasAutoSwitchedToPlanRef = useRef(false);
   const goalActivities = useMemo(
     () => activities.filter((activity) => activity.goalId === goalId),

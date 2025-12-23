@@ -143,6 +143,21 @@ export function NotificationsSettingsScreen() {
     await NotificationService.applySettings(next);
   };
 
+  const handleToggleGoalNudges = async () => {
+    if (!preferences.notificationsEnabled || !preferences.allowGoalNudges) {
+      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+      if (!granted) {
+        return;
+      }
+    }
+    const next = {
+      ...preferences,
+      notificationsEnabled: true,
+      allowGoalNudges: !preferences.allowGoalNudges,
+    };
+    await NotificationService.applySettings(next);
+  };
+
   const getInitialTimeForPicker = () => {
     const raw =
       timePickerTarget === 'dailyFocus'
@@ -246,6 +261,28 @@ export function NotificationsSettingsScreen() {
                       ]}
                     />
                   </View>
+                </HStack>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle goal nudges"
+                onPress={handleToggleGoalNudges}
+              >
+                <VStack flex={1}>
+                  <Text style={styles.rowTitle}>Goal nudges</Text>
+                  <Text style={styles.rowSubtitle}>
+                    A gentle daily nudge to take one tiny step when you have Goals with incomplete Activities.
+                  </Text>
+                </VStack>
+                <HStack alignItems="center">
+                  <View
+                    style={[
+                      styles.toggle,
+                      preferences.notificationsEnabled && preferences.allowGoalNudges && styles.toggleOn,
+                    ]}
+                  />
                 </HStack>
               </Pressable>
             </VStack>
