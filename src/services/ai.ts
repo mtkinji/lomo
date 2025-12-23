@@ -2821,7 +2821,6 @@ async function fetchWithTimeout(
       // This keeps the proxy callable even if "verify JWT" is enabled on the function.
       const supabaseKey = getEnvVar<string>('supabasePublishableKey')?.trim();
       if (supabaseKey) {
-        headers.set('Authorization', `Bearer ${supabaseKey}`);
         headers.set('apikey', supabaseKey);
       }
       try {

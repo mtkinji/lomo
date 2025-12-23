@@ -33,7 +33,7 @@ The app sends:
 - `x-kwilt-install-id` (stable per install)
 - `x-kwilt-is-pro` (best-effort; server-verified entitlements can be added later)
 
-If your deployed Edge Function has **JWT verification enabled**, the client must also include a Supabase key header.
+If your deployed Edge Function has **JWT verification enabled**, the client must include a **real Supabase user JWT** in `Authorization`.\n\nFor the MVP “no forced auth” posture, we recommend turning **Verify JWT OFF** on the `ai-chat` function.\n\nWhen Verify JWT is OFF, you may still include the project publishable/anon key as `apikey` (safe to embed).
 Set one of:
 - `SUPABASE_PUBLISHABLE_KEY` (recommended) or `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - (fallback) `SUPABASE_ANON_KEY` / `EXPO_PUBLIC_SUPABASE_ANON_KEY`
