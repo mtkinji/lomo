@@ -7,6 +7,7 @@ import { posthogClient } from './analytics/posthogClient';
 import { track } from './analytics/analytics';
 import { AnalyticsEvent } from './analytics/events';
 import {
+  type SystemNudgeLedger,
   markActivityReminderCancelled,
   saveDailyShowUpLedger,
   saveDailyFocusLedger,
@@ -54,6 +55,15 @@ let setupNextStepNotificationId: string | null = null;
 
 let isInitialized = false;
 let hasAttachedStoreSubscription = false;
+
+const SYSTEM_NUDGE_TYPES: Array<NotificationData['type']> = [
+  'dailyShowUp',
+  'setupNextStep',
+  'dailyFocus',
+  'goalNudge',
+];
+const SYSTEM_NUDGE_DAILY_CAP = 2;
+const SYSTEM_NUDGE_MIN_SPACING_MS = 6 * 60 * 60 * 1000;
 
 let responseSubscription:
   | Notifications.Subscription
@@ -136,6 +146,57 @@ function localDateKey(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+function addLocalDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+async function applyGlobalSystemNudgeGuards(params: {
+  fireAt: Date;
+  /**
+   * The nudge type we're scheduling. Used for debug + future refinement.
+   */
+  type: NotificationData['type'];
+  ledger?: SystemNudgeLedger;
+}): Promise<Date> {
+  let fireAt = new Date(params.fireAt);
+  const ledger = params.ledger ?? (await loadSystemNudgeLedger());
+
+  // 1) Global per-day cap: if we already delivered N system nudges today, push to tomorrow.
+  // Note: this uses the "fired estimated" ledger (local-only), which is best-effort.
+  // We intentionally do not count merely-scheduled nudges toward the cap.
+  for (let i = 0; i < 7; i++) {
+    const dayKey = localDateKey(fireAt);
+    const sentCount = ledger.sentCountByDate?.[dayKey] ?? 0;
+    if (sentCount < SYSTEM_NUDGE_DAILY_CAP) break;
+    fireAt = addLocalDays(fireAt, 1);
+  }
+
+  // 2) Global spacing across system nudges: enforce a 6h gap from the last delivered system nudge.
+  const lastSentAtIsoValues = Object.entries(ledger.lastSentAtByType ?? {})
+    .filter(([type]) => SYSTEM_NUDGE_TYPES.includes(type as NotificationData['type']))
+    .map(([, iso]) => iso)
+    .filter((v): v is string => typeof v === 'string' && v.length > 0);
+
+  const lastSentAtMs = lastSentAtIsoValues.reduce<number | null>((max, iso) => {
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t)) return max;
+    return max === null ? t : Math.max(max, t);
+  }, null);
+
+  if (lastSentAtMs !== null) {
+    const minAllowed = lastSentAtMs + SYSTEM_NUDGE_MIN_SPACING_MS;
+    if (fireAt.getTime() < minAllowed) {
+      // Preserve the user's intended time-of-day by pushing to the next day
+      // instead of shifting into an unexpected hour.
+      fireAt = addLocalDays(fireAt, 1);
+    }
+  }
+
+  return fireAt;
 }
 
 async function cancelAllScheduledDailyShowUps(reason: 'reschedule' | 'explicit_cancel') {
@@ -694,7 +755,7 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
 
   // Convert daily show-up to a one-shot schedule (we reschedule daily).
   // This enables suppression/caps/backoff (repeating schedules can't be stopped reliably).
-  const fireAt = new Date(now);
+  let fireAt = new Date(now);
   fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
 
   // If the user already "showed up" today, schedule tomorrow.
@@ -709,6 +770,12 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   if (noOpenCount >= 2) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
+
+  fireAt = await applyGlobalSystemNudgeGuards({
+    fireAt,
+    type: isSetup ? 'setupNextStep' : 'dailyShowUp',
+    ledger: systemLedger,
+  });
 
   // Cancel any existing daily show-up notification(s) before scheduling a new one.
   if (isSetup) {
@@ -834,7 +901,7 @@ async function scheduleDailyFocusInternal(time: string, prefs: NotificationPrefe
   const minute = Number.parseInt(minuteString ?? '0', 10);
 
   const now = new Date();
-  const fireAt = new Date(now);
+  let fireAt = new Date(now);
   fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
 
   // If the user already completed Focus today, schedule tomorrow.
@@ -842,6 +909,9 @@ async function scheduleDailyFocusInternal(time: string, prefs: NotificationPrefe
   if (alreadyCompletedFocusToday || fireAt.getTime() <= now.getTime()) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
+
+  const systemLedger = await loadSystemNudgeLedger();
+  fireAt = await applyGlobalSystemNudgeGuards({ fireAt, type: 'dailyFocus', ledger: systemLedger });
 
   // Cancel any existing daily focus notification before scheduling a new one.
   await cancelAllScheduledDailyFocuses('reschedule');
@@ -1006,7 +1076,7 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
   const [hourString, minutePart] = timeLocal.split(':');
   const hour = Number.parseInt(hourString ?? '16', 10);
   const minute = Number.parseInt(minutePart ?? '0', 10);
-  const fireAt = new Date(now);
+  let fireAt = new Date(now);
   fireAt.setHours(Number.isNaN(hour) ? 16 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
   if (fireAt.getTime() <= now.getTime()) {
     fireAt.setDate(fireAt.getDate() + 1);
@@ -1014,6 +1084,8 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
   if (noOpenCount >= 2) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
+
+  fireAt = await applyGlobalSystemNudgeGuards({ fireAt, type: 'goalNudge', ledger: systemLedger });
 
   // Cancel any existing scheduled goal nudges before rescheduling.
   await cancelAllScheduledGoalNudges('reschedule');
