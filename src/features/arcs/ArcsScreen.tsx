@@ -65,6 +65,9 @@ export function ArcsScreen() {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
 
+  const visibleArcs = useMemo(() => arcs.filter((arc) => arc.status !== 'archived'), [arcs]);
+  const archivedArcs = useMemo(() => arcs.filter((arc) => arc.status === 'archived'), [arcs]);
+
   const handleOpenNewArc = () => {
     const canCreate = canCreateArc({ isPro, arcs });
     if (!canCreate.ok) {
@@ -139,12 +142,12 @@ export function ArcsScreen() {
         <View style={styles.listContainer}>
           <FlatList
             style={styles.list}
-            data={arcs}
+            data={visibleArcs}
             keyExtractor={(arc) => arc.id}
             contentContainerStyle={[
               styles.listContent,
               { paddingTop: listTopPadding, paddingBottom: listBottomPadding },
-              arcs.length === 0 ? styles.listEmptyContent : null,
+              visibleArcs.length === 0 ? styles.listEmptyContent : null,
             ]}
             renderItem={({ item }) => (
               <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
@@ -153,17 +156,53 @@ export function ArcsScreen() {
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={
-              <EmptyState
-                title="No arcs yet"
-                instructions="Create an Arc to define a meaningful direction."
-                primaryAction={{
-                  label: 'Create Arc',
-                  variant: 'accent',
-                  onPress: handleOpenNewArc,
-                  accessibilityLabel: 'Create a new Arc',
-                }}
-                style={styles.emptyState}
-              />
+              archivedArcs.length > 0 ? (
+                <EmptyState
+                  title="No active arcs"
+                  instructions="Your archived arcs are below."
+                  primaryAction={{
+                    label: 'Create Arc',
+                    variant: 'accent',
+                    onPress: handleOpenNewArc,
+                    accessibilityLabel: 'Create a new Arc',
+                  }}
+                  style={styles.emptyState}
+                />
+              ) : (
+                <EmptyState
+                  title="No arcs yet"
+                  instructions="Create an Arc to define a meaningful direction."
+                  primaryAction={{
+                    label: 'Create Arc',
+                    variant: 'accent',
+                    onPress: handleOpenNewArc,
+                    accessibilityLabel: 'Create a new Arc',
+                  }}
+                  style={styles.emptyState}
+                />
+              )
+            }
+            ListFooterComponent={
+              archivedArcs.length > 0 ? (
+                <View style={styles.archivedSection}>
+                  <Text style={styles.archivedTitle}>Archived</Text>
+                  <Text style={styles.archivedHint}>
+                    Archived arcs stay in your history, but are hidden from your main list.
+                  </Text>
+                  <View style={{ height: spacing.md }} />
+                  {archivedArcs.map((arc, idx) => (
+                    <View key={arc.id}>
+                      <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: arc.id })}>
+                        <ArcListCard arc={arc} goalCount={goalCountByArc[arc.id] ?? 0} />
+                      </Pressable>
+                      {idx < archivedArcs.length - 1 ? <View style={styles.separator} /> : null}
+                    </View>
+                  ))}
+                  <View style={{ height: spacing['2xl'] }} />
+                </View>
+              ) : (
+                <View style={{ height: spacing['2xl'] }} />
+              )
             }
           />
         </View>
@@ -209,6 +248,21 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     marginTop: spacing['2xl'],
+  },
+  archivedSection: {
+    paddingHorizontal: 0,
+    paddingTop: spacing.xl,
+  },
+  archivedTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  archivedHint: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
   },
   emptyTitle: {
     ...typography.titleSm,

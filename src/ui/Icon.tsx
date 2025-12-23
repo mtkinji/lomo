@@ -58,6 +58,7 @@ const iconMap: Record<string, IconEntry> = {
   chevronUp: { library: 'feather', name: 'chevron-up' },
   chevronsUpDown: { library: 'ion', name: 'chevron-expand' },
   trash: { library: 'feather', name: 'trash-2' },
+  archive: { library: 'feather', name: 'archive' },
   refresh: { library: 'feather', name: 'refresh-cw' },
   check: { library: 'feather', name: 'check' },
   dev: { library: 'feather', name: 'code' },
