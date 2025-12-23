@@ -58,12 +58,13 @@ Owner PRD: `docs/prds/notifications-v1-5-prd.md`
 
 ### 0.4 Arc/Goal lifecycle + limits (avoid destructive deletes)
 
-- [ ] Arc lifecycle actions (archive/restore) so Free users can manage their single Arc without deleting data
-  - [x] Archive/restore Arc (non-destructive)
-- [ ] Goal lifecycle actions (archive/complete/reopen) in Goal detail
-  - [x] Archive/restore Goal (non-destructive; stops counting toward Free cap)
-  - [ ] Mark complete / reopen affordances
+- [x] Arc lifecycle actions (archive/restore) so Free users can manage their single Arc without deleting data ([PR #18](https://github.com/mtkinji/lomo/pull/18))
+  - [x] Archive/restore Arc (non-destructive; hidden from main list by default)
+- [x] Goal lifecycle actions (archive/restore) in Goal detail ([PR #19](https://github.com/mtkinji/lomo/pull/19))
+  - [x] Archive/restore Goal (non-destructive; hidden from main list by default; stops counting toward Free cap)
+  - [ ] Mark complete / reopen affordances (deferred)
 - [x] Limits enforced at initiation points (manual + AI)
+  - [x] Automated lifecycle unit tests (Jest) for arc/goal lifecycle + limits ([PR #18](https://github.com/mtkinji/lomo/pull/18), [PR #19](https://github.com/mtkinji/lomo/pull/19))
 
 Owner PRD: `docs/prds/arc-goal-lifecycle-and-limits-prd.md`
 
