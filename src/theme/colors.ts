@@ -145,7 +145,21 @@ export const colors = {
   quiltBlue: '#6C8AA6', // Woad / weathered quilt blue, cool but worn-in
   clay: '#D9C8B8', // Clay Slip – neutral, grounding, unbleached-cotton/ceramic slip
   moss: '#4F5D47', // Moss Iron – vegetal green cut with soil
-  sumi: '#1C1A19', // Charred Sumi – sumi ink / charcoal
+  /**
+   * Sumi scale (warm neutral) – used for ink / charcoal surfaces.
+   * Close to Tailwind `stone` so it stays earthy (not blue/steel like zinc).
+   */
+  sumi50: '#FAFAF9',
+  sumi100: '#F5F5F4',
+  sumi200: '#E7E5E4',
+  sumi300: '#D6D3D1',
+  sumi400: '#A8A29E',
+  sumi500: '#78716C',
+  sumi600: '#57534E',
+  sumi700: '#44403C',
+  sumi800: '#292524',
+  sumi900: '#1C1A19', // Charred Sumi – sumi ink / charcoal
+  sumi: '#1C1A19', // alias for sumi900 (legacy token)
 
   warning: '#F97316',
   success: '#65A30D',

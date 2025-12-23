@@ -21,6 +21,10 @@ type IconEntry = { library: IconLibrary; name: FeatherName | IonName };
 
 const iconMap: Record<string, IconEntry> = {
   today: { library: 'feather', name: 'calendar' },
+  outlook: { library: 'ion', name: 'logo-microsoft' },
+  apple: { library: 'ion', name: 'logo-apple' },
+  google: { library: 'ion', name: 'logo-google' },
+  fileText: { library: 'feather', name: 'file-text' },
   home: { library: 'feather', name: 'home' },
   arcs: { library: 'feather', name: 'compass' },
   chapters: { library: 'feather', name: 'book-open' },
@@ -55,6 +59,7 @@ const iconMap: Record<string, IconEntry> = {
   edit: { library: 'feather', name: 'edit-3' },
   search: { library: 'feather', name: 'search' },
   close: { library: 'feather', name: 'x' },
+  chevronLeft: { library: 'feather', name: 'chevron-left' },
   chevronRight: { library: 'feather', name: 'chevron-right' },
   chevronDown: { library: 'feather', name: 'chevron-down' },
   chevronUp: { library: 'feather', name: 'chevron-up' },

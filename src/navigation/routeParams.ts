@@ -30,6 +30,11 @@ export type ActivityDetailRouteParams = {
    * originating Goal canvas instead of the Activities list.
    */
   entryPoint?: 'activitiesCanvas' | 'goalPlan';
+  /**
+   * When true, ActivityDetail should open Focus mode UI immediately on mount.
+   * Used by deep links embedded in calendar events (e.g. `kwilt://activity/<id>?openFocus=1`).
+   */
+  openFocus?: boolean;
 };
 
 export type ActivitiesListRouteParams = {

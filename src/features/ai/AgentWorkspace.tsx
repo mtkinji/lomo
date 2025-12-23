@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { ChatMode } from './workflowRegistry';
 import type { CoachChatTurn, CoachChatOptions, GeneratedArc } from '../../services/ai';
 import {
@@ -22,6 +23,19 @@ import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 import { sendCoachChat } from '../../services/ai';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { PaywallContent } from '../paywall/PaywallDrawer';
+import { openPaywallPurchaseEntry } from '../../services/paywall';
+import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import {
+  FREE_GENERATIVE_CREDITS_PER_MONTH,
+  PRO_GENERATIVE_CREDITS_PER_MONTH,
+  getMonthKey,
+} from '../../domain/generativeCredits';
+import { BrandLockup } from '../../ui/BrandLockup';
+import { Icon } from '../../ui/Icon';
+import { Dialog, Text } from '../../ui/primitives';
+import { colors, spacing, typography } from '../../theme';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -181,6 +195,27 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
 
   const chatPaneRef = useRef<AiChatPaneController | null>(null);
   const { capture } = useAnalytics();
+  const isPro = useEntitlementsStore((s) => s.isPro);
+  const generativeCredits = useAppStore((s) => s.generativeCredits);
+
+  const aiCreditsRemaining = useMemo(() => {
+    const limit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+    const currentKey = getMonthKey(new Date());
+    const ledger =
+      generativeCredits && generativeCredits.monthKey === currentKey
+        ? generativeCredits
+        : { monthKey: currentKey, usedThisMonth: 0 };
+    const usedRaw = Number((ledger as any).usedThisMonth ?? 0);
+    const used = Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
+    return Math.max(0, limit - used);
+  }, [generativeCredits, isPro]);
+
+  const paywallSource = useMemo(() => {
+    if (launchContext.source === 'activityDetail') return 'activity_detail_ai' as const;
+    return 'unknown' as const;
+  }, [launchContext.source]);
+
+  const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
 
   const launchContextText = useMemo(() => {
     const base = serializeLaunchContext(launchContext);
@@ -541,6 +576,89 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   // introduce real workflow instances and richer card rendering, this
   // component remains the primary host for all AI workflows and their single
   // shared chat surface.
+  if (aiCreditsRemaining <= 0) {
+    const modeLabel = effectiveMode
+      ? (WORKFLOW_REGISTRY as Record<string, WorkflowDefinition | undefined>)[effectiveMode]?.label
+      : undefined;
+    const workflowLabel = workflowDefinition?.label;
+    const workflowInfoTitle = modeLabel ?? workflowLabel ?? 'AI coach';
+    const workflowInfoSubtitle =
+      effectiveMode === 'goalCreation'
+        ? 'This coach helps you shape one clear 30–90 day goal inside your life architecture, using any Arc and Goal context the app has already collected.'
+        : effectiveMode === 'activityCreation'
+        ? 'This coach helps you turn your current goals and arcs into small, concrete activities you can actually do in the near term.'
+        : effectiveMode === 'firstTimeOnboarding'
+        ? 'This guide helps you define an initial identity direction and aspiration using quick, tap-first inputs.'
+        : effectiveMode === 'activityGuidance'
+        ? 'This coach helps you clarify the activity, make it smaller, and choose the next best step — using the goal/arc context attached to this activity.'
+        : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
+
+    return (
+      <View style={styles.flex}>
+        <View style={styles.body}>
+          <Dialog
+            visible={isWorkflowInfoVisible}
+            onClose={() => setIsWorkflowInfoVisible(false)}
+            title={workflowInfoTitle}
+            description={workflowInfoSubtitle}
+          >
+            <Text style={styles.workflowInfoBody}>
+              {launchContext.source
+                ? `Launch source: ${launchContext.source}.`
+                : 'This workspace uses the current screen context to personalize responses.'}
+            </Text>
+          </Dialog>
+
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.timeline}>
+              {!props.hideBrandHeader ? (
+                <View style={styles.headerRow}>
+                  <BrandLockup logoSize={32} wordmarkSize="sm" />
+                  <Pressable
+                    style={styles.modePill}
+                    onPress={() => setIsWorkflowInfoVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="View context"
+                  >
+                    <Text style={styles.modePillText}>Context</Text>
+                    <Icon
+                      name="info"
+                      size={16}
+                      color={colors.textSecondary}
+                      style={styles.modePillInfoIcon}
+                    />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <View style={styles.paywallCardSlot}>
+                <PaywallContent
+                  reason="generative_quota_exceeded"
+                  source={paywallSource}
+                  showHeader={false}
+                  onClose={() => {
+                    props.onDismiss?.();
+                  }}
+                  onUpgrade={() => {
+                    props.onDismiss?.();
+                    // Avoid stacking two Modal-based BottomDrawers (agent closing + pricing opening)
+                    // which can leave an invisible backdrop intercepting touches on iOS.
+                    setTimeout(() => openPaywallPurchaseEntry(), 360);
+                  }}
+                />
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <WorkflowRuntimeContext.Provider
       value={{
@@ -572,6 +690,69 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     </WorkflowRuntimeContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  body: {
+    flex: 1,
+    backgroundColor: colors.shell,
+    position: 'relative',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: spacing['2xl'],
+    gap: spacing.lg,
+  },
+  timeline: {
+    gap: spacing.md,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.canvas,
+    alignSelf: 'flex-end',
+  },
+  modePillInfoIcon: {
+    marginLeft: spacing.sm,
+  },
+  modePillText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  paywallCardSlot: {
+    marginTop: spacing['2xl'],
+    backgroundColor: colors.canvas,
+    borderRadius: 18,
+    overflow: 'hidden',
+    // BottomDrawer already applies horizontal padding to the whole sheet (the "gutter").
+    // Keep the wrapper flush with that gutter, but add inner padding so the paywall
+    // content reads like a card within a card (matches Goals → Activities AI).
+    marginHorizontal: 0,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  workflowInfoBody: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
+});
 
 
 

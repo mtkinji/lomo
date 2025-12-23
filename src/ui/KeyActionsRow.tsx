@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { colors, spacing, typography, fonts, cardElevation } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { HStack, Text } from './primitives';
@@ -20,16 +20,27 @@ export type KeyActionItem = {
   tileBorderColor?: string;
   tileLabelColor?: string;
   /**
-   * Accent color used for the icon badge background.
+   * Icon color for the action tile (used directly on the icon — no background).
    */
-  badgeColor: string;
+  iconColor?: string;
+  /**
+   * @deprecated Previously used as the icon badge background color.
+   * Kept for backward compatibility; will fall back to `iconColor`.
+   */
+  badgeColor?: string;
 };
 
 type KeyActionsRowProps = {
   items: KeyActionItem[];
+  /**
+   * Visual sizing for touch targets. Use "lg" for app-picker style rows.
+   */
+  size?: 'md' | 'lg';
 };
 
-export function KeyActionsRow({ items }: KeyActionsRowProps) {
+export function KeyActionsRow({ items, size = 'md' }: KeyActionsRowProps) {
+  const iconSize = size === 'lg' ? 22 : 18;
+  const tileStyle = size === 'lg' ? styles.tileLg : styles.tile;
   return (
     <HStack space="sm" style={styles.row}>
       {items.map((item) => (
@@ -39,7 +50,7 @@ export function KeyActionsRow({ items }: KeyActionsRowProps) {
           accessibilityRole="button"
           accessibilityLabel={item.label}
           style={({ pressed }) => [
-            styles.tile,
+            tileStyle,
             {
               backgroundColor: item.tileBackgroundColor ?? colors.canvas,
               borderColor: item.tileBorderColor ?? colors.border,
@@ -47,16 +58,16 @@ export function KeyActionsRow({ items }: KeyActionsRowProps) {
             pressed && styles.tilePressed,
           ]}
         >
-          <View
-            style={[
-              styles.iconBadge,
-              {
-                backgroundColor: item.badgeColor,
-              },
-            ]}
-          >
-            <Icon name={item.icon} size={18} color={colors.primaryForeground} />
-          </View>
+          <Icon
+            name={item.icon}
+            size={iconSize}
+            color={
+              item.iconColor ??
+              item.badgeColor ??
+              item.tileLabelColor ??
+              colors.textPrimary
+            }
+          />
           <Text
             style={[
               styles.tileLabel,
@@ -90,15 +101,21 @@ const styles = StyleSheet.create({
     // Tokenized: keep lift below "card" prominence.
     ...cardElevation.lift,
   },
+  tileLg: {
+    flex: 1,
+    borderRadius: 18,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 72,
+    ...cardElevation.lift,
+  },
   tilePressed: {
     opacity: 0.92,
-  },
-  iconBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tileLabel: {
     ...typography.bodySm,

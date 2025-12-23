@@ -58,6 +58,18 @@ export default function App() {
   const [isBootstrapped, setIsBootstrapped] = useState(false);
 
   useEffect(() => {
+    // Ensure remote feature flags / experiments are available as early as possible.
+    // Safe no-op when PostHog is disabled or the client isn't initialized.
+    if (isPosthogEnabled && posthogClient) {
+      try {
+        (posthogClient as any).reloadFeatureFlags?.();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[posthog] reloadFeatureFlags failed', error);
+        }
+      }
+    }
+
     // Kick off notifications initialization once per app lifetime.
     NotificationService.init().catch((error) => {
       if (__DEV__) {

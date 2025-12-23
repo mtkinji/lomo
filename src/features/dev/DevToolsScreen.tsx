@@ -91,6 +91,8 @@ export function DevToolsScreen() {
   );
   const devBreadcrumbsEnabled = useAppStore((state) => state.devBreadcrumbsEnabled);
   const setDevBreadcrumbsEnabled = useAppStore((state) => state.setDevBreadcrumbsEnabled);
+  const devObjectDetailHeaderV2Enabled = useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
+  const setDevObjectDetailHeaderV2Enabled = useAppStore((state) => state.setDevObjectDetailHeaderV2Enabled);
   const devResetGenerativeCredits = useAppStore((state) => state.devResetGenerativeCredits);
   const devSetGenerativeCreditsUsedThisMonth = useAppStore((state) => state.devSetGenerativeCreditsUsedThisMonth);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
@@ -1392,6 +1394,22 @@ export function DevToolsScreen() {
               </View>
               <Text style={styles.meta}>
                 When enabled, Arc → Goal → Activity will render as a tappable breadcrumb path.
+              </Text>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Object detail header v2 (share + simplified back)</Text>
+                <Switch
+                  value={devObjectDetailHeaderV2Enabled}
+                  onValueChange={(next) => setDevObjectDetailHeaderV2Enabled(next)}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                  ios_backgroundColor={colors.border}
+                  accessibilityLabel="Toggle object detail header v2 experiment"
+                />
+              </View>
+              <Text style={styles.meta}>
+                When enabled, object detail headers use a chevron back button, move the object type to the left,
+                and add a share affordance on the right.
               </Text>
             </View>
 

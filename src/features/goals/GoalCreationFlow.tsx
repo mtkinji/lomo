@@ -35,6 +35,7 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
   const [introStreamed, setIntroStreamed] = useState(false);
   const hasRequestedIntroRef = useRef(false);
 
+  const [stepIndex, setStepIndex] = useState(0);
   const [prompt, setPrompt] = useState('');
   const [constraints, setConstraints] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +60,11 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
       },
     );
   }, [chatControllerRef, introStreamed, isContextCollectActive]);
+
+  useEffect(() => {
+    if (!isContextCollectActive) return;
+    setStepIndex(0);
+  }, [isContextCollectActive]);
 
   const handleSubmit = useCallback(async () => {
     if (!workflowRuntime || !isGoalCreationWorkflow) return;
@@ -95,7 +101,8 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
     return null;
   }
 
-  const canProceed = prompt.trim().length > 0 && !submitting;
+  const canProceedFromPrompt = prompt.trim().length > 0 && !submitting;
+  const canSubmit = prompt.trim().length > 0 && !submitting;
 
   return (
     <View style={styles.container}>
@@ -104,37 +111,47 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
           {
             id: 'goal_prompt',
             title: 'Your goal (and when)',
-            canProceed,
+            canProceed: canProceedFromPrompt,
             render: () => (
               <View style={styles.body}>
                 <Input
                   multiline
-                  label="Your goal (and when)"
                   value={prompt}
                   onChangeText={setPrompt}
                   placeholder="e.g., Finish the first draft by next month; Start strength training 3×/week starting tomorrow."
                   editable={!submitting}
                   returnKeyType="done"
                   blurOnSubmit
+                  multilineMinHeight={140}
+                  multilineMaxHeight={140}
                 />
-                <View style={styles.spacer} />
+              </View>
+            ),
+          },
+          {
+            id: 'constraints_optional',
+            title: 'Constraints (optional)',
+            canProceed: canSubmit,
+            render: () => (
+              <View style={styles.body}>
                 <Input
                   multiline
-                  label="Constraints (optional)"
                   value={constraints}
                   onChangeText={setConstraints}
                   placeholder="Anything to consider? Time, energy, budget, schedule…"
                   editable={!submitting}
                   returnKeyType="done"
                   blurOnSubmit
-                  multilineMinHeight={76}
+                  multilineMinHeight={112}
                   multilineMaxHeight={140}
                 />
               </View>
             ),
           },
         ]}
-        currentStepIndex={0}
+        currentStepIndex={stepIndex}
+        onBack={() => setStepIndex((current) => Math.max(0, current - 1))}
+        onNext={() => setStepIndex((current) => Math.min(1, current + 1))}
         submitLabel={submitting ? 'Working…' : 'Continue'}
         onSubmit={handleSubmit}
         variant="stacked"
@@ -149,8 +166,5 @@ const styles = StyleSheet.create({
   },
   body: {
     width: '100%',
-  },
-  spacer: {
-    height: 12,
   },
 });

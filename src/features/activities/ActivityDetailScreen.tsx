@@ -21,6 +21,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
+import { useToastStore } from '../../store/useToastStore';
 import type {
   ActivityDifficulty,
   ActivityRepeatCustom,
@@ -50,6 +52,7 @@ import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
+import { Card } from '../../ui/Card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -100,10 +103,11 @@ export function ActivityDetailScreen() {
   const focusMaxMinutes = isPro ? 180 : 10;
   const isFocused = useIsFocused();
   const { capture } = useAnalytics();
+  const showToast = useToastStore((s) => s.showToast);
   const insets = useSafeAreaInsets();
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
-  const { activityId } = route.params;
+  const { activityId, openFocus } = route.params;
 
   const KEYBOARD_CLEARANCE = spacing['2xl'] + spacing.lg;
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
@@ -113,6 +117,9 @@ export function ActivityDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
+  const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
+  const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
+  const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
@@ -348,16 +355,16 @@ export function ActivityDetailScreen() {
   const [calendarSheetVisible, setCalendarSheetVisible] = useState(false);
   const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
   const [calendarDurationDraft, setCalendarDurationDraft] = useState('30');
-  const [isCalendarPickerVisible, setIsCalendarPickerVisible] = useState(false);
   const [calendarPermissionStatus, setCalendarPermissionStatus] = useState<
     'unknown' | 'granted' | 'denied'
   >('unknown');
   const [writableCalendars, setWritableCalendars] = useState<Calendar.Calendar[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
-  const [isCalendarListVisible, setIsCalendarListVisible] = useState(false);
   const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
   const [sendToSheetVisible, setSendToSheetVisible] = useState(false);
+  const [isOutlookInstalled, setIsOutlookInstalled] = useState(false);
+  const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
@@ -595,6 +602,34 @@ export function ActivityDetailScreen() {
     setFocusSheetVisible(true);
   };
 
+  // Allow deep links (e.g. from calendar event descriptions) to land directly in Focus mode UI.
+  useEffect(() => {
+    if (!openFocus) return;
+    // Defer to the next frame so initial layout settles before opening the sheet.
+    requestAnimationFrame(() => {
+      openFocusSheet();
+      // Best-effort: clear the param so returning to this screen doesn't re-trigger.
+      try {
+        navigation.setParams({ openFocus: undefined } as any);
+      } catch {
+        // no-op
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openFocus]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    if (!pendingCalendarToast) return;
+    showToast({
+      message: pendingCalendarToast,
+      variant: 'default',
+      durationMs: 2500,
+      behaviorDuringSuppression: 'queue',
+    });
+    setPendingCalendarToast(null);
+  }, [isFocused, pendingCalendarToast, showToast]);
+
   const cancelFocusNotificationIfNeeded = async () => {
     const existing = focusEndNotificationIdRef.current;
     focusEndNotificationIdRef.current = null;
@@ -747,8 +782,6 @@ export function ActivityDetailScreen() {
     setCalendarStartDraft(draftStart);
     setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
     setCalendarSheetVisible(true);
-    setIsCalendarPickerVisible(false);
-    setIsCalendarListVisible(false);
   };
 
   useEffect(() => {
@@ -803,8 +836,6 @@ export function ActivityDetailScreen() {
         setCalendarStartDraft(draftStart);
         setCalendarDurationDraft(String(duration));
         setCalendarSheetVisible(true);
-        setIsCalendarPickerVisible(false);
-        setIsCalendarListVisible(false);
       }
 
       if (action.type === 'confirmStepCompletion') {
@@ -923,9 +954,28 @@ export function ActivityDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarSheetVisible]);
 
+  useEffect(() => {
+    if (!calendarSheetVisible) return;
+    if (Platform.OS !== 'ios') {
+      setIsOutlookInstalled(false);
+      return;
+    }
+    // No prompt; iOS only answers this if the scheme is whitelisted in Info.plist.
+    Linking.canOpenURL('ms-outlook://')
+      .then((ok) => setIsOutlookInstalled(Boolean(ok)))
+      .catch(() => setIsOutlookInstalled(false));
+  }, [calendarSheetVisible]);
+
   const selectedCalendarName = useMemo(() => {
     if (!selectedCalendarId) return 'Choose…';
-    return writableCalendars.find((c) => c.id === selectedCalendarId)?.title ?? 'Choose…';
+    const cal = writableCalendars.find((c) => c.id === selectedCalendarId);
+    if (!cal) return 'Choose…';
+    const anyCal = cal as unknown as { source?: { name?: string }; ownerAccount?: string };
+    const sourceName = anyCal.source?.name ?? anyCal.ownerAccount ?? '';
+    if (sourceName && sourceName !== cal.title) {
+      return `${cal.title} (${sourceName})`;
+    }
+    return cal.title ?? 'Choose…';
   }, [selectedCalendarId, writableCalendars]);
 
   const addActivityToNativeCalendar = async () => {
@@ -975,7 +1025,9 @@ export function ActivityDetailScreen() {
     const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
     const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
     const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const notes = [goalTitlePart, notesPart].filter(Boolean).join('\n\n') || undefined;
+    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
+    const focusPart = `Focus mode: ${focusLink}`;
+    const notes = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n') || undefined;
 
     setIsCreatingCalendarEvent(true);
     try {
@@ -994,7 +1046,11 @@ export function ActivityDetailScreen() {
       }));
 
       setCalendarSheetVisible(false);
-      Alert.alert('Added to calendar', `Added to “${selectedCalendarName}”.`);
+      setPendingCalendarToast(`Event created in “${selectedCalendarName}”.`);
+      // Best-effort: open the iOS Calendar app so the user can refine details there.
+      if (Platform.OS === 'ios') {
+        Linking.openURL('calshow://').catch(() => undefined);
+      }
       if (__DEV__) {
         console.log('[calendar] created event', { eventId, calendarId: selectedCalendarId });
       }
@@ -1028,7 +1084,9 @@ export function ActivityDetailScreen() {
     const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
     const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
     const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const description = [goalTitlePart, notesPart].filter(Boolean).join('\n\n');
+    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
+    const focusPart = `Focus mode: ${focusLink}`;
+    const description = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
     const ics = buildIcsEvent({
       uid: `kwilt-activity-${activity.id}`,
       title: activity.title,
@@ -1058,7 +1116,7 @@ export function ActivityDetailScreen() {
       }
 
       const result = await Share.share({
-        title: 'Add to calendar',
+        title: 'Send to calendar',
         message: activity.title,
         url: fileUri,
       });
@@ -1091,6 +1149,120 @@ export function ActivityDetailScreen() {
           console.warn('ICS share failed', error);
         }
       }
+    }
+  };
+
+  // NOTE: iOS does not offer a reliable deep link to open Apple Calendar’s "new event"
+  // composer with prefilled data. We create the event in the system calendar store and
+  // then open Calendar so the user can refine it there.
+
+  const openOutlookEventComposer = async () => {
+    if (Platform.OS !== 'ios') {
+      Alert.alert('Not available', 'This shortcut is only available on iOS.');
+      return;
+    }
+
+    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
+      return;
+    }
+
+    const startAt = calendarStartDraft;
+    if (!startAt || Number.isNaN(startAt.getTime())) {
+      Alert.alert('Start time needed', 'Pick a start date/time.');
+      return;
+    }
+
+    const endAt = new Date(startAt.getTime() + minutes * 60_000);
+    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
+    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
+    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
+    const focusPart = `Focus mode: ${focusLink}`;
+    const body = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
+
+    const qs = [
+      ['subject', activity.title],
+      ['body', body],
+      ['start', startAt.toISOString()],
+      ['end', endAt.toISOString()],
+    ]
+      .filter(([, v]) => Boolean(v))
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join('&');
+
+    const nativeUrl = `ms-outlook://events/new?${qs}`;
+    const webUrl =
+      `https://outlook.office.com/calendar/0/deeplink/compose` +
+      `?subject=${encodeURIComponent(activity.title)}` +
+      `&startdt=${encodeURIComponent(startAt.toISOString())}` +
+      `&enddt=${encodeURIComponent(endAt.toISOString())}` +
+      (body ? `&body=${encodeURIComponent(body)}` : '');
+
+    try {
+      if (isOutlookInstalled) {
+        await Linking.openURL(nativeUrl);
+      } else {
+        await Linking.openURL(webUrl);
+      }
+
+      // Best-effort: mark as scheduled once we've handed off to Outlook.
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        scheduledAt: startAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      setCalendarSheetVisible(false);
+    } catch {
+      Alert.alert('Could not open Outlook', 'Use “.ics file” instead.');
+    }
+  };
+
+  const openGoogleCalendarComposer = async () => {
+    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
+      return;
+    }
+
+    const startAt = calendarStartDraft;
+    if (!startAt || Number.isNaN(startAt.getTime())) {
+      Alert.alert('Start time needed', 'Pick a start date/time.');
+      return;
+    }
+
+    const endAt = new Date(startAt.getTime() + minutes * 60_000);
+
+    const toGCalDate = (d: Date) =>
+      d
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .replace(/\.\d{3}Z$/, 'Z');
+
+    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
+    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
+    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
+    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
+    const focusPart = `Focus mode: ${focusLink}`;
+    const details = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
+
+    const url =
+      `https://www.google.com/calendar/render?action=TEMPLATE` +
+      `&text=${encodeURIComponent(activity.title)}` +
+      `&dates=${encodeURIComponent(`${toGCalDate(startAt)}/${toGCalDate(endAt)}`)}` +
+      (details ? `&details=${encodeURIComponent(details)}` : '');
+
+    try {
+      await Linking.openURL(url);
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        scheduledAt: startAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      setCalendarSheetVisible(false);
+    } catch {
+      Alert.alert('Could not open Google Calendar', 'Use “Share calendar file (.ics)” instead.');
     }
   };
 
@@ -1774,6 +1946,17 @@ export function ActivityDetailScreen() {
                     >
                       <Text style={styles.doneButtonText}>Done</Text>
                     </Pressable>
+                  ) : headerV2Enabled ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onPress={() => {
+                        handleSendToShare().catch(() => undefined);
+                      }}
+                      accessibilityLabel="Share activity"
+                    >
+                      <Icon name="share" size={18} color={colors.textPrimary} />
+                    </Button>
                   ) : (
                     <DropdownMenu>
                       <DropdownMenuTrigger accessibilityLabel="Activity actions">
@@ -1802,7 +1985,7 @@ export function ActivityDetailScreen() {
                             openCalendarSheet();
                           }}
                         >
-                          <Text style={styles.menuRowText}>Add to calendar</Text>
+                          <Text style={styles.menuRowText}>Send to calendar</Text>
                         </DropdownMenuItem>
                         <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
                           <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
@@ -1814,73 +1997,117 @@ export function ActivityDetailScreen() {
               </>
             ) : (
               <>
-                <View style={styles.headerSide}>
-                  <IconButton
-                    style={styles.backButton}
-                    onPress={handleBackToActivities}
-                    accessibilityLabel="Back to Activities"
-                  >
-                    <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                  </IconButton>
-                </View>
-                <View style={styles.headerCenter}>
-                  <View style={styles.objectTypeRow}>
-                    <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
-                    <Text style={styles.objectTypeLabel}>Activity</Text>
+                {headerV2Enabled ? (
+                  <View style={styles.headerV2}>
+                    <View style={styles.headerV2TopRow}>
+                      <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onPress={handleBackToActivities}
+                          accessibilityLabel="Back to Activities"
+                        >
+                          <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                        </Button>
+                        <View style={styles.objectTypeRow}>
+                          <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
+                          <Text style={styles.objectTypeLabelV2}>Activity</Text>
+                        </View>
+                      </HStack>
+                      {showDoneButton ? (
+                        <Pressable
+                          onPress={handleDoneEditing}
+                          accessibilityRole="button"
+                          accessibilityLabel="Done editing"
+                          hitSlop={8}
+                          style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
+                        >
+                          <Text style={styles.doneButtonText}>Done</Text>
+                        </Pressable>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onPress={() => {
+                            handleSendToShare().catch(() => undefined);
+                          }}
+                          accessibilityLabel="Share activity"
+                        >
+                          <Icon name="share" size={18} color={colors.textPrimary} />
+                        </Button>
+                      )}
+                    </View>
+                    <Text style={styles.headerV2Title} numberOfLines={1} ellipsizeMode="tail">
+                      {(activity?.title ?? '').trim() || 'Activity'}
+                    </Text>
                   </View>
-                </View>
-                <View style={styles.headerSideRight}>
-                  {showDoneButton ? (
-                    <Pressable
-                      onPress={handleDoneEditing}
-                      accessibilityRole="button"
-                      accessibilityLabel="Done editing"
-                      hitSlop={8}
-                      style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
-                    >
-                      <Text style={styles.doneButtonText}>Done</Text>
-                    </Pressable>
-                  ) : (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger accessibilityLabel="Activity actions">
-                        <IconButton
-                          style={styles.optionsButton}
-                          pointerEvents="none"
-                          accessible={false}
+                ) : (
+                  <>
+                    <View style={styles.headerSide}>
+                      <IconButton
+                        style={styles.backButton}
+                        onPress={handleBackToActivities}
+                        accessibilityLabel="Back to Activities"
+                      >
+                        <Icon name="arrowLeft" size={20} color={colors.canvas} />
+                      </IconButton>
+                    </View>
+                    <View style={styles.headerCenter}>
+                      <View style={styles.objectTypeRow}>
+                        <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
+                        <Text style={styles.objectTypeLabel}>Activity</Text>
+                      </View>
+                    </View>
+                    <View style={styles.headerSideRight}>
+                      {showDoneButton ? (
+                        <Pressable
+                          onPress={handleDoneEditing}
+                          accessibilityRole="button"
+                          accessibilityLabel="Done editing"
+                          hitSlop={8}
+                          style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
                         >
-                          <Icon name="more" size={18} color={colors.canvas} />
-                        </IconButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                        <DropdownMenuItem
-                          onPress={() => {
-                            capture(AnalyticsEvent.ActivityActionInvoked, {
-                              activityId: activity.id,
-                              action: 'focusMode',
-                            });
-                            openFocusSheet();
-                          }}
-                        >
-                          <Text style={styles.menuRowText}>Focus mode</Text>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onPress={() => {
-                            capture(AnalyticsEvent.ActivityActionInvoked, {
-                              activityId: activity.id,
-                              action: 'addToCalendar',
-                            });
-                            openCalendarSheet();
-                          }}
-                        >
-                          <Text style={styles.menuRowText}>Add to calendar</Text>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                          <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </View>
+                          <Text style={styles.doneButtonText}>Done</Text>
+                        </Pressable>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                            <IconButton style={styles.optionsButton} pointerEvents="none" accessible={false}>
+                              <Icon name="more" size={18} color={colors.canvas} />
+                            </IconButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                            <DropdownMenuItem
+                              onPress={() => {
+                                capture(AnalyticsEvent.ActivityActionInvoked, {
+                                  activityId: activity.id,
+                                  action: 'focusMode',
+                                });
+                                openFocusSheet();
+                              }}
+                            >
+                              <Text style={styles.menuRowText}>Focus mode</Text>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onPress={() => {
+                                capture(AnalyticsEvent.ActivityActionInvoked, {
+                                  activityId: activity.id,
+                                  action: 'addToCalendar',
+                                });
+                                openCalendarSheet();
+                              }}
+                            >
+                              <Text style={styles.menuRowText}>Send to calendar</Text>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                              <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </View>
+                  </>
+                )}
               </>
             )}
           </HStack>
@@ -1988,16 +2215,19 @@ export function ActivityDetailScreen() {
                                 hitSlop={8}
                                 onPress={() => handleToggleStepComplete(step.id)}
                               >
-                                <View
-                                  style={[
-                                    styles.checkboxBase,
-                                    isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
-                                    styles.stepCheckbox,
-                                  ]}
-                                >
-                                  {isChecked ? (
-                                    <Icon name="check" size={12} color={colors.primaryForeground} />
-                                  ) : null}
+                                {/* Keep the step circle visually smaller, but align its CENTER with the title circle. */}
+                                <View style={styles.stepLeftIconBox}>
+                                  <View
+                                    style={[
+                                      styles.checkboxBase,
+                                      isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
+                                      styles.stepCheckbox,
+                                    ]}
+                                  >
+                                    {isChecked ? (
+                                      <Icon name="check" size={12} color={colors.primaryForeground} />
+                                    ) : null}
+                                  </View>
                                 </View>
                               </Pressable>
                             }
@@ -2049,7 +2279,11 @@ export function ActivityDetailScreen() {
                 )}
 
                 <ThreeColumnRow
-                  left={<Icon name="plus" size={16} color={colors.accent} />}
+                  left={
+                    <View style={styles.stepLeftIconBox}>
+                      <Icon name="plus" size={16} color={colors.accent} />
+                    </View>
+                  }
                   right={null}
                   onPress={beginAddStepInline}
                   accessibilityLabel="Add a step to this activity"
@@ -2091,10 +2325,9 @@ export function ActivityDetailScreen() {
                         id: 'focusMode',
                         icon: 'estimate',
                         label: 'Focus mode',
-                        tileBackgroundColor: colors.sumi,
+                        tileBackgroundColor: colors.pine700,
                         tileBorderColor: 'rgba(255,255,255,0.10)',
                         tileLabelColor: colors.primaryForeground,
-                        badgeColor: colors.indigo700,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
                             activityId: activity.id,
@@ -2106,11 +2339,10 @@ export function ActivityDetailScreen() {
                       {
                         id: 'addToCalendar',
                         icon: 'today',
-                        label: 'Add to calendar',
-                        tileBackgroundColor: colors.sumi,
+                        label: 'Send to calendar',
+                        tileBackgroundColor: colors.pine700,
                         tileBorderColor: 'rgba(255,255,255,0.10)',
                         tileLabelColor: colors.primaryForeground,
-                        badgeColor: colors.accent,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
                             activityId: activity.id,
@@ -2128,10 +2360,9 @@ export function ActivityDetailScreen() {
                         id: 'chatWithAi',
                         icon: 'sparkles',
                         label: 'Get help from AI',
-                        tileBackgroundColor: colors.sumi,
+                        tileBackgroundColor: colors.pine700,
                         tileBorderColor: 'rgba(255,255,255,0.10)',
                         tileLabelColor: colors.primaryForeground,
-                        badgeColor: colors.turmeric600,
                         onPress: () => {
                           capture(AnalyticsEvent.ActivityActionInvoked, {
                             activityId: activity.id,
@@ -2146,10 +2377,9 @@ export function ActivityDetailScreen() {
                               id: 'sendTo',
                               icon: 'share',
                               label: 'Send to…',
-                              tileBackgroundColor: colors.sumi,
+                              tileBackgroundColor: colors.pine700,
                               tileBorderColor: 'rgba(255,255,255,0.10)',
                               tileLabelColor: colors.primaryForeground,
-                              badgeColor: 'rgba(255,255,255,0.14)',
                               onPress: () => {
                                 capture(AnalyticsEvent.ActivityActionInvoked, {
                                   activityId: activity.id,
@@ -2623,6 +2853,40 @@ export function ActivityDetailScreen() {
                 leadingIcon="listBulleted"
               />
             </View>
+
+            {headerV2Enabled ? (
+              <View style={styles.section}>
+                <Card>
+                  <Text style={styles.actionsTitle}>Actions</Text>
+                  <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      onPress={openFocusSheet}
+                      accessibilityLabel="Open focus mode"
+                    >
+                      <Text style={styles.actionsButtonLabel}>Focus mode</Text>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      onPress={openCalendarSheet}
+                      accessibilityLabel="Send to calendar"
+                    >
+                      <Text style={styles.actionsButtonLabel}>Send to calendar</Text>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      fullWidth
+                      onPress={handleDeleteActivity}
+                      accessibilityLabel="Delete activity"
+                    >
+                      <Text style={styles.actionsButtonLabelDestructive}>Delete activity</Text>
+                    </Button>
+                  </VStack>
+                </Card>
+              </View>
+            ) : null}
           </KeyboardAwareScrollView>
         </VStack>
       </View>
@@ -3156,173 +3420,77 @@ export function ActivityDetailScreen() {
         visible={calendarSheetVisible}
         onClose={() => {
           setCalendarSheetVisible(false);
-          setIsCalendarPickerVisible(false);
-          setIsCalendarListVisible(false);
         }}
-        snapPoints={['60%']}
+        snapPoints={['75%']}
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Add to calendar</Text>
+          <Text style={styles.sheetTitle}>Send to calendar</Text>
           <Text style={styles.sheetDescription}>
-            Choose which calendar to add this event to (iCloud, Google, Outlook, etc.). These options come from accounts configured on your phone.
+            Choose a calendar app. We’ll create a draft event with details filled in, then you can refine it there.
           </Text>
 
           <VStack space="md">
-            <SheetOption
-              label={`Start: ${calendarStartDraft.toLocaleString()}`}
-              onPress={() => setIsCalendarPickerVisible((v) => !v)}
+            <Text style={styles.sheetDescription}>
+              Draft: {calendarStartDraft.toLocaleString()} · {Math.max(5, Math.floor(Number(calendarDurationDraft)))} min
+            </Text>
+
+            <KeyActionsRow
+              size="lg"
+              items={[
+                {
+                  id: 'calendar',
+                  icon: 'apple',
+                  label: 'Apple',
+                  tileBackgroundColor: colors.canvas,
+                  tileBorderColor: colors.border,
+                  onPress: () => {
+                    addActivityToNativeCalendar().catch(() => undefined);
+                  },
+                },
+                ...(Platform.OS === 'ios'
+                  ? ([
+                      {
+                        id: 'outlook',
+                        icon: 'outlook',
+                        label: 'Outlook',
+                        tileBackgroundColor: colors.canvas,
+                        tileBorderColor: colors.border,
+                        onPress: () => {
+                          openOutlookEventComposer().catch(() => undefined);
+                        },
+                      },
+                    ] as const)
+                  : []),
+              ]}
             />
-            {isCalendarPickerVisible && (
-              <View style={styles.datePickerContainer}>
-                <DateTimePicker
-                  mode="datetime"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  value={calendarStartDraft}
-                  onChange={(_, date) => {
-                    if (date) setCalendarStartDraft(date);
-                  }}
-                />
-              </View>
-            )}
 
-            {calendarPermissionStatus === 'denied' ? (
-              <View style={styles.calendarPermissionNotice}>
-                <Text style={styles.sheetDescription}>
-                  Calendar access is disabled. You can enable it in system settings, or share a calendar file instead.
-                </Text>
-                <HStack space="sm" style={{ marginTop: spacing.sm }}>
-                  <Button
-                    variant="outline"
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      try {
-                        void Linking.openSettings();
-                      } catch {
-                        // no-op
-                      }
-                    }}
-                  >
-                    <Text style={styles.sheetRowLabel}>Open Settings</Text>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    style={{ flex: 1 }}
-                    onPress={() => {
-                      loadWritableCalendars().catch(() => undefined);
-                    }}
-                  >
-                    <Text style={styles.sheetRowLabel}>Try again</Text>
-                  </Button>
-                </HStack>
-              </View>
-            ) : (
-              <>
-                <SheetOption
-                  label={`Calendar: ${isLoadingCalendars ? 'Loading…' : selectedCalendarName}`}
-                  onPress={() => {
-                    if (!isLoadingCalendars) {
-                      setIsCalendarListVisible((v) => !v);
-                    }
-                  }}
-                />
-                {isCalendarListVisible && (
-                  <View style={styles.calendarListContainer}>
-                    <BottomDrawerScrollView
-                      style={{ maxHeight: 220 }}
-                      contentContainerStyle={{ paddingBottom: spacing.sm }}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      <VStack space="xs">
-                        {writableCalendars.length === 0 ? (
-                          <Text style={styles.sheetDescription}>
-                            No writable calendars found. Add a calendar account (Google/Outlook/iCloud) in system settings, or share a calendar file instead.
-                          </Text>
-                        ) : (
-                          writableCalendars.map((cal) => {
-                            const selected = cal.id === selectedCalendarId;
-                            return (
-                              <Pressable
-                                key={cal.id}
-                                style={({ pressed }) => [
-                                  styles.calendarChoiceRow,
-                                  pressed && styles.rowPressed,
-                                  selected && styles.calendarChoiceRowSelected,
-                                ]}
-                                onPress={() => {
-                                  setSelectedCalendarId(cal.id);
-                                  setIsCalendarListVisible(false);
-                                }}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Use calendar ${cal.title}`}
-                              >
-                                <HStack space="sm" alignItems="center" justifyContent="space-between">
-                                  <Text
-                                    style={[
-                                      styles.calendarChoiceLabel,
-                                      selected && styles.calendarChoiceLabelSelected,
-                                    ]}
-                                  >
-                                    {cal.title}
-                                  </Text>
-                                  {selected ? (
-                                    <Icon name="check" size={16} color={colors.primaryForeground} />
-                                  ) : null}
-                                </HStack>
-                              </Pressable>
-                            );
-                          })
-                        )}
-                      </VStack>
-                    </BottomDrawerScrollView>
-                  </View>
-                )}
-              </>
-            )}
+            <KeyActionsRow
+              size="lg"
+              items={[
+                {
+                  id: 'googleCalendar',
+                  icon: 'google',
+                  label: 'Google',
+                  tileBackgroundColor: colors.canvas,
+                  tileBorderColor: colors.border,
+                  onPress: () => {
+                    openGoogleCalendarComposer().catch(() => undefined);
+                  },
+                },
+                {
+                  id: 'ics',
+                  icon: 'fileText',
+                  label: '.ics file',
+                  tileBackgroundColor: colors.canvas,
+                  tileBorderColor: colors.border,
+                  onPress: () => {
+                    shareActivityAsIcs().catch(() => undefined);
+                  },
+                },
+              ]}
+            />
 
-            <View>
-              <Text style={styles.estimateFieldLabel}>Duration (minutes)</Text>
-              <Input
-                value={calendarDurationDraft}
-                onChangeText={setCalendarDurationDraft}
-                placeholder="30"
-                keyboardType="number-pad"
-                returnKeyType="done"
-                size="sm"
-                variant="outline"
-                elevation="flat"
-              />
-            </View>
-
-            <HStack space="sm">
-              <Button
-                variant="outline"
-                style={{ flex: 1 }}
-                onPress={() => setCalendarSheetVisible(false)}
-              >
-                <Text style={styles.sheetRowLabel}>Cancel</Text>
-              </Button>
-              <Button
-                variant="primary"
-                style={{ flex: 1 }}
-                disabled={isCreatingCalendarEvent}
-                onPress={() => {
-                  addActivityToNativeCalendar().catch(() => undefined);
-                }}
-              >
-                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                  {isCreatingCalendarEvent ? 'Adding…' : 'Add event'}
-                </Text>
-              </Button>
-            </HStack>
-
-            <Button
-              variant="outline"
-              onPress={() => {
-                shareActivityAsIcs().catch(() => undefined);
-              }}
-            >
-              <Text style={styles.sheetRowLabel}>Share calendar file (.ics)</Text>
-            </Button>
+            {/* `.ics` export is available as a tile above to keep this sheet "app picker" focused. */}
           </VStack>
         </View>
       </BottomDrawer>
@@ -3758,19 +3926,26 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   stepRow: {
-    // Keep step content vertically centered against the checkbox.
     minHeight: 40,
-    // When step titles wrap, pin the checkbox/actions to the top of the content block.
-    alignItems: 'flex-start',
+    // Center checkbox / text / actions vertically for consistent row rhythm.
+    alignItems: 'center',
   },
   stepRowContent: {
     paddingVertical: 0,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
   },
   stepCheckbox: {
     width: 20,
     height: 20,
     borderWidth: 1.5,
+  },
+  stepLeftIconBox: {
+    // Alignment box: keep left-column centers consistent with the title's 24x24 check-circle,
+    // while allowing the actual step circle to remain smaller (via `stepCheckbox`).
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stepInput: {
     ...typography.bodySm,
@@ -3801,6 +3976,15 @@ const styles = StyleSheet.create({
   addStepInlineText: {
     ...typography.bodySm,
     color: colors.accent,
+    // Match the inline `Input` baseline metrics so "Add step" aligns with step titles.
+    // (Vector icon glyphs + iOS baselines tend to read slightly low otherwise.)
+    lineHeight: 18,
+    ...(Platform.OS === 'android'
+      ? ({
+          includeFontPadding: false,
+          textAlignVertical: 'center',
+        } as const)
+      : ({ marginTop: -1 } as const)),
   },
   rowValue: {
     ...typography.bodySm,
@@ -3943,6 +4127,44 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: colors.textSecondary,
+  },
+  objectTypeLabelV2: {
+    ...typography.label,
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  headerV2: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+  },
+  headerV2TopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  headerV2Title: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  actionsTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  actionsButtonLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  actionsButtonLabelDestructive: {
+    ...typography.body,
+    color: colors.canvas,
+    fontFamily: fonts.medium,
   },
   backButton: {
     alignSelf: 'flex-start',

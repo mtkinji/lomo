@@ -274,11 +274,17 @@ export function BottomDrawer({
       return;
     }
 
-    // Close animation for both modal + inline; unmount after.
-    // Important: if Reanimated's completion callback is interrupted (or fails to run),
-    // we still need a JS-side fallback to avoid leaving a transparent full-screen
-    // overlay that blocks taps.
+    // Close behavior:
+    // - For `presentation="modal"`, prioritize correctness: unmount immediately so an
+    //   invisible transparent Modal can never linger and intercept touches (an iOS
+    //   edge-case we’ve observed when stacking/dismissing modal overlays quickly).
+    // - For `presentation="inline"`, keep the close animation and unmount after.
     if (!mounted) return;
+
+    if (presentation === 'modal') {
+      setMounted(false);
+      return;
+    }
 
     isAnimating.value = true;
     translateY.value = withTiming(closedOffset, { duration: 280 }, (finished) => {
@@ -296,7 +302,7 @@ export function BottomDrawer({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [closedOffset, mounted, visible, isAnimating, translateY]);
+  }, [closedOffset, mounted, presentation, visible, isAnimating, translateY]);
 
   useEffect(() => {
     if (!mounted) return;
