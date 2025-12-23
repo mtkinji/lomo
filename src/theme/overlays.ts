@@ -44,4 +44,20 @@ export const scrims = {
 
 export type ScrimToken = keyof typeof scrims;
 
+/**
+ * Blur/material tokens (e.g. iOS-like frosted buttons over imagery).
+ *
+ * Note: use `expo-blur`'s `BlurView` with these intensities/tints, then layer a subtle
+ * tinted overlay on top to match our palette.
+ */
+export const blurs = {
+  headerAction: {
+    intensity: 34,
+    tint: 'light' as const,
+    // "Sumi500-ish @ 0.1" (mid ink; closer to our gray500 tone).
+    overlayColor: 'rgba(113,113,122,0.10)',
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+} as const;
+
 

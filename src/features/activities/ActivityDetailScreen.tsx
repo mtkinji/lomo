@@ -50,6 +50,7 @@ import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
+import { DurationPicker } from './DurationPicker';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Card } from '../../ui/Card';
@@ -295,14 +296,27 @@ export function ActivityDetailScreen() {
     [],
   );
 
-  const [reminderSheetVisible, setReminderSheetVisible] = useState(false);
-  const [dueDateSheetVisible, setDueDateSheetVisible] = useState(false);
-  const [repeatSheetVisible, setRepeatSheetVisible] = useState(false);
-  const [customRepeatSheetVisible, setCustomRepeatSheetVisible] = useState(false);
+  type ActiveSheet =
+    | 'reminder'
+    | 'due'
+    | 'repeat'
+    | 'customRepeat'
+    | 'estimate'
+    | 'focus'
+    | 'calendar'
+    | 'sendTo'
+    | null;
+
+  const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
+  const reminderSheetVisible = activeSheet === 'reminder';
+  const dueDateSheetVisible = activeSheet === 'due';
+  const repeatSheetVisible = activeSheet === 'repeat';
+  const customRepeatSheetVisible = activeSheet === 'customRepeat';
   const [customRepeatInterval, setCustomRepeatInterval] = useState<number>(1);
   const [customRepeatCadence, setCustomRepeatCadence] = useState<ActivityRepeatCustom['cadence']>('weeks');
   const [customRepeatWeekdays, setCustomRepeatWeekdays] = useState<number[]>(() => [new Date().getDay()]);
   const [isDueDatePickerVisible, setIsDueDatePickerVisible] = useState(false);
+  const [isReminderDateTimePickerVisible, setIsReminderDateTimePickerVisible] = useState(false);
 
   // Avoid stacking modal BottomDrawers during transitions (can leave an invisible backdrop).
   const repeatDrawerTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -335,14 +349,10 @@ export function ActivityDetailScreen() {
   const [isAnyInputFocused, setIsAnyInputFocused] = useState(false);
   const [goalComboboxOpen, setGoalComboboxOpen] = useState(false);
   const [difficultyComboboxOpen, setDifficultyComboboxOpen] = useState(false);
-  const [estimateSheetVisible, setEstimateSheetVisible] = useState(false);
-  const [estimateHoursDraft, setEstimateHoursDraft] = useState('0');
-  const [estimateMinutesDraft, setEstimateMinutesDraft] = useState('0');
-  // iOS-only: use a wheel-style countdown picker to avoid the keyboard entirely.
-  const [estimateCountdownDate, setEstimateCountdownDate] = useState<Date>(new Date(0));
-  const [estimateCountdownMinutes, setEstimateCountdownMinutes] = useState<number>(0);
+  const estimateSheetVisible = activeSheet === 'estimate';
+  const [estimateDraftMinutes, setEstimateDraftMinutes] = useState<number>(30);
 
-  const [focusSheetVisible, setFocusSheetVisible] = useState(false);
+  const focusSheetVisible = activeSheet === 'focus';
   const [focusMinutesDraft, setFocusMinutesDraft] = useState('25');
   const [focusDurationMode, setFocusDurationMode] = useState<'preset' | 'custom'>('preset');
   const [focusSelectedPresetMinutes, setFocusSelectedPresetMinutes] = useState<number>(25);
@@ -352,7 +362,7 @@ export function ActivityDetailScreen() {
   const focusEndNotificationIdRef = useRef<string | null>(null);
   const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [calendarSheetVisible, setCalendarSheetVisible] = useState(false);
+  const calendarSheetVisible = activeSheet === 'calendar';
   const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
   const [calendarDurationDraft, setCalendarDurationDraft] = useState('30');
   const [calendarPermissionStatus, setCalendarPermissionStatus] = useState<
@@ -362,7 +372,7 @@ export function ActivityDetailScreen() {
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
   const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
-  const [sendToSheetVisible, setSendToSheetVisible] = useState(false);
+  const sendToSheetVisible = activeSheet === 'sendTo';
   const [isOutlookInstalled, setIsOutlookInstalled] = useState(false);
   const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
 
@@ -599,7 +609,7 @@ export function ActivityDetailScreen() {
       // Keep the wheel hidden until the user taps the custom chip.
       setFocusCustomExpanded(false);
     }
-    setFocusSheetVisible(true);
+    setActiveSheet('focus');
   };
 
   // Allow deep links (e.g. from calendar event descriptions) to land directly in Focus mode UI.
@@ -659,7 +669,7 @@ export function ActivityDetailScreen() {
     }
     setLastFocusMinutes(minutes);
 
-    setFocusSheetVisible(false);
+    setActiveSheet(null);
     // Start preloading immediately so sound can come up quickly once the focus overlay appears.
     preloadSoundscape().catch(() => undefined);
     // Avoid stacking our focus interstitial modal on top of the BottomDrawer modal
@@ -781,7 +791,7 @@ export function ActivityDetailScreen() {
 
     setCalendarStartDraft(draftStart);
     setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
-    setCalendarSheetVisible(true);
+    setActiveSheet('calendar');
   };
 
   useEffect(() => {
@@ -810,7 +820,7 @@ export function ActivityDetailScreen() {
           setFocusDurationMode('custom');
           setFocusCustomExpanded(false);
         }
-        setFocusSheetVisible(true);
+        setActiveSheet('focus');
         return;
       }
 
@@ -835,7 +845,7 @@ export function ActivityDetailScreen() {
 
         setCalendarStartDraft(draftStart);
         setCalendarDurationDraft(String(duration));
-        setCalendarSheetVisible(true);
+        setActiveSheet('calendar');
       }
 
       if (action.type === 'confirmStepCompletion') {
@@ -1045,7 +1055,7 @@ export function ActivityDetailScreen() {
         updatedAt: new Date().toISOString(),
       }));
 
-      setCalendarSheetVisible(false);
+      setActiveSheet(null);
       setPendingCalendarToast(`Event created in “${selectedCalendarName}”.`);
       // Best-effort: open the iOS Calendar app so the user can refine details there.
       if (Platform.OS === 'ios') {
@@ -1110,7 +1120,7 @@ export function ActivityDetailScreen() {
           scheduledAt: startAt.toISOString(),
           updatedAt: new Date().toISOString(),
         }));
-        setCalendarSheetVisible(false);
+        setActiveSheet(null);
         Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
         return;
       }
@@ -1131,7 +1141,7 @@ export function ActivityDetailScreen() {
         scheduledAt: startAt.toISOString(),
         updatedAt: new Date().toISOString(),
       }));
-      setCalendarSheetVisible(false);
+      setActiveSheet(null);
     } catch (error) {
       // Last-ditch fallback: copy the ICS text.
       try {
@@ -1141,7 +1151,7 @@ export function ActivityDetailScreen() {
           scheduledAt: startAt.toISOString(),
           updatedAt: new Date().toISOString(),
         }));
-        setCalendarSheetVisible(false);
+        setActiveSheet(null);
         Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
       } catch {
         Alert.alert('Could not share', 'Something went wrong while exporting to calendar.');
@@ -1213,7 +1223,7 @@ export function ActivityDetailScreen() {
         scheduledAt: startAt.toISOString(),
         updatedAt: new Date().toISOString(),
       }));
-      setCalendarSheetVisible(false);
+      setActiveSheet(null);
     } catch {
       Alert.alert('Could not open Outlook', 'Use “.ics file” instead.');
     }
@@ -1260,7 +1270,7 @@ export function ActivityDetailScreen() {
         scheduledAt: startAt.toISOString(),
         updatedAt: new Date().toISOString(),
       }));
-      setCalendarSheetVisible(false);
+      setActiveSheet(null);
     } catch {
       Alert.alert('Could not open Google Calendar', 'Use “Share calendar file (.ics)” instead.');
     }
@@ -1491,11 +1501,10 @@ export function ActivityDetailScreen() {
     }
   };
 
-  const handleSelectReminder = (offsetDays: number) => {
+  const handleSelectReminder = (offsetDays: number, hours = 9, minutes = 0) => {
     const date = new Date();
     date.setDate(date.getDate() + offsetDays);
-    // Default to 9am local time for quick picks.
-    date.setHours(9, 0, 0, 0);
+    date.setHours(hours, minutes, 0, 0);
     const timestamp = new Date().toISOString();
     // Planning counts as showing up (reminders are a commitment device).
     recordShowUp();
@@ -1504,7 +1513,33 @@ export function ActivityDetailScreen() {
       reminderAt: date.toISOString(),
       updatedAt: timestamp,
     }));
-    setReminderSheetVisible(false);
+    setActiveSheet(null);
+    setIsReminderDateTimePickerVisible(false);
+  };
+
+  const handleReminderDateTimeChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== 'ios') {
+      setIsReminderDateTimePickerVisible(false);
+    }
+    if (!date || event.type === 'dismissed') return;
+    const next = new Date(date);
+    const timestamp = new Date().toISOString();
+    recordShowUp();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      reminderAt: next.toISOString(),
+      updatedAt: timestamp,
+    }));
+    setActiveSheet(null);
+    setIsReminderDateTimePickerVisible(false);
+  };
+
+  const getInitialReminderDateTimeForPicker = () => {
+    if (activity.reminderAt) return new Date(activity.reminderAt);
+    const base = new Date();
+    base.setMinutes(0, 0, 0);
+    base.setHours(base.getHours() + 1);
+    return base;
   };
 
   const handleSelectDueDate = (offsetDays: number) => {
@@ -1519,7 +1554,7 @@ export function ActivityDetailScreen() {
       scheduledDate: date.toISOString(),
       updatedAt: timestamp,
     }));
-    setDueDateSheetVisible(false);
+    setActiveSheet(null);
   };
 
   const handleClearDueDate = () => {
@@ -1529,7 +1564,7 @@ export function ActivityDetailScreen() {
       scheduledDate: null,
       updatedAt: timestamp,
     }));
-    setDueDateSheetVisible(false);
+    setActiveSheet(null);
     setIsDueDatePickerVisible(false);
   };
 
@@ -1566,7 +1601,7 @@ export function ActivityDetailScreen() {
     }));
 
     // Once a date is chosen, close the sheet to confirm the selection.
-    setDueDateSheetVisible(false);
+    setActiveSheet(null);
   };
 
   const handleSelectRepeat = (rule: NonNullable<typeof activity.repeatRule>) => {
@@ -1579,7 +1614,7 @@ export function ActivityDetailScreen() {
       repeatCustom: rule === 'custom' ? prev.repeatCustom : undefined,
       updatedAt: timestamp,
     }));
-    setRepeatSheetVisible(false);
+    setActiveSheet(null);
   };
 
   const openCustomRepeat = () => {
@@ -1600,12 +1635,12 @@ export function ActivityDetailScreen() {
       setCustomRepeatInterval(1);
       setCustomRepeatWeekdays([new Date().getDay()]);
     }
-    setRepeatSheetVisible(false);
+    setActiveSheet(null);
     if (repeatDrawerTransitionTimeoutRef.current) {
       clearTimeout(repeatDrawerTransitionTimeoutRef.current);
     }
     repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
-      setCustomRepeatSheetVisible(true);
+      setActiveSheet('customRepeat');
     }, 260);
   };
 
@@ -1629,7 +1664,7 @@ export function ActivityDetailScreen() {
       repeatCustom: payload,
       updatedAt: timestamp,
     }));
-    setCustomRepeatSheetVisible(false);
+    setActiveSheet(null);
   };
 
   const handleClearReminder = () => {
@@ -1639,7 +1674,8 @@ export function ActivityDetailScreen() {
       reminderAt: null,
       updatedAt: timestamp,
     }));
-    setReminderSheetVisible(false);
+    setActiveSheet(null);
+    setIsReminderDateTimePickerVisible(false);
   };
 
   const reminderLabel = useMemo(() => {
@@ -1709,7 +1745,7 @@ export function ActivityDetailScreen() {
       repeatCustom: undefined,
       updatedAt: timestamp,
     }));
-    setRepeatSheetVisible(false);
+    setActiveSheet(null);
   };
 
   const completedStepsCount = useMemo(
@@ -1844,38 +1880,19 @@ export function ActivityDetailScreen() {
 
   const openEstimateSheet = () => {
     const minutes = activity.estimateMinutes ?? activity.aiPlanning?.estimateMinutes ?? 0;
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    setEstimateHoursDraft(String(hrs));
-    setEstimateMinutesDraft(String(mins));
-    if (Platform.OS === 'ios') {
-      setEstimateCountdownMinutes(Math.max(0, minutes));
-      // For iOS countdown pickers, treat the Date as "today at HH:MM".
-      // Seed at local midnight + duration so `getHours/getMinutes` maps cleanly.
-      const seed = new Date();
-      seed.setHours(0, 0, 0, 0);
-      seed.setTime(seed.getTime() + Math.max(0, minutes) * 60_000);
-      setEstimateCountdownDate(seed);
-    }
-    setEstimateSheetVisible(true);
+    setEstimateDraftMinutes(Math.max(15, Math.round(minutes > 0 ? minutes : 30)));
+    setActiveSheet('estimate');
   };
 
   const commitEstimateDraft = () => {
-    const total =
-      Platform.OS === 'ios'
-        ? Math.max(0, Math.round(estimateCountdownMinutes))
-        : (() => {
-            const hours = Math.max(0, Number.parseInt(estimateHoursDraft || '0', 10) || 0);
-            const minutes = Math.max(0, Number.parseInt(estimateMinutesDraft || '0', 10) || 0);
-            return hours * 60 + minutes;
-          })();
+    const total = Math.max(0, Math.round(estimateDraftMinutes));
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
       estimateMinutes: total > 0 ? total : undefined,
       updatedAt: timestamp,
     }));
-    setEstimateSheetVisible(false);
+    setActiveSheet(null);
   };
 
   useEffect(() => {
@@ -2286,6 +2303,7 @@ export function ActivityDetailScreen() {
                   }
                   right={null}
                   onPress={beginAddStepInline}
+                  testID="e2e.activityDetail.steps.addRow"
                   accessibilityLabel="Add a step to this activity"
                   style={[styles.stepRow, styles.addStepRow]}
                   contentStyle={styles.stepRowContent}
@@ -2293,6 +2311,7 @@ export function ActivityDetailScreen() {
                   {isAddingStepInline ? (
                     <Input
                       ref={newStepInputRef}
+                      testID="e2e.activityDetail.steps.newInput"
                       value={newStepTitle}
                       onChangeText={setNewStepTitle}
                       onFocus={handleAnyInputFocus}
@@ -2320,6 +2339,7 @@ export function ActivityDetailScreen() {
               <View style={styles.keyActionsInset}>
                 <VStack space="sm">
                   <KeyActionsRow
+                    testIDPrefix="e2e.activityDetail.keyAction"
                     items={[
                       {
                         id: 'focusMode',
@@ -2355,6 +2375,7 @@ export function ActivityDetailScreen() {
                   />
 
                   <KeyActionsRow
+                    testIDPrefix="e2e.activityDetail.keyAction"
                     items={[
                       {
                         id: 'chatWithAi',
@@ -2385,7 +2406,7 @@ export function ActivityDetailScreen() {
                                   activityId: activity.id,
                                   action: 'sendTo',
                                 });
-                                setSendToSheetVisible(true);
+                                setActiveSheet('sendTo');
                               },
                             },
                           ] as const)
@@ -2412,8 +2433,9 @@ export function ActivityDetailScreen() {
                   <VStack space="xs">
                   <VStack space="sm">
                     <Pressable
+                      testID="e2e.activityDetail.triggers.reminder.open"
                       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                      onPress={() => setReminderSheetVisible(true)}
+                      onPress={() => setActiveSheet('reminder')}
                       accessibilityRole="button"
                       accessibilityLabel="Edit reminder"
                     >
@@ -2450,8 +2472,9 @@ export function ActivityDetailScreen() {
 
                   <VStack space="sm">
                     <Pressable
+                      testID="e2e.activityDetail.triggers.dueDate.open"
                       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                      onPress={() => setDueDateSheetVisible(true)}
+                      onPress={() => setActiveSheet('due')}
                       accessibilityRole="button"
                       accessibilityLabel="Edit due date"
                     >
@@ -2488,8 +2511,9 @@ export function ActivityDetailScreen() {
 
                   <VStack space="sm">
                     <Pressable
+                      testID="e2e.activityDetail.triggers.repeat.open"
                       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                      onPress={() => setRepeatSheetVisible(true)}
+                      onPress={() => setActiveSheet('repeat')}
                       accessibilityRole="button"
                       accessibilityLabel="Edit repeat schedule"
                     >
@@ -2556,6 +2580,7 @@ export function ActivityDetailScreen() {
                       }
                       onPress={openEstimateSheet}
                       accessibilityLabel="Edit time estimate"
+                      testID="e2e.activityDetail.planning.estimate.open"
                     >
                       <Text
                         style={[
@@ -2635,6 +2660,7 @@ export function ActivityDetailScreen() {
             <View style={styles.section}>
               <Text style={styles.inputLabel}>NOTES</Text>
               <LongTextField
+                testID="e2e.activityDetail.notes"
                 label="Notes"
                 hideLabel
                 value={activity.notes ?? ''}
@@ -2657,24 +2683,25 @@ export function ActivityDetailScreen() {
             {/* Tags */}
             <View style={styles.section}>
               <Text style={styles.inputLabel}>TAGS</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Edit tags"
-                onPress={() => {
-                  // Set the reveal target *before* focusing so the keyboard-open auto-scroll
-                  // lands on the whole field container (not just the inner TextInput).
-                  prepareRevealTagsField();
-                  tagsInputRef.current?.focus();
-                }}
-                style={[
-                  styles.tagsFieldContainer,
-                  showTagsAutofill
-                    ? { paddingRight: spacing.md + TAGS_AI_AUTOFILL_SIZE + spacing.sm }
-                    : null,
-                ]}
-                ref={tagsFieldContainerRef}
-              >
-                <View style={styles.tagsFieldInner}>
+              <View ref={tagsFieldContainerRef} collapsable={false}>
+                <Pressable
+                  testID="e2e.activityDetail.tags.open"
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit tags"
+                  onPress={() => {
+                    // Set the reveal target *before* focusing so the keyboard-open auto-scroll
+                    // lands on the whole field container (not just the inner TextInput).
+                    prepareRevealTagsField();
+                    tagsInputRef.current?.focus();
+                  }}
+                  style={[
+                    styles.tagsFieldContainer,
+                    showTagsAutofill
+                      ? { paddingRight: spacing.md + TAGS_AI_AUTOFILL_SIZE + spacing.sm }
+                      : null,
+                  ]}
+                >
+                  <View style={styles.tagsFieldInner}>
                   {(activity.tags ?? []).map((tag) => (
                     <Pressable
                       key={tag}
@@ -2695,6 +2722,7 @@ export function ActivityDetailScreen() {
                   ))}
                   <TextInput
                     ref={tagsInputRef}
+                    testID="e2e.activityDetail.tags.input"
                     value={tagsInputDraft}
                     onChangeText={(next) => {
                       // If the user types/pastes a comma-separated list, adopt all completed tags
@@ -2748,19 +2776,19 @@ export function ActivityDetailScreen() {
                     }}
                   />
                 </View>
-                {showTagsAutofill ? (
-                  <View
-                    pointerEvents="box-none"
-                    style={[
-                      styles.tagsAutofillBadge,
-                      { right: spacing.md, top: 22 - TAGS_AI_AUTOFILL_SIZE / 2 },
-                    ]}
-                  >
-                    <AiAutofillBadge
-                      accessibilityLabel="Autofill tags with AI"
-                      size={TAGS_AI_AUTOFILL_SIZE}
-                      loading={isTagsAutofillThinking}
-                      onPress={() => {
+                  {showTagsAutofill ? (
+                    <View
+                      pointerEvents="box-none"
+                      style={[
+                        styles.tagsAutofillBadge,
+                        { right: spacing.md, top: 22 - TAGS_AI_AUTOFILL_SIZE / 2 },
+                      ]}
+                    >
+                      <AiAutofillBadge
+                        accessibilityLabel="Autofill tags with AI"
+                        size={TAGS_AI_AUTOFILL_SIZE}
+                        loading={isTagsAutofillThinking}
+                        onPress={() => {
                         if (tagsAutofillInFlightRef.current) return;
                         // TODO(entitlements): replace tier selection with real Pro state.
                         const tier: 'free' | 'pro' = isPro ? 'pro' : 'free';
@@ -2793,11 +2821,12 @@ export function ActivityDetailScreen() {
                             tagsAutofillInFlightRef.current = false;
                             setIsTagsAutofillThinking(false);
                           });
-                      }}
-                    />
-                  </View>
-                ) : null}
-              </Pressable>
+                        }}
+                      />
+                    </View>
+                  ) : null}
+                </Pressable>
+              </View>
             </View>
 
             {/* Linked Goal */}
@@ -2864,6 +2893,7 @@ export function ActivityDetailScreen() {
                       fullWidth
                       onPress={openFocusSheet}
                       accessibilityLabel="Open focus mode"
+                      testID="e2e.activityDetail.openFocus"
                     >
                       <Text style={styles.actionsButtonLabel}>Focus mode</Text>
                     </Button>
@@ -2872,6 +2902,7 @@ export function ActivityDetailScreen() {
                       fullWidth
                       onPress={openCalendarSheet}
                       accessibilityLabel="Send to calendar"
+                      testID="e2e.activityDetail.openCalendar"
                     >
                       <Text style={styles.actionsButtonLabel}>Send to calendar</Text>
                     </Button>
@@ -2932,38 +2963,76 @@ export function ActivityDetailScreen() {
 
       <BottomDrawer
         visible={reminderSheetVisible}
-        onClose={() => setReminderSheetVisible(false)}
-        snapPoints={['40%']}
+        onClose={() => {
+          setActiveSheet(null);
+          setIsReminderDateTimePickerVisible(false);
+        }}
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Remind me</Text>
           <VStack space="sm">
-            <SheetOption label="Later Today" onPress={() => handleSelectReminder(0)} />
-            <SheetOption label="Tomorrow" onPress={() => handleSelectReminder(1)} />
-            <SheetOption label="Next Week" onPress={() => handleSelectReminder(7)} />
+            <SheetOption
+              testID="e2e.activityDetail.reminder.laterToday"
+              label="Later Today"
+              onPress={() => handleSelectReminder(0, 18, 0)}
+            />
+            <SheetOption
+              testID="e2e.activityDetail.reminder.tomorrow"
+              label="Tomorrow"
+              onPress={() => handleSelectReminder(1, 9, 0)}
+            />
+            <SheetOption
+              testID="e2e.activityDetail.reminder.nextWeek"
+              label="Next Week"
+              onPress={() => handleSelectReminder(7, 9, 0)}
+            />
+            <SheetOption
+              testID="e2e.activityDetail.reminder.pickDateTime"
+              label="Pick date & time…"
+              onPress={() => setIsReminderDateTimePickerVisible(true)}
+            />
+            <SheetOption
+              testID="e2e.activityDetail.reminder.clear"
+              label="Clear reminder"
+              onPress={handleClearReminder}
+            />
           </VStack>
+          {isReminderDateTimePickerVisible && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialReminderDateTimeForPicker()}
+                onChange={handleReminderDateTimeChange}
+              />
+            </View>
+          )}
         </View>
       </BottomDrawer>
 
       <BottomDrawer
         visible={dueDateSheetVisible}
         onClose={() => {
-          setDueDateSheetVisible(false);
+          setActiveSheet(null);
           setIsDueDatePickerVisible(false);
         }}
         snapPoints={['40%']}
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Due</Text>
           <VStack space="sm">
-            <SheetOption label="Today" onPress={() => handleSelectDueDate(0)} />
-            <SheetOption label="Tomorrow" onPress={() => handleSelectDueDate(1)} />
-            <SheetOption label="Next Week" onPress={() => handleSelectDueDate(7)} />
+            <SheetOption testID="e2e.activityDetail.dueDate.today" label="Today" onPress={() => handleSelectDueDate(0)} />
+            <SheetOption testID="e2e.activityDetail.dueDate.tomorrow" label="Tomorrow" onPress={() => handleSelectDueDate(1)} />
+            <SheetOption testID="e2e.activityDetail.dueDate.nextWeek" label="Next Week" onPress={() => handleSelectDueDate(7)} />
             <SheetOption
+              testID="e2e.activityDetail.dueDate.pickDate"
               label="Pick a date…"
               onPress={() => setIsDueDatePickerVisible(true)}
             />
-            <SheetOption label="Clear due date" onPress={handleClearDueDate} />
+            <SheetOption testID="e2e.activityDetail.dueDate.clear" label="Clear due date" onPress={handleClearDueDate} />
           </VStack>
           {isDueDatePickerVisible && (
             <View style={styles.datePickerContainer}>
@@ -2980,41 +3049,42 @@ export function ActivityDetailScreen() {
 
       <BottomDrawer
         visible={repeatSheetVisible}
-        onClose={() => setRepeatSheetVisible(false)}
+        onClose={() => setActiveSheet(null)}
         snapPoints={['60%']}
-        presentation="inline"
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Repeat</Text>
           <VStack space="sm">
-            <SheetOption label="Daily" onPress={() => handleSelectRepeat('daily')} />
-            <SheetOption label="Weekly" onPress={() => handleSelectRepeat('weekly')} />
-            <SheetOption label="Weekdays" onPress={() => handleSelectRepeat('weekdays')} />
-            <SheetOption label="Monthly" onPress={() => handleSelectRepeat('monthly')} />
-            <SheetOption label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
-            <SheetOption label="Custom…" onPress={openCustomRepeat} />
+            <SheetOption testID="e2e.activityDetail.repeat.daily" label="Daily" onPress={() => handleSelectRepeat('daily')} />
+            <SheetOption testID="e2e.activityDetail.repeat.weekly" label="Weekly" onPress={() => handleSelectRepeat('weekly')} />
+            <SheetOption testID="e2e.activityDetail.repeat.weekdays" label="Weekdays" onPress={() => handleSelectRepeat('weekdays')} />
+            <SheetOption testID="e2e.activityDetail.repeat.monthly" label="Monthly" onPress={() => handleSelectRepeat('monthly')} />
+            <SheetOption testID="e2e.activityDetail.repeat.yearly" label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
+            <SheetOption testID="e2e.activityDetail.repeat.custom" label="Custom…" onPress={openCustomRepeat} />
           </VStack>
         </View>
       </BottomDrawer>
 
       <BottomDrawer
         visible={customRepeatSheetVisible}
-        onClose={() => setCustomRepeatSheetVisible(false)}
+        onClose={() => setActiveSheet(null)}
         snapPoints={Platform.OS === 'ios' ? ['62%'] : ['60%']}
-        presentation="inline"
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <HStack alignItems="center" justifyContent="space-between" style={styles.customRepeatHeaderRow}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Back to repeat options"
+              testID="e2e.activityDetail.customRepeat.back"
               onPress={() => {
-                setCustomRepeatSheetVisible(false);
+                setActiveSheet(null);
                 if (repeatDrawerTransitionTimeoutRef.current) {
                   clearTimeout(repeatDrawerTransitionTimeoutRef.current);
                 }
                 repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
-                  setRepeatSheetVisible(true);
+                  setActiveSheet('repeat');
                 }, 260);
               }}
               hitSlop={8}
@@ -3022,10 +3092,11 @@ export function ActivityDetailScreen() {
               <Icon name="arrowLeft" size={18} color={colors.textSecondary} />
             </Pressable>
             <Text style={styles.customRepeatHeaderTitle}>Repeat every…</Text>
-              <Pressable
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel="Set custom repeat rule"
-                onPress={commitCustomRepeat}
+              testID="e2e.activityDetail.customRepeat.set"
+              onPress={commitCustomRepeat}
               hitSlop={8}
             >
               <Text style={styles.customRepeatSetLabel}>Set</Text>
@@ -3151,76 +3222,32 @@ export function ActivityDetailScreen() {
 
       <BottomDrawer
         visible={estimateSheetVisible}
-        onClose={() => setEstimateSheetVisible(false)}
+        onClose={() => setActiveSheet(null)}
         snapPoints={Platform.OS === 'ios' ? ['62%'] : ['40%']}
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Duration</Text>
           <VStack space="md">
-            {Platform.OS === 'ios' ? (
-              <View style={styles.estimatePickerContainer}>
-                <DateTimePicker
-                  mode="countdown"
-                  display="spinner"
-                  value={estimateCountdownDate}
-                  onChange={(_event, date) => {
-                    if (!date) return;
-                    setEstimateCountdownDate(date);
-                    // Interpret the picker's value as a duration in local HH:MM.
-                    // (Countdown picker can return a "today at HH:MM" Date; don't use day/month/year.)
-                    const hours = Math.max(0, date.getHours?.() ?? 0);
-                    const minutes = Math.max(0, date.getMinutes?.() ?? 0);
-                    const seconds = Math.max(0, date.getSeconds?.() ?? 0);
-                    const totalMinutes = hours * 60 + minutes + (seconds >= 30 ? 1 : 0);
-                    setEstimateCountdownMinutes(totalMinutes);
-                    setEstimateHoursDraft(String(Math.floor(totalMinutes / 60)));
-                    setEstimateMinutesDraft(String(totalMinutes % 60));
-                  }}
-                />
-              </View>
-            ) : (
-              <HStack space="sm" alignItems="center" style={styles.estimateFieldsRow}>
-                <View style={styles.estimateField}>
-                  <Text style={styles.estimateFieldLabel}>Hours</Text>
-                  <Input
-                    value={estimateHoursDraft}
-                    onChangeText={setEstimateHoursDraft}
-                    placeholder="0"
-                    keyboardType="number-pad"
-                    returnKeyType="done"
-                    size="sm"
-                    variant="outline"
-                    elevation="flat"
-                  />
-                </View>
-                <View style={styles.estimateField}>
-                  <Text style={styles.estimateFieldLabel}>Minutes</Text>
-                  <Input
-                    value={estimateMinutesDraft}
-                    onChangeText={setEstimateMinutesDraft}
-                    placeholder="0"
-                    keyboardType="number-pad"
-                    returnKeyType="done"
-                    size="sm"
-                    variant="outline"
-                    elevation="flat"
-                  />
-                </View>
-              </HStack>
-            )}
+            <DurationPicker
+              valueMinutes={estimateDraftMinutes}
+              onChangeMinutes={setEstimateDraftMinutes}
+              accessibilityLabel="Select duration"
+            />
 
             <HStack space="sm">
               <Button
                 variant="outline"
                 style={{ flex: 1 }}
+                testID="e2e.activityDetail.estimate.clear"
                 onPress={() => {
                   handleClearTimeEstimate();
-                  setEstimateSheetVisible(false);
+                  setActiveSheet(null);
                 }}
               >
                 <Text style={styles.sheetRowLabel}>Clear</Text>
               </Button>
-              <Button variant="primary" style={{ flex: 1 }} onPress={commitEstimateDraft}>
+              <Button variant="primary" style={{ flex: 1 }} testID="e2e.activityDetail.estimate.save" onPress={commitEstimateDraft}>
                 <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
                   Save
                 </Text>
@@ -3232,8 +3259,9 @@ export function ActivityDetailScreen() {
 
       <BottomDrawer
         visible={focusSheetVisible}
-        onClose={() => setFocusSheetVisible(false)}
+        onClose={() => setActiveSheet(null)}
         snapPoints={['52%']}
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Focus mode</Text>
@@ -3396,13 +3424,15 @@ export function ActivityDetailScreen() {
               <Button
                 variant="outline"
                 style={{ flex: 1 }}
-                onPress={() => setFocusSheetVisible(false)}
+                testID="e2e.activityDetail.focus.cancel"
+                onPress={() => setActiveSheet(null)}
               >
                 <Text style={styles.sheetRowLabel}>Cancel</Text>
               </Button>
               <Button
                 variant="primary"
                 style={{ flex: 1 }}
+                testID="e2e.activityDetail.focus.start"
                 onPress={() => {
                   startFocusSession().catch(() => undefined);
                 }}
@@ -3419,9 +3449,10 @@ export function ActivityDetailScreen() {
       <BottomDrawer
         visible={calendarSheetVisible}
         onClose={() => {
-          setCalendarSheetVisible(false);
+          setActiveSheet(null);
         }}
         snapPoints={['75%']}
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Send to calendar</Text>
@@ -3491,6 +3522,16 @@ export function ActivityDetailScreen() {
             />
 
             {/* `.ics` export is available as a tile above to keep this sheet "app picker" focused. */}
+
+            <Button
+              variant="outline"
+              fullWidth
+              testID="e2e.activityDetail.calendar.close"
+              onPress={() => setActiveSheet(null)}
+              style={{ marginTop: spacing.md }}
+            >
+              <Text style={styles.sheetRowLabel}>Close</Text>
+            </Button>
           </VStack>
         </View>
       </BottomDrawer>
@@ -3591,54 +3632,60 @@ export function ActivityDetailScreen() {
 
       <BottomDrawer
         visible={sendToSheetVisible}
-        onClose={() => setSendToSheetVisible(false)}
+        onClose={() => setActiveSheet(null)}
         snapPoints={['45%']}
+        scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Send to…</Text>
           <SheetOption
+            testID="e2e.activityDetail.sendTo.amazon"
             label="Amazon"
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToAmazon' });
-              setSendToSheetVisible(false);
+              setActiveSheet(null);
               handleSendToAmazon().catch(() => undefined);
             }}
           />
           <SheetOption
+            testID="e2e.activityDetail.sendTo.homeDepot"
             label="Home Depot"
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToHomeDepot' });
-              setSendToSheetVisible(false);
+              setActiveSheet(null);
               handleSendToHomeDepot().catch(() => undefined);
             }}
           />
           <SheetOption
+            testID="e2e.activityDetail.sendTo.instacart"
             label="Instacart"
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToInstacart' });
-              setSendToSheetVisible(false);
+              setActiveSheet(null);
               handleSendToInstacart().catch(() => undefined);
             }}
           />
           <View style={styles.cardSectionDivider} />
           <SheetOption
+            testID="e2e.activityDetail.sendTo.copy"
             label="Copy details"
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToCopy' });
-              setSendToSheetVisible(false);
+              setActiveSheet(null);
               handleSendToCopy().catch(() => undefined);
             }}
           />
           <SheetOption
+            testID="e2e.activityDetail.sendTo.share"
             label="Share…"
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToShare' });
-              setSendToSheetVisible(false);
+              setActiveSheet(null);
               handleSendToShare().catch(() => undefined);
             }}
           />
           <View style={styles.cardSectionDivider} />
-          <SheetOption label="Cancel" onPress={() => setSendToSheetVisible(false)} />
+          <SheetOption testID="e2e.activityDetail.sendTo.cancel" label="Cancel" onPress={() => setActiveSheet(null)} />
         </View>
       </BottomDrawer>
     </AppShell>
@@ -3655,11 +3702,12 @@ function formatMsAsTimer(ms: number) {
 type SheetOptionProps = {
   label: string;
   onPress: () => void;
+  testID?: string;
 };
 
-function SheetOption({ label, onPress }: SheetOptionProps) {
+function SheetOption({ label, onPress, testID }: SheetOptionProps) {
   return (
-    <Pressable style={styles.sheetRow} onPress={onPress}>
+    <Pressable testID={testID} style={styles.sheetRow} onPress={onPress}>
       <Text style={styles.sheetRowLabel}>{label}</Text>
     </Pressable>
   );

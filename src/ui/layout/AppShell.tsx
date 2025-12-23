@@ -7,9 +7,19 @@ import { colors, spacing } from '../../theme';
 interface AppShellProps {
   children: ReactNode;
   backgroundVariant?: 'default' | 'arcGradient';
+  /**
+   * When true, removes the default canvas padding (top + horizontal) so screens can render
+   * full-bleed content (e.g. hero images) while still living inside the app shell.
+   * Those screens should provide their own internal padding where needed.
+   */
+  fullBleedCanvas?: boolean;
 }
 
-export function AppShell({ children, backgroundVariant = 'default' }: AppShellProps) {
+export function AppShell({
+  children,
+  backgroundVariant = 'default',
+  fullBleedCanvas = false,
+}: AppShellProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -26,12 +36,13 @@ export function AppShell({ children, backgroundVariant = 'default' }: AppShellPr
         style={[
           styles.container,
           {
-            paddingTop: spacing.sm + insets.top,
+            paddingTop: fullBleedCanvas ? 0 : spacing.sm + insets.top,
             // NOTE: Do not pad the canvas bottom here.
             // Bottom safe area should be handled by scrollable content (via contentContainerStyle)
             // or by explicit bottom UI (e.g., a composer) so content can scroll into the bottom space
             // rather than being clipped.
             paddingBottom: 0,
+            paddingHorizontal: fullBleedCanvas ? 0 : spacing.sm,
             // For gradient variants, let the underlying shell/gradient show through.
             backgroundColor: backgroundVariant === 'arcGradient' ? 'transparent' : colors.shell,
           },
@@ -53,7 +64,6 @@ const styles = StyleSheet.create({
     flex: 1,
     // Canvas: Light surface floating on top of the Pine shell
     backgroundColor: colors.shell,
-    paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
     paddingBottom: 0,
   },

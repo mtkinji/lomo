@@ -13,7 +13,7 @@ import { Input } from '../../ui/Input';
 import { Badge } from '../../ui/Badge';
 import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
-import { VStack, HStack, Text, Heading, Textarea, ButtonLabel } from '../../ui/primitives';
+import { VStack, HStack, Text, Heading, Textarea, ButtonLabel, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Dialog } from '../../ui/Dialog';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -42,6 +42,9 @@ import {
 import { NotificationService } from '../../services/NotificationService';
 import { ArcTestingLauncher } from './ArcTestingLauncher';
 import type { Activity } from '../../domain/types';
+import { AgentWorkspace } from '../ai/AgentWorkspace';
+import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
+import type { LaunchContext } from '../../domain/workflows';
 
 type InterstitialVariant = 'launch' | 'auth' | 'streak';
 type DevToolsRoute = RouteProp<RootDrawerParamList, 'DevTools'>;
@@ -106,10 +109,26 @@ export function DevToolsScreen() {
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
   const [viewMode, setViewMode] = useState<
-    'tools' | 'gallery' | 'typeColor' | 'arcTesting' | 'memory'
+    'tools' | 'gallery' | 'typeColor' | 'arcTesting' | 'memory' | 'e2e'
   >(initialTab);
   const [demoDialogVisible, setDemoDialogVisible] = useState(false);
   const [demoSheetVisible, setDemoSheetVisible] = useState(false);
+  const [interactionTapCount, setInteractionTapCount] = useState(0);
+  const [keyboardTapCount, setKeyboardTapCount] = useState(0);
+  const [keyboardSubmitCount, setKeyboardSubmitCount] = useState(0);
+  const [keyboardHarnessValues, setKeyboardHarnessValues] = useState<Record<string, string>>({
+    field1: '',
+    field2: '',
+    field3: '',
+    field4: '',
+    field5: '',
+    field6: '',
+    field7: '',
+    last: '',
+  });
+  const [keyboardSheetVisible, setKeyboardSheetVisible] = useState(false);
+  const [keyboardSheetValue, setKeyboardSheetValue] = useState('');
+  const [agentHarnessVisible, setAgentHarnessVisible] = useState(false);
   const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
   const [isInterstitialFullScreenVisible, setIsInterstitialFullScreenVisible] = useState(false);
   const [memoryKeys, setMemoryKeys] = useState<string[]>([]);
@@ -513,6 +532,7 @@ export function DevToolsScreen() {
   const isTypeAndColor = viewMode === 'typeColor';
   const isArcTesting = viewMode === 'arcTesting';
   const isMemory = viewMode === 'memory';
+  const isE2E = viewMode === 'e2e';
 
   const interstitialSegmentOptions: { value: InterstitialVariant; label: string }[] = [
     { value: 'launch', label: 'Launch' },
@@ -813,12 +833,27 @@ export function DevToolsScreen() {
             <Text style={styles.gallerySectionDescription}>
               Sliding panel built on the shared `BottomDrawer` primitive.
             </Text>
-            <Button variant="accent" onPress={() => setDemoSheetVisible(true)}>
+            <Button testID="e2e.openBottomDrawer" variant="accent" onPress={() => setDemoSheetVisible(true)}>
               <Text style={styles.primaryButtonLabel}>Open bottom sheet</Text>
             </Button>
             <Text style={styles.galleryHelperText}>
               On device, swipe down or tap the scrim to dismiss.
             </Text>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardEyebrow}>E2E: touchability harness</Text>
+            <Text style={styles.gallerySectionDescription}>
+              Catches a regression where closing a bottom drawer leaves an invisible overlay that
+              blocks taps on the underlying canvas.
+            </Text>
+            <Button
+              testID="e2e.tapTarget"
+              variant="outline"
+              onPress={() => setInteractionTapCount((prev) => prev + 1)}
+            >
+              <Text style={styles.secondaryButtonLabel}>Tap target ({interactionTapCount})</Text>
+            </Button>
           </View>
 
           <View style={styles.card}>
@@ -888,7 +923,12 @@ export function DevToolsScreen() {
               Use sheets for secondary flows and filters that should feel attached to the current
               canvas.
             </Text>
-            <Button variant="accent" size="small" onPress={() => setDemoSheetVisible(false)}>
+            <Button
+              testID="e2e.closeBottomDrawer"
+              variant="accent"
+              size="small"
+              onPress={() => setDemoSheetVisible(false)}
+            >
               <Text style={styles.primaryButtonLabel}>Close sheet</Text>
             </Button>
           </View>
@@ -1026,6 +1066,260 @@ export function DevToolsScreen() {
     );
   };
 
+  const renderE2EHarness = () => {
+    const devActivityIdForAgent = ensureDevActivityId();
+    const agentLaunchContext: LaunchContext = {
+      source: 'devTools',
+      intent: 'freeCoach',
+      objectType: 'activity',
+      objectId: devActivityIdForAgent,
+    };
+    const agentWorkspaceSnapshot = buildActivityCoachLaunchContext(
+      goals,
+      activities,
+      undefined,
+      arcs,
+      devActivityIdForAgent,
+    );
+
+    return (
+      <>
+        <KeyboardAwareScrollView
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={false}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.stack}>
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>E2E harness</Text>
+              <Text style={styles.cardBody}>
+                Deterministic surfaces for native regressions (keyboard avoidance, tap-through, and
+                bottom drawers). Maestro should prefer these over “real data” flows when possible.
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Keyboard: long form</Text>
+              <Text style={styles.cardBody}>
+                Focus the last field, type, and confirm you can still tap actions while the keyboard
+                is open.
+              </Text>
+              <VStack space="sm" style={{ marginTop: spacing.md }}>
+                <Input
+                  label="Field 1"
+                  value={keyboardHarnessValues.field1}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field1: t }))}
+                  returnKeyType="next"
+                />
+                <Input
+                  label="Field 2"
+                  value={keyboardHarnessValues.field2}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field2: t }))}
+                  returnKeyType="next"
+                />
+                <Input
+                  label="Field 3"
+                  value={keyboardHarnessValues.field3}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field3: t }))}
+                  returnKeyType="next"
+                />
+                <Input
+                  label="Field 4"
+                  value={keyboardHarnessValues.field4}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field4: t }))}
+                  returnKeyType="next"
+                />
+                <Input
+                  label="Field 5"
+                  value={keyboardHarnessValues.field5}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field5: t }))}
+                  returnKeyType="next"
+                />
+                <Input
+                  label="Field 6"
+                  value={keyboardHarnessValues.field6}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field6: t }))}
+                  returnKeyType="next"
+                />
+                <Input
+                  label="Field 7"
+                  value={keyboardHarnessValues.field7}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field7: t }))}
+                  returnKeyType="next"
+                />
+                <Input
+                  testID="e2e.keyboard.lastInput"
+                  label="Last field"
+                  value={keyboardHarnessValues.last}
+                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, last: t }))}
+                  returnKeyType="done"
+                />
+              </VStack>
+
+              <HStack space="sm" style={{ marginTop: spacing.md }}>
+                <Button
+                  testID="e2e.keyboard.tapWhileOpen"
+                  variant="outline"
+                  onPress={() => setKeyboardTapCount((prev) => prev + 1)}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Tap while open ({keyboardTapCount})</Text>
+                </Button>
+                <Button
+                  testID="e2e.keyboard.submit"
+                  variant="accent"
+                  onPress={() => setKeyboardSubmitCount((prev) => prev + 1)}
+                >
+                  <Text style={styles.primaryButtonLabel}>Submit ({keyboardSubmitCount})</Text>
+                </Button>
+              </HStack>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Keyboard: inside a bottom drawer</Text>
+              <Text style={styles.cardBody}>
+                Opens a bottom drawer with an input. Tests keyboard lifting inside modal overlays +
+                “close → taps still work”.
+              </Text>
+              <HStack space="sm" style={{ marginTop: spacing.md }}>
+                <Button
+                  testID="e2e.keyboard.openSheet"
+                  variant="accent"
+                  onPress={() => setKeyboardSheetVisible(true)}
+                >
+                  <Text style={styles.primaryButtonLabel}>Open keyboard sheet</Text>
+                </Button>
+                <Button
+                  testID="e2e.keyboard.reset"
+                  variant="outline"
+                  onPress={() => {
+                    setKeyboardHarnessValues({
+                      field1: '',
+                      field2: '',
+                      field3: '',
+                      field4: '',
+                      field5: '',
+                      field6: '',
+                      field7: '',
+                      last: '',
+                    });
+                    setKeyboardSheetValue('');
+                    setKeyboardTapCount(0);
+                    setKeyboardSubmitCount(0);
+                  }}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Reset</Text>
+                </Button>
+              </HStack>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Agent workspace: smoke</Text>
+              <Text style={styles.cardBody}>
+                Opens a real AgentWorkspace surface. For deterministic tests, validate interaction
+                basics (composer focus + send button visibility) without relying on network replies.
+              </Text>
+              <HStack space="sm" style={{ marginTop: spacing.md }}>
+                <Button
+                  testID="e2e.agent.open"
+                  variant="accent"
+                  onPress={() => setAgentHarnessVisible(true)}
+                >
+                  <Text style={styles.primaryButtonLabel}>Open agent workspace</Text>
+                </Button>
+                <Button
+                  testID="e2e.agent.close"
+                  variant="outline"
+                  onPress={() => setAgentHarnessVisible(false)}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Close</Text>
+                </Button>
+              </HStack>
+            </View>
+          </View>
+        </KeyboardAwareScrollView>
+
+        <BottomDrawer
+          visible={keyboardSheetVisible}
+          onClose={() => setKeyboardSheetVisible(false)}
+          snapPoints={['55%']}
+        >
+          <KeyboardAwareScrollView
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={false}
+            contentContainerStyle={{ paddingBottom: spacing.lg }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={{ gap: spacing.md }}>
+              <Heading variant="sm">Keyboard sheet</Heading>
+              <Text style={styles.sheetBody}>
+                Focus the field, type, then submit and close. After close, the underlying DevTools
+                canvas should remain tappable.
+              </Text>
+              <Input
+                testID="e2e.keyboard.sheetInput"
+                label="Sheet input"
+                value={keyboardSheetValue}
+                onChangeText={setKeyboardSheetValue}
+              />
+              <HStack space="sm" style={{ justifyContent: 'flex-end' }}>
+                <Button
+                  testID="e2e.keyboard.closeSheet"
+                  variant="outline"
+                  size="small"
+                  onPress={() => setKeyboardSheetVisible(false)}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Close</Text>
+                </Button>
+                <Button
+                  testID="e2e.keyboard.sheetSubmit"
+                  variant="accent"
+                  size="small"
+                  onPress={() => setKeyboardSubmitCount((prev) => prev + 1)}
+                >
+                  <Text style={styles.primaryButtonLabel}>Submit</Text>
+                </Button>
+              </HStack>
+            </View>
+          </KeyboardAwareScrollView>
+        </BottomDrawer>
+
+        <BottomDrawer
+          visible={agentHarnessVisible}
+          onClose={() => setAgentHarnessVisible(false)}
+          snapPoints={['92%']}
+          // Agent chat manages its own keyboard math; avoid double offsets.
+          keyboardAvoidanceEnabled={false}
+        >
+          <View style={{ gap: spacing.md }}>
+            <HStack justifyContent="space-between" alignItems="center">
+              <Heading variant="sm">Agent workspace</Heading>
+              <Button
+                testID="e2e.agent.sheetClose"
+                variant="outline"
+                size="small"
+                onPress={() => setAgentHarnessVisible(false)}
+              >
+                <Text style={styles.secondaryButtonLabel}>Close</Text>
+              </Button>
+            </HStack>
+            <AgentWorkspace
+              mode={undefined}
+              launchContext={agentLaunchContext}
+              workspaceSnapshot={agentWorkspaceSnapshot}
+              workflowDefinitionId={undefined}
+              resumeDraft={false}
+              // BottomDrawer pads by safe-area; AiChatPane should subtract it.
+              hostBottomInsetAlreadyApplied
+              hidePromptSuggestions={false}
+              hideBrandHeader={false}
+            />
+          </View>
+        </BottomDrawer>
+      </>
+    );
+  };
+
   return (
     <AppShell>
       <PageHeader
@@ -1037,6 +1331,8 @@ export function DevToolsScreen() {
         <Text style={[styles.screenSubtitle, { paddingTop: spacing.lg }]}>
           {isGallery
             ? 'Preview shared UI primitives live on-device. Only visible in development builds.'
+            : isE2E
+            ? 'Deterministic harness surfaces for end-to-end testing. Only visible in development builds.'
             : isTypeAndColor
             ? 'Inspect base typography and color tokens that underpin the shared UI system.'
             : 'Utilities for testing and development. Only visible in development builds.'}
@@ -1045,17 +1341,21 @@ export function DevToolsScreen() {
           style={styles.tabSwitcher}
           value={viewMode}
           onChange={(next) => setViewMode(next)}
+          testIDPrefix="devtools.tab"
           options={[
             { value: 'tools', label: 'Tools' },
             { value: 'memory', label: 'Memory' },
             { value: 'gallery', label: 'Components' },
             { value: 'typeColor', label: 'Type & Color' },
             { value: 'arcTesting', label: 'Arc Testing' },
+            { value: 'e2e', label: 'E2E' },
           ]}
         />
       </PageHeader>
       {isArcTesting ? (
         <ArcTestingLauncher />
+      ) : isE2E ? (
+        renderE2EHarness()
       ) : isMemory ? (
         <CanvasScrollView
           contentContainerStyle={styles.scrollContent}
@@ -1201,15 +1501,15 @@ export function DevToolsScreen() {
                 Launches the first-time experience overlay immediately, even if it was already
                 completed.
               </Text> */}
-              <Button variant="accent" onPress={handleTriggerFirstTimeUx} style={styles.cardAction}>
+              <Button testID="e2e.seed.triggerFirstTimeUx" variant="accent" onPress={handleTriggerFirstTimeUx} style={styles.cardAction}>
                 <ButtonLabel size="md" tone="inverse">
                   Trigger first-time UX
                 </ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleShowActivitiesListGuide} style={styles.cardAction}>
+              <Button testID="e2e.seed.showActivitiesListGuide" variant="secondary" onPress={handleShowActivitiesListGuide} style={styles.cardAction}>
                 <ButtonLabel size="md">Show Activities list guide</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleShowActivityDetailGuide} style={styles.cardAction}>
+              <Button testID="e2e.seed.showActivityDetailGuide" variant="secondary" onPress={handleShowActivityDetailGuide} style={styles.cardAction}>
                 <ButtonLabel size="md">Show Activity detail guide</ButtonLabel>
               </Button>
               {isFlowActive && (
@@ -1217,10 +1517,10 @@ export function DevToolsScreen() {
                   <ButtonLabel size="md">Force dismiss</ButtonLabel>
                 </Button>
               )}
-              <Button variant="secondary" onPress={handleShowFirstArcCelebration} style={styles.cardAction}>
+              <Button testID="e2e.seed.showFirstArcCelebration" variant="secondary" onPress={handleShowFirstArcCelebration} style={styles.cardAction}>
                 <ButtonLabel size="md">Show first-Arc celebration</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={handleShowFirstGoalCelebration} style={styles.cardAction}>
+              <Button testID="e2e.seed.showFirstGoalCelebration" variant="secondary" onPress={handleShowFirstGoalCelebration} style={styles.cardAction}>
                 <ButtonLabel size="md">Show first-goal celebration</ButtonLabel>
               </Button>
               <Text style={styles.meta}>

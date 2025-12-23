@@ -1,0 +1,51 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Activity detail: TRIGGERS suite (reminder + due date + repeat)
+
+- launchApp
+
+- tapOn:
+    id: "nav.drawer.toggle"
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+- tapOn:
+    id: "devtools.tab.tools"
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.seed.showActivityDetailGuide"
+    direction: DOWN
+- tapOn:
+    id: "e2e.seed.showActivityDetailGuide"
+
+# Reminder
+- scrollUntilVisible:
+    element:
+      id: "e2e.activityDetail.triggers.reminder.open"
+    direction: DOWN
+- tapOn:
+    id: "e2e.activityDetail.triggers.reminder.open"
+- tapOn:
+    id: "e2e.activityDetail.reminder.tomorrow"
+
+# Due date (simple option)
+- tapOn:
+    id: "e2e.activityDetail.triggers.dueDate.open"
+- tapOn:
+    id: "e2e.activityDetail.dueDate.nextWeek"
+
+# Repeat
+- tapOn:
+    id: "e2e.activityDetail.triggers.repeat.open"
+- tapOn:
+    id: "e2e.activityDetail.repeat.weekly"
+
+# Re-open repeat and go custom, then back out (doesn't require interacting with pickers).
+- tapOn:
+    id: "e2e.activityDetail.triggers.repeat.open"
+- tapOn:
+    id: "e2e.activityDetail.repeat.custom"
+- tapOn:
+    id: "e2e.activityDetail.customRepeat.back"
+
+

@@ -16,6 +16,11 @@ type SegmentedControlProps<Value extends string> = {
   options: SegmentedOption<Value>[];
   style?: StyleProp<ViewStyle>;
   size?: SegmentedControlSize;
+  /**
+   * Optional stable testID prefix for E2E tests.
+   * Each segment receives `testID="${testIDPrefix}.${option.value}"`.
+   */
+  testIDPrefix?: string;
 };
 
 /**
@@ -28,6 +33,7 @@ export function SegmentedControl<Value extends string>({
   options,
   style,
   size = 'default',
+  testIDPrefix,
 }: SegmentedControlProps<Value>) {
   const [layouts, setLayouts] = useState<Record<string, { x: number; width: number }>>({});
   const thumbX = useRef(new Animated.Value(0)).current;
@@ -71,6 +77,7 @@ export function SegmentedControl<Value extends string>({
         return (
           <Pressable
             key={option.value}
+            testID={testIDPrefix ? `${testIDPrefix}.${String(option.value)}` : undefined}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
             style={[styles.segment, isCompact && styles.segmentCompact]}

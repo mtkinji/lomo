@@ -55,6 +55,7 @@ import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
+import { useQuickAddDockController } from './useQuickAddDockController';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { buildActivityCoachLaunchContext, buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
@@ -234,9 +235,6 @@ export function ActivitiesScreen() {
   const filterButtonRef = React.useRef<View | null>(null);
   const sortButtonRef = React.useRef<View | null>(null);
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
-  const [quickAddTitle, setQuickAddTitle] = React.useState('');
-  const quickAddInputRef = React.useRef<TextInput | null>(null);
-  const [isQuickAddFocused, setIsQuickAddFocused] = React.useState(false);
   const quickAddFocusedRef = React.useRef(false);
   const quickAddLastFocusAtRef = React.useRef<number>(0);
   const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
@@ -245,10 +243,6 @@ export function ActivitiesScreen() {
   // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
   const [enrichingActivityIds, setEnrichingActivityIds] = React.useState<Set<string>>(() => new Set());
   const enrichingActivityIdsRef = React.useRef<Set<string>>(new Set());
-  const [quickAddReminderAt, setQuickAddReminderAt] = React.useState<string | null>(null);
-  const [quickAddScheduledDate, setQuickAddScheduledDate] = React.useState<string | null>(null);
-  const [quickAddRepeatRule, setQuickAddRepeatRule] = React.useState<Activity['repeatRule']>(undefined);
-  const [quickAddEstimateMinutes, setQuickAddEstimateMinutes] = React.useState<number | null>(null);
 
   const suggestedCardYRef = React.useRef<number | null>(null);
   const [highlightSuggested, setHighlightSuggested] = React.useState<boolean>(
@@ -302,15 +296,79 @@ export function ActivitiesScreen() {
     return enrichingActivityIdsRef.current.has(activityId);
   }, []);
 
+  const {
+    value: quickAddTitle,
+    setValue: setQuickAddTitle,
+    inputRef: quickAddInputRef,
+    isFocused: isQuickAddFocused,
+    setIsFocused: setQuickAddFocusedBase,
+    reservedHeight: quickAddReservedHeight,
+    setReservedHeight: setQuickAddReservedHeight,
+    reminderAt: quickAddReminderAt,
+    setReminderAt: setQuickAddReminderAt,
+    scheduledDate: quickAddScheduledDate,
+    setScheduledDate: setQuickAddScheduledDate,
+    repeatRule: quickAddRepeatRule,
+    setRepeatRule: setQuickAddRepeatRule,
+    estimateMinutes: quickAddEstimateMinutes,
+    setEstimateMinutes: setQuickAddEstimateMinutes,
+    collapse: collapseQuickAdd,
+    openToolDrawer: openQuickAddToolDrawer,
+    closeToolDrawer: closeQuickAddToolDrawer,
+    submit: handleQuickAddActivity,
+  } = useQuickAddDockController({
+    goalId: null,
+    activitiesCount: activities.length,
+    addActivity,
+    updateActivity,
+    recordShowUp,
+    showToast,
+    initialReservedHeightPx: quickAddInitialReservedHeight,
+    onCreated: (activity) => {
+      pendingScrollToActivityIdRef.current = activity.id;
+      // If the user didn't add any scheduling/reminder info during quick-add,
+      // queue a gentle "add a trigger" guide for when the dock is collapsed.
+      const hasTrigger =
+        Boolean(activity.reminderAt) || Boolean(activity.scheduledDate) || Boolean(activity.repeatRule);
+      if (!hasTrigger && !triggerGuideVisible && !triggerPickerVisible) {
+        setPostCreateTriggerActivityId(activity.id);
+      }
+      capture(AnalyticsEvent.ActivityCreated, {
+        source: 'quick_add',
+        activity_id: activity.id,
+        goal_id: null,
+        has_due_date: Boolean(activity.scheduledDate),
+        has_reminder: Boolean(activity.reminderAt),
+        has_estimate: Boolean(activity.estimateMinutes),
+      });
+      setHasQuickAddAiGenerated(false);
+      lastQuickAddAiTitleRef.current = null;
+    },
+    enrichActivityWithAI,
+    markActivityEnrichment,
+  });
+
+  const setQuickAddFocused = React.useCallback(
+    (next: boolean) => {
+      if (next) {
+        quickAddLastFocusAtRef.current = Date.now();
+      }
+      setQuickAddFocusedBase(next);
+    },
+    [setQuickAddFocusedBase],
+  );
+
+  React.useEffect(() => {
+    quickAddFocusedRef.current = isQuickAddFocused;
+  }, [isQuickAddFocused]);
+
   const [quickAddReminderSheetVisible, setQuickAddReminderSheetVisible] = React.useState(false);
   const [quickAddDueDateSheetVisible, setQuickAddDueDateSheetVisible] = React.useState(false);
   const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = React.useState(false);
   const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = React.useState(false);
   const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = React.useState(false);
   const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
-  const [quickAddReservedHeight, setQuickAddReservedHeight] = React.useState(
-    QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4,
-  );
+  const quickAddInitialReservedHeight = QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4;
   const canvasScrollRef = React.useRef<ScrollView | null>(null);
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
@@ -529,54 +587,8 @@ export function ActivitiesScreen() {
     [],
   );
 
-  const collapseQuickAdd = React.useCallback(() => {
-    // Optimistically flip the UI state immediately; the TextInput blur will also
-    // drive `onBlur` shortly after.
-    setIsQuickAddFocused(false);
-    Keyboard.dismiss();
-    requestAnimationFrame(() => {
-      quickAddInputRef.current?.blur();
-    });
-  }, []);
-
-  // When opening a quick-add "tool drawer" (reminder/due/repeat/estimate), we want:
-  // - keyboard dismissed (so the tool drawer has space)
-  // - quick-add dock temporarily collapsed (avoid stacking 2 inline drawers)
-  // - on close, restore quick-add dock + keyboard so the user can continue typing
-  const QUICK_ADD_TOOL_DRAWER_ANIMATION_MS = 240;
-  const shouldResumeQuickAddAfterToolRef = React.useRef(false);
-
-  const setQuickAddFocused = React.useCallback((next: boolean) => {
-    if (next) {
-      quickAddLastFocusAtRef.current = Date.now();
-    }
-    setIsQuickAddFocused(next);
-  }, []);
-
-  const openQuickAddToolDrawer = React.useCallback(
-    (open: () => void) => {
-      shouldResumeQuickAddAfterToolRef.current = isQuickAddFocused;
-      if (isQuickAddFocused) {
-        collapseQuickAdd();
-      } else {
-        Keyboard.dismiss();
-      }
-      requestAnimationFrame(() => open());
-    },
-    [collapseQuickAdd, isQuickAddFocused],
-  );
-
-  const closeQuickAddToolDrawer = React.useCallback(
-    (close: () => void) => {
-      close();
-      if (!shouldResumeQuickAddAfterToolRef.current) return;
-      shouldResumeQuickAddAfterToolRef.current = false;
-      setTimeout(() => {
-        setQuickAddFocused(true);
-      }, QUICK_ADD_TOOL_DRAWER_ANIMATION_MS);
-    },
-    [setQuickAddFocused],
-  );
+  // QuickAdd dock state + create handler are centralized in `useQuickAddDockController`
+  // so Goal:Plan and Activities list stay in sync without duplicating behavior.
 
   const normalizeQuickAddAiTitle = React.useCallback((raw: string): string | null => {
     const firstLine = (raw ?? '')
@@ -681,172 +693,11 @@ export function ActivitiesScreen() {
     [hasQuickAddAiGenerated],
   );
 
-  React.useEffect(() => {
-    quickAddFocusedRef.current = isQuickAddFocused;
-  }, [isQuickAddFocused]);
-
   // NOTE: We intentionally avoid blurring the quick-add input on keyboard hide.
   // On iOS, keyboard show/hide transitions can fire events that cause a just-focused
   // TextInput to immediately blur, making the quick-add dock feel “broken”.
 
-  const handleQuickAddActivity = React.useCallback(() => {
-    const trimmed = quickAddTitle.trim();
-    if (!trimmed) return;
-
-    const timestamp = new Date().toISOString();
-    const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-    // TODO(paywall): gate this behind real Pro entitlement / active trial.
-    const proAutoPopulateEnabled = false;
-    const proPlan = proAutoPopulateEnabled
-      ? buildQuickAddHeuristicPlan(id, trimmed, timestamp)
-      : { steps: [], aiPlanning: undefined };
-
-    const activity: Activity = {
-      id,
-      goalId: null,
-      title: trimmed,
-      type: 'task',
-      tags: [],
-      notes: undefined,
-      steps: proPlan.steps,
-      reminderAt: quickAddReminderAt ?? null,
-      priority: undefined,
-      estimateMinutes: quickAddEstimateMinutes ?? null,
-      creationSource: 'manual',
-      planGroupId: null,
-      scheduledDate: quickAddScheduledDate ?? null,
-      repeatRule: quickAddRepeatRule,
-      repeatCustom: undefined,
-      orderIndex: (activities.length || 0) + 1,
-      phase: null,
-      status: 'planned',
-      actualMinutes: null,
-      startedAt: null,
-      completedAt: null,
-      aiPlanning: proPlan.aiPlanning,
-      forceActual: defaultForceLevels(0),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-
-    // Creating an Activity (even as planning) counts as showing up.
-    recordShowUp();
-    addActivity(activity);
-    showToast({
-      message: 'Activity created',
-      variant: 'success',
-      // Keep it above the quick add dock (and above the keyboard when open).
-      bottomOffset: quickAddReservedHeight + spacing.sm,
-      durationMs: 2200,
-    });
-    pendingScrollToActivityIdRef.current = activity.id;
-    // If the user didn't add any scheduling/reminder info during quick-add,
-    // queue a gentle "add a trigger" guide for when the dock is collapsed.
-    const hasTrigger =
-      Boolean(activity.reminderAt) || Boolean(activity.scheduledDate) || Boolean(activity.repeatRule);
-    if (!hasTrigger && !triggerGuideVisible && !triggerPickerVisible) {
-      setPostCreateTriggerActivityId(activity.id);
-    }
-    capture(AnalyticsEvent.ActivityCreated, {
-      source: 'quick_add',
-      activity_id: activity.id,
-      goal_id: null,
-      has_due_date: Boolean(activity.scheduledDate),
-      has_reminder: Boolean(activity.reminderAt),
-      has_estimate: Boolean(activity.estimateMinutes),
-    });
-    setQuickAddTitle('');
-    setQuickAddReminderAt(null);
-    setQuickAddScheduledDate(null);
-    setQuickAddRepeatRule(undefined);
-    setQuickAddEstimateMinutes(null);
-    setHasQuickAddAiGenerated(false);
-    lastQuickAddAiTitleRef.current = null;
-    // Keep the keyboard up for rapid entry.
-    requestAnimationFrame(() => {
-      quickAddInputRef.current?.focus();
-    });
-
-    // Enrich activity with AI details asynchronously
-    markActivityEnrichment(activity.id, true);
-    enrichActivityWithAI({
-      title: trimmed,
-      goalId: null,
-    })
-      .then((enrichment) => {
-        if (!enrichment) return;
-
-        const timestamp = new Date().toISOString();
-        updateActivity(activity.id, (prev) => {
-          const updates: Partial<Activity> = {
-            updatedAt: timestamp,
-          };
-
-          // Only update fields that weren't already set by the user
-          if (enrichment.notes && !prev.notes) {
-            updates.notes = enrichment.notes;
-          }
-          if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
-            updates.tags = enrichment.tags;
-          }
-          if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
-            updates.steps = enrichment.steps.map((step, idx) => ({
-              id: `step-${activity.id}-${idx}`,
-              title: step.title,
-              orderIndex: idx,
-              completedAt: null,
-            }));
-          }
-          if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
-            updates.estimateMinutes = enrichment.estimateMinutes;
-          }
-          if (enrichment.priority != null && prev.priority == null) {
-            updates.priority = enrichment.priority;
-          }
-
-          // Update aiPlanning with difficulty suggestion
-          if (enrichment.difficulty) {
-            updates.aiPlanning = {
-              ...prev.aiPlanning,
-              difficulty: enrichment.difficulty,
-              estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
-              confidence: 0.7,
-              lastUpdatedAt: timestamp,
-              source: 'quick_suggest' as const,
-            };
-          }
-
-          return { ...prev, ...updates };
-        });
-      })
-      .catch((err) => {
-        // Silently fail - activity creation should succeed even if enrichment fails
-        if (__DEV__) {
-          console.warn('[ActivitiesScreen] Failed to enrich activity:', err);
-        }
-      })
-      .finally(() => {
-        markActivityEnrichment(activity.id, false);
-      });
-  }, [
-    activities.length,
-    addActivity,
-    updateActivity,
-    buildQuickAddHeuristicPlan,
-    capture,
-    quickAddEstimateMinutes,
-    quickAddReminderAt,
-    quickAddReservedHeight,
-    quickAddRepeatRule,
-    quickAddScheduledDate,
-    quickAddTitle,
-    markActivityEnrichment,
-    recordShowUp,
-    showToast,
-    triggerGuideVisible,
-    triggerPickerVisible,
-  ]);
+  // handleQuickAddActivity is provided by `useQuickAddDockController`.
 
   // Show the post-create trigger guide once the quick-add dock is collapsed, so it
   // doesn't compete with rapid entry (keyboard-open flow).
@@ -1232,6 +1083,7 @@ export function ActivitiesScreen() {
             <Button
               variant="accent"
               size="xs"
+              testID="e2e.activities.quickAdd.done"
               accessibilityRole="button"
               accessibilityLabel="Done"
               onPress={collapseQuickAdd}
@@ -1242,6 +1094,7 @@ export function ActivitiesScreen() {
             <IconButton
               ref={addButtonRef}
               collapsable={false}
+              testID="e2e.activities.openCoach"
               accessibilityRole="button"
               accessibilityLabel="Add Activity"
               style={styles.addActivityIconButton}

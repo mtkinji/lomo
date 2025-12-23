@@ -769,7 +769,12 @@ export function GoalCoachDrawer({
     // Creating a Goal counts as showing up.
     recordShowUp();
     addGoal(goal);
-    showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
+    showToast({
+      message: 'Goal created',
+      variant: 'success',
+      durationMs: 2200,
+      behaviorDuringSuppression: 'queue',
+    });
     capture(AnalyticsEvent.GoalCreated, {
       source: 'manual',
       goal_id: goal.id,
@@ -825,7 +830,12 @@ export function GoalCoachDrawer({
       // Creating a Goal counts as showing up.
       recordShowUp();
       addGoal(goal);
-      showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
+      showToast({
+        message: 'Goal created',
+        variant: 'success',
+        durationMs: 2200,
+        behaviorDuringSuppression: 'queue',
+      });
       capture(AnalyticsEvent.GoalCreated, {
         source: 'ai_coach',
         goal_id: goal.id,
@@ -903,7 +913,12 @@ export function GoalCoachDrawer({
             // Let users chat freely with the coach from the composer; keep suggestions visible.
             hidePromptSuggestions={false}
             onGoalCreated={(goalId) => {
-              showToast({ message: 'Goal created', variant: 'success', durationMs: 2200 });
+              showToast({
+                message: 'Goal created',
+                variant: 'success',
+                durationMs: 2200,
+                behaviorDuringSuppression: 'queue',
+              });
               onGoalCreated?.(goalId);
               onClose();
               if (navigateToGoalDetailOnCreate) {

@@ -4688,6 +4688,7 @@ export function IdentityAspirationFlow({
       <SurveyCard
         mode="completed"
         variant="stacked"
+        style={styles.surveyCompleteCard}
         footerLeft={
           <Button
             variant="ghost"
@@ -4877,6 +4878,11 @@ const styles = StyleSheet.create({
   surveyCompleteBody: {
     gap: spacing.sm,
     alignItems: 'flex-start',
+  },
+  surveyCompleteCard: {
+    // Match the SurveyCard's built-in top separation with bottom separation so
+    // the next Arc card doesn't visually collide with the completed state.
+    marginBottom: spacing.lg,
   },
   surveyCompleteActionsRow: {
     flexDirection: 'row',

@@ -21,6 +21,8 @@
 ### Engineering playbooks
 
 - **Keyboard & Input Safety — Implementation Guide**: `docs/keyboard-input-safety-implementation.md` (companion to `docs/prds/keyboard-input-safety-prd.md`)
+- **Automated testing strategy**: `docs/automated-testing-strategy.md`
+- **Maestro E2E (local setup)**: `docs/maestro-e2e.md`
 
 ### Backend & infra strategy
 

@@ -42,6 +42,11 @@ export type KeyboardAwareScrollViewHandle = {
    * (not the inner TextInput) is revealed on first focus.
    */
   setNextRevealTarget: (nodeHandle: number | null, extraOffset?: number) => void;
+  /**
+   * Generic ScrollView escape hatch for non-keyboard-driven navigation
+   * (e.g. "jump to section" buttons).
+   */
+  scrollTo: (args: { x?: number; y?: number; animated?: boolean }) => void;
 };
 
 type Props = ScrollViewProps & {
@@ -187,7 +192,14 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
 
     useImperativeHandle(
       ref,
-      () => ({ scrollToFocusedInput, scrollToNodeHandle, setNextRevealTarget }),
+      () => ({
+        scrollToFocusedInput,
+        scrollToNodeHandle,
+        setNextRevealTarget,
+        scrollTo: (args) => {
+          (scrollRef.current as any)?.scrollTo?.(args);
+        },
+      }),
       [scrollToFocusedInput, scrollToNodeHandle, setNextRevealTarget],
     );
 

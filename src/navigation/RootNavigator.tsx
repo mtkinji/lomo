@@ -56,7 +56,7 @@ export type RootDrawerParamList = {
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {
-        initialTab?: 'tools' | 'gallery' | 'typeColor' | 'arcTesting';
+        initialTab?: 'tools' | 'gallery' | 'typeColor' | 'arcTesting' | 'memory' | 'e2e';
       }
     | undefined;
   DevArcTestingResults:
@@ -639,6 +639,7 @@ function KwiltDrawerContent(props: any) {
               return (
                 <DrawerItem
                   key={route.key}
+                  testID={`nav.drawer.item.${String(route.name)}`}
                   label={label}
                   focused={focused}
                   onPress={() => navigateFromDrawer(route.name)}
@@ -660,6 +661,7 @@ function KwiltDrawerContent(props: any) {
         <View style={styles.drawerBottom}>
           {!!devToolsRoute && (
             <DrawerItem
+              testID="nav.drawer.item.DevTools"
               label={getDrawerLabel(devToolsRoute)}
               focused={activeRouteName === 'DevTools'}
               onPress={() => navigateFromDrawer('DevTools')}

@@ -13,6 +13,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  testID?: string;
 };
 
 /**
@@ -31,6 +32,7 @@ export function ThreeColumnRow({
   style,
   contentStyle,
   accessibilityLabel,
+  testID,
 }: Props) {
   const content = (
     <View style={[styles.row, style]}>
@@ -44,6 +46,7 @@ export function ThreeColumnRow({
 
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}

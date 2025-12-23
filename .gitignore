@@ -1,3 +1,6 @@
+# Editor swap/temp files
+*.swp
+.null.swp
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies

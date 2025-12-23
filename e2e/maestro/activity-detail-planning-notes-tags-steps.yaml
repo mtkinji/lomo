@@ -1,0 +1,70 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Activity detail: planning + notes + tags + steps
+# Notes editing uses LongTextField's drawer; we only assert open/close deterministically.
+
+- launchApp
+
+- tapOn:
+    id: "nav.drawer.toggle"
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+- tapOn:
+    id: "devtools.tab.tools"
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.seed.showActivityDetailGuide"
+    direction: DOWN
+- tapOn:
+    id: "e2e.seed.showActivityDetailGuide"
+
+# Planning: estimate sheet open/clear/save (save is deterministic even if picker differs).
+- scrollUntilVisible:
+    element:
+      id: "e2e.activityDetail.planning.estimate.open"
+    direction: DOWN
+- tapOn:
+    id: "e2e.activityDetail.planning.estimate.open"
+- tapOn:
+    id: "e2e.activityDetail.estimate.clear"
+    optional: true
+- tapOn:
+    id: "e2e.activityDetail.planning.estimate.open"
+- tapOn:
+    id: "e2e.activityDetail.estimate.save"
+
+# Steps: start add-step inline (input presence is enough).
+- scrollUntilVisible:
+    element:
+      id: "e2e.activityDetail.steps.addRow"
+    direction: UP
+    timeout: 120000
+- tapOn:
+    id: "e2e.activityDetail.steps.addRow"
+- tapOn:
+    id: "e2e.activityDetail.steps.newInput"
+- inputText: "E2E step"
+
+# Notes: open editor drawer then close.
+- scrollUntilVisible:
+    element:
+      id: "e2e.activityDetail.notes"
+    direction: DOWN
+- tapOn:
+    id: "e2e.activityDetail.notes"
+- tapOn:
+    id: "e2e.activityDetail.notes.editor.done"
+
+# Tags: focus input and add one tag.
+- scrollUntilVisible:
+    element:
+      id: "e2e.activityDetail.tags.open"
+    direction: DOWN
+- tapOn:
+    id: "e2e.activityDetail.tags.open"
+- tapOn:
+    id: "e2e.activityDetail.tags.input"
+- inputText: "e2e"
+
+

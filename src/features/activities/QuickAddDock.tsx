@@ -195,6 +195,7 @@ export function QuickAddDock({
           <View style={styles.collapsedInnerGutter}>
             <View style={styles.collapsedInputShell}>
               <Pressable
+                testID="e2e.activities.quickAdd.open"
                 accessibilityRole="button"
                 accessibilityLabel="Add an activity"
                 onPress={() => setIsFocused(true)}
@@ -262,6 +263,7 @@ export function QuickAddDock({
             <View style={styles.contentStack}>
               <View style={styles.composerRow}>
                 <Pressable
+                  testID="e2e.activities.quickAdd.submit"
                   accessibilityRole="button"
                   accessibilityLabel="Create activity"
                   accessibilityState={{ disabled: !canSubmit }}
@@ -300,6 +302,7 @@ export function QuickAddDock({
                   <View style={styles.titleFieldClipper}>
                     <RNTextInput
                       ref={inputRef}
+                      testID="e2e.activities.quickAdd.input"
                       value={value}
                       onChangeText={onChangeText}
                       placeholder="Add an activity"

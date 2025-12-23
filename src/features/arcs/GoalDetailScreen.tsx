@@ -50,6 +50,7 @@ import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI } from '../../services/ai';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -69,7 +70,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import type { ObjectPickerOption } from '../../ui/ObjectPicker';
-import { EditableField } from '../../ui/EditableField';
+import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
@@ -86,6 +87,9 @@ import { openPaywallPurchaseEntry } from '../../services/paywall';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { parseTags } from '../../utils/tags';
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
+import { QuickAddDock } from '../activities/QuickAddDock';
+import { useQuickAddDockController } from '../activities/useQuickAddDockController';
+import { DurationPicker } from '../activities/DurationPicker';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -103,6 +107,8 @@ export function GoalDetailScreen() {
   const navigation = useNavigation();
   const { goalId, entryPoint, initialTab } = route.params;
   const showToast = useToastStore((state) => state.showToast);
+  const setToastsSuppressed = useToastStore((state) => state.setToastsSuppressed);
+  const { capture } = useAnalytics();
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -174,6 +180,118 @@ export function GoalDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
+
+  // Goal:Plan quick add dock (reuse the Activities quick-add pattern).
+  const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
+  const quickAddInitialReservedHeight = 64 + quickAddBottomPadding + 4;
+  const [quickAddReminderSheetVisible, setQuickAddReminderSheetVisible] = useState(false);
+  const [quickAddDueDateSheetVisible, setQuickAddDueDateSheetVisible] = useState(false);
+  const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = useState(false);
+  const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = useState(false);
+  const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = useState(false);
+  const [quickAddIsReminderDateTimePickerVisible, setQuickAddIsReminderDateTimePickerVisible] =
+    useState(false);
+  const [quickAddEstimateDraftMinutes, setQuickAddEstimateDraftMinutes] = useState<number>(30);
+
+  const {
+    value: quickAddTitle,
+    setValue: setQuickAddTitle,
+    inputRef: quickAddInputRef,
+    isFocused: isQuickAddFocused,
+    setIsFocused: setQuickAddFocused,
+    reservedHeight: quickAddReservedHeight,
+    setReservedHeight: setQuickAddReservedHeight,
+    reminderAt: quickAddReminderAt,
+    setReminderAt: setQuickAddReminderAt,
+    scheduledDate: quickAddScheduledDate,
+    setScheduledDate: setQuickAddScheduledDate,
+    repeatRule: quickAddRepeatRule,
+    setRepeatRule: setQuickAddRepeatRule,
+    estimateMinutes: quickAddEstimateMinutes,
+    setEstimateMinutes: setQuickAddEstimateMinutes,
+    collapse: collapseQuickAdd,
+    openToolDrawer: openQuickAddToolDrawer,
+    closeToolDrawer: closeQuickAddToolDrawer,
+    submit: handleQuickAddActivity,
+  } = useQuickAddDockController({
+    goalId,
+    activitiesCount: activities.length,
+    addActivity,
+    updateActivity,
+    recordShowUp,
+    showToast,
+    initialReservedHeightPx: quickAddInitialReservedHeight,
+    onCreated: (activity) => {
+      capture(AnalyticsEvent.ActivityCreated, {
+        source: 'goal_detail_quick_add',
+        activity_id: activity.id,
+        goal_id: goalId,
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (!quickAddEstimateSheetVisible) return;
+    const seed =
+      quickAddEstimateMinutes != null && quickAddEstimateMinutes > 0 ? quickAddEstimateMinutes : 30;
+    setQuickAddEstimateDraftMinutes(Math.max(15, Math.round(seed)));
+  }, [quickAddEstimateMinutes, quickAddEstimateSheetVisible]);
+
+  useEffect(() => {
+    // Ensure the keyboard doesn't compete with the tool drawers.
+    if (quickAddReminderSheetVisible || quickAddDueDateSheetVisible || quickAddRepeatSheetVisible || quickAddEstimateSheetVisible) {
+      setQuickAddFocused(false);
+    }
+  }, [quickAddDueDateSheetVisible, quickAddEstimateSheetVisible, quickAddReminderSheetVisible, quickAddRepeatSheetVisible, setQuickAddFocused]);
+
+  const getInitialQuickAddReminderDateTime = useCallback(() => {
+    if (quickAddReminderAt) return new Date(quickAddReminderAt);
+    const base = new Date();
+    base.setMinutes(0, 0, 0);
+    base.setHours(base.getHours() + 1);
+    return base;
+  }, [quickAddReminderAt]);
+
+  const setQuickAddReminderByOffsetDays = useCallback(
+    (offsetDays: number, hours: number, minutes: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(hours, minutes, 0, 0);
+      setQuickAddReminderAt(date.toISOString());
+      closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+      setQuickAddIsReminderDateTimePickerVisible(false);
+    },
+    [closeQuickAddToolDrawer, setQuickAddReminderAt],
+  );
+
+  const clearQuickAddReminder = useCallback(() => {
+    setQuickAddReminderAt(null);
+    closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+    setQuickAddIsReminderDateTimePickerVisible(false);
+  }, [closeQuickAddToolDrawer, setQuickAddReminderAt]);
+
+  const getInitialQuickAddDueDate = useCallback(() => {
+    if (quickAddScheduledDate) return new Date(quickAddScheduledDate);
+    return new Date();
+  }, [quickAddScheduledDate]);
+
+  const setQuickAddDueDateByOffsetDays = useCallback(
+    (offsetDays: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(23, 0, 0, 0);
+      setQuickAddScheduledDate(date.toISOString());
+      closeQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(false));
+      setQuickAddIsDueDatePickerVisible(false);
+    },
+    [closeQuickAddToolDrawer, setQuickAddScheduledDate],
+  );
+
+  const clearQuickAddDueDate = useCallback(() => {
+    setQuickAddScheduledDate(null);
+    closeQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(false));
+    setQuickAddIsDueDatePickerVisible(false);
+  }, [closeQuickAddToolDrawer, setQuickAddScheduledDate]);
   const addActivitiesButtonRef = useRef<View>(null);
   const [isAddActivitiesButtonReady, setIsAddActivitiesButtonReady] = useState(false);
   /**
@@ -265,6 +383,7 @@ export function GoalDetailScreen() {
     goalActivities.length === 0 &&
     !showFirstGoalCelebration &&
     !hasDismissedOnboardingActivitiesGuide;
+
   const shouldShowOnboardingActivitiesCoachmark =
     shouldShowOnboardingActivitiesGuide &&
     activeTab === 'plan' &&
@@ -308,6 +427,11 @@ export function GoalDetailScreen() {
     !editingForces &&
     !vectorsInfoVisible &&
     !editModalVisible;
+
+  const isAnyBottomGuideVisible =
+    (shouldShowOnboardingActivitiesGuide && activeTab !== 'plan') ||
+    shouldShowPostGoalPlanGuide ||
+    shouldShowOnboardingPlanReadyGuide;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -457,6 +581,18 @@ export function GoalDetailScreen() {
     setActivityCoachVisible(false);
     setActivityComposerVisible(false);
   }, [showFirstGoalCelebration]);
+
+  useEffect(() => {
+    // While the full-screen celebration is up, suppress toasts so we don't
+    // stack transient UI over an interstitial.
+    setToastsSuppressed({
+      key: 'goal_created_interstitial',
+      suppressed: showFirstGoalCelebration,
+    });
+    return () => {
+      setToastsSuppressed({ key: 'goal_created_interstitial', suppressed: false });
+    };
+  }, [setToastsSuppressed, showFirstGoalCelebration]);
 
   useEffect(() => {
     if (!pendingOnboardingSharePrompt) return;
@@ -1066,7 +1202,7 @@ export function GoalDetailScreen() {
         </HStack>
       </BottomGuide>
       <Coachmark
-        visible={shouldShowOnboardingActivitiesCoachmark}
+        visible={shouldShowOnboardingActivitiesCoachmark && !isAnyBottomGuideVisible}
         targetRef={addActivitiesButtonRef}
         scrimToken="pineSubtle"
         spotlight="hole"
@@ -1089,7 +1225,7 @@ export function GoalDetailScreen() {
         placement="below"
       />
       <Coachmark
-        visible={Boolean(shouldShowGoalVectorsCoachmark && vectorsSectionRef.current)}
+        visible={Boolean(shouldShowGoalVectorsCoachmark && vectorsSectionRef.current && !isAnyBottomGuideVisible)}
         targetRef={vectorsSectionRef}
         scrimToken="pineSubtle"
         spotlight="hole"
@@ -1260,13 +1396,6 @@ export function GoalDetailScreen() {
                           </Button>
                         </HStack>
                       </View>
-                      <Text
-                        style={styles.headerV2Title}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {goal?.title ?? 'Goal'}
-                      </Text>
                     </View>
                   ) : (
                     <>
@@ -1363,23 +1492,12 @@ export function GoalDetailScreen() {
                   </View>
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
-                  <EditableField
-                    style={styles.inlineTitleField}
-                    label="Title"
+                  <NarrativeEditableTitle
                     value={goal.title}
-                    variant="title"
                     placeholder="Goal title"
-                    validate={(next) => {
-                      if (!next.trim()) {
-                        return 'Title cannot be empty';
-                      }
-                      return null;
-                    }}
-                    onChange={(nextTitle) => {
-                      const trimmed = nextTitle.trim();
-                      if (!trimmed || trimmed === goal.title) {
-                        return;
-                      }
+                    accessibilityLabel="Edit goal title"
+                    onCommit={(trimmed) => {
+                      if (!trimmed || trimmed === goal.title) return;
                       const timestamp = new Date().toISOString();
                       updateGoal(goal.id, (prev) => ({
                         ...prev,
@@ -1387,6 +1505,9 @@ export function GoalDetailScreen() {
                         updatedAt: timestamp,
                       }));
                     }}
+                    textStyle={styles.goalNarrativeTitle}
+                    inputStyle={styles.goalNarrativeTitleInput}
+                    containerStyle={styles.goalNarrativeTitleContainer}
                   />
                 </View>
               </HStack>
@@ -1715,7 +1836,7 @@ export function GoalDetailScreen() {
                     // AppShell already provides the page gutter. Keep the Plan canvas flush
                     // with the broader Goal page so Activities align with the header.
                     paddingHorizontal: 0,
-                    paddingBottom: spacing['2xl'],
+                    paddingBottom: spacing['2xl'] + quickAddReservedHeight,
                     paddingTop: spacing.md,
                   }}
                   keyboardShouldPersistTaps="handled"
@@ -1862,6 +1983,32 @@ export function GoalDetailScreen() {
                     ) : null}
                   </VStack>
                 </ScrollView>
+                <QuickAddDock
+                  value={quickAddTitle}
+                  onChangeText={setQuickAddTitle}
+                  inputRef={quickAddInputRef}
+                  isFocused={isQuickAddFocused}
+                  setIsFocused={setQuickAddFocused}
+                  onSubmit={handleQuickAddActivity}
+                  onCollapse={collapseQuickAdd}
+                  reminderAt={quickAddReminderAt}
+                  scheduledDate={quickAddScheduledDate}
+                  repeatRule={quickAddRepeatRule}
+                  estimateMinutes={quickAddEstimateMinutes}
+                  onPressReminder={() =>
+                    openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))
+                  }
+                  onPressDueDate={() =>
+                    openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))
+                  }
+                  onPressRepeat={() =>
+                    openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))
+                  }
+                  onPressEstimate={() =>
+                    openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))
+                  }
+                  onReservedHeightChange={setQuickAddReservedHeight}
+                />
               </View>
             )}
           </VStack>
@@ -1880,6 +2027,184 @@ export function GoalDetailScreen() {
           Once the tap-centric Agent entry is refined for object canvases,
           we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
+      <BottomDrawer
+        visible={quickAddReminderSheetVisible}
+        onClose={() =>
+          closeQuickAddToolDrawer(() => {
+            setQuickAddReminderSheetVisible(false);
+            setQuickAddIsReminderDateTimePickerVisible(false);
+          })
+        }
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Reminder</Text>
+          <VStack space="sm">
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(0, 18, 0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Later today (6pm)</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(1, 9, 0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Tomorrow morning (9am)</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(7, 9, 0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Next week (9am)</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddIsReminderDateTimePickerVisible(true)}>
+              <Text style={styles.quickAddSheetRowLabel}>Pick date & time…</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={clearQuickAddReminder}>
+              <Text style={styles.quickAddSheetRowLabel}>Clear reminder</Text>
+            </Pressable>
+          </VStack>
+          {quickAddIsReminderDateTimePickerVisible && (
+            <View style={styles.quickAddDatePickerContainer}>
+              <DateTimePicker
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialQuickAddReminderDateTime()}
+                onChange={(event: DateTimePickerEvent, date?: Date) => {
+                  if (Platform.OS !== 'ios') setQuickAddIsReminderDateTimePickerVisible(false);
+                  if (!date || event.type === 'dismissed') return;
+                  setQuickAddReminderAt(new Date(date).toISOString());
+                  closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+                  setQuickAddIsReminderDateTimePickerVisible(false);
+                }}
+              />
+            </View>
+          )}
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddDueDateSheetVisible}
+        onClose={() =>
+          closeQuickAddToolDrawer(() => {
+            setQuickAddDueDateSheetVisible(false);
+            setQuickAddIsDueDatePickerVisible(false);
+          })
+        }
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Due</Text>
+          <VStack space="sm">
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Today</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(1)}>
+              <Text style={styles.quickAddSheetRowLabel}>Tomorrow</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(7)}>
+              <Text style={styles.quickAddSheetRowLabel}>Next week</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddIsDueDatePickerVisible(true)}>
+              <Text style={styles.quickAddSheetRowLabel}>Pick a date…</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={clearQuickAddDueDate}>
+              <Text style={styles.quickAddSheetRowLabel}>Clear due date</Text>
+            </Pressable>
+          </VStack>
+          {quickAddIsDueDatePickerVisible && (
+            <View style={styles.quickAddDatePickerContainer}>
+              <DateTimePicker
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialQuickAddDueDate()}
+                onChange={(event: DateTimePickerEvent, date?: Date) => {
+                  if (Platform.OS !== 'ios') setQuickAddIsDueDatePickerVisible(false);
+                  if (!date || event.type === 'dismissed') return;
+                  const next = new Date(date);
+                  next.setHours(23, 0, 0, 0);
+                  setQuickAddScheduledDate(next.toISOString());
+                  closeQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(false));
+                  setQuickAddIsDueDatePickerVisible(false);
+                }}
+              />
+            </View>
+          )}
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddRepeatSheetVisible}
+        onClose={() => closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false))}
+        snapPoints={['55%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Repeat</Text>
+          <VStack space="sm">
+            {(['daily', 'weekly', 'weekdays', 'monthly', 'yearly'] as const).map((rule) => (
+              <Pressable
+                key={rule}
+                style={styles.quickAddSheetRow}
+                onPress={() => {
+                  setQuickAddRepeatRule(rule);
+                  closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false));
+                }}
+              >
+                <Text style={styles.quickAddSheetRowLabel}>
+                  {rule === 'weekdays' ? 'Weekdays' : rule.charAt(0).toUpperCase() + rule.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable
+              style={styles.quickAddSheetRow}
+              onPress={() => {
+                setQuickAddRepeatRule(undefined);
+                closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false));
+              }}
+            >
+              <Text style={styles.quickAddSheetRowLabel}>Off</Text>
+            </Pressable>
+          </VStack>
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddEstimateSheetVisible}
+        onClose={() => closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false))}
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Duration</Text>
+          <VStack space="md">
+            <DurationPicker
+              valueMinutes={quickAddEstimateDraftMinutes}
+              onChangeMinutes={setQuickAddEstimateDraftMinutes}
+              accessibilityLabel="Select duration"
+            />
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setQuickAddEstimateMinutes(null);
+                  closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false));
+                }}
+              >
+                <Text style={styles.quickAddSheetRowLabel}>Clear</Text>
+              </Button>
+              <Button
+                variant="primary"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setQuickAddEstimateMinutes(quickAddEstimateDraftMinutes);
+                  closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false));
+                }}
+              >
+                <Text style={[styles.quickAddSheetRowLabel, { color: colors.primaryForeground }]}>
+                  Save
+                </Text>
+              </Button>
+            </HStack>
+          </VStack>
+        </View>
+      </BottomDrawer>
+
       <BottomDrawer
         visible={vectorsInfoVisible}
         onClose={() => setVectorsInfoVisible(false)}
@@ -3340,6 +3665,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
+  goalNarrativeTitleContainer: {
+    // Keep the title feeling like content (not a boxed input) by letting it flow
+    // naturally within the canvas column.
+    paddingVertical: spacing.xs,
+  },
+  goalNarrativeTitle: {
+    ...typography.titleMd,
+    color: colors.textPrimary,
+  },
+  goalNarrativeTitleInput: {
+    // Minimal edit affordance: no border/background. Keep typography identical.
+    ...typography.titleMd,
+    color: colors.textPrimary,
+  },
   actionsTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
@@ -3489,6 +3828,36 @@ const styles = StyleSheet.create({
   },
   manualFormContainer: {
     flex: 1,
+  },
+  quickAddSheetContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  quickAddSheetTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  quickAddSheetRow: {
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  quickAddSheetRowLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  quickAddDatePickerContainer: {
+    marginTop: spacing.md,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
   },
 });
 

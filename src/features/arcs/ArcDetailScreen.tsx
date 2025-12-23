@@ -1,5 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
+  Animated,
   StyleSheet,
   View,
   TextInput,
@@ -18,13 +19,15 @@ import {
   Text,
   LayoutAnimation,
   UIManager,
+  findNodeHandle,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
-import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
+import { blurs, cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -46,7 +49,7 @@ import { LongTextField } from '../../ui/LongTextField';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
-import { EditableField } from '../../ui/EditableField';
+import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { EditableTextArea } from '../../ui/EditableTextArea';
 import { Card } from '../../ui/Card';
 import {
@@ -77,7 +80,7 @@ import { trackUnsplashDownload, withUnsplashReferral, type UnsplashPhoto } from 
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
 import { ArcBannerSheet } from './ArcBannerSheet';
-import { SegmentedControl } from '../../ui/SegmentedControl';
+import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -104,9 +107,10 @@ export function ArcDetailScreen() {
   const { arcId, openGoalCreation, showFirstArcCelebration: showCelebrationFromRoute } =
     route.params;
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
   const createGoalsButtonRef = useRef<View>(null);
+  const goalsHeaderRef = useRef<View>(null);
   const heroBannerRef = useRef<View>(null);
-  const tabControlRef = useRef<View>(null);
   const insightsSectionRef = useRef<View>(null);
 
   const arcs = useAppStore((state) => state.arcs);
@@ -193,9 +197,6 @@ export function ArcDetailScreen() {
     Boolean(showCelebrationFromRoute && !hasSeenFirstArcCelebration),
   );
   const hasConsumedRouteCelebrationRef = useRef(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'goals' | 'history'>(
-    'details',
-  );
   const [arcExploreGuideStep, setArcExploreGuideStep] = useState(0);
   const hasStartedArcExploreGuideRef = useRef(false);
   const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
@@ -204,6 +205,67 @@ export function ArcDetailScreen() {
   >(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
+
+  // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
+  const ARC_HEADER_HEIGHT = 56;
+  const HEADER_BOTTOM_Y = insets.top + ARC_HEADER_HEIGHT;
+  const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
+  const BOTTOM_CTA_BAR_HEIGHT = 92;
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const sheetTopRef = useRef<View | null>(null);
+  const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
+
+  const measureSheetTopAtRest = useCallback(() => {
+    const node = sheetTopRef.current;
+    if (!node) return;
+    const handle = findNodeHandle(node);
+    if (!handle) return;
+    UIManager.measureInWindow(handle, (_x, y) => {
+      if (typeof y === 'number' && Number.isFinite(y)) {
+        setSheetTopAtRestWindowY(y);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    // Measure once after initial layout. This is our scroll threshold anchor.
+    requestAnimationFrame(() => {
+      measureSheetTopAtRest();
+    });
+  }, [measureSheetTopAtRest]);
+
+  const headerTransitionStartScrollY =
+    sheetTopAtRestWindowY != null
+      ? Math.max(0, sheetTopAtRestWindowY - HEADER_BOTTOM_Y)
+      : 9999;
+
+  const headerProgress = scrollY.interpolate({
+    inputRange: [headerTransitionStartScrollY, headerTransitionStartScrollY + SHEET_HEADER_TRANSITION_RANGE_PX],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Airbnb-like: hero is nearly gone by the moment the sheet top reaches the header.
+  const HERO_FADE_LEAD_PX = 90;
+  const HERO_FADE_TAIL_PX = 10;
+  const heroOpacity = scrollY.interpolate({
+    inputRange: [
+      Math.max(0, headerTransitionStartScrollY - HERO_FADE_LEAD_PX),
+      headerTransitionStartScrollY + HERO_FADE_TAIL_PX,
+    ],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const headerActionPillOpacity = headerProgress.interpolate({
+    inputRange: [0, 1],
+    // Keep a faint pill even once the header is solid so the actions feel consistent.
+    outputRange: [1, 0.2],
+    extrapolate: 'clamp',
+  });
+  // The hero is inside the scroll content, so it already moves at 1x scroll speed.
+  // Translate it down by +0.5x scroll to net out to ~0.5x upward movement (Airbnb-like parallax).
+  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.5);
 
   // When navigated to with `openGoalCreation: true` (for example, from the Goals
   // canvas "new goal" affordance), immediately surface the Goal creation
@@ -485,6 +547,9 @@ export function ArcDetailScreen() {
         heroHidden: false,
         updatedAt: nowIso,
       }));
+      // After a successful upload, close the banner sheet so the user is returned
+      // to the Arc canvas (and we avoid leaving an overlay mounted that can block taps).
+      setIsHeroModalVisible(false);
     } catch {
       setHeroImageError('Unable to upload image right now.');
     } finally {
@@ -543,98 +608,7 @@ export function ArcDetailScreen() {
       (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
       (arc.developmentPitfalls && arc.developmentPitfalls.length > 0));
 
-  type ArcHistoryEventKind = 'arcCreated' | 'goalCreated' | 'goalCompleted' | 'activityCompleted';
-
-  type ArcHistoryEvent = {
-    id: string;
-    kind: ArcHistoryEventKind;
-    timestamp: string;
-    title: string;
-    dateLabel: string;
-    meta?: string;
-  };
-
-  const arcHistoryEvents: ArcHistoryEvent[] = useMemo(() => {
-    // When an Arc has been deleted (or the detail screen is mounted with a
-    // stale / missing `arcId`), avoid trying to build a history timeline.
-    // This keeps the hooks tree stable while letting the early-return
-    // "Arc not found" state render safely.
-    if (!arc) {
-      return [];
-    }
-
-    const events: ArcHistoryEvent[] = [];
-
-    const formatDateLabel = (timestamp: string) =>
-      new Date(timestamp).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-
-    events.push({
-      id: `arc-created-${arc.id}`,
-      kind: 'arcCreated',
-      timestamp: arc.createdAt,
-      title: 'Arc created',
-      dateLabel: formatDateLabel(arc.createdAt),
-      meta: undefined,
-    });
-
-    arcGoals.forEach((goal) => {
-      events.push({
-        id: `goal-created-${goal.id}`,
-        kind: 'goalCreated',
-        timestamp: goal.createdAt,
-        title: `Goal created: ${goal.title}`,
-        dateLabel: formatDateLabel(goal.createdAt),
-        meta: undefined,
-      });
-
-      if (goal.status === 'completed') {
-        const completedTimestamp = goal.updatedAt ?? goal.createdAt;
-        events.push({
-          id: `goal-completed-${goal.id}`,
-          kind: 'goalCompleted',
-          timestamp: completedTimestamp,
-          title: `Goal completed: ${goal.title}`,
-          dateLabel: formatDateLabel(completedTimestamp),
-          meta: undefined,
-        });
-      }
-    });
-
-    completedArcActivities.forEach((activity) => {
-      if (!activity.completedAt) return;
-      const goalTitle = arcGoals.find((goal) => goal.id === activity.goalId)?.title;
-      const minutes = activity.actualMinutes ?? undefined;
-
-      const metaParts: string[] = [];
-      if (goalTitle) {
-        metaParts.push(goalTitle);
-      }
-      if (minutes && minutes > 0) {
-        const hours = minutes / 60;
-        if (hours >= 1) {
-          const rounded = Math.round(hours * 10) / 10;
-          metaParts.push(`${rounded} hr${rounded === 1 ? '' : 's'}`);
-        } else {
-          metaParts.push(`${minutes} min`);
-        }
-      }
-
-      events.push({
-        id: `activity-completed-${activity.id}`,
-        kind: 'activityCompleted',
-        timestamp: activity.completedAt,
-        title: activity.title || 'Activity completed',
-        dateLabel: formatDateLabel(activity.completedAt),
-        meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
-      });
-    });
-
-    return events.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
-  }, [arc, arcGoals, completedArcActivities]);
+  // History tab removed (Airbnb-style listing scroll). We may reintroduce a timeline section later.
 
   if (!arc) {
     return (
@@ -748,7 +722,7 @@ export function ArcDetailScreen() {
   };
 
   return (
-    <AppShell>
+    <AppShell fullBleedCanvas>
       <BottomGuide
         visible={showOnboardingArcHandoff}
         onClose={handleDismissOnboardingArcHandoff}
@@ -777,7 +751,11 @@ export function ArcDetailScreen() {
                 hasConsumedRouteCelebrationRef.current = true;
                 navigation.setParams({ showFirstArcCelebration: false });
               }
-              setActiveTab('goals');
+              // Jump to Goals section (Airbnb-style: no tabs).
+              requestAnimationFrame(() => {
+                const targetY = Math.max(0, goalsSectionOffset - HEADER_BOTTOM_Y - spacing.md);
+                scrollRef.current?.scrollTo({ y: targetY, animated: true });
+              });
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Go to Goals</Text>
@@ -786,270 +764,215 @@ export function ArcDetailScreen() {
       </BottomGuide>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.screen}>
-          <View style={styles.paddedSection}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {breadcrumbsEnabled ? (
-                <>
-                  <View style={styles.breadcrumbsLeft}>
-                    <BreadcrumbBar
-                      items={[
-                        {
-                          id: 'arcs',
-                          label: 'Arcs',
-                          onPress: () => {
-                            rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
-                          },
-                        },
-                        { id: 'arc', label: arc?.name ?? 'Arc' },
-                      ]}
+          <View pointerEvents="box-none" style={[styles.fixedHeaderOverlay, { height: HEADER_BOTTOM_Y }]}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.fixedHeaderBackground,
+                {
+                  opacity: headerProgress,
+                },
+              ]}
+            />
+            <View style={[styles.fixedHeaderRow, { paddingTop: insets.top, height: HEADER_BOTTOM_Y }]}>
+              <TouchableOpacity
+                style={styles.headerActionCircle}
+                onPress={handleBackToArcs}
+                accessibilityRole="button"
+                accessibilityLabel="Back to Arcs"
+                hitSlop={10}
+                activeOpacity={0.9}
+              >
+                <Animated.View pointerEvents="none" style={[styles.headerActionCircleBg, { opacity: headerActionPillOpacity }]}>
+                  <BlurView
+                    intensity={blurs.headerAction.intensity}
+                    tint={blurs.headerAction.tint}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <View style={styles.headerActionCircleTint} />
+                </Animated.View>
+                <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <HStack alignItems="center" space="xs">
+                <TouchableOpacity
+                  style={styles.headerActionCircle}
+                  onPress={() => {
+                    handleShareArc().catch(() => undefined);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Share arc"
+                  hitSlop={10}
+                  activeOpacity={0.9}
+                >
+                  <Animated.View pointerEvents="none" style={[styles.headerActionCircleBg, { opacity: headerActionPillOpacity }]}>
+                    <BlurView
+                      intensity={blurs.headerAction.intensity}
+                      tint={blurs.headerAction.tint}
+                      style={StyleSheet.absoluteFillObject}
                     />
-                  </View>
-                  <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                    {headerV2Enabled ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onPress={() => {
-                          handleShareArc().catch(() => undefined);
-                        }}
-                        accessibilityLabel="Share arc"
-                      >
-                        <Icon name="share" size={18} color={colors.textPrimary} />
-                      </Button>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger accessibilityLabel="Arc actions">
-                          <IconButton
-                            style={styles.optionsButton}
-                            pointerEvents="none"
-                            accessible={false}
-                          >
-                            <Icon name="more" size={18} color={colors.canvas} />
-                          </IconButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                          {/* Primary, non-destructive action(s) first */}
-                          <DropdownMenuItem onPress={handleToggleArchiveArc}>
-                            <View style={styles.menuItemRow}>
-                              <Icon
-                                name={arc?.status === 'archived' ? 'refresh' : 'archive'}
-                                size={16}
-                                color={colors.textSecondary}
-                              />
-                              <Text style={styles.menuItemLabel}>
-                                {arc?.status === 'archived' ? 'Restore' : 'Archive'}
-                              </Text>
-                            </View>
-                          </DropdownMenuItem>
-
-                          {/* Divider before destructive actions */}
-                          <DropdownMenuSeparator />
-
-                          {/* Destructive action pinned to the bottom */}
-                          <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                            <View style={styles.menuItemRow}>
-                              <Icon name="trash" size={16} color={colors.destructive} />
-                              <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                            </View>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </View>
-                </>
-              ) : (
-                <>
-                  {headerV2Enabled ? (
-                    <View style={styles.headerV2}>
-                      <View style={styles.headerV2TopRow}>
-                        <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleBackToArcs}
-                            accessibilityLabel="Back to Arcs"
-                          >
-                            <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-                          </Button>
-                          <View style={styles.objectTypeRow}>
-                            <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
-                            <Text style={styles.objectTypeLabelV2}>Arc</Text>
-                          </View>
-                        </HStack>
-                        <HStack alignItems="center" space="xs">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleShareArc}
-                            accessibilityLabel="Share arc"
-                          >
-                            <Icon name="share" size={18} color={colors.textPrimary} />
-                          </Button>
-                        </HStack>
+                    <View style={styles.headerActionCircleTint} />
+                  </Animated.View>
+                  <Icon name="share" size={18} color={colors.textPrimary} />
+                </TouchableOpacity>
+                <DropdownMenu>
+                  <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                    <TouchableOpacity
+                      style={styles.headerActionCircle}
+                      accessibilityRole="button"
+                      accessibilityLabel="Arc actions"
+                      hitSlop={10}
+                      activeOpacity={0.9}
+                    >
+                      <Animated.View pointerEvents="none" style={[styles.headerActionCircleBg, { opacity: headerActionPillOpacity }]}>
+                        <BlurView
+                          intensity={blurs.headerAction.intensity}
+                          tint={blurs.headerAction.tint}
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                        <View style={styles.headerActionCircleTint} />
+                      </Animated.View>
+                      <Icon name="more" size={18} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                    <DropdownMenuItem
+                      onPress={() => {
+                        setIsHeroModalVisible(true);
+                      }}
+                    >
+                      <View style={styles.menuItemRow}>
+                        <Icon name="edit" size={16} color={colors.textSecondary} />
+                        <Text style={styles.menuItemLabel}>Edit banner</Text>
                       </View>
-                      <Text style={styles.headerV2Title} numberOfLines={1} ellipsizeMode="tail">
-                        {arc?.name ?? 'Arc'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      <View style={styles.headerSide}>
-                        <IconButton
-                          style={styles.backButton}
-                          onPress={handleBackToArcs}
-                          accessibilityLabel="Back to Arcs"
-                        >
-                          <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                        </IconButton>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onPress={handleToggleArchiveArc}>
+                      <View style={styles.menuItemRow}>
+                        <Icon
+                          name={arc?.status === 'archived' ? 'refresh' : 'archive'}
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.menuItemLabel}>
+                          {arc?.status === 'archived' ? 'Restore' : 'Archive'}
+                        </Text>
                       </View>
-                      <View style={styles.headerCenter}>
-                        <View style={styles.objectTypeRow}>
-                          <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
-                          <Text style={styles.objectTypeLabel}>Arc</Text>
-                        </View>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                      <View style={styles.menuItemRow}>
+                        <Icon name="trash" size={16} color={colors.destructive} />
+                        <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
                       </View>
-                      <View style={styles.headerSideRight}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger accessibilityLabel="Arc actions">
-                            <IconButton
-                              style={styles.optionsButton}
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="more" size={18} color={colors.canvas} />
-                            </IconButton>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                            {/* Primary, non-destructive action(s) first */}
-                            <DropdownMenuItem onPress={handleToggleArchiveArc}>
-                              <View style={styles.menuItemRow}>
-                                <Icon
-                                  name={arc?.status === 'archived' ? 'refresh' : 'archive'}
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text style={styles.menuItemLabel}>
-                                  {arc?.status === 'archived' ? 'Restore' : 'Archive'}
-                                </Text>
-                              </View>
-                            </DropdownMenuItem>
-
-                            {/* Divider before destructive actions */}
-                            <DropdownMenuSeparator />
-
-                            {/* Destructive action pinned to the bottom */}
-                            <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                              <View style={styles.menuItemRow}>
-                                <Icon name="trash" size={16} color={colors.destructive} />
-                                <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                              </View>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </View>
-                    </>
-                  )}
-                </>
-              )}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </HStack>
             </View>
           </View>
 
           <KeyboardAwareScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+              useNativeDriver: false,
+            })}
+            scrollEventThrottle={16}
           >
             <View style={styles.pageContent}>
-              <View>
-                <View style={[styles.paddedSection, styles.arcHeaderSection]}>
-                  <View style={styles.heroContainer}>
-                    <View ref={heroBannerRef} collapsable={false}>
-                      <TouchableOpacity
-                        style={styles.heroImageWrapper}
-                        onPress={() => {
-                          logArcDetailDebug('hero:pressed', {
-                            previousVisible: isHeroModalVisible,
-                          });
-                          setIsHeroModalVisible(true);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit Arc banner"
-                        activeOpacity={0.9}
-                      >
-                        {arc.thumbnailUrl ? (
-                          <Image
-                            source={{ uri: arc.thumbnailUrl }}
-                            style={styles.heroImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <LinearGradient
-                            colors={headerGradientColors}
-                            start={headerGradientDirection.start}
-                            end={headerGradientDirection.end}
-                            style={styles.heroImage}
-                          />
-                        )}
-                        {arc.heroImageMeta?.source === 'unsplash' &&
-                        arc.heroImageMeta.unsplashAuthorName &&
-                        arc.heroImageMeta.unsplashAuthorLink &&
-                        arc.heroImageMeta.unsplashLink ? (
-                          <View pointerEvents="box-none" style={styles.heroAttributionOverlay}>
-                            <View style={styles.heroAttributionPill}>
+              <View style={styles.arcHeroSection}>
+                <View ref={heroBannerRef} collapsable={false}>
+                  <Animated.View
+                    style={{
+                      opacity: heroOpacity,
+                      transform: [{ translateY: heroParallaxTranslateY }],
+                    }}
+                  >
+                    <TouchableOpacity
+                      style={styles.heroFullBleedWrapper}
+                      onPress={() => {
+                        logArcDetailDebug('hero:pressed', {
+                          previousVisible: isHeroModalVisible,
+                        });
+                        setIsHeroModalVisible(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit Arc banner"
+                      activeOpacity={0.95}
+                    >
+                      {arc.thumbnailUrl ? (
+                        <Image
+                          source={{ uri: arc.thumbnailUrl }}
+                          style={styles.heroFullBleedImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <LinearGradient
+                          colors={headerGradientColors}
+                          start={headerGradientDirection.start}
+                          end={headerGradientDirection.end}
+                          style={styles.heroFullBleedImage}
+                        />
+                      )}
+                      {arc.heroImageMeta?.source === 'unsplash' &&
+                      arc.heroImageMeta.unsplashAuthorName &&
+                      arc.heroImageMeta.unsplashAuthorLink &&
+                      arc.heroImageMeta.unsplashLink ? (
+                        <View pointerEvents="box-none" style={styles.heroAttributionOverlay}>
+                          <View style={styles.heroAttributionPill}>
+                            <Text style={styles.heroAttributionText} numberOfLines={1} ellipsizeMode="tail">
+                              Photo by{' '}
                               <Text
-                                style={styles.heroAttributionText}
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
+                                style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                onPress={() => {
+                                  Linking.openURL(arc.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
+                                }}
                               >
-                                Photo by{' '}
-                                <Text
-                                  style={[styles.heroAttributionText, styles.heroAttributionLink]}
-                                  onPress={() => {
-                                    Linking.openURL(arc.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
-                                  }}
-                                >
-                                  {arc.heroImageMeta.unsplashAuthorName}
-                                </Text>{' '}
-                                on{' '}
-                                <Text
-                                  style={[styles.heroAttributionText, styles.heroAttributionLink]}
-                                  onPress={() => {
-                                    Linking.openURL(arc.heroImageMeta!.unsplashLink!).catch(() => {});
-                                  }}
-                                >
-                                  Unsplash
-                                </Text>
+                                {arc.heroImageMeta.unsplashAuthorName}
+                              </Text>{' '}
+                              on{' '}
+                              <Text
+                                style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                onPress={() => {
+                                  Linking.openURL(arc.heroImageMeta!.unsplashLink!).catch(() => {});
+                                }}
+                              >
+                                Unsplash
                               </Text>
-                            </View>
+                            </Text>
                           </View>
-                        ) : null}
-                        <View style={styles.heroEditButton}>
-                          <Icon name="edit" size={16} color={colors.canvas} />
                         </View>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  </Animated.View>
+                </View>
+              </View>
 
-                  <EditableField
-                    label="Name"
+              <View
+                ref={sheetTopRef}
+                collapsable={false}
+                onLayout={measureSheetTopAtRest}
+                style={[
+                  styles.arcSheet,
+                  { paddingBottom: spacing['2xl'] + insets.bottom + BOTTOM_CTA_BAR_HEIGHT },
+                ]}
+              >
+                <View style={styles.arcSheetInner}>
+                  <NarrativeEditableTitle
                     value={arc.name}
-                    variant="title"
-                  autoFocusOnEdit={false}
-                    onChange={(nextName) => {
-                      const trimmed = nextName.trim();
-                      if (trimmed.length === 0 || trimmed === arc.name) {
-                        return;
-                      }
+                    placeholder="Name this Arc"
+                    accessibilityLabel="Edit arc name"
+                    onCommit={(trimmed) => {
+                      if (!trimmed || trimmed === arc.name) return;
                       updateArc(arc.id, (current) => ({
                         ...current,
                         name: trimmed,
                         updatedAt: new Date().toISOString(),
                       }));
-                    }}
-                    onSubmit={(nextName) => {
-                      const trimmed = nextName.trim();
-                      if (!trimmed || trimmed === arc.name) return;
                       showToast({
                         message: 'Arc renamed',
                         variant: 'success',
@@ -1057,88 +980,65 @@ export function ArcDetailScreen() {
                         behaviorDuringSuppression: 'queue',
                       });
                     }}
-                    placeholder="Name this Arc"
-                    validate={(next) => {
-                      if (!next.trim()) {
-                        return 'Name cannot be empty';
-                      }
+                    textStyle={styles.arcNarrativeTitle}
+                    inputStyle={styles.arcNarrativeTitleInput}
+                    containerStyle={styles.arcNarrativeTitleContainer}
+                    validate={(nextTrimmed) => {
+                      if (!nextTrimmed.trim()) return 'Name cannot be empty';
                       return null;
                     }}
                   />
-                  {/* Canvas mode toggle: Details vs Goals vs History */}
-                  <View
-                    ref={tabControlRef}
-                    collapsable={false}
-                    style={styles.segmentedControlRow}
-                  >
-                    <SegmentedControl
-                      value={activeTab}
-                      onChange={setActiveTab}
-                      options={[
-                        { value: 'details', label: 'Details' },
-                        { value: 'goals', label: 'Goals' },
-                        { value: 'history', label: 'History' },
-                          ]}
+                  <Text style={styles.arcTitleMeta}>
+                    {arcGoals.length === 0
+                      ? 'No goals yet'
+                      : `${arcGoals.length} goal${arcGoals.length === 1 ? '' : 's'} · ${completedArcGoals.length} completed`}
+                  </Text>
+
+                  <View style={{ marginTop: spacing.sm }}>
+                    <LongTextField
+                      label="Description"
+                      hideLabel
+                      surfaceVariant="flat"
+                      value={arc.narrative ?? ''}
+                      placeholder="Add a short note about this Arc…"
+                      enableAi
+                      aiContext={{
+                        objectType: 'arc',
+                        objectId: arc.id,
+                        fieldId: 'narrative',
+                      }}
+                      onChange={(nextNarrative) => {
+                        const trimmed = nextNarrative.trim();
+                        updateArc(arc.id, (current) => ({
+                          ...current,
+                          narrative: trimmed.length === 0 ? undefined : trimmed,
+                          updatedAt: new Date().toISOString(),
+                        }));
+                      }}
+                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                        openForFieldContext({
+                          objectType,
+                          objectId,
+                          fieldId,
+                          currentText,
+                          fieldLabel: 'Arc narrative',
+                        });
+                      }}
                     />
                   </View>
-                  {activeTab === 'details' && (
-                    <View style={{ marginTop: spacing.sm }}>
-                      <LongTextField
-                        label="Description"
-                        value={arc.narrative ?? ''}
-                        placeholder="Add a short note about this Arc…"
-                        enableAi
-                        aiContext={{
-                          objectType: 'arc',
-                          objectId: arc.id,
-                          fieldId: 'narrative',
-                        }}
-                        onChange={(nextNarrative) => {
-                          const trimmed = nextNarrative.trim();
-                          updateArc(arc.id, (current) => ({
-                            ...current,
-                            narrative: trimmed.length === 0 ? undefined : trimmed,
-                            updatedAt: new Date().toISOString(),
-                          }));
-                        }}
-                        onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                          openForFieldContext({
-                            objectType,
-                            objectId,
-                            fieldId,
-                            currentText,
-                            fieldLabel: 'Arc narrative',
-                          });
-                        }}
-                      />
-                    </View>
-                  )}
-                </View>
-              </View>
-              {activeTab === 'details' && (
-                <>
+
                   {renderInsightsSection()}
                   <View style={styles.sectionDivider} />
-                </>
-              )}
 
-              {activeTab === 'goals' && (
-                <View
-                  style={styles.goalsSection}
-                  onLayout={(event) => {
-                    setGoalsSectionOffset(event.nativeEvent.layout.y);
-                  }}
-                >
                   <View
-                    style={[
-                      styles.goalsDrawerInner,
-                      { paddingBottom: spacing['2xl'] + insets.bottom },
-                    ]}
+                    style={styles.goalsSection}
+                    onLayout={(event) => {
+                      setGoalsSectionOffset(event.nativeEvent.layout.y);
+                    }}
                   >
-                    {arcGoals.length > 0 && (
-                      <View
-                        style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}
-                      >
+                    <View style={styles.goalsDrawerInner}>
+                      <View style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}>
+                        <View ref={goalsHeaderRef} collapsable={false} />
                         <Text style={styles.sectionTitle}>
                           Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
                         </Text>
@@ -1153,130 +1053,119 @@ export function ArcDetailScreen() {
                           <Icon name="plus" size={18} color={colors.canvas} />
                         </IconButton>
                       </View>
-                    )}
 
-                    {arcGoals.length === 0 ? (
-                      <EmptyState
-                        title="Turn this Arc into clear goals"
-                        instructions={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
-                        style={[styles.goalsEmptyStateContainer, { marginTop: spacing['2xl'] }]}
-                        actions={
-                          <View
-                            ref={createGoalsButtonRef}
-                            collapsable={false}
-                            style={styles.goalsPrimaryButtonWrapper}
-                          >
-                            {shouldShowOnboardingGoalGuide ? (
-                              <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
-                            ) : null}
-                            <Button
-                              variant="accent"
-                              style={styles.goalsEmptyPrimaryButton}
-                              onPress={() => {
-                                setHasDismissedOnboardingGoalGuide(true);
-                                setIsGoalCoachVisible(true);
-                              }}
+                      {arcGoals.length === 0 ? (
+                        <EmptyState
+                          title="Turn this Arc into clear goals"
+                          instructions={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
+                          style={[styles.goalsEmptyStateContainer, { marginTop: spacing['2xl'] }]}
+                          actions={
+                            <View
+                              ref={createGoalsButtonRef}
+                              collapsable={false}
+                              style={styles.goalsPrimaryButtonWrapper}
                             >
-                              <Text style={styles.goalsEmptyPrimaryLabel}>
-                                Create goal
-                              </Text>
-                            </Button>
+                              {shouldShowOnboardingGoalGuide ? (
+                                <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
+                              ) : null}
+                              <Button
+                                variant="accent"
+                                style={styles.goalsEmptyPrimaryButton}
+                                onPress={() => {
+                                  setHasDismissedOnboardingGoalGuide(true);
+                                  setIsGoalCoachVisible(true);
+                                }}
+                              >
+                                <Text style={styles.goalsEmptyPrimaryLabel}>Create goal</Text>
+                              </Button>
+                            </View>
+                          }
+                        />
+                      ) : (
+                        <View style={styles.goalsScrollContent}>
+                          <View style={{ gap: spacing.sm }}>
+                            {arcGoals.map((goal) => (
+                              <GoalListCard
+                                key={goal.id}
+                                goal={goal}
+                                parentArc={arc}
+                                activityCount={activityCountByGoal[goal.id] ?? 0}
+                                thumbnailStyles={thumbnailStyles}
+                                padding="xs"
+                                density="dense"
+                                onPress={() =>
+                                  navigation.navigate('GoalDetail', {
+                                    goalId: goal.id,
+                                    entryPoint: 'arcsStack',
+                                  })
+                                }
+                              />
+                            ))}
                           </View>
-                        }
-                      />
-                    ) : (
-                      <View style={styles.goalsScrollContent}>
-                        <View style={{ gap: spacing.sm }}>
-                          {arcGoals.map((goal) => (
-                            <GoalListCard
-                              key={goal.id}
-                              goal={goal}
-                              parentArc={arc}
-                              activityCount={activityCountByGoal[goal.id] ?? 0}
-                              thumbnailStyles={thumbnailStyles}
-                              padding="xs"
-                              density="dense"
-                              onPress={() =>
-                                navigation.navigate('GoalDetail', {
-                                  goalId: goal.id,
-                                  entryPoint: 'arcsStack',
-                                })
-                              }
-                            />
-                          ))}
                         </View>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {activeTab === 'history' && (
-                <View style={styles.historyTabPlaceholder}>
-                  <Text style={styles.historyTabTitle}>History</Text>
-                  <Text style={styles.historyTabBody}>
-                    See the key milestones and completed work inside this Arc over time.
-                  </Text>
-
-                  {arcHistoryEvents.length === 0 ? (
-                    <View style={styles.historyEmptyCard}>
-                      <Text style={styles.historyEmptyTitle}>No history yet</Text>
-                      <Text style={styles.historyEmptyBody}>
-                        As you create and complete goals and activities in this Arc, a timeline
-                        of key moments will appear here.
-                      </Text>
+                      )}
                     </View>
-                  ) : (
-                    <ScrollView
-                      style={styles.historyScroll}
-                      contentContainerStyle={styles.historyScrollContent}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      <VStack space="sm">
-                        {arcHistoryEvents.map((event) => (
-                          <View key={event.id} style={styles.historyEventCard}>
-                            <Text style={styles.historyEventDate}>{event.dateLabel}</Text>
-                            <Text style={styles.historyEventTitle}>{event.title}</Text>
-                            {event.meta ? (
-                              <Text style={styles.historyEventMeta}>{event.meta}</Text>
-                            ) : null}
-                          </View>
-                        ))}
-                      </VStack>
-                    </ScrollView>
-                  )}
-                </View>
-              )}
+                  </View>
 
-              {headerV2Enabled ? (
-                <View style={[styles.paddedSection, { paddingTop: spacing.lg, paddingBottom: spacing['2xl'] }]}>
-                  <Card>
-                    <Text style={styles.actionsTitle}>Actions</Text>
-                    <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                      <Button
-                        variant="secondary"
-                        fullWidth
-                        onPress={handleToggleArchiveArc}
-                        accessibilityLabel={arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
-                      >
-                        <Text style={styles.actionsButtonLabel}>
-                          {arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
-                        </Text>
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        fullWidth
-                        onPress={handleDeleteArc}
-                        accessibilityLabel="Delete arc"
-                      >
-                        <Text style={styles.actionsButtonLabelDestructive}>Delete arc</Text>
-                      </Button>
-                    </VStack>
-                  </Card>
+                  {headerV2Enabled ? (
+                    <View style={{ paddingTop: spacing.lg }}>
+                      <Card>
+                        <Text style={styles.actionsTitle}>Actions</Text>
+                        <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                          <Button
+                            variant="secondary"
+                            fullWidth
+                            onPress={handleToggleArchiveArc}
+                            accessibilityLabel={arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
+                          >
+                            <Text style={styles.actionsButtonLabel}>
+                              {arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
+                            </Text>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            fullWidth
+                            onPress={handleDeleteArc}
+                            accessibilityLabel="Delete arc"
+                          >
+                            <Text style={styles.actionsButtonLabelDestructive}>Delete arc</Text>
+                          </Button>
+                        </VStack>
+                      </Card>
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
+              </View>
             </View>
           </KeyboardAwareScrollView>
+          <View
+            pointerEvents="box-none"
+            style={[styles.bottomCtaBar, { paddingBottom: insets.bottom }]}
+          >
+            <View style={styles.bottomCtaRow}>
+              <View style={styles.bottomCtaLeftMeta}>
+                <Text style={styles.bottomCtaMetaTitle}>Goals</Text>
+                <Text style={styles.bottomCtaMetaBody}>
+                  {arcGoals.length === 0
+                    ? 'None yet'
+                    : `${completedArcGoals.length}/${arcGoals.length} completed`}
+                </Text>
+              </View>
+              <View style={styles.bottomCtaRight}>
+                <Button
+                  variant="accent"
+                  onPress={() => {
+                    setHasDismissedOnboardingGoalGuide(true);
+                    setIsGoalCoachVisible(true);
+                  }}
+                  accessibilityLabel="Create a goal for this Arc"
+                  style={styles.bottomCtaButton}
+                >
+                  <Text style={styles.bottomCtaLabel}>Create goal</Text>
+                </Button>
+              </View>
+            </View>
+          </View>
         </View>
       </TouchableWithoutFeedback>
       <ArcBannerSheet
@@ -1336,18 +1225,17 @@ export function ArcDetailScreen() {
       <Coachmark
         visible={Boolean(
           shouldOfferArcExploreGuide &&
-            activeTab === 'details' &&
             (arcExploreGuideStep === 0
               ? heroBannerRef.current
               : arcExploreGuideStep === 1
-                ? tabControlRef.current
+                ? goalsHeaderRef.current
                 : hasDevelopmentInsights && insightsSectionRef.current),
         )}
         targetRef={
           arcExploreGuideStep === 0
             ? heroBannerRef
             : arcExploreGuideStep === 1
-              ? tabControlRef
+              ? goalsHeaderRef
               : insightsSectionRef
         }
         scrimToken="subtle"
@@ -1365,7 +1253,7 @@ export function ArcDetailScreen() {
             {arcExploreGuideStep === 0
               ? 'Make this Arc yours'
               : arcExploreGuideStep === 1
-                ? 'Switch tabs'
+                ? 'Turn it into goals'
                 : 'Review your insights'}
           </Text>
         }
@@ -1374,7 +1262,7 @@ export function ArcDetailScreen() {
             {arcExploreGuideStep === 0
               ? 'Tap the banner to change the image (upload, curated picks, or search the image library).'
               : arcExploreGuideStep === 1
-                ? 'Use these tabs to move between Details, Goals, and your progress history.'
+                ? 'Scroll down to the Goals section and add 3–5 goals so kwilt knows what success looks like.'
                 : 'We generated Arc Development Insights to help you steer this chapter. Tap a section to expand it.'}
           </Text>
         }
@@ -1406,10 +1294,7 @@ export function ArcDetailScreen() {
       />
       <Coachmark
         visible={Boolean(
-          activeTab === 'goals' &&
-            shouldShowOnboardingGoalGuide &&
-            arcGoals.length === 0 &&
-            createGoalsButtonRef.current,
+          shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalsButtonRef.current,
         )}
         targetRef={createGoalsButtonRef}
         scrimToken="pineSubtle"
@@ -1536,6 +1421,85 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  fixedHeaderOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+  fixedHeaderBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.canvas,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  fixedHeaderRow: {
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerActionCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: blurs.headerAction.borderColor,
+  },
+  headerActionCircleBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerActionCircleTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: blurs.headerAction.overlayColor,
+  },
+  bottomCtaBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.canvas,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    // Used to reserve scroll space so content doesn't hide beneath the CTA.
+    minHeight: 92,
+  },
+  bottomCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  bottomCtaLeftMeta: {
+    minWidth: 120,
+  },
+  bottomCtaRight: {
+    alignItems: 'flex-end',
+  },
+  bottomCtaButton: {
+    // Not full-width: match Airbnb's right-side action pill feel.
+    minWidth: 210,
+    maxWidth: 240,
+  },
+  bottomCtaMetaTitle: {
+    ...typography.label,
+    color: colors.textSecondary,
+  },
+  bottomCtaMetaBody: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+  bottomCtaLabel: {
+    ...typography.body,
+    color: colors.canvas,
+    fontWeight: '700',
+  },
   scroll: {
     flex: 1,
   },
@@ -1584,6 +1548,32 @@ const styles = StyleSheet.create({
   heroContainer: {
     marginTop: spacing.xs,
     marginBottom: spacing.xs,
+  },
+  arcHeroSection: {
+    height: 320,
+    backgroundColor: colors.canvas,
+  },
+  heroFullBleedWrapper: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.shellAlt,
+  },
+  heroFullBleedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  arcSheet: {
+    marginTop: -28,
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  arcSheetInner: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
   heroImageWrapper: {
     width: '100%',
@@ -1755,17 +1745,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fonts.semibold,
   },
-  heroEditButton: {
-    position: 'absolute',
-    right: spacing.sm,
-    top: spacing.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   heroMetaText: {
     ...typography.bodySm,
     color: colors.textSecondary,
@@ -1774,9 +1753,9 @@ const styles = StyleSheet.create({
   },
   heroAttributionOverlay: {
     position: 'absolute',
-    bottom: spacing.sm,
-    right: spacing.sm,
-    left: spacing.sm,
+    // Keep this in the bottom-right, but lift it above the sheet overlap.
+    bottom: spacing.sm + 28,
+    right: spacing.xl,
     alignItems: 'flex-end',
   },
   heroAttributionPill: {
@@ -1992,6 +1971,29 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
+  },
+  arcNarrativeTitleContainer: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    alignItems: 'center',
+  },
+  arcNarrativeTitle: {
+    ...typography.titleLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    maxWidth: 420,
+  },
+  arcTitleMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  arcNarrativeTitleInput: {
+    ...typography.titleLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   actionsTitle: {
     ...typography.titleSm,

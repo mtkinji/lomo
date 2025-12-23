@@ -24,6 +24,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Vibration,
   findNodeHandle,
   TextInput,
   TouchableOpacity,
@@ -1249,6 +1250,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [feedbackNote, setFeedbackNote] = useState('');
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollOffsetRef = useRef(0);
+  const lastKeyboardAlignAtRef = useRef(0);
   const keyboardRawHeightRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const inputRef = useRef<TextInput | null>(null);
@@ -2531,6 +2533,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const reason = params?.reason ?? 'bootstrap';
       setIsGeneratingActivitySuggestions(true);
       setHasTransportError(false);
+      if (reason === 'regenerate') {
+        // Clear current suggestions so the UI shows a lightweight skeleton while we work.
+        setActivitySuggestions(null);
+      }
 
       try {
         const canonicalSelectedTypes = (selectedActivityTypes ?? []).filter(
@@ -2675,6 +2681,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
   ]);
 
   const handleRegenerateActivitySuggestions = async () => {
+    // Best-effort tactile feedback so users know the press registered.
+    Vibration.vibrate(10);
     if (mode === 'activityCreation') {
       await fetchActivitySuggestionsOnly({ reason: 'regenerate' });
       return;
@@ -2825,6 +2833,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
       // Align the *bottom* of the focused input to sit `gapPx` above the keyboard top.
       // This is more reliable (and less jumpy) than `scrollResponderScrollNativeHandleToKeyboard`
       // when the chat is hosted inside transformed surfaces (e.g., BottomDrawer).
+      // Guard against multiple back-to-back calls (keyboard listeners + touch handlers)
+      // before `onScroll` updates `scrollOffsetRef`. Without this, repeated calls can
+      // compound offsets and shove the field too high.
+      const now = Date.now();
+      if (now - lastKeyboardAlignAtRef.current < 220) return;
       const rawKeyboardHeight = keyboardRawHeightRef.current;
       if (!rawKeyboardHeight || !scrollRef.current) return;
 
@@ -2846,6 +2859,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
         // Positive delta => input is too low (covered); increase scroll offset.
         // Negative delta => input is too high; decrease scroll offset.
         const targetY = Math.max(0, scrollOffsetRef.current + delta);
+        lastKeyboardAlignAtRef.current = Date.now();
+        // Optimistically update the ref so any follow-up alignment in the next frame
+        // starts from the new target instead of compounding from a stale offset.
+        scrollOffsetRef.current = targetY;
         scrollRef.current?.scrollTo({ y: targetY, animated: true });
       });
     },
@@ -3356,8 +3373,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
                             disabled={isGeneratingActivitySuggestions}
                           >
                             <HStack space="xs" alignItems="center">
-                              <Icon name="refresh" size={14} color={CHAT_COLORS.textPrimary} />
-                              <ButtonLabel size="md">Generate again</ButtonLabel>
+                              {isGeneratingActivitySuggestions ? (
+                                <ActivityIndicator color={CHAT_COLORS.textPrimary} />
+                              ) : (
+                                <Icon name="refresh" size={14} color={CHAT_COLORS.textPrimary} />
+                              )}
+                              <ButtonLabel size="md">
+                                {isGeneratingActivitySuggestions ? 'Generating…' : 'Generate again'}
+                              </ButtonLabel>
                             </HStack>
                           </Button>
                           <Button
@@ -3717,6 +3740,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         <View style={styles.inputField}>
                           <TextInput
                             ref={inputRef}
+                            testID="agent.composer.input"
                             style={[styles.input, !hasInput && styles.inputPlaceholderSmaller]}
                             placeholder={composerPlaceholder}
                             placeholderTextColor={colors.muted}
@@ -3738,6 +3762,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
                         {hasInput ? (
                           <TouchableOpacity
+                            testID="agent.composer.send"
                             style={[
                               styles.sendButton,
                               (sending || !canSend) && styles.sendButtonInactive,
