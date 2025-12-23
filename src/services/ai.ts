@@ -2817,6 +2817,13 @@ async function fetchWithTimeout(
       const headers = new Headers(options.headers ?? undefined);
       // Strip any accidental Authorization headers (we never ship an OpenAI key).
       headers.delete('Authorization');
+      // Supabase Edge Functions gateway: include the project's publishable/anon key if configured.
+      // This keeps the proxy callable even if "verify JWT" is enabled on the function.
+      const supabaseKey = getEnvVar<string>('supabasePublishableKey')?.trim();
+      if (supabaseKey) {
+        headers.set('Authorization', `Bearer ${supabaseKey}`);
+        headers.set('apikey', supabaseKey);
+      }
       try {
         const installId = await getInstallId();
         headers.set('x-kwilt-install-id', installId);
