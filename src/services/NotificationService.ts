@@ -756,14 +756,30 @@ async function cancelDailyFocusInternal() {
   }
 }
 
-async function cancelGoalNudgeInternal() {
-  if (!goalNudgeNotificationId) return;
+async function cancelAllScheduledGoalNudges(reason: 'reschedule' | 'explicit_cancel') {
   try {
-    await Notifications.cancelScheduledNotificationAsync(goalNudgeNotificationId);
-    track(posthogClient, AnalyticsEvent.NotificationCancelled, {
-      notification_type: 'goalNudge',
-      notification_id: goalNudgeNotificationId,
-      reason: 'explicit_cancel',
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(data && data.type === 'goalNudge');
+    });
+    if (matches.length === 0) {
+      goalNudgeNotificationId = null;
+      return;
+    }
+
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'goalNudge',
+        notification_id: req.identifier,
+        reason,
+      });
     });
   } catch (error) {
     if (__DEV__) {
@@ -772,6 +788,10 @@ async function cancelGoalNudgeInternal() {
   } finally {
     goalNudgeNotificationId = null;
   }
+}
+
+async function cancelGoalNudgeInternal() {
+  await cancelAllScheduledGoalNudges('explicit_cancel');
 }
 
 async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
@@ -807,14 +827,8 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
 
-  if (goalNudgeNotificationId) {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(goalNudgeNotificationId);
-    } catch {
-      // ignore
-    }
-    goalNudgeNotificationId = null;
-  }
+  // Cancel any existing scheduled goal nudges before rescheduling.
+  await cancelAllScheduledGoalNudges('reschedule');
 
   const identifier = await Notifications.scheduleNotificationAsync({
     content: {
