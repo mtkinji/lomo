@@ -223,7 +223,7 @@ export async function reconcileNotificationsFiredEstimated(
   // 4) Goal nudges: one-shot notification; estimate fired when it disappears from scheduled list.
   if (prefs.notificationsEnabled && prefs.allowGoalNudges && prefs.osPermissionStatus === 'authorized') {
     const goalNudgeLedger = await loadGoalNudgeLedger();
-    const timeLocal = goalNudgeLedger.scheduleTimeLocal ?? prefs.dailyShowUpTime ?? '09:00';
+    const timeLocal = goalNudgeLedger.scheduleTimeLocal ?? (prefs as any).goalNudgeTime ?? '16:00';
 
     const scheduledGoalNudges = scheduled.filter((req) => {
       const data = req.content.data as any;

@@ -817,12 +817,12 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
     return;
   }
 
-  const timeLocal = prefs.dailyShowUpTime ?? '09:00';
+  const timeLocal = prefs.goalNudgeTime ?? '16:00';
   const [hourString, minuteString] = timeLocal.split(':');
-  const hour = Number.parseInt(hourString ?? '9', 10);
+  const hour = Number.parseInt(hourString ?? '16', 10);
   const minute = Number.parseInt(minuteString ?? '0', 10);
   const fireAt = new Date(now);
-  fireAt.setHours(Number.isNaN(hour) ? 9 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+  fireAt.setHours(Number.isNaN(hour) ? 16 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
   if (fireAt.getTime() <= now.getTime()) {
     fireAt.setDate(fireAt.getDate() + 1);
   }

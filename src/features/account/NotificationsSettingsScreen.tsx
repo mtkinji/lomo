@@ -21,7 +21,7 @@ export function NotificationsSettingsScreen() {
   const preferences = useAppStore((state) => state.notificationPreferences);
   const setPreferences = useAppStore((state) => state.setNotificationPreferences);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
-  const [timePickerTarget, setTimePickerTarget] = useState<'dailyShowUp' | 'dailyFocus'>(
+  const [timePickerTarget, setTimePickerTarget] = useState<'dailyShowUp' | 'dailyFocus' | 'goalNudge'>(
     'dailyShowUp',
   );
 
@@ -54,6 +54,22 @@ export function NotificationsSettingsScreen() {
       minute: '2-digit',
     });
   }, [preferences.dailyFocusTime]);
+
+  const goalNudgeTimeLabel = useMemo(() => {
+    const raw = (preferences as any).goalNudgeTime as string | null | undefined;
+    if (!raw) {
+      return '4:00 PM';
+    }
+    const [hourString, minuteString] = raw.split(':');
+    const hour = Number.parseInt(hourString ?? '16', 10);
+    const minute = Number.parseInt(minuteString ?? '0', 10);
+    const date = new Date();
+    date.setHours(hour, minute, 0, 0);
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }, [(preferences as any).goalNudgeTime]);
 
   const osStatusLabel = useMemo(() => {
     switch (preferences.osPermissionStatus) {
@@ -150,10 +166,12 @@ export function NotificationsSettingsScreen() {
         return;
       }
     }
+    const nextTime = (preferences as any).goalNudgeTime ?? '16:00';
     const next = {
       ...preferences,
       notificationsEnabled: true,
       allowGoalNudges: !preferences.allowGoalNudges,
+      goalNudgeTime: nextTime,
     };
     await NotificationService.applySettings(next);
   };
@@ -162,7 +180,9 @@ export function NotificationsSettingsScreen() {
     const raw =
       timePickerTarget === 'dailyFocus'
         ? preferences.dailyFocusTime
-        : preferences.dailyShowUpTime;
+        : timePickerTarget === 'goalNudge'
+          ? ((preferences as any).goalNudgeTime as string | null | undefined)
+          : preferences.dailyShowUpTime;
     if (raw) {
       const [hourString, minuteString] = raw.split(':');
       const hour = Number.parseInt(hourString ?? '8', 10);
@@ -194,6 +214,13 @@ export function NotificationsSettingsScreen() {
             allowDailyFocus: true,
             dailyFocusTime: time,
           }
+        : timePickerTarget === 'goalNudge'
+          ? {
+              ...preferences,
+              notificationsEnabled: true,
+              allowGoalNudges: true,
+              goalNudgeTime: time,
+            }
         : {
             ...preferences,
             notificationsEnabled: true,
@@ -387,6 +414,19 @@ export function NotificationsSettingsScreen() {
                   thumbColor={colors.canvas}
                 />
               </View>
+              {preferences.notificationsEnabled && preferences.allowGoalNudges && (
+                <Pressable
+                  onPress={() => {
+                    setTimePickerTarget('goalNudge');
+                    setIsTimePickerVisible(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change goal nudge time"
+                  hitSlop={8}
+                >
+                  <Text style={styles.timeLabel}>Time · {goalNudgeTimeLabel}</Text>
+                </Pressable>
+              )}
 
               <Text style={styles.helperText}>
                 Streak nudges and reactivation flows will be added here as they roll out.

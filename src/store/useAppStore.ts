@@ -225,6 +225,7 @@ interface AppState {
     allowDailyFocus: boolean;
     dailyFocusTime: string | null;
     allowGoalNudges: boolean;
+    goalNudgeTime: string | null;
     allowStreakAndReactivation: boolean;
   };
   /**
@@ -594,6 +595,7 @@ export const useAppStore = create(
         dailyFocusTime: null,
         // System nudge: default ON once notifications are enabled (user can toggle off).
         allowGoalNudges: true,
+        goalNudgeTime: null,
         allowStreakAndReactivation: false,
       },
       lastFocusMinutes: null,
@@ -1174,6 +1176,17 @@ export const useAppStore = create(
       partialize: (state) => state,
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        // Backward-compatible: older persisted stores won't have goal nudge time.
+        // Default to a high-engagement "afternoon momentum" time.
+        const prefs = state.notificationPreferences as any;
+        if (prefs && typeof prefs === 'object') {
+          if (!('goalNudgeTime' in prefs) || typeof prefs.goalNudgeTime !== 'string') {
+            state.notificationPreferences = {
+              ...state.notificationPreferences,
+              goalNudgeTime: '16:00',
+            };
+          }
+        }
         if (state.forces.length === 0) {
           state.forces = canonicalForces;
         }

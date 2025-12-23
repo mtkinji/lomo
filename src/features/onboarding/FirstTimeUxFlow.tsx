@@ -163,6 +163,8 @@ export function FirstTimeUxFlow() {
                 allowDailyFocus: true,
                 dailyFocusTime:
                   currentPrefs.dailyFocusTime ?? currentPrefs.dailyShowUpTime ?? '08:00',
+              // Afternoon momentum nudge: default to 4pm local for best engagement.
+              goalNudgeTime: (currentPrefs as any).goalNudgeTime ?? '16:00',
               // Activity reminders are the most directly tied to “next step”.
               allowActivityReminders: true,
             };
