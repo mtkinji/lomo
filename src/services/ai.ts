@@ -2361,12 +2361,11 @@ export async function sendCoachChat(
     // If this came from the Kwilt AI proxy (per-day quota), treat it as a user-facing limit,
     // not a billing outage.
     if (KWILT_PROXY_QUOTA_RETRY_AT) {
-      const retryAt = KWILT_PROXY_QUOTA_RETRY_AT;
       const isPro = useEntitlementsStore.getState().isPro;
       throw new Error(
         isPro
           ? 'AI is temporarily unavailable. Please try again later.'
-          : `You've hit today's AI limit. Try again after ${retryAt} or upgrade to Pro.`
+          : `You've hit your AI limit. Try again later or upgrade to Pro.`
       );
     }
     // In production, quota issues should fail loudly

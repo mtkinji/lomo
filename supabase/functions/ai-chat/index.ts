@@ -36,17 +36,62 @@ function getUtcDayString(now: Date): string {
   return now.toISOString().slice(0, 10);
 }
 
+function getUtcMonthKey(now: Date): string {
+  // YYYY-MM in UTC
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
 function nextUtcMidnightIso(now: Date): string {
   const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
   return next.toISOString();
 }
 
-function getDailyLimit(isPro: boolean): number {
-  const raw = Deno.env.get(isPro ? 'KWILT_AI_DAILY_PRO_QUOTA' : 'KWILT_AI_DAILY_FREE_QUOTA');
+function nextUtcMonthIso(now: Date): string {
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+  return next.toISOString();
+}
+
+function getMonthlyActionsLimit(isPro: boolean): number {
+  const raw = Deno.env.get(isPro ? 'KWILT_AI_MONTHLY_PRO_ACTIONS' : 'KWILT_AI_MONTHLY_FREE_ACTIONS');
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  // Conservative defaults; tune via env.
-  return isPro ? 200 : 20;
+  // Defaults match app posture: Free 25/mo, Pro 1000/mo.
+  return isPro ? 1000 : 25;
+}
+
+function getDailyRailLimit(isPro: boolean): number | null {
+  // Optional safety rail to prevent single-day spikes even with monthly credits.
+  const raw =
+    Deno.env.get(isPro ? 'KWILT_AI_DAILY_PRO_QUOTA' : 'KWILT_AI_DAILY_FREE_QUOTA') ??
+    Deno.env.get(isPro ? 'KWILT_AI_DAILY_PRO_ACTIONS' : 'KWILT_AI_DAILY_FREE_ACTIONS');
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return null;
+}
+
+function getImageActionsCost(): number {
+  const raw = Deno.env.get('KWILT_AI_IMAGE_ACTION_COST');
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  // Image generation is priced differently than text; default to a higher action cost.
+  return 10;
+}
+
+function getMaxRequestBytes(): number {
+  const raw = Deno.env.get('KWILT_AI_MAX_REQUEST_BYTES');
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return 120_000;
+}
+
+function getMaxOutputTokens(route: string): number {
+  // Clamp completion size to avoid runaway cost even when using "actions-only" quotas.
+  const raw = Deno.env.get(route === '/v1/chat/completions' ? 'KWILT_AI_MAX_OUTPUT_TOKENS' : 'KWILT_AI_MAX_IMAGE_TOKENS');
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return route === '/v1/chat/completions' ? 1200 : 0;
 }
 
 function getSupabaseAdmin() {
@@ -66,6 +111,10 @@ async function recordRequest(params: {
   status?: number | null;
   durationMs?: number | null;
   errorCode?: string | null;
+  actionsCost?: number | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  totalTokens?: number | null;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) return;
@@ -78,6 +127,10 @@ async function recordRequest(params: {
       status: params.status ?? null,
       duration_ms: params.durationMs ?? null,
       error_code: params.errorCode ?? null,
+      actions_cost: params.actionsCost ?? null,
+      prompt_tokens: params.promptTokens ?? null,
+      completion_tokens: params.completionTokens ?? null,
+      total_tokens: params.totalTokens ?? null,
     });
   } catch {
     // best-effort only
@@ -95,6 +148,62 @@ async function incrementDailyUsage(params: { quotaKey: string; day: string }): P
   if (error) return null;
   // Supabase RPC returns `data` as number for scalar returns.
   return typeof data === 'number' ? data : null;
+}
+
+async function incrementMonthlyUsage(params: {
+  quotaKey: string;
+  month: string;
+  actionsCost: number;
+  tokensIncrement: number;
+}): Promise<number | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin.rpc('kwilt_increment_ai_usage_monthly', {
+    p_quota_key: params.quotaKey,
+    p_month: params.month,
+    p_actions_cost: params.actionsCost,
+    p_tokens_increment: params.tokensIncrement,
+  });
+  if (error) return null;
+  return typeof data === 'number' ? data : null;
+}
+
+function safeJsonParse(text: string): any | null {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function validateRequestShape(route: string, parsed: any): { ok: true } | { ok: false; message: string } {
+  // Token-counting is non-trivial server-side without a tokenizer; we instead bound size/shape.
+  // This protects us from pathological payloads and accidental runaway context.
+  if (!parsed || typeof parsed !== 'object') return { ok: false, message: 'Invalid JSON body' };
+
+  if (route === '/v1/chat/completions') {
+    const msgs = parsed.messages;
+    if (!Array.isArray(msgs) || msgs.length < 1) return { ok: false, message: 'messages must be a non-empty array' };
+    if (msgs.length > 40) return { ok: false, message: 'messages too long' };
+    for (const m of msgs) {
+      if (!m || typeof m !== 'object') return { ok: false, message: 'invalid message' };
+      const role = m.role;
+      if (typeof role !== 'string') return { ok: false, message: 'message.role must be a string' };
+      const content = m.content;
+      if (typeof content === 'string' && content.length > 20_000) {
+        return { ok: false, message: 'message.content too large' };
+      }
+    }
+    return { ok: true };
+  }
+
+  if (route === '/v1/images/generations') {
+    // Minimal validation; clamp n later.
+    return { ok: true };
+  }
+
+  return { ok: true };
 }
 
 serve(async (req) => {
@@ -135,18 +244,85 @@ serve(async (req) => {
 
   const now = new Date();
   const day = getUtcDayString(now);
-  const limit = getDailyLimit(isPro);
+  const month = getUtcMonthKey(now);
+  const monthlyLimit = getMonthlyActionsLimit(isPro);
+  const dailyRail = getDailyRailLimit(isPro);
 
-  const usageCount = await incrementDailyUsage({ quotaKey, day });
-  if (usageCount == null) {
-    // Fail closed to protect costs if quota DB is misconfigured.
+  // Basic payload size guardrails (prevents accidental huge context).
+  const maxBytes = getMaxRequestBytes();
+  const contentLength = Number(req.headers.get('content-length') ?? '0');
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    return json(413, { error: { message: 'Request too large', code: 'bad_request' } });
+  }
+
+  const contentType = req.headers.get('content-type') ?? 'application/json';
+  const requestText = await req.text();
+  if (requestText.length > maxBytes) {
+    return json(413, { error: { message: 'Request too large', code: 'bad_request' } });
+  }
+
+  let model: string | null = null;
+  const parsedBody = safeJsonParse(requestText);
+  if (!parsedBody) {
+    return json(400, { error: { message: 'Invalid JSON body', code: 'bad_request' } });
+  }
+  model = typeof parsedBody?.model === 'string' ? parsedBody.model : null;
+
+  const shape = validateRequestShape(route, parsedBody);
+  if (!shape.ok) {
+    return json(400, { error: { message: shape.message, code: 'bad_request' } });
+  }
+
+  // Determine action cost: 1 per chat completion call; higher for image generation.
+  const actionsCost = route === '/v1/images/generations' ? getImageActionsCost() : 1;
+
+  // Daily rail (optional) uses the existing daily counter RPC.
+  if (dailyRail) {
+    const dailyCount = await incrementDailyUsage({ quotaKey, day });
+    if (dailyCount == null) {
+      return json(503, {
+        error: { message: 'AI proxy misconfigured (quota store)', code: 'provider_unavailable' },
+      });
+    }
+    if (dailyCount > dailyRail) {
+      const retryAt = nextUtcMidnightIso(now);
+      await recordRequest({
+        quotaKey,
+        isPro,
+        route,
+        status: 429,
+        durationMs: 0,
+        errorCode: 'quota_exceeded',
+        actionsCost,
+      });
+      return json(
+        429,
+        {
+          error: {
+            message: `Daily AI limit reached.`,
+            code: 'quota_exceeded',
+            retryAt,
+          },
+        },
+        { 'Retry-After': retryAt }
+      );
+    }
+  }
+
+  // Monthly actions quota: increment now (fail closed to protect costs if quota DB is misconfigured).
+  const monthlyCount = await incrementMonthlyUsage({
+    quotaKey,
+    month,
+    actionsCost,
+    tokensIncrement: 0,
+  });
+  if (monthlyCount == null) {
     return json(503, {
       error: { message: 'AI proxy misconfigured (quota store)', code: 'provider_unavailable' },
     });
   }
-
-  if (usageCount > limit) {
-    const retryAt = nextUtcMidnightIso(now);
+  if (monthlyCount > monthlyLimit) {
+    const retryAt = nextUtcMonthIso(now);
     await recordRequest({
       quotaKey,
       isPro,
@@ -154,13 +330,14 @@ serve(async (req) => {
       status: 429,
       durationMs: 0,
       errorCode: 'quota_exceeded',
+      actionsCost,
     });
     return json(
       429,
       {
         error: {
           // Intentionally includes "quota" so existing client parsing treats it as quota exceeded.
-          message: `Daily quota exceeded (limit=${limit}).`,
+          message: `Monthly quota exceeded (limit=${monthlyLimit}).`,
           code: 'quota_exceeded',
           retryAt,
         },
@@ -169,15 +346,23 @@ serve(async (req) => {
     );
   }
 
-  const contentType = req.headers.get('content-type') ?? 'application/json';
-  const requestText = await req.text();
+  // Clamp max_tokens for chat requests (safety even under actions-only quotas).
+  if (route === '/v1/chat/completions') {
+    const maxOut = getMaxOutputTokens(route);
+    if (typeof parsedBody.max_tokens === 'number') {
+      parsedBody.max_tokens = Math.min(parsedBody.max_tokens, maxOut);
+    } else if (maxOut > 0) {
+      parsedBody.max_tokens = maxOut;
+    }
+  }
 
-  let model: string | null = null;
-  try {
-    const parsed = JSON.parse(requestText);
-    model = typeof parsed?.model === 'string' ? parsed.model : null;
-  } catch {
-    // ignore
+  // Clamp image params (safety; also prevents unexpected per-request cost spikes).
+  if (route === '/v1/images/generations') {
+    if (typeof parsedBody.n === 'number') {
+      parsedBody.n = Math.max(1, Math.min(Math.floor(parsedBody.n), 1));
+    } else {
+      parsedBody.n = 1;
+    }
   }
 
   const upstreamUrl = `https://api.openai.com${route}`;
@@ -190,11 +375,35 @@ serve(async (req) => {
       Authorization: `Bearer ${openAiKey}`,
       Accept: 'application/json',
     },
-    body: requestText,
+    body: JSON.stringify(parsedBody),
   });
 
   const upstreamText = await upstreamResp.text();
   const durationMs = Date.now() - startedAt;
+
+  // Token telemetry (best-effort): for chat completions OpenAI returns `usage`.
+  let promptTokens: number | null = null;
+  let completionTokens: number | null = null;
+  let totalTokens: number | null = null;
+  if (route === '/v1/chat/completions') {
+    const respJson = safeJsonParse(upstreamText);
+    const usage = respJson?.usage;
+    if (usage && typeof usage === 'object') {
+      promptTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : null;
+      completionTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : null;
+      totalTokens = typeof usage.total_tokens === 'number' ? usage.total_tokens : null;
+    }
+  }
+
+  // Update monthly token counter after successful calls (best-effort; failures shouldn't block response).
+  if (upstreamResp.ok && totalTokens && totalTokens > 0) {
+    void incrementMonthlyUsage({
+      quotaKey,
+      month,
+      actionsCost: 0,
+      tokensIncrement: totalTokens,
+    });
+  }
 
   // Best-effort telemetry (do not block response).
   void recordRequest({
@@ -205,6 +414,10 @@ serve(async (req) => {
     status: upstreamResp.status,
     durationMs,
     errorCode: upstreamResp.ok ? null : 'upstream_error',
+    actionsCost,
+    promptTokens,
+    completionTokens,
+    totalTokens,
   });
 
   return new Response(upstreamText, {

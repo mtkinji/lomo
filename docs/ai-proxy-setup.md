@@ -41,8 +41,13 @@ Configure these as **Supabase Function secrets** (never in the client):
 
 - `OPENAI_API_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `KWILT_AI_DAILY_FREE_QUOTA` (default: 20)
-- `KWILT_AI_DAILY_PRO_QUOTA` (default: 200)
+- `KWILT_AI_MONTHLY_FREE_ACTIONS` (default: 25)
+- `KWILT_AI_MONTHLY_PRO_ACTIONS` (default: 1000)
+- `KWILT_AI_DAILY_FREE_QUOTA` (optional daily safety rail; recommended: 2–3)
+- `KWILT_AI_DAILY_PRO_QUOTA` (optional daily safety rail; recommended: 50–100)
+- `KWILT_AI_IMAGE_ACTION_COST` (default: 10)
+- `KWILT_AI_MAX_REQUEST_BYTES` (default: 120000)
+- `KWILT_AI_MAX_OUTPUT_TOKENS` (default: 1200)
 
 ---
 
@@ -72,5 +77,25 @@ npx supabase link
 npx supabase db push
 npx supabase functions deploy ai-chat
 ```
+
+### Recommended MVP quota posture (matches product strategy)
+
+- Free: **25 actions/month** (AI “taste”)
+- Pro: **1000 actions/month** (daily use)
+- Add daily rails to prevent burst spend:
+  - Free: 2–3/day
+  - Pro: 50–100/day
+
+### How to tune using real usage (recommended)
+
+The proxy stores lightweight telemetry:
+- `kwilt_ai_usage_monthly` → actions + tokens per month (per `installId` / later `userId`)
+- `kwilt_ai_requests` → per-request model/route/status + token usage (chat responses only)
+
+After 3–7 days of internal use:
+- Look at the 50th/90th percentile `total_tokens` per request to tune `KWILT_AI_MAX_OUTPUT_TOKENS` and payload size caps.
+- If Free users consistently hit the monthly cap too early, consider:
+  - increasing Free actions slightly (e.g. 35/mo), or
+  - reducing per-action “heaviness” by clamping outputs for Free tiers.
 
 
