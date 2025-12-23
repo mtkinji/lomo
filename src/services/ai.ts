@@ -11,6 +11,7 @@ import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../store/useAppStore';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { openPaywallInterstitial, type PaywallSource } from './paywall';
+import { getInstallId } from './installId';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
@@ -246,8 +247,18 @@ export type GenerateArcHeroImageParams = {
   arcNarrative?: string;
 };
 
-const OPENAI_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
-const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
+const AI_PROXY_BASE_URL_RAW = getEnvVar<string>('aiProxyBaseUrl');
+const AI_PROXY_BASE_URL =
+  typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
+
+// IMPORTANT: all production AI calls must go through the proxy. We intentionally
+// do not ship direct OpenAI endpoints or API keys in the client.
+const OPENAI_COMPLETIONS_URL = AI_PROXY_BASE_URL
+  ? `${AI_PROXY_BASE_URL}/v1/chat/completions`
+  : 'https://kwilt.invalid/v1/chat/completions';
+const OPENAI_IMAGES_URL = AI_PROXY_BASE_URL
+  ? `${AI_PROXY_BASE_URL}/v1/images/generations`
+  : 'https://kwilt.invalid/v1/images/generations';
 // Default network timeout for lighter, one-off OpenAI requests (arcs, goals, images).
 const OPENAI_TIMEOUT_MS = 15000;
 // More generous timeout for conversational coach chat, which sends larger context
@@ -277,6 +288,18 @@ const MUTED_CONTEXT_PREFIXES: string[] = [
 let OPENAI_QUOTA_EXCEEDED = false;
 let OPENAI_QUOTA_WARNING_EMITTED = false; // For the detailed quota error log
 let OPENAI_QUOTA_FALLBACK_WARNING_EMITTED = false; // For the "using mocks" fallback warning
+let OPENAI_QUOTA_RESET_TIMEOUT: ReturnType<typeof setTimeout> | null = null;
+let KWILT_PROXY_QUOTA_RETRY_AT: string | null = null;
+
+function isAiQuotaBlocked(): boolean {
+  if (!OPENAI_QUOTA_EXCEEDED) return false;
+  // If quota exceeded came from our proxy, allow retry when the user is Pro since the
+  // server-side limit is higher. The proxy will still return 429 if the Pro cap is hit.
+  if (KWILT_PROXY_QUOTA_RETRY_AT && useEntitlementsStore.getState().isPro) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Reset the OpenAI quota exceeded flag (dev-only).
@@ -287,6 +310,11 @@ export function resetOpenAiQuotaFlag(): void {
   OPENAI_QUOTA_EXCEEDED = false;
   OPENAI_QUOTA_WARNING_EMITTED = false;
   OPENAI_QUOTA_FALLBACK_WARNING_EMITTED = false;
+  KWILT_PROXY_QUOTA_RETRY_AT = null;
+  if (OPENAI_QUOTA_RESET_TIMEOUT) {
+    clearTimeout(OPENAI_QUOTA_RESET_TIMEOUT);
+    OPENAI_QUOTA_RESET_TIMEOUT = null;
+  }
   console.log('[ai] OpenAI quota flag reset. New API calls will be attempted.');
 }
 
@@ -294,7 +322,7 @@ export function resetOpenAiQuotaFlag(): void {
  * Check if OpenAI quota is currently marked as exceeded (dev-only).
  */
 export function getOpenAiQuotaExceededStatus(): boolean {
-  return OPENAI_QUOTA_EXCEEDED;
+  return isAiQuotaBlocked();
 }
 
 const isProductionEnvironment = (): boolean => {
@@ -310,6 +338,29 @@ type OpenAiErrorDetails = {
   code?: string;
   param?: string | null;
   raw: string;
+};
+
+type KwiltProxyErrorDetails = {
+  code?: string;
+  retryAt?: string;
+};
+
+const parseKwiltProxyError = (errorText: string): KwiltProxyErrorDetails | null => {
+  try {
+    const parsed = JSON.parse(errorText);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const topCode = typeof (parsed as any).code === 'string' ? String((parsed as any).code) : undefined;
+    const topRetryAt = typeof (parsed as any).retryAt === 'string' ? String((parsed as any).retryAt) : undefined;
+    const err = (parsed as any).error;
+    const errCode = err && typeof err.code === 'string' ? String(err.code) : undefined;
+    const errRetryAt = err && typeof err.retryAt === 'string' ? String(err.retryAt) : undefined;
+    const code = topCode ?? errCode;
+    const retryAt = topRetryAt ?? errRetryAt;
+    if (!code && !retryAt) return null;
+    return { code, retryAt };
+  } catch {
+    return null;
+  }
 };
 
 const parseOpenAiError = (errorText: string): OpenAiErrorDetails => {
@@ -335,6 +386,10 @@ const parseOpenAiError = (errorText: string): OpenAiErrorDetails => {
 };
 
 const isOpenAiQuotaExceeded = (status: number, errorText: string): boolean => {
+  const proxy = parseKwiltProxyError(errorText);
+  if (proxy?.code === 'quota_exceeded') {
+    return true;
+  }
   // 429 can be either rate limit OR quota exceeded - need to check the error details
   if (status === 429) {
     const error = parseOpenAiError(errorText);
@@ -374,6 +429,25 @@ const markOpenAiQuotaExceeded = (
 ): boolean => {
   if (!isOpenAiQuotaExceeded(status, errorText)) return false;
   OPENAI_QUOTA_EXCEEDED = true;
+
+  // If this is a per-day quota from our proxy, reset the flag automatically at retryAt.
+  // This preserves existing "don't spam" behavior without permanently disabling AI.
+  const proxy = parseKwiltProxyError(errorText);
+  if (proxy?.retryAt) {
+    KWILT_PROXY_QUOTA_RETRY_AT = proxy.retryAt;
+    const retryAtMs = Date.parse(proxy.retryAt);
+    if (Number.isFinite(retryAtMs)) {
+      const delayMs = Math.max(0, retryAtMs - Date.now());
+      // Cap at 48h to avoid a stuck flag due to a bad timestamp.
+      const cappedDelayMs = Math.min(delayMs, 48 * 60 * 60 * 1000);
+      if (OPENAI_QUOTA_RESET_TIMEOUT) clearTimeout(OPENAI_QUOTA_RESET_TIMEOUT);
+      OPENAI_QUOTA_RESET_TIMEOUT = setTimeout(() => {
+        OPENAI_QUOTA_EXCEEDED = false;
+        KWILT_PROXY_QUOTA_RETRY_AT = null;
+        OPENAI_QUOTA_RESET_TIMEOUT = null;
+      }, cappedDelayMs);
+    }
+  }
   const isProduction = isProductionEnvironment();
   const error = parseOpenAiError(errorText);
   
@@ -1385,7 +1459,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
 };
 
 export async function generateArcs(params: GenerateArcParams): Promise<GeneratedArc[]> {
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     // In production, quota issues should fail loudly, not silently degrade to mocks
     if (isProductionEnvironment()) {
       throw new Error(
@@ -1500,7 +1574,7 @@ export async function judgeArcRubric(
   params: JudgeArcRubricParams
 ): Promise<ArcRubricJudgeResult | null> {
   // Judge functions are dev-only (Arc Testing), so returning null is acceptable
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
   const apiKey = resolveOpenAiApiKey();
@@ -1597,7 +1671,7 @@ export async function judgeArcRubric(
   };
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
 
@@ -1674,7 +1748,7 @@ export async function judgeArcComparisonRubric(
   params: JudgeArcComparisonRubricParams
 ): Promise<ArcComparisonRubricJudgeResult | null> {
   // Judge functions are dev-only (Arc Testing), so returning null is acceptable
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
   const apiKey = resolveOpenAiApiKey();
@@ -1805,7 +1879,7 @@ export async function judgeArcComparisonRubric(
   };
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     return null;
   }
 
@@ -2109,7 +2183,7 @@ async function requestOpenAiArcs(
   });
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     throw new Error('OpenAI quota exceeded');
   }
   
@@ -2231,7 +2305,7 @@ async function requestOpenAiArcHeroImage(
   });
   
   // Check quota right before making the request (in case flag was set by parallel requests)
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
     throw new Error('OpenAI quota exceeded');
   }
 
@@ -2293,7 +2367,17 @@ export async function sendCoachChat(
   messages: CoachChatTurn[],
   options?: CoachChatOptions
 ): Promise<string> {
-  if (OPENAI_QUOTA_EXCEEDED) {
+  if (isAiQuotaBlocked()) {
+    // If this came from the Kwilt AI proxy (per-day quota), treat it as a user-facing limit,
+    // not a billing outage.
+    if (KWILT_PROXY_QUOTA_RETRY_AT) {
+      const isPro = useEntitlementsStore.getState().isPro;
+      throw new Error(
+        isPro
+          ? 'AI is temporarily unavailable. Please try again later.'
+          : `You've hit your AI limit. Try again later or upgrade to Pro.`
+      );
+    }
     // In production, quota issues should fail loudly
     if (isProductionEnvironment()) {
       throw new Error(
@@ -2317,8 +2401,8 @@ export async function sendCoachChat(
   devLog('coachChat:apiKey', describeKey(apiKey));
 
   if (!apiKey) {
-    console.warn('OPENAI_API_KEY missing – unable to call coach chat.');
-    throw new Error('Missing OpenAI API key');
+    console.warn('AI proxy not configured – unable to call coach chat.');
+    throw new Error('AI proxy not configured');
   }
 
   // Enforce kwilt's generative credit gate at the shared service layer so
@@ -2738,7 +2822,30 @@ async function fetchWithTimeout(
 
   try {
     const start = Date.now();
-    const response = await fetch(url, { ...options, signal: controller.signal });
+    let nextOptions = options;
+    if (AI_PROXY_BASE_URL && url.startsWith(AI_PROXY_BASE_URL)) {
+      const headers = new Headers(options.headers ?? undefined);
+      // Strip any accidental Authorization headers (we never ship an OpenAI key).
+      headers.delete('Authorization');
+      // Supabase Edge Functions gateway: include the project's publishable/anon key if configured.
+      // This keeps the proxy callable even if "verify JWT" is enabled on the function.
+      const supabaseKey = getEnvVar<string>('supabasePublishableKey')?.trim();
+      if (supabaseKey) {
+        headers.set('apikey', supabaseKey);
+      }
+      try {
+        const installId = await getInstallId();
+        headers.set('x-kwilt-install-id', installId);
+      } catch {
+        // If install id can't be resolved, proceed without it; the server will reject.
+      }
+      const isPro = Boolean(useEntitlementsStore.getState?.().isPro);
+      headers.set('x-kwilt-is-pro', isPro ? 'true' : 'false');
+      headers.set('x-kwilt-client', 'kwilt-mobile');
+      nextOptions = { ...options, headers };
+    }
+
+    const response = await fetch(url, { ...nextOptions, signal: controller.signal });
     devLog('fetchWithTimeout:response', {
       url,
       status: response.status,
@@ -2785,14 +2892,15 @@ function logNetworkErrorDetails(
 let OPENAI_KEY_LOGGED = false;
 
 function resolveOpenAiApiKey(): string | undefined {
-  const key = getEnvVar<string>('openAiApiKey');
-  // Log presence once at startup (for verification) WITHOUT revealing any portion of the key.
-  if (__DEV__ && key && !OPENAI_KEY_LOGGED) {
+  // No OpenAI keys are shipped in the client. If the proxy base URL is configured,
+  // return a placeholder to keep existing callsites intact (Authorization is stripped
+  // before dispatch in `fetchWithTimeout`).
+  const enabled = Boolean(AI_PROXY_BASE_URL);
+  if (__DEV__ && enabled && !OPENAI_KEY_LOGGED) {
     OPENAI_KEY_LOGGED = true;
-    const keyInfo = describeKey(key);
-    console.log(`[ai] OpenAI API key detected (length: ${keyInfo.length})`);
+    console.log('[ai] AI proxy configured – routing requests through proxy.');
   }
-  return key;
+  return enabled ? 'kwilt-proxy' : undefined;
 }
 
 function resolveChatModel(): LlmModel {
@@ -2817,7 +2925,7 @@ export async function enrichActivityWithAI(
   params: EnrichActivityWithAiParams
 ): Promise<ActivityAiEnrichment | null> {
   try {
-    if (OPENAI_QUOTA_EXCEEDED) return null;
+    if (isAiQuotaBlocked()) return null;
     const apiKey = resolveOpenAiApiKey();
     if (!apiKey) return null;
 
@@ -2974,7 +3082,7 @@ export async function suggestActivityTagsWithAi(
   params: SuggestActivityTagsWithAiParams
 ): Promise<string[] | null> {
   try {
-    if (OPENAI_QUOTA_EXCEEDED) return null;
+    if (isAiQuotaBlocked()) return null;
     const apiKey = resolveOpenAiApiKey();
     if (!apiKey) return null;
 
@@ -3098,7 +3206,7 @@ type RefineWritingParams = {
  */
 export async function refineWritingWithAI(params: RefineWritingParams): Promise<string | null> {
   try {
-    if (OPENAI_QUOTA_EXCEEDED) return null;
+    if (isAiQuotaBlocked()) return null;
     const apiKey = resolveOpenAiApiKey();
     if (!apiKey) return null;
 

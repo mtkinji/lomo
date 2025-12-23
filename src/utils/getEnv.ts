@@ -30,4 +30,12 @@ export function getRevenueCatApiKey(): string | undefined {
   return getEnvVar<string>('revenueCatApiKey');
 }
 
+export function getAiProxyBaseUrl(): string | undefined {
+  return getEnvVar<string>('aiProxyBaseUrl');
+}
+
+export function getSupabasePublishableKey(): string | undefined {
+  return getEnvVar<string>('supabasePublishableKey');
+}
+
 

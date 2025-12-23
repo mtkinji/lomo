@@ -242,11 +242,11 @@ export function BottomDrawer({
 
   // Safety: if the modal ever remains mounted after `visible` becomes false (e.g. an interrupted
   // animation completion callback), ensure it cannot block taps on the underlying canvas.
-  const overlayPointerEvents = useMemo(() => {
+  const overlayPointerEvents = useMemo<'auto' | 'none' | 'box-none'>(() => {
     // Inline drawers can optionally be "non-blocking" to allow interaction with the canvas.
-    if (presentation === 'inline' && hideBackdrop) return 'box-none' as const;
+    if (presentation === 'inline' && hideBackdrop) return 'box-none';
     // For modal presentation, treat `visible=false` as fully transparent to touch input.
-    return (visible ? 'auto' : 'none') as const;
+    return visible ? 'auto' : 'none';
   }, [hideBackdrop, presentation, visible]);
 
   const setScrollableGesture = (gesture: ReturnType<typeof Gesture.Native> | null) => {
