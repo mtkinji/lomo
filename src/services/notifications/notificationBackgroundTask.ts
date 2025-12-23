@@ -10,15 +10,18 @@ import {
   loadDailyFocusLedger,
   loadDailyShowUpLedger,
   loadGoalNudgeLedger,
+  loadSetupNextStepLedger,
   markActivityReminderFired,
   recordSystemNudgeFiredEstimated,
   recordSystemNudgeScheduled,
   saveDailyFocusLedger,
   saveDailyShowUpLedger,
   saveGoalNudgeLedger,
+  saveSetupNextStepLedger,
 } from './NotificationDeliveryLedger';
 import { useAppStore } from '../../store/useAppStore';
 import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './goalNudge';
+import { getSuggestedNextStep } from '../recommendations/nextStep';
 
 export const NOTIFICATION_RECONCILE_TASK = 'kwilt-notification-reconcile-v1';
 
@@ -136,12 +139,35 @@ export async function reconcileNotificationsFiredEstimated(
 
       // Ensure there is a future daily show-up scheduled (best-effort).
       if (scheduledShowUps.length === 0) {
+        const state = useAppStore.getState();
+        const suggested = getSuggestedNextStep({
+          arcs: state.arcs,
+          goals: state.goals,
+          activities: state.activities,
+          now,
+        });
+        const isSetup = suggested?.kind === 'setup';
+
         const fireAt = nextLocalOccurrence(timeLocal, now);
+        const type = isSetup ? 'setupNextStep' : 'dailyShowUp';
         const identifier = await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'Align your day with your arcs',
-            body: 'Open Kwilt to review Today and choose one tiny step.',
-            data: { type: 'dailyShowUp' },
+            title:
+              type === 'setupNextStep'
+                ? suggested?.kind === 'setup' && suggested.reason === 'no_goals'
+                  ? 'Start your first goal'
+                  : 'Add one tiny step'
+                : 'Align your day with your arcs',
+            body:
+              type === 'setupNextStep'
+                ? suggested?.kind === 'setup' && suggested.reason === 'no_goals'
+                  ? 'Create one goal so Kwilt can start nudging you at the right moments.'
+                  : 'Add one Activity so you can build momentum today.'
+                : 'Open Kwilt to review Today and choose one tiny step.',
+            data:
+              type === 'setupNextStep'
+                ? { type: 'setupNextStep', reason: suggested?.kind === 'setup' ? suggested.reason : 'no_activities' }
+                : { type: 'dailyShowUp' },
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -149,23 +175,67 @@ export async function reconcileNotificationsFiredEstimated(
           },
         });
         track(posthogClient, AnalyticsEvent.NotificationScheduled, {
-          notification_type: 'dailyShowUp',
+          notification_type: type,
           notification_id: identifier,
           scheduled_for: fireAt.toISOString(),
           schedule_time_local: timeLocal,
           scheduled_source: source,
         });
-        await saveDailyShowUpLedger({
-          notificationId: identifier,
-          scheduleTimeLocal: timeLocal,
-          scheduledForIso: fireAt.toISOString(),
-        });
+        if (type === 'setupNextStep') {
+          await saveSetupNextStepLedger({
+            notificationId: identifier,
+            scheduleTimeLocal: timeLocal,
+            reason: suggested?.kind === 'setup' ? suggested.reason : 'no_activities',
+            scheduledForIso: fireAt.toISOString(),
+          });
+        } else {
+          await saveDailyShowUpLedger({
+            notificationId: identifier,
+            scheduleTimeLocal: timeLocal,
+            scheduledForIso: fireAt.toISOString(),
+          });
+        }
         await recordSystemNudgeScheduled({
           dateKey: localDateKey(fireAt),
-          type: 'dailyShowUp',
+          type,
           notificationId: identifier,
           scheduledForIso: fireAt.toISOString(),
         });
+      }
+    }
+  }
+
+  // 2b) setupNextStep: estimate fired when it disappears from scheduled list (one-shot).
+  if (prefs.notificationsEnabled && prefs.allowDailyShowUp && prefs.osPermissionStatus === 'authorized') {
+    const setupLedger = await loadSetupNextStepLedger();
+    if (setupLedger.scheduledForIso && setupLedger.notificationId) {
+      const when = new Date(setupLedger.scheduledForIso);
+      if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+        const stillScheduled = scheduledIds.has(setupLedger.notificationId);
+        if (!stillScheduled) {
+          const todayLocal = localDateKey(now);
+          track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
+            notification_type: 'setupNextStep',
+            notification_id: setupLedger.notificationId ?? null,
+            date_key: todayLocal,
+            schedule_time_local: setupLedger.scheduleTimeLocal ?? null,
+            detected_at: nowIso,
+            detection_source: source,
+          });
+          await recordSystemNudgeFiredEstimated({
+            dateKey: todayLocal,
+            type: 'setupNextStep',
+            notificationId: setupLedger.notificationId,
+            firedAtIso: nowIso,
+          });
+          await saveSetupNextStepLedger({
+            notificationId: null,
+            scheduleTimeLocal: setupLedger.scheduleTimeLocal ?? null,
+            scheduledForIso: null,
+            lastFiredDateKey: todayLocal,
+            reason: setupLedger.reason ?? null,
+          });
+        }
       }
     }
   }

@@ -32,4 +32,16 @@ export type ActivityDetailRouteParams = {
   entryPoint?: 'activitiesCanvas' | 'goalPlan';
 };
 
+export type ActivitiesListRouteParams = {
+  /**
+   * When true, the Activities canvas will scroll to and highlight the Suggested card.
+   * Used by notification deep links (setupNextStep).
+   */
+  highlightSuggested?: boolean;
+  /**
+   * Optional hint for showing the most relevant Suggested content.
+   */
+  suggestedSource?: 'notification' | 'manual';
+};
+
 

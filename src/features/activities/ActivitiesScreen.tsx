@@ -1,5 +1,6 @@
 import React from 'react';
-import { DrawerActions, useIsFocused, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -76,6 +77,7 @@ import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from '../../services/recommendations/nextStep';
 
 type ViewMenuItemProps = {
   view: ActivityView;
@@ -189,6 +191,7 @@ export function ActivitiesScreen() {
     NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'> &
       DrawerNavigationProp<RootDrawerParamList>
   >();
+  const route = useRoute<RouteProp<ActivitiesStackParamList, 'ActivitiesList'>>();
   const insets = useSafeAreaInsets();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
@@ -244,6 +247,33 @@ export function ActivitiesScreen() {
   const [quickAddRepeatRule, setQuickAddRepeatRule] = React.useState<Activity['repeatRule']>(undefined);
   const [quickAddEstimateMinutes, setQuickAddEstimateMinutes] = React.useState<number | null>(null);
 
+  const suggestedCardYRef = React.useRef<number | null>(null);
+  const [highlightSuggested, setHighlightSuggested] = React.useState<boolean>(
+    Boolean(route.params?.highlightSuggested),
+  );
+
+  React.useEffect(() => {
+    if (route.params?.highlightSuggested) {
+      setHighlightSuggested(true);
+    }
+  }, [route.params?.highlightSuggested]);
+
+  const suggested = React.useMemo(() => {
+    return getSuggestedNextStep({
+      arcs,
+      goals,
+      activities,
+      now: new Date(),
+    });
+  }, [activities, arcs, goals]);
+
+  const shouldShowSuggestedCard = React.useMemo(() => {
+    if (highlightSuggested) return true;
+    if (!suggested) return false;
+    // Only surface deterministic suggestions on "empty today" days to avoid noise.
+    return !hasAnyActivitiesScheduledForToday({ activities, now: new Date() });
+  }, [activities, highlightSuggested, suggested]);
+
   // Post-create "add a trigger" nudge (Option A): encourage a lightweight if/then
   // trigger after quick-add activity creation without forcing navigation.
   const [postCreateTriggerActivityId, setPostCreateTriggerActivityId] = React.useState<string | null>(null);
@@ -282,6 +312,15 @@ export function ActivitiesScreen() {
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
   const lastKnownKeyboardHeightRef = React.useRef<number>(320);
+
+  React.useEffect(() => {
+    if (!highlightSuggested) return;
+    const y = suggestedCardYRef.current;
+    if (typeof y !== 'number') return;
+    canvasScrollRef.current?.scrollTo({ y: Math.max(0, y - spacing.lg), animated: true });
+    const t = setTimeout(() => setHighlightSuggested(false), 2400);
+    return () => clearTimeout(t);
+  }, [highlightSuggested]);
 
   React.useEffect(() => {
     const setTo = (next: number) => {
@@ -1262,6 +1301,67 @@ export function ActivitiesScreen() {
         automaticallyAdjustKeyboardInsets={false}
         keyboardShouldPersistTaps="handled"
       >
+        {shouldShowSuggestedCard && (
+          <View
+            onLayout={(e) => {
+              suggestedCardYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <Card
+              padding="md"
+              style={[
+                styles.suggestedCard,
+                highlightSuggested && styles.suggestedCardHighlighted,
+              ]}
+            >
+              <VStack space="sm">
+                <HStack justifyContent="space-between" alignItems="center">
+                  <Text style={styles.suggestedTitle}>Suggested</Text>
+                  <Text style={styles.suggestedPill}>
+                    {suggested?.kind === 'setup' ? 'Setup' : 'Next step'}
+                  </Text>
+                </HStack>
+                <Text style={styles.suggestedBody}>
+                  {suggested?.kind === 'setup'
+                    ? suggested.reason === 'no_goals'
+                      ? 'Create your first Goal so Kwilt can help you stay consistent.'
+                      : 'Add one Activity so you can build momentum today.'
+                    : 'Here’s a tiny step you can complete today.'}
+                </Text>
+                <HStack space="sm" alignItems="center">
+                  <Button
+                    variant="accent"
+                    size="small"
+                    accessibilityLabel="Open suggested next step"
+                    onPress={() => {
+                      if (!suggested) {
+                        setActivityCoachVisible(true);
+                        return;
+                      }
+                      if (suggested.kind === 'setup') {
+                        setActivityCoachVisible(true);
+                        return;
+                      }
+                      navigation.push('ActivityDetail', { activityId: suggested.activityId });
+                    }}
+                  >
+                    <ButtonLabel size="sm" tone="inverse">
+                      {suggested?.kind === 'setup' ? 'Add activity' : 'Open activity'}
+                    </ButtonLabel>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    accessibilityLabel="Dismiss suggested card highlight"
+                    onPress={() => setHighlightSuggested(false)}
+                  >
+                    <ButtonLabel size="sm">Not now</ButtonLabel>
+                  </Button>
+                </HStack>
+              </VStack>
+            </Card>
+          </View>
+        )}
         {activities.length > 0 && (
           <>
             <HStack
@@ -1816,6 +1916,27 @@ const styles = StyleSheet.create({
     // When the list is empty, keep the "No activities yet" message close to the
     // filter/sort controls so the total gap feels like a single `lg` step.
     marginTop: spacing.lg,
+  },
+  suggestedCard: {
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  suggestedCardHighlighted: {
+    borderColor: colors.accent,
+  },
+  suggestedTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  suggestedPill: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  suggestedBody: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
   emptyTitle: {
     ...typography.titleSm,

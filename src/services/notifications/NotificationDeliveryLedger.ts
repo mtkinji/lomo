@@ -31,6 +31,14 @@ export type GoalNudgeLedger = {
   scheduledForIso?: string | null;
 };
 
+export type SetupNextStepLedger = {
+  notificationId: string | null;
+  scheduleTimeLocal: string | null;
+  lastFiredDateKey?: string; // YYYY-MM-DD (local)
+  reason?: 'no_goals' | 'no_activities' | null;
+  scheduledForIso?: string | null;
+};
+
 export type SystemNudgeLedger = {
   /**
    * Per-day rollups for system nudges. Dates use local calendar keys: YYYY-MM-DD.
@@ -62,6 +70,7 @@ const KEY_ACTIVITY_REMINDERS = 'kwilt.notifications.activityReminders.v1';
 const KEY_DAILY_SHOW_UP = 'kwilt.notifications.dailyShowUp.v1';
 const KEY_DAILY_FOCUS = 'kwilt.notifications.dailyFocus.v1';
 const KEY_GOAL_NUDGE = 'kwilt.notifications.goalNudge.v1';
+const KEY_SETUP_NEXT_STEP = 'kwilt.notifications.setupNextStep.v1';
 const KEY_SYSTEM_NUDGES = 'kwilt.notifications.systemNudges.v1';
 
 export async function loadActivityReminderLedger(): Promise<Record<string, ActivityReminderLedgerEntry>> {
@@ -166,6 +175,22 @@ export async function loadGoalNudgeLedger(): Promise<GoalNudgeLedger> {
 
 export async function saveGoalNudgeLedger(next: GoalNudgeLedger): Promise<void> {
   await AsyncStorage.setItem(KEY_GOAL_NUDGE, JSON.stringify(next));
+}
+
+export async function loadSetupNextStepLedger(): Promise<SetupNextStepLedger> {
+  const raw = await AsyncStorage.getItem(KEY_SETUP_NEXT_STEP);
+  if (!raw) {
+    return { notificationId: null, scheduleTimeLocal: null };
+  }
+  try {
+    return JSON.parse(raw) as SetupNextStepLedger;
+  } catch {
+    return { notificationId: null, scheduleTimeLocal: null };
+  }
+}
+
+export async function saveSetupNextStepLedger(next: SetupNextStepLedger): Promise<void> {
+  await AsyncStorage.setItem(KEY_SETUP_NEXT_STEP, JSON.stringify(next));
 }
 
 export async function loadSystemNudgeLedger(): Promise<SystemNudgeLedger> {

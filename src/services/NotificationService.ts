@@ -15,8 +15,10 @@ import {
   loadSystemNudgeLedger,
   recordSystemNudgeOpened,
   recordSystemNudgeScheduled,
+  saveSetupNextStepLedger,
 } from './notifications/NotificationDeliveryLedger';
 import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './notifications/goalNudge';
+import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from './recommendations/nextStep';
 import {
   reconcileNotificationsFiredEstimated,
   registerNotificationReconcileTask,
@@ -29,6 +31,7 @@ type NotificationType =
   | 'dailyShowUp'
   | 'dailyFocus'
   | 'goalNudge'
+  | 'setupNextStep'
   | 'streak'
   | 'reactivation';
 
@@ -42,6 +45,7 @@ type NotificationData =
   | { type: 'dailyShowUp' }
   | { type: 'dailyFocus' }
   | { type: 'goalNudge'; goalId: string }
+  | { type: 'setupNextStep'; reason: 'no_goals' | 'no_activities' }
   | { type: 'streak' }
   | { type: 'reactivation' };
 
@@ -50,6 +54,7 @@ const activityNotificationIds = new Map<string, string>();
 let dailyShowUpNotificationId: string | null = null;
 let dailyFocusNotificationId: string | null = null;
 let goalNudgeNotificationId: string | null = null;
+let setupNextStepNotificationId: string | null = null;
 
 let isInitialized = false;
 let hasAttachedStoreSubscription = false;
@@ -119,6 +124,9 @@ async function hydrateScheduledNotifications() {
       if (data && data.type === 'goalNudge') {
         goalNudgeNotificationId = request.identifier;
       }
+      if (data && data.type === 'setupNextStep') {
+        setupNextStepNotificationId = request.identifier;
+      }
     });
   } catch (error) {
     if (__DEV__) {
@@ -165,6 +173,40 @@ async function cancelAllScheduledDailyShowUps(reason: 'reschedule' | 'explicit_c
     }
   } finally {
     dailyShowUpNotificationId = null;
+  }
+}
+
+async function cancelAllScheduledSetupNextSteps(reason: 'reschedule' | 'explicit_cancel') {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(data && data.type === 'setupNextStep');
+    });
+    if (matches.length === 0) {
+      setupNextStepNotificationId = null;
+      return;
+    }
+
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'setupNextStep',
+        notification_id: req.identifier,
+        reason,
+      });
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to cancel setupNextStep notification(s)', { error });
+    }
+  } finally {
+    setupNextStepNotificationId = null;
   }
 }
 
@@ -611,6 +653,15 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   const now = new Date();
   const todayKey = localDateKey(now);
 
+  const suggested = getSuggestedNextStep({
+    arcs: useAppStore.getState().arcs,
+    goals: useAppStore.getState().goals,
+    activities: useAppStore.getState().activities,
+    now,
+  });
+  const isSetup =
+    suggested?.kind === 'setup' ? suggested : null;
+
   // Convert daily show-up to a one-shot schedule (we reschedule daily).
   // This enables suppression/caps/backoff (repeating schedules can't be stopped reliably).
   const fireAt = new Date(now);
@@ -624,21 +675,58 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
 
   // Backoff: if the user ignored this nudge twice in a row, skip the next day.
   const systemLedger = await loadSystemNudgeLedger();
-  const noOpenCount = systemLedger.consecutiveNoOpenByType?.dailyShowUp ?? 0;
+  const noOpenCount = systemLedger.consecutiveNoOpenByType?.[isSetup ? 'setupNextStep' : 'dailyShowUp'] ?? 0;
   if (noOpenCount >= 2) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
 
   // Cancel any existing daily show-up notification(s) before scheduling a new one.
-  await cancelAllScheduledDailyShowUps('reschedule');
+  if (isSetup) {
+    await cancelAllScheduledDailyShowUps('reschedule');
+    await cancelAllScheduledSetupNextSteps('reschedule');
+    // Ensure the old daily-show-up ledger doesn't confuse background estimation.
+    await saveDailyShowUpLedger({
+      notificationId: null,
+      scheduleTimeLocal: time,
+      scheduledForIso: null,
+    }).catch(() => undefined);
+  } else {
+    await cancelAllScheduledSetupNextSteps('reschedule');
+    await cancelAllScheduledDailyShowUps('reschedule');
+    // Ensure the old setup ledger doesn't confuse background estimation.
+    await saveSetupNextStepLedger({
+      notificationId: null,
+      scheduleTimeLocal: time,
+      scheduledForIso: null,
+      reason: null,
+    }).catch(() => undefined);
+  }
 
   try {
+    const type: NotificationData['type'] = isSetup ? 'setupNextStep' : 'dailyShowUp';
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Align your day with your arcs',
-        body: 'Open Kwilt to review Today and choose one tiny step.',
+        title:
+          type === 'setupNextStep'
+            ? isSetup?.reason === 'no_goals'
+              ? 'Start your first goal'
+              : 'Add one tiny step'
+            : 'Align your day with your arcs',
+        body:
+          type === 'setupNextStep'
+            ? isSetup?.reason === 'no_goals'
+              ? 'Create one goal so Kwilt can start nudging you at the right moments.'
+              : 'Add one Activity so you can build momentum today.'
+            : hasAnyActivitiesScheduledForToday({ activities: useAppStore.getState().activities, now })
+              ? 'Open Kwilt to review Today and choose one tiny step.'
+              : 'Today is empty—pick one tiny step to keep momentum.',
         data: {
-          type: 'dailyShowUp',
+          ...(type === 'setupNextStep'
+            ? ({
+                type: 'setupNextStep',
+                reason: isSetup?.reason ?? 'no_activities',
+              } satisfies NotificationData)
+            : ({ type: 'dailyShowUp' } satisfies NotificationData)),
         } satisfies NotificationData,
       },
       // One-shot (we reschedule).
@@ -647,22 +735,32 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
         date: fireAt,
       },
     });
-    dailyShowUpNotificationId = identifier;
+    if (type === 'setupNextStep') {
+      setupNextStepNotificationId = identifier;
+      await saveSetupNextStepLedger({
+        notificationId: identifier,
+        scheduleTimeLocal: time,
+        scheduledForIso: fireAt.toISOString(),
+        reason: isSetup?.reason ?? 'no_activities',
+      }).catch(() => undefined);
+    } else {
+      dailyShowUpNotificationId = identifier;
+      await saveDailyShowUpLedger({
+        notificationId: identifier,
+        scheduleTimeLocal: time,
+        scheduledForIso: fireAt.toISOString(),
+      });
+    }
     track(posthogClient, AnalyticsEvent.NotificationScheduled, {
-      notification_type: 'dailyShowUp',
+      notification_type: type,
       notification_id: identifier,
       schedule_time_local: time,
       scheduled_for: fireAt.toISOString(),
       platform_trigger_type: 'date',
     });
-    await saveDailyShowUpLedger({
-      notificationId: identifier,
-      scheduleTimeLocal: time,
-      scheduledForIso: fireAt.toISOString(),
-    });
     await recordSystemNudgeScheduled({
       dateKey: localDateKey(fireAt),
-      type: 'dailyShowUp',
+      type,
       notificationId: identifier,
       scheduledForIso: fireAt.toISOString(),
     });
@@ -675,10 +773,17 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
 
 async function cancelDailyShowUpInternal() {
   await cancelAllScheduledDailyShowUps('explicit_cancel');
+  await cancelAllScheduledSetupNextSteps('explicit_cancel');
   await saveDailyShowUpLedger({
     notificationId: null,
     scheduleTimeLocal: null,
     scheduledForIso: null,
+  }).catch(() => undefined);
+  await saveSetupNextStepLedger({
+    notificationId: null,
+    scheduleTimeLocal: null,
+    scheduledForIso: null,
+    reason: null,
   }).catch(() => undefined);
 }
 
@@ -1091,7 +1196,12 @@ function attachNotificationResponseListener() {
           : null,
     });
 
-    if (data.type === 'dailyShowUp' || data.type === 'dailyFocus' || data.type === 'goalNudge') {
+    if (
+      data.type === 'dailyShowUp' ||
+      data.type === 'dailyFocus' ||
+      data.type === 'goalNudge' ||
+      data.type === 'setupNextStep'
+    ) {
       void recordSystemNudgeOpened({
         dateKey,
         type: data.type,
@@ -1137,9 +1247,20 @@ function attachNotificationResponseListener() {
         if (!rootNavigationRef.isReady()) {
           return;
         }
-        // For now, land on the Activities list as the primary daily canvas.
+        // Land on Activities list and highlight Suggested if Today has no scheduled items.
         rootNavigationRef.navigate('Activities', {
           screen: 'ActivitiesList',
+          params: { highlightSuggested: true, suggestedSource: 'notification' },
+        });
+        break;
+      }
+      case 'setupNextStep': {
+        if (!rootNavigationRef.isReady()) {
+          return;
+        }
+        rootNavigationRef.navigate('Activities', {
+          screen: 'ActivitiesList',
+          params: { highlightSuggested: true, suggestedSource: 'notification' },
         });
         break;
       }

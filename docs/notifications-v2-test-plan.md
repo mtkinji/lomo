@@ -4,6 +4,8 @@ This is a focused manual QA checklist for:
 - Daily show-up (one-shot rescheduled)
 - Daily focus (one-shot rescheduled)
 - Goal nudges (one-shot, candidate selection, deep link)
+- setupNextStep (one-shot, empty-state setup nudge)
+- Suggested card deep link + highlight
 - System nudge telemetry + backoff
 
 ## Preconditions
@@ -26,6 +28,12 @@ This is a focused manual QA checklist for:
 - Wait for it to fire.
 - Expected: after it fires and reconcile runs, the next occurrence is scheduled again (tomorrow or next day depending on suppression/backoff).
 
+### 1b) setupNextStep schedules when empty (no goals / no activities)
+- Ensure you have **0 goals** OR **0 activities**.
+- Ensure Daily show-up is ON.
+- Expected: the scheduled "morning" nudge is **type `setupNextStep`**, not `dailyShowUp`.
+- Tap it → it should open **Activities** and highlight the **Suggested** card.
+
 ### 2) Daily show-up suppression after show-up today
 - Complete any Activity (or otherwise trigger `recordShowUp`) so `lastShowUpDate` is today.
 - Toggle daily show-up OFF then ON (forces reschedule).
@@ -42,6 +50,12 @@ This is a focused manual QA checklist for:
 ### 5) Goal nudge suppression after show-up today
 - Ensure `lastShowUpDate` is today.
 - Expected: goal nudge cancels (or schedules for a future day), i.e. no same-day goal nudges after show-up.
+
+### 4b) Suggested card appears when "today is empty"
+- Ensure you have at least 1 incomplete activity.
+- Ensure none have `scheduledDate` or `scheduledAt` for today.
+- Expected: Activities canvas shows a **Suggested** card at the top.
+- Trigger a `dailyShowUp` or `setupNextStep` notification and tap it → should scroll/highlight the card.
 
 ### 6) Deep link correctness
 - Fire a dev goal nudge or wait for scheduled.
