@@ -10,12 +10,12 @@ import {
   loadDailyFocusLedger,
   loadDailyShowUpLedger,
   loadGoalNudgeLedger,
-  loadSystemNudgeLedger,
   markActivityReminderFired,
+  recordSystemNudgeFiredEstimated,
+  recordSystemNudgeScheduled,
   saveDailyFocusLedger,
   saveDailyShowUpLedger,
   saveGoalNudgeLedger,
-  saveSystemNudgeLedger,
 } from './NotificationDeliveryLedger';
 import { useAppStore } from '../../store/useAppStore';
 import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './goalNudge';
@@ -237,18 +237,12 @@ export async function reconcileNotificationsFiredEstimated(
       if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
         const stillScheduled = scheduledIds.has(goalNudgeLedger.notificationId);
         if (!stillScheduled) {
-          const systemLedger = await loadSystemNudgeLedger();
           const todayLocal = localDateKey(now);
-          const nextCount = (systemLedger.sentCountByDate[todayLocal] ?? 0) + 1;
-          await saveSystemNudgeLedger({
-            lastSentAtByType: {
-              ...(systemLedger.lastSentAtByType ?? {}),
-              goalNudge: nowIso,
-            },
-            sentCountByDate: {
-              ...(systemLedger.sentCountByDate ?? {}),
-              [todayLocal]: nextCount,
-            },
+          await recordSystemNudgeFiredEstimated({
+            dateKey: todayLocal,
+            type: 'goalNudge',
+            notificationId: goalNudgeLedger.notificationId,
+            firedAtIso: nowIso,
           });
 
           await saveGoalNudgeLedger({
@@ -272,14 +266,8 @@ export async function reconcileNotificationsFiredEstimated(
         now,
       });
       if (candidate) {
-        const systemLedger = await loadSystemNudgeLedger();
-        const todayLocal = localDateKey(now);
-        const alreadySentToday = Boolean(systemLedger.lastSentAtByType?.goalNudge) &&
-          localDateKey(new Date(systemLedger.lastSentAtByType.goalNudge)) === todayLocal;
-        const sentToday = systemLedger.sentCountByDate?.[todayLocal] ?? 0;
-        const globalCap = 2;
-
-        if (!alreadySentToday && sentToday < globalCap) {
+        // v2 caps/backoff are enforced by NotificationService scheduling, but background reconcile
+        // should still record scheduled entries for telemetry + future caps.
           const fireAt = nextLocalOccurrence(timeLocal, now);
           const identifier = await Notifications.scheduleNotificationAsync({
             content: {
@@ -307,7 +295,14 @@ export async function reconcileNotificationsFiredEstimated(
             goalId: candidate.goalId,
             scheduledForIso: fireAt.toISOString(),
           });
-        }
+
+          const dateKey = localDateKey(fireAt);
+          await recordSystemNudgeScheduled({
+            dateKey,
+            type: 'goalNudge',
+            notificationId: identifier,
+            scheduledForIso: fireAt.toISOString(),
+          });
       }
     }
   }

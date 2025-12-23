@@ -12,12 +12,14 @@ export type ActivityReminderLedgerEntry = {
 export type DailyShowUpLedger = {
   notificationId: string | null;
   scheduleTimeLocal: string | null;
+  scheduledForIso?: string | null;
   lastFiredDateKey?: string; // YYYY-MM-DD
 };
 
 export type DailyFocusLedger = {
   notificationId: string | null;
   scheduleTimeLocal: string | null;
+  scheduledForIso?: string | null;
   lastFiredDateKey?: string; // YYYY-MM-DD (local)
 };
 
@@ -30,8 +32,30 @@ export type GoalNudgeLedger = {
 };
 
 export type SystemNudgeLedger = {
+  /**
+   * Per-day rollups for system nudges. Dates use local calendar keys: YYYY-MM-DD.
+   */
+  days: Record<
+    string,
+    {
+      sent: Array<{
+        type: string;
+        notificationId: string;
+        scheduledForIso: string;
+        openedAtIso?: string;
+        actedAtIso?: string;
+      }>;
+    }
+  >;
+  /**
+   * A small amount of state for caps/backoff/personalization.
+   */
   lastSentAtByType: Record<string, string>;
+  lastOpenedAtByType: Record<string, string>;
+  consecutiveNoOpenByType: Record<string, number>;
   sentCountByDate: Record<string, number>; // YYYY-MM-DD (local)
+  // Simple per-hour histogram for personalization (local hour 0-23).
+  openHourCountsByType: Record<string, Record<string, number>>;
 };
 
 const KEY_ACTIVITY_REMINDERS = 'kwilt.notifications.activityReminders.v1';
@@ -147,21 +171,111 @@ export async function saveGoalNudgeLedger(next: GoalNudgeLedger): Promise<void> 
 export async function loadSystemNudgeLedger(): Promise<SystemNudgeLedger> {
   const raw = await AsyncStorage.getItem(KEY_SYSTEM_NUDGES);
   if (!raw) {
-    return { lastSentAtByType: {}, sentCountByDate: {} };
+    return {
+      days: {},
+      lastSentAtByType: {},
+      lastOpenedAtByType: {},
+      consecutiveNoOpenByType: {},
+      sentCountByDate: {},
+      openHourCountsByType: {},
+    };
   }
   try {
     const parsed = JSON.parse(raw) as Partial<SystemNudgeLedger> | null;
     return {
-      lastSentAtByType: parsed?.lastSentAtByType && typeof parsed.lastSentAtByType === 'object' ? parsed.lastSentAtByType : {},
-      sentCountByDate: parsed?.sentCountByDate && typeof parsed.sentCountByDate === 'object' ? parsed.sentCountByDate : {},
+      days: parsed?.days && typeof parsed.days === 'object' ? (parsed.days as SystemNudgeLedger['days']) : {},
+      lastSentAtByType:
+        parsed?.lastSentAtByType && typeof parsed.lastSentAtByType === 'object'
+          ? parsed.lastSentAtByType
+          : {},
+      lastOpenedAtByType:
+        parsed?.lastOpenedAtByType && typeof parsed.lastOpenedAtByType === 'object'
+          ? parsed.lastOpenedAtByType
+          : {},
+      consecutiveNoOpenByType:
+        parsed?.consecutiveNoOpenByType && typeof parsed.consecutiveNoOpenByType === 'object'
+          ? parsed.consecutiveNoOpenByType
+          : {},
+      sentCountByDate:
+        parsed?.sentCountByDate && typeof parsed.sentCountByDate === 'object' ? parsed.sentCountByDate : {},
+      openHourCountsByType:
+        parsed?.openHourCountsByType && typeof parsed.openHourCountsByType === 'object'
+          ? parsed.openHourCountsByType
+          : {},
     };
   } catch {
-    return { lastSentAtByType: {}, sentCountByDate: {} };
+    return {
+      days: {},
+      lastSentAtByType: {},
+      lastOpenedAtByType: {},
+      consecutiveNoOpenByType: {},
+      sentCountByDate: {},
+      openHourCountsByType: {},
+    };
   }
 }
 
 export async function saveSystemNudgeLedger(next: SystemNudgeLedger): Promise<void> {
   await AsyncStorage.setItem(KEY_SYSTEM_NUDGES, JSON.stringify(next));
+}
+
+export async function recordSystemNudgeScheduled(params: {
+  dateKey: string; // local YYYY-MM-DD
+  type: string;
+  notificationId: string;
+  scheduledForIso: string;
+}): Promise<void> {
+  const ledger = await loadSystemNudgeLedger();
+  const day = ledger.days[params.dateKey] ?? { sent: [] };
+  // Replace existing entry for same type+date (reschedule).
+  const nextSent = day.sent.filter((e) => e.type !== params.type);
+  nextSent.push({
+    type: params.type,
+    notificationId: params.notificationId,
+    scheduledForIso: params.scheduledForIso,
+  });
+  ledger.days[params.dateKey] = { sent: nextSent };
+  await saveSystemNudgeLedger(ledger);
+}
+
+export async function recordSystemNudgeOpened(params: {
+  dateKey: string; // local YYYY-MM-DD
+  type: string;
+  notificationId: string;
+  openedAtIso: string;
+  openedAtLocalHour: number;
+}): Promise<void> {
+  const ledger = await loadSystemNudgeLedger();
+  const day = ledger.days[params.dateKey] ?? { sent: [] };
+  ledger.days[params.dateKey] = {
+    sent: day.sent.map((e) =>
+      e.notificationId === params.notificationId ? { ...e, openedAtIso: params.openedAtIso } : e,
+    ),
+  };
+  ledger.lastOpenedAtByType[params.type] = params.openedAtIso;
+  ledger.consecutiveNoOpenByType[params.type] = 0;
+  const hourKey = String(params.openedAtLocalHour);
+  ledger.openHourCountsByType[params.type] ??= {};
+  ledger.openHourCountsByType[params.type][hourKey] =
+    (ledger.openHourCountsByType[params.type][hourKey] ?? 0) + 1;
+  await saveSystemNudgeLedger(ledger);
+}
+
+export async function recordSystemNudgeFiredEstimated(params: {
+  dateKey: string; // local YYYY-MM-DD
+  type: string;
+  notificationId: string;
+  firedAtIso: string;
+}): Promise<void> {
+  const ledger = await loadSystemNudgeLedger();
+  ledger.lastSentAtByType[params.type] = params.firedAtIso;
+  ledger.sentCountByDate[params.dateKey] = (ledger.sentCountByDate[params.dateKey] ?? 0) + 1;
+  const day = ledger.days[params.dateKey];
+  const opened = day?.sent.find((e) => e.notificationId === params.notificationId)?.openedAtIso;
+  if (!opened) {
+    ledger.consecutiveNoOpenByType[params.type] = (ledger.consecutiveNoOpenByType[params.type] ?? 0) + 1;
+  }
+  await saveSystemNudgeLedger(ledger);
 }
 
 
