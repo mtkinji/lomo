@@ -39,7 +39,9 @@ export const goalCreationWorkflow: WorkflowDefinition = {
         "Ask the user (in one short question) what they want to make progress on and what timeframe they intend (e.g., tomorrow / this weekend / next month / next 90 days). If the user already stated a clear timeframe, do not ask again. Optionally, if needed, ask at most one short follow-up about constraints.",
       validationHint:
         'Ensure there is at least a short free-text prompt describing the kind of progress the user wants. Constraints are optional.',
-      hideFreeformChatInput: false,
+      // Goal context collection is handled by a workflow step card (SurveyCard) rather than
+      // the global chat composer.
+      hideFreeformChatInput: true,
       nextStepId: 'agent_generate_goals',
     },
     {

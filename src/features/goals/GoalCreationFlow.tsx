@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Keyboard, StyleSheet, View } from 'react-native';
+import { Input, SurveyCard } from '../../ui/primitives';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 
@@ -12,11 +14,11 @@ type GoalCreationFlowProps = {
 };
 
 /**
- * Lightweight presenter for the Goal creation workflow.
+ * Goal creation workflow presenter.
  *
- * This mirrors the ArcCreationFlow pattern: a focused, tap-first context
- * card that feeds structured data into the workflow and then hands off to
- * the shared chat surface for the rest of the flow.
+ * For the initial context collection step, we use a structured `SurveyCard`
+ * (instead of the global chat composer) to keep this moment tap-first and
+ * visually consistent with onboarding/arc creation.
  */
 export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
   const workflowRuntime = useWorkflowRuntime();
@@ -33,8 +35,10 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
   const [introStreamed, setIntroStreamed] = useState(false);
   const hasRequestedIntroRef = useRef(false);
 
-  // Stream a small helper line into the normal timeline so it reads like typical
-  // assistant copy (not special UI chrome).
+  const [prompt, setPrompt] = useState('');
+  const [constraints, setConstraints] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
     if (!isContextCollectActive) return;
     if (introStreamed) return;
@@ -56,11 +60,97 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
     );
   }, [chatControllerRef, introStreamed, isContextCollectActive]);
 
-  // Chat-first: no step card. We only stream an intro once.
-  if (!isContextCollectActive || !introStreamed) {
+  const handleSubmit = useCallback(async () => {
+    if (!workflowRuntime || !isGoalCreationWorkflow) return;
+    if (submitting) return;
+
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) return;
+
+    const trimmedConstraints = constraints.trim();
+
+    Keyboard.dismiss();
+
+    // Mirror the user's answer into the transcript so the workflow reads like chat.
+    chatControllerRef?.current?.appendUserMessage(
+      trimmedConstraints.length > 0
+        ? `${trimmedPrompt}\n\nConstraints: ${trimmedConstraints}`
+        : trimmedPrompt,
+    );
+
+    workflowRuntime.completeStep('context_collect', {
+      prompt: trimmedPrompt,
+      constraints: trimmedConstraints.length > 0 ? trimmedConstraints : null,
+    });
+
+    try {
+      setSubmitting(true);
+      await workflowRuntime.invokeAgentStep?.({ stepId: 'agent_generate_goals' });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [chatControllerRef, constraints, isGoalCreationWorkflow, prompt, submitting, workflowRuntime]);
+
+  if (!isContextCollectActive) {
     return null;
   }
 
-    return null;
-  }
+  const canProceed = prompt.trim().length > 0 && !submitting;
 
+  return (
+    <View style={styles.container}>
+      <SurveyCard
+        steps={[
+          {
+            id: 'goal_prompt',
+            title: 'Your goal (and when)',
+            canProceed,
+            render: () => (
+              <View style={styles.body}>
+                <Input
+                  multiline
+                  label="Your goal (and when)"
+                  value={prompt}
+                  onChangeText={setPrompt}
+                  placeholder="e.g., Finish the first draft by next month; Start strength training 3×/week starting tomorrow."
+                  editable={!submitting}
+                  returnKeyType="done"
+                  blurOnSubmit
+                />
+                <View style={styles.spacer} />
+                <Input
+                  multiline
+                  label="Constraints (optional)"
+                  value={constraints}
+                  onChangeText={setConstraints}
+                  placeholder="Anything to consider? Time, energy, budget, schedule…"
+                  editable={!submitting}
+                  returnKeyType="done"
+                  blurOnSubmit
+                  multilineMinHeight={76}
+                  multilineMaxHeight={140}
+                />
+              </View>
+            ),
+          },
+        ]}
+        currentStepIndex={0}
+        submitLabel={submitting ? 'Working…' : 'Continue'}
+        onSubmit={handleSubmit}
+        variant="stacked"
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignSelf: 'stretch',
+  },
+  body: {
+    width: '100%',
+  },
+  spacer: {
+    height: 12,
+  },
+});

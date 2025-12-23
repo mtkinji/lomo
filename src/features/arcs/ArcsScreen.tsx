@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
   },
   manualHeroImage: {
     width: '100%',
-    aspectRatio: 3 / 1,
+    aspectRatio: 12 / 5,
   },
 });
 

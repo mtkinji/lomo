@@ -23,7 +23,7 @@ import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
 import { generateArcBannerVibeQuery } from '../../services/ai';
-import { searchUnsplashPhotos, UnsplashError } from '../../services/unsplash';
+import { searchUnsplashPhotos, trackUnsplashDownload, UnsplashError, withUnsplashReferral } from '../../services/unsplash';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { Arc } from '../../domain/types';
@@ -2299,6 +2299,13 @@ export function IdentityAspirationFlow({
   }));
 
     addArc(arc);
+    const unsplashPhotoId =
+      prefetchedArcHero?.heroImageMeta?.source === 'unsplash'
+        ? prefetchedArcHero?.heroImageMeta?.unsplashPhotoId
+        : undefined;
+    if (unsplashPhotoId) {
+      trackUnsplashDownload(unsplashPhotoId).catch(() => undefined);
+    }
     // If we already prefetched a hero image for the draft, keep it.
     // Otherwise, best-effort prefill after Arc creation.
     if (!prefetchedArcHero?.thumbnailUrl) {
@@ -2383,8 +2390,8 @@ export function IdentityAspirationFlow({
             createdAt: nowIso,
             unsplashPhotoId: photo.id,
             unsplashAuthorName: photo.user.name,
-            unsplashAuthorLink: photo.user.links.html,
-            unsplashLink: photo.links.html,
+            unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+            unsplashLink: withUnsplashReferral(photo.links.html),
           },
         });
       } catch {

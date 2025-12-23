@@ -240,6 +240,15 @@ export function BottomDrawer({
   const translateY = useSharedValue(0);
   const isAnimating = useSharedValue(false);
 
+  // Safety: if the modal ever remains mounted after `visible` becomes false (e.g. an interrupted
+  // animation completion callback), ensure it cannot block taps on the underlying canvas.
+  const overlayPointerEvents = useMemo(() => {
+    // Inline drawers can optionally be "non-blocking" to allow interaction with the canvas.
+    if (presentation === 'inline' && hideBackdrop) return 'box-none' as const;
+    // For modal presentation, treat `visible=false` as fully transparent to touch input.
+    return (visible ? 'auto' : 'none') as const;
+  }, [hideBackdrop, presentation, visible]);
+
   const setScrollableGesture = (gesture: ReturnType<typeof Gesture.Native> | null) => {
     setScrollableGestureState(gesture);
   };
@@ -264,8 +273,13 @@ export function BottomDrawer({
       if (!mounted) setMounted(true);
       return;
     }
+
     // Close animation for both modal + inline; unmount after.
+    // Important: if Reanimated's completion callback is interrupted (or fails to run),
+    // we still need a JS-side fallback to avoid leaving a transparent full-screen
+    // overlay that blocks taps.
     if (!mounted) return;
+
     isAnimating.value = true;
     translateY.value = withTiming(closedOffset, { duration: 280 }, (finished) => {
       isAnimating.value = false;
@@ -273,8 +287,16 @@ export function BottomDrawer({
         runOnJS(setMounted)(false);
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+
+    const fallbackUnmountMs = 360; // slightly > duration to avoid cutting off the close animation
+    const timeoutId = setTimeout(() => {
+      setMounted(false);
+    }, fallbackUnmountMs);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [closedOffset, mounted, visible, isAnimating, translateY]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -458,7 +480,7 @@ export function BottomDrawer({
           style={styles.overlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
-          pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
+          pointerEvents={overlayPointerEvents}
         >
           <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
@@ -512,7 +534,7 @@ export function BottomDrawer({
       ) : (
         <View
           style={styles.overlay}
-          pointerEvents={presentation === 'inline' && hideBackdrop ? 'box-none' : 'auto'}
+          pointerEvents={overlayPointerEvents}
         >
           <Animated.View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             {!hideBackdrop && (
@@ -572,7 +594,7 @@ export function BottomDrawer({
 
   return (
     <Modal
-      visible
+      visible={mounted}
       transparent
       animationType="none"
       onRequestClose={dismissable ? onClose : undefined}

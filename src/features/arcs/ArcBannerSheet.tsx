@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   },
   heroModalPreviewFrame: {
     width: '100%',
-    aspectRatio: 3 / 1,
+    aspectRatio: 12 / 5,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.shellAlt,

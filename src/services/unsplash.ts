@@ -49,6 +49,42 @@ function getUnsplashAccessKey(): string | undefined {
   return getEnvVar<string>('unsplashAccessKey');
 }
 
+export function withUnsplashReferral(url: string): string {
+  const raw = String(url ?? '').trim();
+  if (!raw) return raw;
+  try {
+    const parsed = new URL(raw);
+    // Required by Unsplash guidelines.
+    if (!parsed.searchParams.get('utm_source')) {
+      parsed.searchParams.set('utm_source', 'Kwilt');
+    }
+    if (!parsed.searchParams.get('utm_medium')) {
+      parsed.searchParams.set('utm_medium', 'referral');
+    }
+    return parsed.toString();
+  } catch {
+    // If the URL can't be parsed (shouldn't happen for Unsplash html links),
+    // return it unchanged.
+    return raw;
+  }
+}
+
+export async function trackUnsplashDownload(photoId: string): Promise<void> {
+  const accessKey = getUnsplashAccessKey();
+  const id = String(photoId ?? '').trim();
+  if (!accessKey || !id) return;
+
+  // Unsplash API guideline: trigger the download endpoint when a user uses a photo.
+  await fetch(`${UNSPLASH_API_BASE}/photos/${encodeURIComponent(id)}/download`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Client-ID ${accessKey}`,
+      Accept: 'application/json',
+      'Accept-Version': 'v1',
+    },
+  }).then(() => undefined);
+}
+
 export async function searchUnsplashPhotos(
   query: string,
   options: {

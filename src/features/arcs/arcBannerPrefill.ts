@@ -1,7 +1,7 @@
 import type { Arc, FocusAreaId } from '../../domain/types';
 import { useAppStore } from '../../store/useAppStore';
 import { generateArcBannerVibeQuery } from '../../services/ai';
-import { searchUnsplashPhotos, UnsplashError } from '../../services/unsplash';
+import { searchUnsplashPhotos, trackUnsplashDownload, UnsplashError, withUnsplashReferral } from '../../services/unsplash';
 import { pickHeroForArc } from './arcHeroSelector';
 
 type PrefillFallbackCuratedOptions = {
@@ -54,13 +54,14 @@ export async function ensureArcBannerPrefill(
           createdAt: nowIso,
           unsplashPhotoId: photo.id,
           unsplashAuthorName: photo.user.name,
-          unsplashAuthorLink: photo.user.links.html,
-          unsplashLink: photo.links.html,
+          unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+          unsplashLink: withUnsplashReferral(photo.links.html),
         },
         heroHidden: false,
         updatedAt: nowIso,
       };
     });
+    trackUnsplashDownload(photo.id).catch(() => undefined);
     return;
   } catch (err) {
     // Fall back to curated selection (best-effort) when image library search is unavailable.
