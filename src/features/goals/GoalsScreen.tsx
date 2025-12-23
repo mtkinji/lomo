@@ -112,7 +112,15 @@ export function GoalsScreen() {
     return acc;
   }, {});
 
-  const hasGoals = goals.length > 0;
+  const visibleGoals = React.useMemo(
+    () => goals.filter((goal) => goal.status !== 'archived'),
+    [goals],
+  );
+  const archivedGoals = React.useMemo(
+    () => goals.filter((goal) => goal.status === 'archived'),
+    [goals],
+  );
+  const hasGoals = visibleGoals.length > 0;
   const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
 
   const activityCountByGoal = React.useMemo(
@@ -236,7 +244,7 @@ export function GoalsScreen() {
       >
       {hasGoals ? (
         <VStack space="xs">
-          {goals.map((goal) => {
+          {visibleGoals.map((goal) => {
             const arcName = goal.arcId ? arcLookup[goal.arcId] : undefined;
               const statusLabel = goal.status.replace('_', ' ');
               const activityCount = activityCountByGoal[goal.id] ?? 0;
@@ -267,8 +275,12 @@ export function GoalsScreen() {
         </VStack>
       ) : (
         <EmptyState
-          title="No goals yet"
-          instructions="Create your first goal, then connect it to an Arc anytime."
+          title={archivedGoals.length > 0 ? 'No active goals' : 'No goals yet'}
+          instructions={
+            archivedGoals.length > 0
+              ? 'Your archived goals are below.'
+              : 'Create your first goal, then connect it to an Arc anytime.'
+          }
           primaryAction={{
             label: 'Create goal',
             variant: 'accent',
@@ -278,6 +290,37 @@ export function GoalsScreen() {
           style={styles.emptyState}
         />
       )}
+
+        {archivedGoals.length > 0 && (
+          <VStack space="xs" style={styles.archivedSection}>
+            <Text style={styles.archivedTitle}>Archived</Text>
+            <Text style={styles.archivedHint}>
+              Archived goals stay in your history, but won’t count toward your active goal limit.
+            </Text>
+            <VStack space="xs" style={{ marginTop: spacing.sm }}>
+              {archivedGoals.map((goal) => {
+                const parentArc = goal.arcId ? arcs.find((arc) => arc.id === goal.arcId) : undefined;
+                const activityCount = activityCountByGoal[goal.id] ?? 0;
+                return (
+                  <GoalListCard
+                    key={goal.id}
+                    goal={goal}
+                    parentArc={parentArc}
+                    padding="xs"
+                    activityCount={activityCount}
+                    thumbnailStyles={thumbnailStyles}
+                    onPress={() =>
+                      navigation.push('GoalDetail', {
+                        goalId: goal.id,
+                        entryPoint: 'goalsTab',
+                      })
+                    }
+                  />
+                );
+              })}
+            </VStack>
+          </VStack>
+        )}
 
         {hasDrafts && (
           <GoalDraftSection
@@ -1011,6 +1054,18 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     marginTop: spacing['2xl'],
+  },
+  archivedSection: {
+    marginTop: spacing.xl,
+  },
+  archivedTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  archivedHint: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   emptyTitle: {
     ...typography.titleSm,

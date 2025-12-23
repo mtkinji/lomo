@@ -111,6 +111,18 @@ describe('useAppStore object lifecycles', () => {
     expect(useAppStore.getState().arcs[0]?.status).toBe('active');
   });
 
+  it('archiving a goal is non-destructive (goal + activities remain)', () => {
+    useAppStore.getState().addArc(arc({ id: 'arc-1' }));
+    useAppStore.getState().addGoal(goal({ id: 'goal-1', arcId: 'arc-1', status: 'planned' }));
+    useAppStore.getState().addActivity(activity({ id: 'act-1', goalId: 'goal-1' }));
+
+    useAppStore.getState().updateGoal('goal-1', (prev) => ({ ...prev, status: 'archived' }));
+
+    const state = useAppStore.getState();
+    expect(state.goals.find((g) => g.id === 'goal-1')?.status).toBe('archived');
+    expect(state.activities.find((a) => a.id === 'act-1')?.goalId).toBe('goal-1');
+  });
+
   it('free-tier arc limit counts total arcs, even if archived', () => {
     const isPro = false;
     const a1 = arc({ id: 'arc-1', status: 'archived' });

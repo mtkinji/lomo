@@ -692,6 +692,11 @@ export function GoalDetailScreen() {
             status: nextStatus,
             updatedAt: timestamp,
           }));
+          showToast({
+            message: isArchived ? 'Goal restored' : 'Goal archived',
+            variant: 'success',
+            durationMs: 2200,
+          });
 
           // After archiving, return to the previous canvas so users don't end up
           // "stuck" in an archived detail surface.
@@ -1146,8 +1151,14 @@ export function GoalDetailScreen() {
                         </DropdownMenuItem>
                         <DropdownMenuItem onPress={handleToggleArchiveGoal}>
                           <View style={styles.menuItemRow}>
-                            <Icon name="info" size={16} color={colors.textSecondary} />
-                            <Text style={styles.menuItemLabel}>Archive</Text>
+                            <Icon
+                              name={goal?.status === 'archived' ? 'refresh' : 'archive'}
+                              size={16}
+                              color={colors.textSecondary}
+                            />
+                            <Text style={styles.menuItemLabel}>
+                              {goal?.status === 'archived' ? 'Restore' : 'Archive'}
+                            </Text>
                           </View>
                         </DropdownMenuItem>
 
@@ -1202,8 +1213,14 @@ export function GoalDetailScreen() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onPress={handleToggleArchiveGoal}>
                       <View style={styles.menuItemRow}>
-                        <Icon name="info" size={16} color={colors.textSecondary} />
-                        <Text style={styles.menuItemLabel}>Archive</Text>
+                        <Icon
+                          name={goal?.status === 'archived' ? 'refresh' : 'archive'}
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.menuItemLabel}>
+                          {goal?.status === 'archived' ? 'Restore' : 'Archive'}
+                        </Text>
                       </View>
                     </DropdownMenuItem>
 
