@@ -11,6 +11,10 @@ import {
   saveDailyShowUpLedger,
   saveDailyFocusLedger,
   upsertActivityReminderSchedule,
+  saveGoalNudgeLedger,
+  loadSystemNudgeLedger,
+  recordSystemNudgeOpened,
+  recordSystemNudgeScheduled,
 } from './notifications/NotificationDeliveryLedger';
 import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './notifications/goalNudge';
 import {
@@ -128,6 +132,40 @@ function localDateKey(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+async function cancelAllScheduledDailyShowUps(reason: 'reschedule' | 'explicit_cancel') {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(data && data.type === 'dailyShowUp');
+    });
+    if (matches.length === 0) {
+      dailyShowUpNotificationId = null;
+      return;
+    }
+
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'dailyShowUp',
+        notification_id: req.identifier,
+        reason,
+      });
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to cancel daily show-up notification(s)', { error });
+    }
+  } finally {
+    dailyShowUpNotificationId = null;
+  }
 }
 
 function shouldScheduleNotificationsForActivity(
@@ -570,40 +608,31 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   const hour = Number.parseInt(hourString ?? '8', 10);
   const minute = Number.parseInt(minuteString ?? '0', 10);
 
-  // Cancel any existing daily show-up notification before scheduling a new one.
-  if (dailyShowUpNotificationId) {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(dailyShowUpNotificationId);
-      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
-        notification_type: 'dailyShowUp',
-        notification_id: dailyShowUpNotificationId,
-        reason: 'reschedule',
-      });
-    } catch (error) {
-      if (__DEV__) {
-        console.warn('[notifications] failed to cancel previous daily show-up notification', {
-          error,
-        });
-      }
-    }
-    dailyShowUpNotificationId = null;
+  const now = new Date();
+  const todayKey = localDateKey(now);
+
+  // Convert daily show-up to a one-shot schedule (we reschedule daily).
+  // This enables suppression/caps/backoff (repeating schedules can't be stopped reliably).
+  const fireAt = new Date(now);
+  fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+
+  // If the user already "showed up" today, schedule tomorrow.
+  const state = useAppStore.getState();
+  if (state.lastShowUpDate === todayKey || fireAt.getTime() <= now.getTime()) {
+    fireAt.setDate(fireAt.getDate() + 1);
   }
 
-  try {
-    const trigger =
-      Platform.OS === 'ios'
-        ? ({
-            type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-            hour,
-            minute,
-            repeats: true,
-          } as const)
-        : ({
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
-            hour,
-            minute,
-          } as const);
+  // Backoff: if the user ignored this nudge twice in a row, skip the next day.
+  const systemLedger = await loadSystemNudgeLedger();
+  const noOpenCount = systemLedger.consecutiveNoOpenByType?.dailyShowUp ?? 0;
+  if (noOpenCount >= 2) {
+    fireAt.setDate(fireAt.getDate() + 1);
+  }
 
+  // Cancel any existing daily show-up notification(s) before scheduling a new one.
+  await cancelAllScheduledDailyShowUps('reschedule');
+
+  try {
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Align your day with your arcs',
@@ -612,19 +641,30 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
           type: 'dailyShowUp',
         } satisfies NotificationData,
       },
-      // Fire at the chosen local time every day.
-      trigger,
+      // One-shot (we reschedule).
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireAt,
+      },
     });
     dailyShowUpNotificationId = identifier;
     track(posthogClient, AnalyticsEvent.NotificationScheduled, {
       notification_type: 'dailyShowUp',
       notification_id: identifier,
       schedule_time_local: time,
-      platform_trigger_type: Platform.OS === 'ios' ? 'calendar' : 'daily',
+      scheduled_for: fireAt.toISOString(),
+      platform_trigger_type: 'date',
     });
     await saveDailyShowUpLedger({
       notificationId: identifier,
       scheduleTimeLocal: time,
+      scheduledForIso: fireAt.toISOString(),
+    });
+    await recordSystemNudgeScheduled({
+      dateKey: localDateKey(fireAt),
+      type: 'dailyShowUp',
+      notificationId: identifier,
+      scheduledForIso: fireAt.toISOString(),
     });
   } catch (error) {
     if (__DEV__) {
@@ -634,25 +674,12 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
 }
 
 async function cancelDailyShowUpInternal() {
-  if (!dailyShowUpNotificationId) return;
-  try {
-    await Notifications.cancelScheduledNotificationAsync(dailyShowUpNotificationId);
-    track(posthogClient, AnalyticsEvent.NotificationCancelled, {
-      notification_type: 'dailyShowUp',
-      notification_id: dailyShowUpNotificationId,
-      reason: 'explicit_cancel',
-    });
-    await saveDailyShowUpLedger({
-      notificationId: null,
-      scheduleTimeLocal: null,
-    });
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[notifications] failed to cancel daily show-up notification', { error });
-    }
-  } finally {
-    dailyShowUpNotificationId = null;
-  }
+  await cancelAllScheduledDailyShowUps('explicit_cancel');
+  await saveDailyShowUpLedger({
+    notificationId: null,
+    scheduleTimeLocal: null,
+    scheduledForIso: null,
+  }).catch(() => undefined);
 }
 
 async function scheduleDailyFocusInternal(time: string, prefs: NotificationPreferences) {
@@ -726,6 +753,13 @@ async function scheduleDailyFocusInternal(time: string, prefs: NotificationPrefe
     await saveDailyFocusLedger({
       notificationId: identifier,
       scheduleTimeLocal: time,
+      scheduledForIso: fireAt.toISOString(),
+    });
+    await recordSystemNudgeScheduled({
+      dateKey: localDateKey(fireAt),
+      type: 'dailyFocus',
+      notificationId: identifier,
+      scheduledForIso: fireAt.toISOString(),
     });
   } catch (error) {
     if (__DEV__) {
@@ -751,6 +785,7 @@ async function cancelDailyFocusInternal() {
     await saveDailyFocusLedger({
       notificationId: null,
       scheduleTimeLocal: null,
+      scheduledForIso: null,
     }).catch(() => undefined);
     dailyFocusNotificationId = null;
   }
@@ -792,6 +827,12 @@ async function cancelAllScheduledGoalNudges(reason: 'reschedule' | 'explicit_can
 
 async function cancelGoalNudgeInternal() {
   await cancelAllScheduledGoalNudges('explicit_cancel');
+  await saveGoalNudgeLedger({
+    notificationId: null,
+    scheduleTimeLocal: null,
+    scheduledForIso: null,
+    goalId: null,
+  }).catch(() => undefined);
 }
 
 async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
@@ -817,13 +858,47 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
     return;
   }
 
-  const timeLocal = prefs.goalNudgeTime ?? '16:00';
-  const [hourString, minuteString] = timeLocal.split(':');
+  const systemLedger = await loadSystemNudgeLedger();
+  const todayKey = localDateKey(now);
+  const alreadyShowedUpToday = useAppStore.getState().lastShowUpDate === todayKey;
+  // Suppress goal nudges after the user has already "shown up" today.
+  if (alreadyShowedUpToday) {
+    await cancelGoalNudgeInternal();
+    return;
+  }
+
+  // Backoff: if ignored twice, skip the next day.
+  const noOpenCount = systemLedger.consecutiveNoOpenByType?.goalNudge ?? 0;
+
+  // Personalization (v2.2): if we have enough opens, schedule goal nudges at the best-performing hour.
+  const baseTimeLocal = prefs.goalNudgeTime ?? '16:00';
+  const [, baseMinuteString] = baseTimeLocal.split(':');
+  const baseMinute = baseMinuteString ?? '00';
+  const histogram = systemLedger.openHourCountsByType?.goalNudge ?? {};
+  const totalOpens = Object.values(histogram).reduce((sum, v) => sum + (Number(v) || 0), 0);
+  const bestHourRaw =
+    totalOpens >= 5
+      ? Object.entries(histogram).reduce<{ hour: number; count: number }>(
+          (best, [hourKey, count]) => {
+            const hour = Number.parseInt(hourKey, 10);
+            const c = Number(count) || 0;
+            if (!Number.isFinite(hour) || hour < 0 || hour > 23) return best;
+            return c > best.count ? { hour, count: c } : best;
+          },
+          { hour: 16, count: -1 },
+        ).hour
+      : Number.parseInt((baseTimeLocal.split(':')[0] ?? '16') as string, 10);
+  const bestHour = Math.min(19, Math.max(15, Number.isNaN(bestHourRaw) ? 16 : bestHourRaw));
+  const timeLocal = `${String(bestHour).padStart(2, '0')}:${baseMinute.padStart(2, '0')}`;
+  const [hourString, minutePart] = timeLocal.split(':');
   const hour = Number.parseInt(hourString ?? '16', 10);
-  const minute = Number.parseInt(minuteString ?? '0', 10);
+  const minute = Number.parseInt(minutePart ?? '0', 10);
   const fireAt = new Date(now);
   fireAt.setHours(Number.isNaN(hour) ? 16 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
   if (fireAt.getTime() <= now.getTime()) {
+    fireAt.setDate(fireAt.getDate() + 1);
+  }
+  if (noOpenCount >= 2) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
 
@@ -847,6 +922,18 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
     goal_id: candidate.goalId,
     scheduled_for: fireAt.toISOString(),
     schedule_time_local: timeLocal,
+  });
+  await saveGoalNudgeLedger({
+    notificationId: identifier,
+    scheduleTimeLocal: timeLocal,
+    goalId: candidate.goalId,
+    scheduledForIso: fireAt.toISOString(),
+  }).catch(() => undefined);
+  await recordSystemNudgeScheduled({
+    dateKey: localDateKey(fireAt),
+    type: 'goalNudge',
+    notificationId: identifier,
+    scheduledForIso: fireAt.toISOString(),
   });
 }
 
@@ -990,6 +1077,9 @@ function attachNotificationResponseListener() {
     if (!data || !('type' in data) || !data.type) {
       return;
     }
+    const openedAtIso = new Date().toISOString();
+    const openedLocalHour = new Date().getHours();
+    const dateKey = localDateKey(new Date());
 
     track(posthogClient, AnalyticsEvent.NotificationOpened, {
       notification_type: data.type,
@@ -1000,6 +1090,16 @@ function attachNotificationResponseListener() {
           ? (data as { activityId?: string }).activityId ?? null
           : null,
     });
+
+    if (data.type === 'dailyShowUp' || data.type === 'dailyFocus' || data.type === 'goalNudge') {
+      void recordSystemNudgeOpened({
+        dateKey,
+        type: data.type,
+        notificationId: response.notification.request.identifier,
+        openedAtIso,
+        openedAtLocalHour: openedLocalHour,
+      });
+    }
 
     switch (data.type) {
       case 'activityReminder': {

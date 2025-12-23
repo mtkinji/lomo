@@ -93,28 +93,78 @@ export async function reconcileNotificationsFiredEstimated(
     await deleteActivityReminderLedgerEntry(entry.activityId);
   }
 
-  // 2) Daily show-up: repeating notifications do not “disappear”, so we estimate once/day after the time.
+  // 2) Daily show-up: one-shot notification; estimate fired when it disappears from scheduled list.
   const prefs = useAppStore.getState().notificationPreferences;
   if (prefs.notificationsEnabled && prefs.allowDailyShowUp && prefs.osPermissionStatus === 'authorized') {
     const daily = await loadDailyShowUpLedger();
     const timeLocal = daily.scheduleTimeLocal ?? prefs.dailyShowUpTime ?? null;
     if (timeLocal) {
-      const today = dateKeyNow();
-      const alreadyMarked = daily.lastFiredDateKey === today;
-      if (!alreadyMarked && hasPassedLocalTime(timeLocal, now)) {
-        track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
-          notification_type: 'dailyShowUp',
-          notification_id: daily.notificationId ?? null,
-          date_key: today,
-          schedule_time_local: timeLocal,
-          detected_at: nowIso,
-          detection_source: source,
-        });
+      const scheduledShowUps = scheduled.filter((req) => {
+        const data = req.content.data as any;
+        return data && data.type === 'dailyShowUp';
+      });
 
+      if (daily.scheduledForIso && daily.notificationId) {
+        const when = new Date(daily.scheduledForIso);
+        if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+          const stillScheduled = scheduledIds.has(daily.notificationId);
+          if (!stillScheduled) {
+            const todayLocal = localDateKey(now);
+            track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
+              notification_type: 'dailyShowUp',
+              notification_id: daily.notificationId ?? null,
+              date_key: todayLocal,
+              schedule_time_local: timeLocal,
+              detected_at: nowIso,
+              detection_source: source,
+            });
+            await recordSystemNudgeFiredEstimated({
+              dateKey: todayLocal,
+              type: 'dailyShowUp',
+              notificationId: daily.notificationId,
+              firedAtIso: nowIso,
+            });
+            await saveDailyShowUpLedger({
+              notificationId: null,
+              scheduleTimeLocal: timeLocal,
+              scheduledForIso: null,
+              lastFiredDateKey: todayLocal,
+            });
+          }
+        }
+      }
+
+      // Ensure there is a future daily show-up scheduled (best-effort).
+      if (scheduledShowUps.length === 0) {
+        const fireAt = nextLocalOccurrence(timeLocal, now);
+        const identifier = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Align your day with your arcs',
+            body: 'Open Kwilt to review Today and choose one tiny step.',
+            data: { type: 'dailyShowUp' },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: fireAt,
+          },
+        });
+        track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+          notification_type: 'dailyShowUp',
+          notification_id: identifier,
+          scheduled_for: fireAt.toISOString(),
+          schedule_time_local: timeLocal,
+          scheduled_source: source,
+        });
         await saveDailyShowUpLedger({
-          ...daily,
+          notificationId: identifier,
           scheduleTimeLocal: timeLocal,
-          lastFiredDateKey: today,
+          scheduledForIso: fireAt.toISOString(),
+        });
+        await recordSystemNudgeScheduled({
+          dateKey: localDateKey(fireAt),
+          type: 'dailyShowUp',
+          notificationId: identifier,
+          scheduledForIso: fireAt.toISOString(),
         });
       }
     }
@@ -134,6 +184,37 @@ export async function reconcileNotificationsFiredEstimated(
         const data = req.content.data as any;
         return data && data.type === 'dailyFocus';
       });
+
+      // Estimate fired when it disappears.
+      if (focusLedger.scheduledForIso && focusLedger.notificationId) {
+        const when = new Date(focusLedger.scheduledForIso);
+        if (!Number.isNaN(when.getTime()) && when.getTime() <= now.getTime() - 60_000) {
+          const stillScheduled = scheduledIds.has(focusLedger.notificationId);
+          if (!stillScheduled) {
+            track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
+              notification_type: 'dailyFocus',
+              notification_id: focusLedger.notificationId ?? null,
+              date_key: todayLocal,
+              schedule_time_local: timeLocal,
+              detected_at: nowIso,
+              detection_source: source,
+            });
+            await recordSystemNudgeFiredEstimated({
+              dateKey: todayLocal,
+              type: 'dailyFocus',
+              notificationId: focusLedger.notificationId,
+              firedAtIso: nowIso,
+            });
+            await saveDailyFocusLedger({
+              ...focusLedger,
+              notificationId: null,
+              scheduleTimeLocal: timeLocal,
+              scheduledForIso: null,
+              lastFiredDateKey: todayLocal,
+            });
+          }
+        }
+      }
 
       // If focus is completed today, cancel any scheduled daily-focus nudges and schedule tomorrow.
       if (completedToday) {
@@ -166,6 +247,13 @@ export async function reconcileNotificationsFiredEstimated(
         await saveDailyFocusLedger({
           notificationId: identifier,
           scheduleTimeLocal: timeLocal,
+          scheduledForIso: fireAt.toISOString(),
+        });
+        await recordSystemNudgeScheduled({
+          dateKey: localDateKey(fireAt),
+          type: 'dailyFocus',
+          notificationId: identifier,
+          scheduledForIso: fireAt.toISOString(),
         });
       } else {
         // If nothing is scheduled, schedule the next occurrence (today if still upcoming; else tomorrow).
@@ -195,27 +283,15 @@ export async function reconcileNotificationsFiredEstimated(
           await saveDailyFocusLedger({
             notificationId: identifier,
             scheduleTimeLocal: timeLocal,
+            scheduledForIso: fireAt.toISOString(),
+          });
+          await recordSystemNudgeScheduled({
+            dateKey: localDateKey(fireAt),
+            type: 'dailyFocus',
+            notificationId: identifier,
+            scheduledForIso: fireAt.toISOString(),
           });
         }
-      }
-
-      // Best-effort: estimate "fired" once/day after the scheduled time.
-      const alreadyMarked = focusLedger.lastFiredDateKey === todayLocal;
-      if (!alreadyMarked && hasPassedLocalTime(timeLocal, now)) {
-        track(posthogClient, AnalyticsEvent.NotificationFiredEstimated, {
-          notification_type: 'dailyFocus',
-          notification_id: focusLedger.notificationId ?? null,
-          date_key: todayLocal,
-          schedule_time_local: timeLocal,
-          detected_at: nowIso,
-          detection_source: source,
-        });
-
-        await saveDailyFocusLedger({
-          ...focusLedger,
-          scheduleTimeLocal: timeLocal,
-          lastFiredDateKey: todayLocal,
-        });
       }
     }
   }
