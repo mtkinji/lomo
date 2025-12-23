@@ -25,6 +25,7 @@
 ### Backend & infra strategy
 
 - **Backend services strategy (Supabase-first)**: `docs/backend-services-supabase-strategy.md`
+- **AI proxy + quotas setup (Supabase Edge Function)**: `docs/ai-proxy-setup.md`
 
 ### Core background docs
 

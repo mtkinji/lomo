@@ -197,8 +197,9 @@ async function ensureAudioMode() {
     // Keep soundscape playing when the screen locks / app backgrounds (Focus mode).
     staysActiveInBackground: true,
     shouldDuckAndroid: true,
-    interruptionModeIOS: Audio.InterruptionModeIOS.DuckOthers,
-    interruptionModeAndroid: Audio.InterruptionModeAndroid.DuckOthers,
+    // Expo AV SDK 54: use exported constants instead of enum-like namespaces.
+    interruptionModeIOS: (Audio as any).INTERRUPTION_MODE_IOS_DUCK_OTHERS,
+    interruptionModeAndroid: (Audio as any).INTERRUPTION_MODE_ANDROID_DUCK_OTHERS,
     playThroughEarpieceAndroid: false,
   });
   audioModeConfigured = true;
