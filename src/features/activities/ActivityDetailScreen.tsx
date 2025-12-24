@@ -36,15 +36,15 @@ import type {
 import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { Picker } from '@react-native-picker/picker';
-import { preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
+import { SOUND_SCAPES, preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import { BrandLockup } from '../../ui/BrandLockup';
+import { HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
 import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
@@ -69,11 +69,13 @@ import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
 import * as Calendar from 'expo-calendar';
 import { buildIcsEvent } from '../../utils/ics';
+import { buildOutlookEventLinks } from '../../utils/outlookEventLinks';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { Toast } from '../../ui/Toast';
+import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 
 type FocusSessionState =
   | {
@@ -130,6 +132,8 @@ export function ActivityDetailScreen() {
   const setLastFocusMinutes = useAppStore((state) => state.setLastFocusMinutes);
   const soundscapeEnabled = useAppStore((state) => state.soundscapeEnabled);
   const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
+  const soundscapeTrackId = useAppStore((state) => state.soundscapeTrackId);
+  const setSoundscapeTrackId = useAppStore((state) => state.setSoundscapeTrackId);
   const currentFocusStreak = useAppStore((state) => state.currentFocusStreak);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const agentHostActions = useAppStore((state) => state.agentHostActions);
@@ -354,13 +358,27 @@ export function ActivityDetailScreen() {
 
   const focusSheetVisible = activeSheet === 'focus';
   const [focusMinutesDraft, setFocusMinutesDraft] = useState('25');
-  const [focusDurationMode, setFocusDurationMode] = useState<'preset' | 'custom'>('preset');
-  const [focusSelectedPresetMinutes, setFocusSelectedPresetMinutes] = useState<number>(25);
   const [focusCustomExpanded, setFocusCustomExpanded] = useState(false);
   const [focusSession, setFocusSession] = useState<FocusSessionState | null>(null);
   const [focusTickMs, setFocusTickMs] = useState(() => Date.now());
   const focusEndNotificationIdRef = useRef<string | null>(null);
   const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const focusPresetValues = [10, 25, 45, 60];
+  const focusDraftMinutes = Math.min(
+    focusMaxMinutes,
+    Math.max(1, Math.floor(Number(focusMinutesDraft) || 1)),
+  );
+  const focusIsCustomValue = !focusPresetValues.includes(focusDraftMinutes);
+
+  const focusSheetSnapPoints = useMemo(() => {
+    // Ensure the sheet can show the full preset row + optional custom wheel + soundscape + CTA buttons
+    // without requiring scroll on typical phone sizes.
+    if (Platform.OS === 'ios') {
+      return [focusCustomExpanded ? ('82%' as const) : ('72%' as const)];
+    }
+    return [focusCustomExpanded ? ('74%' as const) : ('62%' as const)];
+  }, [focusCustomExpanded]);
 
   const calendarSheetVisible = activeSheet === 'calendar';
   const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
@@ -464,20 +482,26 @@ export function ActivityDetailScreen() {
   const handleSendToAmazon = useCallback(async () => {
     const q = buildSendToSearchQuery();
     if (!q) return;
-    await openExternalUrl(`https://www.amazon.com/s?k=${encodeURIComponent(q)}`);
+    const url = buildAffiliateRetailerSearchUrl('amazon', q);
+    if (!url) return;
+    await openExternalUrl(url);
   }, [buildSendToSearchQuery, openExternalUrl]);
 
   const handleSendToHomeDepot = useCallback(async () => {
     const q = buildSendToSearchQuery();
     if (!q) return;
-    await openExternalUrl(`https://www.homedepot.com/s/${encodeURIComponent(q)}`);
+    const url = buildAffiliateRetailerSearchUrl('homeDepot', q);
+    if (!url) return;
+    await openExternalUrl(url);
   }, [buildSendToSearchQuery, openExternalUrl]);
 
   const handleSendToInstacart = useCallback(async () => {
     const q = buildSendToSearchQuery();
     if (!q) return;
     // Best-effort web fallback (native deep links can be added later).
-    await openExternalUrl(`https://www.instacart.com/store/s?k=${encodeURIComponent(q)}`);
+    const url = buildAffiliateRetailerSearchUrl('instacart', q);
+    if (!url) return;
+    await openExternalUrl(url);
   }, [buildSendToSearchQuery, openExternalUrl]);
 
   useEffect(() => {
@@ -599,16 +623,7 @@ export function ActivityDetailScreen() {
       ),
     );
     setFocusMinutesDraft(String(fallback));
-    const presets = [10, 25, 45, 60];
-    if (presets.includes(fallback)) {
-      setFocusDurationMode('preset');
-      setFocusSelectedPresetMinutes(fallback);
-      setFocusCustomExpanded(false);
-    } else {
-      setFocusDurationMode('custom');
-      // Keep the wheel hidden until the user taps the custom chip.
-      setFocusCustomExpanded(false);
-    }
+    setFocusCustomExpanded(false);
     setActiveSheet('focus');
   };
 
@@ -671,16 +686,11 @@ export function ActivityDetailScreen() {
 
     setActiveSheet(null);
     // Start preloading immediately so sound can come up quickly once the focus overlay appears.
-    preloadSoundscape().catch(() => undefined);
+    preloadSoundscape({ soundscapeId: soundscapeTrackId }).catch(() => undefined);
     // Avoid stacking our focus interstitial modal on top of the BottomDrawer modal
     // while it is animating out; otherwise iOS can show the scrim but hide the next modal.
     if (focusLaunchTimeoutRef.current) {
       clearTimeout(focusLaunchTimeoutRef.current);
-    }
-
-    // If sound is enabled, start playback right away (don't wait for the focus modal delay).
-    if (soundscapeEnabled) {
-      startSoundscapeLoop({ fadeInMs: 250 }).catch(() => undefined);
     }
 
     focusLaunchTimeoutRef.current = setTimeout(() => {
@@ -757,11 +767,11 @@ export function ActivityDetailScreen() {
   useEffect(() => {
     // Keep soundscape aligned with Focus session state (handles toggling + pause/resume).
     if (focusSession?.mode === 'running' && soundscapeEnabled) {
-      startSoundscapeLoop({ fadeInMs: 250 }).catch(() => undefined);
+      startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
       return;
     }
     stopSoundscapeLoop().catch(() => undefined);
-  }, [focusSession?.mode, soundscapeEnabled]);
+  }, [focusSession?.mode, soundscapeEnabled, soundscapeTrackId]);
 
   useEffect(() => {
     if (!focusSession) return;
@@ -811,15 +821,7 @@ export function ActivityDetailScreen() {
             ? Math.max(1, Math.round(action.minutes))
             : Math.max(1, Math.round(activity.estimateMinutes ?? 25));
         setFocusMinutesDraft(String(minutes));
-        const presets = [10, 25, 45, 60];
-        if (presets.includes(minutes)) {
-          setFocusDurationMode('preset');
-          setFocusSelectedPresetMinutes(minutes);
-          setFocusCustomExpanded(false);
-        } else {
-          setFocusDurationMode('custom');
-          setFocusCustomExpanded(false);
-        }
+        setFocusCustomExpanded(false);
         setActiveSheet('focus');
         return;
       }
@@ -1191,24 +1193,12 @@ export function ActivityDetailScreen() {
     const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
     const focusPart = `Focus mode: ${focusLink}`;
     const body = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
-
-    const qs = [
-      ['subject', activity.title],
-      ['body', body],
-      ['start', startAt.toISOString()],
-      ['end', endAt.toISOString()],
-    ]
-      .filter(([, v]) => Boolean(v))
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-      .join('&');
-
-    const nativeUrl = `ms-outlook://events/new?${qs}`;
-    const webUrl =
-      `https://outlook.office.com/calendar/0/deeplink/compose` +
-      `?subject=${encodeURIComponent(activity.title)}` +
-      `&startdt=${encodeURIComponent(startAt.toISOString())}` +
-      `&enddt=${encodeURIComponent(endAt.toISOString())}` +
-      (body ? `&body=${encodeURIComponent(body)}` : '');
+    const { nativeUrl, webUrl } = buildOutlookEventLinks({
+      subject: activity.title,
+      body,
+      startAt,
+      endAt,
+    });
 
     try {
       if (isOutlookInstalled) {
@@ -3260,188 +3250,146 @@ export function ActivityDetailScreen() {
       <BottomDrawer
         visible={focusSheetVisible}
         onClose={() => setActiveSheet(null)}
-        snapPoints={['52%']}
+        snapPoints={focusSheetSnapPoints}
         scrimToken="pineSubtle"
       >
-        <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Focus mode</Text>
-          <Text style={styles.sheetDescription}>
-            How long do you want to focus? (We can’t toggle system Focus / Do Not Disturb for you, but we’ll keep you on a distraction-free timer.)
-          </Text>
-          <Text style={styles.focusStreakSheetLabel}>
-            Current streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
-          </Text>
-          <VStack space="md">
-            <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.focusPresetChip,
-                  focusDurationMode === 'preset' &&
-                    focusSelectedPresetMinutes === 10 &&
-                    styles.focusPresetChipSelected,
-                  pressed && styles.focusPresetChipPressed,
-                ]}
-                onPress={() => {
-                  setFocusDurationMode('preset');
-                  setFocusSelectedPresetMinutes(10);
-                  setFocusMinutesDraft('10');
-                  setFocusCustomExpanded(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.focusPresetChipText,
-                    focusDurationMode === 'preset' &&
-                      focusSelectedPresetMinutes === 10 &&
-                      styles.focusPresetChipTextSelected,
-                  ]}
-                >
-                  10m
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.focusPresetChip,
-                  focusDurationMode === 'preset' &&
-                    focusSelectedPresetMinutes === 25 &&
-                    styles.focusPresetChipSelected,
-                  pressed && styles.focusPresetChipPressed,
-                ]}
-                onPress={() => {
-                  setFocusDurationMode('preset');
-                  setFocusSelectedPresetMinutes(25);
-                  setFocusMinutesDraft('25');
-                  setFocusCustomExpanded(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.focusPresetChipText,
-                    focusDurationMode === 'preset' &&
-                      focusSelectedPresetMinutes === 25 &&
-                      styles.focusPresetChipTextSelected,
-                  ]}
-                >
-                  25m
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.focusPresetChip,
-                  focusDurationMode === 'preset' &&
-                    focusSelectedPresetMinutes === 45 &&
-                    styles.focusPresetChipSelected,
-                  pressed && styles.focusPresetChipPressed,
-                ]}
-                onPress={() => {
-                  setFocusDurationMode('preset');
-                  setFocusSelectedPresetMinutes(45);
-                  setFocusMinutesDraft('45');
-                  setFocusCustomExpanded(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.focusPresetChipText,
-                    focusDurationMode === 'preset' &&
-                      focusSelectedPresetMinutes === 45 &&
-                      styles.focusPresetChipTextSelected,
-                  ]}
-                >
-                  45m
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.focusPresetChip,
-                  focusDurationMode === 'preset' &&
-                    focusSelectedPresetMinutes === 60 &&
-                    styles.focusPresetChipSelected,
-                  pressed && styles.focusPresetChipPressed,
-                ]}
-                onPress={() => {
-                  setFocusDurationMode('preset');
-                  setFocusSelectedPresetMinutes(60);
-                  setFocusMinutesDraft('60');
-                  setFocusCustomExpanded(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.focusPresetChipText,
-                    focusDurationMode === 'preset' &&
-                      focusSelectedPresetMinutes === 60 &&
-                      styles.focusPresetChipTextSelected,
-                  ]}
-                >
-                  60m
-                </Text>
-              </Pressable>
+        <View style={[styles.sheetContent, { flex: 1 }]}>
+          <VStack space="md" style={{ flex: 1 }}>
+            <View>
+              <Text style={styles.sheetTitle}>Focus mode</Text>
+              <Text style={styles.sheetDescription}>
+                Start a distraction-free timer for this activity. Pick a duration, then tap Start.
+              </Text>
+            </View>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.focusPresetChip,
-                  focusDurationMode === 'custom' && styles.focusPresetChipSelected,
-                  pressed && styles.focusPresetChipPressed,
-                ]}
-                onPress={() => {
-                  setFocusDurationMode('custom');
-                  setFocusCustomExpanded(true);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.focusPresetChipText,
-                    focusDurationMode === 'custom' && styles.focusPresetChipTextSelected,
-                  ]}
+            <View>
+              <Text style={styles.estimateFieldLabel}>Minutes</Text>
+              <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
+                {(focusPresetValues as number[]).map((m) => {
+                  const selected = !focusCustomExpanded && focusDraftMinutes === m;
+                  return (
+                    <Pressable
+                      key={String(m)}
+                      style={({ pressed }) => [
+                        styles.focusPresetChip,
+                        selected && styles.focusPresetChipSelected,
+                        pressed && styles.focusPresetChipPressed,
+                      ]}
+                      onPress={() => {
+                        setFocusMinutesDraft(String(m));
+                        setFocusCustomExpanded(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.focusPresetChipText,
+                          selected && styles.focusPresetChipTextSelected,
+                        ]}
+                      >
+                        {m}m
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+
+                <Pressable
+                  style={({ pressed }) => {
+                    const selected = focusCustomExpanded || focusIsCustomValue;
+                    return [
+                      styles.focusPresetChip,
+                      selected && styles.focusPresetChipSelected,
+                      pressed && styles.focusPresetChipPressed,
+                    ];
+                  }}
+                  onPress={() => setFocusCustomExpanded((v) => !v)}
                 >
-                  {(() => {
-                    const presets = [10, 25, 45, 60];
-                    const draft = Math.max(1, Math.floor(Number(focusMinutesDraft) || 1));
-                    if (focusDurationMode === 'custom') return `${draft}m`;
-                    if (typeof lastFocusMinutes === 'number' && !presets.includes(lastFocusMinutes)) {
-                      return `${Math.max(1, Math.round(lastFocusMinutes))}m`;
-                    }
-                    return 'Custom';
-                  })()}
-                </Text>
-              </Pressable>
-            </HStack>
+                  <Text
+                    style={[
+                      styles.focusPresetChipText,
+                      (focusCustomExpanded || focusIsCustomValue) && styles.focusPresetChipTextSelected,
+                    ]}
+                  >
+                    {(() => {
+                      if (focusCustomExpanded) return `${focusDraftMinutes}m`;
+                      if (focusIsCustomValue) return `${focusDraftMinutes}m`;
+                      return 'Custom';
+                    })()}
+                  </Text>
+                </Pressable>
+              </HStack>
 
-            {focusDurationMode === 'custom' && focusCustomExpanded ? (
-              <View>
-                <Text style={styles.estimateFieldLabel}>Minutes</Text>
-                <NumberWheelPicker
-                  value={Math.max(1, Math.floor(Number(focusMinutesDraft) || 1))}
-                  onChange={(next) => setFocusMinutesDraft(String(next))}
-                  min={1}
-                  max={focusMaxMinutes}
-                />
-              </View>
-            ) : null}
+              {focusCustomExpanded ? (
+                <View style={{ marginTop: spacing.md }}>
+                  <DurationPicker
+                    valueMinutes={focusDraftMinutes}
+                    onChangeMinutes={(next) => setFocusMinutesDraft(String(next))}
+                    optionsMinutes={Array.from({ length: focusMaxMinutes }, (_, idx) => idx + 1)}
+                    accessibilityLabel="Select custom focus duration"
+                    iosWheelHeight={160}
+                    showHelperText={false}
+                    iosUseEdgeFades={false}
+                  />
+                </View>
+              ) : null}
+            </View>
 
-            <HStack space="sm">
-              <Button
-                variant="outline"
-                style={{ flex: 1 }}
-                testID="e2e.activityDetail.focus.cancel"
-                onPress={() => setActiveSheet(null)}
-              >
-                <Text style={styles.sheetRowLabel}>Cancel</Text>
-              </Button>
-              <Button
-                variant="primary"
-                style={{ flex: 1 }}
-                testID="e2e.activityDetail.focus.start"
-                onPress={() => {
-                  startFocusSession().catch(() => undefined);
-                }}
-              >
-                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                  Start
-                </Text>
-              </Button>
-            </HStack>
+            <View>
+              <Text style={styles.estimateFieldLabel}>Soundscape</Text>
+              <DropdownMenu>
+                <DropdownMenuTrigger accessibilityLabel="Select soundscape">
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.focusSoundscapeTrigger,
+                      pressed && styles.focusPresetChipPressed,
+                    ]}
+                  >
+                    <HStack space="xs" alignItems="center">
+                      <Text style={styles.focusSoundscapeTriggerText}>
+                        {(SOUND_SCAPES.find((s) => s.id === soundscapeTrackId)?.title ?? 'Soundscape')}
+                      </Text>
+                      <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                    </HStack>
+                  </Pressable>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="bottom" sideOffset={6} align="start">
+                  {SOUND_SCAPES.map((s) => (
+                    <DropdownMenuItem
+                      key={s.id}
+                      onPress={() => {
+                        setSoundscapeTrackId(s.id);
+                      }}
+                    >
+                      <Text style={styles.menuRowText}>{s.title}</Text>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </View>
+
+            <View style={{ flex: 1 }} />
+
+          <HStack space="sm">
+            <Button
+              variant="outline"
+              style={{ flex: 1 }}
+              testID="e2e.activityDetail.focus.cancel"
+              onPress={() => setActiveSheet(null)}
+            >
+              <Text style={styles.sheetRowLabel}>Cancel</Text>
+            </Button>
+            <Button
+              variant="primary"
+              style={{ flex: 1 }}
+              testID="e2e.activityDetail.focus.start"
+              onPress={() => {
+                startFocusSession().catch(() => undefined);
+              }}
+            >
+              <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                Start
+              </Text>
+            </Button>
+          </HStack>
           </VStack>
         </View>
       </BottomDrawer>
@@ -3598,23 +3546,19 @@ export function ActivityDetailScreen() {
           </View>
 
           <HStack space="sm" style={styles.focusBottomBar}>
-            <Button
-              accessibilityRole="button"
+            <HeaderActionPill
+              size={56}
               accessibilityLabel="End focus session"
-              variant="ghost"
-              size="icon"
-              iconButtonSize={56}
               style={styles.focusActionIconButton}
               onPress={() => endFocusSession().catch(() => undefined)}
             >
               <Icon name="stop" size={22} color={colors.parchment} />
-            </Button>
-            <Button
-              accessibilityRole="button"
-              accessibilityLabel={focusSession?.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'}
-              variant="ghost"
-              size="icon"
-              iconButtonSize={56}
+            </HeaderActionPill>
+            <HeaderActionPill
+              size={56}
+              accessibilityLabel={
+                focusSession?.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'
+              }
               style={styles.focusActionIconButton}
               onPress={() => togglePauseFocusSession().catch(() => undefined)}
             >
@@ -3623,7 +3567,7 @@ export function ActivityDetailScreen() {
                 size={22}
                 color={colors.parchment}
               />
-            </Button>
+            </HeaderActionPill>
           </HStack>
         </View>
       </Modal>
@@ -4351,6 +4295,20 @@ const styles = StyleSheet.create({
   },
   focusSoundToggleLabelOff: {
     color: colors.parchment,
+  },
+  focusSoundscapeTrigger: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  focusSoundscapeTriggerText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
   },
   focusCenter: {
     flex: 1,

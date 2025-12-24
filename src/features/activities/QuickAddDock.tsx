@@ -24,6 +24,12 @@ const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
 const KEYBOARD_DEFAULT_GUESS_HEIGHT = 320;
 
 type QuickAddDockProps = {
+  /**
+   * Default: 'bottomDock'
+   * - bottomDock: current behavior (absolute anchored to bottom, reserves scroll space)
+   * - inline: render the collapsed trigger row inline (no absolute positioning)
+   */
+  placement?: 'bottomDock' | 'inline';
   value: string;
   onChangeText: (text: string) => void;
   inputRef: RefObject<TextInput | null>;
@@ -53,6 +59,7 @@ type QuickAddDockProps = {
 };
 
 export function QuickAddDock({
+  placement = 'bottomDock',
   value,
   onChangeText,
   inputRef,
@@ -75,7 +82,8 @@ export function QuickAddDock({
 }: QuickAddDockProps) {
   const insets = useSafeAreaInsets();
   const activeBottomPadding = 0;
-  const idleBottomPadding = Math.max(insets.bottom, spacing.sm);
+  const idleBottomPadding =
+    placement === 'inline' ? 0 : Math.max(insets.bottom, spacing.sm);
   const bottomPadding = isFocused ? activeBottomPadding : idleBottomPadding;
   
   // Generate accessory ID for keyboard toolbar
@@ -178,56 +186,44 @@ export function QuickAddDock({
 
   return (
     <>
-      {/* Collapsed dock (always mounted so we can measure + reserve scroll space). */}
-      <View style={[styles.dock, isFocused ? styles.dockHidden : null]}>
-        <View
-          style={[
-            // Full-width "shell" surface (edge-to-edge), with an inner gutter so the
-            // input aligns with the 3-column card rhythm above.
-            styles.collapsedShell,
-            { paddingBottom: idleBottomPadding + COLLAPSED_DOCK_LIFT_PX },
-          ]}
-          onLayout={(event) => {
-            const layoutHeight = Math.round(event.nativeEvent.layout.height);
-            reportReservedHeight(layoutHeight);
-          }}
-        >
-          <View style={styles.collapsedInnerGutter}>
-            <View style={styles.collapsedInputShell}>
-              <Pressable
-                testID="e2e.activities.quickAdd.open"
-                accessibilityRole="button"
-                accessibilityLabel="Add an activity"
-                onPress={() => setIsFocused(true)}
-                style={styles.collapsedPressable}
-              >
-                <HStack
-                  space="md"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  style={styles.collapsedRowContent}
-                >
-                  <HStack space="md" alignItems="center" style={{ flex: 1 }}>
-                    <View style={styles.collapsedLeftIconSlot}>
-                      <Icon name="plus" size={16} color={colors.textSecondary} />
-                    </View>
-                    <Text style={styles.collapsedPlaceholderText}>Add an activity</Text>
-                  </HStack>
-                  {/* Reserve the same trailing "star" column width as ActivityListItem */}
-                  <View style={styles.collapsedRightSpacer} />
-                </HStack>
-              </Pressable>
+      {/* Collapsed dock trigger (always mounted so we can open quickly). */}
+      {placement === 'bottomDock' ? (
+        <View style={[styles.dock, isFocused ? styles.dockHidden : null]}>
+          <View
+            style={[
+              // Full-width "shell" surface (edge-to-edge), with an inner gutter so the
+              // input aligns with the 3-column card rhythm above.
+              styles.collapsedShell,
+              { paddingBottom: idleBottomPadding + COLLAPSED_DOCK_LIFT_PX },
+            ]}
+            onLayout={(event) => {
+              const layoutHeight = Math.round(event.nativeEvent.layout.height);
+              reportReservedHeight(layoutHeight);
+            }}
+          >
+            <View style={styles.collapsedInnerGutter}>
+              <View style={styles.collapsedInputShell}>
+                <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      ) : (
+        <View style={isFocused ? styles.inlineHidden : null}>
+          <View style={styles.collapsedInputShell}>
+            <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
+          </View>
+        </View>
+      )}
 
       {/* Focused drawer: use BottomDrawer sizing so the hidden portion sits under the keyboard,
           which exactly matches the Goals/Notes behavior you like. */}
       <UnderKeyboardDrawer
         visible={isFocused}
         onClose={onCollapse}
-        presentation="inline"
+        // Use modal presentation so the drawer is full-width and reliably anchored
+        // to the bottom of the viewport (inline presentation can be constrained by parent layout).
+        presentation="modal"
         hideBackdrop
         dismissable={false}
         dynamicHeightUnderKeyboard
@@ -348,6 +344,34 @@ export function QuickAddDock({
   );
 }
 
+function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      testID="e2e.activities.quickAdd.open"
+      accessibilityRole="button"
+      accessibilityLabel="Add an activity"
+      onPress={onPress}
+      style={styles.collapsedPressable}
+    >
+      <HStack
+        space="md"
+        alignItems="center"
+        justifyContent="space-between"
+        style={styles.collapsedRowContent}
+      >
+        <HStack space="md" alignItems="center" style={{ flex: 1 }}>
+          <View style={styles.collapsedLeftIconSlot}>
+            <Icon name="plus" size={16} color={colors.textSecondary} />
+          </View>
+          <Text style={styles.collapsedPlaceholderText}>Add an activity</Text>
+        </HStack>
+        {/* Reserve the same trailing "star" column width as ActivityListItem */}
+        <View style={styles.collapsedRightSpacer} />
+      </HStack>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   dock: {
     position: 'absolute',
@@ -359,6 +383,10 @@ const styles = StyleSheet.create({
     elevation: 50,
   },
   dockHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
+  },
+  inlineHidden: {
     opacity: 0,
     pointerEvents: 'none',
   },

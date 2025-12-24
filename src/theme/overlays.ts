@@ -54,9 +54,18 @@ export const blurs = {
   headerAction: {
     intensity: 34,
     tint: 'light' as const,
-    // "Sumi500-ish @ 0.1" (mid ink; closer to our gray500 tone).
-    overlayColor: 'rgba(113,113,122,0.10)',
-    borderColor: 'rgba(0,0,0,0.08)',
+    /**
+     * Base overlay color layered on top of the blur.
+     *
+     * We intentionally bias this toward a light (white/gray) material so
+     * header action pills remain readable over *dark* hero imagery.
+     */
+    overlayColor: 'rgba(255,255,255,0.28)',
+    /**
+     * Use a light border so the pill edge remains visible on dark images.
+     * The blur + overlay already provides separation on light images.
+     */
+    borderColor: 'rgba(255,255,255,0.22)',
   },
 } as const;
 

@@ -9,7 +9,7 @@ export type ArcDevelopmentInsights = {
   pitfalls: string[];
 };
 
-const MIN_BULLETS_PER_SECTION = 2;
+const MIN_LINES_PER_SECTION = 2;
 
 const normalizeText = (value: string | undefined | null): string =>
   (value ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -91,9 +91,9 @@ const parseInsightsFromReply = (reply: string): ArcDevelopmentInsights | null =>
     const pitfalls = parsed.pitfalls.filter((item) => typeof item === 'string' && item.trim());
 
     if (
-      strengths.length < MIN_BULLETS_PER_SECTION ||
-      growthEdges.length < MIN_BULLETS_PER_SECTION ||
-      pitfalls.length < MIN_BULLETS_PER_SECTION
+      strengths.length < MIN_LINES_PER_SECTION ||
+      growthEdges.length < MIN_LINES_PER_SECTION ||
+      pitfalls.length < MIN_LINES_PER_SECTION
     ) {
       return null;
     }
@@ -152,10 +152,10 @@ const scoreArcInsightQuality = async (
     '- pitfalls people on this path learn to navigate.',
     '',
     'Scoring dimensions (0–10 each):',
-    '1) alignment – do the bullets clearly relate to the Arc name and narrative?',
+    '1) alignment – do the lines clearly relate to the Arc name and narrative?',
     '2) developmental_accuracy – do they describe believable ways people grow over time, without diagnosing or giving prescriptive advice?',
     '3) realism – could these show up in an ordinary week for this kind of person, in grounded language?',
-    '4) clarity – are bullets short, scannable, and free of vague “inspire / unlock / radiate” language?',
+    '4) clarity – are lines short, scannable, and free of vague “inspire / unlock / radiate” language?',
     '',
     'Compute final_score as the simple average of the four dimensions, and clamp it to 0–10.',
     '',
@@ -233,20 +233,22 @@ const generateInsightsForArc = async (arc: Arc): Promise<ArcDevelopmentInsights 
     '',
     'You are generating a short, psychologically grounded “development profile” for a user’s Identity Arc.',
     '',
-    'Your job is NOT to give advice or instructions. Instead, describe how people on this kind of path typically grow over time.',
+    'Your job is NOT to give advice or instructions. Instead, offer gentle, kind invitations to notice or consider patterns people on this path often run into.',
     '',
     'Structure:',
-    '- strengths: 2–3 bullets about capacities or habits that help people grow this Arc.',
-    '- growth_edges: 2–3 bullets about tensions or edges people often work on along this path.',
-    '- pitfalls: 2–3 bullets about common traps people on this path learn to navigate.',
+    '- strengths: 2–3 short lines about capacities or habits that help people grow this Arc.',
+    '- growth_edges: 2–3 short lines about tensions or edges people often work on along this path.',
+    '- pitfalls: 2–3 short lines about common traps people on this path learn to navigate.',
     '',
     'Hard rules:',
     '- Do NOT use the word “should”.',
     '- Do NOT tell the user what to do or give step-by-step advice.',
     '- Do NOT diagnose traits, disorders, or fixed labels.',
     '- Keep language grounded, concrete, and non-cosmic (no destiny, vibration, radiance, etc.).',
-    '- Speak in third-person plural framing like “people on this path often…” or “many people with this kind of Arc…”.',
-    '- Bullets must be short (one line each) and easy to scan on a phone.',
+    '- Prefer an invitational tone (e.g., “Many people find it helpful to…”, “It can be worth noticing…”, “You might observe…”), without prescribing.',
+    '- Speak in third-person plural or gentle second-person (“people on this path…”, “you might notice…”).',
+    '- Do NOT include bullet characters (no leading "-", "*", "•", or numbered lists). Return plain strings only.',
+    '- Lines must be short (one line each) and easy to scan on a phone.',
     '',
     'Anchor your insights in:',
     '- the Arc name and narrative (identity spine, everyday scenes, and tension),',

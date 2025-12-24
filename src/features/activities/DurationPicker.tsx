@@ -28,6 +28,20 @@ type DurationPickerProps = {
    * Text used by screen readers for the picker.
    */
   accessibilityLabel?: string;
+  /**
+   * iOS-only: height of the wheel container.
+   */
+  iosWheelHeight?: number;
+  /**
+   * Whether to show the helper text below the picker.
+   * Defaults to true.
+   */
+  showHelperText?: boolean;
+  /**
+   * iOS-only: show subtle edge fades over the wheel to de-emphasize non-selected rows.
+   * Defaults to true.
+   */
+  iosUseEdgeFades?: boolean;
 };
 
 export function DurationPicker({
@@ -35,6 +49,9 @@ export function DurationPicker({
   onChangeMinutes,
   optionsMinutes = DEFAULT_OPTIONS_MINUTES,
   accessibilityLabel = 'Duration picker',
+  iosWheelHeight = 210,
+  showHelperText = true,
+  iosUseEdgeFades = true,
 }: DurationPickerProps) {
   const options = React.useMemo(() => {
     const normalized = (optionsMinutes ?? [])
@@ -48,9 +65,10 @@ export function DurationPicker({
     options.includes(valueMinutes) ? valueMinutes : options[Math.max(0, Math.min(options.length - 1, 1))] ?? 30;
 
   if (Platform.OS === 'ios') {
+    const gradientHeight = Math.max(40, Math.min(56, Math.round(iosWheelHeight * 0.27)));
     return (
       <View style={styles.iosWheelShell} accessibilityLabel={accessibilityLabel}>
-        <View style={styles.iosWheelFrame}>
+        <View style={[styles.iosWheelFrame, { height: iosWheelHeight }]}>
           <Picker
             selectedValue={selected}
             onValueChange={(value) => onChangeMinutes(Number(value))}
@@ -60,25 +78,31 @@ export function DurationPicker({
               <Picker.Item key={String(m)} label={formatDurationMinutes(m)} value={m} />
             ))}
           </Picker>
-          {/* Gradient masks to create the “faded” wheel edges. */}
-          <View pointerEvents="none" style={styles.iosGradientTop}>
-            <LinearGradient
-              colors={[colors.shell, 'rgba(0,0,0,0)']}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-          </View>
-          <View pointerEvents="none" style={styles.iosGradientBottom}>
-            <LinearGradient
-              colors={['rgba(0,0,0,0)', colors.shell]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-          </View>
+          {iosUseEdgeFades ? (
+            <>
+              {/* Gradient masks to create the “faded” wheel edges. */}
+              <View pointerEvents="none" style={[styles.iosGradientTop, { height: gradientHeight }]}>
+                <LinearGradient
+                  colors={[colors.shell, 'rgba(0,0,0,0)']}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              </View>
+              <View pointerEvents="none" style={[styles.iosGradientBottom, { height: gradientHeight }]}>
+                <LinearGradient
+                  colors={['rgba(0,0,0,0)', colors.shell]}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              </View>
+            </>
+          ) : null}
         </View>
-        <Text style={styles.iosHelperText}>{formatDurationMinutes(selected)}</Text>
+        {showHelperText ? (
+          <Text style={styles.iosHelperText}>{formatDurationMinutes(selected)}</Text>
+        ) : null}
       </View>
     );
   }
@@ -97,7 +121,9 @@ export function DurationPicker({
           ))}
         </Picker>
       </View>
-      <Text style={styles.androidHelperText}>{formatDurationMinutes(selected)}</Text>
+      {showHelperText ? (
+        <Text style={styles.androidHelperText}>{formatDurationMinutes(selected)}</Text>
+      ) : null}
     </View>
   );
 }

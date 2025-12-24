@@ -13,6 +13,7 @@ import {
   AiChatPane,
   type AiChatPaneController,
   type ActivitySuggestion,
+  type GoalProposalDraft,
   type ChatTimelineController,
 } from './AiChatScreen';
 import { WorkflowRuntimeContext, type InvokeAgentStepParams } from './WorkflowRuntimeContext';
@@ -117,6 +118,11 @@ export type AgentWorkspaceProps = {
    * Hosts can use this to close the sheet or navigate to the new Goal canvas.
    */
   onGoalCreated?: (goalId: string) => void;
+  /**
+   * Optional hook fired when the user adopts a Goal proposal but the host wants
+   * to apply it without creating a new goal (e.g. refine an existing goal).
+   */
+  onAdoptGoalProposal?: (proposal: GoalProposalDraft) => void;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -190,6 +196,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     hideBrandHeader,
     hidePromptSuggestions,
     onGoalCreated,
+    onAdoptGoalProposal,
     hostBottomInsetAlreadyApplied,
   } = props;
 
@@ -680,6 +687,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         hostBottomInsetAlreadyApplied={hostBottomInsetAlreadyApplied}
         onConfirmArc={onConfirmArc}
         onGoalCreated={onGoalCreated}
+        onAdoptGoalProposal={onAdoptGoalProposal}
         onComplete={onComplete}
         stepCard={workflowStepCard}
         onTransportError={props.onTransportError}

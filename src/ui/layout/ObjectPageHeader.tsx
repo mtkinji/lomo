@@ -8,10 +8,17 @@ import { HStack } from '../primitives';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+/**
+ * Default height of the header bar below the safe area inset (not including inset).
+ *
+ * Design target: 36px action pills + ~12px bottom breathing room => 48px.
+ */
+export const OBJECT_PAGE_HEADER_BAR_HEIGHT = 48;
+
 export type ObjectPageHeaderProps = {
   /**
    * Height of the header bar below the safe area inset (not including inset).
-   * Arc uses 52 (36px pill + ~16px bottom breathing room).
+   * Defaults to 48 (36px pill + ~12px bottom breathing room).
    */
   barHeight?: number;
   /**
@@ -53,7 +60,7 @@ export type ObjectPageHeaderProps = {
 };
 
 export function ObjectPageHeader({
-  barHeight = 52,
+  barHeight = OBJECT_PAGE_HEADER_BAR_HEIGHT,
   backgroundOpacity,
   actionPillOpacity,
   backgroundColor = colors.canvas,
@@ -110,6 +117,11 @@ export type HeaderActionPillProps = {
   onPress?: () => void;
   accessibilityLabel: string;
   /**
+   * Diameter of the circular pill in px.
+   * Defaults to 36 (Arc header).
+   */
+  size?: number;
+  /**
    * Opacity for the frosted material background.
    */
   materialOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
@@ -130,6 +142,7 @@ export function HeaderActionPill({
   children,
   onPress,
   accessibilityLabel,
+  size = 36,
   materialOpacity,
   material = true,
   hitSlop = 10,
@@ -140,7 +153,11 @@ export function HeaderActionPill({
 
   return (
     <AnimatedPressable
-      style={[styles.headerActionCircle, style]}
+      style={[
+        styles.headerActionCircle,
+        { width: size, height: size, borderRadius: size / 2 },
+        style,
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -210,9 +227,6 @@ const styles = StyleSheet.create({
   },
   headerActionCircle: {
     // Slightly smaller than the previous 40px to reduce visual weight.
-    width: 36,
-    height: 36,
-    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

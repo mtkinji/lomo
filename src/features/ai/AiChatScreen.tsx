@@ -57,7 +57,7 @@ import type {
   ArcProposalFeedback,
   ArcProposalFeedbackReason,
 } from '../../domain/types';
-import type { Activity, ActivityStep, ActivityType, Goal, GoalForceIntent } from '../../domain/types';
+import type { Activity, ActivityStep, ActivityType, Goal, GoalForceIntent, Metric } from '../../domain/types';
 import { defaultForceLevels } from '../../store/useAppStore';
 import { canCreateGoalInArc } from '../../domain/limits';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -213,7 +213,11 @@ type ProposedGoalDraft = {
   suggestedArcName?: string | null;
   forceIntent?: GoalForceIntent;
   timeHorizon?: string;
+  targetDate?: string;
+  metrics?: Metric[];
 };
+
+export type GoalProposalDraft = ProposedGoalDraft;
 
 type ParsedGoalProposal = {
   displayContent: string;
@@ -334,6 +338,79 @@ function normalizeActivitySuggestion(raw: unknown): ActivitySuggestion | null {
   }
 
   return normalized;
+}
+
+function normalizeGoalTargetDate(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  // Prefer a local end-of-day interpretation for YYYY-MM-DD inputs.
+  const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+      const d = new Date(year, month - 1, day, 23, 0, 0, 0);
+      return d.toISOString();
+    }
+  }
+
+  const ms = Date.parse(trimmed);
+  if (!Number.isFinite(ms)) return undefined;
+  return new Date(ms).toISOString();
+}
+
+function normalizeGoalMetric(raw: unknown, fallbackIndex: number): Metric | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const maybe = raw as Partial<Metric> & Record<string, unknown>;
+
+  const label = typeof maybe.label === 'string' ? maybe.label.trim() : '';
+  if (!label) return null;
+
+  const id =
+    typeof maybe.id === 'string' && maybe.id.trim().length > 0
+      ? maybe.id.trim()
+      : `metric-${fallbackIndex + 1}`;
+
+  const rawKind = typeof (maybe as any).kind === 'string' ? String((maybe as any).kind).trim() : '';
+  const normalizedKind =
+    rawKind === 'count' || rawKind === 'threshold' || rawKind === 'event_count' || rawKind === 'milestone'
+      ? rawKind
+      : rawKind === 'event-count'
+        ? 'event_count'
+        : undefined;
+
+  const baseline =
+    typeof maybe.baseline === 'number' && Number.isFinite(maybe.baseline) ? maybe.baseline : undefined;
+  const target =
+    typeof maybe.target === 'number' && Number.isFinite(maybe.target) ? maybe.target : undefined;
+  const unit = typeof maybe.unit === 'string' && maybe.unit.trim().length > 0 ? maybe.unit.trim() : undefined;
+
+  const completedAtRaw =
+    typeof (maybe as any).completedAt === 'string' ? String((maybe as any).completedAt).trim() : '';
+  const completedAtMs = completedAtRaw ? Date.parse(completedAtRaw) : NaN;
+  const completedAt = Number.isFinite(completedAtMs) ? new Date(completedAtMs).toISOString() : undefined;
+
+  return {
+    id,
+    ...(normalizedKind ? { kind: normalizedKind as any } : null),
+    label,
+    ...(typeof baseline === 'number' ? { baseline } : null),
+    ...(typeof target === 'number' ? { target } : null),
+    ...(unit ? { unit } : null),
+    ...(completedAt ? { completedAt } : null),
+  };
+}
+
+function normalizeGoalMetrics(raw: unknown): Metric[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const metrics = raw
+    .map((entry, idx) => normalizeGoalMetric(entry, idx))
+    .filter((entry): entry is Metric => Boolean(entry))
+    .slice(0, 3);
+  return metrics.length > 0 ? metrics : undefined;
 }
 
 function extractJsonCandidateFromHandoffBlock(raw: string): string | null {
@@ -584,7 +661,16 @@ function extractGoalProposalFromAssistantMessage(content: string): ParsedGoalPro
         : rawSuggestedArcName === null
           ? null
           : undefined;
-    const goalProposalNormalized: ProposedGoalDraft = { ...parsed, suggestedArcName };
+
+    const targetDate = normalizeGoalTargetDate((parsed as any)?.targetDate);
+    const metrics = normalizeGoalMetrics((parsed as any)?.metrics);
+
+    const goalProposalNormalized: ProposedGoalDraft = {
+      ...parsed,
+      suggestedArcName,
+      ...(targetDate ? { targetDate } : null),
+      ...(metrics ? { metrics } : null),
+    };
     // Avoid showing the goal twice (once in assistant prose, once in the proposal card).
     // Keep a short, non-duplicative lead-in only.
     const strippedLeadIn = visiblePart
@@ -967,6 +1053,14 @@ export type AiChatPaneProps = {
    */
   onGoalCreated?: (goalId: string) => void;
   /**
+   * Optional callback fired when the user adopts a Goal proposal, allowing
+   * hosts to apply the proposal without creating a new Goal (e.g. refining an
+   * existing goal in-place).
+   *
+   * When provided, AiChatPane will call this and skip creating a new Goal.
+   */
+  onAdoptGoalProposal?: (proposal: GoalProposalDraft) => void;
+  /**
    * Optional callback fired when a hosted flow (such as first-time onboarding)
    * completes inside the chat surface.
    */
@@ -1083,6 +1177,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     resumeDraft = true,
     onConfirmArc,
     onGoalCreated,
+    onAdoptGoalProposal,
     onComplete,
     stepCard,
     hideBrandHeader = false,
@@ -1896,6 +1991,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     if (!trimmedTitle) return;
                     const trimmedDescription = (goalDraftDescription || proposal.description || '').trim();
 
+                    if (onAdoptGoalProposal) {
+                      onAdoptGoalProposal({
+                        ...proposal,
+                        title: trimmedTitle,
+                        description: trimmedDescription.length ? trimmedDescription : undefined,
+                      });
+                      dismissActiveGoalProposal();
+                      onDismiss?.();
+                      return;
+                    }
+
                     const arcId = focusedArcIdForGoal ?? selectedGoalArcId ?? null;
                     if (arcId) {
                       const isPro = useEntitlementsStore.getState().isPro;
@@ -1925,16 +2031,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       ...(proposal.forceIntent ?? {}),
                     };
 
+                    const targetDate = proposal.targetDate ?? undefined;
+                    const metrics = Array.isArray(proposal.metrics) ? proposal.metrics : [];
+                    const hasQuality = Boolean(targetDate) && metrics.length > 0;
+
                     const goal: Goal = {
                       id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                       arcId,
                       title: trimmedTitle,
                       description: trimmedDescription.length ? trimmedDescription : undefined,
                       status: proposal.status ?? 'planned',
+                      qualityState: hasQuality ? 'ready' : 'draft',
                       startDate: timestamp,
-                      targetDate: undefined,
+                      targetDate,
                       forceIntent: mergedForceIntent,
-                      metrics: [],
+                      metrics,
                       createdAt: timestamp,
                       updatedAt: timestamp,
                     };
@@ -1951,6 +2062,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         description: goal.description ?? null,
                         status: goal.status,
                         forceIntent: goal.forceIntent,
+                        targetDate: goal.targetDate ?? null,
+                        metrics: goal.metrics,
                       });
                     }
                   }}
@@ -1989,7 +2102,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
       goalDraftTitleWrapWidth,
       goalProposal,
       goalProposalPostNote,
+      onAdoptGoalProposal,
       onGoalCreated,
+      onDismiss,
       selectedGoalArcId,
       shouldRequireGoalArcPick,
       shouldTitleBeMultiline,

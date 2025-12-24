@@ -65,7 +65,12 @@ import {
   getArcTopoSizes,
   pickThumbnailStyle,
 } from '../arcs/thumbnailVisuals';
+import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
+import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
+import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import * as ImagePicker from 'expo-image-picker';
+import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
+import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
 
 type GoalDraftEntry = {
   arcId: string;
@@ -129,6 +134,7 @@ export function GoalsScreen() {
   );
   const hasGoals = visibleGoals.length > 0;
   const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
+  const [goalsMasonryWidth, setGoalsMasonryWidth] = React.useState(0);
 
   const activityCountByGoal = React.useMemo(
     () =>
@@ -196,6 +202,7 @@ export function GoalsScreen() {
       title: draft.title,
       description: draft.description,
       status: draft.status,
+      qualityState: 'draft',
       startDate: timestamp,
       targetDate: undefined,
       forceIntent: mergedForceIntent,
@@ -214,6 +221,47 @@ export function GoalsScreen() {
   };
 
   const hasDrafts = draftEntries.length > 0;
+
+  const arcById = React.useMemo(() => {
+    return arcs.reduce<Record<string, Arc>>((acc, arc) => {
+      acc[arc.id] = arc;
+      return acc;
+    }, {});
+  }, [arcs]);
+
+  const stableBucketFromId = React.useCallback((id: string): 0 | 1 | 2 => {
+    const last = id.charCodeAt(id.length - 1) || 0;
+    return (last % 3) as 0 | 1 | 2;
+  }, []);
+
+  type GoalMasonryItem = {
+    goal: Goal;
+    parentArc: Arc | null;
+    activityCount: number;
+    aspectBucket: 0 | 1 | 2;
+  };
+
+  const visibleGoalMasonryItems = React.useMemo<GoalMasonryItem[]>(
+    () =>
+      visibleGoals.map((goal) => ({
+        goal,
+        parentArc: goal.arcId ? arcById[goal.arcId] ?? null : null,
+        activityCount: activityCountByGoal[goal.id] ?? 0,
+        aspectBucket: stableBucketFromId(goal.id),
+      })),
+    [activityCountByGoal, arcById, stableBucketFromId, visibleGoals],
+  );
+
+  const archivedGoalMasonryItems = React.useMemo<GoalMasonryItem[]>(
+    () =>
+      archivedGoals.map((goal) => ({
+        goal,
+        parentArc: goal.arcId ? arcById[goal.arcId] ?? null : null,
+        activityCount: activityCountByGoal[goal.id] ?? 0,
+        aspectBucket: stableBucketFromId(goal.id),
+      })),
+    [activityCountByGoal, archivedGoals, arcById, stableBucketFromId],
+  );
 
   const handlePressNewGoal = () => {
     setGoalCoachVisible(true);
@@ -250,36 +298,42 @@ export function GoalsScreen() {
         showsVerticalScrollIndicator={false}
       >
       {hasGoals ? (
-        <VStack space="xs">
-          {visibleGoals.map((goal) => {
-            const arcName = goal.arcId ? arcLookup[goal.arcId] : undefined;
-              const statusLabel = goal.status.replace('_', ' ');
-              const activityCount = activityCountByGoal[goal.id] ?? 0;
-              const activityLabel =
-                activityCount === 0
-                  ? 'No activities yet'
-                  : `${activityCount} ${activityCount === 1 ? 'activity' : 'activities'}`;
-
-              const parentArc = goal.arcId ? arcs.find((arc) => arc.id === goal.arcId) : undefined;
-
-            return (
-                <GoalListCard
-                  key={goal.id}
-                  goal={goal}
-                  parentArc={parentArc}
-                  padding="xs"
-                  activityCount={activityCount}
-                  thumbnailStyles={thumbnailStyles}
-                  onPress={() =>
-                    navigation.push('GoalDetail', {
-                      goalId: goal.id,
-                      entryPoint: 'goalsTab',
-                    })
-                  }
-                />
-            );
-          })}
-        </VStack>
+        <View
+          style={styles.masonryOuter}
+          onLayout={(event) => {
+            const width = event.nativeEvent.layout.width;
+            if (Number.isFinite(width) && width > 0 && width !== goalsMasonryWidth) {
+              setGoalsMasonryWidth(width);
+            }
+          }}
+        >
+          <MasonryTwoColumn
+            items={visibleGoalMasonryItems}
+            containerWidth={goalsMasonryWidth}
+            keyExtractor={(item) => item.goal.id}
+            columnGap={spacing.sm}
+            rowGap={spacing.sm}
+            estimateItemHeight={(item, { columnWidth }) =>
+              estimateGoalMasonryTileHeight({ columnWidth, aspectBucket: item.aspectBucket })
+            }
+            renderItem={(item, { columnWidth }) => (
+              <GoalMasonryTile
+                goal={item.goal}
+                parentArc={item.parentArc}
+                activityCount={item.activityCount}
+                thumbnailStyles={thumbnailStyles}
+                columnWidth={columnWidth}
+                aspectBucket={item.aspectBucket}
+                onPress={() =>
+                  navigation.push('GoalDetail', {
+                    goalId: item.goal.id,
+                    entryPoint: 'goalsTab',
+                  })
+                }
+              />
+            )}
+          />
+        </View>
       ) : (
         <EmptyState
           title={archivedGoals.length > 0 ? 'No active goals' : 'No goals yet'}
@@ -290,7 +344,7 @@ export function GoalsScreen() {
           }
           primaryAction={{
             label: 'Create goal',
-            variant: 'accent',
+            variant: 'ai',
             onPress: handlePressNewGoal,
             accessibilityLabel: 'Create a new goal',
           }}
@@ -304,28 +358,42 @@ export function GoalsScreen() {
             <Text style={styles.archivedHint}>
               Archived goals stay in your history, but won’t count toward your active goal limit.
             </Text>
-            <VStack space="xs" style={{ marginTop: spacing.sm }}>
-              {archivedGoals.map((goal) => {
-                const parentArc = goal.arcId ? arcs.find((arc) => arc.id === goal.arcId) : undefined;
-                const activityCount = activityCountByGoal[goal.id] ?? 0;
-                return (
-                  <GoalListCard
-                    key={goal.id}
-                    goal={goal}
-                    parentArc={parentArc}
-                    padding="xs"
-                    activityCount={activityCount}
+            <View
+              style={[styles.masonryOuter, { marginTop: spacing.sm }]}
+              onLayout={(event) => {
+                const width = event.nativeEvent.layout.width;
+                if (Number.isFinite(width) && width > 0 && width !== goalsMasonryWidth) {
+                  setGoalsMasonryWidth(width);
+                }
+              }}
+            >
+              <MasonryTwoColumn
+                items={archivedGoalMasonryItems}
+                containerWidth={goalsMasonryWidth}
+                keyExtractor={(item) => item.goal.id}
+                columnGap={spacing.sm}
+                rowGap={spacing.sm}
+                estimateItemHeight={(item, { columnWidth }) =>
+                  estimateGoalMasonryTileHeight({ columnWidth, aspectBucket: item.aspectBucket })
+                }
+                renderItem={(item, { columnWidth }) => (
+                  <GoalMasonryTile
+                    goal={item.goal}
+                    parentArc={item.parentArc}
+                    activityCount={item.activityCount}
                     thumbnailStyles={thumbnailStyles}
+                    columnWidth={columnWidth}
+                    aspectBucket={item.aspectBucket}
                     onPress={() =>
                       navigation.push('GoalDetail', {
-                        goalId: goal.id,
+                        goalId: item.goal.id,
                         entryPoint: 'goalsTab',
                       })
                     }
                   />
-                );
-              })}
-            </VStack>
+                )}
+              />
+            </View>
           </VStack>
         )}
 
@@ -497,6 +565,8 @@ export function GoalCoachDrawer({
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const hasShownCreditsBlockedToastRef = React.useRef(false);
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = React.useState(false);
+  const [heroImageLoading, setHeroImageLoading] = React.useState(false);
+  const [heroImageError, setHeroImageError] = React.useState('');
   const manualScrollRef = React.useRef<KeyboardAwareScrollViewHandle | null>(null);
   const buildEmptyDraft = React.useCallback(
     (): GoalCreationDraft => ({
@@ -692,6 +762,8 @@ export function GoalCoachDrawer({
 
   const handleUploadThumbnail = React.useCallback(async () => {
     try {
+      setHeroImageLoading(true);
+      setHeroImageError('');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.9,
@@ -712,9 +784,55 @@ export function GoalCoachDrawer({
           createdAt: nowIso,
         },
       }));
+      // Mirror Arc behavior: close the sheet after successful upload so the user
+      // returns to the Goal creation canvas.
+      setThumbnailSheetVisible(false);
     } catch {
-      // Swallow picker errors for now; we can surface a toast in a later pass.
+      setHeroImageError('Unable to upload image right now.');
+    } finally {
+      setHeroImageLoading(false);
     }
+  }, []);
+
+  const handleClearThumbnail = React.useCallback(() => {
+    setDraft((current) => ({
+      ...current,
+      thumbnailUrl: undefined,
+      heroImageMeta: undefined,
+    }));
+  }, []);
+
+  const handleSelectCuratedHero = React.useCallback((image: ArcHeroImage) => {
+    const nowIso = new Date().toISOString();
+    setDraft((current) => ({
+      ...current,
+      thumbnailUrl: image.uri,
+      thumbnailVariant: current.thumbnailVariant ?? 0,
+      heroImageMeta: {
+        source: 'curated',
+        prompt: current.heroImageMeta?.prompt,
+        createdAt: nowIso,
+        curatedId: image.id,
+      },
+    }));
+  }, []);
+
+  const handleSelectUnsplashHero = React.useCallback((photo: UnsplashPhoto) => {
+    const nowIso = new Date().toISOString();
+    setDraft((current) => ({
+      ...current,
+      thumbnailUrl: photo.urls.regular,
+      heroImageMeta: {
+        source: 'unsplash',
+        prompt: current.heroImageMeta?.prompt,
+        createdAt: nowIso,
+        unsplashPhotoId: photo.id,
+        unsplashAuthorName: photo.user.name,
+        unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+        unsplashLink: withUnsplashReferral(photo.links.html),
+      },
+    }));
+    trackUnsplashDownload(photo.id).catch(() => undefined);
   }, []);
 
   const handleCreateManualGoal = () => {
@@ -755,6 +873,7 @@ export function GoalCoachDrawer({
       title: trimmedTitle,
       description: trimmedDescription.length > 0 ? trimmedDescription : undefined,
       status: draft.status,
+      qualityState: 'draft',
       startDate: timestamp,
       targetDate: undefined,
       forceIntent: draft.forceIntent,
@@ -821,6 +940,7 @@ export function GoalCoachDrawer({
         title: goalDraft.title,
         description: goalDraft.description,
         status: goalDraft.status,
+        qualityState: 'draft',
         forceIntent: mergedForceIntent,
         metrics: [],
         createdAt: timestamp,
@@ -1096,55 +1216,40 @@ export function GoalCoachDrawer({
             </KeyboardAwareScrollView>
           </View>
       </View>
-      <BottomDrawer
+      <ArcBannerSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
-        snapPoints={['55%']}
-        // This drawer is nested inside a full-screen BottomDrawer; render inline and
-        // avoid an extra scrim layer.
+        objectLabel="Goal"
+        arcName={draft.title || 'New goal'}
+        arcNarrative={draft.description}
+        arcGoalTitles={undefined}
+        canUseUnsplash={isPro}
+        onRequestUpgrade={() => {
+          setThumbnailSheetVisible(false);
+          openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' });
+        }}
+        heroSeed={goalThumbnailSeed}
+        hasHero={Boolean(draft.thumbnailUrl)}
+        loading={heroImageLoading}
+        error={heroImageError}
+        thumbnailUrl={draft.thumbnailUrl}
+        heroGradientColors={goalThumbnailColors}
+        heroGradientDirection={goalThumbnailDirection}
+        heroTopoSizes={goalThumbnailTopoSizes}
+        showTopography={manualShowTopography}
+        showGeoMosaic={manualShowGeoMosaic}
+        onGenerate={handleShuffleThumbnail}
+        onUpload={() => {
+          void handleUploadThumbnail();
+        }}
+        onRemove={handleClearThumbnail}
+        onSelectCurated={handleSelectCuratedHero}
+        onSelectUnsplash={handleSelectUnsplashHero}
+        // This banner sheet is nested inside a full-screen BottomDrawer; render inline and
+        // avoid stacking RN Modals.
         presentation="inline"
         hideBackdrop
-      >
-        <View style={styles.goalThumbnailSheetContent}>
-          <Text style={styles.goalThumbnailSheetTitle}>Goal thumbnail</Text>
-          <View style={styles.goalThumbnailSheetPreviewFrame}>
-            <View style={styles.goalThumbnailSheetPreviewInner}>
-              {draft.thumbnailUrl ? (
-                <Image
-                  source={{ uri: draft.thumbnailUrl }}
-                  style={styles.goalThumbnailSheetImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <LinearGradient
-                  colors={goalThumbnailColors}
-                  start={goalThumbnailDirection.start}
-                  end={goalThumbnailDirection.end}
-                  style={styles.goalThumbnailSheetImage}
-                />
-              )}
-            </View>
-          </View>
-          <View style={styles.goalThumbnailSheetButtonsRow}>
-            <Button
-              variant="outline"
-              style={styles.goalThumbnailSheetButton}
-              onPress={handleShuffleThumbnail}
-            >
-              <Text style={styles.goalThumbnailButtonLabel}>Refresh</Text>
-            </Button>
-            <Button
-              variant="outline"
-              style={styles.goalThumbnailSheetButton}
-              onPress={() => {
-                void handleUploadThumbnail();
-              }}
-            >
-              <Text style={styles.goalThumbnailButtonLabel}>Upload</Text>
-            </Button>
-          </View>
-        </View>
-      </BottomDrawer>
+      />
     </BottomDrawer>
   );
 }
@@ -1159,6 +1264,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing['2xl'],
+  },
+  masonryOuter: {
+    width: '100%',
   },
   emptyState: {
     marginTop: spacing['2xl'],

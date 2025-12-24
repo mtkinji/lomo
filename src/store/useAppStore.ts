@@ -20,6 +20,7 @@ import {
   getMonthKey,
 } from '../domain/generativeCredits';
 import type { CelebrationKind, MediaRole } from '../services/gifs';
+import type { SoundscapeId } from '../services/soundscape';
 import { useToastStore } from './useToastStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
@@ -239,6 +240,10 @@ interface AppState {
    */
   soundscapeEnabled: boolean;
   /**
+   * Selected soundscape track id for Focus sessions.
+   */
+  soundscapeTrackId: SoundscapeId;
+  /**
    * Simple engagement state for show-up streaks and recent activity.
    */
   lastShowUpDate: string | null;
@@ -393,6 +398,7 @@ interface AppState {
   ) => void;
   setLastFocusMinutes: (minutes: number) => void;
   setSoundscapeEnabled: (enabled: boolean) => void;
+  setSoundscapeTrackId: (trackId: SoundscapeId) => void;
   /**
    * Record that the user "showed up" today by visiting Today or completing
    * an Activity. Updates streak and lastActiveDate.
@@ -603,6 +609,7 @@ export const useAppStore = create(
       },
       lastFocusMinutes: null,
       soundscapeEnabled: false,
+      soundscapeTrackId: 'default',
       lastShowUpDate: null,
       currentShowUpStreak: 0,
       lastActiveDate: null,
@@ -997,6 +1004,10 @@ export const useAppStore = create(
       setSoundscapeEnabled: (enabled) =>
         set(() => ({
           soundscapeEnabled: Boolean(enabled),
+        })),
+      setSoundscapeTrackId: (trackId) =>
+        set(() => ({
+          soundscapeTrackId: (trackId || 'default') as SoundscapeId,
         })),
       recordShowUp: () =>
         set((state) => {

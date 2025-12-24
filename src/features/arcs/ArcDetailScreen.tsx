@@ -4,24 +4,25 @@ import {
   StyleSheet,
   View,
   TextInput,
-  Keyboard,
   Platform,
   ScrollView,
   ActivityIndicator,
   Alert,
   Linking,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Image,
   Share,
   StyleProp,
   ViewStyle,
   Text,
-  LayoutAnimation,
   UIManager,
   findNodeHandle,
 } from 'react-native';
-import { ObjectPageHeader, HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
+import {
+  ObjectPageHeader,
+  HeaderActionPill,
+  OBJECT_PAGE_HEADER_BAR_HEIGHT,
+} from '../../ui/layout/ObjectPageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
@@ -96,10 +97,6 @@ const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => 
 
 type ArcDetailRouteProp = RouteProp<ArcsStackParamList, 'ArcDetail'>;
 type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'ArcDetail'>;
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
@@ -200,14 +197,13 @@ export function ArcDetailScreen() {
   const [arcExploreGuideStep, setArcExploreGuideStep] = useState(0);
   const hasStartedArcExploreGuideRef = useRef(false);
   const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
-  const [openInsightsSection, setOpenInsightsSection] = useState<
-    'strengths' | 'growthEdges' | 'pitfalls' | null
-  >(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
 
   // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
-  const ARC_HEADER_HEIGHT = 52;
+  // Header bar height below the safe area inset.
+  // Pills are 36px; target ~12px breathing room below them => 48px.
+  const ARC_HEADER_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT;
   const HEADER_BOTTOM_Y = insets.top + ARC_HEADER_HEIGHT;
   const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
   const BOTTOM_CTA_BAR_HEIGHT = 92;
@@ -235,29 +231,70 @@ export function ArcDetailScreen() {
     });
   }, [measureSheetTopAtRest]);
 
-  const headerTransitionStartScrollY =
-    sheetTopAtRestWindowY != null
-      ? Math.max(0, sheetTopAtRestWindowY - HEADER_BOTTOM_Y)
-      : 9999;
+  // `measureInWindow` can occasionally report a too-small Y for views inside scroll containers,
+  // which collapses our interpolation ranges and makes the hero fade immediately.
+  // Provide a layout-based fallback that matches this screen's fixed hero/sheet geometry.
+  const ESTIMATED_ARC_HERO_HEIGHT_PX = 320; // keep in sync with `styles.arcHeroSection.height`
+  const ESTIMATED_ARC_SHEET_MARGIN_TOP_PX = -28; // keep in sync with `styles.arcSheet.marginTop`
+  const estimatedHeaderTransitionStartScrollY = Math.max(
+    0,
+    ESTIMATED_ARC_HERO_HEIGHT_PX + ESTIMATED_ARC_SHEET_MARGIN_TOP_PX - HEADER_BOTTOM_Y,
+  );
 
-  const headerProgress = scrollY.interpolate({
+  const measuredHeaderTransitionStartScrollY =
+    sheetTopAtRestWindowY != null && Number.isFinite(sheetTopAtRestWindowY)
+      ? Math.max(0, sheetTopAtRestWindowY - HEADER_BOTTOM_Y)
+      : null;
+
+  const headerTransitionStartScrollY =
+    measuredHeaderTransitionStartScrollY != null && measuredHeaderTransitionStartScrollY >= 24
+      ? measuredHeaderTransitionStartScrollY
+      : estimatedHeaderTransitionStartScrollY;
+
+  // Header background should be fully opaque exactly when the sheet top reaches the header
+  // so it cleanly hides whatever is underneath.
+  const headerBackgroundOpacity = scrollY.interpolate({
+    inputRange: [
+      Math.max(0, headerTransitionStartScrollY - SHEET_HEADER_TRANSITION_RANGE_PX),
+      headerTransitionStartScrollY,
+    ],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Keep a separate progress for pill material (so we can still ease it after the
+  // header has already become opaque).
+  const headerPillProgress = scrollY.interpolate({
     inputRange: [headerTransitionStartScrollY, headerTransitionStartScrollY + SHEET_HEADER_TRANSITION_RANGE_PX],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 
-  // Airbnb-like: hero is nearly gone by the moment the sheet top reaches the header.
-  const HERO_FADE_LEAD_PX = 90;
-  const HERO_FADE_TAIL_PX = 10;
+  // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
+  // bottom of the fixed header (the start of the header transition).
+  //
+  // Important UX detail: the sheet starts fairly close to the top (it also overlaps
+  // the hero a bit), so a long fade lead can cause the hero to start fading on the
+  // very first pixels of scroll. Add a small "hold" so the hero remains fully visible
+  // until the user has scrolled a meaningful amount, while still syncing the fade-out
+  // endpoint to the sheet/header alignment.
+  const HERO_FADE_LEAD_PX = 180;
+  const HERO_FADE_HOLD_PX = 60;
+
+  // Ensure monotonic input ranges for interpolation (Animated can behave oddly when
+  // input ranges collapse or invert).
+  const heroFadeEndScrollY = Math.max(1, headerTransitionStartScrollY);
+  const heroFadeStartScrollY = Math.min(
+    Math.max(HERO_FADE_HOLD_PX, heroFadeEndScrollY - HERO_FADE_LEAD_PX),
+    heroFadeEndScrollY - 1,
+  );
+
   const heroOpacity = scrollY.interpolate({
-    inputRange: [
-      Math.max(0, headerTransitionStartScrollY - HERO_FADE_LEAD_PX),
-      headerTransitionStartScrollY + HERO_FADE_TAIL_PX,
-    ],
-    outputRange: [1, 0],
+    inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
+    outputRange: [1, 1, 0],
     extrapolate: 'clamp',
   });
-  const headerActionPillOpacity = headerProgress.interpolate({
+  const headerActionPillOpacity = headerPillProgress.interpolate({
     inputRange: [0, 1],
     // Keep a faint pill even once the header is solid so the actions feel consistent.
     outputRange: [1, 0.2],
@@ -641,65 +678,49 @@ export function ArcDetailScreen() {
     const growthEdges = arc.developmentGrowthEdges ?? [];
     const pitfalls = arc.developmentPitfalls ?? [];
 
-    const renderBlock = (
-      id: 'strengths' | 'growthEdges' | 'pitfalls',
-      title: string,
-      bullets: string[],
-    ) => {
-      const isOpen = openInsightsSection === id;
-      const hasBullets = bullets.length > 0;
-      if (!hasBullets) return null;
+    const normalizeInsightLine = (value: string): string => {
+      const trimmed = value.trim();
+      // Strip common markdown/list prefixes so we don't double-render bullets.
+      return trimmed
+        .replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
 
-      let headerIcon: IconName;
-      let headerIconColor = colors.textSecondary;
-      if (id === 'strengths') {
-        headerIcon = 'thumbsUp';
-        headerIconColor = colors.success;
-      } else if (id === 'growthEdges') {
-        headerIcon = 'activity';
-        headerIconColor = colors.turmeric;
-      } else {
-        headerIcon = 'info';
-        headerIconColor = colors.warning;
-      }
+    const renderItem = ({
+      id,
+      title,
+      lines,
+      icon,
+    }: {
+      id: 'strengths' | 'growthEdges' | 'pitfalls';
+      title: string;
+      lines: string[];
+      icon: IconName;
+    }) => {
+      const normalized = (lines ?? [])
+        .flatMap((line) => line.split('\n'))
+        .map(normalizeInsightLine)
+        .filter(Boolean);
 
-      const blockStyles: any[] = [styles.insightBlock];
-      if (isOpen) {
-        blockStyles.push(styles.insightBlockActive);
-      }
+      if (normalized.length === 0) return null;
 
       return (
-        <TouchableOpacity
-          key={id}
-          activeOpacity={0.85}
-          onPress={() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setOpenInsightsSection((current) => (current === id ? null : id));
-          }}
-          style={blockStyles}
-        >
-          <View style={styles.insightHeaderRow}>
-            <View style={styles.insightHeaderLeft}>
-              <Icon name={headerIcon} size={16} color={headerIconColor} />
-              <Text style={styles.insightTitle}>{title}</Text>
-            </View>
-            <Icon
-              name={isOpen ? 'chevronUp' : 'chevronDown'}
-              size={18}
-              color={colors.textSecondary}
-            />
+        <View key={id} style={styles.insightItemRow}>
+          <View style={styles.insightItemIconCol}>
+            <Icon name={icon} size={20} color={colors.textPrimary} />
           </View>
-          {isOpen && (
-            <View style={styles.insightBody}>
-              {bullets.map((line) => (
-                <View key={line} style={styles.insightBulletRow}>
-                  <Text style={styles.insightBulletGlyph}>•</Text>
-                  <Text style={styles.insightBulletText}>{line}</Text>
-                </View>
+          <View style={styles.insightItemContent}>
+            <Text style={styles.insightItemTitle}>{title}</Text>
+            <View style={styles.insightItemLines}>
+              {normalized.map((line, idx) => (
+                <Text key={`${id}-${idx}`} style={styles.insightItemLineText}>
+                  {line}
+                </Text>
               ))}
             </View>
-          )}
-        </TouchableOpacity>
+          </View>
+        </View>
       );
     };
 
@@ -709,13 +730,26 @@ export function ArcDetailScreen() {
         collapsable={false}
         style={styles.insightsSectionContainer}
       >
-        <Text style={styles.insightsSectionLabel}>Arc Development Insights</Text>
-        <View style={styles.insightsCard}>
-          <View style={styles.insightsBlocksStack}>
-            {renderBlock('strengths', 'Strengths to build on', strengths)}
-            {renderBlock('growthEdges', 'Growth edges to work on', growthEdges)}
-            {renderBlock('pitfalls', 'Pitfalls to watch for', pitfalls)}
-          </View>
+        <Text style={styles.sectionTitleBlock}>Insights</Text>
+        <View style={styles.insightsList}>
+          {renderItem({
+            id: 'strengths',
+            title: 'Strengths to build on',
+            lines: strengths,
+            icon: 'thumbsUp',
+          })}
+          {renderItem({
+            id: 'growthEdges',
+            title: 'Growth edges to work on',
+            lines: growthEdges,
+            icon: 'activity',
+          })}
+          {renderItem({
+            id: 'pitfalls',
+            title: 'Pitfalls to watch for',
+            lines: pitfalls,
+            icon: 'info',
+          })}
         </View>
       </View>
     );
@@ -762,11 +796,10 @@ export function ArcDetailScreen() {
           </Button>
         </HStack>
       </BottomGuide>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={styles.screen}>
+      <View style={styles.screen}>
           <ObjectPageHeader
             barHeight={ARC_HEADER_HEIGHT}
-            backgroundOpacity={headerProgress}
+            backgroundOpacity={headerBackgroundOpacity}
             actionPillOpacity={headerActionPillOpacity}
             left={
               <HeaderActionPill
@@ -837,9 +870,13 @@ export function ArcDetailScreen() {
           <KeyboardAwareScrollView
             ref={scrollRef}
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: spacing['2xl'] + insets.bottom + BOTTOM_CTA_BAR_HEIGHT },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
+            keyboardShouldPersistTaps="handled"
             onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
               useNativeDriver: false,
             })}
@@ -918,10 +955,7 @@ export function ArcDetailScreen() {
                 ref={sheetTopRef}
                 collapsable={false}
                 onLayout={measureSheetTopAtRest}
-                style={[
-                  styles.arcSheet,
-                  { paddingBottom: spacing['2xl'] + insets.bottom + BOTTOM_CTA_BAR_HEIGHT },
-                ]}
+                style={styles.arcSheet}
               >
                 <View style={styles.arcSheetInner}>
                   <View style={styles.arcTypePillRow}>
@@ -1001,7 +1035,7 @@ export function ArcDetailScreen() {
                       setGoalsSectionOffset(event.nativeEvent.layout.y);
                     }}
                   >
-                    <View style={[styles.sectionDivider, styles.sectionDividerTightBottom]} />
+                    <View style={styles.sectionDivider} />
                     <View style={styles.goalsDrawerInner}>
                       <View
                         ref={goalsHeaderRef}
@@ -1073,7 +1107,9 @@ export function ArcDetailScreen() {
 
                   {hasDevelopmentInsights ? (
                     <>
-                      <View style={[styles.sectionDivider, styles.sectionDividerTightTop]} />
+                      <View
+                        style={styles.sectionDivider}
+                      />
                       {renderInsightsSection()}
                     </>
                   ) : null}
@@ -1124,13 +1160,13 @@ export function ArcDetailScreen() {
               </View>
               <View style={styles.bottomCtaRight}>
                 <Button
-                  variant="accent"
+                  variant="ai"
+                  fullWidth={false}
                   onPress={() => {
                     setHasDismissedOnboardingGoalGuide(true);
                     setIsGoalCoachVisible(true);
                   }}
                   accessibilityLabel="Create a goal for this Arc"
-                  style={styles.bottomCtaButton}
                 >
                   <Text style={styles.bottomCtaLabel}>Create goal</Text>
                 </Button>
@@ -1138,7 +1174,6 @@ export function ArcDetailScreen() {
             </View>
           </View>
         </View>
-      </TouchableWithoutFeedback>
       <ArcBannerSheet
         visible={isHeroModalVisible}
         onClose={() => setIsHeroModalVisible(false)}
@@ -1234,7 +1269,7 @@ export function ArcDetailScreen() {
               ? 'Tap the banner to change the image (upload, curated picks, or search the image library).'
               : arcExploreGuideStep === 1
                 ? 'Scroll down to the Goals section and add 3–5 goals so kwilt knows what success looks like.'
-                : 'We generated Arc Development Insights to help you steer this chapter. Tap a section to expand it.'}
+                : 'We generated insights to help you steer this chapter. Review them and adjust your goals or plan as needed.'}
           </Text>
         }
         progressLabel={`${arcExploreGuideStep + 1} of ${hasDevelopmentInsights ? 3 : 2}`}
@@ -1409,19 +1444,16 @@ const styles = StyleSheet.create({
   bottomCtaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.md,
     paddingBottom: spacing.sm,
   },
   bottomCtaLeftMeta: {
+    flex: 1,
     minWidth: 120,
   },
   bottomCtaRight: {
     alignItems: 'flex-end',
-  },
-  bottomCtaButton: {
-    // Not full-width: match Airbnb's right-side action pill feel.
-    minWidth: 210,
-    maxWidth: 240,
   },
   bottomCtaMetaTitle: {
     ...typography.label,
@@ -1472,7 +1504,7 @@ const styles = StyleSheet.create({
   goalsDrawerInner: {
     paddingHorizontal: 0,
     // paddingTop: spacing.xs,
-    paddingBottom: spacing['2xl'],
+    paddingBottom: 0,
   },
   paddedSection: {
     // Let the AppShell define the primary horizontal gutters so this screen
@@ -1504,7 +1536,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderWidth: 1,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 0,
     borderColor: colors.border,
     overflow: 'hidden',
   },
@@ -1910,8 +1945,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   arcNarrativeTitleContainer: {
-    paddingTop: 0,
-    paddingBottom: 0,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
     alignItems: 'center',
   },
   arcNarrativeTitle: {
@@ -1950,6 +1985,11 @@ const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  sectionTitleBlock: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
   goalsDrawerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1966,20 +2006,15 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   sectionDivider: {
-    marginTop: spacing['2xl'],
-    marginBottom: spacing['2xl'],
+    // Canonical section rhythm: keep divider spacing perfectly symmetric.
+    // If the gap below reads well, the gap above should match exactly.
+    marginVertical: spacing['2xl'],
     // Use a full-width, pill-shaped rule so the section break is legible
     // against the light shell background while still feeling airy.
     height: StyleSheet.hairlineWidth,
     // Darker than `colors.border` so it reads as a real divider even at hairline thickness.
     backgroundColor: colors.gray300,
     borderRadius: 999,
-  },
-  sectionDividerTightBottom: {
-    marginBottom: spacing.lg,
-  },
-  sectionDividerTightTop: {
-    marginTop: spacing.lg,
   },
   sectionActionText: {
     ...typography.bodySm,
@@ -2374,86 +2409,37 @@ const styles = StyleSheet.create({
     lineHeight: typography.body.lineHeight,
   },
   insightsSectionContainer: {
-    marginTop: spacing.lg,
-  },
-  insightsCard: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.lg,
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: cardSurfaceStyle.shadowColor,
-    shadowOpacity: cardSurfaceStyle.shadowOpacity,
-    shadowRadius: cardSurfaceStyle.shadowRadius,
-    shadowOffset: cardSurfaceStyle.shadowOffset,
-    elevation: (cardSurfaceStyle as any).elevation,
-    gap: spacing.sm,
-  },
-  insightsSectionLabel: {
-    ...typography.label,
-    color: colors.muted,
-  },
-  insightsBlocksStack: {
-    // Keep the inner stack vertically balanced inside the card: rely on the
-    // card's padding for top/bottom breathing room so spacing feels uniform.
     marginTop: 0,
-    gap: spacing.xs,
   },
-  insightBlock: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    // Each section is its own rounded panel with even treatment top/bottom.
-    borderRadius: spacing.md,
-    backgroundColor: colors.canvas,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+  insightsList: {
+    marginTop: spacing.sm,
+    gap: spacing.lg,
   },
-  insightBlockActive: {
-    // Keep the open panel on the same white background so the bullets feel
-    // continuous with the header; rely on motion and content instead of a
-    // different fill.
-    backgroundColor: colors.canvas,
-  },
-  insightHeaderRow: {
+  insightItemRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    columnGap: spacing.sm,
+    alignItems: 'flex-start',
+    columnGap: spacing.md,
   },
-  insightHeaderLeft: {
-    flexDirection: 'row',
+  insightItemIconCol: {
+    width: 28,
     alignItems: 'center',
-    columnGap: spacing.xs,
+    paddingTop: 2,
+  },
+  insightItemContent: {
     flex: 1,
   },
-  insightTitle: {
+  insightItemTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    flex: 1,
-    // Slightly stronger weight than standard body to give each panel header
-    // a clear anchor without jumping up to full title size.
     fontFamily: fonts.medium,
   },
-  insightBody: {
+  insightItemLines: {
     marginTop: spacing.xs,
     gap: spacing.xs,
   },
-  insightBulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    columnGap: spacing.xs,
-  },
-  insightBulletGlyph: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  insightBulletText: {
-    ...typography.body,
-    color: colors.textPrimary,
-    flex: 1,
+  insightItemLineText: {
+    ...typography.bodySm,
+    color: colors.sumi800,
   },
   segmentedControlRow: {
     marginTop: 0,

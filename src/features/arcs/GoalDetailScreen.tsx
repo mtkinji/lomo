@@ -1,5 +1,7 @@
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import {
+  Animated,
+  LayoutAnimation,
   StyleSheet,
   View,
   Platform,
@@ -9,9 +11,10 @@ import {
   Image,
   Alert,
   Keyboard,
-  TouchableWithoutFeedback,
   Pressable,
   Share,
+  UIManager,
+  findNodeHandle,
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -40,6 +43,7 @@ import {
 import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal, Activity, ActivityType, ActivityStep } from '../../domain/types';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -77,7 +81,15 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
-import { ObjectPageHeader, HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
+import { GoalProgressSignalsRow, type GoalProgressSignal } from '../../ui/GoalProgressSignalsRow';
+import { ArcBannerSheet } from './ArcBannerSheet';
+import type { ArcHeroImage } from './arcHeroLibrary';
+import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
+import {
+  ObjectPageHeader,
+  HeaderActionPill,
+  OBJECT_PAGE_HEADER_BAR_HEIGHT,
+} from '../../ui/layout/ObjectPageHeader';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
@@ -90,6 +102,8 @@ import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/Act
 import { QuickAddDock } from '../activities/QuickAddDock';
 import { useQuickAddDockController } from '../activities/useQuickAddDockController';
 import { DurationPicker } from '../activities/DurationPicker';
+import type { GoalProposalDraft } from '../ai/AiChatScreen';
+import { useScrollLinkedStatusBarStyle } from '../../ui/hooks/useScrollLinkedStatusBarStyle';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -109,6 +123,7 @@ export function GoalDetailScreen() {
   const showToast = useToastStore((state) => state.showToast);
   const setToastsSuppressed = useToastStore((state) => state.setToastsSuppressed);
   const { capture } = useAnalytics();
+  const isFocused = useIsFocused();
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -152,6 +167,7 @@ export function GoalDetailScreen() {
   const removeGoal = useAppStore((state) => state.removeGoal);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
   const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
@@ -166,6 +182,8 @@ export function GoalDetailScreen() {
   }, [visuals]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingForces, setEditingForces] = useState(false);
+  const [heroImageLoading, setHeroImageLoading] = useState(false);
+  const [heroImageError, setHeroImageError] = useState('');
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
     defaultForceLevels(0)
   );
@@ -180,9 +198,124 @@ export function GoalDetailScreen() {
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
 
+  // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
+  // Header bar height below the safe area inset (not including inset).
+  // Pills are 36px; target ~12px breathing room below them => 48px.
+  const GOAL_HEADER_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT;
+  const HEADER_BOTTOM_Y = insets.top + GOAL_HEADER_HEIGHT;
+  const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const sheetTopRef = useRef<View | null>(null);
+  const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
+
+  const measureSheetTopAtRest = useCallback(() => {
+    const node = sheetTopRef.current;
+    if (!node) return;
+    const handle = findNodeHandle(node);
+    if (!handle) return;
+    UIManager.measureInWindow(handle, (_x, y) => {
+      if (typeof y === 'number' && Number.isFinite(y)) {
+        setSheetTopAtRestWindowY(y);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    // Measure once after initial layout. This is our scroll threshold anchor.
+    requestAnimationFrame(() => {
+      measureSheetTopAtRest();
+    });
+  }, [measureSheetTopAtRest]);
+
+  // `measureInWindow` can occasionally report a too-small Y for views inside scroll containers,
+  // which collapses our interpolation ranges and makes the hero fade immediately.
+  // Provide a layout-based fallback that matches this screen's fixed hero/sheet geometry.
+  const ESTIMATED_GOAL_HERO_HEIGHT_PX = 240; // keep in sync with `styles.goalHeroSection.height`
+  const ESTIMATED_GOAL_SHEET_MARGIN_TOP_PX = -20; // keep in sync with `styles.goalSheet.marginTop`
+  const estimatedHeaderTransitionStartScrollY = Math.max(
+    0,
+    ESTIMATED_GOAL_HERO_HEIGHT_PX + ESTIMATED_GOAL_SHEET_MARGIN_TOP_PX - HEADER_BOTTOM_Y,
+  );
+
+  const measuredHeaderTransitionStartScrollY =
+    sheetTopAtRestWindowY != null && Number.isFinite(sheetTopAtRestWindowY)
+      ? Math.max(0, sheetTopAtRestWindowY - HEADER_BOTTOM_Y)
+      : null;
+
+  const headerTransitionStartScrollY =
+    measuredHeaderTransitionStartScrollY != null && measuredHeaderTransitionStartScrollY >= 24
+      ? measuredHeaderTransitionStartScrollY
+      : estimatedHeaderTransitionStartScrollY;
+
+  // iOS status bar (safe-area chrome) should be readable over the hero image.
+  // Keep it light while the hero is visible; switch to dark once the header becomes opaque.
+  const statusBarStyle = useScrollLinkedStatusBarStyle(scrollY, headerTransitionStartScrollY, {
+    enabled: isFocused,
+    initialStyle: 'light',
+    inactiveStyle: 'dark',
+    hysteresisPx: 12,
+    platform: 'ios',
+  });
+
+  // Header background should be fully opaque exactly when the sheet top reaches the header
+  // so it cleanly hides whatever is underneath.
+  const headerBackgroundOpacity = scrollY.interpolate({
+    inputRange: [
+      Math.max(0, headerTransitionStartScrollY - SHEET_HEADER_TRANSITION_RANGE_PX),
+      headerTransitionStartScrollY,
+    ],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Keep a separate progress for pill material (so we can still ease it after the
+  // header has already become opaque).
+  const headerPillProgress = scrollY.interpolate({
+    inputRange: [
+      headerTransitionStartScrollY,
+      headerTransitionStartScrollY + SHEET_HEADER_TRANSITION_RANGE_PX,
+    ],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
+  // bottom of the fixed header (the start of the header transition).
+  const HERO_FADE_LEAD_PX = 160;
+  const HERO_FADE_HOLD_PX = 50;
+
+  // Ensure monotonic input ranges for interpolation (Animated can behave oddly when
+  // input ranges collapse or invert).
+  const heroFadeEndScrollY = Math.max(1, headerTransitionStartScrollY);
+  const heroFadeStartScrollY = Math.min(
+    Math.max(HERO_FADE_HOLD_PX, heroFadeEndScrollY - HERO_FADE_LEAD_PX),
+    heroFadeEndScrollY - 1,
+  );
+
+  const heroOpacity = scrollY.interpolate({
+    inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const headerActionPillOpacity = headerPillProgress.interpolate({
+    inputRange: [0, 1],
+    // Keep a faint pill even once the header is solid so the actions feel consistent.
+    outputRange: [1, 0.2],
+    extrapolate: 'clamp',
+  });
+
+  // The hero is inside the scroll content, so it already moves at 1x scroll speed.
+  // Translate it down by +0.5x scroll to net out to ~0.5x upward movement (Airbnb-like parallax).
+  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.5);
+
   // Goal:Plan quick add dock (reuse the Activities quick-add pattern).
+  // Goal detail renders the collapsed trigger inline in the Activities section (vs an absolute bottom dock),
+  // so we do NOT reserve scroll space for it.
   const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
-  const quickAddInitialReservedHeight = 64 + quickAddBottomPadding + 4;
+  const quickAddInitialReservedHeightPx = 0;
+  const quickAddToastBottomOffsetPx = quickAddBottomPadding + spacing.lg;
   const [quickAddReminderSheetVisible, setQuickAddReminderSheetVisible] = useState(false);
   const [quickAddDueDateSheetVisible, setQuickAddDueDateSheetVisible] = useState(false);
   const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = useState(false);
@@ -198,8 +331,6 @@ export function GoalDetailScreen() {
     inputRef: quickAddInputRef,
     isFocused: isQuickAddFocused,
     setIsFocused: setQuickAddFocused,
-    reservedHeight: quickAddReservedHeight,
-    setReservedHeight: setQuickAddReservedHeight,
     reminderAt: quickAddReminderAt,
     setReminderAt: setQuickAddReminderAt,
     scheduledDate: quickAddScheduledDate,
@@ -219,7 +350,8 @@ export function GoalDetailScreen() {
     updateActivity,
     recordShowUp,
     showToast,
-    initialReservedHeightPx: quickAddInitialReservedHeight,
+    initialReservedHeightPx: quickAddInitialReservedHeightPx,
+    toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
     onCreated: (activity) => {
       capture(AnalyticsEvent.ActivityCreated, {
         source: 'goal_detail_quick_add',
@@ -302,6 +434,10 @@ export function GoalDetailScreen() {
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
+  const [refineGoalSheetVisible, setRefineGoalSheetVisible] = useState(false);
+  const [goalTargetDateSheetVisible, setGoalTargetDateSheetVisible] = useState(false);
+  const [goalTargetIsDatePickerVisible, setGoalTargetIsDatePickerVisible] = useState(false);
+  const [goalStatusSheetVisible, setGoalStatusSheetVisible] = useState(false);
 
   const handleBack = () => {
     const nav: any = navigation;
@@ -337,6 +473,123 @@ export function GoalDetailScreen() {
 
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
+
+  const setGoalTargetDateByOffsetDays = useCallback(
+    (offsetDays: number) => {
+      if (!goal?.id) return;
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(23, 0, 0, 0);
+      const timestamp = new Date().toISOString();
+      updateGoal(goal.id, (prev) => ({
+        ...prev,
+        targetDate: date.toISOString(),
+        qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
+        updatedAt: timestamp,
+      }));
+      setGoalTargetDateSheetVisible(false);
+      setGoalTargetIsDatePickerVisible(false);
+    },
+    [goal?.id, updateGoal],
+  );
+
+  const clearGoalTargetDate = useCallback(() => {
+    if (!goal?.id) return;
+    const timestamp = new Date().toISOString();
+    updateGoal(goal.id, (prev) => ({
+      ...prev,
+      targetDate: undefined,
+      qualityState: 'draft',
+      updatedAt: timestamp,
+    }));
+    setGoalTargetDateSheetVisible(false);
+    setGoalTargetIsDatePickerVisible(false);
+  }, [goal?.id, updateGoal]);
+
+  const getInitialGoalTargetDate = useCallback(() => {
+    const existing = goal?.targetDate ? Date.parse(goal.targetDate) : NaN;
+    if (Number.isFinite(existing)) return new Date(existing);
+    const fallback = new Date();
+    fallback.setDate(fallback.getDate() + 14);
+    fallback.setHours(23, 0, 0, 0);
+    return fallback;
+  }, [goal?.targetDate]);
+
+  const refineGoalLaunchContext = useMemo(
+    () => ({
+      source: 'goalDetail' as const,
+      intent: 'goalEditing' as const,
+      entityRef: { type: 'goal', id: goalId } as const,
+      objectType: 'goal' as const,
+      objectId: goalId,
+    }),
+    [goalId],
+  );
+
+  const refineGoalWorkspaceSnapshot = useMemo(() => {
+    const base =
+      buildActivityCoachLaunchContext(goals, activities, goalId, arcs, undefined, undefined) ?? '';
+    const metricSummary =
+      goal?.metrics && goal.metrics.length > 0
+        ? goal.metrics
+            .slice(0, 3)
+            .map((m) => {
+              const kind = (m as any).kind ? ` kind:${(m as any).kind}` : '';
+              const target = typeof m.target === 'number' ? ` target:${m.target}` : '';
+              const unit = m.unit ? ` unit:${m.unit}` : '';
+              const milestoneDone = (m as any).completedAt ? ` done:true` : '';
+              return `- ${m.label}${kind}${target}${unit}${milestoneDone}`;
+            })
+            .join('\n')
+        : 'None';
+
+    const extraLines = [
+      '',
+      '---',
+      'TASK: refine the focused goal (do NOT create a different goal).',
+      'Return a revised GOAL_PROPOSAL_JSON that makes the goal more specific + timeboxed.',
+      'Prefer including both a structured targetDate and 1 metric in metrics if possible.',
+      '',
+      `Current targetDate: ${goal?.targetDate ?? 'None'}`,
+      'Current metrics:',
+      metricSummary,
+    ].join('\n');
+
+    return `${base}${extraLines}`;
+  }, [activities, arcs, goal?.metrics, goal?.targetDate, goalId, goals]);
+
+  const handleApplyRefinedGoal = useCallback(
+    (proposal: GoalProposalDraft) => {
+      if (!goal?.id) return;
+      const now = new Date().toISOString();
+      const nextTitle = typeof proposal.title === 'string' ? proposal.title.trim() : '';
+      const nextDescription =
+        typeof proposal.description === 'string' && proposal.description.trim().length > 0
+          ? proposal.description.trim()
+          : undefined;
+      const nextTargetDate = typeof proposal.targetDate === 'string' ? proposal.targetDate : undefined;
+      const nextMetrics = Array.isArray(proposal.metrics) ? proposal.metrics : undefined;
+
+      updateGoal(goal.id, (prev) => {
+        const mergedTargetDate = nextTargetDate ?? prev.targetDate;
+        const mergedMetrics = nextMetrics ?? prev.metrics;
+        const hasQuality = Boolean(mergedTargetDate) && Array.isArray(mergedMetrics) && mergedMetrics.length > 0;
+        return {
+          ...prev,
+          title: nextTitle || prev.title,
+          description: typeof nextDescription === 'string' ? nextDescription : prev.description,
+          ...(nextTargetDate ? { targetDate: nextTargetDate } : null),
+          ...(nextMetrics ? { metrics: nextMetrics } : null),
+          qualityState: hasQuality ? 'ready' : 'draft',
+          updatedAt: now,
+        };
+      });
+
+      showToast({ message: 'Goal refined', variant: 'success', durationMs: 2200 });
+      setRefineGoalSheetVisible(false);
+    },
+    [goal?.id, showToast, updateGoal],
+  );
 
   const handleShareGoal = useCallback(async () => {
     try {
@@ -429,6 +682,129 @@ export function GoalDetailScreen() {
     () => goalActivities.filter((activity) => activity.status === 'done'),
     [goalActivities]
   );
+
+  const [completedActivitiesExpanded, setCompletedActivitiesExpanded] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  const toggleCompletedActivitiesExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setCompletedActivitiesExpanded((current) => !current);
+  }, []);
+
+  const goalProgressSignals = useMemo<GoalProgressSignal[]>(() => {
+    const nowMs = Date.now();
+    const weekAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
+    const targetDateLabelLocal = goal?.targetDate
+      ? new Date(goal.targetDate).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : undefined;
+
+    const doneWithTimestamps = completedGoalActivities
+      .map((activity) => {
+        const completedAt = activity.completedAt ?? activity.updatedAt ?? activity.createdAt ?? null;
+        const completedAtMs = completedAt ? Date.parse(completedAt) : NaN;
+        return { activity, completedAtMs };
+      })
+      .filter((entry) => Number.isFinite(entry.completedAtMs));
+
+    const doneLast7Days = doneWithTimestamps.filter((entry) => entry.completedAtMs >= weekAgoMs).length;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+
+    const nextScheduled = goalActivities
+      .map((activity) => {
+        const scheduledAt = activity.scheduledDate ?? null;
+        const scheduledAtMs = scheduledAt ? Date.parse(scheduledAt) : NaN;
+        return { scheduledAt, scheduledAtMs };
+      })
+      .filter((entry) => Number.isFinite(entry.scheduledAtMs) && entry.scheduledAtMs >= todayStartMs)
+      .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs)[0]?.scheduledAt;
+
+    const nextScheduledLabel = nextScheduled
+      ? (() => {
+          const d = new Date(nextScheduled);
+          const diffDays = Math.round((d.getTime() - todayStartMs) / (24 * 60 * 60 * 1000));
+          if (diffDays === 0) return 'Today';
+          if (diffDays === 1) return 'Tomorrow';
+          return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        })()
+      : null;
+
+    const targetValue = (() => {
+      if (!goal?.targetDate) return 'No date';
+      const targetMs = Date.parse(goal.targetDate);
+      if (!Number.isFinite(targetMs)) return targetDateLabelLocal ?? 'No date';
+      const diffDays = Math.ceil((targetMs - nowMs) / (24 * 60 * 60 * 1000));
+      const absDiff = Math.abs(diffDays);
+      // When it's close, show a countdown; otherwise show the date label.
+      if (absDiff <= 21) {
+        if (diffDays === 0) return 'Due today';
+        if (diffDays > 0) return `${diffDays}d left`;
+        return `${absDiff}d overdue`;
+      }
+      return (
+        targetDateLabelLocal ??
+        new Date(goal.targetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      );
+    })();
+    const targetValueColor =
+      typeof targetValue === 'string' && targetValue.includes('overdue')
+        ? colors.destructive
+        : targetValue === 'No date'
+          ? colors.gray600
+          : typeof targetValue === 'string' && (targetValue.includes('left') || targetValue.includes('Due today'))
+            ? colors.indigo600
+            : colors.textPrimary;
+    const momentumValueColor = doneLast7Days > 0 ? colors.indigo600 : colors.gray600;
+
+    const signals: GoalProgressSignal[] = [
+      {
+        id: 'goal-signal-plan',
+        value: `${completedGoalActivities.length}/${goalActivities.length}`,
+        label: 'Done',
+        accessibilityLabel: `Plan: ${completedGoalActivities.length} of ${goalActivities.length} done`,
+        valueColor:
+          goalActivities.length > 0 && completedGoalActivities.length === goalActivities.length
+            ? colors.indigo600
+            : colors.textPrimary,
+      },
+      {
+        id: 'goal-signal-momentum',
+        value: `${doneLast7Days}`,
+        label: 'This week',
+        accessibilityLabel: `${doneLast7Days} activities done in the last 7 days`,
+        valueColor: momentumValueColor,
+      },
+      {
+        id: 'goal-signal-target',
+        value: targetValue,
+        label: 'Finish by',
+        onPress: () => setGoalTargetDateSheetVisible(true),
+        accessibilityLabel: `Finish by: ${targetValue}. Tap to set a finish date.`,
+        valueColor: targetValueColor,
+      },
+    ];
+
+    if (nextScheduledLabel) {
+      signals.push({
+        id: 'goal-signal-next',
+        value: nextScheduledLabel,
+        label: 'Next',
+      });
+    }
+
+    return signals;
+  }, [completedGoalActivities, goal, goalActivities]);
   const firstPlanActivityId = useMemo(() => {
     const list = [...activeGoalActivities];
     if (list.length === 0) return goalActivities[0]?.id ?? null;
@@ -765,6 +1141,8 @@ export function GoalDetailScreen() {
 
   const handleUploadGoalThumbnail = useCallback(async () => {
     try {
+      setHeroImageLoading(true);
+      setHeroImageError('');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.9,
@@ -786,10 +1164,66 @@ export function GoalDetailScreen() {
         },
         updatedAt: nowIso,
       }));
+      // Mirror Arc behavior: close the sheet after a successful upload to
+      // return the user to the Goal canvas.
+      setThumbnailSheetVisible(false);
     } catch {
-      // Swallow picker errors for now; we can add surfaced feedback later.
+      setHeroImageError('Unable to upload image right now.');
+    } finally {
+      setHeroImageLoading(false);
     }
   }, [goal.id, updateGoal]);
+
+  const handleClearGoalHeroImage = useCallback(() => {
+    const nowIso = new Date().toISOString();
+    updateGoal(goal.id, (prev) => ({
+      ...prev,
+      thumbnailUrl: undefined,
+      heroImageMeta: undefined,
+      updatedAt: nowIso,
+    }));
+  }, [goal.id, updateGoal]);
+
+  const handleSelectCuratedGoalHero = useCallback(
+    (image: ArcHeroImage) => {
+      const nowIso = new Date().toISOString();
+      updateGoal(goal.id, (prev) => ({
+        ...prev,
+        thumbnailUrl: image.uri,
+        thumbnailVariant: prev.thumbnailVariant ?? 0,
+        heroImageMeta: {
+          source: 'curated',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          curatedId: image.id,
+        },
+        updatedAt: nowIso,
+      }));
+    },
+    [goal.id, updateGoal]
+  );
+
+  const handleSelectUnsplashGoalHero = useCallback(
+    (photo: UnsplashPhoto) => {
+      const nowIso = new Date().toISOString();
+      updateGoal(goal.id, (prev) => ({
+        ...prev,
+        thumbnailUrl: photo.urls.regular,
+        heroImageMeta: {
+          source: 'unsplash',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          unsplashPhotoId: photo.id,
+          unsplashAuthorName: photo.user.name,
+          unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+          unsplashLink: withUnsplashReferral(photo.links.html),
+        },
+        updatedAt: nowIso,
+      }));
+      trackUnsplashDownload(photo.id).catch(() => undefined);
+    },
+    [goal.id, updateGoal]
+  );
 
   const handleDismissFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);
@@ -1014,6 +1448,7 @@ export function GoalDetailScreen() {
 
   return (
     <AppShell fullBleedCanvas>
+      <StatusBar style={statusBarStyle} animated />
       <FullScreenInterstitial
         visible={showFirstGoalCelebration}
         onDismiss={handleDismissFirstGoalCelebration}
@@ -1095,14 +1530,13 @@ export function GoalDetailScreen() {
         </Text>
       </Dialog>
       <BottomGuide
-        visible={shouldShowOnboardingActivitiesGuide && activeTab !== 'plan'}
+        visible={shouldShowOnboardingActivitiesGuide}
         onClose={() => setHasDismissedOnboardingActivitiesGuide(true)}
         scrim="light"
       >
         <Heading variant="sm">Your new Goal is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Next, open the Plan tab to see this Goal's Activities. Add 1–3 so you always know what to do
-          next.
+          Next, add 1–3 Activities so you always know what to do next.
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
@@ -1114,8 +1548,8 @@ export function GoalDetailScreen() {
           <Button
             variant="turmeric"
             onPress={() => {
-              setActiveTab('plan');
               setShouldPromptAddActivity(true);
+              setActivityCoachVisible(true);
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
@@ -1245,24 +1679,36 @@ export function GoalDetailScreen() {
           onPress={commitForceEdit}
         />
       )}
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-          <VStack space="lg" flex={1}>
+          <View style={{ flex: 1 }}>
             <ObjectPageHeader
-              barHeight={52}
+              barHeight={OBJECT_PAGE_HEADER_BAR_HEIGHT}
+              backgroundOpacity={headerBackgroundOpacity}
+              actionPillOpacity={headerActionPillOpacity}
               left={
-                <HeaderActionPill onPress={handleBack} accessibilityLabel="Back to Arc">
+                <HeaderActionPill
+                  onPress={handleBack}
+                  accessibilityLabel="Back"
+                  materialOpacity={headerActionPillOpacity}
+                >
                   <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
                 </HeaderActionPill>
               }
               right={
                 <HStack alignItems="center" space="sm">
-                  <HeaderActionPill onPress={handleShareGoal} accessibilityLabel="Share goal">
+                  <HeaderActionPill
+                    onPress={handleShareGoal}
+                    accessibilityLabel="Share goal"
+                    materialOpacity={headerActionPillOpacity}
+                  >
                     <Icon name="share" size={18} color={colors.textPrimary} />
                   </HeaderActionPill>
                   <DropdownMenu>
                     <DropdownMenuTrigger accessibilityLabel="Goal actions">
-                      <HeaderActionPill accessibilityLabel="Goal actions">
+                      <HeaderActionPill
+                        accessibilityLabel="Goal actions"
+                        materialOpacity={headerActionPillOpacity}
+                      >
                         <Icon name="more" size={18} color={colors.textPrimary} />
                       </HeaderActionPill>
                     </DropdownMenuTrigger>
@@ -1271,6 +1717,12 @@ export function GoalDetailScreen() {
                         <View style={styles.menuItemRow}>
                           <Icon name="image" size={16} color={colors.textSecondary} />
                           <Text style={styles.menuItemLabel}>Edit banner</Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => setRefineGoalSheetVisible(true)}>
+                        <View style={styles.menuItemRow}>
+                          <Icon name="sparkles" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Refine goal with AI</Text>
                         </View>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
@@ -1304,23 +1756,39 @@ export function GoalDetailScreen() {
               }
             />
 
-            <ScrollView
+            <KeyboardAwareScrollView
               style={{ flex: 1 }}
               contentContainerStyle={{
-                paddingHorizontal: spacing.xl,
-                paddingTop: insets.top + 52 + spacing.sm,
-                paddingBottom: spacing['2xl'] + insets.bottom,
+                paddingBottom: spacing['2xl'] + quickAddBottomPadding,
               }}
+              keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              onScrollBeginDrag={() => Keyboard.dismiss()}
+              onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+                useNativeDriver: false,
+              })}
+              scrollEventThrottle={16}
             >
-              <VStack space="lg">
-                {/* In-sheet banner + title block */}
-                <View style={styles.goalBannerFrame}>
+              <View style={styles.pageContent}>
+                <View style={styles.goalHeroSection}>
+                  <Animated.View
+                    style={{
+                      opacity: heroOpacity,
+                      transform: [{ translateY: heroParallaxTranslateY }],
+                    }}
+                  >
+                    <TouchableOpacity
+                      style={styles.heroFullBleedWrapper}
+                      onPress={() => setThumbnailSheetVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit Goal banner"
+                      activeOpacity={0.95}
+                    >
                   {displayThumbnailUrl ? (
                     <Image
                       source={{ uri: displayThumbnailUrl }}
-                      style={styles.goalBannerImage}
+                          style={styles.heroFullBleedImage}
                       resizeMode="cover"
                       accessibilityLabel="Goal banner"
                     />
@@ -1329,11 +1797,28 @@ export function GoalDetailScreen() {
                       colors={heroGradientColors}
                       start={heroGradientDirection.start}
                       end={heroGradientDirection.end}
-                      style={styles.goalBannerImage}
+                          style={styles.heroFullBleedImage}
                     />
                   )}
+                    </TouchableOpacity>
+                  </Animated.View>
                 </View>
+
+                <View
+                  ref={sheetTopRef}
+                  collapsable={false}
+                  onLayout={measureSheetTopAtRest}
+                  style={styles.goalSheet}
+                >
+                  <View style={styles.goalSheetInner}>
+                    <VStack space="lg">
                 <View style={styles.goalTitleBlock}>
+                  <View style={styles.goalTypePillRow}>
+                    <HStack style={styles.goalTypePill} alignItems="center" space="xs">
+                      <Icon name="goals" size={12} color={colors.textSecondary} />
+                      <Text style={styles.goalTypePillLabel}>Goal</Text>
+                    </HStack>
+                  </View>
                   <NarrativeEditableTitle
                     value={goal.title}
                     placeholder="Goal title"
@@ -1351,11 +1836,44 @@ export function GoalDetailScreen() {
                     inputStyle={styles.goalNarrativeTitleInput}
                     containerStyle={styles.goalNarrativeTitleContainer}
                   />
-                  <Text style={styles.goalMetaLine}>
-                    {statusLabel}
-                    {goalActivities.length > 0 ? ` · ${goalActivities.length} activities` : ''}
-                    {completedGoalActivities.length > 0 ? ` · ${completedGoalActivities.length} done` : ''}
-                  </Text>
+                        <GoalProgressSignalsRow
+                          style={styles.goalSignalsRow}
+                          signals={goalProgressSignals}
+                        />
+
+                        <View style={{ marginTop: spacing.sm, width: '100%' }}>
+                    <LongTextField
+                      label="Description"
+                      hideLabel
+                      surfaceVariant="flat"
+                      value={goal.description ?? ''}
+                      placeholder="Add a short description…"
+                      enableAi
+                      aiContext={{
+                        objectType: 'goal',
+                        objectId: goal.id,
+                        fieldId: 'description',
+                      }}
+                      onChange={(nextDescription) => {
+                        const trimmed = nextDescription.trim();
+                        const timestamp = new Date().toISOString();
+                        updateGoal(goal.id, (prev) => ({
+                          ...prev,
+                          description: trimmed.length === 0 ? undefined : trimmed,
+                          updatedAt: timestamp,
+                        }));
+                      }}
+                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                        openForFieldContext({
+                          objectType,
+                          objectId,
+                          fieldId,
+                          currentText,
+                          fieldLabel: 'Goal description',
+                        });
+                      }}
+                    />
+                  </View>
                 </View>
 
                 {/* Activities-first section */}
@@ -1369,11 +1887,15 @@ export function GoalDetailScreen() {
                       onLayout={() => setIsAddActivitiesButtonReady(true)}
                     >
                       <Button
-                        variant="secondary"
+                        variant="ai"
+                        size="sm"
                         onPress={() => setActivityCoachVisible(true)}
-                        accessibilityLabel="Add activities"
+                        accessibilityLabel="Plan activities with AI"
                       >
-                        <Text style={styles.secondaryCtaText}>Add</Text>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="sparkles" size={14} color={colors.primaryForeground} />
+                          <Text style={styles.primaryCtaText}>Plan with AI</Text>
+                        </HStack>
                       </Button>
                     </View>
                   </HStack>
@@ -1382,17 +1904,8 @@ export function GoalDetailScreen() {
                     <EmptyState
                       variant="compact"
                       title="No activities for this goal yet"
-                      instructions="Add your first activities to move this goal forward."
+                      instructions="Generate activities with AI, or add one manually."
                       style={[styles.planEmptyState, { marginTop: spacing.lg }]}
-                      actions={
-                        <Button
-                          variant="accent"
-                          onPress={() => setActivityCoachVisible(true)}
-                          accessibilityLabel="Add activities to this goal"
-                        >
-                          <Text style={styles.primaryCtaText}>Add activities</Text>
-                        </Button>
-                      }
                     />
                   ) : (
                     <>
@@ -1418,88 +1931,102 @@ export function GoalDetailScreen() {
                       )}
 
                       {completedGoalActivities.length > 0 && (
-                        <VStack
-                          space="xs"
-                          style={{
-                            marginTop: spacing['2xl'],
-                          }}
-                        >
-                          <Heading style={styles.sectionTitle}>Completed</Heading>
-                          {completedGoalActivities.map((activity) => {
-                            const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
-                            return (
-                              <ActivityListItem
-                                key={activity.id}
-                                title={activity.title}
-                                meta={meta}
-                                metaLeadingIconName={metaLeadingIconName}
-                                isCompleted={activity.status === 'done'}
-                                onToggleComplete={() => handleToggleActivityComplete(activity.id)}
-                                isPriorityOne={activity.priority === 1}
-                                onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
-                                onPress={() => handleOpenActivityDetail(activity.id)}
+                        <VStack space="xs" style={styles.completedSection}>
+                          <Pressable
+                            onPress={toggleCompletedActivitiesExpanded}
+                            style={styles.completedToggle}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              completedActivitiesExpanded
+                                ? 'Hide completed activities'
+                                : 'Show completed activities'
+                            }
+                            hitSlop={10}
+                          >
+                            <HStack alignItems="center" space="xs">
+                              <Text style={styles.completedToggleLabel}>Completed</Text>
+                              <Icon
+                                name={completedActivitiesExpanded ? 'chevronDown' : 'chevronRight'}
+                                size={14}
+                                color={colors.textSecondary}
                               />
-                            );
-                          })}
+                              <Text style={styles.completedCountLabel}>
+                                ({completedGoalActivities.length})
+                              </Text>
+                            </HStack>
+                          </Pressable>
+
+                          {completedActivitiesExpanded && (
+                            <VStack space="xs">
+                              {completedGoalActivities.map((activity) => {
+                                const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
+                                return (
+                                  <ActivityListItem
+                                    key={activity.id}
+                                    title={activity.title}
+                                    meta={meta}
+                                    metaLeadingIconName={metaLeadingIconName}
+                                    isCompleted={activity.status === 'done'}
+                                    onToggleComplete={() => handleToggleActivityComplete(activity.id)}
+                                    isPriorityOne={activity.priority === 1}
+                                    onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
+                                    onPress={() => handleOpenActivityDetail(activity.id)}
+                                  />
+                                );
+                              })}
+                            </VStack>
+                          )}
                         </VStack>
                       )}
                     </>
                   )}
+
+                  <View style={{ marginTop: spacing.md }}>
+                    <QuickAddDock
+                      placement="inline"
+                      value={quickAddTitle}
+                      onChangeText={setQuickAddTitle}
+                      inputRef={quickAddInputRef}
+                      isFocused={isQuickAddFocused}
+                      setIsFocused={setQuickAddFocused}
+                      onSubmit={handleQuickAddActivity}
+                      onCollapse={collapseQuickAdd}
+                      reminderAt={quickAddReminderAt}
+                      scheduledDate={quickAddScheduledDate}
+                      repeatRule={quickAddRepeatRule}
+                      estimateMinutes={quickAddEstimateMinutes}
+                      onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
+                      onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
+                      onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
+                      onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
+                    />
+                  </View>
                 </VStack>
 
                 {/* Details section */}
                 <View style={styles.sectionDivider} />
-                <VStack space="md">
+                <VStack space="lg">
                   <HStack style={styles.timeRow}>
                     <VStack space="xs" style={styles.lifecycleColumn}>
                       <Text style={styles.timeLabel}>Status</Text>
-                      <Badge
-                        variant={
-                          goal.status === 'in_progress'
-                            ? 'default'
-                            : goal.status === 'planned'
-                              ? 'secondary'
-                              : 'secondary'
-                        }
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Status: ${statusLabel}. Tap to change status.`}
+                        onPress={() => setGoalStatusSheetVisible(true)}
+                        style={({ pressed }) => [styles.goalStatusPill, pressed ? { opacity: 0.7 } : null]}
+                        hitSlop={10}
                       >
-                        {statusLabel}
-                      </Badge>
+                        <HStack alignItems="center" space="xs">
+                          <Text style={styles.goalStatusPillLabel}>{statusLabel}</Text>
+                          <Icon name="chevronDown" size={14} color={colors.gray600} />
+                        </HStack>
+                      </Pressable>
                     </VStack>
                     <VStack space="xs" style={styles.lifecycleColumn}>
                       <Text style={styles.timeLabel}>Last modified</Text>
                       <Text style={styles.timeText}>{updatedAtLabel ?? 'Just now'}</Text>
                     </VStack>
                   </HStack>
-
-                  <LongTextField
-                    label="Description"
-                    value={goal.description ?? ''}
-                    placeholder="Add a short description"
-                    enableAi
-                    aiContext={{
-                      objectType: 'goal',
-                      objectId: goal.id,
-                      fieldId: 'description',
-                    }}
-                    onChange={(nextDescription) => {
-                      const trimmed = nextDescription.trim();
-                      const timestamp = new Date().toISOString();
-                      updateGoal(goal.id, (prev) => ({
-                        ...prev,
-                        description: trimmed.length === 0 ? undefined : trimmed,
-                        updatedAt: timestamp,
-                      }));
-                    }}
-                    onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                      openForFieldContext({
-                        objectType,
-                        objectId,
-                        fieldId,
-                        currentText,
-                        fieldLabel: 'Goal description',
-                      });
-                    }}
-                  />
 
                   <View>
                     <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
@@ -1635,11 +2162,13 @@ export function GoalDetailScreen() {
                     </Card>
                   ) : null}
                 </VStack>
-              </VStack>
-            </ScrollView>
           </VStack>
         </View>
-      </TouchableWithoutFeedback>
+                </View>
+              </View>
+            </KeyboardAwareScrollView>
+          </View>
+        </View>
       <EditGoalModal
         visible={editModalVisible}
         onClose={() => setEditModalVisible(false)}
@@ -1649,6 +2178,114 @@ export function GoalDetailScreen() {
         onSubmit={handleSaveGoal}
         insetTop={insets.top}
       />
+      <BottomDrawer
+        visible={refineGoalSheetVisible}
+        onClose={() => setRefineGoalSheetVisible(false)}
+        snapPoints={['90%']}
+        // Agent chat implements its own keyboard avoidance + focused-input scrolling.
+        keyboardAvoidanceEnabled={false}
+      >
+        <AgentWorkspace
+          mode="goalCreation"
+          launchContext={refineGoalLaunchContext as any}
+          workspaceSnapshot={refineGoalWorkspaceSnapshot}
+          workflowDefinitionId={undefined}
+          resumeDraft={false}
+          hideBrandHeader
+          hostBottomInsetAlreadyApplied
+          onAdoptGoalProposal={handleApplyRefinedGoal}
+          onDismiss={() => setRefineGoalSheetVisible(false)}
+        />
+      </BottomDrawer>
+      <BottomDrawer
+        visible={goalTargetDateSheetVisible}
+        onClose={() => {
+          setGoalTargetDateSheetVisible(false);
+          setGoalTargetIsDatePickerVisible(false);
+        }}
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Target date</Text>
+          <VStack space="sm">
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Today</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(1)}>
+              <Text style={styles.quickAddSheetRowLabel}>Tomorrow</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(7)}>
+              <Text style={styles.quickAddSheetRowLabel}>Next week</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetIsDatePickerVisible(true)}>
+              <Text style={styles.quickAddSheetRowLabel}>Pick a date…</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={clearGoalTargetDate}>
+              <Text style={styles.quickAddSheetRowLabel}>Clear target date</Text>
+            </Pressable>
+          </VStack>
+          {goalTargetIsDatePickerVisible && (
+            <View style={styles.quickAddDatePickerContainer}>
+              <DateTimePicker
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialGoalTargetDate()}
+                onChange={(event: DateTimePickerEvent, date?: Date) => {
+                  if (Platform.OS !== 'ios') setGoalTargetIsDatePickerVisible(false);
+                  if (!date || event.type === 'dismissed') return;
+                  if (!goal?.id) return;
+                  const next = new Date(date);
+                  next.setHours(23, 0, 0, 0);
+                  const timestamp = new Date().toISOString();
+                  updateGoal(goal.id, (prev) => ({
+                    ...prev,
+                    targetDate: next.toISOString(),
+                    qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
+                    updatedAt: timestamp,
+                  }));
+                  setGoalTargetDateSheetVisible(false);
+                  setGoalTargetIsDatePickerVisible(false);
+                }}
+              />
+            </View>
+          )}
+        </View>
+      </BottomDrawer>
+      <BottomDrawer
+        visible={goalStatusSheetVisible}
+        onClose={() => setGoalStatusSheetVisible(false)}
+        snapPoints={Platform.OS === 'ios' ? ['52%'] : ['40%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Status</Text>
+          <VStack space="sm">
+            {(['planned', 'in_progress', 'completed', 'archived'] as const).map((nextStatus) => {
+              const label = nextStatus.replace('_', ' ');
+              const pretty = label.charAt(0).toUpperCase() + label.slice(1);
+              return (
+                <Pressable
+                  key={nextStatus}
+                  style={styles.quickAddSheetRow}
+                  onPress={() => {
+                    if (!goal?.id) return;
+                    const timestamp = new Date().toISOString();
+                    updateGoal(goal.id, (prev) => ({
+                      ...prev,
+                      status: nextStatus,
+                      updatedAt: timestamp,
+                    }));
+                    setGoalStatusSheetVisible(false);
+                  }}
+                >
+                  <Text style={styles.quickAddSheetRowLabel}>{pretty}</Text>
+                </Pressable>
+              );
+            })}
+          </VStack>
+        </View>
+      </BottomDrawer>
       {/* Agent FAB entry for Goal detail is temporarily disabled for MVP.
           Once the tap-centric Agent entry is refined for object canvases,
           we can reintroduce a contextual FAB here that fits the final UX. */}
@@ -1853,51 +2490,36 @@ export function GoalDetailScreen() {
           </View>
         </VStack>
       </BottomDrawer>
-      <BottomDrawer
+      <ArcBannerSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
-        snapPoints={['55%']}
-      >
-        <View style={styles.goalThumbnailSheetContent}>
-          <Heading style={styles.goalThumbnailSheetTitle}>Goal banner</Heading>
-          <View style={styles.goalThumbnailSheetPreviewFrame}>
-            <View style={styles.goalThumbnailSheetPreviewInner}>
-              {goal.thumbnailUrl ? (
-                <Image
-                  source={{ uri: goal.thumbnailUrl }}
-                  style={styles.goalThumbnailSheetImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <LinearGradient
-                  colors={heroGradientColors}
-                  start={heroGradientDirection.start}
-                  end={heroGradientDirection.end}
-                  style={styles.goalThumbnailSheetImage}
-                />
-              )}
-            </View>
-          </View>
-          <HStack space="sm" style={styles.goalThumbnailSheetButtonsRow}>
-            <Button
-              variant="outline"
-              style={styles.goalThumbnailSheetButton}
-              onPress={handleShuffleGoalThumbnail}
-            >
-              <Text style={styles.goalThumbnailControlLabel}>Refresh</Text>
-            </Button>
-            <Button
-              variant="outline"
-              style={styles.goalThumbnailSheetButton}
-              onPress={() => {
-                void handleUploadGoalThumbnail();
-              }}
-            >
-              <Text style={styles.goalThumbnailControlLabel}>Upload</Text>
-            </Button>
-          </HStack>
-        </View>
-      </BottomDrawer>
+        objectLabel="Goal"
+        arcName={goal.title}
+        arcNarrative={goal.description}
+        arcGoalTitles={goalActivities.map((activity) => activity.title)}
+        canUseUnsplash={isPro}
+        onRequestUpgrade={() => {
+          setThumbnailSheetVisible(false);
+          setTimeout(() => openPaywallPurchaseEntry(), 360);
+        }}
+        heroSeed={heroSeed}
+        hasHero={Boolean(goal.thumbnailUrl)}
+        loading={heroImageLoading}
+        error={heroImageError}
+        thumbnailUrl={displayThumbnailUrl}
+        heroGradientColors={heroGradientColors}
+        heroGradientDirection={heroGradientDirection}
+        heroTopoSizes={heroTopoSizes}
+        showTopography={showTopography}
+        showGeoMosaic={showGeoMosaic}
+        onGenerate={handleShuffleGoalThumbnail}
+        onUpload={() => {
+          void handleUploadGoalThumbnail();
+        }}
+        onRemove={handleClearGoalHeroImage}
+        onSelectCurated={handleSelectCuratedGoalHero}
+        onSelectUnsplash={handleSelectUnsplashGoalHero}
+      />
       <GoalActivityCoachDrawer
         visible={activityCoachVisible}
         onClose={() => setActivityCoachVisible(false)}
@@ -2704,6 +3326,44 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray300,
     borderRadius: 999,
   },
+  goalTypePillRow: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  goalTypePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  goalTypePillLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  goalStatusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    alignSelf: 'flex-start',
+  },
+  goalStatusPillLabel: {
+    ...typography.bodySm,
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.gray700,
+  },
   headerSide: {
     flex: 1,
     justifyContent: 'center',
@@ -2896,8 +3556,29 @@ const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  completedSection: {
+    marginTop: spacing['2xl'],
+  },
+  completedToggle: {
+    paddingVertical: spacing.xs,
+  },
+  completedToggleLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  completedCountLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   lifecycleColumn: {
     flex: 1,
+    alignItems: 'flex-start',
+  },
+  detailDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.gray200,
+    marginVertical: spacing.lg,
+    borderRadius: 999,
   },
   forceIntentLabel: {
     ...typography.label,
@@ -3113,6 +3794,39 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
   },
+  pageContent: {
+    width: '100%',
+  },
+  goalHeroSection: {
+    height: 240,
+    backgroundColor: colors.canvas,
+  },
+  heroFullBleedWrapper: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.shellAlt,
+  },
+  heroFullBleedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  goalSheet: {
+    marginTop: -20,
+    backgroundColor: colors.canvas,
+    // No rounding on Goal sheets (unlike the Arc hero sheet).
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  goalSheetInner: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
+  },
   goalBannerFrame: {
     width: '100%',
     height: 148,
@@ -3126,11 +3840,19 @@ const styles = StyleSheet.create({
   },
   goalTitleBlock: {
     paddingTop: spacing.sm,
+    alignItems: 'center',
   },
   goalMetaLine: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    // Status moved into a pill next to the object type; keep this style for any
+    // future supporting meta lines without encouraging it as an interactive element.
+  },
+  goalSignalsRow: {
+    marginBottom: spacing.md,
   },
   editableField: {
     borderWidth: 1,
@@ -3307,16 +4029,21 @@ const styles = StyleSheet.create({
   goalNarrativeTitleContainer: {
     // Keep the title feeling like content (not a boxed input) by letting it flow
     // naturally within the canvas column.
-    paddingVertical: spacing.xs,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+    alignItems: 'center',
   },
   goalNarrativeTitle: {
-    ...typography.titleMd,
+    ...typography.titleLg,
     color: colors.textPrimary,
+    textAlign: 'center',
+    maxWidth: 420,
   },
   goalNarrativeTitleInput: {
     // Minimal edit affordance: no border/background. Keep typography identical.
-    ...typography.titleMd,
+    ...typography.titleLg,
     color: colors.textPrimary,
+    textAlign: 'center',
   },
   actionsTitle: {
     ...typography.titleSm,

@@ -646,9 +646,9 @@ function KwiltDrawerContent(props: any) {
                   icon={({ color, size }) => (
                     <Icon name={iconName} color={color} size={size ?? 20} />
                   )}
-                  activeTintColor={colors.accent}
+                  activeTintColor={colors.parchment}
                   inactiveTintColor={colors.textSecondary}
-                  activeBackgroundColor={colors.pine100}
+                  activeBackgroundColor={colors.pine700}
                   inactiveBackgroundColor="transparent"
                   labelStyle={styles.drawerLabel}
                   style={styles.drawerItem}
@@ -668,9 +668,9 @@ function KwiltDrawerContent(props: any) {
               icon={({ color, size }) => (
                 <Icon name={getDrawerIcon('DevTools')} color={color} size={size ?? 20} />
               )}
-              activeTintColor={colors.accent}
+              activeTintColor={colors.parchment}
               inactiveTintColor={colors.textSecondary}
-              activeBackgroundColor={colors.pine100}
+              activeBackgroundColor={colors.pine700}
               inactiveBackgroundColor="transparent"
               labelStyle={styles.drawerLabel}
               style={styles.drawerItem}

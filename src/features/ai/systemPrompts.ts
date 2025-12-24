@@ -273,12 +273,21 @@ Immediately after that prefix, include a single JSON object on the next line wit
   "title": "<goal title>",
   "description": "<1–2 sentences>",
   "status": "planned",
+  "targetDate": "YYYY-MM-DD" | "ISO-8601 timestamp (optional)",
+  "metrics": [
+    { "id": "metric-1", "kind": "count" | "threshold" | "event_count" | "milestone", "label": "…", "baseline": 0, "target": 6, "unit": "…" }
+  ],
   "forceIntent": { "force-activity": 1, "force-connection": 1, "force-mastery": 2, "force-spirituality": 0 }
 }
 
 Rules:
 - status must be one of: "planned", "in_progress", "completed", "archived" (default to "planned").
 - forceIntent values must be 0, 1, 2, or 3. Use the force IDs exactly as shown.
+- If you can confidently infer a calendar target date, include "targetDate" (prefer YYYY-MM-DD).
+- If you can express definition-of-done as a simple metric, include 1 metric in "metrics":
+  - Use "milestone" for binary outcomes (ship / publish / deliverable exists).
+  - Use "count" / "event_count" for repeats (publish 6 essays, have 4 catch-ups).
+  - Use "threshold" for numeric thresholds (save $10k, run 5K).
 - Do not include any other text after the JSON block.
 
 Default behavior:

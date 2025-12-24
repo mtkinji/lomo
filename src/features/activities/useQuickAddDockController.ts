@@ -28,6 +28,11 @@ type Params = {
    */
   initialReservedHeightPx: number;
   /**
+   * Optional override for the toast bottom offset. Useful for inline placements
+   * where `reservedHeight` is not meaningful (dock isn't anchored to the bottom).
+   */
+  toastBottomOffsetOverridePx?: number;
+  /**
    * Called after the activity is created and added to the store.
    * Useful for analytics, scroll-to-new-item, guides, etc.
    */
@@ -48,6 +53,7 @@ export function useQuickAddDockController(params: Params) {
     recordShowUp,
     showToast,
     initialReservedHeightPx,
+    toastBottomOffsetOverridePx,
     onCreated,
     enrichActivityWithAI,
     markActivityEnrichment,
@@ -100,10 +106,12 @@ export function useQuickAddDockController(params: Params) {
     [],
   );
 
-  const toastBottomOffset = React.useMemo(
-    () => reservedHeight + spacing.sm,
-    [reservedHeight],
-  );
+  const toastBottomOffset = React.useMemo(() => {
+    if (typeof toastBottomOffsetOverridePx === 'number' && Number.isFinite(toastBottomOffsetOverridePx)) {
+      return toastBottomOffsetOverridePx;
+    }
+    return reservedHeight + spacing.sm;
+  }, [reservedHeight, toastBottomOffsetOverridePx]);
 
   const submit = React.useCallback(() => {
     const trimmed = value.trim();

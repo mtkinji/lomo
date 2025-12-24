@@ -296,6 +296,9 @@ export function ActivitiesScreen() {
     return enrichingActivityIdsRef.current.has(activityId);
   }, []);
 
+  const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
+  const quickAddInitialReservedHeight = QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4;
+
   const {
     value: quickAddTitle,
     setValue: setQuickAddTitle,
@@ -367,8 +370,6 @@ export function ActivitiesScreen() {
   const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = React.useState(false);
   const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = React.useState(false);
   const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = React.useState(false);
-  const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
-  const quickAddInitialReservedHeight = QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4;
   const canvasScrollRef = React.useRef<ScrollView | null>(null);
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
@@ -660,7 +661,7 @@ export function ActivitiesScreen() {
       setHasQuickAddAiGenerated(true);
       lastQuickAddAiTitleRef.current = title;
       if (!quickAddFocusedRef.current) {
-        setIsQuickAddFocused(true);
+        setQuickAddFocused(true);
       }
       requestAnimationFrame(() => {
         quickAddInputRef.current?.focus();
