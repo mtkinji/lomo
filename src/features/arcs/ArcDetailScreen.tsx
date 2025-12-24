@@ -21,13 +21,13 @@ import {
   UIManager,
   findNodeHandle,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { ObjectPageHeader, HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
-import { blurs, cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
+import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -207,7 +207,7 @@ export function ArcDetailScreen() {
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
 
   // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
-  const ARC_HEADER_HEIGHT = 56;
+  const ARC_HEADER_HEIGHT = 52;
   const HEADER_BOTTOM_Y = insets.top + ARC_HEADER_HEIGHT;
   const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
   const BOTTOM_CTA_BAR_HEIGHT = 92;
@@ -764,76 +764,38 @@ export function ArcDetailScreen() {
       </BottomGuide>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.screen}>
-          <View pointerEvents="box-none" style={[styles.fixedHeaderOverlay, { height: HEADER_BOTTOM_Y }]}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.fixedHeaderBackground,
-                {
-                  opacity: headerProgress,
-                },
-              ]}
-            />
-            <View style={[styles.fixedHeaderRow, { paddingTop: insets.top, height: HEADER_BOTTOM_Y }]}>
-              <TouchableOpacity
-                style={styles.headerActionCircle}
+          <ObjectPageHeader
+            barHeight={ARC_HEADER_HEIGHT}
+            backgroundOpacity={headerProgress}
+            actionPillOpacity={headerActionPillOpacity}
+            left={
+              <HeaderActionPill
                 onPress={handleBackToArcs}
-                accessibilityRole="button"
                 accessibilityLabel="Back to Arcs"
-                hitSlop={10}
-                activeOpacity={0.9}
+                materialOpacity={headerActionPillOpacity}
               >
-                <Animated.View pointerEvents="none" style={[styles.headerActionCircleBg, { opacity: headerActionPillOpacity }]}>
-                  <BlurView
-                    intensity={blurs.headerAction.intensity}
-                    tint={blurs.headerAction.tint}
-                    style={StyleSheet.absoluteFillObject}
-                  />
-                  <View style={styles.headerActionCircleTint} />
-                </Animated.View>
                 <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-              </TouchableOpacity>
-              <View style={{ flex: 1 }} />
-              <HStack alignItems="center" space="xs">
-                <TouchableOpacity
-                  style={styles.headerActionCircle}
+              </HeaderActionPill>
+            }
+            right={
+              <HStack alignItems="center" space="sm">
+                <HeaderActionPill
                   onPress={() => {
                     handleShareArc().catch(() => undefined);
                   }}
-                  accessibilityRole="button"
                   accessibilityLabel="Share arc"
-                  hitSlop={10}
-                  activeOpacity={0.9}
+                  materialOpacity={headerActionPillOpacity}
                 >
-                  <Animated.View pointerEvents="none" style={[styles.headerActionCircleBg, { opacity: headerActionPillOpacity }]}>
-                    <BlurView
-                      intensity={blurs.headerAction.intensity}
-                      tint={blurs.headerAction.tint}
-                      style={StyleSheet.absoluteFillObject}
-                    />
-                    <View style={styles.headerActionCircleTint} />
-                  </Animated.View>
                   <Icon name="share" size={18} color={colors.textPrimary} />
-                </TouchableOpacity>
+                </HeaderActionPill>
                 <DropdownMenu>
                   <DropdownMenuTrigger accessibilityLabel="Arc actions">
-                    <TouchableOpacity
-                      style={styles.headerActionCircle}
-                      accessibilityRole="button"
+                    <HeaderActionPill
                       accessibilityLabel="Arc actions"
-                      hitSlop={10}
-                      activeOpacity={0.9}
+                      materialOpacity={headerActionPillOpacity}
                     >
-                      <Animated.View pointerEvents="none" style={[styles.headerActionCircleBg, { opacity: headerActionPillOpacity }]}>
-                        <BlurView
-                          intensity={blurs.headerAction.intensity}
-                          tint={blurs.headerAction.tint}
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                        <View style={styles.headerActionCircleTint} />
-                      </Animated.View>
                       <Icon name="more" size={18} color={colors.textPrimary} />
-                    </TouchableOpacity>
+                    </HeaderActionPill>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                     <DropdownMenuItem
@@ -869,8 +831,8 @@ export function ArcDetailScreen() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </HStack>
-            </View>
-          </View>
+            }
+          />
 
           <KeyboardAwareScrollView
             ref={scrollRef}
@@ -962,6 +924,12 @@ export function ArcDetailScreen() {
                 ]}
               >
                 <View style={styles.arcSheetInner}>
+                  <View style={styles.arcTypePillRow}>
+                    <HStack style={styles.arcTypePill} alignItems="center" space="xs">
+                      <Icon name="arcs" size={12} color={colors.textSecondary} />
+                      <Text style={styles.arcTypePillLabel}>Arc</Text>
+                    </HStack>
+                  </View>
                   <NarrativeEditableTitle
                     value={arc.name}
                     placeholder="Name this Arc"
@@ -1027,31 +995,24 @@ export function ArcDetailScreen() {
                     />
                   </View>
 
-                  {renderInsightsSection()}
-                  <View style={styles.sectionDivider} />
-
                   <View
                     style={styles.goalsSection}
                     onLayout={(event) => {
                       setGoalsSectionOffset(event.nativeEvent.layout.y);
                     }}
                   >
+                    <View style={[styles.sectionDivider, styles.sectionDividerTightBottom]} />
                     <View style={styles.goalsDrawerInner}>
-                      <View style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}>
-                        <View ref={goalsHeaderRef} collapsable={false} />
-                        <Text style={styles.sectionTitle}>
-                          Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-                        </Text>
-                        <IconButton
-                          style={styles.goalsExpandButton}
-                          onPress={() => {
-                            setHasDismissedOnboardingGoalGuide(true);
-                            setIsGoalCoachVisible(true);
-                          }}
-                          accessibilityLabel="Create a new goal"
-                        >
-                          <Icon name="plus" size={18} color={colors.canvas} />
-                        </IconButton>
+                      <View
+                        ref={goalsHeaderRef}
+                        collapsable={false}
+                        style={[
+                          styles.goalsDrawerHeaderRow,
+                          styles.goalsDrawerHeaderRowRaised,
+                          styles.goalsHeaderRowLeft,
+                        ]}
+                      >
+                        <Text style={styles.sectionTitle}>Goals <Text style={styles.goalCount}>({arcGoals.length})</Text></Text>
                       </View>
 
                       {arcGoals.length === 0 ? (
@@ -1059,31 +1020,10 @@ export function ArcDetailScreen() {
                           title="Turn this Arc into clear goals"
                           instructions={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
                           style={[styles.goalsEmptyStateContainer, { marginTop: spacing['2xl'] }]}
-                          actions={
-                            <View
-                              ref={createGoalsButtonRef}
-                              collapsable={false}
-                              style={styles.goalsPrimaryButtonWrapper}
-                            >
-                              {shouldShowOnboardingGoalGuide ? (
-                                <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
-                              ) : null}
-                              <Button
-                                variant="accent"
-                                style={styles.goalsEmptyPrimaryButton}
-                                onPress={() => {
-                                  setHasDismissedOnboardingGoalGuide(true);
-                                  setIsGoalCoachVisible(true);
-                                }}
-                              >
-                                <Text style={styles.goalsEmptyPrimaryLabel}>Create goal</Text>
-                              </Button>
-                            </View>
-                          }
                         />
                       ) : (
                         <View style={styles.goalsScrollContent}>
-                          <View style={{ gap: spacing.sm }}>
+                          <View style={{ gap: 0 }}>
                             {arcGoals.map((goal) => (
                               <GoalListCard
                                 key={goal.id}
@@ -1091,8 +1031,9 @@ export function ArcDetailScreen() {
                                 parentArc={arc}
                                 activityCount={activityCountByGoal[goal.id] ?? 0}
                                 thumbnailStyles={thumbnailStyles}
-                                padding="xs"
                                 density="dense"
+                                variant="flat"
+                                showActivityMeta={false}
                                 onPress={() =>
                                   navigation.navigate('GoalDetail', {
                                     goalId: goal.id,
@@ -1104,8 +1045,38 @@ export function ArcDetailScreen() {
                           </View>
                         </View>
                       )}
+
+                      <View
+                        ref={createGoalsButtonRef}
+                        collapsable={false}
+                        style={{
+                          marginTop: arcGoals.length === 0 ? spacing.sm : spacing.xs,
+                        }}
+                      >
+                        {shouldShowOnboardingGoalGuide ? (
+                          <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
+                        ) : null}
+                        <Button
+                          variant="secondary"
+                          fullWidth
+                          onPress={() => {
+                            setHasDismissedOnboardingGoalGuide(true);
+                            setIsGoalCoachVisible(true);
+                          }}
+                          accessibilityLabel="Add goal"
+                        >
+                          <Text style={styles.goalsAddSecondaryLabel}>Add goal</Text>
+                        </Button>
+                      </View>
                     </View>
                   </View>
+
+                  {hasDevelopmentInsights ? (
+                    <>
+                      <View style={[styles.sectionDivider, styles.sectionDividerTightTop]} />
+                      {renderInsightsSection()}
+                    </>
+                  ) : null}
 
                   {headerV2Enabled ? (
                     <View style={{ paddingTop: spacing.lg }}>
@@ -1421,41 +1392,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  fixedHeaderOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-  },
-  fixedHeaderBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.canvas,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  fixedHeaderRow: {
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerActionCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: blurs.headerAction.borderColor,
-  },
-  headerActionCircleBg: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  headerActionCircleTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: blurs.headerAction.overlayColor,
-  },
+  // Header styles live in `ObjectPageHeader`.
   bottomCtaBar: {
     position: 'absolute',
     left: 0,
@@ -1973,8 +1910,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   arcNarrativeTitleContainer: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingTop: 0,
+    paddingBottom: 0,
     alignItems: 'center',
   },
   arcNarrativeTitle: {
@@ -2021,22 +1958,28 @@ const styles = StyleSheet.create({
   goalsDrawerHeaderRowRaised: {
     paddingBottom: spacing.sm,
   },
-  goalsExpandButton: {
-    alignSelf: 'flex-end',
-    marginTop: 0,
-    backgroundColor: colors.primary,
+  goalsHeaderRowLeft: {
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
   },
   goalsSection: {
     marginTop: 0,
   },
   sectionDivider: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
+    marginTop: spacing['2xl'],
+    marginBottom: spacing['2xl'],
     // Use a full-width, pill-shaped rule so the section break is legible
     // against the light shell background while still feeling airy.
-    height: 1,
-    backgroundColor: colors.border,
+    height: StyleSheet.hairlineWidth,
+    // Darker than `colors.border` so it reads as a real divider even at hairline thickness.
+    backgroundColor: colors.gray300,
     borderRadius: 999,
+  },
+  sectionDividerTightBottom: {
+    marginBottom: spacing.lg,
+  },
+  sectionDividerTightTop: {
+    marginTop: spacing.lg,
   },
   sectionActionText: {
     ...typography.bodySm,
@@ -2098,6 +2041,26 @@ const styles = StyleSheet.create({
   goalsEmptyState: {
     marginTop: spacing.lg,
   },
+  arcTypePillRow: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  arcTypePill: {
+    backgroundColor: colors.gray100,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.gray200,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  arcTypePillLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    lineHeight: 14,
+  },
   goalsScroll: {
     marginTop: spacing.md,
   },
@@ -2134,6 +2097,11 @@ const styles = StyleSheet.create({
   goalsEmptyPrimaryLabel: {
     ...typography.bodySm,
     color: colors.canvas,
+    textAlign: 'center',
+  },
+  goalsAddSecondaryLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   goalsPrimaryButtonWrapper: {

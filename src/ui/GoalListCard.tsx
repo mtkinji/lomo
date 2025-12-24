@@ -25,6 +25,12 @@ type GoalListCardProps = {
   activityCount?: number;
   thumbnailStyles?: ThumbnailStyle[];
   /**
+   * Visual container style.
+   * - 'card' (default): uses the shared Card shell.
+   * - 'flat': renders as a lightweight list row (no card border/background).
+   */
+  variant?: 'card' | 'flat';
+  /**
    * Card shell padding preset (delegated to the shared `Card` primitive).
    */
   padding?: CardPadding;
@@ -80,6 +86,7 @@ export function GoalListCard({
   parentArc,
   activityCount = 0,
   thumbnailStyles,
+  variant = 'card',
   padding = 'md',
   density = 'default',
   activityMetaOverride,
@@ -95,6 +102,8 @@ export function GoalListCard({
   const defaultStatusLabel = goal.status.replace('_', ' ');
   const statusLabel = statusLabelOverride ?? defaultStatusLabel;
   const isDense = density === 'dense';
+  const shouldCenterTitleWithThumbnail =
+    variant === 'flat' && showThumbnail && !showActivityMeta && !headerLabel;
 
   const statusVariant =
     goal.status === 'in_progress'
@@ -132,17 +141,20 @@ export function GoalListCard({
   const shouldShowContourRings = showContourRings && !hasCustomThumbnail;
   const shouldShowPixelBlocks = showPixelBlocks && !hasCustomThumbnail;
 
-  const content = (
-    <Card padding={padding} style={[styles.goalListCard, style]}>
-      <VStack
-        style={[
-          styles.goalListContent,
-          compact && styles.goalListContentCompact,
-          isDense && styles.goalListContentDense,
-        ]}
-        space="xs"
+  const inner = (
+    <VStack
+      style={[
+        styles.goalListContent,
+        compact && styles.goalListContentCompact,
+        isDense && styles.goalListContentDense,
+        variant === 'flat' && styles.goalListContentFlat,
+      ]}
+      space="xs"
+    >
+      <HStack
+        style={[styles.goalTopRow, shouldCenterTitleWithThumbnail && styles.goalTopRowCentered]}
+        space={isDense ? 'sm' : 'md'}
       >
-        <HStack style={styles.goalTopRow} space={isDense ? 'sm' : 'md'}>
           {showThumbnail && (
             <View style={[styles.goalThumbnailWrapper, isDense && styles.goalThumbnailWrapperDense]}>
               <View style={[styles.goalThumbnailInner, isDense && styles.goalThumbnailInnerDense]}>
@@ -285,7 +297,12 @@ export function GoalListCard({
               </View>
             </View>
           )}
-          <VStack style={styles.goalTextContainer}>
+          <VStack
+            style={[
+              styles.goalTextContainer,
+              shouldCenterTitleWithThumbnail && styles.goalTextContainerCentered,
+            ]}
+          >
             {headerLabel}
             <Heading
               style={[styles.goalTitle, isDense && styles.goalTitleDense]}
@@ -319,15 +336,29 @@ export function GoalListCard({
         )}
 
         {children}
-      </VStack>
-    </Card>
+    </VStack>
   );
 
-  if (!onPress) {
-    return content;
-  }
+  const container =
+    variant === 'flat' ? (
+      <View
+        style={[
+          styles.goalListFlat,
+          isDense && styles.goalListFlatDense,
+          style,
+        ]}
+      >
+        {inner}
+      </View>
+    ) : (
+      <Card padding={padding} style={[styles.goalListCard, style]}>
+        {inner}
+      </Card>
+    );
 
-  return <Pressable onPress={onPress}>{content}</Pressable>;
+  if (!onPress) return container;
+
+  return <Pressable onPress={onPress}>{container}</Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -335,10 +366,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginVertical: 0,
   },
+  goalListFlat: {
+    backgroundColor: 'transparent',
+    paddingVertical: spacing.md,
+  },
+  goalListFlatDense: {
+    paddingVertical: spacing.xs,
+  },
   goalListContent: {
     flexDirection: 'column',
     minHeight: 68,
     justifyContent: 'space-between',
+  },
+  goalListContentFlat: {
+    minHeight: 0,
   },
   goalListContentCompact: {
     minHeight: 0,
@@ -349,6 +390,9 @@ const styles = StyleSheet.create({
   goalTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  goalTopRowCentered: {
+    alignItems: 'center',
   },
   goalThumbnailWrapper: {
     // Sized to roughly match two lines of title text while staying on the 8px grid.
@@ -476,6 +520,9 @@ const styles = StyleSheet.create({
   goalTextContainer: {
     flex: 1,
     justifyContent: 'space-between',
+  },
+  goalTextContainerCentered: {
+    justifyContent: 'center',
   },
   goalTitle: {
     ...typography.body,

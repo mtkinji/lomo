@@ -21,7 +21,7 @@ import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/
 import { useToastStore } from '../../store/useToastStore';
 import type { GoalDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
-import { Button, IconButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import { Card } from '../../ui/Card';
@@ -41,7 +41,6 @@ import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal, Activity, ActivityType, ActivityStep } from '../../domain/types';
-import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
@@ -78,6 +77,7 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
+import { ObjectPageHeader, HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
@@ -152,7 +152,6 @@ export function GoalDetailScreen() {
   const removeGoal = useAppStore((state) => state.removeGoal);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
-  const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
   const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
@@ -365,13 +364,7 @@ export function GoalDetailScreen() {
       keywords: undefined,
     }));
   }, [arcs]);
-  const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>(initialTab ?? 'details');
-
-  useEffect(() => {
-    if (!initialTab) return;
-    setActiveTab(initialTab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTab]);
+  // Goal detail is a single-scroll workboard (no tabs).
   const hasAutoSwitchedToPlanRef = useRef(false);
   const goalActivities = useMemo(
     () => activities.filter((activity) => activity.goalId === goalId),
@@ -386,7 +379,6 @@ export function GoalDetailScreen() {
 
   const shouldShowOnboardingActivitiesCoachmark =
     shouldShowOnboardingActivitiesGuide &&
-    activeTab === 'plan' &&
     isAddActivitiesButtonReady &&
     shouldPromptAddActivity &&
     !activityCoachVisible &&
@@ -397,7 +389,6 @@ export function GoalDetailScreen() {
     !showFirstGoalCelebration &&
     !showOnboardingSharePrompt &&
     !hasDismissedOnboardingPlanReadyGuide &&
-    activeTab === 'plan' &&
     !activityCoachVisible &&
     !activityComposerVisible;
 
@@ -405,7 +396,6 @@ export function GoalDetailScreen() {
     hasCompletedFirstTimeOnboarding &&
     goal?.id === pendingPostGoalPlanGuideGoalId &&
     !(dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id] &&
-    activeTab === 'plan' &&
     isPlanEmpty &&
     !activityCoachVisible &&
     !activityComposerVisible;
@@ -416,11 +406,10 @@ export function GoalDetailScreen() {
     if (goal.id !== pendingPostGoalPlanGuideGoalId) return;
     if (hasAutoSwitchedToPlanRef.current) return;
     hasAutoSwitchedToPlanRef.current = true;
-    setActiveTab('plan');
+    setShouldPromptAddActivity(true);
   }, [goal?.id, hasCompletedFirstTimeOnboarding, pendingPostGoalPlanGuideGoalId]);
   const shouldShowGoalVectorsCoachmark =
     Boolean(goal) &&
-    activeTab === 'details' &&
     !hasDismissedGoalVectorsGuide &&
     !showFirstGoalCelebration &&
     !shouldShowOnboardingActivitiesGuide &&
@@ -429,7 +418,7 @@ export function GoalDetailScreen() {
     !editModalVisible;
 
   const isAnyBottomGuideVisible =
-    (shouldShowOnboardingActivitiesGuide && activeTab !== 'plan') ||
+    shouldShowOnboardingActivitiesGuide ||
     shouldShowPostGoalPlanGuide ||
     shouldShowOnboardingPlanReadyGuide;
   const activeGoalActivities = useMemo(
@@ -562,7 +551,6 @@ export function GoalDetailScreen() {
       // Handoff first: switch to the Plan canvas so the user sees their newly
       // created Activities, then queue the share prompt after the plan-ready
       // guide has had a chance to run.
-      setActiveTab('plan');
       setPendingOnboardingSharePrompt(true);
     }
   }, [
@@ -577,7 +565,6 @@ export function GoalDetailScreen() {
     // When replaying the celebration (especially via DevTools), ensure we start
     // on the Goal Details canvas so the onboarding guide can orient the user
     // before we move them into the Activities plan.
-    setActiveTab('details');
     setActivityCoachVisible(false);
     setActivityComposerVisible(false);
   }, [showFirstGoalCelebration]);
@@ -814,7 +801,7 @@ export function GoalDetailScreen() {
     setHasSeenFirstGoalCelebration(true);
     // Keep the user on the Goal canvas so the onboarding guide can explain
     // where Activities live before we open any AI/creation surfaces.
-    setActiveTab('details');
+    setShouldPromptAddActivity(true);
   };
 
   const handleDeleteGoal = () => {
@@ -1026,7 +1013,7 @@ export function GoalDetailScreen() {
   };
 
   return (
-    <AppShell>
+    <AppShell fullBleedCanvas>
       <FullScreenInterstitial
         visible={showFirstGoalCelebration}
         onDismiss={handleDismissFirstGoalCelebration}
@@ -1259,239 +1246,94 @@ export function GoalDetailScreen() {
         />
       )}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: colors.canvas }}>
           <VStack space="lg" flex={1}>
-            <HStack alignItems="center">
-              {breadcrumbsEnabled ? (
-                <>
-                  <View style={styles.breadcrumbsLeft}>
-                    <BreadcrumbBar
-                      items={[
-                        {
-                          id: 'arcs',
-                          label: 'Arcs',
-                          onPress: () => {
-                            rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
-                          },
-                        },
-                        ...(arc?.id
-                          ? [
-                              {
-                                id: 'arc',
-                                label: arc?.name ?? 'Arc',
-                                onPress: () => {
-                                  rootNavigationRef.navigate('ArcsStack', {
-                                    screen: 'ArcDetail',
-                                    params: { arcId: arc.id },
-                                  });
-                                },
-                              },
-                            ]
-                          : []),
-                        { id: 'goal', label: goal?.title ?? 'Goal' },
-                      ]}
+            <ObjectPageHeader
+              barHeight={52}
+              left={
+                <HeaderActionPill onPress={handleBack} accessibilityLabel="Back to Arc">
+                  <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                </HeaderActionPill>
+              }
+              right={
+                <HStack alignItems="center" space="sm">
+                  <HeaderActionPill onPress={handleShareGoal} accessibilityLabel="Share goal">
+                    <Icon name="share" size={18} color={colors.textPrimary} />
+                  </HeaderActionPill>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger accessibilityLabel="Goal actions">
+                      <HeaderActionPill accessibilityLabel="Goal actions">
+                        <Icon name="more" size={18} color={colors.textPrimary} />
+                      </HeaderActionPill>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                      <DropdownMenuItem onPress={() => setThumbnailSheetVisible(true)}>
+                        <View style={styles.menuItemRow}>
+                          <Icon name="image" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Edit banner</Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
+                        <View style={styles.menuItemRow}>
+                          <Icon name="edit" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Edit details</Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={handleToggleArchiveGoal}>
+                        <View style={styles.menuItemRow}>
+                          <Icon
+                            name={goal?.status === 'archived' ? 'refresh' : 'archive'}
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                          <Text style={styles.menuItemLabel}>
+                            {goal?.status === 'archived' ? 'Restore' : 'Archive'}
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
+                        <View style={styles.menuItemRow}>
+                          <Icon name="trash" size={16} color={colors.destructive} />
+                          <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
+                        </View>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </HStack>
+              }
+            />
+
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingHorizontal: spacing.xl,
+                paddingTop: insets.top + 52 + spacing.sm,
+                paddingBottom: spacing['2xl'] + insets.bottom,
+              }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <VStack space="lg">
+                {/* In-sheet banner + title block */}
+                <View style={styles.goalBannerFrame}>
+                  {displayThumbnailUrl ? (
+                    <Image
+                      source={{ uri: displayThumbnailUrl }}
+                      style={styles.goalBannerImage}
+                      resizeMode="cover"
+                      accessibilityLabel="Goal banner"
                     />
-                  </View>
-                  <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                    {headerV2Enabled ? (
-                      <HStack alignItems="center" space="xs">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onPress={handleShareGoal}
-                          accessibilityLabel="Share goal"
-                        >
-                          <Icon name="share" size={18} color={colors.textPrimary} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onPress={() => setEditModalVisible(true)}
-                          accessibilityLabel="Edit goal details"
-                        >
-                          <Icon name="edit" size={18} color={colors.textPrimary} />
-                        </Button>
-                      </HStack>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger accessibilityLabel="Goal actions">
-                          <IconButton
-                            style={styles.optionsButton}
-                            pointerEvents="none"
-                            accessible={false}
-                          >
-                            <Icon name="more" size={18} color={colors.canvas} />
-                          </IconButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                          {/* Primary, non-destructive actions first */}
-                          <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
-                            <View style={styles.menuItemRow}>
-                              <Icon name="edit" size={16} color={colors.textSecondary} />
-                              <Text style={styles.menuItemLabel}>Edit details</Text>
-                            </View>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onPress={handleToggleArchiveGoal}>
-                            <View style={styles.menuItemRow}>
-                              <Icon
-                                name={goal?.status === 'archived' ? 'refresh' : 'archive'}
-                                size={16}
-                                color={colors.textSecondary}
-                              />
-                              <Text style={styles.menuItemLabel}>
-                                {goal?.status === 'archived' ? 'Restore' : 'Archive'}
-                              </Text>
-                            </View>
-                          </DropdownMenuItem>
-
-                          {/* Divider before destructive actions */}
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
-                            <View style={styles.menuItemRow}>
-                              <Icon name="trash" size={16} color={colors.destructive} />
-                              <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
-                            </View>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </View>
-                </>
-              ) : (
-                <>
-                  {headerV2Enabled ? (
-                    <View style={styles.headerV2}>
-                      <View style={styles.headerV2TopRow}>
-                        <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleBack}
-                            accessibilityLabel="Back to Arc"
-                          >
-                            <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-                          </Button>
-                          <HStack alignItems="center" space="xs">
-                            <ObjectTypeIconBadge iconName="goals" tone="goal" size={14} badgeSize={26} />
-                            <Text style={styles.objectTypeLabelV2}>Goal</Text>
-                          </HStack>
-                        </HStack>
-                        <HStack alignItems="center" space="xs">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleShareGoal}
-                            accessibilityLabel="Share goal"
-                          >
-                            <Icon name="share" size={18} color={colors.textPrimary} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={() => setEditModalVisible(true)}
-                            accessibilityLabel="Edit goal details"
-                          >
-                            <Icon name="edit" size={18} color={colors.textPrimary} />
-                          </Button>
-                        </HStack>
-                      </View>
-                    </View>
                   ) : (
-                    <>
-                      <View style={styles.headerSide}>
-                        <IconButton
-                          style={styles.backButton}
-                          onPress={handleBack}
-                          accessibilityLabel="Back to Arc"
-                        >
-                          <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                        </IconButton>
-                      </View>
-                      <View style={styles.headerCenter}>
-                        <HStack alignItems="center" justifyContent="center" space="xs">
-                          <ObjectTypeIconBadge iconName="goals" tone="goal" size={14} badgeSize={26} />
-                          <Text style={styles.objectTypeLabel}>Goal</Text>
-                        </HStack>
-                      </View>
-                      <View style={styles.headerSideRight}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger accessibilityLabel="Goal actions">
-                            <IconButton
-                              style={styles.optionsButton}
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="more" size={18} color={colors.canvas} />
-                            </IconButton>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                            {/* Primary, non-destructive actions first */}
-                            <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
-                              <View style={styles.menuItemRow}>
-                                <Icon name="edit" size={16} color={colors.textSecondary} />
-                                <Text style={styles.menuItemLabel}>Edit details</Text>
-                              </View>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={handleToggleArchiveGoal}>
-                              <View style={styles.menuItemRow}>
-                                <Icon
-                                  name={goal?.status === 'archived' ? 'refresh' : 'archive'}
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text style={styles.menuItemLabel}>
-                                  {goal?.status === 'archived' ? 'Restore' : 'Archive'}
-                                </Text>
-                              </View>
-                            </DropdownMenuItem>
-
-                            {/* Divider before destructive actions */}
-                            <DropdownMenuSeparator />
-
-                            <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
-                              <View style={styles.menuItemRow}>
-                                <Icon name="trash" size={16} color={colors.destructive} />
-                                <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
-                              </View>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </View>
-                    </>
+                    <LinearGradient
+                      colors={heroGradientColors}
+                      start={heroGradientDirection.start}
+                      end={heroGradientDirection.end}
+                      style={styles.goalBannerImage}
+                    />
                   )}
-                </>
-              )}
-            </HStack>
-
-            <VStack space="sm">
-              {/* Thumbnail + inline title editor */}
-              <HStack alignItems="center" space="sm">
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.goalThumbnailWrapper}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit goal thumbnail"
-                  onPress={() => setThumbnailSheetVisible(true)}
-                >
-                  <View style={styles.goalThumbnailInner}>
-                    {displayThumbnailUrl ? (
-                      <Image
-                        source={{ uri: displayThumbnailUrl }}
-                        style={styles.goalThumbnail}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <LinearGradient
-                        colors={heroGradientColors}
-                        start={heroGradientDirection.start}
-                        end={heroGradientDirection.end}
-                        style={styles.goalThumbnail}
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
+                </View>
+                <View style={styles.goalTitleBlock}>
                   <NarrativeEditableTitle
                     value={goal.title}
                     placeholder="Goal title"
@@ -1509,36 +1351,105 @@ export function GoalDetailScreen() {
                     inputStyle={styles.goalNarrativeTitleInput}
                     containerStyle={styles.goalNarrativeTitleContainer}
                   />
+                  <Text style={styles.goalMetaLine}>
+                    {statusLabel}
+                    {goalActivities.length > 0 ? ` · ${goalActivities.length} activities` : ''}
+                    {completedGoalActivities.length > 0 ? ` · ${completedGoalActivities.length} done` : ''}
+                  </Text>
                 </View>
-              </HStack>
 
-              {/* Canvas mode toggle: Details vs Plan vs History */}
-              <View style={styles.segmentedControlRow}>
-                <SegmentedControl
-                  value={activeTab}
-                  onChange={setActiveTab}
-                  options={[
-                    { value: 'details', label: 'Details' },
-                    { value: 'plan', label: 'Plan' },
-                    { value: 'history', label: 'History' },
-                      ]}
-                />
-              </View>
-            </VStack>
-
-            {activeTab === 'details' && (
-              <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{
-                  paddingHorizontal: spacing.md,
-                  paddingBottom: spacing['2xl'],
-                  paddingTop: spacing.md,
-                }}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
+                {/* Activities-first section */}
+                <View style={styles.sectionDivider} />
                 <VStack space="md">
-                  <View style={{ marginTop: spacing.md }}>
+                  <HStack alignItems="center" justifyContent="space-between">
+                    <Heading style={styles.sectionTitle}>Activities</Heading>
+                    <View
+                      ref={addActivitiesButtonRef}
+                      collapsable={false}
+                      onLayout={() => setIsAddActivitiesButtonReady(true)}
+                    >
+                      <Button
+                        variant="secondary"
+                        onPress={() => setActivityCoachVisible(true)}
+                        accessibilityLabel="Add activities"
+                      >
+                        <Text style={styles.secondaryCtaText}>Add</Text>
+                      </Button>
+                    </View>
+                  </HStack>
+
+                  {isPlanEmpty ? (
+                    <EmptyState
+                      variant="compact"
+                      title="No activities for this goal yet"
+                      instructions="Add your first activities to move this goal forward."
+                      style={[styles.planEmptyState, { marginTop: spacing.lg }]}
+                      actions={
+                        <Button
+                          variant="accent"
+                          onPress={() => setActivityCoachVisible(true)}
+                          accessibilityLabel="Add activities to this goal"
+                        >
+                          <Text style={styles.primaryCtaText}>Add activities</Text>
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <>
+                      {activeGoalActivities.length > 0 && (
+                        <VStack space="xs">
+                          {activeGoalActivities.map((activity) => {
+                            const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
+                            return (
+                              <ActivityListItem
+                                key={activity.id}
+                                title={activity.title}
+                                meta={meta}
+                                metaLeadingIconName={metaLeadingIconName}
+                                isCompleted={activity.status === 'done'}
+                                onToggleComplete={() => handleToggleActivityComplete(activity.id)}
+                                isPriorityOne={activity.priority === 1}
+                                onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
+                                onPress={() => handleOpenActivityDetail(activity.id)}
+                              />
+                            );
+                          })}
+                        </VStack>
+                      )}
+
+                      {completedGoalActivities.length > 0 && (
+                        <VStack
+                          space="xs"
+                          style={{
+                            marginTop: spacing['2xl'],
+                          }}
+                        >
+                          <Heading style={styles.sectionTitle}>Completed</Heading>
+                          {completedGoalActivities.map((activity) => {
+                            const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
+                            return (
+                              <ActivityListItem
+                                key={activity.id}
+                                title={activity.title}
+                                meta={meta}
+                                metaLeadingIconName={metaLeadingIconName}
+                                isCompleted={activity.status === 'done'}
+                                onToggleComplete={() => handleToggleActivityComplete(activity.id)}
+                                isPriorityOne={activity.priority === 1}
+                                onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
+                                onPress={() => handleOpenActivityDetail(activity.id)}
+                              />
+                            );
+                          })}
+                        </VStack>
+                      )}
+                    </>
+                  )}
+                </VStack>
+
+                {/* Details section */}
+                <View style={styles.sectionDivider} />
+                <VStack space="md">
                   <HStack style={styles.timeRow}>
                     <VStack space="xs" style={styles.lifecycleColumn}>
                       <Text style={styles.timeLabel}>Status</Text>
@@ -1556,14 +1467,10 @@ export function GoalDetailScreen() {
                     </VStack>
                     <VStack space="xs" style={styles.lifecycleColumn}>
                       <Text style={styles.timeLabel}>Last modified</Text>
-                      <Text style={styles.timeText}>
-                        {updatedAtLabel ?? 'Just now'}
-                      </Text>
+                      <Text style={styles.timeText}>{updatedAtLabel ?? 'Just now'}</Text>
                     </VStack>
                   </HStack>
-                  </View>
 
-                  <View style={{ marginTop: spacing.md }}>
                   <LongTextField
                     label="Description"
                     value={goal.description ?? ''}
@@ -1593,424 +1500,143 @@ export function GoalDetailScreen() {
                       });
                     }}
                   />
-                  </View>
 
-                  <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
-                  <ObjectPicker
-                    value={goal.arcId ?? ''}
-                    onValueChange={(nextArcId) => {
-                      handleUpdateArc(nextArcId ? nextArcId : null);
-                    }}
-                    options={arcOptions}
-                    placeholder="Select Arc…"
-                    searchPlaceholder="Search arcs…"
-                    emptyText="No arcs found."
-                    accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
-                    allowDeselect
-                  />
+                  <View>
+                    <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
+                    <ObjectPicker
+                      value={goal.arcId ?? ''}
+                      onValueChange={(nextArcId) => {
+                        handleUpdateArc(nextArcId ? nextArcId : null);
+                      }}
+                      options={arcOptions}
+                      placeholder="Select Arc…"
+                      searchPlaceholder="Search arcs…"
+                      emptyText="No arcs found."
+                      accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
+                      allowDeselect
+                    />
                   </View>
 
                   <View ref={vectorsSectionRef} collapsable={false}>
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <HStack alignItems="center" space="xs">
-                      <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
+                    <HStack justifyContent="space-between" alignItems="center">
+                      <HStack alignItems="center" space="xs">
+                        <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => setVectorsInfoVisible(true)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Learn how vectors work for this goal"
+                          style={styles.forceInfoIconButton}
+                        >
+                          <Icon name="info" size={16} color={colors.muted} />
+                        </TouchableOpacity>
+                      </HStack>
                       <TouchableOpacity
                         activeOpacity={0.8}
-                        onPress={() => setVectorsInfoVisible(true)}
+                        onPress={handleToggleForceEdit}
                         accessibilityRole="button"
-                        accessibilityLabel="Learn how vectors work for this goal"
-                        style={styles.forceInfoIconButton}
+                        accessibilityLabel={
+                          editingForces
+                            ? 'Save vector balance updates'
+                            : 'Edit how this goal moves different vectors in your life'
+                        }
+                        style={styles.forceEditIconButton}
                       >
-                        <Icon name="info" size={16} color={colors.muted} />
+                        <Icon
+                          name="edit"
+                          size={16}
+                          color={editingForces ? colors.accent : colors.textSecondary}
+                        />
                       </TouchableOpacity>
                     </HStack>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={handleToggleForceEdit}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        editingForces
-                          ? 'Save vector balance updates'
-                          : 'Edit how this goal moves different vectors in your life'
-                      }
-                      style={styles.forceEditIconButton}
+                    <VStack
+                      style={[styles.forceCard, editingForces && styles.editableFieldActive]}
+                      space="xs"
                     >
-                      <Icon
-                        name="edit"
-                        size={16}
-                        color={editingForces ? colors.accent : colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </HStack>
-                  <VStack
-                    style={[styles.forceCard, editingForces && styles.editableFieldActive]}
-                    space="xs"
-                  >
-                    {FORCE_ORDER.map((forceId) => {
-                      const force = getCanonicalForce(forceId);
-                      if (!force) return null;
-                      const level = liveForceIntent[forceId] ?? 0;
-                      const percentage = (Number(level) / 3) * 100;
+                      {FORCE_ORDER.map((forceId) => {
+                        const force = getCanonicalForce(forceId);
+                        if (!force) return null;
+                        const level = liveForceIntent[forceId] ?? 0;
+                        const percentage = (Number(level) / 3) * 100;
 
-                      if (!editingForces) {
-                        return (
-                          <HStack key={forceId} style={styles.forceRow} alignItems="center">
-                            <Text style={styles.forceLabel}>{force.name}</Text>
-                            <View style={styles.forceBarWrapper}>
-                              <View style={styles.forceBarTrack}>
-                                <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
+                        if (!editingForces) {
+                          return (
+                            <HStack key={forceId} style={styles.forceRow} alignItems="center">
+                              <Text style={styles.forceLabel}>{force.name}</Text>
+                              <View style={styles.forceBarWrapper}>
+                                <View style={styles.forceBarTrack}>
+                                  <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
+                                </View>
                               </View>
-                            </View>
-                            <Text style={styles.forceValue}>{level}/3</Text>
-                          </HStack>
-                        );
-                      }
-
-                      return (
-                        <VStack key={forceId} space="xs">
-                          <HStack justifyContent="space-between" alignItems="center">
-                            <Text style={styles.forceLabel}>{force.name}</Text>
-                            <Text style={styles.forceValue}>{level}/3</Text>
-                          </HStack>
-                          <HStack space="xs" style={styles.forceSliderRow}>
-                            {[0, 1, 2, 3].map((value) => (
-                              <TouchableOpacity
-                                key={value}
-                                activeOpacity={0.8}
-                                style={[
-                                  styles.forceLevelChip,
-                                  level === value && styles.forceLevelChipActive,
-                                ]}
-                                onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
-                              >
-                                <Text
-                                  style={[
-                                    styles.forceLevelChipText,
-                                    level === value && styles.forceLevelChipTextActive,
-                                  ]}
-                                >
-                                {value}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </HStack>
-                        </VStack>
-                      );
-                    })}
-                  </VStack>
-                  </View>
-                  {createdAtLabel && (
-                    <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
-                  )}
-
-                  {headerV2Enabled ? (
-                    <Card marginTop="lg">
-                      <Text style={styles.actionsTitle}>Actions</Text>
-                      <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                        <Button
-                          variant="secondary"
-                          fullWidth
-                          onPress={handleToggleArchiveGoal}
-                          accessibilityLabel={goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                        >
-                          <Text style={styles.actionsButtonLabel}>
-                            {goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                          </Text>
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          fullWidth
-                          onPress={handleDeleteGoal}
-                          accessibilityLabel="Delete goal"
-                        >
-                          <Text style={styles.actionsButtonLabelDestructive}>Delete goal</Text>
-                        </Button>
-                      </VStack>
-                    </Card>
-                  ) : null}
-                </VStack>
-              </ScrollView>
-            )}
-
-            {activeTab === 'history' && (
-              <View style={styles.historyContainer}>
-                <VStack space="md">
-                  <View>
-                    <Text style={styles.historyTitle}>History</Text>
-                    <Text style={styles.historySubtitle}>
-                      See how this goal has evolved over time as you complete activities
-                      and make changes.
-                    </Text>
-                  </View>
-
-                  <View style={styles.historySummaryRow}>
-                    <VStack space="xs" style={styles.historySummaryColumn}>
-                      <Text style={styles.historySummaryLabel}>Created</Text>
-                      <Text style={styles.historySummaryValue}>
-                        {createdAtLabel ?? 'Unknown'}
-                      </Text>
-                    </VStack>
-                    <VStack space="xs" style={styles.historySummaryColumn}>
-                      <Text style={styles.historySummaryLabel}>Last modified</Text>
-                      <Text style={styles.historySummaryValue}>
-                        {updatedAtLabel ?? 'Just now'}
-                      </Text>
-                    </VStack>
-                    <VStack space="xs" style={styles.historySummaryColumn}>
-                      <Text style={styles.historySummaryLabel}>Activities done</Text>
-                      <Text style={styles.historySummaryValue}>
-                        {completedGoalActivities.length}
-                      </Text>
-                    </VStack>
-                  </View>
-
-                  {historyEvents.length === 0 ? (
-                    <View style={styles.historyEmptyCard}>
-                      <Text style={styles.historyEmptyTitle}>No history yet</Text>
-                      <Text style={styles.historyEmptyBody}>
-                        As you add or complete activities, or change this goal, a timeline of key
-                        moments will appear here.
-                      </Text>
-                    </View>
-                  ) : (
-                    <ScrollView
-                      style={styles.historyScroll}
-                      contentContainerStyle={styles.historyScrollContent}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      <VStack space="sm">
-                        {historyEvents.map((event) => (
-                          <View key={event.id} style={styles.historyEventCard}>
-                            <Text style={styles.historyEventDate}>{event.dateLabel}</Text>
-                            <Text style={styles.historyEventTitle}>
-                              {event.kind === 'activityCompleted'
-                                ? `Completed: ${event.title}`
-                                : event.kind === 'activityCreated'
-                                ? `Added: ${event.title}`
-                                : event.title}
-                            </Text>
-                            {event.meta ? (
-                              <Text style={styles.historyEventMeta}>{event.meta}</Text>
-                            ) : null}
-                          </View>
-                        ))}
-                      </VStack>
-                    </ScrollView>
-                  )}
-
-                  {headerV2Enabled ? (
-                    <Card marginTop="lg">
-                      <Text style={styles.actionsTitle}>Actions</Text>
-                      <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                        <Button
-                          variant="secondary"
-                          fullWidth
-                          onPress={handleToggleArchiveGoal}
-                          accessibilityLabel={goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                        >
-                          <Text style={styles.actionsButtonLabel}>
-                            {goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                          </Text>
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          fullWidth
-                          onPress={handleDeleteGoal}
-                          accessibilityLabel="Delete goal"
-                        >
-                          <Text style={styles.actionsButtonLabelDestructive}>Delete goal</Text>
-                        </Button>
-                      </VStack>
-                    </Card>
-                  ) : null}
-                </VStack>
-              </View>
-            )}
-
-            {activeTab === 'plan' && (
-              <View style={{ flex: 1 }}>
-                <ScrollView
-                  style={{ flex: 1 }}
-                  contentContainerStyle={{
-                    // AppShell already provides the page gutter. Keep the Plan canvas flush
-                    // with the broader Goal page so Activities align with the header.
-                    paddingHorizontal: 0,
-                    paddingBottom: spacing['2xl'] + quickAddReservedHeight,
-                    paddingTop: spacing.md,
-                  }}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  <VStack space="md">
-                    {!isPlanEmpty && (
-                      <HStack alignItems="center" justifyContent="space-between">
-                        <Heading style={styles.sectionTitle}>Activities</Heading>
-                        <View
-                          ref={addActivitiesButtonRef}
-                          collapsable={false}
-                          onLayout={() => {
-                            // Ensure the onboarding coachmark can safely measure this target.
-                            setIsAddActivitiesButtonReady(true);
-                          }}
-                        >
-                          <IconButton
-                            style={styles.addActivityIconButton}
-                            onPress={() => setActivityCoachVisible(true)}
-                            accessibilityLabel="Add activities"
-                          >
-                            <Icon name="plus" size={18} color={colors.canvas} />
-                          </IconButton>
-                        </View>
-                      </HStack>
-                    )}
-
-                    {isPlanEmpty ? (
-                      <EmptyState
-                        variant="compact"
-                        title="No activities for this goal yet"
-                        instructions="Add your first activities to move this goal forward."
-                        style={[styles.planEmptyState, { marginTop: spacing['2xl'] }]}
-                        actions={
-                          <View
-                            ref={addActivitiesButtonRef}
-                            collapsable={false}
-                            onLayout={() => {
-                              // Ensure the onboarding coachmark can safely measure this target.
-                              setIsAddActivitiesButtonReady(true);
-                            }}
-                          >
-                            <Button
-                              variant="accent"
-                              onPress={() => setActivityCoachVisible(true)}
-                              accessibilityLabel="Add activities to this goal"
-                            >
-                              <Text style={styles.primaryCtaText}>Add activities</Text>
-                            </Button>
-                          </View>
+                              <Text style={styles.forceValue}>{level}/3</Text>
+                            </HStack>
+                          );
                         }
-                      />
-                    ) : (
-                      <>
-                        {activeGoalActivities.length > 0 && (
-                          <VStack space="xs">
-                            {activeGoalActivities.map((activity) => {
-                              const { meta, metaLeadingIconName } = buildActivityListMeta({
-                                activity,
-                              });
 
-                              return (
-                                <ActivityListItem
-                                  key={activity.id}
-                                  title={activity.title}
-                                  meta={meta}
-                                  metaLeadingIconName={metaLeadingIconName}
-                                  isCompleted={activity.status === 'done'}
-                                  onToggleComplete={() =>
-                                    handleToggleActivityComplete(activity.id)
-                                  }
-                                  isPriorityOne={activity.priority === 1}
-                                  onTogglePriority={() =>
-                                    handleToggleActivityPriorityOne(activity.id)
-                                  }
-                                  onPress={() => handleOpenActivityDetail(activity.id)}
-                                />
-                              );
-                            })}
+                        return (
+                          <VStack key={forceId} space="xs">
+                            <HStack justifyContent="space-between" alignItems="center">
+                              <Text style={styles.forceLabel}>{force.name}</Text>
+                              <Text style={styles.forceValue}>{level}/3</Text>
+                            </HStack>
+                            <HStack space="xs" style={styles.forceSliderRow}>
+                              {[0, 1, 2, 3].map((value) => (
+                                <TouchableOpacity
+                                  key={value}
+                                  activeOpacity={0.8}
+                                  style={[
+                                    styles.forceLevelChip,
+                                    level === value && styles.forceLevelChipActive,
+                                  ]}
+                                  onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.forceLevelChipText,
+                                      level === value && styles.forceLevelChipTextActive,
+                                    ]}
+                                  >
+                                    {value}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </HStack>
                           </VStack>
-                        )}
+                        );
+                      })}
+                    </VStack>
+                  </View>
 
-                        {completedGoalActivities.length > 0 && (
-                          <VStack
-                            space="xs"
-                            style={{
-                              marginTop: spacing['2xl'],
-                            }}
-                          >
-                            <Heading style={styles.sectionTitle}>Completed</Heading>
-                            {completedGoalActivities.map((activity) => {
-                              const { meta, metaLeadingIconName } = buildActivityListMeta({
-                                activity,
-                              });
+                  {createdAtLabel ? <Text style={styles.createdAtText}>Created {createdAtLabel}</Text> : null}
 
-                              return (
-                                <ActivityListItem
-                                  key={activity.id}
-                                  title={activity.title}
-                                  meta={meta}
-                                  metaLeadingIconName={metaLeadingIconName}
-                                  isCompleted={activity.status === 'done'}
-                                  onToggleComplete={() =>
-                                    handleToggleActivityComplete(activity.id)
-                                  }
-                                  isPriorityOne={activity.priority === 1}
-                                  onTogglePriority={() =>
-                                    handleToggleActivityPriorityOne(activity.id)
-                                  }
-                                  onPress={() => handleOpenActivityDetail(activity.id)}
-                                />
-                              );
-                            })}
-                          </VStack>
-                        )}
-                      </>
-                    )}
-
-                    {headerV2Enabled ? (
-                      <Card marginTop="lg" marginHorizontal="md">
-                        <Text style={styles.actionsTitle}>Actions</Text>
-                        <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                          <Button
-                            variant="secondary"
-                            fullWidth
-                            onPress={handleToggleArchiveGoal}
-                            accessibilityLabel={goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                          >
-                            <Text style={styles.actionsButtonLabel}>
-                              {goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                            </Text>
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            fullWidth
-                            onPress={handleDeleteGoal}
-                            accessibilityLabel="Delete goal"
-                          >
-                            <Text style={styles.actionsButtonLabelDestructive}>Delete goal</Text>
-                          </Button>
-                        </VStack>
-                      </Card>
-                    ) : null}
-                  </VStack>
-                </ScrollView>
-                <QuickAddDock
-                  value={quickAddTitle}
-                  onChangeText={setQuickAddTitle}
-                  inputRef={quickAddInputRef}
-                  isFocused={isQuickAddFocused}
-                  setIsFocused={setQuickAddFocused}
-                  onSubmit={handleQuickAddActivity}
-                  onCollapse={collapseQuickAdd}
-                  reminderAt={quickAddReminderAt}
-                  scheduledDate={quickAddScheduledDate}
-                  repeatRule={quickAddRepeatRule}
-                  estimateMinutes={quickAddEstimateMinutes}
-                  onPressReminder={() =>
-                    openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))
-                  }
-                  onPressDueDate={() =>
-                    openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))
-                  }
-                  onPressRepeat={() =>
-                    openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))
-                  }
-                  onPressEstimate={() =>
-                    openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))
-                  }
-                  onReservedHeightChange={setQuickAddReservedHeight}
-                />
-              </View>
-            )}
+                  {headerV2Enabled ? (
+                    <Card marginTop="lg">
+                      <Text style={styles.actionsTitle}>Actions</Text>
+                      <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                        <Button
+                          variant="secondary"
+                          fullWidth
+                          onPress={handleToggleArchiveGoal}
+                          accessibilityLabel={goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
+                        >
+                          <Text style={styles.actionsButtonLabel}>
+                            {goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
+                          </Text>
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          fullWidth
+                          onPress={handleDeleteGoal}
+                          accessibilityLabel="Delete goal"
+                        >
+                          <Text style={styles.actionsButtonLabelDestructive}>Delete goal</Text>
+                        </Button>
+                      </VStack>
+                    </Card>
+                  ) : null}
+                </VStack>
+              </VStack>
+            </ScrollView>
           </VStack>
         </View>
       </TouchableWithoutFeedback>
@@ -2233,7 +1859,7 @@ export function GoalDetailScreen() {
         snapPoints={['55%']}
       >
         <View style={styles.goalThumbnailSheetContent}>
-          <Heading style={styles.goalThumbnailSheetTitle}>Goal thumbnail</Heading>
+          <Heading style={styles.goalThumbnailSheetTitle}>Goal banner</Heading>
           <View style={styles.goalThumbnailSheetPreviewFrame}>
             <View style={styles.goalThumbnailSheetPreviewInner}>
               {goal.thumbnailUrl ? (
@@ -2289,29 +1915,16 @@ export function GoalDetailScreen() {
   );
 }
 
-type EditGoalModalProps = {
-  visible: boolean;
-  onClose: () => void;
-  initialTitle: string;
-  initialDescription?: string;
-  initialForceIntent: Record<string, ForceLevel>;
-  onSubmit: (values: {
-    title: string;
-    description?: string;
-    forceIntent: Record<string, ForceLevel>;
-  }) => void;
-  insetTop: number;
-};
-
-function EditGoalModal({
-  visible,
-  onClose,
-  initialTitle,
-  initialDescription,
-  initialForceIntent,
-  onSubmit,
-  insetTop,
-}: EditGoalModalProps) {
+function EditGoalModal(props: any) {
+  const {
+    visible,
+    onClose,
+    initialTitle,
+    initialDescription,
+    initialForceIntent,
+    onSubmit,
+    insetTop,
+  } = props;
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription ?? '');
   const [forceIntent, setForceIntent] =
@@ -3084,6 +2697,13 @@ function GoalActivityCoachDrawer({
 }
 
 const styles = StyleSheet.create({
+  sectionDivider: {
+    marginTop: spacing['2xl'],
+    marginBottom: spacing['2xl'],
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.gray300,
+    borderRadius: 999,
+  },
   headerSide: {
     flex: 1,
     justifyContent: 'center',
@@ -3194,7 +2814,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     marginBottom: spacing.xs,
-    paddingLeft: spacing.md,
+    paddingLeft: 0,
   },
   arcLabel: {
     ...typography.bodySm,
@@ -3253,7 +2873,7 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   timeText: {
     ...typography.bodySm,
@@ -3270,7 +2890,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 11,
     lineHeight: 14,
-    paddingLeft: spacing.md,
+    paddingLeft: 0,
   },
   sectionTitle: {
     ...typography.titleSm,
@@ -3284,7 +2904,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 11,
     lineHeight: 14,
-    paddingLeft: spacing.md,
+    paddingLeft: 0,
   },
   forceInfoIconButton: {
     padding: spacing.xs,
@@ -3297,7 +2917,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   forceBarWrapper: {
     flex: 1,
@@ -3328,7 +2948,7 @@ const styles = StyleSheet.create({
   createdAtText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
     marginTop: spacing.xs,
   },
   historyHintText: {
@@ -3416,7 +3036,7 @@ const styles = StyleSheet.create({
   },
   planEmptyState: {
     marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   planEmptyTitle: {
     ...typography.titleSm,
@@ -3492,6 +3112,25 @@ const styles = StyleSheet.create({
   goalThumbnailControlLabel: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  goalBannerFrame: {
+    width: '100%',
+    height: 148,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  goalBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  goalTitleBlock: {
+    paddingTop: spacing.sm,
+  },
+  goalMetaLine: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   editableField: {
     borderWidth: 1,
