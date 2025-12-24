@@ -35,7 +35,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.5',
+  version: '1.0.6',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -59,7 +59,7 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '11',
+    buildNumber: '12',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
