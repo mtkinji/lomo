@@ -31,6 +31,14 @@ const ARROW_SIZE = 10;
 export type CoachmarkProps = {
   visible: boolean;
   targetRef: RefObject<View | null>;
+  /**
+   * Optional explicit re-measure trigger. When this value changes while visible,
+   * the coachmark will re-run `measureInWindow` once on the next frame.
+   *
+   * This is intended for callers who programmatically scroll the target into view
+   * (or otherwise change layout) and want a single re-measure after things settle.
+   */
+  remeasureKey?: string | number;
   onDismiss: () => void;
   onAction?: (actionId: string) => void;
   title?: ReactNode;
@@ -113,6 +121,7 @@ function parseProgressLabel(progressLabel?: string) {
 export function Coachmark({
   visible,
   targetRef,
+  remeasureKey,
   onDismiss,
   onAction,
   title,
@@ -176,21 +185,7 @@ export function Coachmark({
     // Measure on the next frame so layout settles.
     const raf = requestAnimationFrame(() => measureTarget());
     return () => cancelAnimationFrame(raf);
-  }, [visible, measureTarget]);
-
-  useEffect(() => {
-    if (!visible) return;
-    // If the user scrolls (or any other layout-affecting gesture occurs) while a coachmark
-    // is visible, the target moves but the coachmark would otherwise remain "stuck" to the
-    // old measurement. To keep the spotlight aligned, re-measure periodically while visible.
-    //
-    // Throttle to avoid excessive bridge churn; coachmarks are short-lived and rare.
-    const intervalMs = 120;
-    const intervalId = setInterval(() => {
-      measureTarget();
-    }, intervalMs);
-    return () => clearInterval(intervalId);
-  }, [measureTarget, visible]);
+  }, [visible, measureTarget, remeasureKey]);
 
   useEffect(() => {
     if (!visible) return;

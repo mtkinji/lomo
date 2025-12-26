@@ -104,8 +104,10 @@ import { useQuickAddDockController } from '../activities/useQuickAddDockControll
 import { DurationPicker } from '../activities/DurationPicker';
 import type { GoalProposalDraft } from '../ai/AiChatScreen';
 import { useScrollLinkedStatusBarStyle } from '../../ui/hooks/useScrollLinkedStatusBarStyle';
+import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { HapticsService } from '../../services/HapticsService';
 import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
+import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -433,14 +435,17 @@ export function GoalDetailScreen() {
     closeQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(false));
     setQuickAddIsDueDatePickerVisible(false);
   }, [closeQuickAddToolDrawer, setQuickAddScheduledDate]);
+  const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
   const addActivitiesButtonRef = useRef<View>(null);
   const [isAddActivitiesButtonReady, setIsAddActivitiesButtonReady] = useState(false);
+  const [addActivitiesButtonOffset, setAddActivitiesButtonOffset] = useState<number | null>(null);
   /**
    * We only want to "spotlight" the + button when the user arrives to Plan via
    * the onboarding handoff (mirrors the Arc → Goals coachmark pattern).
    */
   const [shouldPromptAddActivity, setShouldPromptAddActivity] = useState(false);
   const vectorsSectionRef = useRef<View>(null);
+  const [vectorsSectionOffset, setVectorsSectionOffset] = useState<number | null>(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
@@ -684,6 +689,28 @@ export function GoalDetailScreen() {
     shouldShowOnboardingActivitiesGuide ||
     shouldShowPostGoalPlanGuide ||
     shouldShowOnboardingPlanReadyGuide;
+
+  const onboardingActivitiesCoachmarkHost = useCoachmarkHost({
+    active:
+      shouldShowOnboardingActivitiesCoachmark &&
+      !isAnyBottomGuideVisible &&
+      addActivitiesButtonOffset != null,
+    stepKey: 'onboardingActivities',
+    targetScrollY:
+      addActivitiesButtonOffset != null ? Math.max(0, addActivitiesButtonOffset - 120) : null,
+    scrollTo: (args) => scrollRef.current?.scrollTo(args),
+  });
+
+  const goalVectorsCoachmarkHost = useCoachmarkHost({
+    active: shouldShowGoalVectorsCoachmark && !isAnyBottomGuideVisible && vectorsSectionOffset != null,
+    stepKey: 'goalVectors',
+    targetScrollY:
+      vectorsSectionOffset != null ? Math.max(0, vectorsSectionOffset - 120) : null,
+    scrollTo: (args) => scrollRef.current?.scrollTo(args),
+  });
+
+  const scrollEnabledWhileGuiding =
+    onboardingActivitiesCoachmarkHost.scrollEnabled && goalVectorsCoachmarkHost.scrollEnabled;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -1666,8 +1693,9 @@ export function GoalDetailScreen() {
         </HStack>
       </BottomGuide>
       <Coachmark
-        visible={shouldShowOnboardingActivitiesCoachmark && !isAnyBottomGuideVisible}
+        visible={onboardingActivitiesCoachmarkHost.coachmarkVisible}
         targetRef={addActivitiesButtonRef}
+        remeasureKey={onboardingActivitiesCoachmarkHost.remeasureKey}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -1689,8 +1717,9 @@ export function GoalDetailScreen() {
         placement="below"
       />
       <Coachmark
-        visible={Boolean(shouldShowGoalVectorsCoachmark && vectorsSectionRef.current && !isAnyBottomGuideVisible)}
+        visible={Boolean(goalVectorsCoachmarkHost.coachmarkVisible && vectorsSectionRef.current)}
         targetRef={vectorsSectionRef}
+        remeasureKey={goalVectorsCoachmarkHost.remeasureKey}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -1800,7 +1829,9 @@ export function GoalDetailScreen() {
             />
 
             <KeyboardAwareScrollView
+              ref={scrollRef}
               style={{ flex: 1 }}
+              scrollEnabled={scrollEnabledWhileGuiding}
               contentContainerStyle={{
                 paddingBottom: spacing['2xl'] + quickAddBottomPadding,
               }}
@@ -1945,7 +1976,13 @@ export function GoalDetailScreen() {
                     <View
                       ref={addActivitiesButtonRef}
                       collapsable={false}
-                      onLayout={() => setIsAddActivitiesButtonReady(true)}
+                      onLayout={(event) => {
+                        setIsAddActivitiesButtonReady(true);
+                        const y = event.nativeEvent.layout.y;
+                        if (typeof y === 'number' && Number.isFinite(y)) {
+                          setAddActivitiesButtonOffset(y);
+                        }
+                      }}
                     >
                       <OpportunityCard
                         title="Turn this goal into a plan"
@@ -2144,7 +2181,17 @@ export function GoalDetailScreen() {
                     />
                   </View>
 
-                  <View style={styles.detailFieldBlock} ref={vectorsSectionRef} collapsable={false}>
+                  <View
+                    style={styles.detailFieldBlock}
+                    ref={vectorsSectionRef}
+                    collapsable={false}
+                    onLayout={(event) => {
+                      const y = event.nativeEvent.layout.y;
+                      if (typeof y === 'number' && Number.isFinite(y)) {
+                        setVectorsSectionOffset(y);
+                      }
+                    }}
+                  >
                     <HStack justifyContent="space-between" alignItems="center">
                       <HStack alignItems="center" space="xs">
                         <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>

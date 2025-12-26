@@ -53,6 +53,44 @@ export function CanvasFlatList<T>({
   );
 }
 
+/**
+ * Forward-ref wrapper so screens can imperatively scroll (e.g. `scrollToEnd` / `scrollToOffset`)
+ * while still getting the Canvas padding + safe-area behavior.
+ */
+export const CanvasFlatListWithRef = React.forwardRef(function CanvasFlatListWithRefInner<T>(
+  {
+    style,
+    contentContainerStyle,
+    includeSafeAreaBottom = true,
+    extraBottomPadding = 0,
+    automaticallyAdjustKeyboardInsets = true,
+    ...props
+  }: CanvasFlatListProps<T>,
+  ref: React.ForwardedRef<FlatList<T>>,
+) {
+  const insets = useSafeAreaInsets();
+  const flat = StyleSheet.flatten(contentContainerStyle) as ViewStyle | undefined;
+  const existingPaddingBottom = typeof flat?.paddingBottom === 'number' ? flat.paddingBottom : 0;
+  const safePadding = includeSafeAreaBottom ? insets.bottom : 0;
+
+  return (
+    <FlatList
+      {...props}
+      ref={ref}
+      automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
+      style={[styles.container, style]}
+      contentContainerStyle={[
+        contentContainerStyle,
+        { paddingBottom: existingPaddingBottom + extraBottomPadding + safePadding },
+      ]}
+    />
+  );
+}) as <T>(
+  props: CanvasFlatListProps<T> & { ref?: React.Ref<FlatList<T>> },
+) => React.ReactElement;
+
+CanvasFlatListWithRef.displayName = 'CanvasFlatListWithRef';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

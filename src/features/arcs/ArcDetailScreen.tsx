@@ -49,6 +49,7 @@ import { LongTextField } from '../../ui/LongTextField';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
+import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { EditableTextArea } from '../../ui/EditableTextArea';
 import { Card } from '../../ui/Card';
@@ -199,7 +200,8 @@ export function ArcDetailScreen() {
   const hasConsumedRouteCelebrationRef = useRef(false);
   const [arcExploreGuideStep, setArcExploreGuideStep] = useState(0);
   const hasStartedArcExploreGuideRef = useRef(false);
-  const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
+  const [goalsSectionOffset, setGoalsSectionOffset] = useState<number | null>(null);
+  const [insightsSectionOffset, setInsightsSectionOffset] = useState<number | null>(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
 
@@ -387,8 +389,33 @@ export function ArcDetailScreen() {
     arcGoals.length === 0 &&
     !hasDismissedOnboardingGoalGuide;
 
+  const onboardingGoalCoachmarkHost = useCoachmarkHost({
+    active: Boolean(shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalCtaRef.current),
+    stepKey: 'onboardingGoal',
+  });
+
   const shouldOfferArcExploreGuide =
     Boolean(arc) && !showOnboardingArcHandoff && !hasDismissedArcExploreGuide;
+
+  const arcExploreTargetScrollY = useMemo(() => {
+    if (arcExploreGuideStep === 0) return 0;
+    if (arcExploreGuideStep === 1) {
+      return goalsSectionOffset != null ? Math.max(0, goalsSectionOffset - 120) : null;
+    }
+    return insightsSectionOffset != null ? Math.max(0, insightsSectionOffset - 120) : null;
+  }, [arcExploreGuideStep, goalsSectionOffset, insightsSectionOffset]);
+
+  const arcExploreStepReady =
+    arcExploreGuideStep === 0 ||
+    (arcExploreGuideStep === 1 && goalsSectionOffset != null) ||
+    (arcExploreGuideStep === 2 && insightsSectionOffset != null);
+
+  const arcExploreGuideHost = useCoachmarkHost({
+    active: shouldOfferArcExploreGuide && arcExploreStepReady,
+    stepKey: arcExploreGuideStep,
+    targetScrollY: arcExploreTargetScrollY,
+    scrollTo: (args) => scrollRef.current?.scrollTo(args),
+  });
 
   useEffect(() => {
     // When the user navigates between Arcs, allow the guide to re-arm if it has not
@@ -756,6 +783,12 @@ export function ArcDetailScreen() {
       <View
         ref={insightsSectionRef}
         collapsable={false}
+        onLayout={(event) => {
+          const y = event.nativeEvent.layout.y;
+          if (typeof y === 'number' && Number.isFinite(y)) {
+            setInsightsSectionOffset(y);
+          }
+        }}
         style={styles.insightsSectionContainer}
       >
         <Text style={styles.sectionTitleBlock}>Insights</Text>
@@ -903,6 +936,7 @@ export function ArcDetailScreen() {
               { paddingBottom: spacing['2xl'] + insets.bottom + BOTTOM_CTA_BAR_HEIGHT },
             ]}
             showsVerticalScrollIndicator={false}
+            scrollEnabled={arcExploreGuideHost.scrollEnabled && onboardingGoalCoachmarkHost.scrollEnabled}
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
             keyboardShouldPersistTaps="handled"
             onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -1288,7 +1322,7 @@ export function ArcDetailScreen() {
       {AgentWorkspaceSheet}
       <Coachmark
         visible={Boolean(
-          shouldOfferArcExploreGuide &&
+          arcExploreGuideHost.coachmarkVisible &&
             (arcExploreGuideStep === 0
               ? heroSpotlightRef.current
               : arcExploreGuideStep === 1
@@ -1302,6 +1336,7 @@ export function ArcDetailScreen() {
               ? goalsHeaderRef
               : insightsSectionRef
         }
+        remeasureKey={arcExploreGuideHost.remeasureKey}
         scrimToken="subtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -1357,10 +1392,9 @@ export function ArcDetailScreen() {
         placement="below"
       />
       <Coachmark
-        visible={Boolean(
-          shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalCtaRef.current,
-        )}
+        visible={onboardingGoalCoachmarkHost.coachmarkVisible}
         targetRef={createGoalCtaRef}
+        remeasureKey={onboardingGoalCoachmarkHost.remeasureKey}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}

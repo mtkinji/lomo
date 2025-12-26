@@ -18,6 +18,7 @@ import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
 import { Dialog } from './Dialog';
 import { Button } from './Button';
 import { Coachmark } from './Coachmark';
+import { useCoachmarkHost } from './hooks/useCoachmarkHost';
 import { Text as KwiltText } from './Typography';
 import { refineWritingWithAI, type WritingRefinePreset } from '../services/ai';
 import { RichTextBlock } from './RichTextBlock';
@@ -128,6 +129,11 @@ export function LongTextField({
   const [accessoryBarLayout, setAccessoryBarLayout] = useState<LayoutRectangle | null>(null);
   const [refineAnchorLayout, setRefineAnchorLayout] = useState<LayoutRectangle | null>(null);
   const [undoCoachmarkVisible, setUndoCoachmarkVisible] = useState(false);
+
+  const undoCoachmarkHost = useCoachmarkHost({
+    active: Boolean(editorVisible && undoCoachmarkVisible && undoButtonRef.current),
+    stepKey: 'undo',
+  });
 
   const measuredToolbarHeightPx = accessoryBarLayout?.height ?? FALLBACK_TOOLBAR_HEIGHT_PX;
 
@@ -647,8 +653,9 @@ export function LongTextField({
         </EditorSurface>
 
         <Coachmark
-          visible={Boolean(editorVisible && undoCoachmarkVisible && undoButtonRef.current)}
+          visible={undoCoachmarkHost.coachmarkVisible}
           targetRef={undoButtonRef}
+          remeasureKey={undoCoachmarkHost.remeasureKey}
           onDismiss={() => {
             setUndoCoachmarkVisible(false);
             setHasSeenRefineUndoCoachmark(true);

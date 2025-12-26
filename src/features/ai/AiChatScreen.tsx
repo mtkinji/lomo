@@ -15,6 +15,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Image,
   Keyboard,
   InteractionManager,
   Modal,
@@ -67,6 +68,9 @@ import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import { QuestionCard } from '../../ui/QuestionCard';
 import { PaywallContent } from '../paywall/PaywallDrawer';
+import { pickHeroForArc } from '../arcs/arcHeroSelector';
+import { ARC_HERO_LIBRARY } from '../arcs/arcHeroLibrary';
+import { hashStringToIndex } from '../arcs/thumbnailVisuals';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 
@@ -347,6 +351,17 @@ function normalizeGoalTargetDate(raw: unknown): string | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
 
+  const startOfToday = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  };
+  const defaultFutureTarget = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    d.setHours(23, 0, 0, 0);
+    return d;
+  };
+
   // Prefer a local end-of-day interpretation for YYYY-MM-DD inputs.
   const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateOnlyMatch) {
@@ -355,13 +370,18 @@ function normalizeGoalTargetDate(raw: unknown): string | undefined {
     const day = Number(dateOnlyMatch[3]);
     if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
       const d = new Date(year, month - 1, day, 23, 0, 0, 0);
-      return d.toISOString();
+      const normalized = d < startOfToday() ? defaultFutureTarget() : d;
+      return normalized.toISOString();
     }
   }
 
   const ms = Date.parse(trimmed);
   if (!Number.isFinite(ms)) return undefined;
-  return new Date(ms).toISOString();
+  const d = new Date(ms);
+  // Normalize to local end-of-day so "today" doesn't appear as already past.
+  d.setHours(23, 0, 0, 0);
+  const normalized = d < startOfToday() ? defaultFutureTarget() : d;
+  return normalized.toISOString();
 }
 
 function normalizeGoalMetric(raw: unknown, fallbackIndex: number): Metric | null {
@@ -1860,6 +1880,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
       setGoalProposal(proposal);
       setGoalDraftTitle(proposal.title ?? '');
       setGoalDraftDescription(proposal.description ?? '');
+      setGoalDraftTargetDate(proposal.targetDate ?? '');
+      setIsGoalDraftTargetDatePickerVisible(false);
     },
     [],
   );
@@ -1897,6 +1919,22 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const titleValue = isActive ? goalDraftTitle : proposal.title ?? '';
       const descriptionValue = isActive ? goalDraftDescription : proposal.description ?? '';
       const targetDateValue = isActive ? goalDraftTargetDate : proposal.targetDate || '';
+      const heroUri = (() => {
+        const arcId = focusedArcIdForGoal ?? selectedGoalArcId ?? null;
+        const arcFromId = arcId ? arcs.find((a) => a.id === arcId) : undefined;
+        const arcFromSuggestedName =
+          !arcFromId && typeof (proposal as any)?.suggestedArcName === 'string'
+            ? arcs.find((a) => a.name === (proposal as any).suggestedArcName)
+            : undefined;
+        const arc = arcFromId ?? arcFromSuggestedName;
+        if (arc) {
+          const selection = pickHeroForArc(arc);
+          if (selection.image?.uri) return selection.image.uri;
+        }
+        const seed = `${proposal.title ?? ''}:${proposal.description ?? ''}`;
+        const index = hashStringToIndex(seed, ARC_HERO_LIBRARY.length);
+        return ARC_HERO_LIBRARY[index]?.uri ?? ARC_HERO_LIBRARY[0]?.uri;
+      })();
       const targetDatePickerValue = (() => {
         const ms = Date.parse(targetDateValue);
         if (Number.isFinite(ms)) return new Date(ms);
@@ -1911,16 +1949,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
             day: 'numeric',
             year: 'numeric',
           })
-        : 'Set target date';
-      const hasMetrics = Array.isArray(proposal.metrics) && proposal.metrics.length > 0;
-      const primaryMetric = hasMetrics ? proposal.metrics?.[0] : undefined;
-      const metricSummary = primaryMetric
-        ? `${primaryMetric.label}${
-            typeof (primaryMetric as any).target === 'number'
-              ? ` (target: ${(primaryMetric as any).target}${primaryMetric.unit ? ` ${primaryMetric.unit}` : ''})`
-              : ''
-          }`
-        : null;
+        : isActive
+          ? 'Set target date'
+          : '—';
 
       return (
         <Fragment key={item.id}>
@@ -1930,7 +1961,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
               <Text style={styles.goalDraftLabel}>AI Goal Proposal</Text>
             </View>
 
-            <Text style={styles.goalDraftFieldLabel}>TITLE</Text>
+            <View style={styles.goalProposalHeroWrapper}>
+              {heroUri ? (
+                <Image source={{ uri: heroUri }} style={styles.goalProposalHeroImage} />
+              ) : (
+                <View style={styles.goalProposalHeroFallback} />
+              )}
+            </View>
+
             {isActive ? (
               <View
                 onLayout={(event) => {
@@ -1958,62 +1996,49 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   placeholder="Ship the Kwilt App MVP"
                   multiline={shouldTitleBeMultiline}
                   multilineMinHeight={44}
-                  multilineMaxHeight={64}
+                  multilineMaxHeight={88}
                   size="sm"
-                  inputStyle={styles.goalDraftTitleInputText}
-                  containerStyle={styles.goalDraftInputContainer}
+                  variant="inline"
+                  elevation="flat"
+                  inputStyle={styles.goalProposalTitleText}
+                  containerStyle={styles.goalProposalTitleContainer}
                 />
               </View>
             ) : (
-              <Input
-                value={titleValue}
-                editable={false}
-                placeholder="Ship the Kwilt App MVP"
-                multiline={false}
-                size="sm"
-                inputStyle={styles.goalDraftTitleInputText}
-                containerStyle={styles.goalDraftInputContainer}
-              />
+              <Text style={styles.goalProposalTitleText}>{titleValue || 'Untitled goal'}</Text>
             )}
 
-            <Text style={styles.goalDraftFieldLabel}>DESCRIPTION</Text>
-            <Input
-              value={descriptionValue}
-              onChangeText={isActive ? setGoalDraftDescription : undefined}
-              editable={isActive}
-              placeholder="…"
-              multiline
-              multilineMinHeight={112}
-              multilineMaxHeight={220}
-              size="sm"
-              inputStyle={styles.goalDraftDescriptionInputText}
-              containerStyle={styles.goalDraftInputContainer}
-            />
+            {isActive ? (
+              <Input
+                value={descriptionValue}
+                onChangeText={setGoalDraftDescription}
+                placeholder="Add a short description…"
+                multiline
+                multilineMinHeight={typography.bodySm.lineHeight * 3}
+                multilineMaxHeight={220}
+                size="sm"
+                variant="inline"
+                elevation="flat"
+                inputStyle={styles.goalProposalDescriptionText}
+                containerStyle={styles.goalProposalDescriptionContainer}
+              />
+            ) : descriptionValue ? (
+              <Text style={styles.goalProposalDescriptionText}>{descriptionValue}</Text>
+            ) : null}
 
-            <Text style={styles.goalDraftFieldLabel}>TARGET DATE</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Set target date"
-              onPress={() => {
-                if (!isActive) return;
-                setIsGoalDraftTargetDatePickerVisible((current) => !current);
-              }}
-              style={[styles.goalDraftTargetDateRow, !isActive && { opacity: 0.6 }]}
-            >
-              <Text style={styles.goalDraftTargetDateValue}>{targetDateLabel}</Text>
-              {isActive && targetDateValue ? (
-                <Button
-                  variant="ghost"
-                  size="small"
-                  onPress={() => {
-                    setGoalDraftTargetDate('');
-                    setIsGoalDraftTargetDatePickerVisible(false);
-                  }}
-                >
-                  <Text style={styles.goalDraftClearButtonText}>Clear</Text>
-                </Button>
-              ) : null}
-            </Pressable>
+            <View style={styles.goalProposalMetaRow}>
+              <Text style={styles.goalProposalMetaLabel}>Target date</Text>
+              <Pressable
+                accessibilityRole={isActive ? 'button' : undefined}
+                accessibilityLabel="Edit target date"
+                disabled={!isActive}
+                onPress={() => setIsGoalDraftTargetDatePickerVisible((current) => !current)}
+                style={[styles.goalProposalMetaValueButton, !isActive && { opacity: 0.6 }]}
+              >
+                <Text style={styles.goalProposalMetaValueText}>{targetDateLabel}</Text>
+                {isActive ? <Icon name="today" size={16} color={CHAT_COLORS.textSecondary} /> : null}
+              </Pressable>
+            </View>
 
             {isActive && isGoalDraftTargetDatePickerVisible ? (
               <View style={styles.goalDraftDatePickerWrapper}>
@@ -2031,13 +2056,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     setGoalDraftTargetDate(next.toISOString());
                   }}
                 />
-              </View>
-            ) : null}
-
-            {metricSummary ? (
-              <View style={styles.goalDraftMetricRow}>
-                <Text style={styles.goalDraftMetricLabel}>Metric</Text>
-                <Text style={styles.goalDraftMetricValue}>{metricSummary}</Text>
               </View>
             ) : null}
 
@@ -5040,6 +5058,7 @@ const styles = StyleSheet.create({
     backgroundColor: CHAT_COLORS.assistantBubble,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
+    ...(cardElevation.lift as object),
     gap: spacing.sm,
   },
   goalDraftArcRow: {
@@ -5068,16 +5087,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     columnGap: spacing.xs,
   },
-  goalDraftFieldLabel: {
-    ...typography.label,
-    color: CHAT_COLORS.textSecondary,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    paddingLeft: spacing.xs,
-  },
-  goalDraftInputContainer: {
-    backgroundColor: CHAT_COLORS.surface,
-  },
   goalDraftTitleInputText: {
     ...typography.titleSm,
     color: CHAT_COLORS.textPrimary,
@@ -5097,20 +5106,6 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
   },
-  goalDraftTargetDateRow: {
-    backgroundColor: CHAT_COLORS.surface,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  goalDraftTargetDateValue: {
-    ...typography.bodySm,
-    color: CHAT_COLORS.textPrimary,
-  },
   goalDraftClearButtonText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
@@ -5120,22 +5115,54 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
-  goalDraftMetricRow: {
+  goalProposalHeroWrapper: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: CHAT_COLORS.surface,
+  },
+  goalProposalHeroImage: {
+    width: '100%',
+    height: 128,
+    resizeMode: 'cover',
+  },
+  goalProposalHeroFallback: {
+    width: '100%',
+    height: 128,
+    backgroundColor: CHAT_COLORS.surface,
+  },
+  goalProposalTitleContainer: {
+    paddingVertical: 2,
+  },
+  goalProposalTitleText: {
+    ...typography.titleMd,
+    color: CHAT_COLORS.textPrimary,
+  },
+  goalProposalDescriptionContainer: {
+    paddingTop: spacing.xs,
+  },
+  goalProposalDescriptionText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  goalProposalMetaRow: {
     marginTop: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  goalDraftMetricLabel: {
+  goalProposalMetaLabel: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
   },
-  goalDraftMetricValue: {
+  goalProposalMetaValueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  goalProposalMetaValueText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
-    flex: 1,
-    textAlign: 'right',
   },
   goalDraftButtonsRow: {
     flexDirection: 'row',

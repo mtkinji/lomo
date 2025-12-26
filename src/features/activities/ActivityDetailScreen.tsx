@@ -77,6 +77,7 @@ import { openPaywallInterstitial } from '../../services/paywall';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 import { HapticsService } from '../../services/HapticsService';
+import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 
 type FocusSessionState =
   | {
@@ -400,6 +401,8 @@ export function ActivityDetailScreen() {
   const [detailGuideStep, setDetailGuideStep] = useState(0);
   const [isTitleStepsBundleReady, setIsTitleStepsBundleReady] = useState(false);
   const [isScheduleCardReady, setIsScheduleCardReady] = useState(false);
+  const [titleStepsBundleOffset, setTitleStepsBundleOffset] = useState<number | null>(null);
+  const [scheduleCardOffset, setScheduleCardOffset] = useState<number | null>(null);
 
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
@@ -567,6 +570,20 @@ export function ActivityDetailScreen() {
     !repeatSheetVisible &&
     !estimateSheetVisible &&
     (detailGuideStep === 0 ? isTitleStepsBundleReady : isScheduleCardReady);
+
+  const detailGuideTargetScrollY = useMemo(() => {
+    if (detailGuideStep === 0) return 0;
+    return scheduleCardOffset != null ? Math.max(0, scheduleCardOffset - 120) : null;
+  }, [detailGuideStep, scheduleCardOffset]);
+
+  const detailGuideStepReady = detailGuideStep === 0 || scheduleCardOffset != null;
+
+  const detailGuideHost = useCoachmarkHost({
+    active: shouldShowDetailGuide && detailGuideStepReady,
+    stepKey: detailGuideStep,
+    targetScrollY: detailGuideTargetScrollY,
+    scrollTo: (args) => scrollRef.current?.scrollTo(args),
+  });
 
   const dismissDetailGuide = () => {
     setHasDismissedActivityDetailGuide(true);
@@ -2134,6 +2151,7 @@ export function ActivityDetailScreen() {
             // increase the clearance so the *whole* field clears the keyboard.
             keyboardClearance={KEYBOARD_CLEARANCE + spacing.lg}
             showsVerticalScrollIndicator={false}
+            scrollEnabled={detailGuideHost.scrollEnabled}
           >
             {/* Title + Steps bundle (task-style, no enclosing card) */}
             <View style={styles.section}>
@@ -2141,9 +2159,13 @@ export function ActivityDetailScreen() {
                 ref={titleStepsBundleRef}
                 collapsable={false}
                 style={styles.titleStepsBundle}
-                onLayout={() => {
+                onLayout={(event) => {
                   // Ensure the onboarding coachmark can safely measure this target.
                   setIsTitleStepsBundleReady(true);
+                  const y = event.nativeEvent.layout.y;
+                  if (typeof y === 'number' && Number.isFinite(y)) {
+                    setTitleStepsBundleOffset(y);
+                  }
                 }}
               >
                 <ThreeColumnRow
@@ -2420,9 +2442,13 @@ export function ActivityDetailScreen() {
                 ref={scheduleAndPlanningCardRef}
                 collapsable={false}
                 style={styles.rowsCard}
-                onLayout={() => {
+                onLayout={(event) => {
                   // Ensure the onboarding coachmark can safely measure this target.
                   setIsScheduleCardReady(true);
+                  const y = event.nativeEvent.layout.y;
+                  if (typeof y === 'number' && Number.isFinite(y)) {
+                    setScheduleCardOffset(y);
+                  }
                 }}
               >
                 <View style={styles.rowPadding}>
@@ -2919,8 +2945,9 @@ export function ActivityDetailScreen() {
       </View>
 
       <Coachmark
-        visible={shouldShowDetailGuide}
+        visible={detailGuideHost.coachmarkVisible}
         targetRef={detailGuideTargetRef}
+        remeasureKey={detailGuideHost.remeasureKey}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
