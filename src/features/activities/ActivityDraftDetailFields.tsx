@@ -10,6 +10,7 @@ import { Combobox, HStack, Input, ObjectPicker, ThreeColumnRow, VStack } from '.
 import { parseTags } from '../../utils/tags';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { DurationPicker } from './DurationPicker';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,10 +93,18 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
   const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
   const [repeatSheetVisible, setRepeatSheetVisible] = React.useState(false);
   const [estimateSheetVisible, setEstimateSheetVisible] = React.useState(false);
+  const [estimateDraftMinutes, setEstimateDraftMinutes] = React.useState<number>(30);
   const [isDueDatePickerVisible, setIsDueDatePickerVisible] = React.useState(false);
+  const [isReminderDateTimePickerVisible, setIsReminderDateTimePickerVisible] = React.useState(false);
   const [isAddingStepInline, setIsAddingStepInline] = React.useState(false);
   const [newStepTitle, setNewStepTitle] = React.useState('');
   const newStepInputRef = React.useRef<TextInput | null>(null);
+
+  React.useEffect(() => {
+    if (!estimateSheetVisible) return;
+    const seed = draft.estimateMinutes != null && draft.estimateMinutes > 0 ? draft.estimateMinutes : 30;
+    setEstimateDraftMinutes(Math.max(15, Math.round(seed)));
+  }, [draft.estimateMinutes, estimateSheetVisible]);
 
   const setReminderAt = React.useCallback(
     (iso: string | null) => onChange((prev) => ({ ...prev, reminderAt: iso })),
@@ -607,7 +616,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
       {/* Inline pickers */}
       <BottomDrawer
         visible={reminderSheetVisible}
-        onClose={() => setReminderSheetVisible(false)}
+        onClose={() => {
+          setReminderSheetVisible(false);
+          setIsReminderDateTimePickerVisible(false);
+        }}
         snapPoints={['40%']}
         presentation="inline"
         hideBackdrop
@@ -622,6 +634,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 date.setHours(18, 0, 0, 0);
                 setReminderAt(date.toISOString());
                 setReminderSheetVisible(false);
+                setIsReminderDateTimePickerVisible(false);
               }}
             />
             <SheetOption
@@ -632,6 +645,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 date.setHours(9, 0, 0, 0);
                 setReminderAt(date.toISOString());
                 setReminderSheetVisible(false);
+                setIsReminderDateTimePickerVisible(false);
               }}
             />
             <SheetOption
@@ -642,16 +656,35 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 date.setHours(9, 0, 0, 0);
                 setReminderAt(date.toISOString());
                 setReminderSheetVisible(false);
+                setIsReminderDateTimePickerVisible(false);
               }}
             />
+            <SheetOption label="Pick date & time…" onPress={() => setIsReminderDateTimePickerVisible(true)} />
             <SheetOption
               label="Clear reminder"
               onPress={() => {
                 setReminderAt(null);
                 setReminderSheetVisible(false);
+                setIsReminderDateTimePickerVisible(false);
               }}
             />
           </VStack>
+          {isReminderDateTimePickerVisible && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={draft.reminderAt ? new Date(draft.reminderAt) : new Date()}
+                onChange={(event: DateTimePickerEvent, date?: Date) => {
+                  if (Platform.OS !== 'ios') setIsReminderDateTimePickerVisible(false);
+                  if (!date || event.type === 'dismissed') return;
+                  setReminderAt(new Date(date).toISOString());
+                  setReminderSheetVisible(false);
+                  setIsReminderDateTimePickerVisible(false);
+                }}
+              />
+            </View>
+          )}
         </View>
       </BottomDrawer>
 
@@ -756,30 +789,42 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
       <BottomDrawer
         visible={estimateSheetVisible}
         onClose={() => setEstimateSheetVisible(false)}
-        snapPoints={['45%']}
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
         presentation="inline"
         hideBackdrop
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Duration</Text>
-          <VStack space="sm">
-            {[15, 30, 45, 60, 90, 120].map((m) => (
-              <SheetOption
-                key={m}
-                label={formatMinutes(m)}
+          <VStack space="md">
+            <DurationPicker
+              valueMinutes={estimateDraftMinutes}
+              onChangeMinutes={setEstimateDraftMinutes}
+              accessibilityLabel="Select duration"
+            />
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
                 onPress={() => {
-                  setEstimateMinutes(m);
+                  setEstimateMinutes(null);
                   setEstimateSheetVisible(false);
                 }}
-              />
-            ))}
-            <SheetOption
-              label="Clear duration"
-              onPress={() => {
-                setEstimateMinutes(null);
-                setEstimateSheetVisible(false);
-              }}
-            />
+              >
+                <Text style={styles.sheetRowLabel}>Clear</Text>
+              </Button>
+              <Button
+                variant="primary"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setEstimateMinutes(estimateDraftMinutes);
+                  setEstimateSheetVisible(false);
+                }}
+              >
+                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                  Save
+                </Text>
+              </Button>
+            </HStack>
           </VStack>
         </View>
       </BottomDrawer>

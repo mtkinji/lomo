@@ -112,10 +112,25 @@ export interface GoalForceIntent {
 
 export interface Metric {
   id: string;
+  /**
+   * Metric shape used for lightweight, structured "definition of done" and progress signals.
+   *
+   * - count: reach a numeric count (e.g. 6 essays).
+   * - threshold: reach a numeric threshold (e.g. run 5K, save $10k).
+   * - event_count: like count, but conceptually "checkable events" (e.g. 4 catch-ups).
+   * - milestone: a binary done/not-done milestone (e.g. TestFlight build shipped).
+   *
+   * Optional for backward compatibility; default interpretation is `count`.
+   */
+  kind?: 'count' | 'threshold' | 'event_count' | 'milestone';
   label: string;
   baseline?: number | null;
   target?: number | null;
   unit?: string;
+  /**
+   * For milestone-style metrics, marks completion time.
+   */
+  completedAt?: string | null;
 }
 
 export interface Goal {
@@ -159,6 +174,15 @@ export interface Goal {
     unsplashLink?: string;
   };
   status: 'planned' | 'in_progress' | 'completed' | 'archived';
+  /**
+   * Goal quality lifecycle.
+   *
+   * - draft: missing required structured quality fields (target date + definition-of-done metric).
+   * - ready: sufficiently specified to count as an active goal and to drive progress UI.
+   *
+   * Optional for backward compatibility; omitted implies `ready`.
+   */
+  qualityState?: 'draft' | 'ready';
   startDate?: string;
   targetDate?: string;
   forceIntent: GoalForceIntent;

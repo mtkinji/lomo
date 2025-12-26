@@ -16,7 +16,8 @@ export type ToastPayload = {
    * How this toast should behave while toasts are suppressed by higher-priority
    * UI overlays (e.g. guides / coachmarks).
    *
-   * - 'show' (default): ignore suppression and show immediately (current behavior).
+   * - 'queue' (default): defer and show after suppression ends.
+   * - 'show': ignore suppression and show immediately.
    * - 'queue': defer and show after suppression ends.
    * - 'drop': do nothing while suppressed.
    */
@@ -31,6 +32,11 @@ export type ToastState = {
   actionLabel?: string;
   actionOnPress?: () => void;
   bottomOffset?: number;
+  /**
+   * Behavior for the *currently visible* toast when a higher-priority overlay
+   * begins suppressing toasts.
+   */
+  behaviorDuringSuppression: 'show' | 'queue' | 'drop';
   /**
    * When non-empty, toasts can be considered suppressed by other overlays
    * that should "own" the user's attention.
@@ -56,6 +62,7 @@ export const useToastStore = create<ToastState>((set) => ({
   actionLabel: undefined,
   actionOnPress: undefined,
   bottomOffset: undefined,
+  behaviorDuringSuppression: 'queue',
   suppressionKeys: {},
   queuedToasts: [],
   showToast: ({
@@ -65,7 +72,7 @@ export const useToastStore = create<ToastState>((set) => ({
     actionLabel,
     actionOnPress,
     bottomOffset,
-    behaviorDuringSuppression = 'show',
+    behaviorDuringSuppression = 'queue',
   }) =>
     set((prev) => {
       const isSuppressed = Object.keys(prev.suppressionKeys ?? {}).length > 0;
@@ -93,12 +100,20 @@ export const useToastStore = create<ToastState>((set) => ({
         actionLabel,
         actionOnPress,
         bottomOffset,
+        behaviorDuringSuppression,
       };
     }),
   clearToast: () =>
     set((prev) => {
       const isSuppressed = Object.keys(prev.suppressionKeys ?? {}).length > 0;
-      const nextBase = { ...prev, message: '', bottomOffset: undefined, actionLabel: undefined, actionOnPress: undefined };
+      const nextBase = {
+        ...prev,
+        message: '',
+        bottomOffset: undefined,
+        actionLabel: undefined,
+        actionOnPress: undefined,
+        behaviorDuringSuppression: 'queue' as const,
+      };
       if (isSuppressed) {
         return nextBase;
       }
@@ -121,6 +136,7 @@ export const useToastStore = create<ToastState>((set) => ({
         actionLabel: next.actionLabel,
         actionOnPress: next.actionOnPress,
         bottomOffset: next.bottomOffset,
+        behaviorDuringSuppression: next.behaviorDuringSuppression ?? 'queue',
       };
     }),
   setToastsSuppressed: ({ key, suppressed }) =>
@@ -139,6 +155,60 @@ export const useToastStore = create<ToastState>((set) => ({
       const wasSuppressed = Object.keys(current).length > 0;
       const isSuppressed = Object.keys(nextKeys).length > 0;
       const noActiveToast = (prev.message ?? '').trim().length === 0;
+
+      // If we are *entering* suppression, immediately hide any currently visible toast so it
+      // can't appear above the overlay. If it was mid-flight, keep it by moving it into the queue.
+      if (!wasSuppressed && isSuppressed) {
+        const activeTrimmed = (prev.message ?? '').trim();
+        if (activeTrimmed.length > 0) {
+          // Some toasts (like "credits exhausted" nudges) should never reappear after an
+          // interstitial covers them. Drop those instead of queueing.
+          if (prev.behaviorDuringSuppression === 'drop') {
+            return {
+              ...prev,
+              suppressionKeys: nextKeys,
+              message: '',
+              bottomOffset: undefined,
+              actionLabel: undefined,
+              actionOnPress: undefined,
+              behaviorDuringSuppression: 'queue',
+            };
+          }
+          const nextQueue = [
+            {
+              message: activeTrimmed,
+              variant: prev.variant,
+              durationMs: prev.durationMs,
+              actionLabel: prev.actionLabel,
+              actionOnPress: prev.actionOnPress,
+              bottomOffset: prev.bottomOffset,
+              behaviorDuringSuppression: prev.behaviorDuringSuppression ?? ('queue' as const),
+            },
+            ...(prev.queuedToasts ?? []),
+          ];
+          const capped = nextQueue.slice(Math.max(0, nextQueue.length - MAX_QUEUED_TOASTS));
+          return {
+            ...prev,
+            suppressionKeys: nextKeys,
+            message: '',
+            bottomOffset: undefined,
+            actionLabel: undefined,
+            actionOnPress: undefined,
+            behaviorDuringSuppression: 'queue',
+            queuedToasts: capped,
+          };
+        }
+        return {
+          ...prev,
+          suppressionKeys: nextKeys,
+          message: '',
+          bottomOffset: undefined,
+          actionLabel: undefined,
+          actionOnPress: undefined,
+          behaviorDuringSuppression: 'queue',
+        };
+      }
+
       if (wasSuppressed && !isSuppressed && noActiveToast && (prev.queuedToasts?.length ?? 0) > 0) {
         const [next, ...rest] = prev.queuedToasts ?? [];
         const trimmed = next.message.trim();
@@ -156,6 +226,7 @@ export const useToastStore = create<ToastState>((set) => ({
           actionLabel: next.actionLabel,
           actionOnPress: next.actionOnPress,
           bottomOffset: next.bottomOffset,
+          behaviorDuringSuppression: next.behaviorDuringSuppression ?? 'queue',
         };
       }
 

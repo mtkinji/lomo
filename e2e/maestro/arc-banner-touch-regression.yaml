@@ -1,0 +1,62 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Regression: after changing an Arc banner image, the Arc canvas must remain tappable.
+# This reproduces the "blocked for tapping" failure mode by:
+# - seeding a fresh onboarding Arc via DevTools
+# - opening the Arc banner sheet
+# - selecting a curated banner (in-app, deterministic)
+# - verifying we can tap the hero banner again (i.e. no invisible overlay intercepting touches)
+
+- launchApp
+
+# If the first-time onboarding modal is showing (fresh install), exit it so the app shell
+# (and nav drawer toggle) is reachable.
+- runFlow:
+    when:
+      visible:
+        id: "e2e.ftue.devMenu"
+    commands:
+      - tapOn:
+          id: "e2e.ftue.devMenu"
+      - tapOn:
+          id: "e2e.ftue.exit"
+
+# Navigate to DevTools deterministically.
+- tapOn:
+    id: "nav.drawer.toggle"
+
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+
+# Seed and navigate into an ArcDetail screen that mirrors the "first arc" path.
+- scrollUntilVisible:
+    element:
+      id: "e2e.seed.showFirstArcCelebration"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.seed.showFirstArcCelebration"
+
+# The onboarding handoff guide can cover the canvas; dismiss it so we can interact with the banner.
+- tapOn:
+    text: "Explore first"
+
+# Open the Arc banner sheet (tap hero banner).
+- tapOn:
+    id: "e2e.arcDetail.heroBanner"
+
+- assertVisible:
+    text: "Arc Banner"
+
+# Select a deterministic curated banner tile (first item in ARC_HERO_LIBRARY).
+- tapOn:
+    id: "e2e.arcBanner.curated.arc-sandstone-waves-01"
+
+# Verify the Arc canvas is tappable again by opening the banner sheet a second time.
+- tapOn:
+    id: "e2e.arcDetail.heroBanner"
+
+- assertVisible:
+    text: "Arc Banner"
+
+

@@ -129,7 +129,7 @@ export function SurveyCard({
                     </Button>
                   ) : null}
                   <Button
-                    variant="accent"
+                    variant="primary"
                     disabled={isPrimaryDisabled}
                     style={isPrimaryDisabled ? styles.primaryDisabled : undefined}
                     onPress={isLast ? onSubmit : onNext}
@@ -171,7 +171,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: colors.canvas,
+    // Must differ from both the page canvas and the front card; otherwise the
+    // "stack" reads like a single card (canvas + card are both #FFF).
+    backgroundColor: colors.cardMuted,
     borderRadius: 18,
     // Flat “paper” behind (no border/shadow).
     borderWidth: 0,

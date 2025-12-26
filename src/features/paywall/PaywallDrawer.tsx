@@ -16,6 +16,7 @@ import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { useToastStore } from '../../store/useToastStore';
 
 type PaywallBenefit = { title: string };
 
@@ -102,18 +103,31 @@ export function PaywallContent(props: {
   const { capture } = useAnalytics();
   const isPro = useEntitlementsStore((s) => s.isPro);
   const generativeCredits = useAppStore((s) => s.generativeCredits);
+  const bonusGenerativeCredits = useAppStore((s) => s.bonusGenerativeCredits);
   const copy = useMemo(() => getPaywallCopy(reason, source), [reason, source]);
 
   const quotaSubtitle = useMemo(() => {
-    const limit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
     const currentKey = getMonthKey(new Date());
+    const baseLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+    const bonusRaw =
+      bonusGenerativeCredits?.monthKey === currentKey
+        ? Number((bonusGenerativeCredits as any).bonusThisMonth ?? 0)
+        : 0;
+    const bonusThisMonth = Number.isFinite(bonusRaw) ? Math.max(0, Math.floor(bonusRaw)) : 0;
+    const limit = baseLimit + bonusThisMonth;
     const usedRaw =
       generativeCredits?.monthKey === currentKey ? Number((generativeCredits as any).usedThisMonth ?? 0) : 0;
     const usedThisMonth = Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
     // If we hit the quota paywall, remaining is 0. Still, be defensive in copy.
     const displayedUsed = Math.min(Math.max(usedThisMonth, limit), limit);
     return `You’ve used all ${limit} AI credits for this month (${displayedUsed}/${limit}).`;
-  }, [generativeCredits?.monthKey, generativeCredits?.usedThisMonth, isPro]);
+  }, [
+    bonusGenerativeCredits?.bonusThisMonth,
+    bonusGenerativeCredits?.monthKey,
+    generativeCredits?.monthKey,
+    generativeCredits?.usedThisMonth,
+    isPro,
+  ]);
 
   useEffect(() => {
     capture(AnalyticsEvent.PaywallViewed, { reason, source });
@@ -204,6 +218,14 @@ export function PaywallDrawerHost() {
   const reason = usePaywallStore((s) => s.reason);
   const source = usePaywallStore((s) => s.source);
   const close = usePaywallStore((s) => s.close);
+  const setToastsSuppressed = useToastStore((s) => s.setToastsSuppressed);
+
+  // While the paywall interstitial is up, suppress toasts so we don't stack
+  // transient UI over an interstitial.
+  useEffect(() => {
+    setToastsSuppressed({ key: 'paywall_interstitial', suppressed: visible });
+    return () => setToastsSuppressed({ key: 'paywall_interstitial', suppressed: false });
+  }, [setToastsSuppressed, visible]);
 
   if (!reason || !source) {
     return (

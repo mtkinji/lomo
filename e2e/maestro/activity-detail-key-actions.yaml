@@ -1,0 +1,59 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Activity detail major interactions (buggiest surface):
+# - navigate to a deterministic Activity detail via DevTools seed action
+# - open/close Focus mode sheet
+# - open/close Calendar sheet
+# - prove taps still work after closing drawers
+
+- launchApp
+
+- tapOn:
+    id: "nav.drawer.toggle"
+
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+
+- tapOn:
+    id: "devtools.tab.tools"
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.seed.showActivityDetailGuide"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.seed.showActivityDetailGuide"
+
+# Focus mode drawer (KeyActionsRow).
+- scrollUntilVisible:
+    element:
+      id: "e2e.activityDetail.keyAction.focusMode"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.activityDetail.keyAction.focusMode"
+
+- tapOn:
+    id: "e2e.activityDetail.focus.cancel"
+
+# Calendar drawer.
+- tapOn:
+    id: "e2e.activityDetail.keyAction.addToCalendar"
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.activityDetail.calendar.close"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.activityDetail.calendar.close"
+
+# Prove the page is still tappable after closing drawers.
+- tapOn:
+    id: "e2e.activityDetail.keyAction.focusMode"
+
+- tapOn:
+    id: "e2e.activityDetail.focus.cancel"
+
+

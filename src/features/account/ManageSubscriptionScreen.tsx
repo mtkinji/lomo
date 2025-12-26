@@ -101,6 +101,7 @@ export function ManageSubscriptionScreen() {
   const { capture } = useAnalytics();
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
+  const bonusGenerativeCredits = useAppStore((state) => state.bonusGenerativeCredits);
   const [pricingDrawerVisible, setPricingDrawerVisible] = React.useState(false);
   const [skuPricing, setSkuPricing] = React.useState<Record<string, { priceString?: string }> | null>(null);
 
@@ -112,8 +113,14 @@ export function ManageSubscriptionScreen() {
   const shouldNudgeAnnual =
     (currentShowUpStreak ?? 0) >= ANNUAL_NUDGE_STREAK_THRESHOLD && billingCadence === 'monthly';
 
-  const monthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
   const currentKey = getMonthKey(new Date());
+  const baseMonthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+  const bonusRaw =
+    bonusGenerativeCredits?.monthKey === currentKey
+      ? Number(bonusGenerativeCredits.bonusThisMonth ?? 0)
+      : 0;
+  const bonusThisMonth = Number.isFinite(bonusRaw) ? Math.max(0, Math.floor(bonusRaw)) : 0;
+  const monthlyLimit = baseMonthlyLimit + bonusThisMonth;
   const usedThisMonth =
     generativeCredits?.monthKey === currentKey ? Math.max(0, generativeCredits.usedThisMonth ?? 0) : 0;
   const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);

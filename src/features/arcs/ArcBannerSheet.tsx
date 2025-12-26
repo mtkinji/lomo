@@ -16,7 +16,7 @@ import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Heading, Input, KeyboardAwareScrollView } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
-import { colors, fonts, spacing, typography } from '../../theme';
+import { colors, fonts, spacing, typography, type ScrimToken } from '../../theme';
 import { ARC_HERO_LIBRARY, type ArcHeroImage } from './arcHeroLibrary';
 import {
   ARC_MOSAIC_COLS,
@@ -41,6 +41,11 @@ const logArcBannerSheetDebug = (event: string, payload?: Record<string, unknown>
 export type ArcBannerSheetProps = {
   visible: boolean;
   onClose: () => void;
+  /**
+   * Human-friendly label for the object owning this banner.
+   * Defaults to "Arc" (historical behavior).
+   */
+  objectLabel?: string;
   arcName: string;
   arcNarrative?: string;
   arcGoalTitles?: string[];
@@ -61,6 +66,12 @@ export type ArcBannerSheetProps = {
   onRemove: () => void;
   onSelectCurated: (image: ArcHeroImage) => void;
   onSelectUnsplash: (photo: UnsplashPhoto) => void;
+  /**
+   * Optional BottomDrawer overrides for nested surfaces (e.g. Goal creation drawer).
+   */
+  presentation?: 'modal' | 'inline';
+  hideBackdrop?: boolean;
+  scrimToken?: ScrimToken;
 };
 
 type HeroImageSourceTab = 'curated' | 'unsplash' | 'upload';
@@ -69,6 +80,7 @@ const DEFAULT_SOURCE_TAB: HeroImageSourceTab = 'unsplash';
 export function ArcBannerSheet({
   visible,
   onClose,
+  objectLabel = 'Arc',
   arcName,
   arcNarrative,
   arcGoalTitles,
@@ -89,6 +101,9 @@ export function ArcBannerSheet({
   onRemove,
   onSelectCurated,
   onSelectUnsplash,
+  presentation,
+  hideBackdrop,
+  scrimToken,
 }: ArcBannerSheetProps) {
   const shouldShowTopography = showTopography && !thumbnailUrl;
   const shouldShowGeoMosaic = showGeoMosaic && !thumbnailUrl;
@@ -272,7 +287,8 @@ export function ArcBannerSheet({
 
   const handleRemove = useCallback(() => {
     if (!hasHero || loading) return;
-    Alert.alert('Remove banner image?', 'This will remove the current image for this Arc.', [
+    const objectLower = objectLabel.toLowerCase();
+    Alert.alert('Remove banner image?', `This will remove the current image for this ${objectLower}.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -280,13 +296,22 @@ export function ArcBannerSheet({
         onPress: onRemove,
       },
     ]);
-  }, [hasHero, loading, onRemove]);
+  }, [hasHero, loading, objectLabel, onRemove]);
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['100%']}>
+    <BottomDrawer
+      visible={visible}
+      onClose={onClose}
+      snapPoints={['100%']}
+      presentation={presentation}
+      hideBackdrop={hideBackdrop}
+      scrimToken={scrimToken}
+    >
       <View style={styles.heroModalContainer}>
         <View style={styles.modalContent}>
-          <Heading style={[styles.modalTitle, { marginBottom: spacing.md }]}>Arc Banner</Heading>
+          <Heading style={[styles.modalTitle, { marginBottom: spacing.md }]}>
+            {objectLabel} Banner
+          </Heading>
           <SegmentedControl<HeroImageSourceTab>
             value={sourceTab}
             onChange={(next) => {
@@ -504,6 +529,7 @@ export function ArcBannerSheet({
                           return (
                             <TouchableOpacity
                               key={image.id}
+                              testID={`e2e.arcBanner.curated.${image.id}`}
                               style={[
                                 styles.masonryTile,
                                 { width: masonryColumnWidth, height },
@@ -531,6 +557,7 @@ export function ArcBannerSheet({
                           return (
                             <TouchableOpacity
                               key={image.id}
+                              testID={`e2e.arcBanner.curated.${image.id}`}
                               style={[
                                 styles.masonryTile,
                                 { width: masonryColumnWidth, height },
@@ -602,6 +629,7 @@ export function ArcBannerSheet({
                             return (
                               <TouchableOpacity
                                 key={photo.id}
+                                testID={`e2e.arcBanner.unsplash.${photo.id}`}
                                 style={[
                                   styles.masonryTile,
                                   { width: masonryColumnWidth, height },
@@ -629,6 +657,7 @@ export function ArcBannerSheet({
                             return (
                               <TouchableOpacity
                                 key={photo.id}
+                                testID={`e2e.arcBanner.unsplash.${photo.id}`}
                                 style={[
                                   styles.masonryTile,
                                   { width: masonryColumnWidth, height },
@@ -659,7 +688,7 @@ export function ArcBannerSheet({
           </View>
 
           <View style={styles.sheetFooter}>
-            <Button variant="accent" onPress={onClose} style={styles.saveButton}>
+            <Button variant="primary" onPress={onClose} style={styles.saveButton}>
               <Text style={styles.saveButtonLabel}>Save</Text>
             </Button>
           </View>

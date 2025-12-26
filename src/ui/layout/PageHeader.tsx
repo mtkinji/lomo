@@ -97,6 +97,7 @@ export function PageHeader({
           ) : onPressMenu ? (
             <IconButton
               accessibilityLabel="Open navigation menu"
+              testID="nav.drawer.toggle"
               onPress={onPressMenu}
               style={[styles.headerIconButton, styles.headerIconButtonGhost]}
             >

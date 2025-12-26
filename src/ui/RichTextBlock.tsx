@@ -86,7 +86,10 @@ export function RichTextBlock({
     () => ({
       p: {
         marginTop: 0,
-        marginBottom: 0,
+        // `react-native-render-html` lays out block elements on their own lines.
+        // Even with margin 0, consecutive paragraphs can feel like a full extra line break.
+        // Pull paragraphs slightly closer to better match the in-editor rhythm.
+        marginBottom: -10,
       },
       div: {
         marginTop: 0,

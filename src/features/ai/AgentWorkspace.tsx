@@ -13,6 +13,7 @@ import {
   AiChatPane,
   type AiChatPaneController,
   type ActivitySuggestion,
+  type GoalProposalDraft,
   type ChatTimelineController,
 } from './AiChatScreen';
 import { WorkflowRuntimeContext, type InvokeAgentStepParams } from './WorkflowRuntimeContext';
@@ -117,6 +118,11 @@ export type AgentWorkspaceProps = {
    * Hosts can use this to close the sheet or navigate to the new Goal canvas.
    */
   onGoalCreated?: (goalId: string) => void;
+  /**
+   * Optional hook fired when the user adopts a Goal proposal but the host wants
+   * to apply it without creating a new goal (e.g. refine an existing goal).
+   */
+  onAdoptGoalProposal?: (proposal: GoalProposalDraft) => void;
 };
 
 const serializeLaunchContext = (context: LaunchContext): string => {
@@ -190,6 +196,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     hideBrandHeader,
     hidePromptSuggestions,
     onGoalCreated,
+    onAdoptGoalProposal,
     hostBottomInsetAlreadyApplied,
   } = props;
 
@@ -409,13 +416,19 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         const reply = await sendCoachChat([...history, ...stepGuidanceTurns], coachOptions);
         controller.streamAssistantReplyFromWorkflow(reply, 'assistant-workflow');
       } catch (error) {
+        controller.streamAssistantReplyFromWorkflow(
+          'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
+          'assistant-error-workflow'
+        );
+        props.onTransportError?.();
         if (__DEV__) {
           // eslint-disable-next-line no-console
           console.error('[workflow] Failed to invoke agent step', stepId, error);
         }
+        throw error;
       }
     },
-    [launchContextText, workflowDefinition, workflowInstance]
+    [launchContextText, props.onTransportError, workflowDefinition, workflowInstance]
   );
 
   // Emit step-completion analytics after the instance state has been updated.
@@ -510,6 +523,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return (
         <GoalCreationFlow
           chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
+          autoRecommendOnMount={launchContext.intent === 'goalCreation'}
         />
       );
     }
@@ -680,6 +694,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         hostBottomInsetAlreadyApplied={hostBottomInsetAlreadyApplied}
         onConfirmArc={onConfirmArc}
         onGoalCreated={onGoalCreated}
+        onAdoptGoalProposal={onAdoptGoalProposal}
         onComplete={onComplete}
         stepCard={workflowStepCard}
         onTransportError={props.onTransportError}

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Portal } from '@rn-primitives/portal';
 import { colors, spacing } from '../theme';
+import { useToastStore } from '../store/useToastStore';
 
 export type BrandBackgroundColor =
   | 'shell'
@@ -117,6 +118,17 @@ export function FullScreenInterstitial({
   transitionConfig,
 }: FullScreenInterstitialProps) {
   const surfaceBackground = colors[backgroundColor] ?? colors.card;
+  const suppressionKeyRef = useRef(
+    `fullScreenInterstitial-${Math.random().toString(36).slice(2)}-${Date.now()}`,
+  );
+
+  useEffect(() => {
+    const key = suppressionKeyRef.current;
+    useToastStore.getState().setToastsSuppressed({ key, suppressed: visible });
+    return () => {
+      useToastStore.getState().setToastsSuppressed({ key, suppressed: false });
+    };
+  }, [visible]);
 
   const wantsTransition = transition !== 'none';
   const enterDurationMs = transitionConfig?.enterDurationMs ?? 240;

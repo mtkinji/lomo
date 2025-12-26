@@ -35,7 +35,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.5',
+  version: '1.0.6',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -59,13 +59,19 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '11',
+    buildNumber: '13',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
       LSApplicationQueriesSchemes: ['ms-outlook'],
       // Needed for soundscapes to continue playing when the screen locks.
       UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
+      // ExpoCalendar: required usage strings. Without these, iOS can crash at runtime
+      // when the Calendar module initializes.
+      NSCalendarsUsageDescription:
+        'Kwilt uses your calendar to schedule activities you choose to add.',
+      NSRemindersUsageDescription:
+        'Kwilt uses reminders only if you choose to add activities as reminders.',
     },
   },
   android: {

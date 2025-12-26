@@ -1,24 +1,28 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import {
+  Animated,
   StyleSheet,
   View,
   TextInput,
-  Keyboard,
   Platform,
   ScrollView,
   ActivityIndicator,
   Alert,
   Linking,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Image,
   Share,
   StyleProp,
   ViewStyle,
   Text,
-  LayoutAnimation,
   UIManager,
+  findNodeHandle,
 } from 'react-native';
+import {
+  ObjectPageHeader,
+  HeaderActionPill,
+  OBJECT_PAGE_HEADER_BAR_HEIGHT,
+} from '../../ui/layout/ObjectPageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
@@ -39,14 +43,13 @@ import {
   VStack,
   Heading,
   HStack,
-  EmptyState,
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { LongTextField } from '../../ui/LongTextField';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
-import { EditableField } from '../../ui/EditableField';
+import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { EditableTextArea } from '../../ui/EditableTextArea';
 import { Card } from '../../ui/Card';
 import {
@@ -58,8 +61,10 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { GoalListCard } from '../../ui/GoalListCard';
+import { OpportunityCard } from '../../ui/OpportunityCard';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { HapticsService } from '../../services/HapticsService';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -77,7 +82,7 @@ import { trackUnsplashDownload, withUnsplashReferral, type UnsplashPhoto } from 
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
 import { ArcBannerSheet } from './ArcBannerSheet';
-import { SegmentedControl } from '../../ui/SegmentedControl';
+import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
@@ -94,19 +99,17 @@ const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => 
 type ArcDetailRouteProp = RouteProp<ArcsStackParamList, 'ArcDetail'>;
 type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'ArcDetail'>;
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
   const { arcId, openGoalCreation, showFirstArcCelebration: showCelebrationFromRoute } =
     route.params;
   const insets = useSafeAreaInsets();
-  const createGoalsButtonRef = useRef<View>(null);
+  const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+  const createGoalCtaRef = useRef<View>(null);
+  const goalsHeaderRef = useRef<View>(null);
   const heroBannerRef = useRef<View>(null);
-  const tabControlRef = useRef<View>(null);
+  const heroSpotlightRef = useRef<View>(null);
   const insightsSectionRef = useRef<View>(null);
 
   const arcs = useAppStore((state) => state.arcs);
@@ -192,18 +195,123 @@ export function ArcDetailScreen() {
   const [showOnboardingArcHandoff, setShowOnboardingArcHandoff] = useState(
     Boolean(showCelebrationFromRoute && !hasSeenFirstArcCelebration),
   );
+  const onboardingArcHandoffHapticPlayedRef = useRef(false);
   const hasConsumedRouteCelebrationRef = useRef(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'goals' | 'history'>(
-    'details',
-  );
   const [arcExploreGuideStep, setArcExploreGuideStep] = useState(0);
   const hasStartedArcExploreGuideRef = useRef(false);
   const [goalsSectionOffset, setGoalsSectionOffset] = useState(0);
-  const [openInsightsSection, setOpenInsightsSection] = useState<
-    'strengths' | 'growthEdges' | 'pitfalls' | null
-  >(null);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
+
+  // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
+  // Header bar height below the safe area inset.
+  // Pills are 36px; target ~12px breathing room below them => 48px.
+  const ARC_HEADER_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT;
+  const HEADER_BOTTOM_Y = insets.top + ARC_HEADER_HEIGHT;
+  const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
+  const BOTTOM_CTA_BAR_HEIGHT = 92;
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const sheetTopRef = useRef<View | null>(null);
+  const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
+
+  const measureSheetTopAtRest = useCallback(() => {
+    const node = sheetTopRef.current;
+    if (!node) return;
+    const handle = findNodeHandle(node);
+    if (!handle) return;
+    UIManager.measureInWindow(handle, (_x, y) => {
+      if (typeof y === 'number' && Number.isFinite(y)) {
+        setSheetTopAtRestWindowY(y);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    // Measure once after initial layout. This is our scroll threshold anchor.
+    requestAnimationFrame(() => {
+      measureSheetTopAtRest();
+    });
+  }, [measureSheetTopAtRest]);
+
+  // `measureInWindow` can occasionally report a too-small Y for views inside scroll containers,
+  // which collapses our interpolation ranges and makes the hero fade immediately.
+  // Provide a layout-based fallback that matches this screen's fixed hero/sheet geometry.
+  const ESTIMATED_ARC_HERO_HEIGHT_PX = 320; // keep in sync with `styles.arcHeroSection.height`
+  const ESTIMATED_ARC_SHEET_MARGIN_TOP_PX = -28; // keep in sync with `styles.arcSheet.marginTop`
+  // The Arc sheet overlaps the hero by `-marginTop`, so the *visible* hero height is reduced.
+  // Use this for spotlight targeting so the coachmark doesn't frame the white sheet overlap.
+  const estimatedVisibleHeroHeightPx = Math.max(
+    0,
+    ESTIMATED_ARC_HERO_HEIGHT_PX + ESTIMATED_ARC_SHEET_MARGIN_TOP_PX,
+  );
+  const estimatedHeaderTransitionStartScrollY = Math.max(
+    0,
+    ESTIMATED_ARC_HERO_HEIGHT_PX + ESTIMATED_ARC_SHEET_MARGIN_TOP_PX - HEADER_BOTTOM_Y,
+  );
+
+  const measuredHeaderTransitionStartScrollY =
+    sheetTopAtRestWindowY != null && Number.isFinite(sheetTopAtRestWindowY)
+      ? Math.max(0, sheetTopAtRestWindowY - HEADER_BOTTOM_Y)
+      : null;
+
+  const headerTransitionStartScrollY =
+    measuredHeaderTransitionStartScrollY != null && measuredHeaderTransitionStartScrollY >= 24
+      ? measuredHeaderTransitionStartScrollY
+      : estimatedHeaderTransitionStartScrollY;
+
+  // Header background should be fully opaque exactly when the sheet top reaches the header
+  // so it cleanly hides whatever is underneath.
+  const headerBackgroundOpacity = scrollY.interpolate({
+    inputRange: [
+      Math.max(0, headerTransitionStartScrollY - SHEET_HEADER_TRANSITION_RANGE_PX),
+      headerTransitionStartScrollY,
+    ],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Keep a separate progress for pill material (so we can still ease it after the
+  // header has already become opaque).
+  const headerPillProgress = scrollY.interpolate({
+    inputRange: [headerTransitionStartScrollY, headerTransitionStartScrollY + SHEET_HEADER_TRANSITION_RANGE_PX],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
+  // bottom of the fixed header (the start of the header transition).
+  //
+  // Important UX detail: the sheet starts fairly close to the top (it also overlaps
+  // the hero a bit), so a long fade lead can cause the hero to start fading on the
+  // very first pixels of scroll. Add a small "hold" so the hero remains fully visible
+  // until the user has scrolled a meaningful amount, while still syncing the fade-out
+  // endpoint to the sheet/header alignment.
+  const HERO_FADE_LEAD_PX = 180;
+  const HERO_FADE_HOLD_PX = 60;
+
+  // Ensure monotonic input ranges for interpolation (Animated can behave oddly when
+  // input ranges collapse or invert).
+  const heroFadeEndScrollY = Math.max(1, headerTransitionStartScrollY);
+  const heroFadeStartScrollY = Math.min(
+    Math.max(HERO_FADE_HOLD_PX, heroFadeEndScrollY - HERO_FADE_LEAD_PX),
+    heroFadeEndScrollY - 1,
+  );
+
+  const heroOpacity = scrollY.interpolate({
+    inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+  const headerActionPillOpacity = headerPillProgress.interpolate({
+    inputRange: [0, 1],
+    // Keep a faint pill even once the header is solid so the actions feel consistent.
+    outputRange: [1, 0.2],
+    extrapolate: 'clamp',
+  });
+  // The hero is inside the scroll content, so it already moves at 1x scroll speed.
+  // Translate it down by +0.5x scroll to net out to ~0.5x upward movement (Airbnb-like parallax).
+  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.5);
 
   // When navigated to with `openGoalCreation: true` (for example, from the Goals
   // canvas "new goal" affordance), immediately surface the Goal creation
@@ -261,6 +369,16 @@ export function ArcDetailScreen() {
       setShowOnboardingArcHandoff(true);
     }
   }, [arc, lastOnboardingArcId, hasSeenFirstArcCelebration, showCelebrationFromRoute]);
+
+  useEffect(() => {
+    if (!showOnboardingArcHandoff) {
+      onboardingArcHandoffHapticPlayedRef.current = false;
+      return;
+    }
+    if (onboardingArcHandoffHapticPlayedRef.current) return;
+    onboardingArcHandoffHapticPlayedRef.current = true;
+    void HapticsService.trigger('outcome.success');
+  }, [showOnboardingArcHandoff]);
 
   const shouldShowOnboardingGoalGuide =
     Boolean(arc) &&
@@ -443,6 +561,9 @@ export function ArcDetailScreen() {
       thumbnailVariant: (current.thumbnailVariant ?? 0) + 1,
       updatedAt: nowIso,
     }));
+    // Keep the interaction consistent with uploads: once the banner changes, return
+    // the user to the Arc canvas so we don't leave a full-screen overlay up.
+    setIsHeroModalVisible(false);
   }, [arc, updateArc]);
 
   const handleClearHeroImage = useCallback(() => {
@@ -456,6 +577,8 @@ export function ArcDetailScreen() {
       heroImageMeta: undefined,
       updatedAt: nowIso,
     }));
+    // Return to the canvas immediately after the banner is cleared.
+    setIsHeroModalVisible(false);
   }, [arc, updateArc]);
 
   const handleUploadHeroImage = useCallback(async () => {
@@ -485,6 +608,9 @@ export function ArcDetailScreen() {
         heroHidden: false,
         updatedAt: nowIso,
       }));
+      // After a successful upload, close the banner sheet so the user is returned
+      // to the Arc canvas (and we avoid leaving an overlay mounted that can block taps).
+      setIsHeroModalVisible(false);
     } catch {
       setHeroImageError('Unable to upload image right now.');
     } finally {
@@ -509,6 +635,8 @@ export function ArcDetailScreen() {
         heroHidden: false,
         updatedAt: nowIso,
       }));
+      // After selection, close the sheet to avoid leaving an overlay that can block taps.
+      setIsHeroModalVisible(false);
     },
     [arc, updateArc]
   );
@@ -533,6 +661,8 @@ export function ArcDetailScreen() {
         updatedAt: nowIso,
       }));
       trackUnsplashDownload(photo.id).catch(() => undefined);
+      // After selection, close the sheet to avoid leaving an overlay that can block taps.
+      setIsHeroModalVisible(false);
     },
     [arc, updateArc]
   );
@@ -543,98 +673,7 @@ export function ArcDetailScreen() {
       (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
       (arc.developmentPitfalls && arc.developmentPitfalls.length > 0));
 
-  type ArcHistoryEventKind = 'arcCreated' | 'goalCreated' | 'goalCompleted' | 'activityCompleted';
-
-  type ArcHistoryEvent = {
-    id: string;
-    kind: ArcHistoryEventKind;
-    timestamp: string;
-    title: string;
-    dateLabel: string;
-    meta?: string;
-  };
-
-  const arcHistoryEvents: ArcHistoryEvent[] = useMemo(() => {
-    // When an Arc has been deleted (or the detail screen is mounted with a
-    // stale / missing `arcId`), avoid trying to build a history timeline.
-    // This keeps the hooks tree stable while letting the early-return
-    // "Arc not found" state render safely.
-    if (!arc) {
-      return [];
-    }
-
-    const events: ArcHistoryEvent[] = [];
-
-    const formatDateLabel = (timestamp: string) =>
-      new Date(timestamp).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-
-    events.push({
-      id: `arc-created-${arc.id}`,
-      kind: 'arcCreated',
-      timestamp: arc.createdAt,
-      title: 'Arc created',
-      dateLabel: formatDateLabel(arc.createdAt),
-      meta: undefined,
-    });
-
-    arcGoals.forEach((goal) => {
-      events.push({
-        id: `goal-created-${goal.id}`,
-        kind: 'goalCreated',
-        timestamp: goal.createdAt,
-        title: `Goal created: ${goal.title}`,
-        dateLabel: formatDateLabel(goal.createdAt),
-        meta: undefined,
-      });
-
-      if (goal.status === 'completed') {
-        const completedTimestamp = goal.updatedAt ?? goal.createdAt;
-        events.push({
-          id: `goal-completed-${goal.id}`,
-          kind: 'goalCompleted',
-          timestamp: completedTimestamp,
-          title: `Goal completed: ${goal.title}`,
-          dateLabel: formatDateLabel(completedTimestamp),
-          meta: undefined,
-        });
-      }
-    });
-
-    completedArcActivities.forEach((activity) => {
-      if (!activity.completedAt) return;
-      const goalTitle = arcGoals.find((goal) => goal.id === activity.goalId)?.title;
-      const minutes = activity.actualMinutes ?? undefined;
-
-      const metaParts: string[] = [];
-      if (goalTitle) {
-        metaParts.push(goalTitle);
-      }
-      if (minutes && minutes > 0) {
-        const hours = minutes / 60;
-        if (hours >= 1) {
-          const rounded = Math.round(hours * 10) / 10;
-          metaParts.push(`${rounded} hr${rounded === 1 ? '' : 's'}`);
-        } else {
-          metaParts.push(`${minutes} min`);
-        }
-      }
-
-      events.push({
-        id: `activity-completed-${activity.id}`,
-        kind: 'activityCompleted',
-        timestamp: activity.completedAt,
-        title: activity.title || 'Activity completed',
-        dateLabel: formatDateLabel(activity.completedAt),
-        meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
-      });
-    });
-
-    return events.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
-  }, [arc, arcGoals, completedArcActivities]);
+  // History tab removed (Airbnb-style listing scroll). We may reintroduce a timeline section later.
 
   if (!arc) {
     return (
@@ -646,7 +685,7 @@ export function ArcDetailScreen() {
             Arcs screen and choose another Arc to open.
           </Text>
           <Button
-            variant="accent"
+            variant="primary"
             style={styles.emptyPrimaryButton}
             onPress={handleBackToArcs}
           >
@@ -667,65 +706,49 @@ export function ArcDetailScreen() {
     const growthEdges = arc.developmentGrowthEdges ?? [];
     const pitfalls = arc.developmentPitfalls ?? [];
 
-    const renderBlock = (
-      id: 'strengths' | 'growthEdges' | 'pitfalls',
-      title: string,
-      bullets: string[],
-    ) => {
-      const isOpen = openInsightsSection === id;
-      const hasBullets = bullets.length > 0;
-      if (!hasBullets) return null;
+    const normalizeInsightLine = (value: string): string => {
+      const trimmed = value.trim();
+      // Strip common markdown/list prefixes so we don't double-render bullets.
+      return trimmed
+        .replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
 
-      let headerIcon: IconName;
-      let headerIconColor = colors.textSecondary;
-      if (id === 'strengths') {
-        headerIcon = 'thumbsUp';
-        headerIconColor = colors.success;
-      } else if (id === 'growthEdges') {
-        headerIcon = 'activity';
-        headerIconColor = colors.turmeric;
-      } else {
-        headerIcon = 'info';
-        headerIconColor = colors.warning;
-      }
+    const renderItem = ({
+      id,
+      title,
+      lines,
+      icon,
+    }: {
+      id: 'strengths' | 'growthEdges' | 'pitfalls';
+      title: string;
+      lines: string[];
+      icon: IconName;
+    }) => {
+      const normalized = (lines ?? [])
+        .flatMap((line) => line.split('\n'))
+        .map(normalizeInsightLine)
+        .filter(Boolean);
 
-      const blockStyles: any[] = [styles.insightBlock];
-      if (isOpen) {
-        blockStyles.push(styles.insightBlockActive);
-      }
+      if (normalized.length === 0) return null;
 
       return (
-        <TouchableOpacity
-          key={id}
-          activeOpacity={0.85}
-          onPress={() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setOpenInsightsSection((current) => (current === id ? null : id));
-          }}
-          style={blockStyles}
-        >
-          <View style={styles.insightHeaderRow}>
-            <View style={styles.insightHeaderLeft}>
-              <Icon name={headerIcon} size={16} color={headerIconColor} />
-              <Text style={styles.insightTitle}>{title}</Text>
-            </View>
-            <Icon
-              name={isOpen ? 'chevronUp' : 'chevronDown'}
-              size={18}
-              color={colors.textSecondary}
-            />
+        <View key={id} style={styles.insightItemRow}>
+          <View style={styles.insightItemIconCol}>
+            <Icon name={icon} size={20} color={colors.textPrimary} />
           </View>
-          {isOpen && (
-            <View style={styles.insightBody}>
-              {bullets.map((line) => (
-                <View key={line} style={styles.insightBulletRow}>
-                  <Text style={styles.insightBulletGlyph}>•</Text>
-                  <Text style={styles.insightBulletText}>{line}</Text>
-                </View>
+          <View style={styles.insightItemContent}>
+            <Text style={styles.insightItemTitle}>{title}</Text>
+            <View style={styles.insightItemLines}>
+              {normalized.map((line, idx) => (
+                <Text key={`${id}-${idx}`} style={styles.insightItemLineText}>
+                  {line}
+                </Text>
               ))}
             </View>
-          )}
-        </TouchableOpacity>
+          </View>
+        </View>
       );
     };
 
@@ -735,20 +758,33 @@ export function ArcDetailScreen() {
         collapsable={false}
         style={styles.insightsSectionContainer}
       >
-        <Text style={styles.insightsSectionLabel}>Arc Development Insights</Text>
-        <View style={styles.insightsCard}>
-          <View style={styles.insightsBlocksStack}>
-            {renderBlock('strengths', 'Strengths to build on', strengths)}
-            {renderBlock('growthEdges', 'Growth edges to work on', growthEdges)}
-            {renderBlock('pitfalls', 'Pitfalls to watch for', pitfalls)}
-          </View>
+        <Text style={styles.sectionTitleBlock}>Insights</Text>
+        <View style={styles.insightsList}>
+          {renderItem({
+            id: 'strengths',
+            title: 'Strengths to build on',
+            lines: strengths,
+            icon: 'thumbsUp',
+          })}
+          {renderItem({
+            id: 'growthEdges',
+            title: 'Growth edges to work on',
+            lines: growthEdges,
+            icon: 'activity',
+          })}
+          {renderItem({
+            id: 'pitfalls',
+            title: 'Pitfalls to watch for',
+            lines: pitfalls,
+            icon: 'info',
+          })}
         </View>
       </View>
     );
   };
 
   return (
-    <AppShell>
+    <AppShell fullBleedCanvas>
       <BottomGuide
         visible={showOnboardingArcHandoff}
         onClose={handleDismissOnboardingArcHandoff}
@@ -777,279 +813,209 @@ export function ArcDetailScreen() {
                 hasConsumedRouteCelebrationRef.current = true;
                 navigation.setParams({ showFirstArcCelebration: false });
               }
-              setActiveTab('goals');
+              // Jump to Goals section (Airbnb-style: no tabs).
+              requestAnimationFrame(() => {
+                const targetY = Math.max(0, goalsSectionOffset - HEADER_BOTTOM_Y - spacing.md);
+                scrollRef.current?.scrollTo({ y: targetY, animated: true });
+              });
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Go to Goals</Text>
           </Button>
         </HStack>
       </BottomGuide>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={styles.screen}>
-          <View style={styles.paddedSection}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {breadcrumbsEnabled ? (
-                <>
-                  <View style={styles.breadcrumbsLeft}>
-                    <BreadcrumbBar
-                      items={[
-                        {
-                          id: 'arcs',
-                          label: 'Arcs',
-                          onPress: () => {
-                            rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
-                          },
-                        },
-                        { id: 'arc', label: arc?.name ?? 'Arc' },
-                      ]}
-                    />
-                  </View>
-                  <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                    {headerV2Enabled ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onPress={() => {
-                          handleShareArc().catch(() => undefined);
-                        }}
-                        accessibilityLabel="Share arc"
-                      >
-                        <Icon name="share" size={18} color={colors.textPrimary} />
-                      </Button>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger accessibilityLabel="Arc actions">
-                          <IconButton
-                            style={styles.optionsButton}
-                            pointerEvents="none"
-                            accessible={false}
-                          >
-                            <Icon name="more" size={18} color={colors.canvas} />
-                          </IconButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                          {/* Primary, non-destructive action(s) first */}
-                          <DropdownMenuItem onPress={handleToggleArchiveArc}>
-                            <View style={styles.menuItemRow}>
-                              <Icon
-                                name={arc?.status === 'archived' ? 'refresh' : 'archive'}
-                                size={16}
-                                color={colors.textSecondary}
-                              />
-                              <Text style={styles.menuItemLabel}>
-                                {arc?.status === 'archived' ? 'Restore' : 'Archive'}
-                              </Text>
-                            </View>
-                          </DropdownMenuItem>
-
-                          {/* Divider before destructive actions */}
-                          <DropdownMenuSeparator />
-
-                          {/* Destructive action pinned to the bottom */}
-                          <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                            <View style={styles.menuItemRow}>
-                              <Icon name="trash" size={16} color={colors.destructive} />
-                              <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                            </View>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </View>
-                </>
-              ) : (
-                <>
-                  {headerV2Enabled ? (
-                    <View style={styles.headerV2}>
-                      <View style={styles.headerV2TopRow}>
-                        <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleBackToArcs}
-                            accessibilityLabel="Back to Arcs"
-                          >
-                            <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-                          </Button>
-                          <View style={styles.objectTypeRow}>
-                            <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
-                            <Text style={styles.objectTypeLabelV2}>Arc</Text>
-                          </View>
-                        </HStack>
-                        <HStack alignItems="center" space="xs">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleShareArc}
-                            accessibilityLabel="Share arc"
-                          >
-                            <Icon name="share" size={18} color={colors.textPrimary} />
-                          </Button>
-                        </HStack>
+      <View style={styles.screen}>
+          <ObjectPageHeader
+            barHeight={ARC_HEADER_HEIGHT}
+            backgroundOpacity={headerBackgroundOpacity}
+            actionPillOpacity={headerActionPillOpacity}
+            left={
+              <HeaderActionPill
+                onPress={handleBackToArcs}
+                accessibilityLabel="Back to Arcs"
+                materialOpacity={headerActionPillOpacity}
+              >
+                <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+              </HeaderActionPill>
+            }
+            right={
+              <HStack alignItems="center" space="sm">
+                <HeaderActionPill
+                  onPress={() => {
+                    handleShareArc().catch(() => undefined);
+                  }}
+                  accessibilityLabel="Share arc"
+                  materialOpacity={headerActionPillOpacity}
+                >
+                  <Icon name="share" size={18} color={colors.textPrimary} />
+                </HeaderActionPill>
+                <DropdownMenu>
+                  <DropdownMenuTrigger accessibilityLabel="Arc actions">
+                    <HeaderActionPill
+                      accessibilityLabel="Arc actions"
+                      materialOpacity={headerActionPillOpacity}
+                    >
+                      <Icon name="more" size={18} color={colors.textPrimary} />
+                    </HeaderActionPill>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                    <DropdownMenuItem
+                      onPress={() => {
+                        setIsHeroModalVisible(true);
+                      }}
+                    >
+                      <View style={styles.menuItemRow}>
+                        <Icon name="edit" size={16} color={colors.textSecondary} />
+                        <Text style={styles.menuItemLabel}>Edit banner</Text>
                       </View>
-                      <Text style={styles.headerV2Title} numberOfLines={1} ellipsizeMode="tail">
-                        {arc?.name ?? 'Arc'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      <View style={styles.headerSide}>
-                        <IconButton
-                          style={styles.backButton}
-                          onPress={handleBackToArcs}
-                          accessibilityLabel="Back to Arcs"
-                        >
-                          <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                        </IconButton>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onPress={handleToggleArchiveArc}>
+                      <View style={styles.menuItemRow}>
+                        <Icon
+                          name={arc?.status === 'archived' ? 'refresh' : 'archive'}
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                        <Text style={styles.menuItemLabel}>
+                          {arc?.status === 'archived' ? 'Restore' : 'Archive'}
+                        </Text>
                       </View>
-                      <View style={styles.headerCenter}>
-                        <View style={styles.objectTypeRow}>
-                          <ObjectTypeIconBadge iconName="arcs" tone="arc" size={16} badgeSize={28} />
-                          <Text style={styles.objectTypeLabel}>Arc</Text>
-                        </View>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
+                      <View style={styles.menuItemRow}>
+                        <Icon name="trash" size={16} color={colors.destructive} />
+                        <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
                       </View>
-                      <View style={styles.headerSideRight}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger accessibilityLabel="Arc actions">
-                            <IconButton
-                              style={styles.optionsButton}
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="more" size={18} color={colors.canvas} />
-                            </IconButton>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                            {/* Primary, non-destructive action(s) first */}
-                            <DropdownMenuItem onPress={handleToggleArchiveArc}>
-                              <View style={styles.menuItemRow}>
-                                <Icon
-                                  name={arc?.status === 'archived' ? 'refresh' : 'archive'}
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text style={styles.menuItemLabel}>
-                                  {arc?.status === 'archived' ? 'Restore' : 'Archive'}
-                                </Text>
-                              </View>
-                            </DropdownMenuItem>
-
-                            {/* Divider before destructive actions */}
-                            <DropdownMenuSeparator />
-
-                            {/* Destructive action pinned to the bottom */}
-                            <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                              <View style={styles.menuItemRow}>
-                                <Icon name="trash" size={16} color={colors.destructive} />
-                                <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
-                              </View>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </View>
-                    </>
-                  )}
-                </>
-              )}
-            </View>
-          </View>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </HStack>
+            }
+          />
 
           <KeyboardAwareScrollView
+            ref={scrollRef}
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: spacing['2xl'] + insets.bottom + BOTTOM_CTA_BAR_HEIGHT },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
+            keyboardShouldPersistTaps="handled"
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+              useNativeDriver: false,
+            })}
+            scrollEventThrottle={16}
           >
             <View style={styles.pageContent}>
-              <View>
-                <View style={[styles.paddedSection, styles.arcHeaderSection]}>
-                  <View style={styles.heroContainer}>
-                    <View ref={heroBannerRef} collapsable={false}>
-                      <TouchableOpacity
-                        style={styles.heroImageWrapper}
-                        onPress={() => {
-                          logArcDetailDebug('hero:pressed', {
-                            previousVisible: isHeroModalVisible,
-                          });
-                          setIsHeroModalVisible(true);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit Arc banner"
-                        activeOpacity={0.9}
-                      >
-                        {arc.thumbnailUrl ? (
-                          <Image
-                            source={{ uri: arc.thumbnailUrl }}
-                            style={styles.heroImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <LinearGradient
-                            colors={headerGradientColors}
-                            start={headerGradientDirection.start}
-                            end={headerGradientDirection.end}
-                            style={styles.heroImage}
-                          />
-                        )}
-                        {arc.heroImageMeta?.source === 'unsplash' &&
-                        arc.heroImageMeta.unsplashAuthorName &&
-                        arc.heroImageMeta.unsplashAuthorLink &&
-                        arc.heroImageMeta.unsplashLink ? (
-                          <View pointerEvents="box-none" style={styles.heroAttributionOverlay}>
-                            <View style={styles.heroAttributionPill}>
+              <View style={styles.arcHeroSection}>
+                <View ref={heroBannerRef} collapsable={false}>
+                  <View
+                    ref={heroSpotlightRef}
+                    collapsable={false}
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: estimatedVisibleHeroHeightPx,
+                    }}
+                  />
+                  <Animated.View
+                    style={{
+                      opacity: heroOpacity,
+                      transform: [{ translateY: heroParallaxTranslateY }],
+                    }}
+                  >
+                    <TouchableOpacity
+                      testID="e2e.arcDetail.heroBanner"
+                      style={styles.heroFullBleedWrapper}
+                      onPress={() => {
+                        logArcDetailDebug('hero:pressed', {
+                          previousVisible: isHeroModalVisible,
+                        });
+                        setIsHeroModalVisible(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit Arc banner"
+                      activeOpacity={0.95}
+                    >
+                      {arc.thumbnailUrl ? (
+                        <Image
+                          source={{ uri: arc.thumbnailUrl }}
+                          style={styles.heroFullBleedImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <LinearGradient
+                          colors={headerGradientColors}
+                          start={headerGradientDirection.start}
+                          end={headerGradientDirection.end}
+                          style={styles.heroFullBleedImage}
+                        />
+                      )}
+                      {arc.heroImageMeta?.source === 'unsplash' &&
+                      arc.heroImageMeta.unsplashAuthorName &&
+                      arc.heroImageMeta.unsplashAuthorLink &&
+                      arc.heroImageMeta.unsplashLink ? (
+                        <View pointerEvents="box-none" style={styles.heroAttributionOverlay}>
+                          <View style={styles.heroAttributionPill}>
+                            <Text style={styles.heroAttributionText} numberOfLines={1} ellipsizeMode="tail">
+                              Photo by{' '}
                               <Text
-                                style={styles.heroAttributionText}
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
+                                style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                onPress={() => {
+                                  Linking.openURL(arc.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
+                                }}
                               >
-                                Photo by{' '}
-                                <Text
-                                  style={[styles.heroAttributionText, styles.heroAttributionLink]}
-                                  onPress={() => {
-                                    Linking.openURL(arc.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
-                                  }}
-                                >
-                                  {arc.heroImageMeta.unsplashAuthorName}
-                                </Text>{' '}
-                                on{' '}
-                                <Text
-                                  style={[styles.heroAttributionText, styles.heroAttributionLink]}
-                                  onPress={() => {
-                                    Linking.openURL(arc.heroImageMeta!.unsplashLink!).catch(() => {});
-                                  }}
-                                >
-                                  Unsplash
-                                </Text>
+                                {arc.heroImageMeta.unsplashAuthorName}
+                              </Text>{' '}
+                              on{' '}
+                              <Text
+                                style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                onPress={() => {
+                                  Linking.openURL(arc.heroImageMeta!.unsplashLink!).catch(() => {});
+                                }}
+                              >
+                                Unsplash
                               </Text>
-                            </View>
+                            </Text>
                           </View>
-                        ) : null}
-                        <View style={styles.heroEditButton}>
-                          <Icon name="edit" size={16} color={colors.canvas} />
                         </View>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  </Animated.View>
+                </View>
+              </View>
 
-                  <EditableField
-                    label="Name"
+              <View
+                ref={sheetTopRef}
+                collapsable={false}
+                onLayout={measureSheetTopAtRest}
+                style={styles.arcSheet}
+              >
+                <View style={styles.arcSheetInner}>
+                  <View style={styles.arcTypePillRow}>
+                    <HStack style={styles.arcTypePill} alignItems="center" space="xs">
+                      <Icon name="arcs" size={12} color={colors.textSecondary} />
+                      <Text style={styles.arcTypePillLabel}>Arc</Text>
+                    </HStack>
+                  </View>
+                  <NarrativeEditableTitle
                     value={arc.name}
-                    variant="title"
-                  autoFocusOnEdit={false}
-                    onChange={(nextName) => {
-                      const trimmed = nextName.trim();
-                      if (trimmed.length === 0 || trimmed === arc.name) {
-                        return;
-                      }
+                    placeholder="Name this Arc"
+                    accessibilityLabel="Edit arc name"
+                    onCommit={(trimmed) => {
+                      if (!trimmed || trimmed === arc.name) return;
                       updateArc(arc.id, (current) => ({
                         ...current,
                         name: trimmed,
                         updatedAt: new Date().toISOString(),
                       }));
-                    }}
-                    onSubmit={(nextName) => {
-                      const trimmed = nextName.trim();
-                      if (!trimmed || trimmed === arc.name) return;
                       showToast({
                         message: 'Arc renamed',
                         variant: 'success',
@@ -1057,228 +1023,215 @@ export function ArcDetailScreen() {
                         behaviorDuringSuppression: 'queue',
                       });
                     }}
-                    placeholder="Name this Arc"
-                    validate={(next) => {
-                      if (!next.trim()) {
-                        return 'Name cannot be empty';
-                      }
+                    textStyle={styles.arcNarrativeTitle}
+                    inputStyle={styles.arcNarrativeTitleInput}
+                    containerStyle={styles.arcNarrativeTitleContainer}
+                    validate={(nextTrimmed) => {
+                      if (!nextTrimmed.trim()) return 'Name cannot be empty';
                       return null;
                     }}
                   />
-                  {/* Canvas mode toggle: Details vs Goals vs History */}
-                  <View
-                    ref={tabControlRef}
-                    collapsable={false}
-                    style={styles.segmentedControlRow}
-                  >
-                    <SegmentedControl
-                      value={activeTab}
-                      onChange={setActiveTab}
-                      options={[
-                        { value: 'details', label: 'Details' },
-                        { value: 'goals', label: 'Goals' },
-                        { value: 'history', label: 'History' },
-                          ]}
+                  <Text style={styles.arcTitleMeta}>
+                    {arcGoals.length === 0
+                      ? 'No goals yet'
+                      : `${arcGoals.length} goal${arcGoals.length === 1 ? '' : 's'} · ${completedArcGoals.length} completed`}
+                  </Text>
+
+                  <View style={{ marginTop: spacing.sm }}>
+                    <LongTextField
+                      label="Description"
+                      hideLabel
+                      surfaceVariant="flat"
+                      value={arc.narrative ?? ''}
+                      placeholder="Add a short note about this Arc…"
+                      enableAi
+                      aiContext={{
+                        objectType: 'arc',
+                        objectId: arc.id,
+                        fieldId: 'narrative',
+                      }}
+                      onChange={(nextNarrative) => {
+                        const trimmed = nextNarrative.trim();
+                        updateArc(arc.id, (current) => ({
+                          ...current,
+                          narrative: trimmed.length === 0 ? undefined : trimmed,
+                          updatedAt: new Date().toISOString(),
+                        }));
+                      }}
+                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                        openForFieldContext({
+                          objectType,
+                          objectId,
+                          fieldId,
+                          currentText,
+                          fieldLabel: 'Arc narrative',
+                        });
+                      }}
                     />
                   </View>
-                  {activeTab === 'details' && (
-                    <View style={{ marginTop: spacing.sm }}>
-                      <LongTextField
-                        label="Description"
-                        value={arc.narrative ?? ''}
-                        placeholder="Add a short note about this Arc…"
-                        enableAi
-                        aiContext={{
-                          objectType: 'arc',
-                          objectId: arc.id,
-                          fieldId: 'narrative',
-                        }}
-                        onChange={(nextNarrative) => {
-                          const trimmed = nextNarrative.trim();
-                          updateArc(arc.id, (current) => ({
-                            ...current,
-                            narrative: trimmed.length === 0 ? undefined : trimmed,
-                            updatedAt: new Date().toISOString(),
-                          }));
-                        }}
-                        onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                          openForFieldContext({
-                            objectType,
-                            objectId,
-                            fieldId,
-                            currentText,
-                            fieldLabel: 'Arc narrative',
-                          });
-                        }}
-                      />
-                    </View>
-                  )}
-                </View>
-              </View>
-              {activeTab === 'details' && (
-                <>
-                  {renderInsightsSection()}
-                  <View style={styles.sectionDivider} />
-                </>
-              )}
 
-              {activeTab === 'goals' && (
-                <View
-                  style={styles.goalsSection}
-                  onLayout={(event) => {
-                    setGoalsSectionOffset(event.nativeEvent.layout.y);
-                  }}
-                >
                   <View
-                    style={[
-                      styles.goalsDrawerInner,
-                      { paddingBottom: spacing['2xl'] + insets.bottom },
-                    ]}
+                    style={styles.goalsSection}
+                    onLayout={(event) => {
+                      setGoalsSectionOffset(event.nativeEvent.layout.y);
+                    }}
                   >
-                    {arcGoals.length > 0 && (
+                    <View style={[styles.sectionDivider, styles.sectionDividerTightTop]} />
+                    <View style={styles.goalsDrawerInner}>
                       <View
-                        style={[styles.goalsDrawerHeaderRow, styles.goalsDrawerHeaderRowRaised]}
+                        ref={goalsHeaderRef}
+                        collapsable={false}
+                        style={[
+                          styles.goalsDrawerHeaderRow,
+                          styles.goalsDrawerHeaderRowRaised,
+                          styles.goalsHeaderRowLeft,
+                        ]}
                       >
-                        <Text style={styles.sectionTitle}>
-                          Goals <Text style={styles.goalCount}>({arcGoals.length})</Text>
-                        </Text>
-                        <IconButton
-                          style={styles.goalsExpandButton}
-                          onPress={() => {
+                        <Text style={styles.sectionTitle}>Goals <Text style={styles.goalCount}>({arcGoals.length})</Text></Text>
+                      </View>
+
+                      {arcGoals.length === 0 ? (
+                        <OpportunityCard
+                          title="Turn this Arc into clear goals"
+                          body={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
+                          tone="brand"
+                          shadow="layered"
+                          ctaLabel="Create goal"
+                          ctaVariant="inverse"
+                          ctaLeadingIconName="sparkles"
+                          onPressCta={() => {
                             setHasDismissedOnboardingGoalGuide(true);
                             setIsGoalCoachVisible(true);
                           }}
-                          accessibilityLabel="Create a new goal"
-                        >
-                          <Icon name="plus" size={18} color={colors.canvas} />
-                        </IconButton>
-                      </View>
-                    )}
-
-                    {arcGoals.length === 0 ? (
-                      <EmptyState
-                        title="Turn this Arc into clear goals"
-                        instructions={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
-                        style={[styles.goalsEmptyStateContainer, { marginTop: spacing['2xl'] }]}
-                        actions={
-                          <View
-                            ref={createGoalsButtonRef}
-                            collapsable={false}
-                            style={styles.goalsPrimaryButtonWrapper}
-                          >
-                            {shouldShowOnboardingGoalGuide ? (
-                              <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
-                            ) : null}
-                            <Button
-                              variant="accent"
-                              style={styles.goalsEmptyPrimaryButton}
-                              onPress={() => {
-                                setHasDismissedOnboardingGoalGuide(true);
-                                setIsGoalCoachVisible(true);
-                              }}
-                            >
-                              <Text style={styles.goalsEmptyPrimaryLabel}>
-                                Create goal
-                              </Text>
-                            </Button>
+                          ctaAccessibilityLabel="Create a goal for this Arc"
+                          style={{ marginTop: spacing.md }}
+                        />
+                      ) : (
+                        <View style={styles.goalsScrollContent}>
+                          <View style={{ gap: 0 }}>
+                            {arcGoals.map((goal) => (
+                              <GoalListCard
+                                key={goal.id}
+                                goal={goal}
+                                parentArc={arc}
+                                activityCount={activityCountByGoal[goal.id] ?? 0}
+                                thumbnailStyles={thumbnailStyles}
+                                density="dense"
+                                variant="flat"
+                                showActivityMeta={false}
+                                onPress={() =>
+                                  navigation.navigate('GoalDetail', {
+                                    goalId: goal.id,
+                                    entryPoint: 'arcsStack',
+                                  })
+                                }
+                              />
+                            ))}
                           </View>
-                        }
-                      />
-                    ) : (
-                      <View style={styles.goalsScrollContent}>
-                        <View style={{ gap: spacing.sm }}>
-                          {arcGoals.map((goal) => (
-                            <GoalListCard
-                              key={goal.id}
-                              goal={goal}
-                              parentArc={arc}
-                              activityCount={activityCountByGoal[goal.id] ?? 0}
-                              thumbnailStyles={thumbnailStyles}
-                              padding="xs"
-                              density="dense"
-                              onPress={() =>
-                                navigation.navigate('GoalDetail', {
-                                  goalId: goal.id,
-                                  entryPoint: 'arcsStack',
-                                })
-                              }
-                            />
-                          ))}
                         </View>
+                      )}
+
+                      <View
+                        collapsable={false}
+                        style={{
+                          marginTop: arcGoals.length === 0 ? spacing.sm : spacing.xs,
+                        }}
+                      >
+                        {arcGoals.length > 0 ? (
+                          <Button
+                            variant="secondary"
+                            fullWidth
+                            onPress={() => {
+                              setHasDismissedOnboardingGoalGuide(true);
+                              setIsGoalCoachVisible(true);
+                            }}
+                            accessibilityLabel="Add goal"
+                          >
+                            <Text style={styles.goalsAddSecondaryLabel}>Add goal</Text>
+                          </Button>
+                        ) : null}
                       </View>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {activeTab === 'history' && (
-                <View style={styles.historyTabPlaceholder}>
-                  <Text style={styles.historyTabTitle}>History</Text>
-                  <Text style={styles.historyTabBody}>
-                    See the key milestones and completed work inside this Arc over time.
-                  </Text>
-
-                  {arcHistoryEvents.length === 0 ? (
-                    <View style={styles.historyEmptyCard}>
-                      <Text style={styles.historyEmptyTitle}>No history yet</Text>
-                      <Text style={styles.historyEmptyBody}>
-                        As you create and complete goals and activities in this Arc, a timeline
-                        of key moments will appear here.
-                      </Text>
                     </View>
-                  ) : (
-                    <ScrollView
-                      style={styles.historyScroll}
-                      contentContainerStyle={styles.historyScrollContent}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      <VStack space="sm">
-                        {arcHistoryEvents.map((event) => (
-                          <View key={event.id} style={styles.historyEventCard}>
-                            <Text style={styles.historyEventDate}>{event.dateLabel}</Text>
-                            <Text style={styles.historyEventTitle}>{event.title}</Text>
-                            {event.meta ? (
-                              <Text style={styles.historyEventMeta}>{event.meta}</Text>
-                            ) : null}
-                          </View>
-                        ))}
-                      </VStack>
-                    </ScrollView>
-                  )}
-                </View>
-              )}
+                  </View>
 
-              {headerV2Enabled ? (
-                <View style={[styles.paddedSection, { paddingTop: spacing.lg, paddingBottom: spacing['2xl'] }]}>
-                  <Card>
-                    <Text style={styles.actionsTitle}>Actions</Text>
-                    <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                      <Button
-                        variant="secondary"
-                        fullWidth
-                        onPress={handleToggleArchiveArc}
-                        accessibilityLabel={arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
-                      >
-                        <Text style={styles.actionsButtonLabel}>
-                          {arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
-                        </Text>
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        fullWidth
-                        onPress={handleDeleteArc}
-                        accessibilityLabel="Delete arc"
-                      >
-                        <Text style={styles.actionsButtonLabelDestructive}>Delete arc</Text>
-                      </Button>
-                    </VStack>
-                  </Card>
+                  {hasDevelopmentInsights ? (
+                    <>
+                      <View
+                        style={styles.sectionDivider}
+                      />
+                      {renderInsightsSection()}
+                    </>
+                  ) : null}
+
+                  {headerV2Enabled ? (
+                    <View style={{ paddingTop: spacing.lg }}>
+                      <Card>
+                        <Text style={styles.actionsTitle}>Actions</Text>
+                        <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                          <Button
+                            variant="secondary"
+                            fullWidth
+                            onPress={handleToggleArchiveArc}
+                            accessibilityLabel={arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
+                          >
+                            <Text style={styles.actionsButtonLabel}>
+                              {arc?.status === 'archived' ? 'Restore arc' : 'Archive arc'}
+                            </Text>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            fullWidth
+                            onPress={handleDeleteArc}
+                            accessibilityLabel="Delete arc"
+                          >
+                            <Text style={styles.actionsButtonLabelDestructive}>Delete arc</Text>
+                          </Button>
+                        </VStack>
+                      </Card>
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
+              </View>
             </View>
           </KeyboardAwareScrollView>
+          <View
+            pointerEvents="box-none"
+            style={[styles.bottomCtaBar, { paddingBottom: insets.bottom }]}
+          >
+            <View style={styles.bottomCtaRow}>
+              <View style={styles.bottomCtaLeftMeta}>
+                <Text style={styles.bottomCtaMetaTitle}>Goals</Text>
+                <Text style={styles.bottomCtaMetaBody}>
+                  {arcGoals.length === 0
+                    ? 'None yet'
+                    : `${completedArcGoals.length}/${arcGoals.length} completed`}
+                </Text>
+              </View>
+              <View style={styles.bottomCtaRight}>
+                <View
+                  ref={createGoalCtaRef}
+                  collapsable={false}
+                  style={styles.bottomCtaActionTarget}
+                >
+                  {shouldShowOnboardingGoalGuide ? (
+                    <View pointerEvents="none" style={styles.bottomCtaPrimaryButtonRing} />
+                  ) : null}
+                <Button
+                  variant="ai"
+                  fullWidth={false}
+                  onPress={() => {
+                    setHasDismissedOnboardingGoalGuide(true);
+                    setIsGoalCoachVisible(true);
+                  }}
+                  accessibilityLabel="Create a goal for this Arc"
+                >
+                  <Text style={styles.bottomCtaLabel}>Create goal</Text>
+                </Button>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
-      </TouchableWithoutFeedback>
       <ArcBannerSheet
         visible={isHeroModalVisible}
         onClose={() => setIsHeroModalVisible(false)}
@@ -1336,18 +1289,17 @@ export function ArcDetailScreen() {
       <Coachmark
         visible={Boolean(
           shouldOfferArcExploreGuide &&
-            activeTab === 'details' &&
             (arcExploreGuideStep === 0
-              ? heroBannerRef.current
+              ? heroSpotlightRef.current
               : arcExploreGuideStep === 1
-                ? tabControlRef.current
+                ? goalsHeaderRef.current
                 : hasDevelopmentInsights && insightsSectionRef.current),
         )}
         targetRef={
           arcExploreGuideStep === 0
-            ? heroBannerRef
+            ? heroSpotlightRef
             : arcExploreGuideStep === 1
-              ? tabControlRef
+              ? goalsHeaderRef
               : insightsSectionRef
         }
         scrimToken="subtle"
@@ -1365,7 +1317,7 @@ export function ArcDetailScreen() {
             {arcExploreGuideStep === 0
               ? 'Make this Arc yours'
               : arcExploreGuideStep === 1
-                ? 'Switch tabs'
+                ? 'Turn it into goals'
                 : 'Review your insights'}
           </Text>
         }
@@ -1374,8 +1326,8 @@ export function ArcDetailScreen() {
             {arcExploreGuideStep === 0
               ? 'Tap the banner to change the image (upload, curated picks, or search the image library).'
               : arcExploreGuideStep === 1
-                ? 'Use these tabs to move between Details, Goals, and your progress history.'
-                : 'We generated Arc Development Insights to help you steer this chapter. Tap a section to expand it.'}
+                ? 'Scroll down to the Goals section and add 3–5 goals so kwilt knows what success looks like.'
+                : 'We generated insights to help you steer this chapter. Review them and adjust your goals or plan as needed.'}
           </Text>
         }
         progressLabel={`${arcExploreGuideStep + 1} of ${hasDevelopmentInsights ? 3 : 2}`}
@@ -1406,12 +1358,9 @@ export function ArcDetailScreen() {
       />
       <Coachmark
         visible={Boolean(
-          activeTab === 'goals' &&
-            shouldShowOnboardingGoalGuide &&
-            arcGoals.length === 0 &&
-            createGoalsButtonRef.current,
+          shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalCtaRef.current,
         )}
-        targetRef={createGoalsButtonRef}
+        targetRef={createGoalCtaRef}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -1536,6 +1485,58 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  // Header styles live in `ObjectPageHeader`.
+  bottomCtaBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.canvas,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    // Used to reserve scroll space so content doesn't hide beneath the CTA.
+    minHeight: 92,
+  },
+  bottomCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  bottomCtaLeftMeta: {
+    flex: 1,
+    minWidth: 120,
+  },
+  bottomCtaRight: {
+    alignItems: 'flex-end',
+  },
+  bottomCtaActionTarget: {
+    position: 'relative',
+    alignSelf: 'flex-end',
+  },
+  bottomCtaPrimaryButtonRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  bottomCtaMetaTitle: {
+    ...typography.label,
+    color: colors.textSecondary,
+  },
+  bottomCtaMetaBody: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    marginTop: 2,
+  },
+  bottomCtaLabel: {
+    ...typography.body,
+    color: colors.canvas,
+    fontWeight: '700',
+  },
   scroll: {
     flex: 1,
   },
@@ -1571,7 +1572,7 @@ const styles = StyleSheet.create({
   goalsDrawerInner: {
     paddingHorizontal: 0,
     // paddingTop: spacing.xs,
-    paddingBottom: spacing['2xl'],
+    paddingBottom: 0,
   },
   paddedSection: {
     // Let the AppShell define the primary horizontal gutters so this screen
@@ -1584,6 +1585,35 @@ const styles = StyleSheet.create({
   heroContainer: {
     marginTop: spacing.xs,
     marginBottom: spacing.xs,
+  },
+  arcHeroSection: {
+    height: 320,
+    backgroundColor: colors.canvas,
+  },
+  heroFullBleedWrapper: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.shellAlt,
+  },
+  heroFullBleedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  arcSheet: {
+    marginTop: -28,
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  arcSheetInner: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
   heroImageWrapper: {
     width: '100%',
@@ -1755,17 +1785,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fonts.semibold,
   },
-  heroEditButton: {
-    position: 'absolute',
-    right: spacing.sm,
-    top: spacing.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   heroMetaText: {
     ...typography.bodySm,
     color: colors.textSecondary,
@@ -1774,9 +1793,9 @@ const styles = StyleSheet.create({
   },
   heroAttributionOverlay: {
     position: 'absolute',
-    bottom: spacing.sm,
-    right: spacing.sm,
-    left: spacing.sm,
+    // Keep this in the bottom-right, but lift it above the sheet overlap.
+    bottom: spacing.sm + 28,
+    right: spacing.xl,
     alignItems: 'flex-end',
   },
   heroAttributionPill: {
@@ -1993,6 +2012,29 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
+  arcNarrativeTitleContainer: {
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+    alignItems: 'center',
+  },
+  arcNarrativeTitle: {
+    ...typography.titleLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    maxWidth: 420,
+  },
+  arcTitleMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  arcNarrativeTitleInput: {
+    ...typography.titleLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
   actionsTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
@@ -2011,6 +2053,11 @@ const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  sectionTitleBlock: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
   goalsDrawerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2019,22 +2066,30 @@ const styles = StyleSheet.create({
   goalsDrawerHeaderRowRaised: {
     paddingBottom: spacing.sm,
   },
-  goalsExpandButton: {
-    alignSelf: 'flex-end',
-    marginTop: 0,
-    backgroundColor: colors.primary,
+  goalsHeaderRowLeft: {
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
   },
   goalsSection: {
     marginTop: 0,
   },
   sectionDivider: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
+    // Canonical section rhythm: keep divider spacing perfectly symmetric.
+    // If the gap below reads well, the gap above should match exactly.
+    marginVertical: spacing.xl,
     // Use a full-width, pill-shaped rule so the section break is legible
     // against the light shell background while still feeling airy.
-    height: 1,
-    backgroundColor: colors.border,
+    height: StyleSheet.hairlineWidth,
+    // Darker than `colors.border` so it reads as a real divider even at hairline thickness.
+    backgroundColor: colors.gray300,
     borderRadius: 999,
+  },
+  sectionDividerTightTop: {
+    // Optical compensation: the narrative LongTextField (flat) and rich text rendering
+    // can make the space *above* the first divider read slightly larger than below.
+    // Reduce only the top margin here to preserve the overall airy rhythm while
+    // restoring perceived symmetry.
+    marginTop: spacing.xl - spacing.sm,
   },
   sectionActionText: {
     ...typography.bodySm,
@@ -2096,6 +2151,26 @@ const styles = StyleSheet.create({
   goalsEmptyState: {
     marginTop: spacing.lg,
   },
+  arcTypePillRow: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  arcTypePill: {
+    backgroundColor: colors.gray100,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.gray200,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  arcTypePillLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    lineHeight: 14,
+  },
   goalsScroll: {
     marginTop: spacing.md,
   },
@@ -2132,6 +2207,11 @@ const styles = StyleSheet.create({
   goalsEmptyPrimaryLabel: {
     ...typography.bodySm,
     color: colors.canvas,
+    textAlign: 'center',
+  },
+  goalsAddSecondaryLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   goalsPrimaryButtonWrapper: {
@@ -2404,86 +2484,37 @@ const styles = StyleSheet.create({
     lineHeight: typography.body.lineHeight,
   },
   insightsSectionContainer: {
-    marginTop: spacing.lg,
-  },
-  insightsCard: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.lg,
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: cardSurfaceStyle.shadowColor,
-    shadowOpacity: cardSurfaceStyle.shadowOpacity,
-    shadowRadius: cardSurfaceStyle.shadowRadius,
-    shadowOffset: cardSurfaceStyle.shadowOffset,
-    elevation: (cardSurfaceStyle as any).elevation,
-    gap: spacing.sm,
-  },
-  insightsSectionLabel: {
-    ...typography.label,
-    color: colors.muted,
-  },
-  insightsBlocksStack: {
-    // Keep the inner stack vertically balanced inside the card: rely on the
-    // card's padding for top/bottom breathing room so spacing feels uniform.
     marginTop: 0,
-    gap: spacing.xs,
   },
-  insightBlock: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    // Each section is its own rounded panel with even treatment top/bottom.
-    borderRadius: spacing.md,
-    backgroundColor: colors.canvas,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+  insightsList: {
+    marginTop: spacing.sm,
+    gap: spacing.lg,
   },
-  insightBlockActive: {
-    // Keep the open panel on the same white background so the bullets feel
-    // continuous with the header; rely on motion and content instead of a
-    // different fill.
-    backgroundColor: colors.canvas,
-  },
-  insightHeaderRow: {
+  insightItemRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    columnGap: spacing.sm,
+    alignItems: 'flex-start',
+    columnGap: spacing.md,
   },
-  insightHeaderLeft: {
-    flexDirection: 'row',
+  insightItemIconCol: {
+    width: 28,
     alignItems: 'center',
-    columnGap: spacing.xs,
+    paddingTop: 2,
+  },
+  insightItemContent: {
     flex: 1,
   },
-  insightTitle: {
+  insightItemTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    flex: 1,
-    // Slightly stronger weight than standard body to give each panel header
-    // a clear anchor without jumping up to full title size.
     fontFamily: fonts.medium,
   },
-  insightBody: {
+  insightItemLines: {
     marginTop: spacing.xs,
     gap: spacing.xs,
   },
-  insightBulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    columnGap: spacing.xs,
-  },
-  insightBulletGlyph: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  insightBulletText: {
-    ...typography.body,
-    color: colors.textPrimary,
-    flex: 1,
+  insightItemLineText: {
+    ...typography.bodySm,
+    color: colors.sumi800,
   },
   segmentedControlRow: {
     marginTop: 0,

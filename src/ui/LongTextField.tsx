@@ -35,6 +35,11 @@ export type LongTextFieldProps = {
   label: string;
   value: string;
   onChange: (next: string) => void;
+  /**
+   * Optional stable testID for E2E tests. Applied to the canvas read-surface
+   * press target and the editor drawer close button.
+   */
+  testID?: string;
   placeholder?: string;
   disabled?: boolean;
   /**
@@ -42,6 +47,12 @@ export type LongTextFieldProps = {
    * Useful when the parent already renders a section label (e.g., Activity Detail).
    */
   hideLabel?: boolean;
+  /**
+   * Controls how the read surface is presented on the canvas.
+   * - 'card' (default): bordered surface with elevation (works well inside long forms).
+   * - 'flat': no border/elevation, reads like content on the page (Airbnb-style).
+   */
+  surfaceVariant?: 'card' | 'flat';
   /**
    * Drawer snap points for the editor. Defaults to a large editor surface.
    */
@@ -68,9 +79,11 @@ export function LongTextField({
   label,
   value,
   onChange,
+  testID,
   placeholder = 'Tap to add details',
   disabled,
   hideLabel = false,
+  surfaceVariant = 'card',
   snapPoints = ['92%'],
   autosaveDebounceMs = 500,
   enableAi,
@@ -449,19 +462,20 @@ export function LongTextField({
       ) : null}
 
       <Pressable
+        testID={testID}
         accessibilityRole="button"
         accessibilityLabel={`Edit ${label}`}
         disabled={disabled}
         onPress={openEditor}
         style={({ pressed }) => [
-          styles.readSurface,
+          surfaceVariant === 'flat' ? styles.readSurfaceFlat : styles.readSurface,
           disabled && styles.readSurfaceDisabled,
           pressed && !disabled ? styles.readSurfacePressed : null,
-          cardElevation.soft,
+          surfaceVariant === 'flat' ? null : cardElevation.soft,
         ]}
       >
         {htmlToPlainText(normalizeToHtml(value)).length ? (
-          <RichTextBlock value={value} horizontalPaddingPx={spacing.md} />
+          <RichTextBlock value={value} horizontalPaddingPx={surfaceVariant === 'flat' ? 0 : spacing.md} />
         ) : (
           <Text style={styles.placeholderText}>{placeholder}</Text>
         )}
@@ -535,6 +549,7 @@ export function LongTextField({
                   </Pressable>
                   <View style={{ width: spacing.sm }} />
                   <Pressable
+                    testID={testID ? `${testID}.editor.done` : undefined}
                     accessibilityRole="button"
                     accessibilityLabel="Done"
                     onPress={closeEditor}
@@ -661,7 +676,7 @@ export function LongTextField({
               Cancel
             </Button>
             <Button
-              variant="accent"
+              variant="primary"
               onPress={() => {
                 const url = linkUrl.trim();
                 if (!url) {
@@ -716,7 +731,7 @@ export function LongTextField({
               Cancel
             </Button>
             <Button
-              variant="accent"
+              variant="primary"
               onPress={async () => {
                 const instruction = customInstruction.trim();
                 if (!instruction) {
@@ -773,6 +788,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: spacing['2xl'] * 2,
+  },
+  readSurfaceFlat: {
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: spacing.xs,
+    minHeight: 0,
   },
   readSurfaceDisabled: {
     opacity: 0.6,

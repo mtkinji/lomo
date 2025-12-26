@@ -10,20 +10,25 @@ import type { Arc, Goal, ThumbnailStyle } from '../domain/types';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
-  ARC_TOPO_GRID_SIZE,
   buildArcThumbnailSeed,
   getArcGradient,
   getArcMosaicCell,
-  getArcTopoSizes,
   pickThumbnailStyle,
 } from '../features/arcs/thumbnailVisuals';
 import { VStack, HStack, Heading, Text } from './primitives';
+import { getGoalStatusAppearance } from './goalStatusAppearance';
 
 type GoalListCardProps = {
   goal: Goal;
   parentArc?: Arc | null;
   activityCount?: number;
   thumbnailStyles?: ThumbnailStyle[];
+  /**
+   * Visual container style.
+   * - 'card' (default): uses the shared Card shell.
+   * - 'flat': renders as a lightweight list row (no card border/background).
+   */
+  variant?: 'card' | 'flat';
   /**
    * Card shell padding preset (delegated to the shared `Card` primitive).
    */
@@ -80,6 +85,7 @@ export function GoalListCard({
   parentArc,
   activityCount = 0,
   thumbnailStyles,
+  variant = 'card',
   padding = 'md',
   density = 'default',
   activityMetaOverride,
@@ -92,16 +98,11 @@ export function GoalListCard({
   style,
   onPress,
 }: GoalListCardProps) {
-  const defaultStatusLabel = goal.status.replace('_', ' ');
-  const statusLabel = statusLabelOverride ?? defaultStatusLabel;
+  const statusAppearance = getGoalStatusAppearance(goal.status);
+  const statusLabel = statusLabelOverride ?? statusAppearance.label;
   const isDense = density === 'dense';
-
-  const statusVariant =
-    goal.status === 'in_progress'
-      ? 'default'
-      : goal.status === 'planned'
-        ? 'secondary'
-        : 'secondary';
+  const shouldCenterTitleWithThumbnail =
+    variant === 'flat' && showThumbnail && !showActivityMeta && !headerLabel;
 
   const defaultActivityLabel =
     activityCount === 0
@@ -116,33 +117,35 @@ export function GoalListCard({
   );
 
   const { colors: gradientColors, direction } = getArcGradient(seed);
-  const topoSizes = getArcTopoSizes(seed);
-  const thumbnailStyle = pickThumbnailStyle(
-    seed,
-    thumbnailStyles && thumbnailStyles.length > 0 ? thumbnailStyles : ['topographyDots']
+  const effectiveThumbnailStyles = React.useMemo(
+    () => (thumbnailStyles ?? []).filter((style) => style !== 'topographyDots'),
+    [thumbnailStyles]
   );
+  const thumbnailStyle =
+    effectiveThumbnailStyles.length > 0 ? pickThumbnailStyle(seed, effectiveThumbnailStyles) : null;
 
-  const showTopography = thumbnailStyle === 'topographyDots';
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
   const showContourRings = thumbnailStyle === 'contourRings';
   const showPixelBlocks = thumbnailStyle === 'pixelBlocks';
   const hasCustomThumbnail = Boolean(goal.thumbnailUrl || parentArc?.thumbnailUrl);
-  const shouldShowTopography = showTopography && !hasCustomThumbnail;
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
   const shouldShowContourRings = showContourRings && !hasCustomThumbnail;
   const shouldShowPixelBlocks = showPixelBlocks && !hasCustomThumbnail;
 
-  const content = (
-    <Card padding={padding} style={[styles.goalListCard, style]}>
-      <VStack
-        style={[
-          styles.goalListContent,
-          compact && styles.goalListContentCompact,
-          isDense && styles.goalListContentDense,
-        ]}
-        space="xs"
+  const inner = (
+    <VStack
+      style={[
+        styles.goalListContent,
+        compact && styles.goalListContentCompact,
+        isDense && styles.goalListContentDense,
+        variant === 'flat' && styles.goalListContentFlat,
+      ]}
+      space="xs"
+    >
+      <HStack
+        style={[styles.goalTopRow, shouldCenterTitleWithThumbnail && styles.goalTopRowCentered]}
+        space={isDense ? 'sm' : 'md'}
       >
-        <HStack style={styles.goalTopRow} space={isDense ? 'sm' : 'md'}>
           {showThumbnail && (
             <View style={[styles.goalThumbnailWrapper, isDense && styles.goalThumbnailWrapperDense]}>
               <View style={[styles.goalThumbnailInner, isDense && styles.goalThumbnailInnerDense]}>
@@ -165,36 +168,6 @@ export function GoalListCard({
                     end={direction.end}
                     style={styles.goalThumbnailGradient}
                   />
-                )}
-                {shouldShowTopography && (
-                  <View style={styles.goalTopoLayer}>
-                    <View style={styles.goalTopoGrid}>
-                      {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
-                        // eslint-disable-next-line react/no-array-index-key
-                        <View key={`goal-topo-row-${rowIndex}`} style={styles.goalTopoRow}>
-                          {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
-                            const cellIndex = rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                            const rawSize = topoSizes[cellIndex] ?? 0;
-                            const isHidden = rawSize < 0;
-                            const dotSize = isHidden ? 0 : rawSize;
-                            return (
-                              // eslint-disable-next-line react/no-array-index-key
-                              <View
-                                key={`goal-topo-cell-${rowIndex}-${colIndex}`}
-                                style={[
-                                  styles.goalTopoDot,
-                                  (dotSize === 0 || isHidden) && styles.goalTopoDotSmall,
-                                  dotSize === 1 && styles.goalTopoDotMedium,
-                                  dotSize === 2 && styles.goalTopoDotLarge,
-                                  isHidden && styles.goalTopoDotHidden,
-                                ]}
-                              />
-                            );
-                          })}
-                        </View>
-                      ))}
-                    </View>
-                  </View>
                 )}
                 {shouldShowGeoMosaic && (
                   <View style={styles.goalMosaicLayer}>
@@ -285,7 +258,12 @@ export function GoalListCard({
               </View>
             </View>
           )}
-          <VStack style={styles.goalTextContainer}>
+          <VStack
+            style={[
+              styles.goalTextContainer,
+              shouldCenterTitleWithThumbnail && styles.goalTextContainerCentered,
+            ]}
+          >
             {headerLabel}
             <Heading
               style={[styles.goalTitle, isDense && styles.goalTitleDense]}
@@ -309,9 +287,15 @@ export function GoalListCard({
               <Text style={styles.goalActivityMeta}>{activityLabel}</Text>
             </HStack>
             <Badge
-              variant={statusVariant}
-              style={isDense ? styles.goalBadgeDense : undefined}
-              textStyle={isDense ? styles.goalBadgeTextDense : undefined}
+              variant="secondary"
+              style={[
+                { backgroundColor: statusAppearance.badgeBackgroundColor },
+                isDense ? styles.goalBadgeDense : undefined,
+              ]}
+              textStyle={[
+                { color: statusAppearance.badgeTextColor },
+                isDense ? styles.goalBadgeTextDense : undefined,
+              ]}
             >
               {statusLabel}
             </Badge>
@@ -319,15 +303,29 @@ export function GoalListCard({
         )}
 
         {children}
-      </VStack>
-    </Card>
+    </VStack>
   );
 
-  if (!onPress) {
-    return content;
-  }
+  const container =
+    variant === 'flat' ? (
+      <View
+        style={[
+          styles.goalListFlat,
+          isDense && styles.goalListFlatDense,
+          style,
+        ]}
+      >
+        {inner}
+      </View>
+    ) : (
+      <Card padding={padding} style={[styles.goalListCard, style]}>
+        {inner}
+      </Card>
+    );
 
-  return <Pressable onPress={onPress}>{content}</Pressable>;
+  if (!onPress) return container;
+
+  return <Pressable onPress={onPress}>{container}</Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -335,10 +333,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginVertical: 0,
   },
+  goalListFlat: {
+    backgroundColor: 'transparent',
+    paddingVertical: spacing.md,
+  },
+  goalListFlatDense: {
+    paddingVertical: spacing.xs,
+  },
   goalListContent: {
     flexDirection: 'column',
     minHeight: 68,
     justifyContent: 'space-between',
+  },
+  goalListContentFlat: {
+    minHeight: 0,
   },
   goalListContentCompact: {
     minHeight: 0,
@@ -349,6 +357,9 @@ const styles = StyleSheet.create({
   goalTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  goalTopRowCentered: {
+    alignItems: 'center',
   },
   goalThumbnailWrapper: {
     // Sized to roughly match two lines of title text while staying on the 8px grid.
@@ -379,40 +390,6 @@ const styles = StyleSheet.create({
   },
   goalThumbnailGradient: {
     ...StyleSheet.absoluteFillObject,
-  },
-  goalTopoLayer: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalTopoGrid: {
-    width: '100%',
-    height: '100%',
-    padding: spacing.sm,
-    justifyContent: 'space-between',
-  },
-  goalTopoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  goalTopoDot: {
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-  },
-  goalTopoDotSmall: {
-    width: 3,
-    height: 3,
-  },
-  goalTopoDotMedium: {
-    width: 5,
-    height: 5,
-  },
-  goalTopoDotLarge: {
-    width: 7,
-    height: 7,
-  },
-  goalTopoDotHidden: {
-    opacity: 0,
   },
   goalMosaicLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -476,6 +453,9 @@ const styles = StyleSheet.create({
   goalTextContainer: {
     flex: 1,
     justifyContent: 'space-between',
+  },
+  goalTextContainerCentered: {
+    justifyContent: 'center',
   },
   goalTitle: {
     ...typography.body,

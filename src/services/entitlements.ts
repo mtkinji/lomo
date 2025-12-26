@@ -16,7 +16,7 @@ const LAST_KNOWN_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 export type EntitlementsSnapshot = {
   isPro: boolean;
   checkedAt: string;
-  source: 'revenuecat' | 'cache' | 'none';
+  source: 'revenuecat' | 'cache' | 'none' | 'dev';
   isStale?: boolean;
   error?: string;
 };

@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  DEFAULT_DAILY_FOCUS_TIME,
+  DAILY_FOCUS_TIME_ROUND_MINUTES,
+  DEFAULT_GOAL_NUDGE_TIME,
+} from '../services/notifications/defaultTimes';
+import { roundDownToIntervalTimeHHmm } from '../services/notifications/timeRounding';
 import Constants from 'expo-constants';
 import {
   Activity,
@@ -20,7 +26,9 @@ import {
   getMonthKey,
 } from '../domain/generativeCredits';
 import type { CelebrationKind, MediaRole } from '../services/gifs';
+import type { SoundscapeId } from '../services/soundscape';
 import { useToastStore } from './useToastStore';
+import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
@@ -225,6 +233,11 @@ interface AppState {
     dailyShowUpTime: string | null;
     allowDailyFocus: boolean;
     dailyFocusTime: string | null;
+    /**
+     * Auto: the app can tune dailyFocusTime based on observed Focus completion times.
+     * Manual: user explicitly set the time (do not auto-tune).
+     */
+    dailyFocusTimeMode?: 'auto' | 'manual';
     allowGoalNudges: boolean;
     goalNudgeTime: string | null;
     allowStreakAndReactivation: boolean;
@@ -239,6 +252,15 @@ interface AppState {
    */
   soundscapeEnabled: boolean;
   /**
+   * Whether in-app haptics are enabled (semantic haptics layer).
+   * Default: true.
+   */
+  hapticsEnabled: boolean;
+  /**
+   * Selected soundscape track id for Focus sessions.
+   */
+  soundscapeTrackId: SoundscapeId;
+  /**
    * Simple engagement state for show-up streaks and recent activity.
    */
   lastShowUpDate: string | null;
@@ -251,6 +273,11 @@ interface AppState {
    * Dates are stored as local calendar keys: YYYY-MM-DD (local time).
    */
   lastCompletedFocusSessionDate: string | null;
+  /**
+   * ISO timestamp (local device clock) of the most recent completed Focus session.
+   * Used for auto-tuning daily focus reminder time-of-day.
+   */
+  lastCompletedFocusSessionAtIso: string | null;
   currentFocusStreak: number;
   bestFocusStreak: number;
   /**
@@ -270,10 +297,23 @@ interface AppState {
     usedThisMonth: number;
   };
   /**
+   * Bonus monthly AI credits (reward layer).
+   * Additive to the base monthly allowance (Free/Pro) for the current month only.
+   */
+  bonusGenerativeCredits: {
+    monthKey: string;
+    bonusThisMonth: number;
+  };
+  /**
    * One-time flag indicating that the user has completed the first-time
    * onboarding flow. Used to avoid re-triggering FTUE on subsequent launches.
    */
   hasCompletedFirstTimeOnboarding: boolean;
+  /**
+   * One-time reward flag: user completed onboarding (Arc + Goal + ≥1 Activity),
+   * and we've granted the "exit with 25/25" top-up + shown the reward reveal.
+   */
+  hasReceivedOnboardingCompletionReward: boolean;
   /**
    * When set, this is the Arc that was most recently created by the
    * first-time onboarding flow so we can land the user directly on it and
@@ -344,6 +384,16 @@ interface AppState {
    */
   hasSeenOnboardingSharePrompt: boolean;
   /**
+   * One-time educational interstitial teaching AI credits during FTUE.
+   */
+  hasSeenCreditsEducationInterstitial: boolean;
+  /**
+   * Local idempotence cache for referral redemptions.
+   * Server remains authoritative; this just avoids repeated redemption calls
+   * if the app is opened multiple times via the same link.
+   */
+  redeemedReferralCodes: Record<string, true>;
+  /**
    * One-time coachmark for AI writing refine: after the first successful refine,
    * we teach users that the header Undo button restores the prior text.
    */
@@ -393,6 +443,8 @@ interface AppState {
   ) => void;
   setLastFocusMinutes: (minutes: number) => void;
   setSoundscapeEnabled: (enabled: boolean) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
+  setSoundscapeTrackId: (trackId: SoundscapeId) => void;
   /**
    * Record that the user "showed up" today by visiting Today or completing
    * an Activity. Updates streak and lastActiveDate.
@@ -428,6 +480,8 @@ interface AppState {
   tryConsumeGenerativeCredit: (params: {
     tier: 'free' | 'pro';
   }) => { ok: boolean; remaining: number; limit: number };
+  setBonusGenerativeCreditsThisMonth: (bonusThisMonth: number) => void;
+  addBonusGenerativeCreditsThisMonth: (bonusDelta: number) => void;
   /**
    * Dev-only helpers to make monetization/quota testing deterministic.
    * (No-op outside __DEV__.)
@@ -439,6 +493,7 @@ interface AppState {
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
   setHasSeenOnboardingSharePrompt: (seen: boolean) => void;
+  setHasSeenCreditsEducationInterstitial: (seen: boolean) => void;
   setHasSeenRefineUndoCoachmark: (seen: boolean) => void;
   setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingActivitiesGuide: (dismissed: boolean) => void;
@@ -596,6 +651,7 @@ export const useAppStore = create(
         dailyShowUpTime: null,
         allowDailyFocus: false,
         dailyFocusTime: null,
+        dailyFocusTimeMode: 'auto',
         // System nudge: default ON once notifications are enabled (user can toggle off).
         allowGoalNudges: true,
         goalNudgeTime: null,
@@ -603,10 +659,13 @@ export const useAppStore = create(
       },
       lastFocusMinutes: null,
       soundscapeEnabled: false,
+      hapticsEnabled: true,
+      soundscapeTrackId: 'default',
       lastShowUpDate: null,
       currentShowUpStreak: 0,
       lastActiveDate: null,
       lastCompletedFocusSessionDate: null,
+      lastCompletedFocusSessionAtIso: null,
       currentFocusStreak: 0,
       bestFocusStreak: 0,
       activityViews: initialActivityViews,
@@ -646,12 +705,19 @@ export const useAppStore = create(
         monthKey: getMonthKey(new Date()),
         usedThisMonth: 0,
       },
+      bonusGenerativeCredits: {
+        monthKey: getMonthKey(new Date()),
+        bonusThisMonth: 0,
+      },
       hasCompletedFirstTimeOnboarding: false,
+      hasReceivedOnboardingCompletionReward: false,
       lastOnboardingArcId: null,
       lastOnboardingGoalId: null,
       hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
       hasSeenOnboardingSharePrompt: false,
+      hasSeenCreditsEducationInterstitial: false,
+      redeemedReferralCodes: {},
       hasSeenRefineUndoCoachmark: false,
       hasDismissedOnboardingGoalGuide: false,
       hasDismissedOnboardingActivitiesGuide: false,
@@ -723,9 +789,51 @@ export const useAppStore = create(
       addActivity: (activity) =>
         set((state) => {
           const atIso = now();
+          const nextActivities = [...state.activities, activity];
+          const nextTagHistory = recordTagUsageForActivity(state.activityTagHistory, activity, atIso);
+
+          let shouldGrantOnboardingCompletionReward = false;
+          if (!state.hasReceivedOnboardingCompletionReward) {
+            const onboardingArcId = state.lastOnboardingArcId;
+            const onboardingGoalId = state.lastOnboardingGoalId;
+            const activityGoalId = activity.goalId ?? null;
+            if (
+              onboardingArcId &&
+              onboardingGoalId &&
+              activityGoalId === onboardingGoalId &&
+              state.arcs.some((a) => a.id === onboardingArcId) &&
+              state.goals.some((g) => g.id === onboardingGoalId && g.arcId === onboardingArcId)
+            ) {
+              shouldGrantOnboardingCompletionReward = true;
+            }
+          }
+
+          if (!shouldGrantOnboardingCompletionReward) {
+            return {
+              activities: nextActivities,
+              activityTagHistory: nextTagHistory,
+            };
+          }
+
+          // Top-up: ensure the user exits onboarding with a full monthly allowance available.
+          const currentKey = getMonthKey(new Date());
+          const nextCredits = { monthKey: currentKey, usedThisMonth: 0 };
+
+          // Trigger the reward reveal interstitial outside the store update.
+          // (This keeps store state updates pure and avoids UI coupling in reducers.)
+          setTimeout(() => {
+            try {
+              useCreditsInterstitialStore.getState().open({ kind: 'completion' });
+            } catch {
+              // best-effort only
+            }
+          }, 0);
+
           return {
-            activities: [...state.activities, activity],
-            activityTagHistory: recordTagUsageForActivity(state.activityTagHistory, activity, atIso),
+            activities: nextActivities,
+            activityTagHistory: nextTagHistory,
+            generativeCredits: nextCredits,
+            hasReceivedOnboardingCompletionReward: true,
           };
         }),
       updateActivity: (activityId, updater) =>
@@ -805,6 +913,10 @@ export const useAppStore = create(
       setHasSeenOnboardingSharePrompt: (seen) =>
         set(() => ({
           hasSeenOnboardingSharePrompt: seen,
+        })),
+      setHasSeenCreditsEducationInterstitial: (seen) =>
+        set(() => ({
+          hasSeenCreditsEducationInterstitial: seen,
         })),
       setHasSeenRefineUndoCoachmark: (seen) =>
         set(() => ({
@@ -926,11 +1038,18 @@ export const useAppStore = create(
       clearUserProfile: () => set({ userProfile: null }),
       setLlmModel: (model) => set({ llmModel: model }),
       tryConsumeGenerativeCredit: ({ tier }) => {
-        const limit =
-          tier === 'pro'
-            ? PRO_GENERATIVE_CREDITS_PER_MONTH
-            : FREE_GENERATIVE_CREDITS_PER_MONTH;
+        const baseLimit =
+          tier === 'pro' ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
         const currentKey = getMonthKey(new Date());
+        const bonusLedger =
+          get().bonusGenerativeCredits ?? { monthKey: currentKey, bonusThisMonth: 0 };
+        const normalizedBonus =
+          bonusLedger.monthKey === currentKey
+            ? bonusLedger
+            : { monthKey: currentKey, bonusThisMonth: 0 };
+        const bonusRaw = Number((normalizedBonus as any).bonusThisMonth ?? 0);
+        const bonus = Number.isFinite(bonusRaw) ? Math.max(0, Math.floor(bonusRaw)) : 0;
+        const limit = baseLimit + bonus;
         const ledger = get().generativeCredits ?? { monthKey: currentKey, usedThisMonth: 0 };
         const normalized =
           ledger.monthKey === currentKey
@@ -942,6 +1061,9 @@ export const useAppStore = create(
         if (remaining <= 0) {
           if (ledger.monthKey !== currentKey) {
             set(() => ({ generativeCredits: normalized }));
+          }
+          if (bonusLedger.monthKey !== currentKey) {
+            set(() => ({ bonusGenerativeCredits: normalizedBonus }));
           }
           return { ok: false, remaining: 0, limit };
         }
@@ -961,6 +1083,33 @@ export const useAppStore = create(
           });
         }
         return { ok: true, remaining: remainingAfterConsume, limit };
+      },
+      setBonusGenerativeCreditsThisMonth: (bonusThisMonth) => {
+        const currentKey = getMonthKey(new Date());
+        const normalized =
+          typeof bonusThisMonth === 'number' && Number.isFinite(bonusThisMonth)
+            ? Math.max(0, Math.floor(bonusThisMonth))
+            : 0;
+        set(() => ({ bonusGenerativeCredits: { monthKey: currentKey, bonusThisMonth: normalized } }));
+      },
+      addBonusGenerativeCreditsThisMonth: (bonusDelta) => {
+        const currentKey = getMonthKey(new Date());
+        const delta =
+          typeof bonusDelta === 'number' && Number.isFinite(bonusDelta)
+            ? Math.max(0, Math.floor(bonusDelta))
+            : 0;
+        if (delta <= 0) return;
+        const ledger =
+          get().bonusGenerativeCredits ?? { monthKey: currentKey, bonusThisMonth: 0 };
+        const normalized =
+          ledger.monthKey === currentKey
+            ? ledger
+            : { monthKey: currentKey, bonusThisMonth: 0 };
+        const raw = Number((normalized as any).bonusThisMonth ?? 0);
+        const current = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+        set(() => ({
+          bonusGenerativeCredits: { monthKey: currentKey, bonusThisMonth: current + delta },
+        }));
       },
       devResetGenerativeCredits: () => {
         if (!__DEV__) return;
@@ -997,6 +1146,14 @@ export const useAppStore = create(
       setSoundscapeEnabled: (enabled) =>
         set(() => ({
           soundscapeEnabled: Boolean(enabled),
+        })),
+      setHapticsEnabled: (enabled) =>
+        set(() => ({
+          hapticsEnabled: Boolean(enabled),
+        })),
+      setSoundscapeTrackId: (trackId) =>
+        set(() => ({
+          soundscapeTrackId: (trackId || 'default') as SoundscapeId,
         })),
       recordShowUp: () =>
         set((state) => {
@@ -1053,10 +1210,26 @@ export const useAppStore = create(
           const prevKey = state.lastCompletedFocusSessionDate;
           const prevStreak = state.currentFocusStreak ?? 0;
 
+          const isDailyFocusAuto =
+            state.notificationPreferences?.allowDailyFocus === true &&
+            (state.notificationPreferences.dailyFocusTimeMode ?? 'auto') === 'auto';
+          const nextDailyFocusTime = isDailyFocusAuto
+            ? roundDownToIntervalTimeHHmm({ at: nowDate, intervalMinutes: DAILY_FOCUS_TIME_ROUND_MINUTES })
+            : (state.notificationPreferences?.dailyFocusTime ?? null);
+
+          const nextNotificationPreferences = isDailyFocusAuto
+            ? {
+                ...state.notificationPreferences,
+                dailyFocusTime: nextDailyFocusTime,
+              }
+            : state.notificationPreferences;
+
           if (prevKey === todayKey) {
             // Already counted today.
             return {
               ...state,
+              notificationPreferences: nextNotificationPreferences,
+              lastCompletedFocusSessionAtIso: nowDate.toISOString(),
               lastActiveDate: state.lastActiveDate ?? nowDate.toISOString(),
             };
           }
@@ -1089,8 +1262,10 @@ export const useAppStore = create(
           return {
             ...state,
             lastCompletedFocusSessionDate: todayKey,
+            lastCompletedFocusSessionAtIso: nowDate.toISOString(),
             currentFocusStreak: nextStreak,
             bestFocusStreak,
+            notificationPreferences: nextNotificationPreferences,
             lastActiveDate: nowDate.toISOString(),
           };
         }),
@@ -1104,6 +1279,7 @@ export const useAppStore = create(
         set((state) => ({
           ...state,
           lastCompletedFocusSessionDate: null,
+          lastCompletedFocusSessionAtIso: null,
           currentFocusStreak: 0,
           bestFocusStreak: 0,
         })),
@@ -1153,6 +1329,7 @@ export const useAppStore = create(
           activeActivityViewId: 'default',
           lastFocusMinutes: null,
           soundscapeEnabled: false,
+          hapticsEnabled: true,
           lastOnboardingArcId: null,
           lastOnboardingGoalId: null,
           hasSeenFirstGoalCelebration: false,
@@ -1174,6 +1351,7 @@ export const useAppStore = create(
           currentShowUpStreak: 0,
           lastActiveDate: null,
           lastCompletedFocusSessionDate: null,
+          lastCompletedFocusSessionAtIso: null,
           currentFocusStreak: 0,
           bestFocusStreak: 0,
         }),
@@ -1185,6 +1363,11 @@ export const useAppStore = create(
       partialize: (state) => state,
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        // Backward-compatible: older persisted stores won't have hapticsEnabled.
+        const anyState = state as any;
+        if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
+          (state as any).hapticsEnabled = true;
+        }
         // Backward-compatible: older persisted stores won't have goal nudge time.
         // Default to a high-engagement "afternoon momentum" time.
         const prefs = state.notificationPreferences as any;
@@ -1192,9 +1375,77 @@ export const useAppStore = create(
           if (!('goalNudgeTime' in prefs) || typeof prefs.goalNudgeTime !== 'string') {
             state.notificationPreferences = {
               ...state.notificationPreferences,
-              goalNudgeTime: '16:00',
+              goalNudgeTime: DEFAULT_GOAL_NUDGE_TIME,
             };
           }
+
+          // Backward-compatible: track whether daily focus time is auto-tuned or user-set.
+          if (!('dailyFocusTimeMode' in prefs) || (prefs.dailyFocusTimeMode !== 'auto' && prefs.dailyFocusTimeMode !== 'manual')) {
+            const normalizeHHmm = (raw: unknown): string | null => {
+              if (typeof raw !== 'string') return null;
+              const [hRaw, mRaw] = raw.trim().split(':');
+              const h = Number.parseInt((hRaw ?? '').trim(), 10);
+              const m = Number.parseInt((mRaw ?? '').trim(), 10);
+              if (Number.isNaN(h) || Number.isNaN(m)) return null;
+              if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+              return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            };
+            const focus = normalizeHHmm((prefs as any).dailyFocusTime);
+            // Heuristic: if the stored focus time differs from known defaults, treat it as user-set.
+            const inferredMode =
+              focus && focus !== '08:00' && focus !== DEFAULT_DAILY_FOCUS_TIME ? 'manual' : 'auto';
+            state.notificationPreferences = {
+              ...state.notificationPreferences,
+              dailyFocusTimeMode: inferredMode,
+            };
+          }
+
+          // Backward-compatible behavior change (Dec 2025): daily focus invites should come
+          // later in the day by default (to avoid colliding with the morning show-up nudge).
+          //
+          // Only migrate users who appear to still be on the *old default*:
+          // - dailyFocusTime is missing, or
+          // - dailyFocusTime equals dailyShowUpTime AND both are exactly 8:00am.
+          const parseHHmm = (raw: unknown): { hour: number; minute: number } | null => {
+            if (typeof raw !== 'string') return null;
+            const trimmed = raw.trim();
+            if (trimmed.length === 0) return null;
+            const [hRaw, mRaw] = trimmed.split(':');
+            const hour = Number.parseInt((hRaw ?? '').trim(), 10);
+            const minute = Number.parseInt((mRaw ?? '').trim(), 10);
+            if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+            if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+            return { hour, minute };
+          };
+          const toKey = (raw: unknown): string | null => {
+            const t = parseHHmm(raw);
+            if (!t) return null;
+            return `${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}`;
+          };
+
+          const focusKey = toKey(prefs.dailyFocusTime);
+          const showUpKey = toKey(prefs.dailyShowUpTime);
+          const allowDailyFocus = prefs.allowDailyFocus === true;
+
+          const shouldBackfillFocus =
+            allowDailyFocus &&
+            (!focusKey || (focusKey === showUpKey && focusKey === '08:00' && showUpKey === '08:00'));
+
+          if (shouldBackfillFocus) {
+            state.notificationPreferences = {
+              ...state.notificationPreferences,
+              dailyFocusTime: DEFAULT_DAILY_FOCUS_TIME,
+            };
+          }
+        }
+
+        // Backward-compatible: older persisted stores won't have focus completion timestamp.
+        if (
+          !('lastCompletedFocusSessionAtIso' in anyState) ||
+          (anyState.lastCompletedFocusSessionAtIso !== null &&
+            typeof anyState.lastCompletedFocusSessionAtIso !== 'string')
+        ) {
+          (state as any).lastCompletedFocusSessionAtIso = null;
         }
         if (state.forces.length === 0) {
           state.forces = canonicalForces;
@@ -1298,6 +1549,27 @@ export const useAppStore = create(
           monthKey === currentMonthKey
             ? { monthKey, usedThisMonth }
             : { monthKey: currentMonthKey, usedThisMonth: 0 };
+
+        // Backward-compatible normalization: bonus generative credits are monthly-scoped.
+        const rawBonus = (state as any).bonusGenerativeCredits as
+          | { monthKey?: unknown; bonusThisMonth?: unknown }
+          | undefined;
+        const bonusMonthKey =
+          rawBonus && typeof rawBonus.monthKey === 'string' ? rawBonus.monthKey : currentMonthKey;
+        const bonusRaw = rawBonus?.bonusThisMonth;
+        const bonusThisMonth =
+          typeof bonusRaw === 'number' && Number.isFinite(bonusRaw)
+            ? Math.max(0, Math.floor(bonusRaw))
+            : 0;
+        state.bonusGenerativeCredits =
+          bonusMonthKey === currentMonthKey
+            ? { monthKey: bonusMonthKey, bonusThisMonth }
+            : { monthKey: currentMonthKey, bonusThisMonth: 0 };
+
+        // Backward-compatible normalization: referral redemption cache.
+        if (!state.redeemedReferralCodes || typeof state.redeemedReferralCodes !== 'object') {
+          state.redeemedReferralCodes = {};
+        }
       },
     }
   )

@@ -1,0 +1,29 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Activities list major interactions:
+# - expand Quick Add dock
+# - type title
+# - submit
+# - verify the new activity appears on the canvas list
+
+- launchApp
+
+- tapOn:
+    id: "e2e.activities.quickAdd.open"
+
+- tapOn:
+    id: "e2e.activities.quickAdd.input"
+
+- inputText: "E2E: quick add"
+
+- tapOn:
+    id: "e2e.activities.quickAdd.submit"
+
+- tapOn:
+    id: "e2e.activities.quickAdd.done"
+    optional: true
+
+- assertVisible:
+    text: "E2E: quick add"
+
+

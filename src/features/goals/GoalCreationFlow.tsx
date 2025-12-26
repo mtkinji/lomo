@@ -11,6 +11,15 @@ type GoalCreationFlowProps = {
    * answers into the transcript, but it never mounts its own chat UI.
    */
   chatControllerRef?: React.RefObject<ChatTimelineController | null>;
+  /**
+   * When true, attempt to generate a starter goal recommendation immediately
+   * on mount (before asking the user to type). If the agent call fails, the
+   * flow falls back to the existing manual prompt collection UI.
+   *
+   * This should only be enabled for true "goalCreation" entrypoints (not
+   * goal refinement/editing surfaces).
+   */
+  autoRecommendOnMount?: boolean;
 };
 
 /**
@@ -20,7 +29,7 @@ type GoalCreationFlowProps = {
  * (instead of the global chat composer) to keep this moment tap-first and
  * visually consistent with onboarding/arc creation.
  */
-export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
+export function GoalCreationFlow({ chatControllerRef, autoRecommendOnMount = false }: GoalCreationFlowProps) {
   const workflowRuntime = useWorkflowRuntime();
 
   const definition = workflowRuntime?.definition;
@@ -39,10 +48,12 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
   const [prompt, setPrompt] = useState('');
   const [constraints, setConstraints] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const hasAttemptedAutoRecommendRef = useRef(false);
 
   useEffect(() => {
     if (!isContextCollectActive) return;
     if (introStreamed) return;
+    if (autoRecommendOnMount && !hasAttemptedAutoRecommendRef.current) return;
     if (hasRequestedIntroRef.current) return;
     hasRequestedIntroRef.current = true;
 
@@ -59,12 +70,54 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
         onDone: () => setIntroStreamed(true),
       },
     );
-  }, [chatControllerRef, introStreamed, isContextCollectActive]);
+  }, [autoRecommendOnMount, chatControllerRef, introStreamed, isContextCollectActive]);
 
   useEffect(() => {
     if (!isContextCollectActive) return;
     setStepIndex(0);
   }, [isContextCollectActive]);
+
+  useEffect(() => {
+    if (!autoRecommendOnMount) return;
+    if (!isContextCollectActive) return;
+    if (!workflowRuntime || !isGoalCreationWorkflow) return;
+    if (submitting) return;
+    if (hasAttemptedAutoRecommendRef.current) return;
+    if (prompt.trim().length > 0 || constraints.trim().length > 0) return;
+
+    hasAttemptedAutoRecommendRef.current = true;
+
+    const run = async () => {
+      try {
+        setSubmitting(true);
+        // Complete the context step with a minimal synthetic prompt so the agent
+        // has permission to generate immediately (without user typing).
+        workflowRuntime.completeStep('context_collect', {
+          prompt:
+            'Propose one starter goal based on my existing context in kwilt (arcs/goals/activities and any focused Arc). Assume a near-term horizon (roughly 30–90 days) unless the context strongly implies otherwise.',
+          constraints: null,
+        }, 'agent_generate_goals');
+
+        await workflowRuntime.invokeAgentStep?.({ stepId: 'agent_generate_goals' });
+      } catch {
+        // Return the workflow to context collection so the user can type the
+        // goal manually (existing fallback UI).
+        workflowRuntime.completeStep('agent_generate_goals', undefined, 'context_collect');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    void run();
+  }, [
+    autoRecommendOnMount,
+    constraints,
+    isContextCollectActive,
+    isGoalCreationWorkflow,
+    prompt,
+    submitting,
+    workflowRuntime,
+  ]);
 
   const handleSubmit = useCallback(async () => {
     if (!workflowRuntime || !isGoalCreationWorkflow) return;
@@ -98,6 +151,11 @@ export function GoalCreationFlow({ chatControllerRef }: GoalCreationFlowProps) {
   }, [chatControllerRef, constraints, isGoalCreationWorkflow, prompt, submitting, workflowRuntime]);
 
   if (!isContextCollectActive) {
+    return null;
+  }
+
+  // When auto-recommending, avoid briefly flashing the manual prompt card.
+  if (autoRecommendOnMount && submitting && prompt.trim().length === 0 && constraints.trim().length === 0) {
     return null;
   }
 

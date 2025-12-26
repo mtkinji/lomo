@@ -1,0 +1,76 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Keyboard & tap safety harness:
+# - last input is reachable and editable
+# - while keyboard is open, taps still work
+# - keyboard inside a BottomDrawer works
+# - closing the drawer doesn't break interaction
+
+- launchApp
+
+- tapOn:
+    id: "nav.drawer.toggle"
+
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+
+- tapOn:
+    id: "devtools.tab.e2e"
+
+# Focus the last input and type.
+- scrollUntilVisible:
+    element:
+      id: "e2e.keyboard.lastInput"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.keyboard.lastInput"
+
+- inputText: "hello"
+
+# Prove taps still work while keyboard is open.
+- tapOn:
+    id: "e2e.keyboard.tapWhileOpen"
+
+- assertVisible:
+    text: "Tap while open (1)"
+
+- tapOn:
+    id: "e2e.keyboard.submit"
+
+- assertVisible:
+    text: "Submit (1)"
+
+# Now test inside a bottom drawer.
+- scrollUntilVisible:
+    element:
+      id: "e2e.keyboard.openSheet"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.keyboard.openSheet"
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.keyboard.sheetInput"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.keyboard.sheetInput"
+
+- inputText: "sheet"
+
+- tapOn:
+    id: "e2e.keyboard.sheetSubmit"
+
+- tapOn:
+    id: "e2e.keyboard.closeSheet"
+
+# After close, the underlying harness should still be tappable.
+- tapOn:
+    id: "e2e.keyboard.submit"
+
+- assertVisible:
+    text: "Submit (2)"
+
+

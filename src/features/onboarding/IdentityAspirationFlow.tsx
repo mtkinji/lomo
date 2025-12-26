@@ -48,6 +48,7 @@ import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { useToastStore } from '../../store/useToastStore';
+import { useCreditsInterstitialStore } from '../../store/useCreditsInterstitialStore';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -609,6 +610,8 @@ type ArcDevelopmentInsights = {
   pitfalls: string[];
 };
 
+const MIN_INSIGHTS_PER_SECTION = 2;
+
 const BANNED_ARC_MUSH_PHRASES = [
   'in a grounded way',
   'rooted in',
@@ -775,6 +778,10 @@ export function IdentityAspirationFlow({
   const [expandedOptionSets, setExpandedOptionSets] = useState<Record<string, boolean>>({});
 
   const isFirstTimeOnboarding = mode === 'firstTimeOnboarding';
+  const hasSeenCreditsEducationInterstitial = useAppStore((state) => state.hasSeenCreditsEducationInterstitial);
+  const setHasSeenCreditsEducationInterstitial = useAppStore(
+    (state) => state.setHasSeenCreditsEducationInterstitial
+  );
 
   const setSurveyPhaseByIndex = useCallback(
     (index: number) => {
@@ -795,6 +802,24 @@ export function IdentityAspirationFlow({
     if (idx === surveyStepIndex) return;
     setSurveyStepIndex(idx);
   }, [isFirstTimeOnboarding, phase, surveyStepIndex]);
+
+  useEffect(() => {
+    if (!isFirstTimeOnboarding) return;
+    if (hasSeenCreditsEducationInterstitial) return;
+    // Show a lightweight credits explainer early, before heavy AI steps.
+    setHasSeenCreditsEducationInterstitial(true);
+    setTimeout(() => {
+      try {
+        useCreditsInterstitialStore.getState().open({ kind: 'education' });
+      } catch {
+        // best-effort only
+      }
+    }, 300);
+  }, [
+    hasSeenCreditsEducationInterstitial,
+    isFirstTimeOnboarding,
+    setHasSeenCreditsEducationInterstitial,
+  ]);
 
   const callOnboardingAgentStep = useCallback(
     async (stepId: string, messages: CoachChatTurn[]): Promise<string> => {
@@ -1346,13 +1371,29 @@ export function IdentityAspirationFlow({
         return null;
       }
 
-      const strengths = parsed.strengths.filter((item) => typeof item === 'string' && item.trim());
-      const growthEdges = parsed.growthEdges.filter(
-        (item) => typeof item === 'string' && item.trim()
-      );
-      const pitfalls = parsed.pitfalls.filter((item) => typeof item === 'string' && item.trim());
+      const normalizeInsightLine = (value: string): string => {
+        const trimmed = value.trim();
+        return trimmed
+          .replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
 
-      if (strengths.length === 0 || growthEdges.length === 0 || pitfalls.length === 0) {
+      const strengths = parsed.strengths
+        .filter((item) => typeof item === 'string' && item.trim())
+        .map((item) => normalizeInsightLine(item as string));
+      const growthEdges = parsed.growthEdges
+        .filter((item) => typeof item === 'string' && item.trim())
+        .map((item) => normalizeInsightLine(item as string));
+      const pitfalls = parsed.pitfalls
+        .filter((item) => typeof item === 'string' && item.trim())
+        .map((item) => normalizeInsightLine(item as string));
+
+      if (
+        strengths.length < MIN_INSIGHTS_PER_SECTION ||
+        growthEdges.length < MIN_INSIGHTS_PER_SECTION ||
+        pitfalls.length < MIN_INSIGHTS_PER_SECTION
+      ) {
         return null;
       }
 
@@ -1360,6 +1401,28 @@ export function IdentityAspirationFlow({
     } catch {
       return null;
     }
+  };
+
+  const isHarshOrClinicalInsightLine = (value: string): boolean => {
+    const line = value.trim();
+    if (!line) return true;
+
+    if (/^\s*(individuals?|many individuals?)\b/i.test(line)) return true;
+
+    const bannedPhrases: RegExp[] = [
+      /\b(should|must|have to|need to)\b/i,
+      /\b(grapple|struggle|struggling|overextend|overextending|neglect|trap|pitfall|fault|flaw)\b/i,
+      /\b(challenge|challenges)\b/i,
+      /\b(fall into)\b/i,
+      /\b(perfectionism|perfectly)\b/i,
+      /\b(always|never)\b/i,
+    ];
+    return bannedPhrases.some((re) => re.test(line));
+  };
+
+  const isHarshOrClinicalInsightSet = (insights: ArcDevelopmentInsights): boolean => {
+    const all = [...insights.strengths, ...insights.growthEdges, ...insights.pitfalls];
+    return all.some(isHarshOrClinicalInsightLine);
   };
 
   const buildLocalInsightsFallback = (): ArcDevelopmentInsights | null => {
@@ -1409,15 +1472,15 @@ export function IdentityAspirationFlow({
     growthEdges.push('Letting progress be small and repeatable instead of all‑or‑nothing.');
 
     // Pitfalls – gentle, non-moralizing patterns.
-    pitfalls.push('Treating this Arc as something you have to “earn” instead of a direction to grow.');
+    pitfalls.push('Remembering this Arc is a direction you can practice, not something you have to “earn.”');
     if (bigDreams.length > 0) {
       pitfalls.push(
-        `Keeping ${dreamSnippet.toLowerCase()} so private that no one can support you in it.`
+        `Letting one trusted person in on ${dreamSnippet.toLowerCase()} so it has somewhere to live outside your head.`
       );
     } else {
-      pitfalls.push('Keeping your hopes so vague that it’s hard to know what actually matters.');
+      pitfalls.push('Naming one concrete hope so it’s easier to recognize what actually matters.');
     }
-    pitfalls.push('Slipping back into busyness and forgetting the quieter work this Arc asks for.');
+    pitfalls.push('When life gets busy, noticing the quieter work this Arc asks for—and returning gently.');
 
     return { strengths, growthEdges, pitfalls };
   };
@@ -1573,12 +1636,13 @@ export function IdentityAspirationFlow({
         '- pitfalls people on this path learn to navigate.',
         '',
         'Scoring dimensions (0–10 each):',
-        '1) alignment – do the bullets clearly relate to the Arc name, narrative, dream, and identity signals (domain, motivation, proud moment, values, vocation)?',
+        '1) alignment – do the lines clearly relate to the Arc name, narrative, dream, and identity signals (domain, motivation, proud moment, values, vocation)?',
         '2) developmental_accuracy – do they describe believable ways people grow over time, without diagnosing or giving prescriptive advice?',
         '3) realism – could these show up in an ordinary week for this kind of person, in grounded language?',
-        '4) clarity – are bullets short, scannable, and free of vague “inspire / unlock / radiate” language?',
+        '4) clarity – are lines short, scannable, and free of vague “inspire / unlock / radiate” language?',
+        '5) invitation_tone – do the lines feel like warm, progress-oriented invitations (not reprimands, warnings, or clinical problem statements)?',
         '',
-        'Compute final_score as the simple average of the four dimensions, and clamp it to 0–10.',
+        'Compute final_score as the simple average of the five dimensions, and clamp it to 0–10.',
         '',
         'Return ONLY a JSON object (no markdown, no surrounding text) in this shape:',
         '{',
@@ -1697,20 +1761,25 @@ export function IdentityAspirationFlow({
         '',
         'You are generating a short, psychologically grounded “development profile” for a user’s Identity Arc.',
         '',
-        'Your job is NOT to give advice or instructions. Instead, describe how people on this kind of path typically grow over time.',
+        'Your job is NOT to reprimand, warn, or diagnose. Write tailored, kind invitations that make the user feel capable and moving forward.',
+        'Each line should feel like a small, supportive nudge—not a critique.',
         '',
         'Structure:',
-        '- strengths: 2–3 bullets about capacities or habits that help people grow this Arc.',
-        '- growth_edges: 2–3 bullets about tensions or edges people often work on along this path.',
-        '- pitfalls: 2–3 bullets about common traps people on this path learn to navigate.',
+        '- strengths: 2–3 short lines about capacities or habits that help people grow this Arc.',
+        '- growth_edges: 2–3 short lines about tensions or edges people often work on along this path.',
+        '- pitfalls: 2–3 short lines about moments to watch for, phrased gently and paired with a sense of possibility.',
         '',
         'Hard rules:',
         '- Do NOT use the word “should”.',
         '- Do NOT tell the user what to do or give step-by-step advice.',
         '- Do NOT diagnose traits, disorders, or fixed labels.',
         '- Keep language grounded, concrete, and non-cosmic (no destiny, vibration, radiance, etc.).',
-        '- Speak in third-person plural framing like “people on this path often…” or “many people with this kind of Arc…”.',
-        '- Bullets must be short (one line each) and easy to scan on a phone.',
+        '- Avoid clinical/problem framing (do NOT write: “Individuals may…”, “people struggle…”, “fall into the trap…”, “neglect…”, “perfectionism…”, “challenges…”).',
+        '- Prefer an invitational tone (e.g., “You might notice…”, “It can help to remember…”, “A gentle experiment is…”), without prescribing a checklist.',
+        '- Speak in gentle second-person or third-person plural (“you might notice…”, “people on this path often…”).',
+        '- Each line should start like an invitation (often a gerund), e.g., “Noticing…”, “Returning to…”, “Making room for…”, “Letting…”.',
+        '- Do NOT include bullet characters (no leading "-", "*", "•", or numbered lists). Return plain strings only.',
+        '- Lines must be short (one line each) and easy to scan on a phone.',
         '',
         'Tone:',
         '- Supportive, non-judgmental, and normalizing.',
@@ -1721,6 +1790,9 @@ export function IdentityAspirationFlow({
         '- the Arc name and narrative (identity spine, everyday scenes, and tension),',
         '- the user’s dream imagery (when present),',
         '- the identity signals (domain, motivation, proud moment, values, vocation, philosophy).',
+        '',
+        'Anti-generic rule:',
+        '- Make each section feel specific to THIS Arc; avoid generic personality-general statements.',
         '',
         'Output format (JSON only, no backticks, no prose):',
         '{',
@@ -1755,6 +1827,10 @@ export function IdentityAspirationFlow({
           const reply = await callOnboardingAgentStep('arc_insights_generate', messages);
           const parsed = parseInsightsFromReply(reply);
           if (!parsed) {
+            continue;
+          }
+
+          if (isHarshOrClinicalInsightSet(parsed)) {
             continue;
           }
 
@@ -2240,17 +2316,7 @@ export function IdentityAspirationFlow({
     const isPro = useEntitlementsStore.getState().isPro;
     const canCreate = canCreateArc({ isPro, arcs: useAppStore.getState().arcs });
     if (!canCreate.ok) {
-      Alert.alert(
-        'Arc limit reached',
-        `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
-        [
-          { text: 'Not now', style: 'cancel' },
-          {
-            text: 'Upgrade',
-            onPress: () => openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' }),
-          },
-        ],
-      );
+      openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
       return;
     }
 
@@ -2935,7 +3001,7 @@ export function IdentityAspirationFlow({
 
         <View style={styles.inlineActions}>
           <Button
-            variant="accent"
+            variant="primary"
             style={[
               styles.primaryButton,
               { flex: 1 },
@@ -2983,7 +3049,7 @@ export function IdentityAspirationFlow({
             <ButtonLabel size="md">Skip</ButtonLabel>
           </Button>
           <Button
-            variant="accent"
+            variant="primary"
             style={[styles.primaryButton, { flex: 1 }]}
             onPress={handleContinueFromNickname}
           >
@@ -3812,7 +3878,7 @@ export function IdentityAspirationFlow({
           />
           <View style={styles.inlineActions}>
             <Button
-              variant="accent"
+              variant="primary"
               style={[
                 styles.primaryButton,
                 !hasAnyDreams && styles.primaryButtonDisabled,
@@ -4074,7 +4140,7 @@ export function IdentityAspirationFlow({
         </Text>
         <View style={[styles.inlineActions, styles.researchActions]}>
           <Button
-            variant="accent"
+            variant="primary"
             style={styles.primaryButton}
             onPress={() => {
               setShowResearchExplainer(false);
@@ -4688,6 +4754,7 @@ export function IdentityAspirationFlow({
       <SurveyCard
         mode="completed"
         variant="stacked"
+        style={styles.surveyCompleteCard}
         footerLeft={
           <Button
             variant="ghost"
@@ -4877,6 +4944,11 @@ const styles = StyleSheet.create({
   surveyCompleteBody: {
     gap: spacing.sm,
     alignItems: 'flex-start',
+  },
+  surveyCompleteCard: {
+    // Match the SurveyCard's built-in top separation with bottom separation so
+    // the next Arc card doesn't visually collide with the completed state.
+    marginBottom: spacing.lg,
   },
   surveyCompleteActionsRow: {
     flexDirection: 'row',

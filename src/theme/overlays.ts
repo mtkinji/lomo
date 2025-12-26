@@ -44,4 +44,29 @@ export const scrims = {
 
 export type ScrimToken = keyof typeof scrims;
 
+/**
+ * Blur/material tokens (e.g. iOS-like frosted buttons over imagery).
+ *
+ * Note: use `expo-blur`'s `BlurView` with these intensities/tints, then layer a subtle
+ * tinted overlay on top to match our palette.
+ */
+export const blurs = {
+  headerAction: {
+    intensity: 34,
+    tint: 'light' as const,
+    /**
+     * Base overlay color layered on top of the blur.
+     *
+     * We intentionally bias this toward a light (white/gray) material so
+     * header action pills remain readable over *dark* hero imagery.
+     */
+    overlayColor: 'rgba(255,255,255,0.28)',
+    /**
+     * Use a light border so the pill edge remains visible on dark images.
+     * The blur + overlay already provides separation on light images.
+     */
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+} as const;
+
 

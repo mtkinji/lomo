@@ -11,6 +11,11 @@ export type EntitlementsState = {
   lastError: string | null;
   isStale: boolean;
   isRefreshing: boolean;
+  /**
+   * Dev-only override for gating QA. When set, Pro status should not be overwritten
+   * by any refresh calls (including "force").
+   */
+  devOverrideIsPro: boolean | null;
 
   refreshEntitlements: (params?: { force?: boolean }) => Promise<EntitlementsSnapshot>;
   restore: () => Promise<EntitlementsSnapshot>;
@@ -21,6 +26,7 @@ export type EntitlementsState = {
    * (No-op outside __DEV__.)
    */
   devSetIsPro: (isPro: boolean) => void;
+  devClearProOverride: () => void;
 };
 
 const applySnapshot = (snapshot: EntitlementsSnapshot) => ({
@@ -40,8 +46,23 @@ export const useEntitlementsStore = create<EntitlementsState>()(
       lastError: null,
       isStale: true,
       isRefreshing: false,
+      devOverrideIsPro: null,
 
       refreshEntitlements: async (params) => {
+        // In dev, an explicit override should always win and should not be
+        // overwritten by a refresh (even "force").
+        if (__DEV__ && get().devOverrideIsPro != null) {
+          const checkedAt = new Date().toISOString();
+          const snapshot: EntitlementsSnapshot = {
+            isPro: Boolean(get().devOverrideIsPro),
+            checkedAt,
+            source: 'dev',
+            isStale: true,
+          };
+          set({ ...applySnapshot(snapshot), isRefreshing: false });
+          return snapshot;
+        }
+
         if (get().isRefreshing) {
           // Avoid duplicate concurrent refreshes; return whatever we last had.
           return {
@@ -100,23 +121,46 @@ export const useEntitlementsStore = create<EntitlementsState>()(
         if (!__DEV__) return;
         const checkedAt = new Date().toISOString();
         set({
+          devOverrideIsPro: Boolean(nextIsPro),
           isPro: Boolean(nextIsPro),
           lastCheckedAt: checkedAt,
-          lastSource: 'cache',
+          lastSource: 'dev',
           lastError: null,
           isStale: true,
         });
+      },
+
+      devClearProOverride: () => {
+        if (!__DEV__) return;
+        set({ devOverrideIsPro: null });
       },
     }),
     {
       name: 'kwilt-entitlements',
       storage: createJSONStorage(() => AsyncStorage),
+      // Avoid a dev-only race where toggling Pro before hydration finishes can be
+      // overwritten by older persisted state.
+      merge: (persisted, current) => {
+        const persistedState = (persisted ?? {}) as Partial<EntitlementsState>;
+        const merged = { ...current, ...persistedState } as EntitlementsState;
+
+        if (__DEV__ && current.devOverrideIsPro != null) {
+          merged.devOverrideIsPro = current.devOverrideIsPro;
+          merged.isPro = current.isPro;
+          merged.lastCheckedAt = current.lastCheckedAt;
+          merged.lastSource = current.lastSource;
+          merged.lastError = current.lastError;
+          merged.isStale = current.isStale;
+        }
+        return merged;
+      },
       partialize: (state) => ({
         isPro: state.isPro,
         lastCheckedAt: state.lastCheckedAt,
         lastSource: state.lastSource,
         lastError: state.lastError,
         isStale: state.isStale,
+        devOverrideIsPro: state.devOverrideIsPro,
       }),
     },
   ),

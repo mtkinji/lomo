@@ -11,7 +11,7 @@ export const FREE_MAX_ARCS_TOTAL = 1;
  * - Completed goals still count toward the Free cap unless archived.
  */
 export function isActiveGoalForLimit(goal: Goal): boolean {
-  return goal.status !== 'archived';
+  return goal.status !== 'archived' && goal.qualityState !== 'draft';
 }
 
 export function countActiveGoalsForArc(goals: Goal[], arcId: string): number {

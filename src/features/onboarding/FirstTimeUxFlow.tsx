@@ -25,6 +25,11 @@ import { Text } from '../../ui/primitives';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { NotificationService } from '../../services/NotificationService';
+import {
+  DEFAULT_DAILY_FOCUS_TIME,
+  DEFAULT_DAILY_SHOW_UP_TIME,
+  DEFAULT_GOAL_NUDGE_TIME,
+} from '../../services/notifications/defaultTimes';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 
@@ -157,14 +162,14 @@ export function FirstTimeUxFlow() {
               ...currentPrefs,
               notificationsEnabled: true,
               allowDailyShowUp: true,
-              dailyShowUpTime: currentPrefs.dailyShowUpTime ?? '08:00',
-                // Daily focus is a high-signal “one thing” nudge: default it on
-                // alongside the daily show-up reminder, using the same time.
-                allowDailyFocus: true,
-                dailyFocusTime:
-                  currentPrefs.dailyFocusTime ?? currentPrefs.dailyShowUpTime ?? '08:00',
+              dailyShowUpTime: currentPrefs.dailyShowUpTime ?? DEFAULT_DAILY_SHOW_UP_TIME,
+              // Daily focus is a high-signal “one thing” nudge. Default it on,
+              // but schedule it later than the morning show-up reminder.
+              allowDailyFocus: true,
+              dailyFocusTime: currentPrefs.dailyFocusTime ?? DEFAULT_DAILY_FOCUS_TIME,
+              dailyFocusTimeMode: currentPrefs.dailyFocusTimeMode ?? 'auto',
               // Afternoon momentum nudge: default to 4pm local for best engagement.
-              goalNudgeTime: (currentPrefs as any).goalNudgeTime ?? '16:00',
+              goalNudgeTime: (currentPrefs as any).goalNudgeTime ?? DEFAULT_GOAL_NUDGE_TIME,
               // Activity reminders are the most directly tied to “next step”.
               allowActivityReminders: true,
             };
@@ -525,6 +530,7 @@ export function FirstTimeUxFlow() {
           <>
             <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
               <Button
+                testID="e2e.ftue.devMenu"
                 variant="accent"
                 size="icon"
                 iconButtonSize={28}
@@ -580,6 +586,7 @@ export function FirstTimeUxFlow() {
                   </Pressable>
                   <View style={styles.devMenuSeparator} />
                   <Pressable
+                    testID="e2e.ftue.exit"
                     accessibilityRole="button"
                     onPress={() => {
                       setShowDevMenu(false);

@@ -10,6 +10,11 @@ import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Text, VStack } from '../../ui/primitives';
 import { NotificationService } from '../../services/NotificationService';
+import {
+  DEFAULT_DAILY_FOCUS_TIME,
+  DEFAULT_DAILY_SHOW_UP_TIME,
+  DEFAULT_GOAL_NUDGE_TIME,
+} from '../../services/notifications/defaultTimes';
 
 type NotificationsSettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -25,11 +30,8 @@ export function NotificationsSettingsScreen() {
     'dailyShowUp',
   );
 
-  const dailyShowUpTimeLabel = useMemo(() => {
-    if (!preferences.dailyShowUpTime) {
-      return '8:00 AM';
-    }
-    const [hourString, minuteString] = preferences.dailyShowUpTime.split(':');
+  const formatTimeLabel = (timeHHmm: string) => {
+    const [hourString, minuteString] = timeHHmm.split(':');
     const hour = Number.parseInt(hourString ?? '8', 10);
     const minute = Number.parseInt(minuteString ?? '0', 10);
     const date = new Date();
@@ -38,37 +40,19 @@ export function NotificationsSettingsScreen() {
       hour: 'numeric',
       minute: '2-digit',
     });
+  };
+
+  const dailyShowUpTimeLabel = useMemo(() => {
+    return formatTimeLabel(preferences.dailyShowUpTime ?? DEFAULT_DAILY_SHOW_UP_TIME);
   }, [preferences.dailyShowUpTime]);
 
   const dailyFocusTimeLabel = useMemo(() => {
-    if (!preferences.dailyFocusTime) {
-      return '8:00 AM';
-    }
-    const [hourString, minuteString] = preferences.dailyFocusTime.split(':');
-    const hour = Number.parseInt(hourString ?? '8', 10);
-    const minute = Number.parseInt(minuteString ?? '0', 10);
-    const date = new Date();
-    date.setHours(hour, minute, 0, 0);
-    return date.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    return formatTimeLabel(preferences.dailyFocusTime ?? DEFAULT_DAILY_FOCUS_TIME);
   }, [preferences.dailyFocusTime]);
 
   const goalNudgeTimeLabel = useMemo(() => {
     const raw = (preferences as any).goalNudgeTime as string | null | undefined;
-    if (!raw) {
-      return '4:00 PM';
-    }
-    const [hourString, minuteString] = raw.split(':');
-    const hour = Number.parseInt(hourString ?? '16', 10);
-    const minute = Number.parseInt(minuteString ?? '0', 10);
-    const date = new Date();
-    date.setHours(hour, minute, 0, 0);
-    return date.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    return formatTimeLabel(raw ?? DEFAULT_GOAL_NUDGE_TIME);
   }, [(preferences as any).goalNudgeTime]);
 
   const osStatusLabel = useMemo(() => {
@@ -131,7 +115,7 @@ export function NotificationsSettingsScreen() {
       }
     }
     const nextAllow = !preferences.allowDailyShowUp;
-    const nextTime = preferences.dailyShowUpTime ?? '8:00';
+    const nextTime = preferences.dailyShowUpTime ?? DEFAULT_DAILY_SHOW_UP_TIME;
     const next = {
       ...preferences,
       notificationsEnabled: true,
@@ -149,12 +133,13 @@ export function NotificationsSettingsScreen() {
       }
     }
     const nextAllow = !preferences.allowDailyFocus;
-    const nextTime = preferences.dailyFocusTime ?? preferences.dailyShowUpTime ?? '8:00';
+    const nextTime = preferences.dailyFocusTime ?? DEFAULT_DAILY_FOCUS_TIME;
     const next = {
       ...preferences,
       notificationsEnabled: true,
       allowDailyFocus: nextAllow,
       dailyFocusTime: nextTime,
+      dailyFocusTimeMode: preferences.dailyFocusTimeMode ?? 'auto',
     };
     await NotificationService.applySettings(next);
   };
@@ -166,7 +151,7 @@ export function NotificationsSettingsScreen() {
         return;
       }
     }
-    const nextTime = (preferences as any).goalNudgeTime ?? '16:00';
+    const nextTime = (preferences as any).goalNudgeTime ?? DEFAULT_GOAL_NUDGE_TIME;
     const next = {
       ...preferences,
       notificationsEnabled: true,
@@ -191,8 +176,15 @@ export function NotificationsSettingsScreen() {
       date.setHours(hour, minute, 0, 0);
       return date;
     }
+    const fallback =
+      timePickerTarget === 'dailyFocus'
+        ? DEFAULT_DAILY_FOCUS_TIME
+        : timePickerTarget === 'goalNudge'
+          ? DEFAULT_GOAL_NUDGE_TIME
+          : DEFAULT_DAILY_SHOW_UP_TIME;
     const date = new Date();
-    date.setHours(8, 0, 0, 0);
+    const [h, m] = fallback.split(':');
+    date.setHours(Number.parseInt(h ?? '8', 10), Number.parseInt(m ?? '0', 10), 0, 0);
     return date;
   };
 
@@ -213,6 +205,7 @@ export function NotificationsSettingsScreen() {
             notificationsEnabled: true,
             allowDailyFocus: true,
             dailyFocusTime: time,
+            dailyFocusTimeMode: 'manual',
           }
         : timePickerTarget === 'goalNudge'
           ? {

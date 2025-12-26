@@ -1,0 +1,22 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Minimal smoke: prove the app boots and DevTools is reachable (Dev builds).
+
+- launchApp
+
+# Open drawer, navigate to DevTools deterministically.
+- tapOn:
+    id: "nav.drawer.toggle"
+
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+
+- scrollUntilVisible:
+    element:
+      id: "e2e.openBottomDrawer"
+    direction: DOWN
+
+- assertVisible:
+    id: "e2e.openBottomDrawer"
+
+

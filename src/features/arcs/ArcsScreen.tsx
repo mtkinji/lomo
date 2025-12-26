@@ -8,7 +8,6 @@ import {
   Pressable,
   TextInput,
   Platform,
-  Alert,
 } from 'react-native';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -33,6 +32,7 @@ import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 import { ensureArcBannerPrefill } from './arcBannerPrefill';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { HapticsService } from '../../services/HapticsService';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
@@ -72,18 +72,7 @@ export function ArcsScreen() {
   const handleOpenNewArc = () => {
     const canCreate = canCreateArc({ isPro, arcs });
     if (!canCreate.ok) {
-      Alert.alert(
-        'Arc limit reached',
-        `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
-        [
-          { text: 'Not now', style: 'cancel' },
-          {
-            text: 'Upgrade',
-            onPress: () =>
-              openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' }),
-          },
-        ],
-      );
+      openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
       return;
     }
     setNewArcModalVisible(true);
@@ -121,8 +110,6 @@ export function ArcsScreen() {
         >
           <PageHeader
             title="Arcs"
-            iconName="arcs"
-            iconTone="arc"
             menuOpen={menuOpen}
             onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
             rightElement={
@@ -906,20 +893,11 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   const handleCreateManualArc = () => {
     const canCreate = canCreateArc({ isPro, arcs });
     if (!canCreate.ok) {
-      Alert.alert(
-        'Arc limit reached',
-        `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
-        [
-          { text: 'Not now', style: 'cancel' },
-          {
-            text: 'Upgrade',
-            onPress: () => {
-              onClose();
-              openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
-            },
-          },
-        ],
-      );
+      // Avoid stacked RN Modals: close this Arc creation drawer first, then open the global paywall.
+      onClose();
+      setTimeout(() => {
+        openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
+      }, 360);
       return;
     }
 
@@ -946,6 +924,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
     recordShowUp();
     addArc(arc);
     showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
+    void HapticsService.trigger('outcome.success');
     capture(AnalyticsEvent.ArcCreated, {
       source: 'manual',
       arc_id: arc.id,
@@ -1001,20 +980,11 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
             onConfirmArc={(proposal) => {
               const canCreate = canCreateArc({ isPro, arcs });
               if (!canCreate.ok) {
-                Alert.alert(
-                  'Arc limit reached',
-                  `Free tier supports up to ${canCreate.limit} Arc total. Upgrade to Pro to create more arcs.`,
-                  [
-                    { text: 'Not now', style: 'cancel' },
-                    {
-                      text: 'Upgrade',
-                      onPress: () => {
-                        onClose();
-                        openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
-                      },
-                    },
-                  ],
-                );
+                // Avoid stacked RN Modals: close this Arc creation drawer first, then open the global paywall.
+                onClose();
+                setTimeout(() => {
+                  openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
+                }, 360);
                 return;
               }
 
@@ -1036,6 +1006,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
               recordShowUp();
               addArc(arc);
               showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
+              void HapticsService.trigger('outcome.success');
               capture(AnalyticsEvent.ArcCreated, {
                 source: 'ai',
                 arc_id: arc.id,

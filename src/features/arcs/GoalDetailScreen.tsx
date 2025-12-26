@@ -1,5 +1,7 @@
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import {
+  Animated,
+  LayoutAnimation,
   StyleSheet,
   View,
   Platform,
@@ -9,9 +11,10 @@ import {
   Image,
   Alert,
   Keyboard,
-  TouchableWithoutFeedback,
   Pressable,
   Share,
+  UIManager,
+  findNodeHandle,
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -21,17 +24,17 @@ import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/
 import { useToastStore } from '../../store/useToastStore';
 import type { GoalDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
-import { Button, IconButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import { Card } from '../../ui/Card';
+import { OpportunityCard } from '../../ui/OpportunityCard';
 import {
   Dialog,
   VStack,
   Heading,
   Text,
   HStack,
-  EmptyState,
   KeyboardAwareScrollView,
   Input,
   Textarea,
@@ -40,8 +43,8 @@ import {
 import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal, Activity, ActivityType, ActivityStep } from '../../domain/types';
-import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
@@ -50,6 +53,7 @@ import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI } from '../../services/ai';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -69,7 +73,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import type { ObjectPickerOption } from '../../ui/ObjectPicker';
-import { EditableField } from '../../ui/EditableField';
+import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityListItem } from '../../ui/ActivityListItem';
@@ -77,6 +81,15 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
+import { GoalProgressSignalsRow, type GoalProgressSignal } from '../../ui/GoalProgressSignalsRow';
+import { ArcBannerSheet } from './ArcBannerSheet';
+import type { ArcHeroImage } from './arcHeroLibrary';
+import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
+import {
+  ObjectPageHeader,
+  HeaderActionPill,
+  OBJECT_PAGE_HEADER_BAR_HEIGHT,
+} from '../../ui/layout/ObjectPageHeader';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
@@ -86,6 +99,13 @@ import { openPaywallPurchaseEntry } from '../../services/paywall';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { parseTags } from '../../utils/tags';
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
+import { QuickAddDock } from '../activities/QuickAddDock';
+import { useQuickAddDockController } from '../activities/useQuickAddDockController';
+import { DurationPicker } from '../activities/DurationPicker';
+import type { GoalProposalDraft } from '../ai/AiChatScreen';
+import { useScrollLinkedStatusBarStyle } from '../../ui/hooks/useScrollLinkedStatusBarStyle';
+import { HapticsService } from '../../services/HapticsService';
+import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -103,6 +123,9 @@ export function GoalDetailScreen() {
   const navigation = useNavigation();
   const { goalId, entryPoint, initialTab } = route.params;
   const showToast = useToastStore((state) => state.showToast);
+  const setToastsSuppressed = useToastStore((state) => state.setToastsSuppressed);
+  const { capture } = useAnalytics();
+  const isFocused = useIsFocused();
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -146,7 +169,7 @@ export function GoalDetailScreen() {
   const removeGoal = useAppStore((state) => state.removeGoal);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
-  const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
   const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
@@ -159,8 +182,16 @@ export function GoalDetailScreen() {
     }
     return [DEFAULT_THUMBNAIL_STYLE];
   }, [visuals]);
+  // Goals no longer support the legacy dot-overlay thumbnail style.
+  // Filter it out so we fall back to a clean gradient or other styles.
+  const effectiveThumbnailStyles = useMemo<ThumbnailStyle[]>(
+    () => thumbnailStyles.filter((style) => style !== 'topographyDots'),
+    [thumbnailStyles]
+  );
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingForces, setEditingForces] = useState(false);
+  const [heroImageLoading, setHeroImageLoading] = useState(false);
+  const [heroImageError, setHeroImageError] = useState('');
   const [editForceIntent, setEditForceIntent] = useState<Record<string, ForceLevel>>(
     defaultForceLevels(0)
   );
@@ -170,10 +201,238 @@ export function GoalDetailScreen() {
   // Track activity count transitions so we only trigger onboarding handoffs on
   // *real* changes (not just because a goal already has activities when the screen mounts).
   const onboardingSharePrevActivityCountRef = useRef<number | null>(null);
+  const firstGoalCelebrationHapticPlayedRef = useRef(false);
+  const planReadyHapticPlayedRef = useRef(false);
   const [vectorsInfoVisible, setVectorsInfoVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
+
+  // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
+  // Header bar height below the safe area inset (not including inset).
+  // Pills are 36px; target ~12px breathing room below them => 48px.
+  const GOAL_HEADER_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT;
+  const HEADER_BOTTOM_Y = insets.top + GOAL_HEADER_HEIGHT;
+  const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const sheetTopRef = useRef<View | null>(null);
+  const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
+
+  const measureSheetTopAtRest = useCallback(() => {
+    const node = sheetTopRef.current;
+    if (!node) return;
+    const handle = findNodeHandle(node);
+    if (!handle) return;
+    UIManager.measureInWindow(handle, (_x, y) => {
+      if (typeof y === 'number' && Number.isFinite(y)) {
+        setSheetTopAtRestWindowY(y);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    // Measure once after initial layout. This is our scroll threshold anchor.
+    requestAnimationFrame(() => {
+      measureSheetTopAtRest();
+    });
+  }, [measureSheetTopAtRest]);
+
+  // `measureInWindow` can occasionally report a too-small Y for views inside scroll containers,
+  // which collapses our interpolation ranges and makes the hero fade immediately.
+  // Provide a layout-based fallback that matches this screen's fixed hero/sheet geometry.
+  const ESTIMATED_GOAL_HERO_HEIGHT_PX = 240; // keep in sync with `styles.goalHeroSection.height`
+  const ESTIMATED_GOAL_SHEET_MARGIN_TOP_PX = -20; // keep in sync with `styles.goalSheet.marginTop`
+  const estimatedHeaderTransitionStartScrollY = Math.max(
+    0,
+    ESTIMATED_GOAL_HERO_HEIGHT_PX + ESTIMATED_GOAL_SHEET_MARGIN_TOP_PX - HEADER_BOTTOM_Y,
+  );
+
+  const measuredHeaderTransitionStartScrollY =
+    sheetTopAtRestWindowY != null && Number.isFinite(sheetTopAtRestWindowY)
+      ? Math.max(0, sheetTopAtRestWindowY - HEADER_BOTTOM_Y)
+      : null;
+
+  const headerTransitionStartScrollY =
+    measuredHeaderTransitionStartScrollY != null && measuredHeaderTransitionStartScrollY >= 24
+      ? measuredHeaderTransitionStartScrollY
+      : estimatedHeaderTransitionStartScrollY;
+
+  // iOS status bar (safe-area chrome) should be readable over the hero image.
+  // Keep it light while the hero is visible; switch to dark once the header becomes opaque.
+  const statusBarStyle = useScrollLinkedStatusBarStyle(scrollY, headerTransitionStartScrollY, {
+    enabled: isFocused,
+    initialStyle: 'light',
+    inactiveStyle: 'dark',
+    hysteresisPx: 12,
+    platform: 'ios',
+  });
+
+  // Header background should be fully opaque exactly when the sheet top reaches the header
+  // so it cleanly hides whatever is underneath.
+  const headerBackgroundOpacity = scrollY.interpolate({
+    inputRange: [
+      Math.max(0, headerTransitionStartScrollY - SHEET_HEADER_TRANSITION_RANGE_PX),
+      headerTransitionStartScrollY,
+    ],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Keep a separate progress for pill material (so we can still ease it after the
+  // header has already become opaque).
+  const headerPillProgress = scrollY.interpolate({
+    inputRange: [
+      headerTransitionStartScrollY,
+      headerTransitionStartScrollY + SHEET_HEADER_TRANSITION_RANGE_PX,
+    ],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
+  // bottom of the fixed header (the start of the header transition).
+  const HERO_FADE_LEAD_PX = 160;
+  const HERO_FADE_HOLD_PX = 50;
+
+  // Ensure monotonic input ranges for interpolation (Animated can behave oddly when
+  // input ranges collapse or invert).
+  const heroFadeEndScrollY = Math.max(1, headerTransitionStartScrollY);
+  const heroFadeStartScrollY = Math.min(
+    Math.max(HERO_FADE_HOLD_PX, heroFadeEndScrollY - HERO_FADE_LEAD_PX),
+    heroFadeEndScrollY - 1,
+  );
+
+  const heroOpacity = scrollY.interpolate({
+    inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const headerActionPillOpacity = headerPillProgress.interpolate({
+    inputRange: [0, 1],
+    // Keep a faint pill even once the header is solid so the actions feel consistent.
+    outputRange: [1, 0.2],
+    extrapolate: 'clamp',
+  });
+
+  // The hero is inside the scroll content, so it already moves at 1x scroll speed.
+  // Translate it down by +0.5x scroll to net out to ~0.5x upward movement (Airbnb-like parallax).
+  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.5);
+
+  // Goal:Plan quick add dock (reuse the Activities quick-add pattern).
+  // Goal detail renders the collapsed trigger inline in the Activities section (vs an absolute bottom dock),
+  // so we do NOT reserve scroll space for it.
+  const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
+  const quickAddInitialReservedHeightPx = 0;
+  const quickAddToastBottomOffsetPx = quickAddBottomPadding + spacing.lg;
+  const [quickAddReminderSheetVisible, setQuickAddReminderSheetVisible] = useState(false);
+  const [quickAddDueDateSheetVisible, setQuickAddDueDateSheetVisible] = useState(false);
+  const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = useState(false);
+  const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = useState(false);
+  const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = useState(false);
+  const [quickAddIsReminderDateTimePickerVisible, setQuickAddIsReminderDateTimePickerVisible] =
+    useState(false);
+  const [quickAddEstimateDraftMinutes, setQuickAddEstimateDraftMinutes] = useState<number>(30);
+
+  const {
+    value: quickAddTitle,
+    setValue: setQuickAddTitle,
+    inputRef: quickAddInputRef,
+    isFocused: isQuickAddFocused,
+    setIsFocused: setQuickAddFocused,
+    reminderAt: quickAddReminderAt,
+    setReminderAt: setQuickAddReminderAt,
+    scheduledDate: quickAddScheduledDate,
+    setScheduledDate: setQuickAddScheduledDate,
+    repeatRule: quickAddRepeatRule,
+    setRepeatRule: setQuickAddRepeatRule,
+    estimateMinutes: quickAddEstimateMinutes,
+    setEstimateMinutes: setQuickAddEstimateMinutes,
+    collapse: collapseQuickAdd,
+    openToolDrawer: openQuickAddToolDrawer,
+    closeToolDrawer: closeQuickAddToolDrawer,
+    submit: handleQuickAddActivity,
+  } = useQuickAddDockController({
+    goalId,
+    activitiesCount: activities.length,
+    addActivity,
+    updateActivity,
+    recordShowUp,
+    showToast,
+    initialReservedHeightPx: quickAddInitialReservedHeightPx,
+    toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
+    onCreated: (activity) => {
+      capture(AnalyticsEvent.ActivityCreated, {
+        source: 'goal_detail_quick_add',
+        activity_id: activity.id,
+        goal_id: goalId,
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (!quickAddEstimateSheetVisible) return;
+    const seed =
+      quickAddEstimateMinutes != null && quickAddEstimateMinutes > 0 ? quickAddEstimateMinutes : 30;
+    setQuickAddEstimateDraftMinutes(Math.max(15, Math.round(seed)));
+  }, [quickAddEstimateMinutes, quickAddEstimateSheetVisible]);
+
+  useEffect(() => {
+    // Ensure the keyboard doesn't compete with the tool drawers.
+    if (quickAddReminderSheetVisible || quickAddDueDateSheetVisible || quickAddRepeatSheetVisible || quickAddEstimateSheetVisible) {
+      setQuickAddFocused(false);
+    }
+  }, [quickAddDueDateSheetVisible, quickAddEstimateSheetVisible, quickAddReminderSheetVisible, quickAddRepeatSheetVisible, setQuickAddFocused]);
+
+  const getInitialQuickAddReminderDateTime = useCallback(() => {
+    if (quickAddReminderAt) return new Date(quickAddReminderAt);
+    const base = new Date();
+    base.setMinutes(0, 0, 0);
+    base.setHours(base.getHours() + 1);
+    return base;
+  }, [quickAddReminderAt]);
+
+  const setQuickAddReminderByOffsetDays = useCallback(
+    (offsetDays: number, hours: number, minutes: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(hours, minutes, 0, 0);
+      setQuickAddReminderAt(date.toISOString());
+      closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+      setQuickAddIsReminderDateTimePickerVisible(false);
+    },
+    [closeQuickAddToolDrawer, setQuickAddReminderAt],
+  );
+
+  const clearQuickAddReminder = useCallback(() => {
+    setQuickAddReminderAt(null);
+    closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+    setQuickAddIsReminderDateTimePickerVisible(false);
+  }, [closeQuickAddToolDrawer, setQuickAddReminderAt]);
+
+  const getInitialQuickAddDueDate = useCallback(() => {
+    if (quickAddScheduledDate) return new Date(quickAddScheduledDate);
+    return new Date();
+  }, [quickAddScheduledDate]);
+
+  const setQuickAddDueDateByOffsetDays = useCallback(
+    (offsetDays: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(23, 0, 0, 0);
+      setQuickAddScheduledDate(date.toISOString());
+      closeQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(false));
+      setQuickAddIsDueDatePickerVisible(false);
+    },
+    [closeQuickAddToolDrawer, setQuickAddScheduledDate],
+  );
+
+  const clearQuickAddDueDate = useCallback(() => {
+    setQuickAddScheduledDate(null);
+    closeQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(false));
+    setQuickAddIsDueDatePickerVisible(false);
+  }, [closeQuickAddToolDrawer, setQuickAddScheduledDate]);
   const addActivitiesButtonRef = useRef<View>(null);
   const [isAddActivitiesButtonReady, setIsAddActivitiesButtonReady] = useState(false);
   /**
@@ -185,6 +444,10 @@ export function GoalDetailScreen() {
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
+  const [refineGoalSheetVisible, setRefineGoalSheetVisible] = useState(false);
+  const [goalTargetDateSheetVisible, setGoalTargetDateSheetVisible] = useState(false);
+  const [goalTargetDateSheetStep, setGoalTargetDateSheetStep] = useState<'menu' | 'picker'>('menu');
+  const [goalStatusSheetVisible, setGoalStatusSheetVisible] = useState(false);
 
   const handleBack = () => {
     const nav: any = navigation;
@@ -221,6 +484,123 @@ export function GoalDetailScreen() {
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
 
+  const setGoalTargetDateByOffsetDays = useCallback(
+    (offsetDays: number) => {
+      if (!goal?.id) return;
+      const date = new Date();
+      date.setDate(date.getDate() + offsetDays);
+      date.setHours(23, 0, 0, 0);
+      const timestamp = new Date().toISOString();
+      updateGoal(goal.id, (prev) => ({
+        ...prev,
+        targetDate: date.toISOString(),
+        qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
+        updatedAt: timestamp,
+      }));
+      setGoalTargetDateSheetVisible(false);
+      setGoalTargetDateSheetStep('menu');
+    },
+    [goal?.id, updateGoal],
+  );
+
+  const clearGoalTargetDate = useCallback(() => {
+    if (!goal?.id) return;
+    const timestamp = new Date().toISOString();
+    updateGoal(goal.id, (prev) => ({
+      ...prev,
+      targetDate: undefined,
+      qualityState: 'draft',
+      updatedAt: timestamp,
+    }));
+    setGoalTargetDateSheetVisible(false);
+    setGoalTargetDateSheetStep('menu');
+  }, [goal?.id, updateGoal]);
+
+  const getInitialGoalTargetDate = useCallback(() => {
+    const existing = goal?.targetDate ? Date.parse(goal.targetDate) : NaN;
+    if (Number.isFinite(existing)) return new Date(existing);
+    const fallback = new Date();
+    fallback.setDate(fallback.getDate() + 14);
+    fallback.setHours(23, 0, 0, 0);
+    return fallback;
+  }, [goal?.targetDate]);
+
+  const refineGoalLaunchContext = useMemo(
+    () => ({
+      source: 'goalDetail' as const,
+      intent: 'goalEditing' as const,
+      entityRef: { type: 'goal', id: goalId } as const,
+      objectType: 'goal' as const,
+      objectId: goalId,
+    }),
+    [goalId],
+  );
+
+  const refineGoalWorkspaceSnapshot = useMemo(() => {
+    const base =
+      buildActivityCoachLaunchContext(goals, activities, goalId, arcs, undefined, undefined) ?? '';
+    const metricSummary =
+      goal?.metrics && goal.metrics.length > 0
+        ? goal.metrics
+            .slice(0, 3)
+            .map((m) => {
+              const kind = (m as any).kind ? ` kind:${(m as any).kind}` : '';
+              const target = typeof m.target === 'number' ? ` target:${m.target}` : '';
+              const unit = m.unit ? ` unit:${m.unit}` : '';
+              const milestoneDone = (m as any).completedAt ? ` done:true` : '';
+              return `- ${m.label}${kind}${target}${unit}${milestoneDone}`;
+            })
+            .join('\n')
+        : 'None';
+
+    const extraLines = [
+      '',
+      '---',
+      'TASK: refine the focused goal (do NOT create a different goal).',
+      'Return a revised GOAL_PROPOSAL_JSON that makes the goal more specific + timeboxed.',
+      'Prefer including both a structured targetDate and 1 metric in metrics if possible.',
+      '',
+      `Current targetDate: ${goal?.targetDate ?? 'None'}`,
+      'Current metrics:',
+      metricSummary,
+    ].join('\n');
+
+    return `${base}${extraLines}`;
+  }, [activities, arcs, goal?.metrics, goal?.targetDate, goalId, goals]);
+
+  const handleApplyRefinedGoal = useCallback(
+    (proposal: GoalProposalDraft) => {
+      if (!goal?.id) return;
+      const now = new Date().toISOString();
+      const nextTitle = typeof proposal.title === 'string' ? proposal.title.trim() : '';
+      const nextDescription =
+        typeof proposal.description === 'string' && proposal.description.trim().length > 0
+          ? proposal.description.trim()
+          : undefined;
+      const nextTargetDate = typeof proposal.targetDate === 'string' ? proposal.targetDate : undefined;
+      const nextMetrics = Array.isArray(proposal.metrics) ? proposal.metrics : undefined;
+
+      updateGoal(goal.id, (prev) => {
+        const mergedTargetDate = nextTargetDate ?? prev.targetDate;
+        const mergedMetrics = nextMetrics ?? prev.metrics;
+        const hasQuality = Boolean(mergedTargetDate) && Array.isArray(mergedMetrics) && mergedMetrics.length > 0;
+        return {
+          ...prev,
+          title: nextTitle || prev.title,
+          description: typeof nextDescription === 'string' ? nextDescription : prev.description,
+          ...(nextTargetDate ? { targetDate: nextTargetDate } : null),
+          ...(nextMetrics ? { metrics: nextMetrics } : null),
+          qualityState: hasQuality ? 'ready' : 'draft',
+          updatedAt: now,
+        };
+      });
+
+      showToast({ message: 'Goal refined', variant: 'success', durationMs: 2200 });
+      setRefineGoalSheetVisible(false);
+    },
+    [goal?.id, showToast, updateGoal],
+  );
+
   const handleShareGoal = useCallback(async () => {
     try {
       if (!goal) return;
@@ -247,13 +627,7 @@ export function GoalDetailScreen() {
       keywords: undefined,
     }));
   }, [arcs]);
-  const [activeTab, setActiveTab] = useState<'details' | 'plan' | 'history'>(initialTab ?? 'details');
-
-  useEffect(() => {
-    if (!initialTab) return;
-    setActiveTab(initialTab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTab]);
+  // Goal detail is a single-scroll workboard (no tabs).
   const hasAutoSwitchedToPlanRef = useRef(false);
   const goalActivities = useMemo(
     () => activities.filter((activity) => activity.goalId === goalId),
@@ -265,9 +639,9 @@ export function GoalDetailScreen() {
     goalActivities.length === 0 &&
     !showFirstGoalCelebration &&
     !hasDismissedOnboardingActivitiesGuide;
+
   const shouldShowOnboardingActivitiesCoachmark =
     shouldShowOnboardingActivitiesGuide &&
-    activeTab === 'plan' &&
     isAddActivitiesButtonReady &&
     shouldPromptAddActivity &&
     !activityCoachVisible &&
@@ -278,7 +652,6 @@ export function GoalDetailScreen() {
     !showFirstGoalCelebration &&
     !showOnboardingSharePrompt &&
     !hasDismissedOnboardingPlanReadyGuide &&
-    activeTab === 'plan' &&
     !activityCoachVisible &&
     !activityComposerVisible;
 
@@ -286,7 +659,6 @@ export function GoalDetailScreen() {
     hasCompletedFirstTimeOnboarding &&
     goal?.id === pendingPostGoalPlanGuideGoalId &&
     !(dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id] &&
-    activeTab === 'plan' &&
     isPlanEmpty &&
     !activityCoachVisible &&
     !activityComposerVisible;
@@ -297,17 +669,21 @@ export function GoalDetailScreen() {
     if (goal.id !== pendingPostGoalPlanGuideGoalId) return;
     if (hasAutoSwitchedToPlanRef.current) return;
     hasAutoSwitchedToPlanRef.current = true;
-    setActiveTab('plan');
+    setShouldPromptAddActivity(true);
   }, [goal?.id, hasCompletedFirstTimeOnboarding, pendingPostGoalPlanGuideGoalId]);
   const shouldShowGoalVectorsCoachmark =
     Boolean(goal) &&
-    activeTab === 'details' &&
     !hasDismissedGoalVectorsGuide &&
     !showFirstGoalCelebration &&
     !shouldShowOnboardingActivitiesGuide &&
     !editingForces &&
     !vectorsInfoVisible &&
     !editModalVisible;
+
+  const isAnyBottomGuideVisible =
+    shouldShowOnboardingActivitiesGuide ||
+    shouldShowPostGoalPlanGuide ||
+    shouldShowOnboardingPlanReadyGuide;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -316,6 +692,132 @@ export function GoalDetailScreen() {
     () => goalActivities.filter((activity) => activity.status === 'done'),
     [goalActivities]
   );
+
+  const [completedActivitiesExpanded, setCompletedActivitiesExpanded] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  const toggleCompletedActivitiesExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setCompletedActivitiesExpanded((current) => !current);
+  }, []);
+
+  const goalProgressSignals = useMemo<GoalProgressSignal[]>(() => {
+    const nowMs = Date.now();
+    const weekAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
+    const targetDateLabelLocal = goal?.targetDate
+      ? new Date(goal.targetDate).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : undefined;
+
+    const doneWithTimestamps = completedGoalActivities
+      .map((activity) => {
+        const completedAt = activity.completedAt ?? activity.updatedAt ?? activity.createdAt ?? null;
+        const completedAtMs = completedAt ? Date.parse(completedAt) : NaN;
+        return { activity, completedAtMs };
+      })
+      .filter((entry) => Number.isFinite(entry.completedAtMs));
+
+    const doneLast7Days = doneWithTimestamps.filter((entry) => entry.completedAtMs >= weekAgoMs).length;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+
+    const nextScheduled = goalActivities
+      .map((activity) => {
+        const scheduledAt = activity.scheduledDate ?? null;
+        const scheduledAtMs = scheduledAt ? Date.parse(scheduledAt) : NaN;
+        return { scheduledAt, scheduledAtMs };
+      })
+      .filter((entry) => Number.isFinite(entry.scheduledAtMs) && entry.scheduledAtMs >= todayStartMs)
+      .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs)[0]?.scheduledAt;
+
+    const nextScheduledLabel = nextScheduled
+      ? (() => {
+          const d = new Date(nextScheduled);
+          const diffDays = Math.round((d.getTime() - todayStartMs) / (24 * 60 * 60 * 1000));
+          if (diffDays === 0) return 'Today';
+          if (diffDays === 1) return 'Tomorrow';
+          return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        })()
+      : null;
+
+    const targetValue = (() => {
+      if (!goal?.targetDate) return 'No date';
+      const targetMs = Date.parse(goal.targetDate);
+      if (!Number.isFinite(targetMs)) return targetDateLabelLocal ?? 'No date';
+      const diffDays = Math.ceil((targetMs - nowMs) / (24 * 60 * 60 * 1000));
+      const absDiff = Math.abs(diffDays);
+      // When it's close, show a countdown; otherwise show the date label.
+      if (absDiff <= 21) {
+        if (diffDays === 0) return 'Due today';
+        if (diffDays > 0) return `${diffDays}d left`;
+        return `${absDiff}d overdue`;
+      }
+      return (
+        targetDateLabelLocal ??
+        new Date(goal.targetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      );
+    })();
+    const targetValueColor =
+      typeof targetValue === 'string' && targetValue.includes('overdue')
+        ? colors.destructive
+        : targetValue === 'No date'
+          ? colors.gray600
+          : typeof targetValue === 'string' && (targetValue.includes('left') || targetValue.includes('Due today'))
+            ? colors.indigo600
+            : colors.textPrimary;
+    const momentumValueColor = doneLast7Days > 0 ? colors.indigo600 : colors.gray600;
+
+    const signals: GoalProgressSignal[] = [
+      {
+        id: 'goal-signal-plan',
+        value: `${completedGoalActivities.length}/${goalActivities.length}`,
+        label: 'Done',
+        accessibilityLabel: `Plan: ${completedGoalActivities.length} of ${goalActivities.length} done`,
+        valueColor:
+          goalActivities.length > 0 && completedGoalActivities.length === goalActivities.length
+            ? colors.indigo600
+            : colors.textPrimary,
+      },
+      {
+        id: 'goal-signal-momentum',
+        value: `${doneLast7Days}`,
+        label: 'This week',
+        accessibilityLabel: `${doneLast7Days} activities done in the last 7 days`,
+        valueColor: momentumValueColor,
+      },
+      {
+        id: 'goal-signal-target',
+        value: targetValue,
+        label: 'Finish by',
+        onPress: () => {
+          setGoalTargetDateSheetStep('menu');
+          setGoalTargetDateSheetVisible(true);
+        },
+        accessibilityLabel: `Finish by: ${targetValue}. Tap to set a finish date.`,
+        valueColor: targetValueColor,
+      },
+    ];
+
+    if (nextScheduledLabel) {
+      signals.push({
+        id: 'goal-signal-next',
+        value: nextScheduledLabel,
+        label: 'Next',
+      });
+    }
+
+    return signals;
+  }, [completedGoalActivities, goal, goalActivities]);
   const firstPlanActivityId = useMemo(() => {
     const list = [...activeGoalActivities];
     if (list.length === 0) return goalActivities[0]?.id ?? null;
@@ -333,8 +835,13 @@ export function GoalDetailScreen() {
   const handleToggleActivityComplete = useCallback(
     (activityId: string) => {
       const timestamp = new Date().toISOString();
+      let didFireHaptic = false;
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
+        if (!didFireHaptic) {
+          didFireHaptic = true;
+          void HapticsService.trigger(nextIsDone ? 'outcome.success' : 'canvas.primary.confirm');
+        }
         return {
           ...activity,
           status: nextIsDone ? 'done' : 'planned',
@@ -362,8 +869,13 @@ export function GoalDetailScreen() {
   const handleToggleActivityPriorityOne = useCallback(
     (activityId: string) => {
       const timestamp = new Date().toISOString();
+      let didFireHaptic = false;
       updateActivity(activityId, (activity) => {
         const nextPriority = activity.priority === 1 ? undefined : 1;
+        if (!didFireHaptic) {
+          didFireHaptic = true;
+          void HapticsService.trigger(nextPriority === 1 ? 'canvas.toggle.on' : 'canvas.toggle.off');
+        }
         return {
           ...activity,
           priority: nextPriority,
@@ -384,11 +896,11 @@ export function GoalDetailScreen() {
     [heroSeed]
   );
   const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
-  const thumbnailStyle = pickThumbnailStyle(heroSeed, thumbnailStyles);
-  const showTopography = thumbnailStyle === 'topographyDots';
+  const thumbnailStyle =
+    effectiveThumbnailStyles.length > 0 ? pickThumbnailStyle(heroSeed, effectiveThumbnailStyles) : null;
+  const showTopography = false;
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
   const hasCustomThumbnail = Boolean(goal?.thumbnailUrl);
-  const shouldShowTopography = showTopography && !hasCustomThumbnail;
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
   const displayThumbnailUrl = goal?.thumbnailUrl ?? arc?.thumbnailUrl;
 
@@ -438,7 +950,6 @@ export function GoalDetailScreen() {
       // Handoff first: switch to the Plan canvas so the user sees their newly
       // created Activities, then queue the share prompt after the plan-ready
       // guide has had a chance to run.
-      setActiveTab('plan');
       setPendingOnboardingSharePrompt(true);
     }
   }, [
@@ -453,10 +964,31 @@ export function GoalDetailScreen() {
     // When replaying the celebration (especially via DevTools), ensure we start
     // on the Goal Details canvas so the onboarding guide can orient the user
     // before we move them into the Activities plan.
-    setActiveTab('details');
     setActivityCoachVisible(false);
     setActivityComposerVisible(false);
   }, [showFirstGoalCelebration]);
+
+  useEffect(() => {
+    if (!showFirstGoalCelebration) {
+      firstGoalCelebrationHapticPlayedRef.current = false;
+      return;
+    }
+    if (firstGoalCelebrationHapticPlayedRef.current) return;
+    firstGoalCelebrationHapticPlayedRef.current = true;
+    void HapticsService.trigger('outcome.success');
+  }, [showFirstGoalCelebration]);
+
+  useEffect(() => {
+    // While the full-screen celebration is up, suppress toasts so we don't
+    // stack transient UI over an interstitial.
+    setToastsSuppressed({
+      key: 'goal_created_interstitial',
+      suppressed: showFirstGoalCelebration,
+    });
+    return () => {
+      setToastsSuppressed({ key: 'goal_created_interstitial', suppressed: false });
+    };
+  }, [setToastsSuppressed, showFirstGoalCelebration]);
 
   useEffect(() => {
     if (!pendingOnboardingSharePrompt) return;
@@ -478,6 +1010,16 @@ export function GoalDetailScreen() {
     shouldShowOnboardingPlanReadyGuide,
     showFirstGoalCelebration,
   ]);
+
+  useEffect(() => {
+    if (!shouldShowOnboardingPlanReadyGuide) {
+      planReadyHapticPlayedRef.current = false;
+      return;
+    }
+    if (planReadyHapticPlayedRef.current) return;
+    planReadyHapticPlayedRef.current = true;
+    void HapticsService.trigger('outcome.success');
+  }, [shouldShowOnboardingPlanReadyGuide]);
 
   useEffect(() => {
     if (
@@ -509,8 +1051,8 @@ export function GoalDetailScreen() {
   const forceIntent = { ...defaultForceLevels(0), ...goal.forceIntent };
   const liveForceIntent = editingForces ? editForceIntent : forceIntent;
 
-  const statusRaw = goal.status.replace('_', ' ');
-  const statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+  const statusAppearance = getGoalStatusAppearance(goal.status);
+  const statusLabel = statusAppearance.label;
 
   const updatedAtLabel = goal.updatedAt
     ? new Date(goal.updatedAt).toLocaleDateString(undefined, {
@@ -642,6 +1184,8 @@ export function GoalDetailScreen() {
 
   const handleUploadGoalThumbnail = useCallback(async () => {
     try {
+      setHeroImageLoading(true);
+      setHeroImageError('');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.9,
@@ -663,10 +1207,66 @@ export function GoalDetailScreen() {
         },
         updatedAt: nowIso,
       }));
+      // Mirror Arc behavior: close the sheet after a successful upload to
+      // return the user to the Goal canvas.
+      setThumbnailSheetVisible(false);
     } catch {
-      // Swallow picker errors for now; we can add surfaced feedback later.
+      setHeroImageError('Unable to upload image right now.');
+    } finally {
+      setHeroImageLoading(false);
     }
   }, [goal.id, updateGoal]);
+
+  const handleClearGoalHeroImage = useCallback(() => {
+    const nowIso = new Date().toISOString();
+    updateGoal(goal.id, (prev) => ({
+      ...prev,
+      thumbnailUrl: undefined,
+      heroImageMeta: undefined,
+      updatedAt: nowIso,
+    }));
+  }, [goal.id, updateGoal]);
+
+  const handleSelectCuratedGoalHero = useCallback(
+    (image: ArcHeroImage) => {
+      const nowIso = new Date().toISOString();
+      updateGoal(goal.id, (prev) => ({
+        ...prev,
+        thumbnailUrl: image.uri,
+        thumbnailVariant: prev.thumbnailVariant ?? 0,
+        heroImageMeta: {
+          source: 'curated',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          curatedId: image.id,
+        },
+        updatedAt: nowIso,
+      }));
+    },
+    [goal.id, updateGoal]
+  );
+
+  const handleSelectUnsplashGoalHero = useCallback(
+    (photo: UnsplashPhoto) => {
+      const nowIso = new Date().toISOString();
+      updateGoal(goal.id, (prev) => ({
+        ...prev,
+        thumbnailUrl: photo.urls.regular,
+        heroImageMeta: {
+          source: 'unsplash',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          unsplashPhotoId: photo.id,
+          unsplashAuthorName: photo.user.name,
+          unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+          unsplashLink: withUnsplashReferral(photo.links.html),
+        },
+        updatedAt: nowIso,
+      }));
+      trackUnsplashDownload(photo.id).catch(() => undefined);
+    },
+    [goal.id, updateGoal]
+  );
 
   const handleDismissFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);
@@ -678,7 +1278,7 @@ export function GoalDetailScreen() {
     setHasSeenFirstGoalCelebration(true);
     // Keep the user on the Goal canvas so the onboarding guide can explain
     // where Activities live before we open any AI/creation surfaces.
-    setActiveTab('details');
+    setShouldPromptAddActivity(true);
   };
 
   const handleDeleteGoal = () => {
@@ -890,7 +1490,8 @@ export function GoalDetailScreen() {
   };
 
   return (
-    <AppShell>
+    <AppShell fullBleedCanvas>
+      <StatusBar style={statusBarStyle} animated />
       <FullScreenInterstitial
         visible={showFirstGoalCelebration}
         onDismiss={handleDismissFirstGoalCelebration}
@@ -972,14 +1573,13 @@ export function GoalDetailScreen() {
         </Text>
       </Dialog>
       <BottomGuide
-        visible={shouldShowOnboardingActivitiesGuide && activeTab !== 'plan'}
+        visible={shouldShowOnboardingActivitiesGuide}
         onClose={() => setHasDismissedOnboardingActivitiesGuide(true)}
         scrim="light"
       >
         <Heading variant="sm">Your new Goal is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Next, open the Plan tab to see this Goal's Activities. Add 1–3 so you always know what to do
-          next.
+          Next, add 1–3 Activities so you always know what to do next.
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
@@ -991,8 +1591,8 @@ export function GoalDetailScreen() {
           <Button
             variant="turmeric"
             onPress={() => {
-              setActiveTab('plan');
               setShouldPromptAddActivity(true);
+              setActivityCoachVisible(true);
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
@@ -1066,7 +1666,7 @@ export function GoalDetailScreen() {
         </HStack>
       </BottomGuide>
       <Coachmark
-        visible={shouldShowOnboardingActivitiesCoachmark}
+        visible={shouldShowOnboardingActivitiesCoachmark && !isAnyBottomGuideVisible}
         targetRef={addActivitiesButtonRef}
         scrimToken="pineSubtle"
         spotlight="hole"
@@ -1089,7 +1689,7 @@ export function GoalDetailScreen() {
         placement="below"
       />
       <Coachmark
-        visible={Boolean(shouldShowGoalVectorsCoachmark && vectorsSectionRef.current)}
+        visible={Boolean(shouldShowGoalVectorsCoachmark && vectorsSectionRef.current && !isAnyBottomGuideVisible)}
         targetRef={vectorsSectionRef}
         scrimToken="pineSubtle"
         spotlight="hole"
@@ -1122,264 +1722,152 @@ export function GoalDetailScreen() {
           onPress={commitForceEdit}
         />
       )}
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={{ flex: 1 }}>
-          <VStack space="lg" flex={1}>
-            <HStack alignItems="center">
-              {breadcrumbsEnabled ? (
-                <>
-                  <View style={styles.breadcrumbsLeft}>
-                    <BreadcrumbBar
-                      items={[
-                        {
-                          id: 'arcs',
-                          label: 'Arcs',
-                          onPress: () => {
-                            rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
-                          },
-                        },
-                        ...(arc?.id
-                          ? [
-                              {
-                                id: 'arc',
-                                label: arc?.name ?? 'Arc',
-                                onPress: () => {
-                                  rootNavigationRef.navigate('ArcsStack', {
-                                    screen: 'ArcDetail',
-                                    params: { arcId: arc.id },
-                                  });
-                                },
-                              },
-                            ]
-                          : []),
-                        { id: 'goal', label: goal?.title ?? 'Goal' },
-                      ]}
-                    />
-                  </View>
-                  <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                    {headerV2Enabled ? (
-                      <HStack alignItems="center" space="xs">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onPress={handleShareGoal}
-                          accessibilityLabel="Share goal"
-                        >
-                          <Icon name="share" size={18} color={colors.textPrimary} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onPress={() => setEditModalVisible(true)}
-                          accessibilityLabel="Edit goal details"
-                        >
-                          <Icon name="edit" size={18} color={colors.textPrimary} />
-                        </Button>
-                      </HStack>
-                    ) : (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger accessibilityLabel="Goal actions">
-                          <IconButton
-                            style={styles.optionsButton}
-                            pointerEvents="none"
-                            accessible={false}
-                          >
-                            <Icon name="more" size={18} color={colors.canvas} />
-                          </IconButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                          {/* Primary, non-destructive actions first */}
-                          <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
-                            <View style={styles.menuItemRow}>
-                              <Icon name="edit" size={16} color={colors.textSecondary} />
-                              <Text style={styles.menuItemLabel}>Edit details</Text>
-                            </View>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onPress={handleToggleArchiveGoal}>
-                            <View style={styles.menuItemRow}>
-                              <Icon
-                                name={goal?.status === 'archived' ? 'refresh' : 'archive'}
-                                size={16}
-                                color={colors.textSecondary}
-                              />
-                              <Text style={styles.menuItemLabel}>
-                                {goal?.status === 'archived' ? 'Restore' : 'Archive'}
-                              </Text>
-                            </View>
-                          </DropdownMenuItem>
-
-                          {/* Divider before destructive actions */}
-                          <DropdownMenuSeparator />
-
-                          <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
-                            <View style={styles.menuItemRow}>
-                              <Icon name="trash" size={16} color={colors.destructive} />
-                              <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
-                            </View>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </View>
-                </>
-              ) : (
-                <>
-                  {headerV2Enabled ? (
-                    <View style={styles.headerV2}>
-                      <View style={styles.headerV2TopRow}>
-                        <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleBack}
-                            accessibilityLabel="Back to Arc"
-                          >
-                            <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-                          </Button>
-                          <HStack alignItems="center" space="xs">
-                            <ObjectTypeIconBadge iconName="goals" tone="goal" size={14} badgeSize={26} />
-                            <Text style={styles.objectTypeLabelV2}>Goal</Text>
-                          </HStack>
-                        </HStack>
-                        <HStack alignItems="center" space="xs">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={handleShareGoal}
-                            accessibilityLabel="Share goal"
-                          >
-                            <Icon name="share" size={18} color={colors.textPrimary} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onPress={() => setEditModalVisible(true)}
-                            accessibilityLabel="Edit goal details"
-                          >
-                            <Icon name="edit" size={18} color={colors.textPrimary} />
-                          </Button>
-                        </HStack>
-                      </View>
-                      <Text
-                        style={styles.headerV2Title}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {goal?.title ?? 'Goal'}
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      <View style={styles.headerSide}>
-                        <IconButton
-                          style={styles.backButton}
-                          onPress={handleBack}
-                          accessibilityLabel="Back to Arc"
-                        >
-                          <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                        </IconButton>
-                      </View>
-                      <View style={styles.headerCenter}>
-                        <HStack alignItems="center" justifyContent="center" space="xs">
-                          <ObjectTypeIconBadge iconName="goals" tone="goal" size={14} badgeSize={26} />
-                          <Text style={styles.objectTypeLabel}>Goal</Text>
-                        </HStack>
-                      </View>
-                      <View style={styles.headerSideRight}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger accessibilityLabel="Goal actions">
-                            <IconButton
-                              style={styles.optionsButton}
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="more" size={18} color={colors.canvas} />
-                            </IconButton>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                            {/* Primary, non-destructive actions first */}
-                            <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
-                              <View style={styles.menuItemRow}>
-                                <Icon name="edit" size={16} color={colors.textSecondary} />
-                                <Text style={styles.menuItemLabel}>Edit details</Text>
-                              </View>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={handleToggleArchiveGoal}>
-                              <View style={styles.menuItemRow}>
-                                <Icon
-                                  name={goal?.status === 'archived' ? 'refresh' : 'archive'}
-                                  size={16}
-                                  color={colors.textSecondary}
-                                />
-                                <Text style={styles.menuItemLabel}>
-                                  {goal?.status === 'archived' ? 'Restore' : 'Archive'}
-                                </Text>
-                              </View>
-                            </DropdownMenuItem>
-
-                            {/* Divider before destructive actions */}
-                            <DropdownMenuSeparator />
-
-                            <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
-                              <View style={styles.menuItemRow}>
-                                <Icon name="trash" size={16} color={colors.destructive} />
-                                <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
-                              </View>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </View>
-                    </>
-                  )}
-                </>
-              )}
-            </HStack>
-
-            <VStack space="sm">
-              {/* Thumbnail + inline title editor */}
-              <HStack alignItems="center" space="sm">
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={styles.goalThumbnailWrapper}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit goal thumbnail"
-                  onPress={() => setThumbnailSheetVisible(true)}
+        <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+          <View style={{ flex: 1 }}>
+            <ObjectPageHeader
+              barHeight={OBJECT_PAGE_HEADER_BAR_HEIGHT}
+              backgroundOpacity={headerBackgroundOpacity}
+              actionPillOpacity={headerActionPillOpacity}
+              left={
+                <HeaderActionPill
+                  onPress={handleBack}
+                  accessibilityLabel="Back"
+                  materialOpacity={headerActionPillOpacity}
                 >
-                  <View style={styles.goalThumbnailInner}>
-                    {displayThumbnailUrl ? (
-                      <Image
-                        source={{ uri: displayThumbnailUrl }}
-                        style={styles.goalThumbnail}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <LinearGradient
-                        colors={heroGradientColors}
-                        start={heroGradientDirection.start}
-                        end={heroGradientDirection.end}
-                        style={styles.goalThumbnail}
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                  <EditableField
-                    style={styles.inlineTitleField}
-                    label="Title"
-                    value={goal.title}
-                    variant="title"
-                    placeholder="Goal title"
-                    validate={(next) => {
-                      if (!next.trim()) {
-                        return 'Title cannot be empty';
-                      }
-                      return null;
+                  <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                </HeaderActionPill>
+              }
+              right={
+                <HStack alignItems="center" space="sm">
+                  <HeaderActionPill
+                    onPress={handleShareGoal}
+                    accessibilityLabel="Share goal"
+                    materialOpacity={headerActionPillOpacity}
+                  >
+                    <Icon name="share" size={18} color={colors.textPrimary} />
+                  </HeaderActionPill>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger accessibilityLabel="Goal actions">
+                      <HeaderActionPill
+                        accessibilityLabel="Goal actions"
+                        materialOpacity={headerActionPillOpacity}
+                      >
+                        <Icon name="more" size={18} color={colors.textPrimary} />
+                      </HeaderActionPill>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                      <DropdownMenuItem onPress={() => setThumbnailSheetVisible(true)}>
+                        <View style={styles.menuItemRow}>
+                          <Icon name="image" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Edit banner</Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => setRefineGoalSheetVisible(true)}>
+                        <View style={styles.menuItemRow}>
+                          <Icon name="sparkles" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Refine goal with AI</Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
+                        <View style={styles.menuItemRow}>
+                          <Icon name="edit" size={16} color={colors.textSecondary} />
+                          <Text style={styles.menuItemLabel}>Edit details</Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={handleToggleArchiveGoal}>
+                        <View style={styles.menuItemRow}>
+                          <Icon
+                            name={goal?.status === 'archived' ? 'refresh' : 'archive'}
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                          <Text style={styles.menuItemLabel}>
+                            {goal?.status === 'archived' ? 'Restore' : 'Archive'}
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
+                        <View style={styles.menuItemRow}>
+                          <Icon name="trash" size={16} color={colors.destructive} />
+                          <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
+                        </View>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </HStack>
+              }
+            />
+
+            <KeyboardAwareScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingBottom: spacing['2xl'] + quickAddBottomPadding,
+              }}
+              keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              onScrollBeginDrag={() => Keyboard.dismiss()}
+              onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+                useNativeDriver: false,
+              })}
+              scrollEventThrottle={16}
+            >
+              <View style={styles.pageContent}>
+                <View style={styles.goalHeroSection}>
+                  <Animated.View
+                    style={{
+                      opacity: heroOpacity,
+                      transform: [{ translateY: heroParallaxTranslateY }],
                     }}
-                    onChange={(nextTitle) => {
-                      const trimmed = nextTitle.trim();
-                      if (!trimmed || trimmed === goal.title) {
-                        return;
-                      }
+                  >
+                    <TouchableOpacity
+                      style={styles.heroFullBleedWrapper}
+                      onPress={() => setThumbnailSheetVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit Goal banner"
+                      activeOpacity={0.95}
+                    >
+                  {displayThumbnailUrl ? (
+                    <Image
+                      source={{ uri: displayThumbnailUrl }}
+                          style={styles.heroFullBleedImage}
+                      resizeMode="cover"
+                      accessibilityLabel="Goal banner"
+                    />
+                  ) : (
+                    <LinearGradient
+                      colors={heroGradientColors}
+                      start={heroGradientDirection.start}
+                      end={heroGradientDirection.end}
+                          style={styles.heroFullBleedImage}
+                    />
+                  )}
+                    </TouchableOpacity>
+                  </Animated.View>
+                </View>
+
+                <View
+                  ref={sheetTopRef}
+                  collapsable={false}
+                  onLayout={measureSheetTopAtRest}
+                  style={styles.goalSheet}
+                >
+                  <View style={styles.goalSheetInner}>
+                    <VStack space="lg">
+                <View style={styles.goalTitleBlock}>
+                  <View style={styles.goalTypePillRow}>
+                    <HStack style={styles.goalTypePill} alignItems="center" space="xs">
+                      <Icon name="goals" size={12} color={colors.textSecondary} />
+                      <Text style={styles.goalTypePillLabel}>Goal</Text>
+                    </HStack>
+                  </View>
+                  <NarrativeEditableTitle
+                    value={goal.title}
+                    placeholder="Goal title"
+                    accessibilityLabel="Edit goal title"
+                    onCommit={(trimmed) => {
+                      if (!trimmed || trimmed === goal.title) return;
                       const timestamp = new Date().toISOString();
                       updateGoal(goal.id, (prev) => ({
                         ...prev,
@@ -1387,296 +1875,364 @@ export function GoalDetailScreen() {
                         updatedAt: timestamp,
                       }));
                     }}
+                    textStyle={styles.goalNarrativeTitle}
+                    inputStyle={styles.goalNarrativeTitleInput}
+                    containerStyle={styles.goalNarrativeTitleContainer}
                   />
+                        <GoalProgressSignalsRow
+                          style={styles.goalSignalsRow}
+                          signals={goalProgressSignals}
+                        />
+
+                        <View style={{ marginTop: spacing.sm, width: '100%' }}>
+                    <LongTextField
+                      label="Description"
+                      hideLabel
+                      surfaceVariant="flat"
+                      value={goal.description ?? ''}
+                      placeholder="Add a short description…"
+                      enableAi
+                      aiContext={{
+                        objectType: 'goal',
+                        objectId: goal.id,
+                        fieldId: 'description',
+                      }}
+                      onChange={(nextDescription) => {
+                        const trimmed = nextDescription.trim();
+                        const timestamp = new Date().toISOString();
+                        updateGoal(goal.id, (prev) => ({
+                          ...prev,
+                          description: trimmed.length === 0 ? undefined : trimmed,
+                          updatedAt: timestamp,
+                        }));
+                      }}
+                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
+                        openForFieldContext({
+                          objectType,
+                          objectId,
+                          fieldId,
+                          currentText,
+                          fieldLabel: 'Goal description',
+                        });
+                      }}
+                    />
+                  </View>
                 </View>
-              </HStack>
 
-              {/* Canvas mode toggle: Details vs Plan vs History */}
-              <View style={styles.segmentedControlRow}>
-                <SegmentedControl
-                  value={activeTab}
-                  onChange={setActiveTab}
-                  options={[
-                    { value: 'details', label: 'Details' },
-                    { value: 'plan', label: 'Plan' },
-                    { value: 'history', label: 'History' },
-                      ]}
-                />
-              </View>
-            </VStack>
-
-            {activeTab === 'details' && (
-              <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{
-                  paddingHorizontal: spacing.md,
-                  paddingBottom: spacing['2xl'],
-                  paddingTop: spacing.md,
-                }}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
+                {/* Activities-first section */}
+                <View style={styles.sectionDivider} />
                 <VStack space="md">
-                  <View style={{ marginTop: spacing.md }}>
-                  <HStack style={styles.timeRow}>
-                    <VStack space="xs" style={styles.lifecycleColumn}>
-                      <Text style={styles.timeLabel}>Status</Text>
-                      <Badge
-                        variant={
-                          goal.status === 'in_progress'
-                            ? 'default'
-                            : goal.status === 'planned'
-                              ? 'secondary'
-                              : 'secondary'
-                        }
-                      >
-                        {statusLabel}
-                      </Badge>
-                    </VStack>
-                    <VStack space="xs" style={styles.lifecycleColumn}>
-                      <Text style={styles.timeLabel}>Last modified</Text>
-                      <Text style={styles.timeText}>
-                        {updatedAtLabel ?? 'Just now'}
-                      </Text>
-                    </VStack>
+                  <HStack alignItems="center" justifyContent="space-between">
+                    <Heading style={styles.sectionTitle}>Activities</Heading>
+                    {!isPlanEmpty ? (
+                      <View>
+                        <Button
+                          variant="ai"
+                          size="sm"
+                          onPress={() => setActivityCoachVisible(true)}
+                          accessibilityLabel="Plan activities with AI"
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Icon name="sparkles" size={14} color={colors.primaryForeground} />
+                            <Text style={styles.primaryCtaText}>Plan with AI</Text>
+                          </HStack>
+                        </Button>
+                      </View>
+                    ) : null}
                   </HStack>
-                  </View>
 
-                  <View style={{ marginTop: spacing.md }}>
-                  <LongTextField
-                    label="Description"
-                    value={goal.description ?? ''}
-                    placeholder="Add a short description"
-                    enableAi
-                    aiContext={{
-                      objectType: 'goal',
-                      objectId: goal.id,
-                      fieldId: 'description',
-                    }}
-                    onChange={(nextDescription) => {
-                      const trimmed = nextDescription.trim();
-                      const timestamp = new Date().toISOString();
-                      updateGoal(goal.id, (prev) => ({
-                        ...prev,
-                        description: trimmed.length === 0 ? undefined : trimmed,
-                        updatedAt: timestamp,
-                      }));
-                    }}
-                    onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                      openForFieldContext({
-                        objectType,
-                        objectId,
-                        fieldId,
-                        currentText,
-                        fieldLabel: 'Goal description',
-                      });
-                    }}
-                  />
-                  </View>
-
-                  <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
-                  <ObjectPicker
-                    value={goal.arcId ?? ''}
-                    onValueChange={(nextArcId) => {
-                      handleUpdateArc(nextArcId ? nextArcId : null);
-                    }}
-                    options={arcOptions}
-                    placeholder="Select Arc…"
-                    searchPlaceholder="Search arcs…"
-                    emptyText="No arcs found."
-                    accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
-                    allowDeselect
-                  />
-                  </View>
-
-                  <View ref={vectorsSectionRef} collapsable={false}>
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <HStack alignItems="center" space="xs">
-                      <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => setVectorsInfoVisible(true)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Learn how vectors work for this goal"
-                        style={styles.forceInfoIconButton}
-                      >
-                        <Icon name="info" size={16} color={colors.muted} />
-                      </TouchableOpacity>
-                    </HStack>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={handleToggleForceEdit}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        editingForces
-                          ? 'Save vector balance updates'
-                          : 'Edit how this goal moves different vectors in your life'
-                      }
-                      style={styles.forceEditIconButton}
+                  {isPlanEmpty ? (
+                    <View
+                      ref={addActivitiesButtonRef}
+                      collapsable={false}
+                      onLayout={() => setIsAddActivitiesButtonReady(true)}
                     >
-                      <Icon
-                        name="edit"
-                        size={16}
-                        color={editingForces ? colors.accent : colors.textSecondary}
+                      <OpportunityCard
+                        title="Turn this goal into a plan"
+                        body="Activities are the concrete steps that move this goal forward. Add a few now so you always know what to do next."
+                        tone="brand"
+                        ctaLabel="Add activities"
+                        ctaVariant="inverse"
+                        shadow="layered"
+                        onPressCta={() => setActivityCoachVisible(true)}
+                        ctaAccessibilityLabel="Add activities"
+                        style={styles.planValueCard}
                       />
-                    </TouchableOpacity>
-                  </HStack>
-                  <VStack
-                    style={[styles.forceCard, editingForces && styles.editableFieldActive]}
-                    space="xs"
-                  >
-                    {FORCE_ORDER.map((forceId) => {
-                      const force = getCanonicalForce(forceId);
-                      if (!force) return null;
-                      const level = liveForceIntent[forceId] ?? 0;
-                      const percentage = (Number(level) / 3) * 100;
-
-                      if (!editingForces) {
-                        return (
-                          <HStack key={forceId} style={styles.forceRow} alignItems="center">
-                            <Text style={styles.forceLabel}>{force.name}</Text>
-                            <View style={styles.forceBarWrapper}>
-                              <View style={styles.forceBarTrack}>
-                                <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
-                              </View>
-                            </View>
-                            <Text style={styles.forceValue}>{level}/3</Text>
-                          </HStack>
-                        );
-                      }
-
-                      return (
-                        <VStack key={forceId} space="xs">
-                          <HStack justifyContent="space-between" alignItems="center">
-                            <Text style={styles.forceLabel}>{force.name}</Text>
-                            <Text style={styles.forceValue}>{level}/3</Text>
-                          </HStack>
-                          <HStack space="xs" style={styles.forceSliderRow}>
-                            {[0, 1, 2, 3].map((value) => (
-                              <TouchableOpacity
-                                key={value}
-                                activeOpacity={0.8}
-                                style={[
-                                  styles.forceLevelChip,
-                                  level === value && styles.forceLevelChipActive,
-                                ]}
-                                onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
-                              >
-                                <Text
-                                  style={[
-                                    styles.forceLevelChipText,
-                                    level === value && styles.forceLevelChipTextActive,
-                                  ]}
-                                >
-                                {value}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </HStack>
-                        </VStack>
-                      );
-                    })}
-                  </VStack>
-                  </View>
-                  {createdAtLabel && (
-                    <Text style={styles.createdAtText}>Created {createdAtLabel}</Text>
-                  )}
-
-                  {headerV2Enabled ? (
-                    <Card marginTop="lg">
-                      <Text style={styles.actionsTitle}>Actions</Text>
-                      <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                        <Button
-                          variant="secondary"
-                          fullWidth
-                          onPress={handleToggleArchiveGoal}
-                          accessibilityLabel={goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                        >
-                          <Text style={styles.actionsButtonLabel}>
-                            {goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                          </Text>
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          fullWidth
-                          onPress={handleDeleteGoal}
-                          accessibilityLabel="Delete goal"
-                        >
-                          <Text style={styles.actionsButtonLabelDestructive}>Delete goal</Text>
-                        </Button>
-                      </VStack>
-                    </Card>
-                  ) : null}
-                </VStack>
-              </ScrollView>
-            )}
-
-            {activeTab === 'history' && (
-              <View style={styles.historyContainer}>
-                <VStack space="md">
-                  <View>
-                    <Text style={styles.historyTitle}>History</Text>
-                    <Text style={styles.historySubtitle}>
-                      See how this goal has evolved over time as you complete activities
-                      and make changes.
-                    </Text>
-                  </View>
-
-                  <View style={styles.historySummaryRow}>
-                    <VStack space="xs" style={styles.historySummaryColumn}>
-                      <Text style={styles.historySummaryLabel}>Created</Text>
-                      <Text style={styles.historySummaryValue}>
-                        {createdAtLabel ?? 'Unknown'}
-                      </Text>
-                    </VStack>
-                    <VStack space="xs" style={styles.historySummaryColumn}>
-                      <Text style={styles.historySummaryLabel}>Last modified</Text>
-                      <Text style={styles.historySummaryValue}>
-                        {updatedAtLabel ?? 'Just now'}
-                      </Text>
-                    </VStack>
-                    <VStack space="xs" style={styles.historySummaryColumn}>
-                      <Text style={styles.historySummaryLabel}>Activities done</Text>
-                      <Text style={styles.historySummaryValue}>
-                        {completedGoalActivities.length}
-                      </Text>
-                    </VStack>
-                  </View>
-
-                  {historyEvents.length === 0 ? (
-                    <View style={styles.historyEmptyCard}>
-                      <Text style={styles.historyEmptyTitle}>No history yet</Text>
-                      <Text style={styles.historyEmptyBody}>
-                        As you add or complete activities, or change this goal, a timeline of key
-                        moments will appear here.
-                      </Text>
                     </View>
                   ) : (
-                    <ScrollView
-                      style={styles.historyScroll}
-                      contentContainerStyle={styles.historyScrollContent}
-                      showsVerticalScrollIndicator={false}
-                    >
-                      <VStack space="sm">
-                        {historyEvents.map((event) => (
-                          <View key={event.id} style={styles.historyEventCard}>
-                            <Text style={styles.historyEventDate}>{event.dateLabel}</Text>
-                            <Text style={styles.historyEventTitle}>
-                              {event.kind === 'activityCompleted'
-                                ? `Completed: ${event.title}`
-                                : event.kind === 'activityCreated'
-                                ? `Added: ${event.title}`
-                                : event.title}
-                            </Text>
-                            {event.meta ? (
-                              <Text style={styles.historyEventMeta}>{event.meta}</Text>
-                            ) : null}
-                          </View>
-                        ))}
-                      </VStack>
-                    </ScrollView>
+                    <>
+                      {activeGoalActivities.length > 0 && (
+                        <VStack space="xs">
+                          {activeGoalActivities.map((activity) => {
+                            const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
+                            return (
+                              <ActivityListItem
+                                key={activity.id}
+                                title={activity.title}
+                                meta={meta}
+                                metaLeadingIconName={metaLeadingIconName}
+                                isCompleted={activity.status === 'done'}
+                                onToggleComplete={() => handleToggleActivityComplete(activity.id)}
+                                isPriorityOne={activity.priority === 1}
+                                onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
+                                onPress={() => handleOpenActivityDetail(activity.id)}
+                              />
+                            );
+                          })}
+                        </VStack>
+                      )}
+
+                      {completedGoalActivities.length > 0 && (
+                        <VStack space="xs" style={styles.completedSection}>
+                          <Pressable
+                            onPress={toggleCompletedActivitiesExpanded}
+                            style={styles.completedToggle}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              completedActivitiesExpanded
+                                ? 'Hide completed activities'
+                                : 'Show completed activities'
+                            }
+                            hitSlop={10}
+                          >
+                            <HStack alignItems="center" space="xs">
+                              <Text style={styles.completedToggleLabel}>Completed</Text>
+                              <Icon
+                                name={completedActivitiesExpanded ? 'chevronDown' : 'chevronRight'}
+                                size={14}
+                                color={colors.textSecondary}
+                              />
+                              <Text style={styles.completedCountLabel}>
+                                ({completedGoalActivities.length})
+                              </Text>
+                            </HStack>
+                          </Pressable>
+
+                          {completedActivitiesExpanded && (
+                            <VStack space="xs">
+                              {completedGoalActivities.map((activity) => {
+                                const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
+                                return (
+                                  <ActivityListItem
+                                    key={activity.id}
+                                    title={activity.title}
+                                    meta={meta}
+                                    metaLeadingIconName={metaLeadingIconName}
+                                    isCompleted={activity.status === 'done'}
+                                    onToggleComplete={() => handleToggleActivityComplete(activity.id)}
+                                    isPriorityOne={activity.priority === 1}
+                                    onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
+                                    onPress={() => handleOpenActivityDetail(activity.id)}
+                                  />
+                                );
+                              })}
+                            </VStack>
+                          )}
+                        </VStack>
+                      )}
+                    </>
                   )}
+
+                  {!isPlanEmpty ? (
+                    <View style={{ marginTop: spacing.md }}>
+                      <QuickAddDock
+                        placement="inline"
+                        value={quickAddTitle}
+                        onChangeText={setQuickAddTitle}
+                        inputRef={quickAddInputRef}
+                        isFocused={isQuickAddFocused}
+                        setIsFocused={setQuickAddFocused}
+                        onSubmit={handleQuickAddActivity}
+                        onCollapse={collapseQuickAdd}
+                        reminderAt={quickAddReminderAt}
+                        scheduledDate={quickAddScheduledDate}
+                        repeatRule={quickAddRepeatRule}
+                        estimateMinutes={quickAddEstimateMinutes}
+                        onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
+                        onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
+                        onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
+                        onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
+                      />
+                    </View>
+                  ) : null}
+                </VStack>
+
+                {/* Details section */}
+                <View style={styles.sectionDivider} />
+                <VStack space="lg">
+                  <VStack space="md">
+                    <HStack style={styles.timeRow}>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Status</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Status: ${statusLabel}. Tap to change status.`}
+                          onPress={() => setGoalStatusSheetVisible(true)}
+                          style={({ pressed }) => [
+                            styles.valuePillButton,
+                            {
+                              backgroundColor: statusAppearance.badgeBackgroundColor,
+                              borderColor: statusAppearance.dotColor,
+                            },
+                            pressed ? styles.timeValueButtonPressed : null,
+                          ]}
+                          hitSlop={10}
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Text style={[styles.valuePillText, { color: statusAppearance.badgeTextColor }]}>
+                              {statusLabel}
+                            </Text>
+                            <Icon name="chevronDown" size={14} color={statusAppearance.badgeTextColor} />
+                          </HStack>
+                        </Pressable>
+                      </VStack>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Target date</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Target date: ${targetDateLabel ?? 'No date'}. Tap to change target date.`}
+                          onPress={() => {
+                            setGoalTargetDateSheetStep('menu');
+                            setGoalTargetDateSheetVisible(true);
+                          }}
+                          style={({ pressed }) => [
+                            styles.valuePillButton,
+                            pressed ? styles.timeValueButtonPressed : null,
+                          ]}
+                          hitSlop={10}
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Text
+                              style={[
+                                styles.valuePillText,
+                                { color: targetDateLabel ? colors.textSecondary : colors.muted },
+                              ]}
+                            >
+                              {targetDateLabel ?? 'No date'}
+                            </Text>
+                            <Icon name="chevronDown" size={14} color={colors.textSecondary} />
+                          </HStack>
+                        </Pressable>
+                      </VStack>
+                    </HStack>
+
+                    <HStack style={styles.timeRow}>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Last modified</Text>
+                        <Text style={styles.timeText}>{updatedAtLabel ?? 'Just now'}</Text>
+                      </VStack>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Created</Text>
+                        <Text style={styles.timeText}>{createdAtLabel ?? '—'}</Text>
+                      </VStack>
+                    </HStack>
+                  </VStack>
+
+                  <View style={styles.detailFieldBlock}>
+                    <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
+                    <ObjectPicker
+                      value={goal.arcId ?? ''}
+                      onValueChange={(nextArcId) => {
+                        handleUpdateArc(nextArcId ? nextArcId : null);
+                      }}
+                      options={arcOptions}
+                      placeholder="Select Arc…"
+                      searchPlaceholder="Search arcs…"
+                      emptyText="No arcs found."
+                      accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
+                      allowDeselect
+                    />
+                  </View>
+
+                  <View style={styles.detailFieldBlock} ref={vectorsSectionRef} collapsable={false}>
+                    <HStack justifyContent="space-between" alignItems="center">
+                      <HStack alignItems="center" space="xs">
+                        <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => setVectorsInfoVisible(true)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Learn how vectors work for this goal"
+                          style={styles.forceInfoIconButton}
+                        >
+                          <Icon name="info" size={16} color={colors.muted} />
+                        </TouchableOpacity>
+                      </HStack>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={handleToggleForceEdit}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          editingForces
+                            ? 'Save vector balance updates'
+                            : 'Edit how this goal moves different vectors in your life'
+                        }
+                        style={styles.forceEditIconButton}
+                      >
+                        <Icon
+                          name="edit"
+                          size={16}
+                          color={editingForces ? colors.accent : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </HStack>
+                    <VStack
+                      style={[styles.forceCard, editingForces && styles.editableFieldActive]}
+                      space="xs"
+                    >
+                      {FORCE_ORDER.map((forceId) => {
+                        const force = getCanonicalForce(forceId);
+                        if (!force) return null;
+                        const level = liveForceIntent[forceId] ?? 0;
+                        const percentage = (Number(level) / 3) * 100;
+
+                        if (!editingForces) {
+                          return (
+                            <HStack key={forceId} style={styles.forceRow} alignItems="center">
+                              <Text style={styles.forceLabel}>{force.name}</Text>
+                              <View style={styles.forceBarWrapper}>
+                                <View style={styles.forceBarTrack}>
+                                  <View style={[styles.forceBarFill, { width: `${percentage}%` }]} />
+                                </View>
+                              </View>
+                              <Text style={styles.forceValue}>{level}/3</Text>
+                            </HStack>
+                          );
+                        }
+
+                        return (
+                          <VStack key={forceId} space="xs">
+                            <HStack justifyContent="space-between" alignItems="center">
+                              <Text style={styles.forceLabel}>{force.name}</Text>
+                              <Text style={styles.forceValue}>{level}/3</Text>
+                            </HStack>
+                            <HStack space="xs" style={styles.forceSliderRow}>
+                              {[0, 1, 2, 3].map((value) => (
+                                <TouchableOpacity
+                                  key={value}
+                                  activeOpacity={0.8}
+                                  style={[
+                                    styles.forceLevelChip,
+                                    level === value && styles.forceLevelChipActive,
+                                  ]}
+                                  onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.forceLevelChipText,
+                                      level === value && styles.forceLevelChipTextActive,
+                                    ]}
+                                  >
+                                    {value}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </HStack>
+                          </VStack>
+                        );
+                      })}
+                    </VStack>
+                  </View>
 
                   {headerV2Enabled ? (
                     <Card marginTop="lg">
@@ -1704,169 +2260,13 @@ export function GoalDetailScreen() {
                     </Card>
                   ) : null}
                 </VStack>
-              </View>
-            )}
-
-            {activeTab === 'plan' && (
-              <View style={{ flex: 1 }}>
-                <ScrollView
-                  style={{ flex: 1 }}
-                  contentContainerStyle={{
-                    // AppShell already provides the page gutter. Keep the Plan canvas flush
-                    // with the broader Goal page so Activities align with the header.
-                    paddingHorizontal: 0,
-                    paddingBottom: spacing['2xl'],
-                    paddingTop: spacing.md,
-                  }}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  <VStack space="md">
-                    {!isPlanEmpty && (
-                      <HStack alignItems="center" justifyContent="space-between">
-                        <Heading style={styles.sectionTitle}>Activities</Heading>
-                        <View
-                          ref={addActivitiesButtonRef}
-                          collapsable={false}
-                          onLayout={() => {
-                            // Ensure the onboarding coachmark can safely measure this target.
-                            setIsAddActivitiesButtonReady(true);
-                          }}
-                        >
-                          <IconButton
-                            style={styles.addActivityIconButton}
-                            onPress={() => setActivityCoachVisible(true)}
-                            accessibilityLabel="Add activities"
-                          >
-                            <Icon name="plus" size={18} color={colors.canvas} />
-                          </IconButton>
-                        </View>
-                      </HStack>
-                    )}
-
-                    {isPlanEmpty ? (
-                      <EmptyState
-                        variant="compact"
-                        title="No activities for this goal yet"
-                        instructions="Add your first activities to move this goal forward."
-                        style={[styles.planEmptyState, { marginTop: spacing['2xl'] }]}
-                        actions={
-                          <View
-                            ref={addActivitiesButtonRef}
-                            collapsable={false}
-                            onLayout={() => {
-                              // Ensure the onboarding coachmark can safely measure this target.
-                              setIsAddActivitiesButtonReady(true);
-                            }}
-                          >
-                            <Button
-                              variant="accent"
-                              onPress={() => setActivityCoachVisible(true)}
-                              accessibilityLabel="Add activities to this goal"
-                            >
-                              <Text style={styles.primaryCtaText}>Add activities</Text>
-                            </Button>
-                          </View>
-                        }
-                      />
-                    ) : (
-                      <>
-                        {activeGoalActivities.length > 0 && (
-                          <VStack space="xs">
-                            {activeGoalActivities.map((activity) => {
-                              const { meta, metaLeadingIconName } = buildActivityListMeta({
-                                activity,
-                              });
-
-                              return (
-                                <ActivityListItem
-                                  key={activity.id}
-                                  title={activity.title}
-                                  meta={meta}
-                                  metaLeadingIconName={metaLeadingIconName}
-                                  isCompleted={activity.status === 'done'}
-                                  onToggleComplete={() =>
-                                    handleToggleActivityComplete(activity.id)
-                                  }
-                                  isPriorityOne={activity.priority === 1}
-                                  onTogglePriority={() =>
-                                    handleToggleActivityPriorityOne(activity.id)
-                                  }
-                                  onPress={() => handleOpenActivityDetail(activity.id)}
-                                />
-                              );
-                            })}
-                          </VStack>
-                        )}
-
-                        {completedGoalActivities.length > 0 && (
-                          <VStack
-                            space="xs"
-                            style={{
-                              marginTop: spacing['2xl'],
-                            }}
-                          >
-                            <Heading style={styles.sectionTitle}>Completed</Heading>
-                            {completedGoalActivities.map((activity) => {
-                              const { meta, metaLeadingIconName } = buildActivityListMeta({
-                                activity,
-                              });
-
-                              return (
-                                <ActivityListItem
-                                  key={activity.id}
-                                  title={activity.title}
-                                  meta={meta}
-                                  metaLeadingIconName={metaLeadingIconName}
-                                  isCompleted={activity.status === 'done'}
-                                  onToggleComplete={() =>
-                                    handleToggleActivityComplete(activity.id)
-                                  }
-                                  isPriorityOne={activity.priority === 1}
-                                  onTogglePriority={() =>
-                                    handleToggleActivityPriorityOne(activity.id)
-                                  }
-                                  onPress={() => handleOpenActivityDetail(activity.id)}
-                                />
-                              );
-                            })}
-                          </VStack>
-                        )}
-                      </>
-                    )}
-
-                    {headerV2Enabled ? (
-                      <Card marginTop="lg" marginHorizontal="md">
-                        <Text style={styles.actionsTitle}>Actions</Text>
-                        <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                          <Button
-                            variant="secondary"
-                            fullWidth
-                            onPress={handleToggleArchiveGoal}
-                            accessibilityLabel={goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                          >
-                            <Text style={styles.actionsButtonLabel}>
-                              {goal?.status === 'archived' ? 'Restore goal' : 'Archive goal'}
-                            </Text>
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            fullWidth
-                            onPress={handleDeleteGoal}
-                            accessibilityLabel="Delete goal"
-                          >
-                            <Text style={styles.actionsButtonLabelDestructive}>Delete goal</Text>
-                          </Button>
-                        </VStack>
-                      </Card>
-                    ) : null}
-                  </VStack>
-                </ScrollView>
-              </View>
-            )}
           </VStack>
         </View>
-      </TouchableWithoutFeedback>
+                </View>
+              </View>
+            </KeyboardAwareScrollView>
+          </View>
+        </View>
       <EditGoalModal
         visible={editModalVisible}
         onClose={() => setEditModalVisible(false)}
@@ -1876,10 +2276,355 @@ export function GoalDetailScreen() {
         onSubmit={handleSaveGoal}
         insetTop={insets.top}
       />
+      <BottomDrawer
+        visible={refineGoalSheetVisible}
+        onClose={() => setRefineGoalSheetVisible(false)}
+        snapPoints={['90%']}
+        // Agent chat implements its own keyboard avoidance + focused-input scrolling.
+        keyboardAvoidanceEnabled={false}
+      >
+        <AgentWorkspace
+          mode="goalCreation"
+          launchContext={refineGoalLaunchContext as any}
+          workspaceSnapshot={refineGoalWorkspaceSnapshot}
+          workflowDefinitionId={undefined}
+          resumeDraft={false}
+          hideBrandHeader
+          hostBottomInsetAlreadyApplied
+          onAdoptGoalProposal={handleApplyRefinedGoal}
+          onDismiss={() => setRefineGoalSheetVisible(false)}
+        />
+      </BottomDrawer>
+      <BottomDrawer
+        visible={goalTargetDateSheetVisible}
+        onClose={() => {
+          setGoalTargetDateSheetVisible(false);
+          setGoalTargetDateSheetStep('menu');
+        }}
+        snapPoints={
+          Platform.OS === 'ios'
+            ? [goalTargetDateSheetStep === 'picker' ? '88%' : '62%']
+            : ['45%']
+        }
+        scrimToken="pineSubtle"
+      >
+        <View style={[styles.quickAddSheetContent, { flex: 1 }]}>
+          {goalTargetDateSheetStep === 'menu' ? (
+            <>
+              <Text style={styles.quickAddSheetTitle}>Target date</Text>
+              <VStack space="sm">
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(0)}>
+                  <Text style={styles.quickAddSheetRowLabel}>Today</Text>
+                </Pressable>
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(1)}>
+                  <Text style={styles.quickAddSheetRowLabel}>Tomorrow</Text>
+                </Pressable>
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(7)}>
+                  <Text style={styles.quickAddSheetRowLabel}>Next week</Text>
+                </Pressable>
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateSheetStep('picker')}>
+                  <Text style={styles.quickAddSheetRowLabel}>Pick a date…</Text>
+                </Pressable>
+              </VStack>
+
+              {goal?.targetDate ? (
+                <>
+                  <View style={styles.quickAddSheetDivider} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear target date"
+                    onPress={clearGoalTargetDate}
+                    style={({ pressed }) => [
+                      styles.quickAddSheetClearRow,
+                      pressed ? { opacity: 0.72 } : null,
+                    ]}
+                  >
+                    <Text style={styles.quickAddSheetClearLabel}>Clear target date</Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View style={styles.quickAddPickerHeaderRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Back"
+                  onPress={() => setGoalTargetDateSheetStep('menu')}
+                  style={({ pressed }) => [
+                    styles.quickAddPickerBackButton,
+                    pressed ? { opacity: 0.72 } : null,
+                  ]}
+                >
+                  <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                  <Text style={styles.quickAddPickerBackLabel}>Back</Text>
+                </Pressable>
+                <Text style={styles.quickAddPickerTitle}>Pick a date</Text>
+                <View style={styles.quickAddPickerHeaderSpacer} />
+              </View>
+
+              <View style={styles.quickAddDatePickerContainer}>
+                <DateTimePicker
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  value={getInitialGoalTargetDate()}
+                  onChange={(event: DateTimePickerEvent, date?: Date) => {
+                    if (event.type === 'dismissed' || !date) {
+                      setGoalTargetDateSheetStep('menu');
+                      return;
+                    }
+                    if (!goal?.id) return;
+                    const next = new Date(date);
+                    next.setHours(23, 0, 0, 0);
+                    const timestamp = new Date().toISOString();
+                    updateGoal(goal.id, (prev) => ({
+                      ...prev,
+                      targetDate: next.toISOString(),
+                      qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
+                      updatedAt: timestamp,
+                    }));
+                    setGoalTargetDateSheetVisible(false);
+                    setGoalTargetDateSheetStep('menu');
+                  }}
+                />
+              </View>
+            </>
+          )}
+        </View>
+      </BottomDrawer>
+      <BottomDrawer
+        visible={goalStatusSheetVisible}
+        onClose={() => setGoalStatusSheetVisible(false)}
+        snapPoints={Platform.OS === 'ios' ? ['52%'] : ['40%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Status</Text>
+          <VStack space="sm">
+            {GOAL_STATUS_OPTIONS.map((nextStatus) => {
+              const nextAppearance = getGoalStatusAppearance(nextStatus);
+              const isSelected = goal?.status === nextStatus;
+              return (
+                <Pressable
+                  key={nextStatus}
+                  style={[styles.quickAddSheetRow, isSelected ? styles.statusRowSelected : null]}
+                  onPress={() => {
+                    if (!goal?.id) return;
+                    const timestamp = new Date().toISOString();
+                    updateGoal(goal.id, (prev) => ({
+                      ...prev,
+                      status: nextStatus,
+                      updatedAt: timestamp,
+                    }));
+                    setGoalStatusSheetVisible(false);
+                  }}
+                >
+                  <HStack alignItems="center" justifyContent="space-between">
+                    <HStack alignItems="center" space="sm">
+                      <View
+                        style={[
+                          styles.statusOptionPill,
+                          {
+                            backgroundColor: nextAppearance.badgeBackgroundColor,
+                            borderColor: nextAppearance.dotColor,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.statusOptionPillText, { color: nextAppearance.badgeTextColor }]}>
+                          {nextAppearance.label}
+                        </Text>
+                      </View>
+                    </HStack>
+                    {isSelected ? <Icon name="check" size={16} color={nextAppearance.textColor} /> : null}
+                  </HStack>
+                </Pressable>
+              );
+            })}
+          </VStack>
+        </View>
+      </BottomDrawer>
       {/* Agent FAB entry for Goal detail is temporarily disabled for MVP.
           Once the tap-centric Agent entry is refined for object canvases,
           we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
+      <BottomDrawer
+        visible={quickAddReminderSheetVisible}
+        onClose={() =>
+          closeQuickAddToolDrawer(() => {
+            setQuickAddReminderSheetVisible(false);
+            setQuickAddIsReminderDateTimePickerVisible(false);
+          })
+        }
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Reminder</Text>
+          <VStack space="sm">
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(0, 18, 0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Later today (6pm)</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(1, 9, 0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Tomorrow morning (9am)</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(7, 9, 0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Next week (9am)</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddIsReminderDateTimePickerVisible(true)}>
+              <Text style={styles.quickAddSheetRowLabel}>Pick date & time…</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={clearQuickAddReminder}>
+              <Text style={styles.quickAddSheetRowLabel}>Clear reminder</Text>
+            </Pressable>
+          </VStack>
+          {quickAddIsReminderDateTimePickerVisible && (
+            <View style={styles.quickAddDatePickerContainer}>
+              <DateTimePicker
+                mode="datetime"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialQuickAddReminderDateTime()}
+                onChange={(event: DateTimePickerEvent, date?: Date) => {
+                  if (Platform.OS !== 'ios') setQuickAddIsReminderDateTimePickerVisible(false);
+                  if (!date || event.type === 'dismissed') return;
+                  setQuickAddReminderAt(new Date(date).toISOString());
+                  closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
+                  setQuickAddIsReminderDateTimePickerVisible(false);
+                }}
+              />
+            </View>
+          )}
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddDueDateSheetVisible}
+        onClose={() =>
+          closeQuickAddToolDrawer(() => {
+            setQuickAddDueDateSheetVisible(false);
+            setQuickAddIsDueDatePickerVisible(false);
+          })
+        }
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Due</Text>
+          <VStack space="sm">
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(0)}>
+              <Text style={styles.quickAddSheetRowLabel}>Today</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(1)}>
+              <Text style={styles.quickAddSheetRowLabel}>Tomorrow</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(7)}>
+              <Text style={styles.quickAddSheetRowLabel}>Next week</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddIsDueDatePickerVisible(true)}>
+              <Text style={styles.quickAddSheetRowLabel}>Pick a date…</Text>
+            </Pressable>
+            <Pressable style={styles.quickAddSheetRow} onPress={clearQuickAddDueDate}>
+              <Text style={styles.quickAddSheetRowLabel}>Clear due date</Text>
+            </Pressable>
+          </VStack>
+          {quickAddIsDueDatePickerVisible && (
+            <View style={styles.quickAddDatePickerContainer}>
+              <DateTimePicker
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                value={getInitialQuickAddDueDate()}
+                onChange={(event: DateTimePickerEvent, date?: Date) => {
+                  if (Platform.OS !== 'ios') setQuickAddIsDueDatePickerVisible(false);
+                  if (!date || event.type === 'dismissed') return;
+                  const next = new Date(date);
+                  next.setHours(23, 0, 0, 0);
+                  setQuickAddScheduledDate(next.toISOString());
+                  closeQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(false));
+                  setQuickAddIsDueDatePickerVisible(false);
+                }}
+              />
+            </View>
+          )}
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddRepeatSheetVisible}
+        onClose={() => closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false))}
+        snapPoints={['55%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Repeat</Text>
+          <VStack space="sm">
+            {(['daily', 'weekly', 'weekdays', 'monthly', 'yearly'] as const).map((rule) => (
+              <Pressable
+                key={rule}
+                style={styles.quickAddSheetRow}
+                onPress={() => {
+                  setQuickAddRepeatRule(rule);
+                  closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false));
+                }}
+              >
+                <Text style={styles.quickAddSheetRowLabel}>
+                  {rule === 'weekdays' ? 'Weekdays' : rule.charAt(0).toUpperCase() + rule.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable
+              style={styles.quickAddSheetRow}
+              onPress={() => {
+                setQuickAddRepeatRule(undefined);
+                closeQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(false));
+              }}
+            >
+              <Text style={styles.quickAddSheetRowLabel}>Off</Text>
+            </Pressable>
+          </VStack>
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={quickAddEstimateSheetVisible}
+        onClose={() => closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false))}
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.quickAddSheetContent}>
+          <Text style={styles.quickAddSheetTitle}>Duration</Text>
+          <VStack space="md">
+            <DurationPicker
+              valueMinutes={quickAddEstimateDraftMinutes}
+              onChangeMinutes={setQuickAddEstimateDraftMinutes}
+              accessibilityLabel="Select duration"
+            />
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setQuickAddEstimateMinutes(null);
+                  closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false));
+                }}
+              >
+                <Text style={styles.quickAddSheetRowLabel}>Clear</Text>
+              </Button>
+              <Button
+                variant="primary"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  setQuickAddEstimateMinutes(quickAddEstimateDraftMinutes);
+                  closeQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(false));
+                }}
+              >
+                <Text style={[styles.quickAddSheetRowLabel, { color: colors.primaryForeground }]}>
+                  Save
+                </Text>
+              </Button>
+            </HStack>
+          </VStack>
+        </View>
+      </BottomDrawer>
+
       <BottomDrawer
         visible={vectorsInfoVisible}
         onClose={() => setVectorsInfoVisible(false)}
@@ -1902,51 +2647,36 @@ export function GoalDetailScreen() {
           </View>
         </VStack>
       </BottomDrawer>
-      <BottomDrawer
+      <ArcBannerSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
-        snapPoints={['55%']}
-      >
-        <View style={styles.goalThumbnailSheetContent}>
-          <Heading style={styles.goalThumbnailSheetTitle}>Goal thumbnail</Heading>
-          <View style={styles.goalThumbnailSheetPreviewFrame}>
-            <View style={styles.goalThumbnailSheetPreviewInner}>
-              {goal.thumbnailUrl ? (
-                <Image
-                  source={{ uri: goal.thumbnailUrl }}
-                  style={styles.goalThumbnailSheetImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <LinearGradient
-                  colors={heroGradientColors}
-                  start={heroGradientDirection.start}
-                  end={heroGradientDirection.end}
-                  style={styles.goalThumbnailSheetImage}
-                />
-              )}
-            </View>
-          </View>
-          <HStack space="sm" style={styles.goalThumbnailSheetButtonsRow}>
-            <Button
-              variant="outline"
-              style={styles.goalThumbnailSheetButton}
-              onPress={handleShuffleGoalThumbnail}
-            >
-              <Text style={styles.goalThumbnailControlLabel}>Refresh</Text>
-            </Button>
-            <Button
-              variant="outline"
-              style={styles.goalThumbnailSheetButton}
-              onPress={() => {
-                void handleUploadGoalThumbnail();
-              }}
-            >
-              <Text style={styles.goalThumbnailControlLabel}>Upload</Text>
-            </Button>
-          </HStack>
-        </View>
-      </BottomDrawer>
+        objectLabel="Goal"
+        arcName={goal.title}
+        arcNarrative={goal.description}
+        arcGoalTitles={goalActivities.map((activity) => activity.title)}
+        canUseUnsplash={isPro}
+        onRequestUpgrade={() => {
+          setThumbnailSheetVisible(false);
+          setTimeout(() => openPaywallPurchaseEntry(), 360);
+        }}
+        heroSeed={heroSeed}
+        hasHero={Boolean(goal.thumbnailUrl)}
+        loading={heroImageLoading}
+        error={heroImageError}
+        thumbnailUrl={displayThumbnailUrl}
+        heroGradientColors={heroGradientColors}
+        heroGradientDirection={heroGradientDirection}
+        heroTopoSizes={heroTopoSizes}
+        showTopography={showTopography}
+        showGeoMosaic={showGeoMosaic}
+        onGenerate={handleShuffleGoalThumbnail}
+        onUpload={() => {
+          void handleUploadGoalThumbnail();
+        }}
+        onRemove={handleClearGoalHeroImage}
+        onSelectCurated={handleSelectCuratedGoalHero}
+        onSelectUnsplash={handleSelectUnsplashGoalHero}
+      />
       <GoalActivityCoachDrawer
         visible={activityCoachVisible}
         onClose={() => setActivityCoachVisible(false)}
@@ -1964,29 +2694,16 @@ export function GoalDetailScreen() {
   );
 }
 
-type EditGoalModalProps = {
-  visible: boolean;
-  onClose: () => void;
-  initialTitle: string;
-  initialDescription?: string;
-  initialForceIntent: Record<string, ForceLevel>;
-  onSubmit: (values: {
-    title: string;
-    description?: string;
-    forceIntent: Record<string, ForceLevel>;
-  }) => void;
-  insetTop: number;
-};
-
-function EditGoalModal({
-  visible,
-  onClose,
-  initialTitle,
-  initialDescription,
-  initialForceIntent,
-  onSubmit,
-  insetTop,
-}: EditGoalModalProps) {
+function EditGoalModal(props: any) {
+  const {
+    visible,
+    onClose,
+    initialTitle,
+    initialDescription,
+    initialForceIntent,
+    onSubmit,
+    insetTop,
+  } = props;
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription ?? '');
   const [forceIntent, setForceIntent] =
@@ -2759,6 +3476,48 @@ function GoalActivityCoachDrawer({
 }
 
 const styles = StyleSheet.create({
+  sectionDivider: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.gray300,
+    borderRadius: 999,
+  },
+  goalTypePillRow: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  goalTypePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 999,
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  goalTypePillLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  timeValueButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: spacing.xs / 2,
+    borderRadius: 8,
+  },
+  timeValueButtonPressed: {
+    opacity: 0.7,
+  },
+  timeValueButtonText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   headerSide: {
     flex: 1,
     justifyContent: 'center',
@@ -2869,7 +3628,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     marginBottom: spacing.xs,
-    paddingLeft: spacing.md,
+    paddingLeft: 0,
   },
   arcLabel: {
     ...typography.bodySm,
@@ -2928,7 +3687,24 @@ const styles = StyleSheet.create({
   timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
+  },
+  detailFieldBlock: {
+    marginTop: spacing.md,
+  },
+  valuePillButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.shellAlt,
+  },
+  valuePillText: {
+    ...typography.bodySm,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
   },
   timeText: {
     ...typography.bodySm,
@@ -2945,21 +3721,42 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 11,
     lineHeight: 14,
-    paddingLeft: spacing.md,
+    paddingLeft: 0,
   },
   sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  completedSection: {
+    marginTop: spacing['2xl'],
+  },
+  completedToggle: {
+    paddingVertical: spacing.xs,
+  },
+  completedToggleLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  completedCountLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   lifecycleColumn: {
     flex: 1,
+    alignItems: 'flex-start',
+  },
+  detailDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.gray200,
+    marginVertical: spacing.lg,
+    borderRadius: 999,
   },
   forceIntentLabel: {
     ...typography.label,
     color: colors.muted,
     fontSize: 11,
     lineHeight: 14,
-    paddingLeft: spacing.md,
+    paddingLeft: 0,
   },
   forceInfoIconButton: {
     padding: spacing.xs,
@@ -2972,7 +3769,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   forceBarWrapper: {
     flex: 1,
@@ -3003,7 +3800,7 @@ const styles = StyleSheet.create({
   createdAtText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
     marginTop: spacing.xs,
   },
   historyHintText: {
@@ -3091,7 +3888,7 @@ const styles = StyleSheet.create({
   },
   planEmptyState: {
     marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 0,
   },
   planEmptyTitle: {
     ...typography.titleSm,
@@ -3104,6 +3901,9 @@ const styles = StyleSheet.create({
   planEmptyHint: {
     ...typography.bodySm,
     color: colors.muted,
+  },
+  planValueCard: {
+    marginVertical: 0,
   },
   forceEditOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -3167,6 +3967,66 @@ const styles = StyleSheet.create({
   goalThumbnailControlLabel: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  pageContent: {
+    width: '100%',
+  },
+  goalHeroSection: {
+    height: 240,
+    backgroundColor: colors.canvas,
+  },
+  heroFullBleedWrapper: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.shellAlt,
+  },
+  heroFullBleedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  goalSheet: {
+    marginTop: -20,
+    backgroundColor: colors.canvas,
+    // No rounding on Goal sheets (unlike the Arc hero sheet).
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  goalSheetInner: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
+  },
+  goalBannerFrame: {
+    width: '100%',
+    height: 148,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: colors.shellAlt,
+  },
+  goalBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  goalTitleBlock: {
+    paddingTop: spacing.sm,
+    alignItems: 'center',
+  },
+  goalMetaLine: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    // Status moved into a pill next to the object type; keep this style for any
+    // future supporting meta lines without encouraging it as an interactive element.
+  },
+  goalSignalsRow: {
+    marginBottom: spacing.md,
   },
   editableField: {
     borderWidth: 1,
@@ -3340,6 +4200,25 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
+  goalNarrativeTitleContainer: {
+    // Keep the title feeling like content (not a boxed input) by letting it flow
+    // naturally within the canvas column.
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+    alignItems: 'center',
+  },
+  goalNarrativeTitle: {
+    ...typography.titleLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    maxWidth: 420,
+  },
+  goalNarrativeTitleInput: {
+    // Minimal edit affordance: no border/background. Keep typography identical.
+    ...typography.titleLg,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
   actionsTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
@@ -3489,6 +4368,92 @@ const styles = StyleSheet.create({
   },
   manualFormContainer: {
     flex: 1,
+  },
+  quickAddSheetContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  quickAddSheetTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  quickAddSheetRow: {
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  quickAddSheetRowLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  quickAddSheetDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  quickAddSheetClearRow: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  quickAddSheetClearLabel: {
+    ...typography.bodySm,
+    color: colors.destructive,
+    fontFamily: fonts.medium,
+  },
+  quickAddPickerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  quickAddPickerBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 12,
+  },
+  quickAddPickerBackLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    marginLeft: spacing.xs,
+  },
+  quickAddPickerTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  quickAddPickerHeaderSpacer: {
+    width: 62,
+  },
+  statusRowSelected: {
+    borderColor: colors.gray300,
+    backgroundColor: colors.shellAlt,
+  },
+  statusOptionPill: {
+    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  statusOptionPillText: {
+    ...typography.bodySm,
+    fontFamily: fonts.medium,
+  },
+  quickAddDatePickerContainer: {
+    marginTop: spacing.md,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
   },
 });
 

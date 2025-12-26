@@ -36,9 +36,14 @@ type KeyActionsRowProps = {
    * Visual sizing for touch targets. Use "lg" for app-picker style rows.
    */
   size?: 'md' | 'lg';
+  /**
+   * Optional stable testID prefix for E2E tests.
+   * Each tile receives `testID="${testIDPrefix}.${item.id}"`.
+   */
+  testIDPrefix?: string;
 };
 
-export function KeyActionsRow({ items, size = 'md' }: KeyActionsRowProps) {
+export function KeyActionsRow({ items, size = 'md', testIDPrefix }: KeyActionsRowProps) {
   const iconSize = size === 'lg' ? 22 : 18;
   const tileStyle = size === 'lg' ? styles.tileLg : styles.tile;
   return (
@@ -46,6 +51,7 @@ export function KeyActionsRow({ items, size = 'md' }: KeyActionsRowProps) {
       {items.map((item) => (
         <Pressable
           key={item.id}
+          testID={testIDPrefix ? `${testIDPrefix}.${item.id}` : undefined}
           onPress={item.onPress}
           accessibilityRole="button"
           accessibilityLabel={item.label}

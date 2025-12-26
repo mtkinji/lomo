@@ -85,6 +85,9 @@ export function ObjectPicker({
   }, [disabled, onValueChange]);
 
   const inputStyle = size === 'compact' ? styles.valueInputCompact : styles.valueInput;
+  const inputSize = size === 'compact' ? 'sm' : 'md';
+  const fieldContainerStyle =
+    size === 'compact' ? styles.fieldContainerCompact : styles.fieldContainer;
 
   return (
     <Combobox
@@ -114,7 +117,8 @@ export function ObjectPicker({
               variant="outline"
               elevation="flat"
               leadingIcon={leadingIcon}
-              containerStyle={styles.valueContainer}
+              size={inputSize}
+              containerStyle={[styles.valueContainer, fieldContainerStyle]}
               inputStyle={inputStyle}
             />
           </View>
@@ -152,6 +156,18 @@ const styles = StyleSheet.create({
     // `Input` dims non-editable fields by default. For picker triggers, we want
     // full contrast so the field reads like an interactive control.
     opacity: 1,
+  },
+  fieldContainer: {
+    // Match the canonical single-line field sizing used across the app
+    // (e.g. the collapsed "Add an activity" control).
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  fieldContainerCompact: {
+    minHeight: 36,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   valueInput: {
     ...typography.body,

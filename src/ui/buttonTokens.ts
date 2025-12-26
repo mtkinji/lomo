@@ -20,7 +20,9 @@ export const BUTTON_SIZE_TOKENS: Record<
 > = {
   xs: {
     height: 32,
-    paddingHorizontal: spacing.sm,
+    // More generous horizontal padding to match the "ample margin" feel of
+    // modern system buttons (e.g. Google Play Console).
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     text: {
       fontFamily: fonts.medium,
@@ -30,7 +32,7 @@ export const BUTTON_SIZE_TOKENS: Record<
   },
   sm: {
     height: 36,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xs,
     text: {
       fontFamily: fonts.medium,
@@ -40,7 +42,7 @@ export const BUTTON_SIZE_TOKENS: Record<
   },
   md: {
     height: 44,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 20,
     paddingVertical: spacing.sm,
     text: {
       fontFamily: fonts.medium,
@@ -50,7 +52,7 @@ export const BUTTON_SIZE_TOKENS: Record<
   },
   lg: {
     height: 52,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 28,
     paddingVertical: spacing.md,
     text: {
       fontFamily: fonts.medium,
@@ -73,6 +75,7 @@ export type ButtonVariantToken =
   | 'ghost'
   | 'link'
   | 'ai'
+  | 'inverse'
   | 'destructive'
   | 'turmeric';
 
@@ -130,6 +133,13 @@ export const BUTTON_VARIANT_TOKENS: Record<
     borderWidth: 1,
     borderColor: colors.aiBorder,
     textTone: 'inverse',
+  },
+  inverse: {
+    // Inverse button for saturated/brand surfaces: parchment fill with pine text.
+    backgroundColor: colors.parchment,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    textTone: 'accent',
   },
   destructive: {
     backgroundColor: colors.destructive,
