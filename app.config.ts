@@ -66,6 +66,12 @@ const config: ExpoConfig = {
       LSApplicationQueriesSchemes: ['ms-outlook'],
       // Needed for soundscapes to continue playing when the screen locks.
       UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
+      // ExpoCalendar: required usage strings. Without these, iOS can crash at runtime
+      // when the Calendar module initializes.
+      NSCalendarsUsageDescription:
+        'Kwilt uses your calendar to schedule activities you choose to add.',
+      NSRemindersUsageDescription:
+        'Kwilt uses reminders only if you choose to add activities as reminders.',
     },
   },
   android: {

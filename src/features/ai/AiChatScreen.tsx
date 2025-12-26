@@ -34,6 +34,7 @@ import {
 import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { cardElevation, spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -61,10 +62,11 @@ import type { Activity, ActivityStep, ActivityType, Goal, GoalForceIntent, Metri
 import { defaultForceLevels } from '../../store/useAppStore';
 import { canCreateGoalInArc } from '../../domain/limits';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import { openPaywallInterstitial } from '../../services/paywall';
+import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import { QuestionCard } from '../../ui/QuestionCard';
+import { PaywallContent } from '../paywall/PaywallDrawer';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
 
@@ -1328,6 +1330,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [goalProposal, setGoalProposal] = useState<ProposedGoalDraft | null>(null);
   const [goalDraftTitle, setGoalDraftTitle] = useState('');
   const [goalDraftDescription, setGoalDraftDescription] = useState('');
+  const [goalDraftTargetDate, setGoalDraftTargetDate] = useState<string>('');
+  const [isGoalDraftTargetDatePickerVisible, setIsGoalDraftTargetDatePickerVisible] = useState(false);
   const [goalProposalPostNote, setGoalProposalPostNote] = useState('');
   const [goalProposalTimeline, setGoalProposalTimeline] = useState<GoalProposalTimelineItem[]>([]);
   const [activeGoalProposalId, setActiveGoalProposalId] = useState<string | null>(null);
@@ -1495,9 +1499,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
       return "Here’s a goal based on what you shared.";
     }
     if (focusedArcName) {
-      return `Here’s a starter goal for your ${focusedArcName} Arc — a concrete step toward realizing that identity direction.`;
+      return `Here’s a starter goal for your ${focusedArcName} Arc. Edit anything, then adopt it when it feels right.`;
     }
-    return "Here’s a starter goal to help you make progress.";
+    return "Here’s a starter goal draft. Edit anything, then adopt it when it feels right.";
   }, [focusedArcName, mode]);
 
   const isDictationActive = dictationState === 'recording' || dictationState === 'starting';
@@ -1867,6 +1871,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
     setGoalProposal(null);
     setGoalDraftTitle('');
     setGoalDraftDescription('');
+    setGoalDraftTargetDate('');
+    setIsGoalDraftTargetDatePickerVisible(false);
   }, [activeGoalProposalId]);
 
   const dismissGoalProposalById = useCallback(
@@ -1877,6 +1883,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
         setGoalProposal(null);
         setGoalDraftTitle('');
         setGoalDraftDescription('');
+        setGoalDraftTargetDate('');
+        setIsGoalDraftTargetDatePickerVisible(false);
       }
     },
     [activeGoalProposalId],
@@ -1888,6 +1896,31 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const proposal = isActive && goalProposal ? goalProposal : item.proposal;
       const titleValue = isActive ? goalDraftTitle : proposal.title ?? '';
       const descriptionValue = isActive ? goalDraftDescription : proposal.description ?? '';
+      const targetDateValue = isActive ? goalDraftTargetDate : proposal.targetDate || '';
+      const targetDatePickerValue = (() => {
+        const ms = Date.parse(targetDateValue);
+        if (Number.isFinite(ms)) return new Date(ms);
+        const fallback = new Date();
+        fallback.setDate(fallback.getDate() + 14);
+        fallback.setHours(23, 0, 0, 0);
+        return fallback;
+      })();
+      const targetDateLabel = targetDateValue
+        ? new Date(targetDateValue).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'Set target date';
+      const hasMetrics = Array.isArray(proposal.metrics) && proposal.metrics.length > 0;
+      const primaryMetric = hasMetrics ? proposal.metrics?.[0] : undefined;
+      const metricSummary = primaryMetric
+        ? `${primaryMetric.label}${
+            typeof (primaryMetric as any).target === 'number'
+              ? ` (target: ${(primaryMetric as any).target}${primaryMetric.unit ? ` ${primaryMetric.unit}` : ''})`
+              : ''
+          }`
+        : null;
 
       return (
         <Fragment key={item.id}>
@@ -1957,20 +1990,73 @@ export const AiChatPane = forwardRef(function AiChatPane(
               containerStyle={styles.goalDraftInputContainer}
             />
 
+            <Text style={styles.goalDraftFieldLabel}>TARGET DATE</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Set target date"
+              onPress={() => {
+                if (!isActive) return;
+                setIsGoalDraftTargetDatePickerVisible((current) => !current);
+              }}
+              style={[styles.goalDraftTargetDateRow, !isActive && { opacity: 0.6 }]}
+            >
+              <Text style={styles.goalDraftTargetDateValue}>{targetDateLabel}</Text>
+              {isActive && targetDateValue ? (
+                <Button
+                  variant="ghost"
+                  size="small"
+                  onPress={() => {
+                    setGoalDraftTargetDate('');
+                    setIsGoalDraftTargetDatePickerVisible(false);
+                  }}
+                >
+                  <Text style={styles.goalDraftClearButtonText}>Clear</Text>
+                </Button>
+              ) : null}
+            </Pressable>
+
+            {isActive && isGoalDraftTargetDatePickerVisible ? (
+              <View style={styles.goalDraftDatePickerWrapper}>
+                <DateTimePicker
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  value={targetDatePickerValue}
+                  onChange={(event: DateTimePickerEvent, date?: Date) => {
+                    if (Platform.OS !== 'ios') {
+                      setIsGoalDraftTargetDatePickerVisible(false);
+                    }
+                    if (!date || event.type === 'dismissed') return;
+                    const next = new Date(date);
+                    next.setHours(23, 0, 0, 0);
+                    setGoalDraftTargetDate(next.toISOString());
+                  }}
+                />
+              </View>
+            ) : null}
+
+            {metricSummary ? (
+              <View style={styles.goalDraftMetricRow}>
+                <Text style={styles.goalDraftMetricLabel}>Metric</Text>
+                <Text style={styles.goalDraftMetricValue}>{metricSummary}</Text>
+              </View>
+            ) : null}
+
             {isActive && !focusedArcIdForGoal && arcs.length > 0 && (
                 <View style={styles.goalDraftArcRow}>
                   <Text style={styles.goalDraftArcLabel}>Arc</Text>
-                  <ObjectPicker
-                    options={arcPickerOptions}
-                    value={selectedGoalArcId ?? ''}
-                    onValueChange={(next) => setSelectedGoalArcId(next || null)}
-                    placeholder="Choose an Arc…"
-                    searchPlaceholder="Search Arcs…"
-                    emptyText="No matching Arcs."
-                    accessibilityLabel="Choose an Arc for this goal"
-                    allowDeselect
-                    presentation="drawer"
-                  />
+                  <View style={styles.goalDraftArcPicker}>
+                    <ObjectPicker
+                      options={arcPickerOptions}
+                      value={selectedGoalArcId ?? ''}
+                      onValueChange={(next) => setSelectedGoalArcId(next || null)}
+                      placeholder="Choose an Arc…"
+                      searchPlaceholder="Search Arcs…"
+                      emptyText="No matching Arcs."
+                      accessibilityLabel="Choose an Arc for this goal"
+                      allowDeselect
+                      presentation="drawer"
+                    />
+                  </View>
                 </View>
               )}
 
@@ -1990,12 +2076,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     const trimmedTitle = (goalDraftTitle || proposal.title || '').trim();
                     if (!trimmedTitle) return;
                     const trimmedDescription = (goalDraftDescription || proposal.description || '').trim();
+                    const resolvedTargetDate =
+                      goalDraftTargetDate.trim().length > 0
+                        ? normalizeGoalTargetDate(goalDraftTargetDate)
+                        : undefined;
 
                     if (onAdoptGoalProposal) {
                       onAdoptGoalProposal({
                         ...proposal,
                         title: trimmedTitle,
                         description: trimmedDescription.length ? trimmedDescription : undefined,
+                        ...(resolvedTargetDate ? { targetDate: resolvedTargetDate } : null),
                       });
                       dismissActiveGoalProposal();
                       onDismiss?.();
@@ -2031,7 +2122,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       ...(proposal.forceIntent ?? {}),
                     };
 
-                    const targetDate = proposal.targetDate ?? undefined;
+                    const targetDate = resolvedTargetDate ?? undefined;
                     const metrics = Array.isArray(proposal.metrics) ? proposal.metrics : [];
                     const hasQuality = Boolean(targetDate) && metrics.length > 0;
 
@@ -2099,9 +2190,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
       focusedArcIdForGoal,
       goalDraftDescription,
       goalDraftTitle,
+      goalDraftTargetDate,
       goalDraftTitleWrapWidth,
       goalProposal,
       goalProposalPostNote,
+      isGoalDraftTargetDatePickerVisible,
       onAdoptGoalProposal,
       onGoalCreated,
       onDismiss,
@@ -2122,6 +2215,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
       setGoalProposal(proposal);
       setGoalDraftTitle(proposal.title ?? '');
       setGoalDraftDescription(proposal.description ?? '');
+      setGoalDraftTargetDate(proposal.targetDate ?? '');
+      setIsGoalDraftTargetDatePickerVisible(false);
       setGoalProposalPostNote('');
       hasShownGoalProposalRef.current = true;
       return;
@@ -2129,6 +2224,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
     setGoalProposal(null);
     setGoalDraftTitle('');
     setGoalDraftDescription('');
+    setGoalDraftTargetDate('');
+    setIsGoalDraftTargetDatePickerVisible(false);
     setGoalProposalPostNote('');
   }, []);
 
@@ -2400,6 +2497,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
       workflowInstanceId: workflowRuntime?.instance?.id,
       workflowStepId: workflowRuntime?.instance?.currentStepId,
       launchContextSummary: launchContext,
+      paywallSource:
+        mode === 'activityCreation'
+          ? 'activity_quick_add_ai'
+          : mode === 'goalCreation'
+          ? 'goals_create_ai'
+          : 'unknown',
     };
   }, [launchContext, mode, workflowRuntime]);
 
@@ -2622,8 +2725,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [adoptedActivityCount, setAdoptedActivityCount] = useState(0);
   const [showActivitySummary, setShowActivitySummary] = useState(false);
   const [isGeneratingActivitySuggestions, setIsGeneratingActivitySuggestions] = useState(false);
-  const [selectedActivityTypes, setSelectedActivityTypes] = useState<ActivityType[]>(() => ['task']);
-  const [shouldShowActivityTypeQuestion, setShouldShowActivityTypeQuestion] = useState(false);
+  const [dismissedActivitySuggestionTitles, setDismissedActivitySuggestionTitles] = useState<string[]>(
+    [],
+  );
+  const [hasGenerativeQuotaExceeded, setHasGenerativeQuotaExceeded] = useState(false);
   const [activitySuggestionEdits, setActivitySuggestionEdits] = useState<Record<string, string>>(
     {},
   );
@@ -2632,15 +2737,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
   );
   const activitySuggestionInputRefs = useRef<Record<string, TextInput | null>>({});
 
+  const normalizeActivitySuggestionTitle = useCallback((value: string) => value.trim().toLowerCase(), []);
+
+  const isGenerativeQuotaError = useCallback((err: unknown): boolean => {
+    const message =
+      (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
+    const lower = message.toLowerCase();
+    return (
+      lower.includes('generative credits exhausted') ||
+      lower.includes('ai limit') ||
+      lower.includes('upgrade to pro') ||
+      lower.includes('quota_exceeded') ||
+      lower.includes('monthly quota exceeded') ||
+      lower.includes('insufficient_quota') ||
+      lower.includes('exceeded your current quota') ||
+      lower.includes('quota exceeded')
+    );
+  }, []);
+
   const buildActivityCreationBootstrapCopy = useCallback((): string => {
     const focusedGoalTitle = extractFocusedGoalTitleFromLaunchContext(launchContext);
     if (focusedGoalTitle) {
       return [
         `You're currently working on a goal called **${focusedGoalTitle}.**`,
-        "What kinds of activities would you like suggestions for? Pick any types below, and I’ll generate a short set for this week.",
+        "I’ll generate a short set of activities for this week — and I’ll choose the best format for each one (task, checklist, plan, etc.).",
       ].join(' ');
     }
-    return "What kinds of activities would you like suggestions for? Pick any types below, and I’ll generate a short set for this week.";
+    return "I’ll generate a short set of activities for this week — and I’ll choose the best format for each one (task, checklist, plan, etc.).";
   }, [launchContext]);
 
   const fetchActivitySuggestionsOnly = useCallback(
@@ -2648,73 +2771,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const reason = params?.reason ?? 'bootstrap';
       setIsGeneratingActivitySuggestions(true);
       setHasTransportError(false);
+      setHasGenerativeQuotaExceeded(false);
       if (reason === 'regenerate') {
         // Clear current suggestions so the UI shows a lightweight skeleton while we work.
         setActivitySuggestions(null);
       }
 
       try {
-        const canonicalSelectedTypes = (selectedActivityTypes ?? []).filter(
-          (value) => typeof value === 'string' && !value.startsWith('custom:'),
-        ) as Array<Exclude<ActivityType, `custom:${string}`>>;
-        const selectedTypesGuidance =
-          canonicalSelectedTypes.length > 0
-            ? [
-                `The user selected these activity types: ${canonicalSelectedTypes.join(', ')}.`,
-                'Rules:',
-                '- Use ONLY these canonical types (do not emit any "custom:*" types).',
-                '- Every suggestion MUST include a `type` field.',
-                '- If exactly 1 type is selected, ALL suggestions should use that type.',
-                '- If multiple types are selected, diversify across them and try to include at least 1 suggestion per selected type (up to 5 suggestions total).',
-                '- For "shopping_list" and "checklist", express the content as steps (each step is one item).',
-                '- For "instructions", include steps that read like a short recipe / how-to.',
-                '- For "plan", include steps that read like a simple timeline or sequence.',
-              ].join('\n')
-            : null;
-
-        const enforceSelectedTypesOnSuggestions = (
-          suggestions: ActivitySuggestion[],
-          selectedTypes: Array<Exclude<ActivityType, `custom:${string}`>>,
-        ): ActivitySuggestion[] => {
-          const desired = (selectedTypes ?? []).filter(
-            (t) => t === 'task' || t === 'checklist' || t === 'shopping_list' || t === 'instructions' || t === 'plan',
-          );
-          if (desired.length === 0) return suggestions;
-          if (suggestions.length === 0) return suggestions;
-
-          // Clone defensively so we don't mutate parsed objects in place.
-          const next = suggestions.map((s) => ({ ...s }));
-
-          if (desired.length === 1) {
-            const only = desired[0];
-            return next.map((s) => ({ ...s, type: only }));
-          }
-
-          // 1) Normalize: if a suggestion has an invalid/missing type, clear it so we can fill it.
-          for (let i = 0; i < next.length; i++) {
-            const t = next[i].type;
-            if (!t || !desired.includes(t as any)) {
-              next[i] = { ...next[i], type: undefined };
-            }
-          }
-
-          // 2) Ensure at least one suggestion per desired type (as long as we have enough suggestions).
-          const maxCover = Math.min(next.length, desired.length);
-          for (let i = 0; i < maxCover; i++) {
-            next[i] = { ...next[i], type: desired[i] };
-          }
-
-          // 3) Fill any remaining missing types by cycling through the desired list.
-          let cursor = 0;
-          for (let i = 0; i < next.length; i++) {
-            if (!next[i].type) {
-              next[i] = { ...next[i], type: desired[cursor % desired.length] };
-              cursor += 1;
-            }
-          }
-
-          return next;
-        };
+        const rejectedTitles = (dismissedActivitySuggestionTitles ?? [])
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        const rejectedTitleSet = new Set(rejectedTitles.map(normalizeActivitySuggestionTitle));
 
         const history: CoachChatTurn[] = messagesRef.current.map((m) => ({
           role: m.role,
@@ -2729,7 +2796,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
             'Each suggestion MUST include: id (string), title (string), why (string), timeEstimateMinutes (number), type ("task"|"checklist"|"shopping_list"|"instructions"|"plan").\n' +
             'Each suggestion MAY include: type ("task"|"checklist"|"shopping_list"|"instructions"|"plan"), steps (array of {title,isOptional}), energyLevel ("light"|"focused"), kind ("setup"|"progress"|"maintenance"|"stretch").\n' +
             'If the user request implies a checklist-style output (for example, a shopping list, a packing list, or a meal-prep plan), express it via `steps` and set type appropriately ("shopping_list", "checklist", or "instructions").\n' +
-            (selectedTypesGuidance ? `${selectedTypesGuidance}\n` : '') +
+            'Choose the most appropriate `type` for each suggestion based on content, and diversify types when it improves clarity.\n' +
+            'Rules:\n' +
+            '- Every suggestion MUST include a `type` field.\n' +
+            '- For "shopping_list" and "checklist", express the content as steps (each step is one item).\n' +
+            '- For "instructions", include steps that read like a short recipe / how-to.\n' +
+            '- For "plan", include steps that read like a simple timeline or sequence.\n' +
+            (rejectedTitles.length > 0
+              ? `Avoid suggesting any activities that match (or are very similar to) these previously rejected titles:\n- ${rejectedTitles.join(
+                  '\n- ',
+                )}\n`
+              : '') +
             'Do not include markdown fences. Do not include prose before or after.',
         });
 
@@ -2745,7 +2822,20 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
         const nextSuggestionsRaw = suggestions && suggestions.length > 0 ? suggestions : null;
         const nextSuggestions = nextSuggestionsRaw
-          ? enforceSelectedTypesOnSuggestions(nextSuggestionsRaw, canonicalSelectedTypes)
+          ? nextSuggestionsRaw
+              .filter((suggestion) => {
+                const normalized = normalizeActivitySuggestionTitle(suggestion.title ?? '');
+                return normalized.length > 0 && !rejectedTitleSet.has(normalized);
+              })
+              // De-dupe within a single response, best-effort by title.
+              .filter((suggestion, index, array) => {
+                const normalized = normalizeActivitySuggestionTitle(suggestion.title ?? '');
+                const firstIndex = array.findIndex(
+                  (candidate) =>
+                    normalizeActivitySuggestionTitle(candidate.title ?? '') === normalized,
+                );
+                return firstIndex === index;
+              })
           : null;
         setActivitySuggestions(nextSuggestions);
         setEditingActivitySuggestionId(null);
@@ -2764,15 +2854,31 @@ export const AiChatPane = forwardRef(function AiChatPane(
           );
         }
       } catch (err) {
-        console.error('kwilt Activities AI suggestions-only fetch failed', err);
-        setHasTransportError(true);
-        setActivitySuggestions(null);
-        onTransportError?.();
+        if (isGenerativeQuotaError(err)) {
+          // Expected state (user hit their AI credit/quota gate). Avoid surfacing as an "error"
+          // to dev overlays / logging that might show scary banners in the UI.
+          console.warn('kwilt Activities AI quota reached (suggestions suppressed).');
+          setHasGenerativeQuotaExceeded(true);
+          setHasTransportError(false);
+          setActivitySuggestions(null);
+        } else {
+          console.error('kwilt Activities AI suggestions-only fetch failed', err);
+          setHasTransportError(true);
+          setActivitySuggestions(null);
+          onTransportError?.();
+        }
       } finally {
         setIsGeneratingActivitySuggestions(false);
       }
     },
-    [buildCoachOptions, onTransportError, selectedActivityTypes, workflowRuntime],
+    [
+      buildCoachOptions,
+      dismissedActivitySuggestionTitles,
+      isGenerativeQuotaError,
+      normalizeActivitySuggestionTitle,
+      onTransportError,
+      workflowRuntime,
+    ],
   );
 
   useEffect(() => {
@@ -2785,8 +2891,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
     setActivitySuggestions(null);
     setAdoptedActivityCount(0);
     setShowActivitySummary(false);
-    setShouldShowActivityTypeQuestion(true);
+    setDismissedActivitySuggestionTitles([]);
     streamAssistantReply(buildActivityCreationBootstrapCopy(), 'assistant-bootstrap');
+    // Stream local copy immediately while fetching suggestions in parallel.
+    void fetchActivitySuggestionsOnly({ reason: 'bootstrap' });
   }, [
     bootstrapped,
     buildActivityCreationBootstrapCopy,
@@ -2814,6 +2922,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
       return candidate || suggestion.title;
     },
     [activitySuggestionEdits],
+  );
+
+  const handleDismissActivitySuggestion = useCallback(
+    (suggestion: ActivitySuggestion) => {
+      const title = getEffectiveActivitySuggestionTitle(suggestion);
+      const normalized = normalizeActivitySuggestionTitle(title);
+      if (normalized.length > 0) {
+        setDismissedActivitySuggestionTitles((current) => {
+          if (current.some((existing) => normalizeActivitySuggestionTitle(existing) === normalized)) {
+            return current;
+          }
+          return [...current, title];
+        });
+      }
+      setActivitySuggestions((current) => {
+        if (!current) return current;
+        return current.filter((item) => item.id !== suggestion.id);
+      });
+      setActivitySuggestionEdits((current) => {
+        if (!Object.prototype.hasOwnProperty.call(current, suggestion.id)) return current;
+        const next = { ...current };
+        delete next[suggestion.id];
+        return next;
+      });
+      setEditingActivitySuggestionId((current) => (current === suggestion.id ? null : current));
+    },
+    [getEffectiveActivitySuggestionTitle, normalizeActivitySuggestionTitle],
   );
 
   // For non-bootstrap modes (like free-form coaching and Arc AI), stream a
@@ -3209,115 +3344,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   })}
 
                 {mode === 'activityCreation' &&
-                  bootstrapped &&
-                  shouldShowActivityTypeQuestion &&
-                  !activitySuggestions &&
-                  !isGeneratingActivitySuggestions &&
-                  !showActivitySummary && (
-                    <QuestionCard title="What kinds of activities do you want? (Pick any)">
-                      <View style={styles.activityTypeFullWidthList}>
-                        {(
-                          [
-                            {
-                              value: 'task',
-                              label: 'Tasks',
-                            },
-                            {
-                              value: 'checklist',
-                              label: 'Checklist',
-                            },
-                            {
-                              value: 'shopping_list',
-                              label: 'Shopping list',
-                            },
-                            {
-                              value: 'instructions',
-                              label: 'Instructions',
-                            },
-                            {
-                              value: 'plan',
-                              label: 'Plan',
-                            },
-                          ] as const
-                        ).map((option) => {
-                          const selected = selectedActivityTypes.includes(option.value);
-                          return (
-                            <Pressable
-                              key={option.value}
-                              style={[
-                                styles.activityTypeFullWidthOption,
-                                selected && styles.activityTypeFullWidthOptionSelected,
-                              ]}
-                              accessibilityRole="checkbox"
-                              accessibilityState={{ checked: selected }}
-                              accessibilityLabel={`Toggle activity type: ${option.label}`}
-                              onPress={() => {
-                                setSelectedActivityTypes((current) => {
-                                  const exists = current.includes(option.value);
-                                  if (exists) {
-                                    return current.filter((value) => value !== option.value);
-                                  }
-                                  return [...current, option.value];
-                                });
-                              }}
-                            >
-                              <View style={styles.activityTypeFullWidthOptionContent}>
-                                <View
-                                  style={[
-                                    styles.activityTypeCheckboxOuter,
-                                    selected && styles.activityTypeCheckboxOuterSelected,
-                                  ]}
-                                >
-                                  {selected ? (
-                                    <Icon name="check" size={14} color={colors.canvas} />
-                                  ) : null}
-                                </View>
-                                <Text
-                                  style={[
-                                    styles.activityTypeFullWidthOptionLabel,
-                                    selected && styles.activityTypeFullWidthOptionLabelSelected,
-                                  ]}
-                                >
-                                  {option.label}
-                                </Text>
-                              </View>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-
-                      <View style={styles.activityTypeQuestionFooterRow}>
-                        <Button
-                          variant="outline"
-                          size="md"
-                          onPress={() => {
-                            setSelectedActivityTypes([
-                              'task',
-                              'checklist',
-                              'shopping_list',
-                              'instructions',
-                              'plan',
-                            ]);
-                          }}
-                        >
-                          <Text style={styles.activityTypeQuestionSecondaryCta}>Select all</Text>
-                        </Button>
-                        <Button
-                          variant="accent"
-                          size="md"
-                          disabled={selectedActivityTypes.length === 0}
-                          onPress={async () => {
-                            setShouldShowActivityTypeQuestion(false);
-                            await fetchActivitySuggestionsOnly({ reason: 'bootstrap' });
-                          }}
-                        >
-                          <Text style={styles.activityTypeQuestionPrimaryCta}>Continue</Text>
-                        </Button>
-                      </View>
-                    </QuestionCard>
-                  )}
-
-                {mode === 'activityCreation' &&
                   (activitySuggestions || isGeneratingActivitySuggestions) &&
                   bootstrapped &&
                   !showActivitySummary && (
@@ -3442,6 +3468,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                       <ButtonLabel size="sm">Add</ButtonLabel>
                                     </HStack>
                                   </Button>
+                                  <Button
+                                    variant="ghost"
+                                    iconButtonSize={32}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Dismiss suggestion: ${getEffectiveActivitySuggestionTitle(
+                                      suggestion,
+                                    )}`}
+                                    onPress={() => handleDismissActivitySuggestion(suggestion)}
+                                  >
+                                    <Icon name="close" size={16} color={CHAT_COLORS.textSecondary} />
+                                  </Button>
                                 </HStack>
                               </Card>
                             ))
@@ -3510,6 +3547,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           </Button>
                         </View>
                       </View>
+                    </View>
+                  )}
+
+                {mode === 'activityCreation' &&
+                  bootstrapped &&
+                  hasGenerativeQuotaExceeded &&
+                  !isGeneratingActivitySuggestions &&
+                  !showActivitySummary && (
+                    <View style={styles.activityQuotaPaywallSlot}>
+                      <PaywallContent
+                        reason="generative_quota_exceeded"
+                        source="activity_quick_add_ai"
+                        showHeader={false}
+                        onClose={() => {
+                          // Best UX here is to let the user keep moving via Manual.
+                          if (onManualFallbackRequested) {
+                            onManualFallbackRequested();
+                            return;
+                          }
+                          onDismiss?.();
+                        }}
+                        onUpgrade={() => {
+                          onDismiss?.();
+                          // Avoid stacked modal drawers (agent closing + pricing opening).
+                          setTimeout(() => openPaywallPurchaseEntry(), 360);
+                        }}
+                      />
                     </View>
                   )}
 
@@ -4455,6 +4519,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     columnGap: spacing.xs,
   },
+  activityQuotaPaywallSlot: {
+    marginTop: spacing.md,
+  },
   activitySuggestionSkeletonBlock: {
     backgroundColor: '#E5E7EB',
     borderRadius: 999,
@@ -4979,12 +5046,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     gap: spacing.sm,
   },
   goalDraftArcLabel: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
+  },
+  goalDraftArcPicker: {
+    flex: 1,
+    // Critical: allow the picker to shrink inside a horizontal row (RN default minWidth can cause overflow).
+    minWidth: 0,
   },
   goalDraftLabel: {
     ...typography.bodySm,
@@ -5024,6 +5096,46 @@ const styles = StyleSheet.create({
   goalDraftDescriptionInputText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
+  },
+  goalDraftTargetDateRow: {
+    backgroundColor: CHAT_COLORS.surface,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  goalDraftTargetDateValue: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+  },
+  goalDraftClearButtonText: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  goalDraftDatePickerWrapper: {
+    backgroundColor: CHAT_COLORS.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  goalDraftMetricRow: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  goalDraftMetricLabel: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textSecondary,
+  },
+  goalDraftMetricValue: {
+    ...typography.bodySm,
+    color: CHAT_COLORS.textPrimary,
+    flex: 1,
+    textAlign: 'right',
   },
   goalDraftButtonsRow: {
     flexDirection: 'row',

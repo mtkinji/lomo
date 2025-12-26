@@ -100,7 +100,9 @@ export function DevToolsScreen() {
   const devSetGenerativeCreditsUsedThisMonth = useAppStore((state) => state.devSetGenerativeCreditsUsedThisMonth);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const devOverrideIsPro = useEntitlementsStore((state) => state.devOverrideIsPro);
   const devSetIsPro = useEntitlementsStore((state) => state.devSetIsPro);
+  const devClearProOverride = useEntitlementsStore((state) => state.devClearProOverride);
 
   const initialTab = route.params?.initialTab ?? 'tools';
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
@@ -1557,24 +1559,31 @@ export function DevToolsScreen() {
                 Force paywall moments, simulate Pro, and set AI credits so you can verify upgrade prompts + the credits toast quickly.
               </Text>
               <Text style={styles.meta}>
-                Tier: {isPro ? 'Pro' : 'Free'} • Credits: {generativeCredits?.usedThisMonth ?? 0} used ({generativeCredits?.monthKey ?? 'unknown'})
+                Tier: {isPro ? 'Pro' : 'Free'}
+                {devOverrideIsPro == null ? ' (real)' : ' (simulated)'} • Credits:{' '}
+                {generativeCredits?.usedThisMonth ?? 0} used ({generativeCredits?.monthKey ?? 'unknown'})
               </Text>
 
+              <SegmentedControl<'real' | 'free' | 'pro'>
+                value={devOverrideIsPro == null ? 'real' : devOverrideIsPro ? 'pro' : 'free'}
+                onChange={(next) => {
+                  if (next === 'real') {
+                    devClearProOverride();
+                    return;
+                  }
+                  devSetIsPro(next === 'pro');
+                }}
+                size="compact"
+                testIDPrefix="devtools.monetizationTier"
+                options={[
+                  { value: 'real', label: 'Real' },
+                  { value: 'free', label: 'Free' },
+                  { value: 'pro', label: 'Pro' },
+                ]}
+                style={{ marginTop: spacing.md }}
+              />
+
               <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
-                <Button
-                  variant="secondary"
-                  onPress={() => devSetIsPro(false)}
-                  style={styles.cardAction}
-                >
-                  <ButtonLabel size="md">Simulate Free</ButtonLabel>
-                </Button>
-                <Button
-                  variant="secondary"
-                  onPress={() => devSetIsPro(true)}
-                  style={styles.cardAction}
-                >
-                  <ButtonLabel size="md">Simulate Pro</ButtonLabel>
-                </Button>
                 <Button
                   variant="secondary"
                   onPress={() => openPaywallPurchaseEntry()}

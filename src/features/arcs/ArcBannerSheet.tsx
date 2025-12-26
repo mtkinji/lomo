@@ -529,6 +529,7 @@ export function ArcBannerSheet({
                           return (
                             <TouchableOpacity
                               key={image.id}
+                              testID={`e2e.arcBanner.curated.${image.id}`}
                               style={[
                                 styles.masonryTile,
                                 { width: masonryColumnWidth, height },
@@ -556,6 +557,7 @@ export function ArcBannerSheet({
                           return (
                             <TouchableOpacity
                               key={image.id}
+                              testID={`e2e.arcBanner.curated.${image.id}`}
                               style={[
                                 styles.masonryTile,
                                 { width: masonryColumnWidth, height },
@@ -627,6 +629,7 @@ export function ArcBannerSheet({
                             return (
                               <TouchableOpacity
                                 key={photo.id}
+                                testID={`e2e.arcBanner.unsplash.${photo.id}`}
                                 style={[
                                   styles.masonryTile,
                                   { width: masonryColumnWidth, height },
@@ -654,6 +657,7 @@ export function ArcBannerSheet({
                             return (
                               <TouchableOpacity
                                 key={photo.id}
+                                testID={`e2e.arcBanner.unsplash.${photo.id}`}
                                 style={[
                                   styles.masonryTile,
                                   { width: masonryColumnWidth, height },
@@ -684,7 +688,7 @@ export function ArcBannerSheet({
           </View>
 
           <View style={styles.sheetFooter}>
-            <Button variant="accent" onPress={onClose} style={styles.saveButton}>
+            <Button variant="primary" onPress={onClose} style={styles.saveButton}>
               <Text style={styles.saveButtonLabel}>Save</Text>
             </Button>
           </View>

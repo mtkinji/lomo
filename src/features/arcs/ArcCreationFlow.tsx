@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { LongTextField } from '../../ui/LongTextField';
-import { QuestionCard } from '../../ui/QuestionCard';
-import { Text } from '../../ui/primitives';
+import { Input } from '../../ui/Input';
+import { SurveyCard, type SurveyStep } from '../../ui/SurveyCard';
 import { ButtonLabel } from '../../ui/Typography';
+import { HStack, Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
@@ -67,6 +67,9 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
     const index = step === 'dream' ? 1 : step === 'whyNow' ? 2 : step === 'roleModelType' ? 3 : 4;
     return `${index} of 4`;
   }, [step]);
+  const currentStepIndex = useMemo(() => {
+    return step === 'dream' ? 0 : step === 'whyNow' ? 1 : step === 'roleModelType' ? 2 : 3;
+  }, [step]);
 
   const [dreamInput, setDreamInput] = useState('');
   const [whyNowId, setWhyNowId] = useState<string | null>(null);
@@ -119,48 +122,38 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
     return null;
   }
 
-  if (step === 'dream') {
+  const steps = useMemo<SurveyStep[]>(() => {
     const dreamPlain = htmlToPlainText(dreamInput).trim();
     const hasDream = dreamPlain.length > 0;
-    return (
-      <QuestionCard
-        stepLabel={stepLabel}
-        title="Looking ahead, what’s one big thing you’d love to bring to life?"
-        style={styles.card}
-      >
-        <View style={styles.body}>
-          <LongTextField
-            label="Dream"
-            value={dreamInput}
-            onChange={setDreamInput}
-            hideLabel
-            placeholder="e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home."
-            snapPoints={['75%']}
-          />
-          <View style={styles.inlineActions}>
-            <Button
-              variant="accent"
-              style={[styles.primaryButton, !hasDream && styles.primaryButtonDisabled]}
-              disabled={!hasDream}
-              onPress={() => {
-                chatControllerRef?.current?.appendUserMessage(dreamPlain);
-                setStep('whyNow');
-              }}
-            >
-              <ButtonLabel size="md" tone="inverse">
-                Continue
-              </ButtonLabel>
-            </Button>
-          </View>
-        </View>
-      </QuestionCard>
-    );
-  }
+    const canSubmit = admiredQualityIds.length > 0 && !submitting;
 
-  if (step === 'whyNow') {
-    return (
-      <QuestionCard stepLabel={stepLabel} title="Why does this feel important to you?" style={styles.card}>
-        <View style={styles.body}>
+    return [
+      {
+        id: 'dream',
+        title: "Looking ahead, what’s one big thing you’d love to bring to life?",
+        canProceed: hasDream,
+        render: () => (
+          <Input
+            value={dreamInput}
+            onChangeText={setDreamInput}
+            multiline
+            // Match FTUE behavior: stable textarea height to avoid growing off-screen
+            // while placeholder/content size changes.
+            multilineMinHeight={140}
+            multilineMaxHeight={140}
+            placeholder="e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home."
+            autoCapitalize="sentences"
+            returnKeyType="done"
+            blurOnSubmit
+            onSubmitEditing={() => Keyboard.dismiss()}
+          />
+        ),
+      },
+      {
+        id: 'whyNow',
+        title: 'Why does this feel important to you?',
+        canProceed: Boolean(whyNowId),
+        render: () => (
           <View style={styles.fullWidthList}>
             {WHY_NOW_OPTIONS.map((option) => {
               const selected = whyNowId === option.id;
@@ -193,25 +186,13 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
               );
             })}
           </View>
-
-          <View style={styles.inlineActions}>
-            <Button variant="outline" style={styles.secondaryButton} onPress={() => setStep('dream')}>
-              <ButtonLabel size="md">Back</ButtonLabel>
-            </Button>
-          </View>
-        </View>
-      </QuestionCard>
-    );
-  }
-
-  if (step === 'roleModelType') {
-    return (
-      <QuestionCard
-        stepLabel={stepLabel}
-        title="What kind of people do you look up to?"
-        style={styles.card}
-      >
-        <View style={styles.body}>
+        ),
+      },
+      {
+        id: 'roleModelType',
+        title: 'What kind of people do you look up to?',
+        canProceed: Boolean(roleModelTypeId),
+        render: () => (
           <View style={styles.fullWidthList}>
             {ARCHETYPE_ROLE_MODEL_TYPES.map((option) => {
               const selected = roleModelTypeId === option.id;
@@ -244,102 +225,174 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
               );
             })}
           </View>
+        ),
+      },
+      {
+        id: 'admiredQualities',
+        title: 'What qualities do you admire in them? (Pick 1–3)',
+        canProceed: canSubmit,
+        render: () => (
+          <View style={styles.fullWidthList}>
+            {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
+              const selected = admiredQualityIds.includes(option.id);
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => toggleAdmiredQuality(option.id)}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    <View style={[styles.checkboxOuter, selected && styles.checkboxOuterSelected]}>
+                      {selected ? <Icon name="check" size={14} color={colors.canvas} /> : null}
+                    </View>
+                    <Text
+                      style={[
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ),
+      },
+    ];
+  }, [
+    admiredQualityIds,
+    chatControllerRef,
+    dreamInput,
+    roleModelTypeId,
+    submitting,
+    toggleAdmiredQuality,
+    whyNowId,
+  ]);
 
-          <View style={styles.inlineActions}>
-            <Button variant="outline" style={styles.secondaryButton} onPress={() => setStep('whyNow')}>
+  const currentStep = steps[currentStepIndex];
+  const canProceed = currentStep?.canProceed ?? true;
+  const isPrimaryDisabled = !canProceed;
+  const isFirst = currentStepIndex === 0;
+  const isLast = currentStepIndex === steps.length - 1;
+
+  return (
+    <SurveyCard
+      variant="stacked"
+      steps={steps}
+      currentStepIndex={currentStepIndex}
+      stepLabel={stepLabel}
+      nextLabel="Continue"
+      submitLabel={submitting ? 'Thinking…' : 'Continue'}
+      footerRight={
+        <HStack alignItems="center" justifyContent="flex-end" space="sm">
+          {!isFirst ? (
+            <Button variant="ghost" onPress={() => {
+              setStep((current) =>
+                current === 'admiredQualities'
+                  ? 'roleModelType'
+                  : current === 'roleModelType'
+                    ? 'whyNow'
+                    : current === 'whyNow'
+                      ? 'dream'
+                      : 'dream',
+              );
+            }} accessibilityLabel="Back">
               <ButtonLabel size="md">Back</ButtonLabel>
             </Button>
-          </View>
-        </View>
-      </QuestionCard>
-    );
-  }
-
-  const canContinue = admiredQualityIds.length > 0 && !submitting;
-  return (
-    <QuestionCard
-      stepLabel={stepLabel}
-      title="What qualities do you admire in them? (Pick 1–3)"
-      style={styles.card}
-    >
-      <View style={styles.body}>
-        <View style={styles.fullWidthList}>
-          {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
-            const selected = admiredQualityIds.includes(option.id);
-            return (
-              <Pressable
-                key={option.id}
-                style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: selected }}
-                onPress={() => toggleAdmiredQuality(option.id)}
-              >
-                <View style={styles.fullWidthOptionContent}>
-                  <View style={[styles.checkboxOuter, selected && styles.checkboxOuterSelected]}>
-                    {selected ? <Icon name="check" size={14} color={colors.canvas} /> : null}
-                  </View>
-                  <Text
-                    style={[
-                      styles.fullWidthOptionLabel,
-                      selected && styles.fullWidthOptionLabelSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.inlineActions}>
-          <Button variant="outline" style={styles.secondaryButton} onPress={() => setStep('roleModelType')}>
-            <ButtonLabel size="md">Back</ButtonLabel>
-          </Button>
+          ) : null}
           <Button
-            variant="accent"
-            style={[styles.primaryButton, !canContinue && styles.primaryButtonDisabled]}
-            disabled={!canContinue}
-            onPress={() => {
+            variant="primary"
+            disabled={isPrimaryDisabled}
+            style={isPrimaryDisabled ? styles.primaryDisabled : undefined}
+            onPress={isLast ? (() => {
+              if (submitting) return;
               const labels = admiredQualityIds
                 .map((id) => labelFor(ARCHETYPE_ADMIRED_QUALITIES, id))
                 .filter((l): l is string => Boolean(l));
+              if (labels.length === 0) return;
               chatControllerRef?.current?.appendUserMessage(`I admire: ${labels.join(', ')}`);
               void handleSubmit();
-            }}
+            }) : (() => {
+              if (step === 'dream') {
+                const dreamPlain = htmlToPlainText(dreamInput).trim();
+                if (!dreamPlain) return;
+                chatControllerRef?.current?.appendUserMessage(dreamPlain);
+                setStep('whyNow');
+                return;
+              }
+              if (step === 'whyNow') {
+                if (!whyNowId) return;
+                setStep('roleModelType');
+                return;
+              }
+              if (step === 'roleModelType') {
+                if (!roleModelTypeId) return;
+                setStep('admiredQualities');
+              }
+            })}
+            accessibilityLabel="Continue"
           >
-            <ButtonLabel size="md" tone="inverse">
-              {submitting ? 'Thinking…' : 'Continue'}
+            <ButtonLabel size="md" tone={isPrimaryDisabled ? 'muted' : 'inverse'}>
+              {isLast ? (submitting ? 'Thinking…' : 'Continue') : 'Continue'}
             </ButtonLabel>
           </Button>
-        </View>
-      </View>
-    </QuestionCard>
+        </HStack>
+      }
+      onBack={() => {
+        setStep((current) =>
+          current === 'admiredQualities'
+            ? 'roleModelType'
+            : current === 'roleModelType'
+              ? 'whyNow'
+              : current === 'whyNow'
+                ? 'dream'
+                : 'dream',
+        );
+      }}
+      onNext={() => {
+        if (step === 'dream') {
+          const dreamPlain = htmlToPlainText(dreamInput).trim();
+          if (!dreamPlain) return;
+          chatControllerRef?.current?.appendUserMessage(dreamPlain);
+          setStep('whyNow');
+          return;
+        }
+        if (step === 'whyNow') {
+          if (!whyNowId) return;
+          setStep('roleModelType');
+          return;
+        }
+        if (step === 'roleModelType') {
+          if (!roleModelTypeId) return;
+          setStep('admiredQualities');
+        }
+      }}
+      onSubmit={() => {
+        if (submitting) return;
+        const labels = admiredQualityIds
+          .map((id) => labelFor(ARCHETYPE_ADMIRED_QUALITIES, id))
+          .filter((l): l is string => Boolean(l));
+        if (labels.length === 0) return;
+        chatControllerRef?.current?.appendUserMessage(`I admire: ${labels.join(', ')}`);
+        void handleSubmit();
+      }}
+      style={styles.surveyCard}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  surveyCard: {
     // Let AiChatPane's `stepCardHost` control the vertical offset so the card
     // sits directly under the Agent header without extra stacked margins.
     marginTop: 0,
+    paddingVertical: 0,
   },
-  body: {
-    marginTop: spacing.sm,
-    gap: spacing.md,
-  },
-  inlineActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  primaryButton: {
-    flex: 1,
-  },
-  secondaryButton: {
-    flex: 1,
-  },
-  primaryButtonDisabled: {
+  primaryDisabled: {
     opacity: 0.5,
   },
   fullWidthList: {

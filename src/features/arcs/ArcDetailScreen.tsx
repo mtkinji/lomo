@@ -43,7 +43,6 @@ import {
   VStack,
   Heading,
   HStack,
-  EmptyState,
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { LongTextField } from '../../ui/LongTextField';
@@ -62,8 +61,10 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { GoalListCard } from '../../ui/GoalListCard';
+import { OpportunityCard } from '../../ui/OpportunityCard';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { HapticsService } from '../../services/HapticsService';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
@@ -105,9 +106,10 @@ export function ArcDetailScreen() {
     route.params;
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
-  const createGoalsButtonRef = useRef<View>(null);
+  const createGoalCtaRef = useRef<View>(null);
   const goalsHeaderRef = useRef<View>(null);
   const heroBannerRef = useRef<View>(null);
+  const heroSpotlightRef = useRef<View>(null);
   const insightsSectionRef = useRef<View>(null);
 
   const arcs = useAppStore((state) => state.arcs);
@@ -193,6 +195,7 @@ export function ArcDetailScreen() {
   const [showOnboardingArcHandoff, setShowOnboardingArcHandoff] = useState(
     Boolean(showCelebrationFromRoute && !hasSeenFirstArcCelebration),
   );
+  const onboardingArcHandoffHapticPlayedRef = useRef(false);
   const hasConsumedRouteCelebrationRef = useRef(false);
   const [arcExploreGuideStep, setArcExploreGuideStep] = useState(0);
   const hasStartedArcExploreGuideRef = useRef(false);
@@ -236,6 +239,12 @@ export function ArcDetailScreen() {
   // Provide a layout-based fallback that matches this screen's fixed hero/sheet geometry.
   const ESTIMATED_ARC_HERO_HEIGHT_PX = 320; // keep in sync with `styles.arcHeroSection.height`
   const ESTIMATED_ARC_SHEET_MARGIN_TOP_PX = -28; // keep in sync with `styles.arcSheet.marginTop`
+  // The Arc sheet overlaps the hero by `-marginTop`, so the *visible* hero height is reduced.
+  // Use this for spotlight targeting so the coachmark doesn't frame the white sheet overlap.
+  const estimatedVisibleHeroHeightPx = Math.max(
+    0,
+    ESTIMATED_ARC_HERO_HEIGHT_PX + ESTIMATED_ARC_SHEET_MARGIN_TOP_PX,
+  );
   const estimatedHeaderTransitionStartScrollY = Math.max(
     0,
     ESTIMATED_ARC_HERO_HEIGHT_PX + ESTIMATED_ARC_SHEET_MARGIN_TOP_PX - HEADER_BOTTOM_Y,
@@ -360,6 +369,16 @@ export function ArcDetailScreen() {
       setShowOnboardingArcHandoff(true);
     }
   }, [arc, lastOnboardingArcId, hasSeenFirstArcCelebration, showCelebrationFromRoute]);
+
+  useEffect(() => {
+    if (!showOnboardingArcHandoff) {
+      onboardingArcHandoffHapticPlayedRef.current = false;
+      return;
+    }
+    if (onboardingArcHandoffHapticPlayedRef.current) return;
+    onboardingArcHandoffHapticPlayedRef.current = true;
+    void HapticsService.trigger('outcome.success');
+  }, [showOnboardingArcHandoff]);
 
   const shouldShowOnboardingGoalGuide =
     Boolean(arc) &&
@@ -542,6 +561,9 @@ export function ArcDetailScreen() {
       thumbnailVariant: (current.thumbnailVariant ?? 0) + 1,
       updatedAt: nowIso,
     }));
+    // Keep the interaction consistent with uploads: once the banner changes, return
+    // the user to the Arc canvas so we don't leave a full-screen overlay up.
+    setIsHeroModalVisible(false);
   }, [arc, updateArc]);
 
   const handleClearHeroImage = useCallback(() => {
@@ -555,6 +577,8 @@ export function ArcDetailScreen() {
       heroImageMeta: undefined,
       updatedAt: nowIso,
     }));
+    // Return to the canvas immediately after the banner is cleared.
+    setIsHeroModalVisible(false);
   }, [arc, updateArc]);
 
   const handleUploadHeroImage = useCallback(async () => {
@@ -611,6 +635,8 @@ export function ArcDetailScreen() {
         heroHidden: false,
         updatedAt: nowIso,
       }));
+      // After selection, close the sheet to avoid leaving an overlay that can block taps.
+      setIsHeroModalVisible(false);
     },
     [arc, updateArc]
   );
@@ -635,6 +661,8 @@ export function ArcDetailScreen() {
         updatedAt: nowIso,
       }));
       trackUnsplashDownload(photo.id).catch(() => undefined);
+      // After selection, close the sheet to avoid leaving an overlay that can block taps.
+      setIsHeroModalVisible(false);
     },
     [arc, updateArc]
   );
@@ -657,7 +685,7 @@ export function ArcDetailScreen() {
             Arcs screen and choose another Arc to open.
           </Text>
           <Button
-            variant="accent"
+            variant="primary"
             style={styles.emptyPrimaryButton}
             onPress={handleBackToArcs}
           >
@@ -885,6 +913,18 @@ export function ArcDetailScreen() {
             <View style={styles.pageContent}>
               <View style={styles.arcHeroSection}>
                 <View ref={heroBannerRef} collapsable={false}>
+                  <View
+                    ref={heroSpotlightRef}
+                    collapsable={false}
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: estimatedVisibleHeroHeightPx,
+                    }}
+                  />
                   <Animated.View
                     style={{
                       opacity: heroOpacity,
@@ -892,6 +932,7 @@ export function ArcDetailScreen() {
                     }}
                   >
                     <TouchableOpacity
+                      testID="e2e.arcDetail.heroBanner"
                       style={styles.heroFullBleedWrapper}
                       onPress={() => {
                         logArcDetailDebug('hero:pressed', {
@@ -1035,7 +1076,7 @@ export function ArcDetailScreen() {
                       setGoalsSectionOffset(event.nativeEvent.layout.y);
                     }}
                   >
-                    <View style={styles.sectionDivider} />
+                    <View style={[styles.sectionDivider, styles.sectionDividerTightTop]} />
                     <View style={styles.goalsDrawerInner}>
                       <View
                         ref={goalsHeaderRef}
@@ -1050,10 +1091,20 @@ export function ArcDetailScreen() {
                       </View>
 
                       {arcGoals.length === 0 ? (
-                        <EmptyState
+                        <OpportunityCard
                           title="Turn this Arc into clear goals"
-                          instructions={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
-                          style={[styles.goalsEmptyStateContainer, { marginTop: spacing['2xl'] }]}
+                          body={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
+                          tone="brand"
+                          shadow="layered"
+                          ctaLabel="Create goal"
+                          ctaVariant="inverse"
+                          ctaLeadingIconName="sparkles"
+                          onPressCta={() => {
+                            setHasDismissedOnboardingGoalGuide(true);
+                            setIsGoalCoachVisible(true);
+                          }}
+                          ctaAccessibilityLabel="Create a goal for this Arc"
+                          style={{ marginTop: spacing.md }}
                         />
                       ) : (
                         <View style={styles.goalsScrollContent}>
@@ -1081,26 +1132,24 @@ export function ArcDetailScreen() {
                       )}
 
                       <View
-                        ref={createGoalsButtonRef}
                         collapsable={false}
                         style={{
                           marginTop: arcGoals.length === 0 ? spacing.sm : spacing.xs,
                         }}
                       >
-                        {shouldShowOnboardingGoalGuide ? (
-                          <View pointerEvents="none" style={styles.goalsPrimaryButtonRing} />
+                        {arcGoals.length > 0 ? (
+                          <Button
+                            variant="secondary"
+                            fullWidth
+                            onPress={() => {
+                              setHasDismissedOnboardingGoalGuide(true);
+                              setIsGoalCoachVisible(true);
+                            }}
+                            accessibilityLabel="Add goal"
+                          >
+                            <Text style={styles.goalsAddSecondaryLabel}>Add goal</Text>
+                          </Button>
                         ) : null}
-                        <Button
-                          variant="secondary"
-                          fullWidth
-                          onPress={() => {
-                            setHasDismissedOnboardingGoalGuide(true);
-                            setIsGoalCoachVisible(true);
-                          }}
-                          accessibilityLabel="Add goal"
-                        >
-                          <Text style={styles.goalsAddSecondaryLabel}>Add goal</Text>
-                        </Button>
                       </View>
                     </View>
                   </View>
@@ -1159,6 +1208,14 @@ export function ArcDetailScreen() {
                 </Text>
               </View>
               <View style={styles.bottomCtaRight}>
+                <View
+                  ref={createGoalCtaRef}
+                  collapsable={false}
+                  style={styles.bottomCtaActionTarget}
+                >
+                  {shouldShowOnboardingGoalGuide ? (
+                    <View pointerEvents="none" style={styles.bottomCtaPrimaryButtonRing} />
+                  ) : null}
                 <Button
                   variant="ai"
                   fullWidth={false}
@@ -1170,6 +1227,7 @@ export function ArcDetailScreen() {
                 >
                   <Text style={styles.bottomCtaLabel}>Create goal</Text>
                 </Button>
+                </View>
               </View>
             </View>
           </View>
@@ -1232,14 +1290,14 @@ export function ArcDetailScreen() {
         visible={Boolean(
           shouldOfferArcExploreGuide &&
             (arcExploreGuideStep === 0
-              ? heroBannerRef.current
+              ? heroSpotlightRef.current
               : arcExploreGuideStep === 1
                 ? goalsHeaderRef.current
                 : hasDevelopmentInsights && insightsSectionRef.current),
         )}
         targetRef={
           arcExploreGuideStep === 0
-            ? heroBannerRef
+            ? heroSpotlightRef
             : arcExploreGuideStep === 1
               ? goalsHeaderRef
               : insightsSectionRef
@@ -1300,9 +1358,9 @@ export function ArcDetailScreen() {
       />
       <Coachmark
         visible={Boolean(
-          shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalsButtonRef.current,
+          shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalCtaRef.current,
         )}
-        targetRef={createGoalsButtonRef}
+        targetRef={createGoalCtaRef}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -1454,6 +1512,16 @@ const styles = StyleSheet.create({
   },
   bottomCtaRight: {
     alignItems: 'flex-end',
+  },
+  bottomCtaActionTarget: {
+    position: 'relative',
+    alignSelf: 'flex-end',
+  },
+  bottomCtaPrimaryButtonRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.accent,
   },
   bottomCtaMetaTitle: {
     ...typography.label,
@@ -2008,13 +2076,20 @@ const styles = StyleSheet.create({
   sectionDivider: {
     // Canonical section rhythm: keep divider spacing perfectly symmetric.
     // If the gap below reads well, the gap above should match exactly.
-    marginVertical: spacing['2xl'],
+    marginVertical: spacing.xl,
     // Use a full-width, pill-shaped rule so the section break is legible
     // against the light shell background while still feeling airy.
     height: StyleSheet.hairlineWidth,
     // Darker than `colors.border` so it reads as a real divider even at hairline thickness.
     backgroundColor: colors.gray300,
     borderRadius: 999,
+  },
+  sectionDividerTightTop: {
+    // Optical compensation: the narrative LongTextField (flat) and rich text rendering
+    // can make the space *above* the first divider read slightly larger than below.
+    // Reduce only the top margin here to preserve the overall airy rhythm while
+    // restoring perceived symmetry.
+    marginTop: spacing.xl - spacing.sm,
   },
   sectionActionText: {
     ...typography.bodySm,

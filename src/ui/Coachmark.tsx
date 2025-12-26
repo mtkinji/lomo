@@ -180,6 +180,20 @@ export function Coachmark({
 
   useEffect(() => {
     if (!visible) return;
+    // If the user scrolls (or any other layout-affecting gesture occurs) while a coachmark
+    // is visible, the target moves but the coachmark would otherwise remain "stuck" to the
+    // old measurement. To keep the spotlight aligned, re-measure periodically while visible.
+    //
+    // Throttle to avoid excessive bridge churn; coachmarks are short-lived and rare.
+    const intervalMs = 120;
+    const intervalId = setInterval(() => {
+      measureTarget();
+    }, intervalMs);
+    return () => clearInterval(intervalId);
+  }, [measureTarget, visible]);
+
+  useEffect(() => {
+    if (!visible) return;
     if (!respectReduceMotion) return;
     let alive = true;
     AccessibilityInfo.isReduceMotionEnabled()

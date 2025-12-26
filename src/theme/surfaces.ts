@@ -83,4 +83,39 @@ export const cardSurfaceStyle = {
   ...cardElevation.soft,
 } as const;
 
+/**
+ * Layered elevation tuned for "opportunity/highlight" cards.
+ *
+ * Why layered?
+ * - A tight, slightly darker contact shadow adds crisp separation at the edge
+ * - A wider, softer ambient shadow creates the floating "lifted" feeling
+ *
+ * In React Native you can't express multiple shadows on a single view, so callers
+ * should nest two wrappers and apply these separately.
+ */
+export const opportunityElevation = {
+  /**
+   * Outer ambient shadow (wide + soft).
+   * Apply to the outermost wrapper.
+   */
+  outer: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.075,
+    shadowOffset: { width: 0, height: 22 },
+    shadowRadius: 44,
+    elevation: 12,
+  },
+  /**
+   * Inner contact shadow (tighter + slightly darker).
+   * Apply to an inner wrapper that matches the card radius.
+   */
+  inner: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 5,
+  },
+} as const;
+
 

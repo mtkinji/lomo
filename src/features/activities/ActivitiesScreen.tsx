@@ -43,6 +43,7 @@ import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
+import { HapticsService } from '../../services/HapticsService';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
 import {
@@ -77,6 +78,7 @@ import { QuickAddDock } from './QuickAddDock';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
+import { OpportunityCard } from '../../ui/OpportunityCard';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from '../../services/recommendations/nextStep';
@@ -248,6 +250,7 @@ export function ActivitiesScreen() {
   const [highlightSuggested, setHighlightSuggested] = React.useState<boolean>(
     Boolean(route.params?.highlightSuggested),
   );
+  const [quickAddInfoVisible, setQuickAddInfoVisible] = React.useState(false);
 
   React.useEffect(() => {
     if (route.params?.highlightSuggested) {
@@ -263,6 +266,70 @@ export function ActivitiesScreen() {
       now: new Date(),
     });
   }, [activities, arcs, goals]);
+
+  const suggestedActivity = React.useMemo(() => {
+    if (!suggested || suggested.kind !== 'activity') return null;
+    return activities.find((a) => a.id === suggested.activityId) ?? null;
+  }, [activities, suggested]);
+
+  const suggestedActivityGoalTitle = React.useMemo(() => {
+    if (!suggestedActivity?.goalId) return null;
+    return goals.find((g) => g.id === suggestedActivity.goalId)?.title ?? null;
+  }, [goals, suggestedActivity?.goalId]);
+
+  const suggestedCardTitle = React.useMemo(() => {
+    return suggestedActivity ? suggestedActivity.title : null;
+  }, [suggestedActivity]);
+
+  const suggestedCardBody = React.useMemo(() => {
+    if (suggested?.kind === 'setup') {
+      return suggested.reason === 'no_goals'
+        ? 'Create your first Goal so Kwilt can help you stay consistent.'
+        : 'Add one Activity so you can build momentum today.';
+    }
+
+    return 'Here’s a tiny step you can complete today.';
+  }, [suggested, suggestedActivity, suggestedActivityGoalTitle]);
+
+  const suggestedActivityMeta = React.useMemo(() => {
+    if (!suggestedActivity) return { meta: undefined, metaLeadingIconName: undefined };
+    return buildActivityListMeta({
+      activity: suggestedActivity,
+      goalTitle: suggestedActivityGoalTitle ?? undefined,
+    });
+  }, [suggestedActivity, suggestedActivityGoalTitle]);
+
+  const handleAcceptSuggested = React.useCallback(() => {
+    if (!suggested || suggested.kind !== 'activity' || !suggestedActivity) {
+      // Fallback to prior behavior for setup / null cases.
+      if (!suggested) {
+        setActivityCoachVisible(true);
+        return;
+      }
+      if (suggested.kind === 'setup') {
+        if (suggested.reason === 'no_goals') {
+          navigation.navigate('Goals', { screen: 'GoalsList' });
+          return;
+        }
+        setActivityCoachVisible(true);
+        return;
+      }
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const scheduled = new Date();
+    scheduled.setHours(9, 0, 0, 0);
+
+    updateActivity(suggestedActivity.id, (prev) => ({
+      ...prev,
+      scheduledDate: scheduled.toISOString(),
+      updatedAt: timestamp,
+    }));
+    void HapticsService.trigger('canvas.primary.confirm');
+    showToast({ message: 'Added to Today', variant: 'success', durationMs: 2200 });
+    setHighlightSuggested(false);
+  }, [navigation, setActivityCoachVisible, showToast, suggested, suggestedActivity, updateActivity]);
 
   const shouldShowSuggestedCard = React.useMemo(() => {
     if (highlightSuggested) return true;
@@ -895,6 +962,7 @@ export function ActivitiesScreen() {
   const handleToggleComplete = React.useCallback(
     (activityId: string) => {
       const timestamp = new Date().toISOString();
+      let didFireHaptic = false;
       LayoutAnimation.configureNext(
         LayoutAnimation.create(
           220,
@@ -904,6 +972,10 @@ export function ActivitiesScreen() {
       );
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
+        if (!didFireHaptic) {
+          didFireHaptic = true;
+          void HapticsService.trigger(nextIsDone ? 'outcome.success' : 'canvas.primary.confirm');
+        }
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activities_list',
           activity_id: activityId,
@@ -925,8 +997,13 @@ export function ActivitiesScreen() {
   const handleTogglePriorityOne = React.useCallback(
     (activityId: string) => {
       const timestamp = new Date().toISOString();
+      let didFireHaptic = false;
       updateActivity(activityId, (activity) => {
         const nextPriority = activity.priority === 1 ? undefined : 1;
+        if (!didFireHaptic) {
+          didFireHaptic = true;
+          void HapticsService.trigger(nextPriority === 1 ? 'canvas.toggle.on' : 'canvas.toggle.off');
+        }
         return {
           ...activity,
           priority: nextPriority,
@@ -939,14 +1016,21 @@ export function ActivitiesScreen() {
 
   const applyView = React.useCallback(
     (viewId: string) => {
+      // Haptic only when the view actually changes.
+      if (viewId !== activeActivityViewId) {
+        void HapticsService.trigger('canvas.selection');
+      }
       setActiveActivityViewId(viewId);
     },
-    [setActiveActivityViewId],
+    [activeActivityViewId, setActiveActivityViewId],
   );
 
   const handleUpdateFilterMode = React.useCallback(
     (next: ActivityFilterMode) => {
       if (!activeView) return;
+      if (next !== activeView.filterMode) {
+        void HapticsService.trigger('canvas.selection');
+      }
       updateActivityView(activeView.id, (view) => ({
         ...view,
         filterMode: next,
@@ -958,6 +1042,9 @@ export function ActivitiesScreen() {
   const handleUpdateSortMode = React.useCallback(
     (next: ActivitySortMode) => {
       if (!activeView) return;
+      if (next !== activeView.sortMode) {
+        void HapticsService.trigger('canvas.selection');
+      }
       updateActivityView(activeView.id, (view) => ({
         ...view,
         sortMode: next,
@@ -1072,8 +1159,6 @@ export function ActivitiesScreen() {
     <AppShell>
       <PageHeader
         title="Activities"
-        iconName="activities"
-        iconTone="activity"
         menuOpen={menuOpen}
         onPressMenu={() => {
           const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
@@ -1082,14 +1167,14 @@ export function ActivitiesScreen() {
         rightElement={
           isQuickAddFocused ? (
             <Button
-              variant="accent"
+              variant="secondary"
               size="xs"
               testID="e2e.activities.quickAdd.done"
               accessibilityRole="button"
               accessibilityLabel="Done"
               onPress={collapseQuickAdd}
             >
-              <ButtonLabel size="xs" tone="inverse">Done</ButtonLabel>
+              <ButtonLabel size="xs">Done</ButtonLabel>
             </Button>
           ) : (
             <IconButton
@@ -1164,67 +1249,72 @@ export function ActivitiesScreen() {
               suggestedCardYRef.current = e.nativeEvent.layout.y;
             }}
           >
-            <Card
-              padding="md"
-              style={[
-                styles.suggestedCard,
-                highlightSuggested && styles.suggestedCardHighlighted,
-              ]}
-            >
-              <VStack space="sm">
+            <OpportunityCard
+              tone="brand"
+              shadow="layered"
+              // Match canonical opportunity card interior rhythm used across Arc/Goal empty states.
+              padding="xs"
+              ctaAlign="right"
+              header={
                 <HStack justifyContent="space-between" alignItems="center">
-                  <Text style={styles.suggestedTitle}>Suggested</Text>
-                  <Text style={styles.suggestedPill}>
-                    {suggested?.kind === 'setup' ? 'Setup' : 'Next step'}
-                  </Text>
+                  <HStack alignItems="center" space="xs">
+                    <Icon name="sparkles" size={14} color={colors.parchment} />
+                    <Text style={styles.aiPickOnBrandLabel}>AI quick add</Text>
+                  </HStack>
+                  <HStack alignItems="center" space="xs">
+                    {suggested?.kind === 'setup' ? (
+                      <Text style={styles.aiPickOnBrandPill}>Setup</Text>
+                    ) : null}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="About AI pick"
+                      hitSlop={10}
+                      onPress={() => setQuickAddInfoVisible(true)}
+                    >
+                      <Icon name="info" size={16} color={colors.parchment} />
+                    </Pressable>
+                  </HStack>
                 </HStack>
-                <Text style={styles.suggestedBody}>
-                  {suggested?.kind === 'setup'
-                    ? suggested.reason === 'no_goals'
-                      ? 'Create your first Goal so Kwilt can help you stay consistent.'
-                      : 'Add one Activity so you can build momentum today.'
-                    : 'Here’s a tiny step you can complete today.'}
-                </Text>
-                <HStack space="sm" alignItems="center">
-                  <Button
-                    variant="accent"
-                    size="small"
-                    accessibilityLabel="Open suggested next step"
-                    onPress={() => {
-                      if (!suggested) {
-                        setActivityCoachVisible(true);
-                        return;
-                      }
-                      if (suggested.kind === 'setup') {
-                        if (suggested.reason === 'no_goals') {
-                          navigation.navigate('Goals', { screen: 'GoalsList' });
-                          return;
-                        }
-                        setActivityCoachVisible(true);
-                        return;
-                      }
-                      navigation.push('ActivityDetail', { activityId: suggested.activityId });
-                    }}
-                  >
-                    <ButtonLabel size="sm" tone="inverse">
-                      {suggested?.kind === 'setup'
-                        ? suggested.reason === 'no_goals'
-                          ? 'Create goal'
-                          : 'Add activity'
-                        : 'Open activity'}
-                    </ButtonLabel>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    accessibilityLabel="Dismiss suggested card highlight"
-                    onPress={() => setHighlightSuggested(false)}
-                  >
-                    <ButtonLabel size="sm">Not now</ButtonLabel>
-                  </Button>
-                </HStack>
-              </VStack>
-            </Card>
+              }
+              title={null}
+              body={
+                suggested?.kind === 'activity' && suggestedActivity ? (
+                  <ActivityListItem
+                    title={suggestedActivity.title}
+                    meta={suggestedActivityMeta.meta}
+                    metaLeadingIconName={suggestedActivityMeta.metaLeadingIconName}
+                    onPress={() => navigation.push('ActivityDetail', { activityId: suggestedActivity.id })}
+                    showPriorityControl={false}
+                  />
+                ) : (
+                  suggestedCardBody
+                )
+              }
+              ctaLabel={
+                suggested?.kind === 'setup'
+                  ? suggested.reason === 'no_goals'
+                    ? 'Create goal'
+                    : 'Add activity'
+                  : 'Add to Today'
+              }
+              ctaVariant={suggested?.kind === 'activity' ? 'inverse' : 'inverse'}
+              // Icon lives in the header; keep the CTA clean.
+              ctaLeadingIconName={suggested?.kind === 'activity' ? null : 'sparkles'}
+              ctaSize="xs"
+              ctaAccessibilityLabel={
+                suggested?.kind === 'activity' ? 'Add suggested activity to Today' : 'Add activity'
+              }
+              onPressCta={handleAcceptSuggested}
+              secondaryCtaLabel="Not now"
+              secondaryCtaVariant="ghost"
+              secondaryCtaSize="xs"
+              secondaryCtaAccessibilityLabel="Dismiss AI pick"
+              onPressSecondaryCta={() => setHighlightSuggested(false)}
+              style={[
+                styles.suggestedOpportunityCard,
+                highlightSuggested && styles.suggestedOpportunityCardHighlighted,
+              ]}
+            />
           </View>
         )}
         {activities.length > 0 && (
@@ -1655,6 +1745,22 @@ export function ActivitiesScreen() {
         isActivityEnriching={isActivityEnriching}
       />
       <Dialog
+        visible={quickAddInfoVisible}
+        onClose={() => setQuickAddInfoVisible(false)}
+        title="AI pick"
+        size="sm"
+        showHeaderDivider
+      >
+        <VStack space="sm">
+          <Text style={styles.quickAddInfoBody}>
+            AI pick highlights one next Activity from your existing list when you don’t have anything scheduled for today.
+          </Text>
+          <Text style={styles.quickAddInfoBody}>
+            It doesn’t generate new activities, and it doesn’t use your generative credits.
+          </Text>
+        </VStack>
+      </Dialog>
+      <Dialog
         visible={viewEditorVisible}
         onClose={() => setViewEditorVisible(false)}
         title={viewEditorMode === 'create' ? 'New view' : 'View settings'}
@@ -1757,9 +1863,15 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+    // Let the scroll view extend into the AppShell horizontal padding so shadows
+    // can render up to the true screen edge (UIScrollView clips to its bounds).
+    marginHorizontal: -spacing.sm,
   },
   scrollContent: {
     paddingBottom: spacing['2xl'],
+    // Re-apply the canonical canvas gutter inside the scroll content after
+    // expanding the scroll view bounds.
+    paddingHorizontal: spacing.sm,
   },
   toolbarRow: {
     marginBottom: spacing.sm,
@@ -1783,12 +1895,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   suggestedCard: {
+    // Deprecated: Suggested card has been migrated to OpportunityCard.
+    // Keep this style around temporarily to avoid churn in diffs while we verify
+    // the new design across states.
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
   },
   suggestedCardHighlighted: {
+    // Deprecated: see `suggestedOpportunityCardHighlighted`.
     borderColor: colors.accent,
   },
   suggestedTitle: {
@@ -1801,6 +1914,66 @@ const styles = StyleSheet.create({
   },
   suggestedBody: {
     ...typography.body,
+    color: colors.textSecondary,
+  },
+  // Legacy OpportunityCard styling for the old "Suggested" module. Keep around for now
+  // to avoid noisy diffs in case we decide to bring back the green opportunity surface.
+  suggestedOpportunityCard: { marginBottom: spacing.md },
+  suggestedOpportunityCardHighlighted: { borderWidth: 2, borderColor: colors.accent },
+  quickAddLabelOnBrand: { ...typography.bodySm, color: colors.parchment, fontFamily: fonts.semibold, letterSpacing: 0.2 },
+  suggestedPillOnBrand: { ...typography.bodySm, color: colors.parchment, opacity: 0.9 },
+  quickAddMetaOnBrand: { ...typography.bodySm, color: colors.parchment, opacity: 0.9 },
+  aiPickCard: {
+    marginBottom: spacing.md,
+    marginHorizontal: 0,
+  },
+  aiPickCardHighlighted: {
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  aiPickLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    letterSpacing: 0.2,
+  },
+  aiPickPill: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    opacity: 0.9,
+  },
+  aiPickCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  aiPickTitle: {
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textPrimary,
+  },
+  aiPickSetupBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  aiPickOnBrandLabel: {
+    ...typography.bodySm,
+    color: colors.parchment,
+    fontFamily: fonts.semibold,
+    letterSpacing: 0.2,
+  },
+  aiPickOnBrandPill: {
+    ...typography.bodySm,
+    color: colors.parchment,
+    opacity: 0.9,
+  },
+  quickAddInfoBody: {
+    ...typography.bodySm,
     color: colors.textSecondary,
   },
   emptyTitle: {
@@ -2382,6 +2555,7 @@ function ActivityCoachDrawer({
       goal_id: null,
     });
     showToast({ message: 'Activity created', variant: 'success', durationMs: 2200 });
+    void HapticsService.trigger('outcome.success');
     onClose();
   }, [
     activities.length,
@@ -2420,6 +2594,7 @@ function ActivityCoachDrawer({
         value.trim().toLowerCase().replace(/\s+/g, ' ');
 
       const baseIndex = activities.length;
+      let didAddAny = false;
       adoptedTitles.forEach((rawTitle: unknown, idx: number) => {
         if (typeof rawTitle !== 'string') return;
         const trimmedTitle = rawTitle.trim();
@@ -2463,12 +2638,16 @@ function ActivityCoachDrawer({
         };
 
         addActivity(activity);
+        didAddAny = true;
         capture(AnalyticsEvent.ActivityCreated, {
           source: 'ai_workflow',
           activity_id: activity.id,
           goal_id: null,
         });
       });
+      if (didAddAny) {
+        void HapticsService.trigger('outcome.success');
+      }
     },
     [activities, addActivity, capture],
   );
@@ -2528,6 +2707,7 @@ function ActivityCoachDrawer({
       };
 
       addActivity(activity);
+      void HapticsService.trigger('outcome.success');
       capture(AnalyticsEvent.ActivityCreated, {
         source: 'ai_suggestion',
         activity_id: activity.id,
@@ -2638,7 +2818,13 @@ type SheetOptionProps = {
 
 function SheetOption({ label, onPress }: SheetOptionProps) {
   return (
-    <Pressable style={styles.sheetRow} onPress={onPress}>
+    <Pressable
+      style={styles.sheetRow}
+      onPress={() => {
+        void HapticsService.trigger('canvas.selection');
+        onPress();
+      }}
+    >
       <Text style={styles.sheetRowLabel}>{label}</Text>
     </Pressable>
   );

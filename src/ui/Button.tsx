@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme';
+import { ButtonContext } from './ButtonContext';
 import {
   BUTTON_SIZE_TOKENS,
   BUTTON_VARIANT_TOKENS,
@@ -20,6 +21,7 @@ type ButtonVariant =
   | 'link'
   | 'accent'
   | 'ai'
+  | 'inverse'
   | 'destructive'
   | 'turmeric';
 type ButtonSizeProp = 'xs' | 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
@@ -69,6 +71,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
   const isIconOnly = size === 'icon' || Boolean(iconButtonSize);
 
   const sizeTokens = BUTTON_SIZE_TOKENS[logicalSize];
+  const contextValue = React.useMemo(() => ({ size: logicalSize }), [logicalSize]);
 
   const logicalVariant: ButtonVariantToken =
     variant === 'secondary'
@@ -83,6 +86,8 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
       ? 'link'
       : variant === 'ai'
       ? 'ai'
+      : variant === 'inverse'
+      ? 'inverse'
       : variant === 'destructive'
       ? 'destructive'
       : variant === 'turmeric'
@@ -158,7 +163,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
           />
         </View>
       ) : null}
-      {children}
+      <ButtonContext.Provider value={contextValue}>{children}</ButtonContext.Provider>
     </Pressable>
   );
 });

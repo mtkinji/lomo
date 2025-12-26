@@ -676,7 +676,7 @@ export function LongTextField({
               Cancel
             </Button>
             <Button
-              variant="accent"
+              variant="primary"
               onPress={() => {
                 const url = linkUrl.trim();
                 if (!url) {
@@ -731,7 +731,7 @@ export function LongTextField({
               Cancel
             </Button>
             <Button
-              variant="accent"
+              variant="primary"
               onPress={async () => {
                 const instruction = customInstruction.trim();
                 if (!instruction) {

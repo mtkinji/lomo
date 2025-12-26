@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWindowDimensions, View, StyleSheet, Platform } from 'react-native';
+import { useWindowDimensions, View, StyleSheet, Platform, Text, Pressable, Linking } from 'react-native';
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import {
   NavigationContainer,
@@ -17,7 +17,6 @@ import {
   DrawerItem,
 } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Text, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';
@@ -29,11 +28,14 @@ import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
+import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
 import { PaywallDrawerHost } from '../features/paywall/PaywallDrawer';
+import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInterstitialDrawer';
 import { ToastHost } from '../ui/ToastHost';
+import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
@@ -119,6 +121,7 @@ export type SettingsStackParamList = {
   SettingsProfile: undefined;
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
+  SettingsHaptics: undefined;
   SettingsManageSubscription:
     | {
         /**
@@ -241,6 +244,36 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Handle non-navigation deep links (referrals, etc.) as side effects.
+    let mounted = true;
+
+    const handleUrl = async (url: string) => {
+      if (!mounted) return;
+      await handleIncomingReferralUrl(url);
+    };
+
+    // Best-effort sync so bonus credits granted server-side (e.g. referrals)
+    // become visible in the client gate + UI.
+    void syncBonusCreditsThisMonth();
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) void handleUrl(url);
+      })
+      .catch(() => {});
+
+    const sub = Linking.addEventListener('url', (evt) => {
+      if (!evt?.url) return;
+      void handleUrl(evt.url);
+    });
+
+    return () => {
+      mounted = false;
+      sub.remove();
     };
   }, []);
 
@@ -401,6 +434,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           options={{ title: 'Settings' }}
         />
       </Drawer.Navigator>
+      <CreditsInterstitialDrawerHost />
       <PaywallDrawerHost />
       <ToastHost />
     </NavigationContainer>
@@ -495,6 +529,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsNotifications"
         component={NotificationsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsHaptics"
+        component={HapticsSettingsScreen}
       />
       <SettingsStack.Screen
         name="SettingsManageSubscription"

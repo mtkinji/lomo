@@ -28,13 +28,13 @@ import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import { Card } from '../../ui/Card';
+import { OpportunityCard } from '../../ui/OpportunityCard';
 import {
   Dialog,
   VStack,
   Heading,
   Text,
   HStack,
-  EmptyState,
   KeyboardAwareScrollView,
   Input,
   Textarea,
@@ -104,6 +104,8 @@ import { useQuickAddDockController } from '../activities/useQuickAddDockControll
 import { DurationPicker } from '../activities/DurationPicker';
 import type { GoalProposalDraft } from '../ai/AiChatScreen';
 import { useScrollLinkedStatusBarStyle } from '../../ui/hooks/useScrollLinkedStatusBarStyle';
+import { HapticsService } from '../../services/HapticsService';
+import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -180,6 +182,12 @@ export function GoalDetailScreen() {
     }
     return [DEFAULT_THUMBNAIL_STYLE];
   }, [visuals]);
+  // Goals no longer support the legacy dot-overlay thumbnail style.
+  // Filter it out so we fall back to a clean gradient or other styles.
+  const effectiveThumbnailStyles = useMemo<ThumbnailStyle[]>(
+    () => thumbnailStyles.filter((style) => style !== 'topographyDots'),
+    [thumbnailStyles]
+  );
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingForces, setEditingForces] = useState(false);
   const [heroImageLoading, setHeroImageLoading] = useState(false);
@@ -193,6 +201,8 @@ export function GoalDetailScreen() {
   // Track activity count transitions so we only trigger onboarding handoffs on
   // *real* changes (not just because a goal already has activities when the screen mounts).
   const onboardingSharePrevActivityCountRef = useRef<number | null>(null);
+  const firstGoalCelebrationHapticPlayedRef = useRef(false);
+  const planReadyHapticPlayedRef = useRef(false);
   const [vectorsInfoVisible, setVectorsInfoVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
@@ -436,7 +446,7 @@ export function GoalDetailScreen() {
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
   const [refineGoalSheetVisible, setRefineGoalSheetVisible] = useState(false);
   const [goalTargetDateSheetVisible, setGoalTargetDateSheetVisible] = useState(false);
-  const [goalTargetIsDatePickerVisible, setGoalTargetIsDatePickerVisible] = useState(false);
+  const [goalTargetDateSheetStep, setGoalTargetDateSheetStep] = useState<'menu' | 'picker'>('menu');
   const [goalStatusSheetVisible, setGoalStatusSheetVisible] = useState(false);
 
   const handleBack = () => {
@@ -488,7 +498,7 @@ export function GoalDetailScreen() {
         updatedAt: timestamp,
       }));
       setGoalTargetDateSheetVisible(false);
-      setGoalTargetIsDatePickerVisible(false);
+      setGoalTargetDateSheetStep('menu');
     },
     [goal?.id, updateGoal],
   );
@@ -503,7 +513,7 @@ export function GoalDetailScreen() {
       updatedAt: timestamp,
     }));
     setGoalTargetDateSheetVisible(false);
-    setGoalTargetIsDatePickerVisible(false);
+    setGoalTargetDateSheetStep('menu');
   }, [goal?.id, updateGoal]);
 
   const getInitialGoalTargetDate = useCallback(() => {
@@ -789,7 +799,10 @@ export function GoalDetailScreen() {
         id: 'goal-signal-target',
         value: targetValue,
         label: 'Finish by',
-        onPress: () => setGoalTargetDateSheetVisible(true),
+        onPress: () => {
+          setGoalTargetDateSheetStep('menu');
+          setGoalTargetDateSheetVisible(true);
+        },
         accessibilityLabel: `Finish by: ${targetValue}. Tap to set a finish date.`,
         valueColor: targetValueColor,
       },
@@ -822,8 +835,13 @@ export function GoalDetailScreen() {
   const handleToggleActivityComplete = useCallback(
     (activityId: string) => {
       const timestamp = new Date().toISOString();
+      let didFireHaptic = false;
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
+        if (!didFireHaptic) {
+          didFireHaptic = true;
+          void HapticsService.trigger(nextIsDone ? 'outcome.success' : 'canvas.primary.confirm');
+        }
         return {
           ...activity,
           status: nextIsDone ? 'done' : 'planned',
@@ -851,8 +869,13 @@ export function GoalDetailScreen() {
   const handleToggleActivityPriorityOne = useCallback(
     (activityId: string) => {
       const timestamp = new Date().toISOString();
+      let didFireHaptic = false;
       updateActivity(activityId, (activity) => {
         const nextPriority = activity.priority === 1 ? undefined : 1;
+        if (!didFireHaptic) {
+          didFireHaptic = true;
+          void HapticsService.trigger(nextPriority === 1 ? 'canvas.toggle.on' : 'canvas.toggle.off');
+        }
         return {
           ...activity,
           priority: nextPriority,
@@ -873,11 +896,11 @@ export function GoalDetailScreen() {
     [heroSeed]
   );
   const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
-  const thumbnailStyle = pickThumbnailStyle(heroSeed, thumbnailStyles);
-  const showTopography = thumbnailStyle === 'topographyDots';
+  const thumbnailStyle =
+    effectiveThumbnailStyles.length > 0 ? pickThumbnailStyle(heroSeed, effectiveThumbnailStyles) : null;
+  const showTopography = false;
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
   const hasCustomThumbnail = Boolean(goal?.thumbnailUrl);
-  const shouldShowTopography = showTopography && !hasCustomThumbnail;
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
   const displayThumbnailUrl = goal?.thumbnailUrl ?? arc?.thumbnailUrl;
 
@@ -946,6 +969,16 @@ export function GoalDetailScreen() {
   }, [showFirstGoalCelebration]);
 
   useEffect(() => {
+    if (!showFirstGoalCelebration) {
+      firstGoalCelebrationHapticPlayedRef.current = false;
+      return;
+    }
+    if (firstGoalCelebrationHapticPlayedRef.current) return;
+    firstGoalCelebrationHapticPlayedRef.current = true;
+    void HapticsService.trigger('outcome.success');
+  }, [showFirstGoalCelebration]);
+
+  useEffect(() => {
     // While the full-screen celebration is up, suppress toasts so we don't
     // stack transient UI over an interstitial.
     setToastsSuppressed({
@@ -979,6 +1012,16 @@ export function GoalDetailScreen() {
   ]);
 
   useEffect(() => {
+    if (!shouldShowOnboardingPlanReadyGuide) {
+      planReadyHapticPlayedRef.current = false;
+      return;
+    }
+    if (planReadyHapticPlayedRef.current) return;
+    planReadyHapticPlayedRef.current = true;
+    void HapticsService.trigger('outcome.success');
+  }, [shouldShowOnboardingPlanReadyGuide]);
+
+  useEffect(() => {
     if (
       goal &&
       lastOnboardingGoalId &&
@@ -1008,8 +1051,8 @@ export function GoalDetailScreen() {
   const forceIntent = { ...defaultForceLevels(0), ...goal.forceIntent };
   const liveForceIntent = editingForces ? editForceIntent : forceIntent;
 
-  const statusRaw = goal.status.replace('_', ' ');
-  const statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+  const statusAppearance = getGoalStatusAppearance(goal.status);
+  const statusLabel = statusAppearance.label;
 
   const updatedAtLabel = goal.updatedAt
     ? new Date(goal.updatedAt).toLocaleDateString(undefined, {
@@ -1881,32 +1924,41 @@ export function GoalDetailScreen() {
                 <VStack space="md">
                   <HStack alignItems="center" justifyContent="space-between">
                     <Heading style={styles.sectionTitle}>Activities</Heading>
+                    {!isPlanEmpty ? (
+                      <View>
+                        <Button
+                          variant="ai"
+                          size="sm"
+                          onPress={() => setActivityCoachVisible(true)}
+                          accessibilityLabel="Plan activities with AI"
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Icon name="sparkles" size={14} color={colors.primaryForeground} />
+                            <Text style={styles.primaryCtaText}>Plan with AI</Text>
+                          </HStack>
+                        </Button>
+                      </View>
+                    ) : null}
+                  </HStack>
+
+                  {isPlanEmpty ? (
                     <View
                       ref={addActivitiesButtonRef}
                       collapsable={false}
                       onLayout={() => setIsAddActivitiesButtonReady(true)}
                     >
-                      <Button
-                        variant="ai"
-                        size="sm"
-                        onPress={() => setActivityCoachVisible(true)}
-                        accessibilityLabel="Plan activities with AI"
-                      >
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="sparkles" size={14} color={colors.primaryForeground} />
-                          <Text style={styles.primaryCtaText}>Plan with AI</Text>
-                        </HStack>
-                      </Button>
+                      <OpportunityCard
+                        title="Turn this goal into a plan"
+                        body="Activities are the concrete steps that move this goal forward. Add a few now so you always know what to do next."
+                        tone="brand"
+                        ctaLabel="Add activities"
+                        ctaVariant="inverse"
+                        shadow="layered"
+                        onPressCta={() => setActivityCoachVisible(true)}
+                        ctaAccessibilityLabel="Add activities"
+                        style={styles.planValueCard}
+                      />
                     </View>
-                  </HStack>
-
-                  {isPlanEmpty ? (
-                    <EmptyState
-                      variant="compact"
-                      title="No activities for this goal yet"
-                      instructions="Generate activities with AI, or add one manually."
-                      style={[styles.planEmptyState, { marginTop: spacing.lg }]}
-                    />
                   ) : (
                     <>
                       {activeGoalActivities.length > 0 && (
@@ -1981,54 +2033,102 @@ export function GoalDetailScreen() {
                     </>
                   )}
 
-                  <View style={{ marginTop: spacing.md }}>
-                    <QuickAddDock
-                      placement="inline"
-                      value={quickAddTitle}
-                      onChangeText={setQuickAddTitle}
-                      inputRef={quickAddInputRef}
-                      isFocused={isQuickAddFocused}
-                      setIsFocused={setQuickAddFocused}
-                      onSubmit={handleQuickAddActivity}
-                      onCollapse={collapseQuickAdd}
-                      reminderAt={quickAddReminderAt}
-                      scheduledDate={quickAddScheduledDate}
-                      repeatRule={quickAddRepeatRule}
-                      estimateMinutes={quickAddEstimateMinutes}
-                      onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
-                      onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
-                      onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
-                      onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
-                    />
-                  </View>
+                  {!isPlanEmpty ? (
+                    <View style={{ marginTop: spacing.md }}>
+                      <QuickAddDock
+                        placement="inline"
+                        value={quickAddTitle}
+                        onChangeText={setQuickAddTitle}
+                        inputRef={quickAddInputRef}
+                        isFocused={isQuickAddFocused}
+                        setIsFocused={setQuickAddFocused}
+                        onSubmit={handleQuickAddActivity}
+                        onCollapse={collapseQuickAdd}
+                        reminderAt={quickAddReminderAt}
+                        scheduledDate={quickAddScheduledDate}
+                        repeatRule={quickAddRepeatRule}
+                        estimateMinutes={quickAddEstimateMinutes}
+                        onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
+                        onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
+                        onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
+                        onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
+                      />
+                    </View>
+                  ) : null}
                 </VStack>
 
                 {/* Details section */}
                 <View style={styles.sectionDivider} />
                 <VStack space="lg">
-                  <HStack style={styles.timeRow}>
-                    <VStack space="xs" style={styles.lifecycleColumn}>
-                      <Text style={styles.timeLabel}>Status</Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Status: ${statusLabel}. Tap to change status.`}
-                        onPress={() => setGoalStatusSheetVisible(true)}
-                        style={({ pressed }) => [styles.goalStatusPill, pressed ? { opacity: 0.7 } : null]}
-                        hitSlop={10}
-                      >
-                        <HStack alignItems="center" space="xs">
-                          <Text style={styles.goalStatusPillLabel}>{statusLabel}</Text>
-                          <Icon name="chevronDown" size={14} color={colors.gray600} />
-                        </HStack>
-                      </Pressable>
-                    </VStack>
-                    <VStack space="xs" style={styles.lifecycleColumn}>
-                      <Text style={styles.timeLabel}>Last modified</Text>
-                      <Text style={styles.timeText}>{updatedAtLabel ?? 'Just now'}</Text>
-                    </VStack>
-                  </HStack>
+                  <VStack space="md">
+                    <HStack style={styles.timeRow}>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Status</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Status: ${statusLabel}. Tap to change status.`}
+                          onPress={() => setGoalStatusSheetVisible(true)}
+                          style={({ pressed }) => [
+                            styles.valuePillButton,
+                            {
+                              backgroundColor: statusAppearance.badgeBackgroundColor,
+                              borderColor: statusAppearance.dotColor,
+                            },
+                            pressed ? styles.timeValueButtonPressed : null,
+                          ]}
+                          hitSlop={10}
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Text style={[styles.valuePillText, { color: statusAppearance.badgeTextColor }]}>
+                              {statusLabel}
+                            </Text>
+                            <Icon name="chevronDown" size={14} color={statusAppearance.badgeTextColor} />
+                          </HStack>
+                        </Pressable>
+                      </VStack>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Target date</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Target date: ${targetDateLabel ?? 'No date'}. Tap to change target date.`}
+                          onPress={() => {
+                            setGoalTargetDateSheetStep('menu');
+                            setGoalTargetDateSheetVisible(true);
+                          }}
+                          style={({ pressed }) => [
+                            styles.valuePillButton,
+                            pressed ? styles.timeValueButtonPressed : null,
+                          ]}
+                          hitSlop={10}
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Text
+                              style={[
+                                styles.valuePillText,
+                                { color: targetDateLabel ? colors.textSecondary : colors.muted },
+                              ]}
+                            >
+                              {targetDateLabel ?? 'No date'}
+                            </Text>
+                            <Icon name="chevronDown" size={14} color={colors.textSecondary} />
+                          </HStack>
+                        </Pressable>
+                      </VStack>
+                    </HStack>
 
-                  <View>
+                    <HStack style={styles.timeRow}>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Last modified</Text>
+                        <Text style={styles.timeText}>{updatedAtLabel ?? 'Just now'}</Text>
+                      </VStack>
+                      <VStack space="xs" style={styles.lifecycleColumn}>
+                        <Text style={styles.timeLabel}>Created</Text>
+                        <Text style={styles.timeText}>{createdAtLabel ?? '—'}</Text>
+                      </VStack>
+                    </HStack>
+                  </VStack>
+
+                  <View style={styles.detailFieldBlock}>
                     <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
                     <ObjectPicker
                       value={goal.arcId ?? ''}
@@ -2044,7 +2144,7 @@ export function GoalDetailScreen() {
                     />
                   </View>
 
-                  <View ref={vectorsSectionRef} collapsable={false}>
+                  <View style={styles.detailFieldBlock} ref={vectorsSectionRef} collapsable={false}>
                     <HStack justifyContent="space-between" alignItems="center">
                       <HStack alignItems="center" space="xs">
                         <Text style={styles.forceIntentLabel}>Vectors for this goal</Text>
@@ -2134,8 +2234,6 @@ export function GoalDetailScreen() {
                     </VStack>
                   </View>
 
-                  {createdAtLabel ? <Text style={styles.createdAtText}>Created {createdAtLabel}</Text> : null}
-
                   {headerV2Enabled ? (
                     <Card marginTop="lg">
                       <Text style={styles.actionsTitle}>Actions</Text>
@@ -2201,54 +2299,96 @@ export function GoalDetailScreen() {
         visible={goalTargetDateSheetVisible}
         onClose={() => {
           setGoalTargetDateSheetVisible(false);
-          setGoalTargetIsDatePickerVisible(false);
+          setGoalTargetDateSheetStep('menu');
         }}
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        snapPoints={
+          Platform.OS === 'ios'
+            ? [goalTargetDateSheetStep === 'picker' ? '88%' : '62%']
+            : ['45%']
+        }
         scrimToken="pineSubtle"
       >
-        <View style={styles.quickAddSheetContent}>
-          <Text style={styles.quickAddSheetTitle}>Target date</Text>
-          <VStack space="sm">
-            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(0)}>
-              <Text style={styles.quickAddSheetRowLabel}>Today</Text>
-            </Pressable>
-            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(1)}>
-              <Text style={styles.quickAddSheetRowLabel}>Tomorrow</Text>
-            </Pressable>
-            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(7)}>
-              <Text style={styles.quickAddSheetRowLabel}>Next week</Text>
-            </Pressable>
-            <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetIsDatePickerVisible(true)}>
-              <Text style={styles.quickAddSheetRowLabel}>Pick a date…</Text>
-            </Pressable>
-            <Pressable style={styles.quickAddSheetRow} onPress={clearGoalTargetDate}>
-              <Text style={styles.quickAddSheetRowLabel}>Clear target date</Text>
-            </Pressable>
-          </VStack>
-          {goalTargetIsDatePickerVisible && (
-            <View style={styles.quickAddDatePickerContainer}>
-              <DateTimePicker
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                value={getInitialGoalTargetDate()}
-                onChange={(event: DateTimePickerEvent, date?: Date) => {
-                  if (Platform.OS !== 'ios') setGoalTargetIsDatePickerVisible(false);
-                  if (!date || event.type === 'dismissed') return;
-                  if (!goal?.id) return;
-                  const next = new Date(date);
-                  next.setHours(23, 0, 0, 0);
-                  const timestamp = new Date().toISOString();
-                  updateGoal(goal.id, (prev) => ({
-                    ...prev,
-                    targetDate: next.toISOString(),
-                    qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
-                    updatedAt: timestamp,
-                  }));
-                  setGoalTargetDateSheetVisible(false);
-                  setGoalTargetIsDatePickerVisible(false);
-                }}
-              />
-            </View>
+        <View style={[styles.quickAddSheetContent, { flex: 1 }]}>
+          {goalTargetDateSheetStep === 'menu' ? (
+            <>
+              <Text style={styles.quickAddSheetTitle}>Target date</Text>
+              <VStack space="sm">
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(0)}>
+                  <Text style={styles.quickAddSheetRowLabel}>Today</Text>
+                </Pressable>
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(1)}>
+                  <Text style={styles.quickAddSheetRowLabel}>Tomorrow</Text>
+                </Pressable>
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(7)}>
+                  <Text style={styles.quickAddSheetRowLabel}>Next week</Text>
+                </Pressable>
+                <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateSheetStep('picker')}>
+                  <Text style={styles.quickAddSheetRowLabel}>Pick a date…</Text>
+                </Pressable>
+              </VStack>
+
+              {goal?.targetDate ? (
+                <>
+                  <View style={styles.quickAddSheetDivider} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear target date"
+                    onPress={clearGoalTargetDate}
+                    style={({ pressed }) => [
+                      styles.quickAddSheetClearRow,
+                      pressed ? { opacity: 0.72 } : null,
+                    ]}
+                  >
+                    <Text style={styles.quickAddSheetClearLabel}>Clear target date</Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View style={styles.quickAddPickerHeaderRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Back"
+                  onPress={() => setGoalTargetDateSheetStep('menu')}
+                  style={({ pressed }) => [
+                    styles.quickAddPickerBackButton,
+                    pressed ? { opacity: 0.72 } : null,
+                  ]}
+                >
+                  <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                  <Text style={styles.quickAddPickerBackLabel}>Back</Text>
+                </Pressable>
+                <Text style={styles.quickAddPickerTitle}>Pick a date</Text>
+                <View style={styles.quickAddPickerHeaderSpacer} />
+              </View>
+
+              <View style={styles.quickAddDatePickerContainer}>
+                <DateTimePicker
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  value={getInitialGoalTargetDate()}
+                  onChange={(event: DateTimePickerEvent, date?: Date) => {
+                    if (event.type === 'dismissed' || !date) {
+                      setGoalTargetDateSheetStep('menu');
+                      return;
+                    }
+                    if (!goal?.id) return;
+                    const next = new Date(date);
+                    next.setHours(23, 0, 0, 0);
+                    const timestamp = new Date().toISOString();
+                    updateGoal(goal.id, (prev) => ({
+                      ...prev,
+                      targetDate: next.toISOString(),
+                      qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
+                      updatedAt: timestamp,
+                    }));
+                    setGoalTargetDateSheetVisible(false);
+                    setGoalTargetDateSheetStep('menu');
+                  }}
+                />
+              </View>
+            </>
           )}
         </View>
       </BottomDrawer>
@@ -2261,13 +2401,13 @@ export function GoalDetailScreen() {
         <View style={styles.quickAddSheetContent}>
           <Text style={styles.quickAddSheetTitle}>Status</Text>
           <VStack space="sm">
-            {(['planned', 'in_progress', 'completed', 'archived'] as const).map((nextStatus) => {
-              const label = nextStatus.replace('_', ' ');
-              const pretty = label.charAt(0).toUpperCase() + label.slice(1);
+            {GOAL_STATUS_OPTIONS.map((nextStatus) => {
+              const nextAppearance = getGoalStatusAppearance(nextStatus);
+              const isSelected = goal?.status === nextStatus;
               return (
                 <Pressable
                   key={nextStatus}
-                  style={styles.quickAddSheetRow}
+                  style={[styles.quickAddSheetRow, isSelected ? styles.statusRowSelected : null]}
                   onPress={() => {
                     if (!goal?.id) return;
                     const timestamp = new Date().toISOString();
@@ -2279,7 +2419,24 @@ export function GoalDetailScreen() {
                     setGoalStatusSheetVisible(false);
                   }}
                 >
-                  <Text style={styles.quickAddSheetRowLabel}>{pretty}</Text>
+                  <HStack alignItems="center" justifyContent="space-between">
+                    <HStack alignItems="center" space="sm">
+                      <View
+                        style={[
+                          styles.statusOptionPill,
+                          {
+                            backgroundColor: nextAppearance.badgeBackgroundColor,
+                            borderColor: nextAppearance.dotColor,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.statusOptionPillText, { color: nextAppearance.badgeTextColor }]}>
+                          {nextAppearance.label}
+                        </Text>
+                      </View>
+                    </HStack>
+                    {isSelected ? <Icon name="check" size={16} color={nextAppearance.textColor} /> : null}
+                  </HStack>
                 </Pressable>
               );
             })}
@@ -3320,8 +3477,8 @@ function GoalActivityCoachDrawer({
 
 const styles = StyleSheet.create({
   sectionDivider: {
-    marginTop: spacing['2xl'],
-    marginBottom: spacing['2xl'],
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.gray300,
     borderRadius: 999,
@@ -3348,21 +3505,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
-  goalStatusPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+  timeValueButton: {
     alignSelf: 'flex-start',
+    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: spacing.xs / 2,
+    borderRadius: 8,
   },
-  goalStatusPillLabel: {
+  timeValueButtonPressed: {
+    opacity: 0.7,
+  },
+  timeValueButtonText: {
     ...typography.bodySm,
-    fontFamily: fonts.medium,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.gray700,
+    color: colors.textSecondary,
   },
   headerSide: {
     flex: 1,
@@ -3534,6 +3688,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 0,
+  },
+  detailFieldBlock: {
+    marginTop: spacing.md,
+  },
+  valuePillButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.shellAlt,
+  },
+  valuePillText: {
+    ...typography.bodySm,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
   },
   timeText: {
     ...typography.bodySm,
@@ -3730,6 +3901,9 @@ const styles = StyleSheet.create({
   planEmptyHint: {
     ...typography.bodySm,
     color: colors.muted,
+  },
+  planValueCard: {
+    marginVertical: 0,
   },
   forceEditOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -4216,6 +4390,62 @@ const styles = StyleSheet.create({
   quickAddSheetRowLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  quickAddSheetDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  quickAddSheetClearRow: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  quickAddSheetClearLabel: {
+    ...typography.bodySm,
+    color: colors.destructive,
+    fontFamily: fonts.medium,
+  },
+  quickAddPickerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  quickAddPickerBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 12,
+  },
+  quickAddPickerBackLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    marginLeft: spacing.xs,
+  },
+  quickAddPickerTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  quickAddPickerHeaderSpacer: {
+    width: 62,
+  },
+  statusRowSelected: {
+    borderColor: colors.gray300,
+    backgroundColor: colors.shellAlt,
+  },
+  statusOptionPill: {
+    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  statusOptionPillText: {
+    ...typography.bodySm,
+    fontFamily: fonts.medium,
   },
   quickAddDatePickerContainer: {
     marginTop: spacing.md,

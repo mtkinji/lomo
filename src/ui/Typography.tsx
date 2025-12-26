@@ -1,7 +1,9 @@
+import React from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 import { colors, typography, fonts } from '../theme';
 import { BUTTON_SIZE_TOKENS, type ButtonSizeToken } from './buttonTokens';
+import { ButtonContext } from './ButtonContext';
 
 type TextVariant = 'body' | 'bodySm' | 'label';
 type HeadingVariant = 'xl' | 'lg' | 'md' | 'sm';
@@ -123,11 +125,13 @@ export function Heading({
 export function ButtonLabel({
   style,
   children,
-  size = 'md',
+  size,
   tone = 'default',
   ...rest
 }: ButtonLabelProps) {
-  const base = BUTTON_SIZE_TOKENS[size ?? 'md'].text;
+  const inherited = React.useContext(ButtonContext);
+  const resolvedSize = size ?? inherited?.size ?? 'md';
+  const base = BUTTON_SIZE_TOKENS[resolvedSize].text;
 
   return (
     <RNText

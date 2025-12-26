@@ -87,7 +87,7 @@ export const goalCreationWorkflow: WorkflowDefinition = {
         "Produce exactly one concrete, realistic goal that matches the user's intended timeframe and does not duplicate existing goals verbatim.",
       agentBehavior: {
         loadingMessage:
-          "Got it — I’m shaping one concrete goal that matches the timeframe you described. Once it’s ready, you can accept it as-is or tweak the wording.",
+          "One sec — I’m drafting a starter goal from your kwilt context. You can adopt it as-is, or edit the title and description first.",
         loadingMessageId: 'assistant-goal-status',
       },
       // IMPORTANT: The host app confirms adoption via the proposal card UI, so we do not

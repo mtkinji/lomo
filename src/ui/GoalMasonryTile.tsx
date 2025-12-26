@@ -5,15 +5,14 @@ import type { Arc, Goal, ThumbnailStyle } from '../domain/types';
 import { colors, spacing, typography } from '../theme';
 import { HStack, Heading, Text, VStack } from './primitives';
 import { Badge } from './Badge';
+import { Icon, type IconName } from './Icon';
 import { richTextToPlainText } from './richText';
 import {
   ARC_MOSAIC_COLS,
   ARC_MOSAIC_ROWS,
-  ARC_TOPO_GRID_SIZE,
   buildArcThumbnailSeed,
   getArcGradient,
   getArcMosaicCell,
-  getArcTopoSizes,
   pickThumbnailStyle,
 } from '../features/arcs/thumbnailVisuals';
 
@@ -21,6 +20,9 @@ type GoalMasonryTileProps = {
   goal: Goal;
   parentArc?: Arc | null;
   activityCount?: number;
+  doneCount?: number;
+  nextScheduledLabel?: string | null;
+  hasUnscheduledIncomplete?: boolean;
   thumbnailStyles?: ThumbnailStyle[];
   columnWidth: number;
   /**
@@ -49,12 +51,45 @@ function aspectRatioForBucket(bucket: 0 | 1 | 2): number {
   return 1 / aspectForBucket(bucket);
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function computeFinishByLabel(targetDate?: string): { value: string; color: string } | null {
+  if (!targetDate) return null;
+  const targetMs = Date.parse(targetDate);
+  if (!Number.isFinite(targetMs)) return null;
+
+  const nowMs = Date.now();
+  const diffDays = Math.ceil((targetMs - nowMs) / MS_PER_DAY);
+  const absDiff = Math.abs(diffDays);
+
+  // When it's close, show a countdown; otherwise show a date label.
+  let value: string;
+  if (absDiff <= 21) {
+    if (diffDays === 0) value = 'Due today';
+    else if (diffDays > 0) value = `${diffDays}d left`;
+    else value = `${absDiff}d overdue`;
+  } else {
+    value = new Date(targetMs).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  const color =
+    value.includes('overdue')
+      ? colors.destructive
+      : value.includes('left') || value.includes('Due today')
+        ? colors.indigo600
+        : colors.sumi800;
+
+  return { value, color };
+}
+
 export function estimateGoalMasonryTileHeight(params: {
   columnWidth: number;
   aspectBucket: 0 | 1 | 2;
+  hasImage?: boolean;
 }): number {
-  const heroH = Math.max(110, Math.min(params.columnWidth * aspectForBucket(params.aspectBucket), 520));
-  // Rough, stable estimate for title + status badge + description + meta.
+  const heroAspect = params.hasImage ? aspectForBucket(params.aspectBucket) : 1;
+  const heroH = Math.max(110, Math.min(params.columnWidth * heroAspect, 520));
+  // Rough, stable estimate for title + description + footer rows.
   const textBlock = 118;
   return heroH + textBlock;
 }
@@ -63,6 +98,9 @@ export function GoalMasonryTile({
   goal,
   parentArc,
   activityCount = 0,
+  doneCount = 0,
+  nextScheduledLabel = null,
+  hasUnscheduledIncomplete = false,
   thumbnailStyles,
   columnWidth,
   aspectBucket,
@@ -106,30 +144,38 @@ export function GoalMasonryTile({
     goal.thumbnailVariant ?? parentArc?.thumbnailVariant ?? null
   );
   const { colors: gradientColors, direction } = getArcGradient(seed);
-  const topoSizes = getArcTopoSizes(seed);
-  const thumbnailStyle = pickThumbnailStyle(
-    seed,
-    thumbnailStyles && thumbnailStyles.length > 0 ? thumbnailStyles : ['topographyDots']
+  const effectiveThumbnailStyles = React.useMemo(
+    () => (thumbnailStyles ?? []).filter((style) => style !== 'topographyDots'),
+    [thumbnailStyles]
   );
+  const thumbnailStyle =
+    effectiveThumbnailStyles.length > 0 ? pickThumbnailStyle(seed, effectiveThumbnailStyles) : null;
 
   const hasCustomThumbnail = Boolean(goal.thumbnailUrl || parentArc?.thumbnailUrl);
-  const shouldShowTopography = thumbnailStyle === 'topographyDots' && !hasCustomThumbnail;
   const shouldShowGeoMosaic = thumbnailStyle === 'geoMosaic' && !hasCustomThumbnail;
 
-  const activityLabel =
-    activityCount === 0 ? 'No activities' : `${activityCount} ${activityCount === 1 ? 'activity' : 'activities'}`;
+  const finishBy = React.useMemo(() => {
+    if (goal.status === 'completed' || goal.status === 'archived') return null;
+    return computeFinishByLabel(goal.targetDate);
+  }, [goal.status, goal.targetDate]);
 
-  const activityLevel = (goal.forceIntent?.['force-activity'] ?? 0) as number;
-  const masteryLevel = (goal.forceIntent?.['force-mastery'] ?? 0) as number;
-  const rightMeta = activityLevel + masteryLevel > 0 ? `A ${activityLevel}/3 · M ${masteryLevel}/3` : '';
+  const nextStep = React.useMemo(() => {
+    if (goal.status === 'archived') return null;
+    if (goal.status === 'completed') return { label: 'Completed', icon: 'check' as IconName, muted: true };
 
-  const statusLabel = goal.status.replace('_', ' ');
-  const statusVariant =
-    goal.status === 'in_progress'
-      ? 'default'
-      : goal.status === 'planned'
-        ? 'secondary'
-        : 'secondary';
+    if (activityCount === 0) return { label: 'Add first activity', icon: 'plus' as IconName, muted: false };
+    if (doneCount >= activityCount && activityCount > 0 && goal.status !== 'completed') {
+      return { label: 'Mark complete', icon: 'check' as IconName, muted: false };
+    }
+    if (goal.status === 'in_progress' && !goal.targetDate)
+      return { label: 'Set finish date', icon: 'today' as IconName, muted: false };
+    if (finishBy?.value.includes('overdue'))
+      return { label: 'Adjust finish date', icon: 'today' as IconName, muted: false };
+    if (nextScheduledLabel) return { label: `${nextScheduledLabel}`, icon: 'today' as IconName, muted: false };
+    if (hasUnscheduledIncomplete)
+      return { label: 'Schedule an activity', icon: 'today' as IconName, muted: false };
+    return { label: 'Pick an activity', icon: 'activities' as IconName, muted: false };
+  }, [activityCount, doneCount, finishBy?.value, goal.status, goal.targetDate, hasUnscheduledIncomplete, nextScheduledLabel]);
 
   const description = React.useMemo(() => {
     const raw = goal.description ?? '';
@@ -153,7 +199,9 @@ export function GoalMasonryTile({
         style={[
           styles.heroFrame,
           {
-            aspectRatio: imageAspectRatio ?? aspectRatioForBucket(bucket),
+            // Default gradients should render as a clean 1:1 square. Only vary the
+            // hero aspect ratio when we have a real image to fit.
+            aspectRatio: imageUri ? imageAspectRatio ?? aspectRatioForBucket(bucket) : 1,
           },
         ]}
       >
@@ -178,37 +226,6 @@ export function GoalMasonryTile({
             end={direction.end}
             style={styles.heroImage}
           />
-        )}
-
-        {shouldShowTopography && (
-          <View style={styles.heroOverlay}>
-            <View style={styles.topoGrid}>
-              {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
-                // eslint-disable-next-line react/no-array-index-key
-                <View key={`goal-tile-topo-row-${rowIndex}`} style={styles.topoRow}>
-                  {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
-                    const cellIndex = rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                    const rawSize = topoSizes[cellIndex] ?? 0;
-                    const isHidden = rawSize < 0;
-                    const dotSize = isHidden ? 0 : rawSize;
-                    return (
-                      // eslint-disable-next-line react/no-array-index-key
-                      <View
-                        key={`goal-tile-topo-cell-${rowIndex}-${colIndex}`}
-                        style={[
-                          styles.topoDot,
-                          (dotSize === 0 || isHidden) && styles.topoDotSmall,
-                          dotSize === 1 && styles.topoDotMedium,
-                          dotSize === 2 && styles.topoDotLarge,
-                          isHidden && styles.topoDotHidden,
-                        ]}
-                      />
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          </View>
         )}
 
         {shouldShowGeoMosaic && (
@@ -254,25 +271,28 @@ export function GoalMasonryTile({
             {description}
           </Text>
         ) : null}
-        <HStack alignItems="center" justifyContent="space-between" style={styles.metaRow}>
-          <Badge
-            variant="secondary"
-            style={styles.activityBadge}
-            textStyle={styles.activityBadgeText}
-          >
-            {activityLabel}
-          </Badge>
-          <HStack alignItems="center" space="xs" style={styles.metaRight}>
-            {rightMeta ? (
-              <Text numberOfLines={1} style={styles.metaText}>
-                {rightMeta}
-              </Text>
-            ) : null}
-            <Badge variant={statusVariant} style={styles.statusBadge} textStyle={styles.statusBadgeText}>
-              {statusLabel}
+        <VStack space="xs" style={styles.metaBlock}>
+          {nextStep ? (
+            <Badge
+              variant="secondary"
+              style={[styles.nextStepCta, nextStep.muted ? styles.nextStepBadgeMuted : null]}
+            >
+              <HStack space="xs" alignItems="center" style={styles.nextStepRow}>
+                <Icon
+                  name={nextStep.icon}
+                  size={14}
+                  color={nextStep.muted ? colors.gray600 : colors.sumi800}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.nextStepCtaText, nextStep.muted ? styles.nextStepBadgeTextMuted : null]}
+                >
+                  {nextStep.label}
+                </Text>
+              </HStack>
             </Badge>
-          </HStack>
-        </HStack>
+          ) : null}
+        </VStack>
       </VStack>
     </Pressable>
   );
@@ -325,18 +345,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: colors.sumi800,
   },
-  metaRow: {
+  metaBlock: {
     marginTop: spacing.xs,
   },
-  metaRight: {
-    flexShrink: 0,
-    alignItems: 'center',
-  },
-  metaText: {
-    ...typography.bodySm,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.sumi800,
+  metaRow: {
+    // spacing handled by metaBlock
   },
   activityBadge: {
     paddingHorizontal: spacing.xs,
@@ -348,34 +361,28 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: colors.sumi800,
   },
-  topoGrid: {
-    width: '100%',
-    height: '100%',
-    padding: spacing.sm,
-    justifyContent: 'space-between',
+  nextStepCta: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.shellAlt,
+    borderRadius: 12,
+    justifyContent: 'center',
+    maxWidth: '100%',
   },
-  topoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  nextStepRow: {
+    flexShrink: 1,
   },
-  topoDot: {
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+  nextStepBadgeMuted: {
+    opacity: 0.8,
   },
-  topoDotSmall: {
-    width: 3,
-    height: 3,
+  nextStepCtaText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.sumi800,
   },
-  topoDotMedium: {
-    width: 5,
-    height: 5,
-  },
-  topoDotLarge: {
-    width: 7,
-    height: 7,
-  },
-  topoDotHidden: {
-    opacity: 0,
+  nextStepBadgeTextMuted: {
+    color: colors.gray600,
   },
   mosaicLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -407,5 +414,3 @@ const styles = StyleSheet.create({
     height: '55%',
   },
 });
-
-

@@ -76,6 +76,7 @@ import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
+import { HapticsService } from '../../services/HapticsService';
 
 type FocusSessionState =
   | {
@@ -679,9 +680,11 @@ export function ActivityDetailScreen() {
       return;
     }
     if (minutes > focusMaxMinutes) {
+      void HapticsService.trigger('outcome.warning');
       openPaywallInterstitial({ reason: 'pro_only_focus_mode', source: 'activity_focus_mode' });
       return;
     }
+    void HapticsService.trigger('canvas.primary.confirm');
     setLastFocusMinutes(minutes);
 
     setActiveSheet(null);
@@ -740,12 +743,14 @@ export function ActivityDetailScreen() {
   const togglePauseFocusSession = async () => {
     if (!focusSession) return;
     if (focusSession.mode === 'paused') {
+      void HapticsService.trigger('canvas.toggle.on');
       const endAtMs = Date.now() + focusSession.remainingMs;
       setFocusSession({ mode: 'running', startedAtMs: focusSession.startedAtMs, endAtMs });
       setFocusTickMs(Date.now());
       return;
     }
 
+    void HapticsService.trigger('canvas.toggle.off');
     await cancelFocusNotificationIfNeeded();
     setFocusSession({
       mode: 'paused',
@@ -779,6 +784,7 @@ export function ActivityDetailScreen() {
     if (remainingFocusMs > 0) return;
 
     // Session completed
+    void HapticsService.trigger('outcome.success');
     recordShowUp();
     recordCompletedFocusSession({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
@@ -3651,7 +3657,14 @@ type SheetOptionProps = {
 
 function SheetOption({ label, onPress, testID }: SheetOptionProps) {
   return (
-    <Pressable testID={testID} style={styles.sheetRow} onPress={onPress}>
+    <Pressable
+      testID={testID}
+      style={styles.sheetRow}
+      onPress={() => {
+        void HapticsService.trigger('canvas.selection');
+        onPress();
+      }}
+    >
       <Text style={styles.sheetRowLabel}>{label}</Text>
     </Pressable>
   );

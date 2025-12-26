@@ -51,6 +51,12 @@ type ActivityListItemProps = {
    */
   onTogglePriority?: () => void;
   /**
+   * Whether to show the priority/star affordance. Defaults to true.
+   * Useful for "preview" cards (e.g. suggestions) that should look like a list item
+   * but avoid extra controls.
+   */
+  showPriorityControl?: boolean;
+  /**
    * Optional handler for tapping anywhere on the row (excluding the checkbox).
    */
   onPress?: () => void;
@@ -67,6 +73,7 @@ export function ActivityListItem({
   onToggleComplete,
   isPriorityOne = false,
   onTogglePriority,
+  showPriorityControl = true,
   onPress,
 }: ActivityListItemProps) {
   const completionAnim = React.useRef(new Animated.Value(0)).current;
@@ -159,12 +166,25 @@ export function ActivityListItem({
           style={styles.leftCluster}
         >
           <View style={styles.checkboxWrapper}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isCompleted ? 'Mark activity as not done' : 'Mark activity as done'}
-              hitSlop={8}
-              onPress={handlePressComplete}
-            >
+            {onToggleComplete ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isCompleted ? 'Mark activity as not done' : 'Mark activity as done'}
+                hitSlop={8}
+                onPress={handlePressComplete}
+              >
+                <View
+                  style={[
+                    styles.checkboxBase,
+                    isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
+                  ]}
+                >
+                  {isCompleted ? (
+                    <Icon name="check" size={14} color={colors.primaryForeground} />
+                  ) : null}
+                </View>
+              </Pressable>
+            ) : (
               <View
                 style={[
                   styles.checkboxBase,
@@ -175,7 +195,7 @@ export function ActivityListItem({
                   <Icon name="check" size={14} color={colors.primaryForeground} />
                 ) : null}
               </View>
-            </Pressable>
+            )}
 
             {isAnimatingComplete && (
               <Animated.View
@@ -242,18 +262,20 @@ export function ActivityListItem({
         </HStack>
 
         {/* Importance / priority affordance */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isPriorityOne ? 'Remove star from activity' : 'Star this activity'}
-          hitSlop={8}
-          onPress={onTogglePriority}
-        >
-          <Icon
-            name={isPriorityOne ? 'starFilled' : 'star'}
-            size={18}
-            color={isPriorityOne ? colors.turmeric : colors.textSecondary}
-          />
-        </Pressable>
+        {showPriorityControl && onTogglePriority ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isPriorityOne ? 'Remove star from activity' : 'Star this activity'}
+            hitSlop={8}
+            onPress={onTogglePriority}
+          >
+            <Icon
+              name={isPriorityOne ? 'starFilled' : 'star'}
+              size={18}
+              color={isPriorityOne ? colors.turmeric : colors.textSecondary}
+            />
+          </Pressable>
+        ) : null}
       </HStack>
     </Card>
   );

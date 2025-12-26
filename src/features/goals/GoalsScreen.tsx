@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   InteractionManager,
   Alert,
+  Linking,
 } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -24,6 +25,7 @@ import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useToastStore } from '../../store/useToastStore';
+import { usePaywallStore } from '../../store/usePaywallStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../domain/types';
 import { canCreateGoalInArc } from '../../domain/limits';
 import { Button, IconButton } from '../../ui/Button';
@@ -35,10 +37,12 @@ import { richTextToPlainText } from '../../ui/richText';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
+import { HapticsService } from '../../services/HapticsService';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { Dialog } from '../../ui/Dialog';
 import { fonts } from '../../theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
@@ -50,6 +54,7 @@ import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { blurs } from '../../theme/overlays';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
   PRO_GENERATIVE_CREDITS_PER_MONTH,
@@ -136,14 +141,58 @@ export function GoalsScreen() {
   const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
   const [goalsMasonryWidth, setGoalsMasonryWidth] = React.useState(0);
 
+  type GoalActivityStats = {
+    total: number;
+    done: number;
+    hasUnscheduledIncomplete: boolean;
+    nextScheduledMs: number | null;
+  };
+
+  const goalActivityStatsByGoal = React.useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+
+    return activities.reduce<Record<string, GoalActivityStats>>((acc, activity) => {
+      const goalId = activity.goalId;
+      if (!goalId) return acc;
+
+      const current: GoalActivityStats = acc[goalId] ?? {
+        total: 0,
+        done: 0,
+        hasUnscheduledIncomplete: false,
+        nextScheduledMs: null,
+      };
+
+      current.total += 1;
+      if (activity.status === 'done') current.done += 1;
+
+      const scheduled = activity.scheduledDate ?? null;
+      const scheduledMs = scheduled ? Date.parse(scheduled) : NaN;
+      if (Number.isFinite(scheduledMs) && scheduledMs >= todayStartMs) {
+        current.nextScheduledMs =
+          typeof current.nextScheduledMs === 'number'
+            ? Math.min(current.nextScheduledMs, scheduledMs)
+            : scheduledMs;
+      }
+
+      const isIncomplete = activity.status !== 'done' && activity.status !== 'skipped' && activity.status !== 'cancelled';
+      if (isIncomplete && !activity.scheduledDate) {
+        current.hasUnscheduledIncomplete = true;
+      }
+
+      acc[goalId] = current;
+      return acc;
+    }, {});
+  }, [activities]);
+
   const activityCountByGoal = React.useMemo(
     () =>
-      activities.reduce<Record<string, number>>((acc, activity) => {
-        if (!activity.goalId) return acc;
-        acc[activity.goalId] = (acc[activity.goalId] ?? 0) + 1;
+      Object.entries(goalActivityStatsByGoal).reduce<Record<string, number>>((acc, [goalId, stats]) => {
+        acc[goalId] = stats.total;
         return acc;
       }, {}),
-    [activities],
+    [goalActivityStatsByGoal],
   );
 
   const visuals = useAppStore((state) => state.userProfile?.visuals);
@@ -234,11 +283,26 @@ export function GoalsScreen() {
     return (last % 3) as 0 | 1 | 2;
   }, []);
 
+  const deriveNextScheduledLabel = React.useCallback((nextScheduledMs: number | null) => {
+    if (!nextScheduledMs || !Number.isFinite(nextScheduledMs)) return null;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+    const diffDays = Math.round((nextScheduledMs - todayStartMs) / (24 * 60 * 60 * 1000));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    return new Date(nextScheduledMs).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }, []);
+
   type GoalMasonryItem = {
     goal: Goal;
     parentArc: Arc | null;
     activityCount: number;
+    doneCount: number;
+    nextScheduledLabel: string | null;
+    hasUnscheduledIncomplete: boolean;
     aspectBucket: 0 | 1 | 2;
+    hasImage: boolean;
   };
 
   const visibleGoalMasonryItems = React.useMemo<GoalMasonryItem[]>(
@@ -246,10 +310,14 @@ export function GoalsScreen() {
       visibleGoals.map((goal) => ({
         goal,
         parentArc: goal.arcId ? arcById[goal.arcId] ?? null : null,
-        activityCount: activityCountByGoal[goal.id] ?? 0,
+        activityCount: goalActivityStatsByGoal[goal.id]?.total ?? 0,
+        doneCount: goalActivityStatsByGoal[goal.id]?.done ?? 0,
+        nextScheduledLabel: deriveNextScheduledLabel(goalActivityStatsByGoal[goal.id]?.nextScheduledMs ?? null),
+        hasUnscheduledIncomplete: goalActivityStatsByGoal[goal.id]?.hasUnscheduledIncomplete ?? false,
         aspectBucket: stableBucketFromId(goal.id),
+        hasImage: Boolean(goal.thumbnailUrl || (goal.arcId && arcById[goal.arcId]?.thumbnailUrl)),
       })),
-    [activityCountByGoal, arcById, stableBucketFromId, visibleGoals],
+    [arcById, deriveNextScheduledLabel, goalActivityStatsByGoal, stableBucketFromId, visibleGoals],
   );
 
   const archivedGoalMasonryItems = React.useMemo<GoalMasonryItem[]>(
@@ -257,10 +325,14 @@ export function GoalsScreen() {
       archivedGoals.map((goal) => ({
         goal,
         parentArc: goal.arcId ? arcById[goal.arcId] ?? null : null,
-        activityCount: activityCountByGoal[goal.id] ?? 0,
+        activityCount: goalActivityStatsByGoal[goal.id]?.total ?? 0,
+        doneCount: goalActivityStatsByGoal[goal.id]?.done ?? 0,
+        nextScheduledLabel: deriveNextScheduledLabel(goalActivityStatsByGoal[goal.id]?.nextScheduledMs ?? null),
+        hasUnscheduledIncomplete: goalActivityStatsByGoal[goal.id]?.hasUnscheduledIncomplete ?? false,
         aspectBucket: stableBucketFromId(goal.id),
+        hasImage: Boolean(goal.thumbnailUrl || (goal.arcId && arcById[goal.arcId]?.thumbnailUrl)),
       })),
-    [activityCountByGoal, archivedGoals, arcById, stableBucketFromId],
+    [archivedGoals, arcById, deriveNextScheduledLabel, goalActivityStatsByGoal, stableBucketFromId],
   );
 
   const handlePressNewGoal = () => {
@@ -271,8 +343,6 @@ export function GoalsScreen() {
     <AppShell>
       <PageHeader
         title="Goals"
-        iconName="goals"
-        iconTone="goal"
         //Add this to the page header if you want to wrap the title in a large badge with the icon
         // boxedTitle
         menuOpen={menuOpen}
@@ -314,13 +384,20 @@ export function GoalsScreen() {
             columnGap={spacing.sm}
             rowGap={spacing.sm}
             estimateItemHeight={(item, { columnWidth }) =>
-              estimateGoalMasonryTileHeight({ columnWidth, aspectBucket: item.aspectBucket })
+              estimateGoalMasonryTileHeight({
+                columnWidth,
+                aspectBucket: item.aspectBucket,
+                hasImage: item.hasImage,
+              })
             }
             renderItem={(item, { columnWidth }) => (
               <GoalMasonryTile
                 goal={item.goal}
                 parentArc={item.parentArc}
                 activityCount={item.activityCount}
+                doneCount={item.doneCount}
+                nextScheduledLabel={item.nextScheduledLabel}
+                hasUnscheduledIncomplete={item.hasUnscheduledIncomplete}
                 thumbnailStyles={thumbnailStyles}
                 columnWidth={columnWidth}
                 aspectBucket={item.aspectBucket}
@@ -374,13 +451,20 @@ export function GoalsScreen() {
                 columnGap={spacing.sm}
                 rowGap={spacing.sm}
                 estimateItemHeight={(item, { columnWidth }) =>
-                  estimateGoalMasonryTileHeight({ columnWidth, aspectBucket: item.aspectBucket })
+                  estimateGoalMasonryTileHeight({
+                    columnWidth,
+                    aspectBucket: item.aspectBucket,
+                    hasImage: item.hasImage,
+                  })
                 }
                 renderItem={(item, { columnWidth }) => (
                   <GoalMasonryTile
                     goal={item.goal}
                     parentArc={item.parentArc}
                     activityCount={item.activityCount}
+                    doneCount={item.doneCount}
+                    nextScheduledLabel={item.nextScheduledLabel}
+                    hasUnscheduledIncomplete={item.hasUnscheduledIncomplete}
                     thumbnailStyles={thumbnailStyles}
                     columnWidth={columnWidth}
                     aspectBucket={item.aspectBucket}
@@ -588,6 +672,8 @@ export function GoalCoachDrawer({
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
+  const lastPaywallDismissedAtMs = usePaywallStore((s) => s.lastDismissedAtMs);
+  const lastPaywallDismissedReason = usePaywallStore((s) => s.lastDismissedReason);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList>>();
   const launchArc = React.useMemo(
@@ -669,17 +755,32 @@ export function GoalCoachDrawer({
     // If credits are exhausted, keep the user on Manual (Goal AI will fail later anyway).
     // Show a single lightweight toast so the user understands why (and can upgrade).
     setActiveTab('manual');
+    const recentlyDismissedPaywall =
+      lastPaywallDismissedReason === 'generative_quota_exceeded' &&
+      typeof lastPaywallDismissedAtMs === 'number' &&
+      Date.now() - lastPaywallDismissedAtMs < 30_000;
     if (!hasShownCreditsBlockedToastRef.current) {
       hasShownCreditsBlockedToastRef.current = true;
+      if (recentlyDismissedPaywall) return;
       showToast({
         message: 'No AI credits left this month.',
         variant: 'credits',
         durationMs: 4500,
         actionLabel: 'Upgrade',
         actionOnPress: openCreditsPaywall,
+        // If the paywall interstitial (or any other overlay) is currently up,
+        // do not queue this toast to show afterward.
+        behaviorDuringSuppression: 'drop',
       });
     }
-  }, [aiCreditsRemaining, openCreditsPaywall, showToast, visible]);
+  }, [
+    aiCreditsRemaining,
+    lastPaywallDismissedAtMs,
+    lastPaywallDismissedReason,
+    openCreditsPaywall,
+    showToast,
+    visible,
+  ]);
 
   const handleChangeMode = React.useCallback(
     (next: 'ai' | 'manual') => {
@@ -894,6 +995,7 @@ export function GoalCoachDrawer({
       durationMs: 2200,
       behaviorDuringSuppression: 'queue',
     });
+    void HapticsService.trigger('outcome.success');
     capture(AnalyticsEvent.GoalCreated, {
       source: 'manual',
       goal_id: goal.id,
@@ -956,6 +1058,7 @@ export function GoalCoachDrawer({
         durationMs: 2200,
         behaviorDuringSuppression: 'queue',
       });
+      void HapticsService.trigger('outcome.success');
       capture(AnalyticsEvent.GoalCreated, {
         source: 'ai_coach',
         goal_id: goal.id,
@@ -1095,6 +1198,47 @@ export function GoalCoachDrawer({
                           style={styles.manualGoalThumbnail}
                         />
                       )}
+                      {draft.heroImageMeta?.source === 'unsplash' &&
+                      draft.heroImageMeta.unsplashAuthorName &&
+                      draft.heroImageMeta.unsplashAuthorLink &&
+                      draft.heroImageMeta.unsplashLink ? (
+                        <View pointerEvents="box-none" style={styles.manualHeroAttributionOverlay}>
+                          <View style={styles.manualHeroAttributionPill}>
+                            <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+                              <BlurView
+                                intensity={blurs.headerAction.intensity}
+                                tint={blurs.headerAction.tint}
+                                style={StyleSheet.absoluteFillObject}
+                              />
+                              <View style={styles.manualHeroAttributionTint} />
+                            </View>
+                            <Text
+                              style={styles.manualHeroAttributionText}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              Photo by{' '}
+                              <Text
+                                style={[styles.manualHeroAttributionText, styles.manualHeroAttributionLink]}
+                                onPress={() => {
+                                  Linking.openURL(draft.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
+                                }}
+                              >
+                                {draft.heroImageMeta.unsplashAuthorName}
+                              </Text>{' '}
+                              on{' '}
+                              <Text
+                                style={[styles.manualHeroAttributionText, styles.manualHeroAttributionLink]}
+                                onPress={() => {
+                                  Linking.openURL(draft.heroImageMeta!.unsplashLink!).catch(() => {});
+                                }}
+                              >
+                                Unsplash
+                              </Text>
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
                     </View>
                   </Pressable>
                   <View style={{ flex: 1 }}>
@@ -1635,6 +1779,35 @@ const styles = StyleSheet.create({
   manualGoalThumbnail: {
     width: '100%',
     height: '100%',
+  },
+  manualHeroAttributionOverlay: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    alignItems: 'flex-end',
+  },
+  manualHeroAttributionPill: {
+    alignSelf: 'flex-end',
+    maxWidth: 64,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: blurs.headerAction.borderColor,
+  },
+  manualHeroAttributionTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: blurs.headerAction.overlayColor,
+  },
+  manualHeroAttributionText: {
+    ...typography.bodySm,
+    fontSize: 9,
+    lineHeight: 11,
+    color: colors.textPrimary,
+  },
+  manualHeroAttributionLink: {
+    textDecorationLine: 'underline',
   },
   manualInlineTitleField: {
     // Pull the inline title field tighter so it visually matches the Goal detail header row.

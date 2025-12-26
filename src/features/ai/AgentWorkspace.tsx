@@ -416,13 +416,19 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         const reply = await sendCoachChat([...history, ...stepGuidanceTurns], coachOptions);
         controller.streamAssistantReplyFromWorkflow(reply, 'assistant-workflow');
       } catch (error) {
+        controller.streamAssistantReplyFromWorkflow(
+          'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
+          'assistant-error-workflow'
+        );
+        props.onTransportError?.();
         if (__DEV__) {
           // eslint-disable-next-line no-console
           console.error('[workflow] Failed to invoke agent step', stepId, error);
         }
+        throw error;
       }
     },
-    [launchContextText, workflowDefinition, workflowInstance]
+    [launchContextText, props.onTransportError, workflowDefinition, workflowInstance]
   );
 
   // Emit step-completion analytics after the instance state has been updated.
@@ -517,6 +523,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return (
         <GoalCreationFlow
           chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
+          autoRecommendOnMount={launchContext.intent === 'goalCreation'}
         />
       );
     }

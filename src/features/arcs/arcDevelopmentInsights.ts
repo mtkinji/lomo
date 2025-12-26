@@ -11,6 +11,45 @@ export type ArcDevelopmentInsights = {
 
 const MIN_LINES_PER_SECTION = 2;
 
+const normalizeInsightLine = (value: string): string => {
+  const trimmed = value.trim();
+  // Strip common markdown/list prefixes so we don't render double bullets.
+  return trimmed
+    .replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const isHarshOrClinicalInsightLine = (value: string): boolean => {
+  const line = normalizeInsightLine(value);
+  if (!line) return true;
+
+  // Reject the common "clinical report" voice that feels generic/reprimanding in-app.
+  if (/^\s*(individuals?|many individuals?)\b/i.test(line)) return true;
+
+  // Reject problem-framing language that can feel scolding or negative.
+  const bannedPhrases: RegExp[] = [
+    /\b(should|must|have to|need to)\b/i,
+    /\b(grapple|struggle|struggling|overextend|overextending|neglect|trap|pitfall|fault|flaw)\b/i,
+    /\b(challenge|challenges)\b/i,
+    /\b(fall into)\b/i,
+    /\b(perfectionism|perfectly)\b/i,
+    /\b(always|never)\b/i,
+  ];
+  return bannedPhrases.some((re) => re.test(line));
+};
+
+const sanitizeInsights = (insights: ArcDevelopmentInsights): ArcDevelopmentInsights => ({
+  strengths: insights.strengths.map(normalizeInsightLine).filter(Boolean),
+  growthEdges: insights.growthEdges.map(normalizeInsightLine).filter(Boolean),
+  pitfalls: insights.pitfalls.map(normalizeInsightLine).filter(Boolean),
+});
+
+const isHarshOrClinicalInsightSet = (insights: ArcDevelopmentInsights): boolean => {
+  const all = [...insights.strengths, ...insights.growthEdges, ...insights.pitfalls];
+  return all.some(isHarshOrClinicalInsightLine);
+};
+
 const normalizeText = (value: string | undefined | null): string =>
   (value ?? '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -84,11 +123,15 @@ const parseInsightsFromReply = (reply: string): ArcDevelopmentInsights | null =>
       return null;
     }
 
-    const strengths = parsed.strengths.filter((item) => typeof item === 'string' && item.trim());
-    const growthEdges = parsed.growthEdges.filter(
-      (item) => typeof item === 'string' && item.trim()
-    );
-    const pitfalls = parsed.pitfalls.filter((item) => typeof item === 'string' && item.trim());
+    const strengths = parsed.strengths
+      .filter((item) => typeof item === 'string' && item.trim())
+      .map((item) => normalizeInsightLine(item as string));
+    const growthEdges = parsed.growthEdges
+      .filter((item) => typeof item === 'string' && item.trim())
+      .map((item) => normalizeInsightLine(item as string));
+    const pitfalls = parsed.pitfalls
+      .filter((item) => typeof item === 'string' && item.trim())
+      .map((item) => normalizeInsightLine(item as string));
 
     if (
       strengths.length < MIN_LINES_PER_SECTION ||
@@ -98,7 +141,8 @@ const parseInsightsFromReply = (reply: string): ArcDevelopmentInsights | null =>
       return null;
     }
 
-    return { strengths, growthEdges, pitfalls };
+    const sanitized = sanitizeInsights({ strengths, growthEdges, pitfalls });
+    return sanitized;
   } catch {
     return null;
   }
@@ -131,8 +175,8 @@ const buildLocalFallbackFromArc = (arc: Arc, template?: IdealArcTemplate): ArcDe
   );
   growthEdges.push('Letting the Arc grow through repeatable habits, not only big pushes of effort.');
 
-  pitfalls.push('Treating this Arc as a side note rather than a real part of your identity.');
-  pitfalls.push('Waiting until life is perfectly organized before taking small steps inside this Arc.');
+  pitfalls.push('When life gets busy, it can be easy to treat this Arc like a side note.');
+  pitfalls.push('Letting one small step count even when the week is messy.');
 
   return { strengths, growthEdges, pitfalls };
 };
@@ -156,8 +200,9 @@ const scoreArcInsightQuality = async (
     '2) developmental_accuracy – do they describe believable ways people grow over time, without diagnosing or giving prescriptive advice?',
     '3) realism – could these show up in an ordinary week for this kind of person, in grounded language?',
     '4) clarity – are lines short, scannable, and free of vague “inspire / unlock / radiate” language?',
+    '5) invitation_tone – do the lines feel like warm, progress-oriented invitations (not reprimands, warnings, or clinical problem statements)?',
     '',
-    'Compute final_score as the simple average of the four dimensions, and clamp it to 0–10.',
+    'Compute final_score as the simple average of the five dimensions, and clamp it to 0–10.',
     '',
     'Return ONLY a JSON object (no markdown, no surrounding text) in this shape:',
     '{',
@@ -233,20 +278,23 @@ const generateInsightsForArc = async (arc: Arc): Promise<ArcDevelopmentInsights 
     '',
     'You are generating a short, psychologically grounded “development profile” for a user’s Identity Arc.',
     '',
-    'Your job is NOT to give advice or instructions. Instead, offer gentle, kind invitations to notice or consider patterns people on this path often run into.',
+    'Your job is NOT to reprimand, warn, or diagnose. Write tailored, kind invitations that make the user feel capable and moving forward.',
+    'Each line should feel like a small, supportive nudge—not a critique.',
     '',
     'Structure:',
     '- strengths: 2–3 short lines about capacities or habits that help people grow this Arc.',
     '- growth_edges: 2–3 short lines about tensions or edges people often work on along this path.',
-    '- pitfalls: 2–3 short lines about common traps people on this path learn to navigate.',
+    '- pitfalls: 2–3 short lines about moments to watch for, phrased gently and paired with a sense of possibility.',
     '',
     'Hard rules:',
     '- Do NOT use the word “should”.',
     '- Do NOT tell the user what to do or give step-by-step advice.',
     '- Do NOT diagnose traits, disorders, or fixed labels.',
     '- Keep language grounded, concrete, and non-cosmic (no destiny, vibration, radiance, etc.).',
-    '- Prefer an invitational tone (e.g., “Many people find it helpful to…”, “It can be worth noticing…”, “You might observe…”), without prescribing.',
-    '- Speak in third-person plural or gentle second-person (“people on this path…”, “you might notice…”).',
+    '- Avoid clinical/problem framing (do NOT write: “Individuals may…”, “people struggle…”, “fall into the trap…”, “neglect…”, “perfectionism…”, “challenges…”).',
+    '- Prefer an invitational tone (e.g., “You might notice…”, “It can help to remember…”, “A gentle experiment is…”), without prescribing a checklist.',
+    '- Speak in gentle second-person or third-person plural (“you might notice…”, “people on this path often…”).',
+    '- Each line should start like an invitation (often a gerund), e.g., “Noticing…”, “Returning to…”, “Making room for…”, “Letting…”.',
     '- Do NOT include bullet characters (no leading "-", "*", "•", or numbered lists). Return plain strings only.',
     '- Lines must be short (one line each) and easy to scan on a phone.',
     '',
@@ -254,6 +302,9 @@ const generateInsightsForArc = async (arc: Arc): Promise<ArcDevelopmentInsights 
     '- the Arc name and narrative (identity spine, everyday scenes, and tension),',
     '- any ideal Arc template provided,',
     '- any high-level user profile summary.',
+    '',
+    'Anti-generic rule:',
+    '- Make each section feel specific to THIS Arc; avoid generic personality-general statements.',
     '',
     'Output format (JSON only, no backticks, no prose):',
     '{',
@@ -303,17 +354,22 @@ const generateInsightsForArc = async (arc: Arc): Promise<ArcDevelopmentInsights 
         continue;
       }
 
-      const score = await scoreArcInsightQuality(arc, parsed);
+      const sanitized = sanitizeInsights(parsed);
+      if (isHarshOrClinicalInsightSet(sanitized)) {
+        continue;
+      }
+
+      const score = await scoreArcInsightQuality(arc, sanitized);
       if (score == null) {
         if (!bestCandidate) {
-          bestCandidate = parsed;
+          bestCandidate = sanitized;
         }
         break;
       }
 
       if (bestScore == null || score > bestScore) {
         bestScore = score;
-        bestCandidate = parsed;
+        bestCandidate = sanitized;
       }
 
       if (score >= QUALITY_THRESHOLD) {
@@ -349,13 +405,22 @@ export const ensureArcDevelopmentInsights = async (arcId: string): Promise<void>
     return;
   }
 
-  const alreadyPresent =
-    (arc.developmentStrengths && arc.developmentStrengths.length > 0) ||
-    (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
-    (arc.developmentPitfalls && arc.developmentPitfalls.length > 0);
+  const existing: ArcDevelopmentInsights = {
+    strengths: arc.developmentStrengths ?? [],
+    growthEdges: arc.developmentGrowthEdges ?? [],
+    pitfalls: arc.developmentPitfalls ?? [],
+  };
 
+  const alreadyPresent =
+    existing.strengths.length > 0 || existing.growthEdges.length > 0 || existing.pitfalls.length > 0;
+
+  // If we already have insights and they don't look harsh/clinical, keep them.
+  // Otherwise, regenerate with the newer invitation-forward prompt.
   if (alreadyPresent) {
-    return;
+    const sanitizedExisting = sanitizeInsights(existing);
+    if (!isHarshOrClinicalInsightSet(sanitizedExisting)) {
+      return;
+    }
   }
 
   try {

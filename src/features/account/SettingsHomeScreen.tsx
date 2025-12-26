@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, TouchableOpacity, View, Pressable } from 'react-native';
+import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, TouchableOpacity, View, Pressable, Share } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -25,6 +25,7 @@ import { Card } from '../../ui/Card';
 import { LinearGradient } from 'expo-linear-gradient';
 import { paywallTheme } from '../paywall/paywallTheme';
 import { openManageSubscription } from '../../services/entitlements';
+import { createReferralCode } from '../../services/referrals';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -57,6 +58,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     description: 'Visual identity, tone, and how the app feels.',
     items: [
       {
+        id: 'haptics',
+        title: 'Haptics',
+        description: 'Make key moments feel more immersive.',
+        icon: 'sparkles',
+        route: 'SettingsHaptics',
+        tags: ['feedback', 'touch', 'immersion'],
+      },
+      {
         id: 'notifications',
         title: 'Notifications',
         description: 'Plan gentle reminders from Kwilt.',
@@ -79,6 +88,7 @@ export function SettingsHomeScreen() {
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
+  const bonusGenerativeCredits = useAppStore((state) => state.bonusGenerativeCredits);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const restore = useEntitlementsStore((state) => state.restore);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
@@ -117,8 +127,12 @@ export function SettingsHomeScreen() {
   const profileSubtitle = userProfile?.email?.trim() || 'Add your email address';
   const avatarSource = userProfile?.avatarUrl ? { uri: userProfile.avatarUrl } : null;
 
-  const monthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
+  const baseMonthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
   const currentKey = getMonthKey(new Date());
+  const bonusRaw =
+    bonusGenerativeCredits?.monthKey === currentKey ? Number(bonusGenerativeCredits.bonusThisMonth ?? 0) : 0;
+  const bonusThisMonth = Number.isFinite(bonusRaw) ? Math.max(0, Math.floor(bonusRaw)) : 0;
+  const monthlyLimit = baseMonthlyLimit + bonusThisMonth;
   const usedThisMonth =
     generativeCredits?.monthKey === currentKey ? Math.max(0, generativeCredits.usedThisMonth ?? 0) : 0;
   const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);
@@ -344,6 +358,41 @@ export function SettingsHomeScreen() {
               </Text>
             </View>
           )}
+
+          {/* Referral hook (credits rewards) */}
+          <View style={styles.groupSection}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Invite a friend"
+              onPress={async () => {
+                try {
+                  const code = await createReferralCode();
+                  const link = `kwilt://referral?code=${encodeURIComponent(code)}`;
+                  await Share.share({
+                    message: `Try Kwilt — it’s helping me turn motivation into a real plan.\n\nOpen this link after you install: ${link}`,
+                  });
+                } catch (err: any) {
+                  Alert.alert(
+                    'Unable to create invite',
+                    typeof err?.message === 'string' ? err.message : 'Please try again in a moment.',
+                  );
+                }
+              }}
+            >
+              <HStack style={styles.itemRow} alignItems="center" space="md">
+                <View style={styles.itemIcon}>
+                  <Icon name="share" size={18} color={colors.accent} />
+                </View>
+                <VStack flex={1}>
+                  <Text style={styles.itemTitle}>Invite a friend</Text>
+                  <Text style={styles.itemSubtitle}>
+                    Earn bonus AI credits when a friend joins.
+                  </Text>
+                </VStack>
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+              </HStack>
+            </Pressable>
+          </View>
 
           {/* Subscriptions entry (moved to bottom of the list). */}
           <View style={styles.groupSection}>

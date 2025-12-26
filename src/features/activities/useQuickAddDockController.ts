@@ -4,6 +4,7 @@ import { Keyboard } from 'react-native';
 import type { Activity } from '../../domain/types';
 import type { ActivityRepeatRule } from '../../domain/types';
 import { spacing } from '../../theme';
+import { HapticsService } from '../../services/HapticsService';
 
 type ToastPayload = {
   message: string;
@@ -155,6 +156,7 @@ export function useQuickAddDockController(params: Params) {
       durationMs: 2200,
       bottomOffset: toastBottomOffset,
     });
+    void HapticsService.trigger('outcome.success');
 
     onCreated?.(activity);
 

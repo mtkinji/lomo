@@ -2405,18 +2405,25 @@ export async function sendCoachChat(
     throw new Error('AI proxy not configured');
   }
 
+  const isFirstTimeOnboarding = options?.mode === 'firstTimeOnboarding';
+
   // Enforce kwilt's generative credit gate at the shared service layer so
   // any UI path that calls sendCoachChat cannot bypass paywall restrictions.
-  // Note: We intentionally consume at the start to match existing patterns
-  // elsewhere in the app (credits are treated as "attempts").
-  const tier: 'free' | 'pro' = useEntitlementsStore.getState().isPro ? 'pro' : 'free';
-  const consumed = useAppStore.getState().tryConsumeGenerativeCredit({ tier });
-  if (!consumed.ok) {
-    openPaywallInterstitial({
-      reason: 'generative_quota_exceeded',
-      source: options?.paywallSource ?? 'unknown',
-    });
-    throw new Error('Generative credits exhausted');
+  //
+  // Exception: first-time onboarding is "shielded" so the user can complete setup
+  // and still exit onboarding with their full monthly allowance available.
+  if (!isFirstTimeOnboarding) {
+    // Note: We intentionally consume at the start to match existing patterns
+    // elsewhere in the app (credits are treated as "attempts").
+    const tier: 'free' | 'pro' = useEntitlementsStore.getState().isPro ? 'pro' : 'free';
+    const consumed = useAppStore.getState().tryConsumeGenerativeCredit({ tier });
+    if (!consumed.ok) {
+      openPaywallInterstitial({
+        reason: 'generative_quota_exceeded',
+        source: options?.paywallSource ?? 'unknown',
+      });
+      throw new Error('Generative credits exhausted');
+    }
   }
 
   const baseSystemPrompt =
@@ -2467,6 +2474,14 @@ export async function sendCoachChat(
       ],
     };
 
+    const kwiltProxyHeaders: Record<string, string> = {};
+    if (options?.mode) {
+      kwiltProxyHeaders['x-kwilt-chat-mode'] = options.mode;
+    }
+    if (options?.workflowStepId) {
+      kwiltProxyHeaders['x-kwilt-workflow-step-id'] = options.workflowStepId;
+    }
+
     const summaryResponse = await fetchWithTimeout(
       OPENAI_COMPLETIONS_URL,
       {
@@ -2474,6 +2489,7 @@ export async function sendCoachChat(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          ...kwiltProxyHeaders,
         },
         body: JSON.stringify(summaryBody),
       },
@@ -2536,6 +2552,14 @@ export async function sendCoachChat(
   });
   const requestStartedAt = Date.now();
 
+  const kwiltProxyHeaders: Record<string, string> = {};
+  if (options?.mode) {
+    kwiltProxyHeaders['x-kwilt-chat-mode'] = options.mode;
+  }
+  if (options?.workflowStepId) {
+    kwiltProxyHeaders['x-kwilt-workflow-step-id'] = options.workflowStepId;
+  }
+
   let response: Response;
   try {
     response = await fetchWithTimeout(
@@ -2545,6 +2569,7 @@ export async function sendCoachChat(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          ...kwiltProxyHeaders,
         },
         body: JSON.stringify(body),
       },
@@ -2724,6 +2749,7 @@ export async function sendCoachChat(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          ...kwiltProxyHeaders,
         },
         body: JSON.stringify(followupBody),
       },

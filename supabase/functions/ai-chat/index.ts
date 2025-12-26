@@ -17,7 +17,7 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-kwilt-install-id, x-kwilt-is-pro, x-kwilt-client',
+    'authorization, x-client-info, apikey, content-type, x-kwilt-install-id, x-kwilt-is-pro, x-kwilt-client, x-kwilt-chat-mode, x-kwilt-workflow-step-id',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -83,6 +83,13 @@ function getDailyRailLimit(isPro: boolean): number | null {
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
   return null;
+}
+
+function getOnboardingActionsCap(): number {
+  const raw = Deno.env.get('KWILT_AI_ONBOARDING_ACTIONS_CAP');
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  return 12;
 }
 
 function getImageActionsCost(): number {
@@ -195,6 +202,44 @@ async function incrementMinutelyUsage(params: { quotaKey: string; minuteIso: str
   return typeof data === 'number' ? data : null;
 }
 
+async function incrementOnboardingUsage(params: {
+  quotaKey: string;
+  actionsCost: number;
+}): Promise<number | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+
+  const { data, error } = await admin.rpc('kwilt_increment_ai_usage_onboarding', {
+    p_quota_key: params.quotaKey,
+    p_actions_cost: params.actionsCost,
+  });
+  if (error) return null;
+  return typeof data === 'number' ? data : null;
+}
+
+async function getMonthlyBonusActions(params: {
+  quotaKey: string;
+  month: string;
+}): Promise<number> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return 0;
+
+  try {
+    const { data, error } = await admin
+      .from('kwilt_ai_bonus_monthly')
+      .select('bonus_actions')
+      .eq('quota_key', params.quotaKey)
+      .eq('month', params.month)
+      .maybeSingle();
+    if (error) return 0;
+    const raw = (data as { bonus_actions?: unknown } | null)?.bonus_actions;
+    const n = typeof raw === 'number' && Number.isFinite(raw) ? Math.floor(raw) : 0;
+    return Math.max(0, n);
+  } catch {
+    return 0;
+  }
+}
+
 function safeJsonParse(text: string): any | null {
   try {
     return JSON.parse(text);
@@ -266,14 +311,19 @@ serve(async (req) => {
   }
 
   const isPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
+  const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
+  const isOnboarding = chatMode === 'firstTimeOnboarding';
   const quotaKey = `install:${installId}`;
 
   const now = new Date();
   const day = getUtcDayString(now);
   const month = getUtcMonthKey(now);
-  const monthlyLimit = getMonthlyActionsLimit(isPro);
+  const baseMonthlyLimit = getMonthlyActionsLimit(isPro);
+  const bonusMonthlyLimit = isOnboarding ? 0 : await getMonthlyBonusActions({ quotaKey, month });
+  const monthlyLimit = baseMonthlyLimit + bonusMonthlyLimit;
   const dailyRail = getDailyRailLimit(isPro);
   const rpmLimit = getRpmLimit();
+  const onboardingCap = getOnboardingActionsCap();
 
   // Basic payload size guardrails (prevents accidental huge context).
   const maxBytes = getMaxRequestBytes();
@@ -339,7 +389,7 @@ serve(async (req) => {
   }
 
   // Daily rail (optional) uses the existing daily counter RPC.
-  if (dailyRail) {
+  if (!isOnboarding && dailyRail) {
     const dailyCount = await incrementDailyUsage({ quotaKey, day });
     if (dailyCount == null) {
       return json(503, {
@@ -371,41 +421,74 @@ serve(async (req) => {
     }
   }
 
-  // Monthly actions quota: increment now (fail closed to protect costs if quota DB is misconfigured).
-  const monthlyCount = await incrementMonthlyUsage({
-    quotaKey,
-    month,
-    actionsCost,
-    tokensIncrement: 0,
-  });
-  if (monthlyCount == null) {
-    return json(503, {
-      error: { message: 'AI proxy misconfigured (quota store)', code: 'provider_unavailable' },
-    });
-  }
-  if (monthlyCount > monthlyLimit) {
-    const retryAt = nextUtcMonthIso(now);
-    await recordRequest({
-      quotaKey,
-      isPro,
-      route,
-      status: 429,
-      durationMs: 0,
-      errorCode: 'quota_exceeded',
-      actionsCost,
-    });
-    return json(
-      429,
-      {
-        error: {
-          // Intentionally includes "quota" so existing client parsing treats it as quota exceeded.
-          message: `Monthly quota exceeded (limit=${monthlyLimit}).`,
-          code: 'quota_exceeded',
-          retryAt,
+  if (isOnboarding) {
+    // Onboarding allowance is shielded from daily/monthly quotas, but capped to prevent abuse.
+    const onboardingCount = await incrementOnboardingUsage({ quotaKey, actionsCost });
+    if (onboardingCount == null) {
+      return json(503, {
+        error: { message: 'AI proxy misconfigured (onboarding quota store)', code: 'provider_unavailable' },
+      });
+    }
+    if (onboardingCap > 0 && onboardingCount > onboardingCap) {
+      const retryAt = nextUtcMonthIso(now);
+      await recordRequest({
+        quotaKey,
+        isPro,
+        route,
+        status: 429,
+        durationMs: 0,
+        errorCode: 'quota_exceeded',
+        actionsCost,
+      });
+      return json(
+        429,
+        {
+          error: {
+            message: 'Onboarding AI limit reached.',
+            code: 'quota_exceeded',
+            retryAt,
+          },
         },
-      },
-      { 'Retry-After': retryAt }
-    );
+        { 'Retry-After': retryAt }
+      );
+    }
+  } else {
+    // Monthly actions quota: increment now (fail closed to protect costs if quota DB is misconfigured).
+    const monthlyCount = await incrementMonthlyUsage({
+      quotaKey,
+      month,
+      actionsCost,
+      tokensIncrement: 0,
+    });
+    if (monthlyCount == null) {
+      return json(503, {
+        error: { message: 'AI proxy misconfigured (quota store)', code: 'provider_unavailable' },
+      });
+    }
+    if (monthlyCount > monthlyLimit) {
+      const retryAt = nextUtcMonthIso(now);
+      await recordRequest({
+        quotaKey,
+        isPro,
+        route,
+        status: 429,
+        durationMs: 0,
+        errorCode: 'quota_exceeded',
+        actionsCost,
+      });
+      return json(
+        429,
+        {
+          error: {
+            // Intentionally includes "quota" so existing client parsing treats it as quota exceeded.
+            message: `Monthly quota exceeded (limit=${monthlyLimit}).`,
+            code: 'quota_exceeded',
+            retryAt,
+          },
+        },
+        { 'Retry-After': retryAt }
+      );
+    }
   }
 
   // Clamp max_tokens for chat requests (safety even under actions-only quotas).

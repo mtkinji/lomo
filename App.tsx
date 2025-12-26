@@ -22,6 +22,7 @@ import { FirstTimeUxFlow } from './src/features/onboarding/FirstTimeUxFlow';
 import { useAppStore } from './src/store/useAppStore';
 import { useEntitlementsStore } from './src/store/useEntitlementsStore';
 import { NotificationService } from './src/services/NotificationService';
+import { HapticsService } from './src/services/HapticsService';
 import {
   reconcileNotificationsFiredEstimated,
   registerNotificationReconcileTask,
@@ -52,6 +53,7 @@ export default function App() {
   const isFirstTimeFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
+  const hapticsEnabled = useAppStore((state) => state.hapticsEnabled);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
@@ -74,6 +76,13 @@ export default function App() {
     NotificationService.init().catch((error) => {
       if (__DEV__) {
         console.warn('[notifications] init failed', error);
+      }
+    });
+
+    // Initialize haptics (safe no-op if expo-haptics isn't installed).
+    HapticsService.init().catch((error) => {
+      if (__DEV__) {
+        console.warn('[haptics] init failed', error);
       }
     });
     // Best-effort background reconciliation for "fired" notifications without a server.
@@ -110,7 +119,12 @@ export default function App() {
     isFirstTimeFlowActive,
     startFirstTimeFlow,
     refreshEntitlements,
+    hapticsEnabled,
   ]);
+
+  useEffect(() => {
+    HapticsService.setEnabled(Boolean(hapticsEnabled));
+  }, [hapticsEnabled]);
 
   const handleLaunchScreenComplete = () => {
     setIsBootstrapped(true);
