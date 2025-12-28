@@ -2,10 +2,10 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
-  StyleSheet,
   View,
   Text,
   Pressable,
+  StyleSheet,
   TextInput,
   Platform,
   Keyboard,
@@ -15,8 +15,10 @@ import {
   findNodeHandle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { AppShell } from '../../ui/layout/AppShell';
 import { colors, spacing, typography, fonts } from '../../theme';
+import { blurs } from '../../theme/overlays';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
@@ -49,6 +51,8 @@ import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { LongTextField } from '../../ui/LongTextField';
+import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
 import { DurationPicker } from './DurationPicker';
 import { Badge } from '../../ui/Badge';
@@ -78,6 +82,9 @@ import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 import { HapticsService } from '../../services/HapticsService';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
+import { styles } from './activityDetailStyles';
+import { ActivityDetailRefresh } from './ActivityDetailRefresh';
+import { ActionDock } from '../../ui/ActionDock';
 
 type FocusSessionState =
   | {
@@ -110,9 +117,22 @@ export function ActivityDetailScreen() {
   const { capture } = useAnalytics();
   const showToast = useToastStore((s) => s.showToast);
   const insets = useSafeAreaInsets();
+  const headerMaterial = blurs.headerActionOnLight;
+  const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
   const { activityId, openFocus } = route.params;
+
+  // Geometry for screen-edge scroll fade (only affects scroll content beneath header/dock).
+  // AppShell applies `spacing.sm + insets.top` padding to the canvas; we use that to extend
+  // the top fade up to the physical top of the device.
+  const appShellTopInsetPx = spacing.sm + insets.top;
+  const [refreshContainerHeightPx, setRefreshContainerHeightPx] = useState<number | null>(null);
+  const [actionDockLayoutY, setActionDockLayoutY] = useState<number | null>(null);
+  const bottomFadeHeightPx =
+    refreshContainerHeightPx != null && actionDockLayoutY != null
+      ? Math.max(0, refreshContainerHeightPx - actionDockLayoutY)
+      : undefined;
 
   const KEYBOARD_CLEARANCE = spacing['2xl'] + spacing.lg;
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
@@ -125,6 +145,11 @@ export function ActivityDetailScreen() {
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
   const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
+  const remoteJtbdRefreshEnabled = useFeatureFlag('activity_detail_jtbd_refresh', false);
+  const devActivityDetailJtbdRefreshEnabled = useAppStore(
+    (state) => state.devActivityDetailJtbdRefreshEnabled,
+  );
+  const jtbdRefreshEnabled = (__DEV__ && devActivityDetailJtbdRefreshEnabled) || remoteJtbdRefreshEnabled;
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
@@ -1915,10 +1940,209 @@ export function ActivityDetailScreen() {
   }, [activity.title, activity.notes, activity.steps, activity.id]);
 
   return (
-    <AppShell>
+    <AppShell fullBleedCanvas={jtbdRefreshEnabled}>
       <View style={styles.screen}>
         {/* Credits warning toasts are rendered globally via AppShell. */}
         <VStack space="lg" style={styles.pageContent}>
+          {jtbdRefreshEnabled ? (
+            <View
+              style={{ flex: 1 }}
+              onLayout={(e) => {
+                const h = e?.nativeEvent?.layout?.height;
+                if (typeof h === 'number' && Number.isFinite(h)) setRefreshContainerHeightPx(h);
+              }}
+            >
+              <ActivityDetailRefresh
+              breadcrumbsEnabled={breadcrumbsEnabled}
+              arc={arc}
+              goal={goal}
+              navigation={navigation}
+              headerV2Enabled={headerV2Enabled}
+              showDoneButton={showDoneButton}
+              handleDoneEditing={handleDoneEditing}
+              handleToggleComplete={handleToggleComplete}
+              isCompleted={isCompleted}
+              handleSendToShare={handleSendToShare}
+              handleBackToActivities={handleBackToActivities}
+              rootNavigationRef={rootNavigationRef}
+              activity={activity}
+              capture={capture}
+              openFocusSheet={openFocusSheet}
+              openCalendarSheet={openCalendarSheet}
+              openAgentForActivity={openAgentForActivity}
+              canSendTo={canSendTo}
+              setActiveSheet={setActiveSheet}
+              scrollRef={scrollRef}
+              KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
+              detailGuideHost={detailGuideHost}
+              styles={styles}
+              updateActivity={updateActivity}
+              titleStepsBundleRef={titleStepsBundleRef}
+              setIsTitleStepsBundleReady={setIsTitleStepsBundleReady}
+              setTitleStepsBundleOffset={setTitleStepsBundleOffset}
+              stepsDraft={stepsDraft}
+              handleToggleStepComplete={handleToggleStepComplete}
+              handleRemoveStep={handleRemoveStep}
+              handleChangeStepTitle={handleChangeStepTitle}
+              beginAddStepInline={beginAddStepInline}
+              isAddingStepInline={isAddingStepInline}
+              newStepInputRef={newStepInputRef}
+              newStepTitle={newStepTitle}
+              setNewStepTitle={setNewStepTitle}
+              commitInlineStep={commitInlineStep}
+              handleAnyInputFocus={handleAnyInputFocus}
+              handleAnyInputBlur={handleAnyInputBlur}
+              scheduleAndPlanningCardRef={scheduleAndPlanningCardRef}
+              setIsScheduleCardReady={setIsScheduleCardReady}
+              setScheduleCardOffset={setScheduleCardOffset}
+              reminderLabel={reminderLabel}
+              dueDateLabel={dueDateLabel}
+              repeatLabel={repeatLabel}
+              timeEstimateLabel={timeEstimateLabel}
+              timeEstimateIsAi={timeEstimateIsAi}
+              difficultyLabel={difficultyLabel}
+              difficultyIsAi={difficultyIsAi}
+              hasTimeEstimate={hasTimeEstimate}
+              hasDifficulty={hasDifficulty}
+              handleClearReminder={handleClearReminder}
+              handleClearDueDate={handleClearDueDate}
+              handleClearRepeatRule={handleClearRepeatRule}
+              openEstimateSheet={openEstimateSheet}
+              handleClearTimeEstimate={handleClearTimeEstimate}
+              difficultyComboboxOpen={difficultyComboboxOpen}
+              setDifficultyComboboxOpen={setDifficultyComboboxOpen}
+              difficultyOptions={difficultyOptions}
+              handleClearDifficulty={handleClearDifficulty}
+              totalStepsCount={totalStepsCount}
+              completedStepsCount={completedStepsCount}
+              tagsFieldContainerRef={tagsFieldContainerRef}
+              tagsInputRef={tagsInputRef}
+              prepareRevealTagsField={prepareRevealTagsField}
+              tagsInputDraft={tagsInputDraft}
+              setTagsInputDraft={setTagsInputDraft}
+              showTagsAutofill={showTagsAutofill}
+              TAGS_AI_AUTOFILL_SIZE={TAGS_AI_AUTOFILL_SIZE}
+              isTagsAutofillThinking={isTagsAutofillThinking}
+              tagsAutofillInFlightRef={tagsAutofillInFlightRef}
+              isPro={isPro}
+              tryConsumeGenerativeCredit={tryConsumeGenerativeCredit}
+              openPaywallInterstitial={openPaywallInterstitial}
+              suggestActivityTagsWithAi={suggestActivityTagsWithAi}
+              activityTagHistory={activityTagHistory}
+              goalTitle={goalTitle}
+              suggestTagsFromText={suggestTagsFromText}
+              addTags={addTags}
+              isKeyboardVisible={isKeyboardVisible}
+              TAGS_REVEAL_EXTRA_OFFSET={TAGS_REVEAL_EXTRA_OFFSET}
+              commitTagsInputDraft={commitTagsInputDraft}
+              handleRemoveTag={handleRemoveTag}
+              goalOptions={goalOptions}
+              recommendedGoalOption={recommendedGoalOption}
+              activityTypeOptions={activityTypeOptions}
+              handleDeleteActivity={handleDeleteActivity}
+              setIsTagsAutofillThinking={setIsTagsAutofillThinking}
+              // Full-bleed canvas: the refresh layout handles safe area itself.
+              appShellTopInsetPx={0}
+              safeAreaTopInsetPx={insets.top}
+              pageGutterX={spacing.xl}
+              bottomFadeHeightPx={bottomFadeHeightPx}
+              />
+              <ActionDock
+                onLayout={(e) => {
+                  const y = e?.nativeEvent?.layout?.y;
+                  if (typeof y === 'number' && Number.isFinite(y)) setActionDockLayoutY(y);
+                }}
+                leftItems={[
+                  {
+                    id: 'focus',
+                    icon: 'focus',
+                    accessibilityLabel: 'Open focus mode',
+                    onPress: () => {
+                      capture(AnalyticsEvent.ActivityActionInvoked, {
+                        activityId: activity.id,
+                        action: 'focusMode',
+                      });
+                      openFocusSheet();
+                    },
+                    // Preserve existing e2e id
+                    testID: 'e2e.activityDetail.keyAction.focusMode',
+                  },
+                  {
+                    id: 'schedule',
+                    icon: 'today',
+                    accessibilityLabel: 'Send to calendar',
+                    onPress: () => {
+                      capture(AnalyticsEvent.ActivityActionInvoked, {
+                        activityId: activity.id,
+                        action: 'addToCalendar',
+                      });
+                      openCalendarSheet();
+                    },
+                    // Preserve existing e2e id
+                    testID: 'e2e.activityDetail.keyAction.addToCalendar',
+                  },
+                  ...(canSendTo
+                    ? ([
+                        {
+                          id: 'sendTo',
+                          icon: 'send',
+                          accessibilityLabel: 'Send to…',
+                          onPress: () => {
+                            capture(AnalyticsEvent.ActivityActionInvoked, {
+                              activityId: activity.id,
+                              action: 'sendTo',
+                            });
+                            setActiveSheet('sendTo');
+                          },
+                          testID: 'e2e.activityDetail.dock.sendTo',
+                        },
+                      ] as const)
+                    : []),
+                  {
+                    id: 'ai',
+                    icon: 'sparkles',
+                    accessibilityLabel: 'Get help from AI',
+                    onPress: () => {
+                      capture(AnalyticsEvent.ActivityActionInvoked, {
+                        activityId: activity.id,
+                        action: 'chatWithAi',
+                      });
+                      openAgentForActivity({ objectType: 'activity', objectId: activity.id });
+                    },
+                    testID: 'e2e.activityDetail.dock.ai',
+                  },
+                ]}
+                rightItem={{
+                  id: 'done',
+                  icon: 'check',
+                  accessibilityLabel: isCompleted
+                    ? 'Mark activity as not done'
+                    : 'Mark activity as done',
+                  onPress: handleToggleComplete,
+                  testID: 'e2e.activityDetail.dock.donePrimary',
+                  // Make it more obvious by tinting the icon when incomplete.
+                  color: isCompleted ? colors.textPrimary : colors.accent,
+                }}
+                // AppShell already provides the canvas gutter; keep docks “nested” into the corners.
+                // Nestle into the corners, but keep a consistent 16pt inset from the canvas edges.
+                // Match Arc/Goal effective page gutter (xl) while ActivityDetail runs inside
+                // AppShell's default gutter (sm). Add the delta so total ~= xl.
+                insetX={spacing.xl}
+                insetBottom={16}
+                // Notes-style: apply a partial safe-area lift so the dock “matches the corner curve”
+                // without jumping as high as the full home-indicator inset.
+                safeAreaLift="half"
+              />
+            </View>
+          ) : null}
+
+          {/* Legacy layout (kept as fallback; hidden when the refresh flag is enabled). */}
+          <View
+            style={[
+              styles.legacyContainer,
+              jtbdRefreshEnabled ? styles.legacyHidden : undefined,
+            ]}
+          >
           <HStack alignItems="center">
             {breadcrumbsEnabled ? (
               <>
@@ -1985,13 +2209,13 @@ export function ActivityDetailScreen() {
                       }}
                       accessibilityLabel="Share activity"
                     >
-                      <Icon name="share" size={18} color={colors.textPrimary} />
+                      <Icon name="share" size={18} color={headerInk} />
                     </Button>
                   ) : (
                     <DropdownMenu>
                       <DropdownMenuTrigger accessibilityLabel="Activity actions">
                         <IconButton style={styles.optionsButton} pointerEvents="none" accessible={false}>
-                          <Icon name="more" size={18} color={colors.canvas} />
+                          <Icon name="more" size={18} color={headerInk} />
                         </IconButton>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent side="bottom" sideOffset={6} align="end">
@@ -2031,40 +2255,53 @@ export function ActivityDetailScreen() {
                   <View style={styles.headerV2}>
                     <View style={styles.headerV2TopRow}>
                       <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
+                        <HeaderActionPill
                           onPress={handleBackToActivities}
                           accessibilityLabel="Back to Activities"
+                          materialVariant="onLight"
+                          size={44}
                         >
-                          <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-                        </Button>
-                        <View style={styles.objectTypeRow}>
-                          <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
+                          <Icon name="chevronLeft" size={20} color={headerInk} />
+                        </HeaderActionPill>
+                        <View style={[styles.headerTypePill, { borderColor: headerMaterial.borderColor }]}>
+                          <BlurView
+                            intensity={headerMaterial.intensity}
+                            tint={headerMaterial.tint}
+                            style={StyleSheet.absoluteFillObject}
+                          />
+                          <View
+                            pointerEvents="none"
+                            style={[
+                              styles.headerTypePillTint,
+                              { backgroundColor: headerMaterial.overlayColor },
+                            ]}
+                          />
+                          <HStack alignItems="center" space="xs" style={styles.headerTypePillContent}>
+                          <Icon name="activities" size={14} color={headerInk} />
                           <Text style={styles.objectTypeLabelV2}>Activity</Text>
+                          </HStack>
                         </View>
                       </HStack>
                       {showDoneButton ? (
-                        <Pressable
+                        <HeaderActionPill
                           onPress={handleDoneEditing}
-                          accessibilityRole="button"
                           accessibilityLabel="Done editing"
-                          hitSlop={8}
-                          style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
+                          materialVariant="onLight"
+                          size={44}
                         >
                           <Text style={styles.doneButtonText}>Done</Text>
-                        </Pressable>
+                        </HeaderActionPill>
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
+                        <HeaderActionPill
                           onPress={() => {
                             handleSendToShare().catch(() => undefined);
                           }}
                           accessibilityLabel="Share activity"
+                          materialVariant="onLight"
+                          size={44}
                         >
-                          <Icon name="share" size={18} color={colors.textPrimary} />
-                        </Button>
+                          <Icon name="share" size={18} color={headerInk} />
+                        </HeaderActionPill>
                       )}
                     </View>
                     <Text style={styles.headerV2Title} numberOfLines={1} ellipsizeMode="tail">
@@ -2074,37 +2311,55 @@ export function ActivityDetailScreen() {
                 ) : (
                   <>
                     <View style={styles.headerSide}>
-                      <IconButton
-                        style={styles.backButton}
+                      <HeaderActionPill
                         onPress={handleBackToActivities}
                         accessibilityLabel="Back to Activities"
+                        materialVariant="onLight"
+                        size={44}
                       >
-                        <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                      </IconButton>
+                        <Icon name="chevronLeft" size={20} color={headerInk} />
+                      </HeaderActionPill>
                     </View>
                     <View style={styles.headerCenter}>
-                      <View style={styles.objectTypeRow}>
-                        <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
-                        <Text style={styles.objectTypeLabel}>Activity</Text>
+                      <View style={[styles.headerTypePill, { borderColor: headerMaterial.borderColor }]}>
+                        <BlurView
+                          intensity={headerMaterial.intensity}
+                          tint={headerMaterial.tint}
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                        <View
+                          pointerEvents="none"
+                          style={[
+                            styles.headerTypePillTint,
+                            { backgroundColor: headerMaterial.overlayColor },
+                          ]}
+                        />
+                        <HStack alignItems="center" space="xs" style={styles.headerTypePillContent}>
+                          <Icon name="activities" size={14} color={headerInk} />
+                          <Text style={styles.objectTypeLabel}>Activity</Text>
+                        </HStack>
                       </View>
                     </View>
                     <View style={styles.headerSideRight}>
                       {showDoneButton ? (
-                        <Pressable
+                        <HeaderActionPill
                           onPress={handleDoneEditing}
-                          accessibilityRole="button"
                           accessibilityLabel="Done editing"
-                          hitSlop={8}
-                          style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
+                          materialVariant="onLight"
+                          size={44}
                         >
                           <Text style={styles.doneButtonText}>Done</Text>
-                        </Pressable>
+                        </HeaderActionPill>
                       ) : (
                         <DropdownMenu>
                           <DropdownMenuTrigger accessibilityLabel="Activity actions">
-                            <IconButton style={styles.optionsButton} pointerEvents="none" accessible={false}>
-                              <Icon name="more" size={18} color={colors.canvas} />
-                            </IconButton>
+                            <HeaderActionPill
+                              accessibilityLabel="Activity actions"
+                              materialVariant="onLight"
+                              size={44}
+                            >
+                              <Icon name="more" size={18} color={headerInk} />
+                            </HeaderActionPill>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                             <DropdownMenuItem
@@ -2941,6 +3196,7 @@ export function ActivityDetailScreen() {
               </View>
             ) : null}
           </KeyboardAwareScrollView>
+          </View>
         </VStack>
       </View>
 
@@ -3696,707 +3952,3 @@ function SheetOption({ label, onPress, testID }: SheetOptionProps) {
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  pageContent: {
-    flex: 1,
-  },
-  headerSide: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSideRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  breadcrumbsLeft: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingRight: spacing.sm,
-  },
-  breadcrumbsRight: {
-    flex: 0,
-  },
-  menuRowText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  tagsFieldContainer: {
-    width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 44,
-  },
-  tagsFieldInner: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tagChipText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  tagsTextInput: {
-    flexGrow: 1,
-    flexShrink: 1,
-    // Important: keep this small so the presence of an (empty) TextInput does NOT
-    // force a second wrapped row when chips still fit on the current row.
-    flexBasis: 40,
-    minWidth: 40,
-    fontFamily: typography.bodySm.fontFamily,
-    fontSize: typography.bodySm.fontSize,
-    lineHeight: typography.bodySm.lineHeight + 2,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  tagsAutofillBadge: {
-    position: 'absolute',
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingBottom: spacing['2xl'],
-    gap: spacing.xs,
-  },
-  section: {
-    paddingVertical: spacing.xs,
-  },
-  keyActionsInset: {
-    // AppShell already provides the page gutter. Keep Key Actions aligned with the
-    // rest of the Activity canvas (and avoid double-padding).
-    paddingHorizontal: 0,
-    paddingVertical: spacing.xs,
-  },
-  activityHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    columnGap: spacing.md,
-    flexWrap: 'wrap',
-  },
-  rowPadding: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  titleStepsBundle: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  bundleDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    borderRadius: 999,
-    marginVertical: 2,
-  },
-  titlePressable: {
-    flex: 1,
-    flexShrink: 1,
-    justifyContent: 'center',
-  },
-  titleRow: {
-    paddingHorizontal: 0,
-    minHeight: 44,
-  },
-  titleRowContent: {
-    // Keep the title vertically centered against the (slightly larger) checkbox.
-    paddingVertical: spacing.xs,
-  },
-  titleText: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  titleInput: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    padding: 0,
-    flexShrink: 1,
-  },
-  comboboxTrigger: {
-    width: '100%',
-  },
-    comboboxValueContainer: {
-      // `Input` dims non-editable fields by default. For combobox triggers, we want the
-      // selected value to use the standard dark text appearance like other inputs.
-      opacity: 1,
-    },
-    comboboxValueInput: {
-      // Improve vertical centering of single-line value text (icon is already centered).
-      color: colors.textPrimary,
-      paddingVertical: 0,
-      // Keep these explicit so we can safely override line metrics.
-      fontFamily: typography.bodySm.fontFamily,
-      fontSize: typography.bodySm.fontSize,
-      // Line-height strongly affects perceived vertical centering.
-      lineHeight: Platform.OS === 'ios' ? typography.bodySm.fontSize + 2 : typography.bodySm.lineHeight,
-      // Android-only props (harmless on iOS, but not relied upon there).
-      includeFontPadding: false,
-      textAlignVertical: 'center',
-      // iOS: very small baseline nudge upward (text tends to sit slightly low).
-      ...(Platform.OS === 'ios' ? { marginTop: -1 } : null),
-    },
-  metaText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  detailGuideTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  detailGuideBody: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  checkboxBase: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxPlanned: {
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-  },
-  checkboxCompleted: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rowPressed: {
-    backgroundColor: colors.shellAlt,
-  },
-  rowLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  rowLabelActive: {
-    color: colors.accent,
-  },
-  rowValueSet: {
-    color: colors.sumi,
-  },
-  rowContent: {
-    // Slightly taller than default row height without feeling oversized.
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  cardSectionDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    borderRadius: 999,
-    marginVertical: 2,
-  },
-  rowsCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  inputLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.sm,
-    marginBottom: 2,
-  },
-  sectionLabelRow: {
-    paddingHorizontal: spacing.sm,
-    paddingBottom: 2,
-  },
-  stepsHeaderRow: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  stepsHeaderLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-  },
-  addStepButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  addStepButtonText: {
-    ...typography.label,
-    color: colors.primaryForeground,
-  },
-  stepsEmpty: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  stepRow: {
-    minHeight: 40,
-    // Center checkbox / text / actions vertically for consistent row rhythm.
-    alignItems: 'center',
-  },
-  stepRowContent: {
-    paddingVertical: 0,
-    justifyContent: 'center',
-  },
-  stepCheckbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1.5,
-  },
-  stepLeftIconBox: {
-    // Alignment box: keep left-column centers consistent with the title's 24x24 check-circle,
-    // while allowing the actual step circle to remain smaller (via `stepCheckbox`).
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepInput: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    paddingVertical: spacing.xs / 2,
-  },
-  stepOptionalPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    backgroundColor: colors.shell,
-  },
-  stepOptionalText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  stepOptionalTextActive: {
-    color: colors.accent,
-  },
-  removeStepButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-  },
-  addStepRow: {
-    marginTop: 0,
-  },
-  addStepInlineText: {
-    ...typography.bodySm,
-    color: colors.accent,
-    // Match the inline `Input` baseline metrics so "Add step" aligns with step titles.
-    // (Vector icon glyphs + iOS baselines tend to read slightly low otherwise.)
-    lineHeight: 18,
-    ...(Platform.OS === 'android'
-      ? ({
-          includeFontPadding: false,
-          textAlignVertical: 'center',
-        } as const)
-      : ({ marginTop: -1 } as const)),
-  },
-  rowValue: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    flexShrink: 1,
-  },
-  rowRight: {
-    flexShrink: 1,
-    paddingHorizontal: spacing.sm,
-  },
-  rowValueAi: {
-    color: colors.accent,
-  },
-  sheetContent: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  sheetTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  estimateFieldsRow: {
-    width: '100%',
-  },
-  estimatePickerContainer: {
-    width: '100%',
-    // Keep the wheel comfortably separated from the buttons.
-    paddingVertical: spacing.sm,
-    // Let the iOS wheel claim vertical space inside the sheet.
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  estimateField: {
-    flex: 1,
-  },
-  estimateFieldLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  sheetRow: {
-    paddingVertical: spacing.sm,
-  },
-  sheetRowLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  customRepeatHeaderRow: {
-    width: '100%',
-    marginBottom: spacing.md,
-  },
-  customRepeatHeaderTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    flexShrink: 1,
-  },
-  customRepeatSetLabel: {
-    ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.semibold,
-  },
-  customRepeatPickerBlock: {
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  iosWheelFrame: {
-    width: 140,
-    height: 190,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    backgroundColor: colors.canvas,
-    overflow: 'hidden',
-  },
-  iosWheelItem: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  customRepeatSectionLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  customRepeatWeekdayRow: {
-    flexWrap: 'wrap',
-  },
-  customRepeatWeekdayChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customRepeatWeekdayChipSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  customRepeatWeekdayChipText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  customRepeatWeekdayChipTextSelected: {
-    color: colors.primaryForeground,
-  },
-  datePickerContainer: {
-    marginTop: spacing.sm,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  emptyTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  emptyBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  objectTypeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-  },
-  objectTypeLabel: {
-    fontFamily: fonts.medium,
-    fontSize: 20,
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    color: colors.textSecondary,
-  },
-  objectTypeLabelV2: {
-    ...typography.label,
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  headerV2: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-  },
-  headerV2TopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  headerV2Title: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.xs,
-  },
-  actionsTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  actionsButtonLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontFamily: fonts.medium,
-  },
-  actionsButtonLabelDestructive: {
-    ...typography.body,
-    color: colors.canvas,
-    fontFamily: fonts.medium,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    backgroundColor: colors.primary,
-  },
-  optionsButton: {
-    alignSelf: 'flex-end',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    backgroundColor: colors.primary,
-  },
-  destructiveMenuRowText: {
-    ...typography.body,
-    color: colors.destructive,
-  },
-  doneButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  doneButtonPressed: {
-    opacity: 0.75,
-  },
-  doneButtonText: {
-    fontFamily: fonts.medium,
-    fontSize: 18,
-    lineHeight: 22,
-    color: colors.textPrimary,
-  },
-  sheetDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  calendarPermissionNotice: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  calendarListContainer: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  calendarChoiceRow: {
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.shell,
-  },
-  calendarChoiceRowSelected: {
-    backgroundColor: colors.accent,
-  },
-  calendarChoiceLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  calendarChoiceLabelSelected: {
-    color: colors.primaryForeground,
-  },
-  focusPresetRow: {
-    flexWrap: 'wrap',
-  },
-  focusPresetChip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  focusPresetChipPressed: {
-    opacity: 0.86,
-  },
-  focusPresetChipSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  focusPresetChipText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  focusPresetChipTextSelected: {
-    color: colors.primaryForeground,
-  },
-  focusOverlay: {
-    flex: 1,
-    backgroundColor: colors.pine700,
-    paddingHorizontal: spacing.lg,
-  },
-  focusTopBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  focusSoundToggle: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  focusSoundToggleOn: {
-    backgroundColor: colors.parchment,
-    borderColor: 'rgba(250,247,237,0.9)',
-  },
-  focusSoundToggleOff: {
-    backgroundColor: 'rgba(250,247,237,0.08)',
-    borderColor: 'rgba(250,247,237,0.35)',
-  },
-  focusSoundTogglePressed: {
-    opacity: 0.9,
-  },
-  focusSoundToggleLabel: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    letterSpacing: 0.2,
-  },
-  focusSoundToggleLabelOn: {
-    color: colors.pine800,
-  },
-  focusSoundToggleLabelOff: {
-    color: colors.parchment,
-  },
-  focusSoundscapeTrigger: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    alignSelf: 'flex-start',
-  },
-  focusSoundscapeTriggerText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  focusCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  focusStreakOverlayLabel: {
-    ...typography.body,
-    color: colors.parchment,
-    opacity: 0.9,
-    marginTop: spacing.sm,
-  },
-  focusStreakSheetLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  focusTimer: {
-    // Best approximation of the Apple Watch “thick rounded” vibe without bundling new fonts:
-    // iOS will render a very watch-like result with heavy system weights and tabular numbers.
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Rounded' : fonts.black,
-    fontWeight: Platform.OS === 'ios' ? '900' : '900',
-    fontVariant: ['tabular-nums'],
-    letterSpacing: -1.2,
-    fontSize: 78,
-    lineHeight: 84,
-    color: colors.parchment,
-    textAlign: 'center',
-  },
-  focusActivityTitle: {
-    ...typography.body,
-    fontFamily: fonts.semibold,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
-  focusBottomBar: {
-    marginTop: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  focusActionIconButton: {
-    borderWidth: 1,
-    borderColor: 'rgba(250,247,237,0.28)',
-    backgroundColor: 'rgba(250,247,237,0.08)',
-  },
-});
-
-

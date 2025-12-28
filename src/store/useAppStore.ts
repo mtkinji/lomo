@@ -221,6 +221,7 @@ interface AppState {
    */
   devBreadcrumbsEnabled: boolean;
   devObjectDetailHeaderV2Enabled: boolean;
+  devActivityDetailJtbdRefreshEnabled: boolean;
   /**
    * App-level notification preferences and OS permission status.
    * Used by the notifications service to decide what to schedule.
@@ -512,6 +513,7 @@ interface AppState {
   likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
   setDevBreadcrumbsEnabled: (enabled: boolean) => void;
   setDevObjectDetailHeaderV2Enabled: (enabled: boolean) => void;
+  setDevActivityDetailJtbdRefreshEnabled: (enabled: boolean) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
@@ -643,6 +645,7 @@ export const useAppStore = create(
       activityTagHistory: {},
       devBreadcrumbsEnabled: false,
       devObjectDetailHeaderV2Enabled: false,
+      devActivityDetailJtbdRefreshEnabled: false,
       notificationPreferences: {
         notificationsEnabled: false,
         osPermissionStatus: 'notRequested',
@@ -1016,6 +1019,10 @@ export const useAppStore = create(
       setDevObjectDetailHeaderV2Enabled: (enabled) =>
         set(() => ({
           devObjectDetailHeaderV2Enabled: enabled,
+        })),
+      setDevActivityDetailJtbdRefreshEnabled: (enabled) =>
+        set(() => ({
+          devActivityDetailJtbdRefreshEnabled: enabled,
         })),
       setUserProfile: (profile) =>
         set(() => ({

@@ -70,6 +70,9 @@ const iconMap: Record<string, IconEntry> = {
   check: { library: 'feather', name: 'check' },
   dev: { library: 'feather', name: 'code' },
   sparkles: { library: 'feather', name: 'zap' },
+  // Calm focus affordance (used for Focus mode / execution).
+  focus: { library: 'feather', name: 'aperture' },
+  send: { library: 'feather', name: 'send' },
   clipboard: { library: 'feather', name: 'clipboard' },
   cart: { library: 'feather', name: 'shopping-cart' },
   // Star icons: use Ionicons for both outline and filled variants so the shape stays consistent.

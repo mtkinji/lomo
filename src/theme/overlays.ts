@@ -67,6 +67,21 @@ export const blurs = {
      */
     borderColor: 'rgba(255,255,255,0.22)',
   },
+  /**
+   * Header action material tuned for *light* surfaces (white canvas).
+   *
+   * The default `headerAction` token is intentionally biased toward dark/hero imagery
+   * (very light border/tint) so it can be nearly invisible on white. This variant
+   * increases edge contrast while keeping the same frosted feel.
+   */
+  headerActionOnLight: {
+    intensity: 34,
+    tint: 'light' as const,
+    // Darker overlay so the frosted pill reads clearly on white.
+    overlayColor: 'rgba(15,23,42,0.12)',
+    // Stronger border to establish the control boundary on white backgrounds.
+    borderColor: 'rgba(15,23,42,0.24)',
+  },
 } as const;
 
 

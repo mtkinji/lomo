@@ -96,6 +96,12 @@ export function DevToolsScreen() {
   const setDevBreadcrumbsEnabled = useAppStore((state) => state.setDevBreadcrumbsEnabled);
   const devObjectDetailHeaderV2Enabled = useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const setDevObjectDetailHeaderV2Enabled = useAppStore((state) => state.setDevObjectDetailHeaderV2Enabled);
+  const devActivityDetailJtbdRefreshEnabled = useAppStore(
+    (state) => state.devActivityDetailJtbdRefreshEnabled,
+  );
+  const setDevActivityDetailJtbdRefreshEnabled = useAppStore(
+    (state) => state.setDevActivityDetailJtbdRefreshEnabled,
+  );
   const devResetGenerativeCredits = useAppStore((state) => state.devResetGenerativeCredits);
   const devSetGenerativeCreditsUsedThisMonth = useAppStore((state) => state.devSetGenerativeCreditsUsedThisMonth);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
@@ -1719,6 +1725,21 @@ export function DevToolsScreen() {
               <Text style={styles.meta}>
                 When enabled, object detail headers use a chevron back button, move the object type to the left,
                 and add a share affordance on the right.
+              </Text>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Activity detail: JTBD refresh layout</Text>
+                <Switch
+                  value={devActivityDetailJtbdRefreshEnabled}
+                  onValueChange={(next) => setDevActivityDetailJtbdRefreshEnabled(next)}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                  ios_backgroundColor={colors.border}
+                  accessibilityLabel="Toggle activity detail JTBD refresh layout"
+                />
+              </View>
+              <Text style={styles.meta}>
+                When enabled, Activity detail uses the narrative title + collapsible Plan/Details sections (dev-only override).
               </Text>
             </View>
 

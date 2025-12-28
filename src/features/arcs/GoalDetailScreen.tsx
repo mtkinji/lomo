@@ -2097,6 +2097,7 @@ export function GoalDetailScreen() {
                 {/* Details section */}
                 <View style={styles.sectionDivider} />
                 <VStack space="lg">
+                  <Heading style={styles.sectionTitle}>Details</Heading>
                   <VStack space="md">
                     <HStack style={styles.timeRow}>
                       <VStack space="xs" style={styles.lifecycleColumn}>

@@ -165,7 +165,9 @@ const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
   // top-level canvas the user is on.
   animation: 'slide_from_right',
   animationTypeForReplace: 'push',
-  fullScreenGestureEnabled: true,
+  // Avoid accidental back-swipes when users are primarily vertically scrolling.
+  // (Still allows the standard iOS "edge swipe" back gesture unless a screen disables it.)
+  fullScreenGestureEnabled: false,
 };
 
 const navTheme: Theme = {
@@ -482,7 +484,15 @@ function ArcsStackNavigator() {
       <ArcsStack.Screen name="ArcsList" component={ArcsScreen} />
       <ArcsStack.Screen name="ArcDetail" component={ArcDetailScreen} />
       <ArcsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
-      <ArcsStack.Screen name="ActivityDetailFromGoal" component={ActivityDetailScreen} />
+      <ArcsStack.Screen
+        name="ActivityDetailFromGoal"
+        component={ActivityDetailScreen}
+        options={{
+          // Prevent accidental "swipe back" while vertically scrolling dense content.
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
     </ArcsStack.Navigator>
   );
 }
@@ -496,7 +506,15 @@ function GoalsStackNavigator() {
     >
       <GoalsStack.Screen name="GoalsList" component={GoalsScreen} />
       <GoalsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
-      <GoalsStack.Screen name="ActivityDetailFromGoal" component={ActivityDetailScreen} />
+      <GoalsStack.Screen
+        name="ActivityDetailFromGoal"
+        component={ActivityDetailScreen}
+        options={{
+          // Prevent accidental "swipe back" while vertically scrolling dense content.
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
     </GoalsStack.Navigator>
   );
 }
@@ -505,7 +523,15 @@ function ActivitiesStackNavigator() {
   return (
     <ActivitiesStack.Navigator screenOptions={STACK_SCREEN_OPTIONS}>
       <ActivitiesStack.Screen name="ActivitiesList" component={ActivitiesScreen} />
-      <ActivitiesStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
+      <ActivitiesStack.Screen
+        name="ActivityDetail"
+        component={ActivityDetailScreen}
+        options={{
+          // Prevent accidental "swipe back" while vertically scrolling dense content.
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
     </ActivitiesStack.Navigator>
   );
 }
