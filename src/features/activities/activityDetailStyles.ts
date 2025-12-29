@@ -1,7 +1,7 @@
 import { Platform, StyleSheet } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../theme';
 
-// Shared styles for Activity Detail (legacy + refresh layouts).
+// Shared styles for Activity Detail (refresh layout).
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -37,13 +37,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'flex-end',
     justifyContent: 'center',
-  },
-  legacyHidden: {
-    display: 'none',
-  },
-  legacyContainer: {
-    flex: 1,
-    width: '100%',
   },
   headerDoneToggle: {
     alignItems: 'center',

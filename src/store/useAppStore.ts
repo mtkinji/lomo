@@ -221,7 +221,7 @@ interface AppState {
    */
   devBreadcrumbsEnabled: boolean;
   devObjectDetailHeaderV2Enabled: boolean;
-  devActivityDetailJtbdRefreshEnabled: boolean;
+  devArcDetailDebugLoggingEnabled: boolean;
   /**
    * App-level notification preferences and OS permission status.
    * Used by the notifications service to decide what to schedule.
@@ -513,7 +513,7 @@ interface AppState {
   likeCelebrationGif: (gif: { id: string; url: string; role: MediaRole; kind: CelebrationKind }) => void;
   setDevBreadcrumbsEnabled: (enabled: boolean) => void;
   setDevObjectDetailHeaderV2Enabled: (enabled: boolean) => void;
-  setDevActivityDetailJtbdRefreshEnabled: (enabled: boolean) => void;
+  setDevArcDetailDebugLoggingEnabled: (enabled: boolean) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
@@ -645,7 +645,7 @@ export const useAppStore = create(
       activityTagHistory: {},
       devBreadcrumbsEnabled: false,
       devObjectDetailHeaderV2Enabled: false,
-      devActivityDetailJtbdRefreshEnabled: false,
+      devArcDetailDebugLoggingEnabled: false,
       notificationPreferences: {
         notificationsEnabled: false,
         osPermissionStatus: 'notRequested',
@@ -1020,9 +1020,9 @@ export const useAppStore = create(
         set(() => ({
           devObjectDetailHeaderV2Enabled: enabled,
         })),
-      setDevActivityDetailJtbdRefreshEnabled: (enabled) =>
+      setDevArcDetailDebugLoggingEnabled: (enabled) =>
         set(() => ({
-          devActivityDetailJtbdRefreshEnabled: enabled,
+          devArcDetailDebugLoggingEnabled: enabled,
         })),
       setUserProfile: (profile) =>
         set(() => ({
@@ -1330,6 +1330,7 @@ export const useAppStore = create(
           activities: [],
           devBreadcrumbsEnabled: false,
           devObjectDetailHeaderV2Enabled: false,
+          devArcDetailDebugLoggingEnabled: false,
           goalRecommendations: {},
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,

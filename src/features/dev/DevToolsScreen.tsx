@@ -96,11 +96,9 @@ export function DevToolsScreen() {
   const setDevBreadcrumbsEnabled = useAppStore((state) => state.setDevBreadcrumbsEnabled);
   const devObjectDetailHeaderV2Enabled = useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const setDevObjectDetailHeaderV2Enabled = useAppStore((state) => state.setDevObjectDetailHeaderV2Enabled);
-  const devActivityDetailJtbdRefreshEnabled = useAppStore(
-    (state) => state.devActivityDetailJtbdRefreshEnabled,
-  );
-  const setDevActivityDetailJtbdRefreshEnabled = useAppStore(
-    (state) => state.setDevActivityDetailJtbdRefreshEnabled,
+  const devArcDetailDebugLoggingEnabled = useAppStore((state) => state.devArcDetailDebugLoggingEnabled);
+  const setDevArcDetailDebugLoggingEnabled = useAppStore(
+    (state) => state.setDevArcDetailDebugLoggingEnabled
   );
   const devResetGenerativeCredits = useAppStore((state) => state.devResetGenerativeCredits);
   const devSetGenerativeCreditsUsedThisMonth = useAppStore((state) => state.devSetGenerativeCreditsUsedThisMonth);
@@ -1728,19 +1726,20 @@ export function DevToolsScreen() {
               </Text>
 
               <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>Activity detail: JTBD refresh layout</Text>
+                <Text style={styles.switchLabel}>Arc detail debug logs</Text>
                 <Switch
-                  value={devActivityDetailJtbdRefreshEnabled}
-                  onValueChange={(next) => setDevActivityDetailJtbdRefreshEnabled(next)}
+                  value={devArcDetailDebugLoggingEnabled}
+                  onValueChange={(next) => setDevArcDetailDebugLoggingEnabled(next)}
                   trackColor={{ false: colors.border, true: colors.accent }}
                   thumbColor={colors.canvas}
                   ios_backgroundColor={colors.border}
-                  accessibilityLabel="Toggle activity detail JTBD refresh layout"
+                  accessibilityLabel="Toggle Arc detail debug logs"
                 />
               </View>
               <Text style={styles.meta}>
-                When enabled, Activity detail uses the narrative title + collapsible Plan/Details sections (dev-only override).
+                When enabled, Arc detail screens will emit verbose debug logs (e.g. onboarding handoff state) to the console.
               </Text>
+
             </View>
 
             <View style={styles.card}>

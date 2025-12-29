@@ -88,12 +88,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 
 const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => {
-  if (__DEV__) {
-    if (payload) {
-      console.log(`[arcDetail] ${event}`, payload);
-    } else {
-      console.log(`[arcDetail] ${event}`);
-    }
+  if (!__DEV__) return;
+  if (!useAppStore.getState().devArcDetailDebugLoggingEnabled) return;
+  if (payload) {
+    console.log(`[arcDetail] ${event}`, payload);
+  } else {
+    console.log(`[arcDetail] ${event}`);
   }
 };
 
