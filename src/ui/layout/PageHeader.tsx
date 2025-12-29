@@ -166,8 +166,8 @@ export function PageHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.md,
   },
   headerIconButton: {
     width: 32,

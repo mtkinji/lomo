@@ -367,6 +367,7 @@ When the host is ready for concrete recommendations, respond with:
          "id": "<short stable id, e.g. suggestion_1>",
          "title": "<activity title>",
          "why": "<one short sentence about why this matters or what 'done' looks like>",
+         "tags": ["<tag 1>", "<tag 2>"],
          "timeEstimateMinutes": 45,
          "energyLevel": "light",
          "kind": "progress",
@@ -379,6 +380,7 @@ When the host is ready for concrete recommendations, respond with:
    }
 – \`energyLevel\` may be "light" or "focused".
 – \`kind\` may be "setup", "progress", "maintenance", or "stretch".
+– \`tags\` should be 0–5 short, reusable strings (no "#"), like "errands", "outdoors". Prefer reusing the user's existing tags from the workspace snapshot when possible.
 – Include between 3 and 5 suggestions in the array; each should be concrete and non-duplicative.
 – Do not include any other text after the JSON line.
 

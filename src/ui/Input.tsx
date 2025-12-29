@@ -17,12 +17,38 @@ import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 
-type InputVariant = 'surface' | 'outline' | 'ghost' | 'inline';
+type InputVariant = 'surface' | 'outline' | 'filled' | 'ghost' | 'inline';
 type InputSize = 'md' | 'sm';
 type InputElevation = 'flat' | 'elevated';
 
 const MULTILINE_MIN_HEIGHT = 112;
 const MULTILINE_MAX_HEIGHT = 220;
+
+function getSingleLinePlatformMetrics(fontSize: number, explicitLineHeight?: number): TextStyle {
+  if (Platform.OS === 'android') {
+    // Android: remove extra font padding and request vertical centering.
+    return {
+      includeFontPadding: false,
+      textAlignVertical: 'center',
+      ...(explicitLineHeight != null ? { lineHeight: explicitLineHeight } : null),
+    } as TextStyle;
+  }
+
+  // iOS: line-height strongly affects perceived vertical centering.
+  // Keep it close to font size, then nudge baseline up a hair.
+  // Important: many of our typography tokens use generous lineHeights (e.g. 24 for 17pt body),
+  // which look great for multi-line text, but can make single-line TextInput baselines feel
+  // off-center in fixed-height fields. Clamp lineHeight for single-line inputs.
+  const targetLineHeight = fontSize + 2;
+  const lineHeight =
+    typeof explicitLineHeight === 'number'
+      ? Math.min(explicitLineHeight, targetLineHeight)
+      : targetLineHeight;
+  return {
+    lineHeight,
+    marginTop: 0,
+  } as TextStyle;
+}
 
 type Props = TextInputProps & {
   label?: string;
@@ -86,10 +112,16 @@ const InputBase = forwardRef<TextInput, Props>(
     const [multilineHeight, setMultilineHeight] = useState<number | undefined>(undefined);
     const hasError = Boolean(errorText);
     const keyboardAware = useKeyboardAwareScroll();
-    // Keep border color consistent between default and focused states;
-    // only errors get a different color.
+    // Border color: keep consistent between default and focused for bordered variants.
+    // For borderless variants (e.g. `filled`), only show an outline on focus/error.
     const statusColor = hasError ? colors.destructive : colors.border;
     const iconColor = hasError ? colors.destructive : colors.textSecondary;
+    const showFocusRing = focused && !hasError && variant === 'filled';
+    const showErrorRing = hasError && variant === 'filled';
+    const flattenedInputStyle = StyleSheet.flatten(inputStyle) as TextStyle | undefined;
+    const metricsFontSize =
+      typeof flattenedInputStyle?.fontSize === 'number' ? flattenedInputStyle.fontSize : typography.bodySm.fontSize;
+    const metricsLineHeight = typeof flattenedInputStyle?.lineHeight === 'number' ? flattenedInputStyle.lineHeight : undefined;
 
     return (
       <View style={styles.wrapper}>
@@ -102,9 +134,10 @@ const InputBase = forwardRef<TextInput, Props>(
             // it is meant to sit flush inside list rows.
             variant === 'inline' ? null : size === 'sm' ? styles.sizeSm : styles.sizeMd,
             {
-              borderColor: statusColor,
+              borderColor: showFocusRing ? colors.accent : showErrorRing ? colors.destructive : statusColor,
               opacity: editable ? 1 : 0.6,
             },
+            showFocusRing || showErrorRing ? styles.filledRing : null,
             (variant === 'ghost' || variant === 'inline' || elevation === 'flat')
               ? (cardElevation.none as ViewStyle)
               : elevation === 'elevated'
@@ -154,7 +187,6 @@ const InputBase = forwardRef<TextInput, Props>(
             }}
             style={[
               styles.input,
-              !multiline ? styles.singleLinePlatformMetrics : null,
               multiline && styles.multilineInput,
               size === 'sm' && styles.inputSm,
               variant === 'inline' && !multiline ? styles.inlineSingleLineInput : null,
@@ -163,6 +195,9 @@ const InputBase = forwardRef<TextInput, Props>(
                 : null,
               multiline && multilineMinHeight != null ? { minHeight: multilineMinHeight } : null,
               inputStyle,
+              !multiline && variant !== 'inline'
+                ? getSingleLinePlatformMetrics(metricsFontSize, metricsLineHeight)
+                : null,
             ]}
           />
           {trailingIcon ? (
@@ -213,6 +248,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
+  filledRing: {
+    borderWidth: 1,
+  },
   sizeMd: {
     minHeight: 44,
     paddingVertical: spacing.sm,
@@ -229,20 +267,6 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodySm.lineHeight,
     color: colors.textPrimary,
     paddingVertical: 0,
-  },
-  singleLinePlatformMetrics: {
-    // Android: remove extra font padding and request vertical centering.
-    ...(Platform.OS === 'android'
-      ? ({
-          includeFontPadding: false,
-          textAlignVertical: 'center',
-        } as TextStyle)
-      : ({
-          // iOS: line-height strongly affects perceived vertical centering.
-          // Keep it closer to font size, then nudge baseline up a hair.
-          lineHeight: typography.bodySm.fontSize + 2,
-          marginTop: -1,
-        } as TextStyle)),
   },
   inlineSingleLineInput: {
     // Visual centering: iOS text baselines tend to sit slightly low next to circular
@@ -285,6 +309,11 @@ const variantStyles: Record<InputVariant, ViewStyle> = {
   outline: {
     // Outline variant reuses the same base background; callers can add borders if needed.
     backgroundColor: colors.canvas,
+  },
+  filled: {
+    // Borderless by default; uses a subtle filled surface so the field reads as interactive.
+    backgroundColor: colors.fieldFill,
+    borderWidth: 0,
   },
   ghost: {
     backgroundColor: 'transparent',

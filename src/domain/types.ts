@@ -437,7 +437,7 @@ export interface ActivityView {
    */
   showCompleted?: boolean;
   /**
-   * System views (like "Default view" or "Priority 1 focus") act as
+   * System views (like "Default view" or "Starred focus") act as
    * guardrails and can't be deleted. They can still be edited and those
    * changes are persisted just like custom views.
    */

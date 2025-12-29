@@ -1,0 +1,18 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Pro Tools gating for Activities toolbar controls:
+# - Views button
+# - Filter button
+# - Sort button
+#
+# Expected (free user): tapping any control opens the paywall interstitial.
+
+- launchApp
+
+- tapOn:
+    id: "e2e.activities.toolbar.views"
+
+- assertVisible:
+    text: "Turn your Activities list into a tool"
+
+

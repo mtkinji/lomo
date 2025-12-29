@@ -52,8 +52,9 @@ export type LongTextFieldProps = {
    * Controls how the read surface is presented on the canvas.
    * - 'card' (default): bordered surface with elevation (works well inside long forms).
    * - 'flat': no border/elevation, reads like content on the page (Airbnb-style).
+   * - 'filled': borderless, subtle filled surface for a cleaner "no explicit borders" form look.
    */
-  surfaceVariant?: 'card' | 'flat';
+  surfaceVariant?: 'card' | 'flat' | 'filled';
   /**
    * Drawer snap points for the editor. Defaults to a large editor surface.
    */
@@ -474,10 +475,14 @@ export function LongTextField({
         disabled={disabled}
         onPress={openEditor}
         style={({ pressed }) => [
-          surfaceVariant === 'flat' ? styles.readSurfaceFlat : styles.readSurface,
+          surfaceVariant === 'flat'
+            ? styles.readSurfaceFlat
+            : surfaceVariant === 'filled'
+            ? styles.readSurfaceFilled
+            : styles.readSurface,
           disabled && styles.readSurfaceDisabled,
           pressed && !disabled ? styles.readSurfacePressed : null,
-          surfaceVariant === 'flat' ? null : cardElevation.soft,
+          surfaceVariant === 'flat' ? null : surfaceVariant === 'filled' ? null : cardElevation.soft,
         ]}
       >
         {htmlToPlainText(normalizeToHtml(value)).length ? (
@@ -792,6 +797,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    minHeight: spacing['2xl'] * 2,
+  },
+  readSurfaceFilled: {
+    borderRadius: 12,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: colors.fieldFill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: spacing['2xl'] * 2,

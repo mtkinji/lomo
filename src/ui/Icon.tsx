@@ -93,6 +93,7 @@ const iconMap: Record<string, IconEntry> = {
   thumbsUp: { library: 'feather', name: 'thumbs-up' },
   sound: { library: 'feather', name: 'volume-2' },
   soundOff: { library: 'feather', name: 'volume-x' },
+  lock: { library: 'feather', name: 'lock' },
   pause: { library: 'feather', name: 'pause' },
   play: { library: 'feather', name: 'play' },
   stop: { library: 'feather', name: 'square' },

@@ -93,6 +93,14 @@ export const colors = {
   textSecondary: '#5D6B54',
   muted: '#8E9B83',
 
+  // Form field section labels (e.g., NOTES / TAGS / LINKED GOAL). Keep in the Sumi family (no pine tint).
+  formLabel: '#57534E', // sumi600
+
+  // Borderless input fill surfaces (used by `Input` variant="filled", `LongTextField` surfaceVariant="filled", etc).
+  // Keep extremely subtle; rely on focus ring / pressed state for affordance.
+  fieldFill: '#FAFAF9', // sumi50
+  fieldFillPressed: '#F5F5F4', // sumi100
+
   // Primary brand accent: kwilt green.
   accent: '#315545',
   // Muted accent: slightly softer/desaturated green for secondary fills (badges, info surfaces, etc.).

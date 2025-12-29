@@ -375,6 +375,14 @@ interface AppState {
    */
   hasDismissedActivityDetailGuide: boolean;
   /**
+   * Persisted UI preference: last expansion state for Activity detail sections.
+   * Applies at the object-type level (all Activities), not per-Activity.
+   *
+   * Default: collapsed (false) for both sections.
+   */
+  activityDetailPlanExpanded: boolean;
+  activityDetailDetailsExpanded: boolean;
+  /**
    * Dismissal flag for the first-time Arc detail "explore" coachmarks
    * (banner edit, tabs navigation, and Development Insights).
    */
@@ -505,6 +513,10 @@ interface AppState {
   setHasDismissedActivitiesListGuide: (dismissed: boolean) => void;
   setHasDismissedActivityDetailGuide: (dismissed: boolean) => void;
   setHasDismissedArcExploreGuide: (dismissed: boolean) => void;
+  setActivityDetailPlanExpanded: (expanded: boolean) => void;
+  setActivityDetailDetailsExpanded: (expanded: boolean) => void;
+  toggleActivityDetailPlanExpanded: () => void;
+  toggleActivityDetailDetailsExpanded: () => void;
   setActiveActivityViewId: (viewId: string | null) => void;
   addActivityView: (view: ActivityView) => void;
   updateActivityView: (viewId: string, updater: Updater<ActivityView>) => void;
@@ -730,6 +742,8 @@ export const useAppStore = create(
       hasDismissedGoalVectorsGuide: false,
       hasDismissedActivitiesListGuide: false,
       hasDismissedActivityDetailGuide: false,
+      activityDetailPlanExpanded: false,
+      activityDetailDetailsExpanded: false,
       hasDismissedArcExploreGuide: false,
       addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
       updateArc: (arcId, updater) =>
@@ -968,6 +982,22 @@ export const useAppStore = create(
       setHasDismissedArcExploreGuide: (dismissed) =>
         set(() => ({
           hasDismissedArcExploreGuide: dismissed,
+        })),
+      setActivityDetailPlanExpanded: (expanded) =>
+        set(() => ({
+          activityDetailPlanExpanded: expanded,
+        })),
+      setActivityDetailDetailsExpanded: (expanded) =>
+        set(() => ({
+          activityDetailDetailsExpanded: expanded,
+        })),
+      toggleActivityDetailPlanExpanded: () =>
+        set((state) => ({
+          activityDetailPlanExpanded: !state.activityDetailPlanExpanded,
+        })),
+      toggleActivityDetailDetailsExpanded: () =>
+        set((state) => ({
+          activityDetailDetailsExpanded: !state.activityDetailDetailsExpanded,
         })),
       setActiveActivityViewId: (viewId) =>
         set(() => ({
@@ -1350,6 +1380,8 @@ export const useAppStore = create(
           hasDismissedGoalVectorsGuide: false,
           hasDismissedActivitiesListGuide: false,
           hasDismissedActivityDetailGuide: false,
+          activityDetailPlanExpanded: false,
+          activityDetailDetailsExpanded: false,
           hasDismissedArcExploreGuide: false,
           blockedCelebrationGifIds: [],
           likedCelebrationGifs: [],
@@ -1375,6 +1407,19 @@ export const useAppStore = create(
         const anyState = state as any;
         if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
           (state as any).hapticsEnabled = true;
+        }
+        // Backward-compatible: older persisted stores won't have Activity detail section expansion prefs.
+        if (
+          !('activityDetailPlanExpanded' in anyState) ||
+          typeof anyState.activityDetailPlanExpanded !== 'boolean'
+        ) {
+          (state as any).activityDetailPlanExpanded = false;
+        }
+        if (
+          !('activityDetailDetailsExpanded' in anyState) ||
+          typeof anyState.activityDetailDetailsExpanded !== 'boolean'
+        ) {
+          (state as any).activityDetailDetailsExpanded = false;
         }
         // Backward-compatible: older persisted stores won't have goal nudge time.
         // Default to a high-engagement "afternoon momentum" time.

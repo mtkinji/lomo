@@ -2,6 +2,7 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
+  LayoutAnimation,
   View,
   Text,
   Pressable,
@@ -13,6 +14,7 @@ import {
   Share,
   Linking,
   findNodeHandle,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -120,6 +122,10 @@ export function ActivityDetailScreen() {
   const navigation = useNavigation<ActivityDetailNavigationProp>();
   const { activityId, openFocus } = route.params;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const planExpanded = useAppStore((s) => s.activityDetailPlanExpanded);
+  const detailsExpanded = useAppStore((s) => s.activityDetailDetailsExpanded);
+  const togglePlanExpandedInStore = useAppStore((s) => s.toggleActivityDetailPlanExpanded);
+  const toggleDetailsExpandedInStore = useAppStore((s) => s.toggleActivityDetailDetailsExpanded);
 
   // Geometry for screen-edge scroll fade (only affects scroll content beneath header/dock).
   // AppShell applies `spacing.sm + insets.top` padding to the canvas; we use that to extend
@@ -134,6 +140,16 @@ export function ActivityDetailScreen() {
 
   const KEYBOARD_CLEARANCE = spacing['2xl'] + spacing.lg;
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    // Enable LayoutAnimation on Android (no-op on newer RN versions where it's enabled).
+    try {
+      UIManager.setLayoutAnimationEnabledExperimental?.(true);
+    } catch {
+      // no-op
+    }
+  }, []);
 
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
@@ -1510,7 +1526,7 @@ export function ActivityDetailScreen() {
     });
   };
 
-  const commitInlineStep = () => {
+  const commitInlineStep = (mode: 'continue' | 'exit' = 'exit') => {
     const trimmed = newStepTitle.trim();
     if (!trimmed) {
       setIsAddingStepInline(false);
@@ -1526,8 +1542,16 @@ export function ActivityDetailScreen() {
       orderIndex: stepsDraft.length,
     };
     applyStepUpdate((steps) => [...steps, newStep]);
-    setIsAddingStepInline(false);
     setNewStepTitle('');
+    if (mode === 'exit') {
+      setIsAddingStepInline(false);
+      return;
+    }
+    // Keep the inline "Add step" input active so users can rapidly enter multiple steps.
+    // (We don't rely solely on `blurOnSubmit={false}`; re-focusing is defensive across platforms.)
+    requestAnimationFrame(() => {
+      newStepInputRef.current?.focus();
+    });
   };
 
   const handleToggleComplete = () => {
@@ -1848,6 +1872,7 @@ export function ActivityDetailScreen() {
 
   const [rightItemCelebrateKey, setRightItemCelebrateKey] = useState(0);
   const prevProgressRef = useRef<number>(0);
+  const hasInitializedProgressRef = useRef(false);
   const [rightItemCenterLabelPulseKey, setRightItemCenterLabelPulseKey] = useState(0);
   const prevCompletedCountRef = useRef<number>(completedStepsCount);
   const completionToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1855,8 +1880,29 @@ export function ActivityDetailScreen() {
     const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity.type);
     return (match?.label ?? 'Activity') as string;
   }, [activity.type, activityTypeOptions]);
+
+  useEffect(() => {
+    // Defensive: if this screen instance is reused for a different activity id,
+    // reset baseline refs so we don't "celebrate on mount" for the next activity.
+    hasInitializedProgressRef.current = false;
+    prevProgressRef.current = 0;
+    prevCompletedCountRef.current = completedStepsCount;
+    if (completionToastTimeoutRef.current) {
+      clearTimeout(completionToastTimeoutRef.current);
+      completionToastTimeoutRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity.id]);
+
   useEffect(() => {
     const next = typeof actionDockRightProgress === 'number' && Number.isFinite(actionDockRightProgress) ? actionDockRightProgress : 0;
+    if (!hasInitializedProgressRef.current) {
+      // Establish baseline for this activity's current completion state.
+      // This prevents a fully-complete activity from triggering celebration just by opening it.
+      hasInitializedProgressRef.current = true;
+      prevProgressRef.current = next;
+      return;
+    }
     const prev = prevProgressRef.current;
     // Trigger only on the edge: < 1 -> 1
     if (prev < 1 && next >= 1) {
@@ -1875,7 +1921,7 @@ export function ActivityDetailScreen() {
       }, 900);
     }
     prevProgressRef.current = next;
-  }, [actionDockRightProgress]);
+  }, [actionDockRightProgress, activityTypeLabel, showToast]);
 
   useEffect(() => {
     // Pulse the center count only on single-step toggles while in partial completion.
@@ -2045,6 +2091,16 @@ export function ActivityDetailScreen() {
     setStepsDraft(activity.steps ?? []);
   }, [activity.title, activity.notes, activity.steps, activity.id]);
 
+  const togglePlanExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    togglePlanExpandedInStore();
+  }, [togglePlanExpandedInStore]);
+
+  const toggleDetailsExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    toggleDetailsExpandedInStore();
+  }, [toggleDetailsExpandedInStore]);
+
   return (
     <AppShell fullBleedCanvas>
       <View style={styles.screen}>
@@ -2081,6 +2137,10 @@ export function ActivityDetailScreen() {
               KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
               detailGuideHost={detailGuideHost}
               styles={styles}
+              planExpanded={planExpanded}
+              onTogglePlanExpanded={togglePlanExpanded}
+              detailsExpanded={detailsExpanded}
+              onToggleDetailsExpanded={toggleDetailsExpanded}
               updateActivity={updateActivity}
               titleStepsBundleRef={titleStepsBundleRef}
               setIsTitleStepsBundleReady={setIsTitleStepsBundleReady}
@@ -2348,7 +2408,9 @@ export function ActivityDetailScreen() {
           setActiveSheet(null);
           setIsDueDatePickerVisible(false);
         }}
-        snapPoints={['40%']}
+        // iOS inline date picker needs more vertical space; otherwise "Pick a date…"
+        // appears to do nothing because the picker renders below the fold.
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
         scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
@@ -2563,6 +2625,7 @@ export function ActivityDetailScreen() {
               valueMinutes={estimateDraftMinutes}
               onChangeMinutes={setEstimateDraftMinutes}
               accessibilityLabel="Select duration"
+              iosUseEdgeFades={false}
             />
 
             <HStack space="sm">

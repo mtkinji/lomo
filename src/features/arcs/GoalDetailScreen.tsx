@@ -53,6 +53,7 @@ import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI } from '../../services/ai';
+import { suggestTagsFromText } from '../../utils/tags';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   ARC_MOSAIC_COLS,
@@ -2644,6 +2645,7 @@ export function GoalDetailScreen() {
               valueMinutes={quickAddEstimateDraftMinutes}
               onChangeMinutes={setQuickAddEstimateDraftMinutes}
               accessibilityLabel="Select duration"
+              iosUseEdgeFades={false}
             />
             <HStack space="sm">
               <Button
@@ -3330,7 +3332,7 @@ function GoalActivityCoachDrawer({
           goalId: focusGoalId,
           title: trimmedTitle,
           type: 'task',
-          tags: [],
+          tags: suggestTagsFromText(trimmedTitle, focusGoal?.title ?? null),
           notes: undefined,
           steps: [],
           reminderAt: null,
@@ -3384,7 +3386,10 @@ function GoalActivityCoachDrawer({
         goalId: focusGoalId,
         title: suggestion.title.trim(),
         type: suggestion.type ?? 'task',
-        tags: [],
+        tags:
+          Array.isArray(suggestion.tags) && suggestion.tags.length > 0
+            ? suggestion.tags
+            : suggestTagsFromText(suggestion.title, suggestion.why ?? null, focusGoal?.title ?? null),
         notes: suggestion.why,
         steps,
         reminderAt: null,
@@ -3429,7 +3434,7 @@ function GoalActivityCoachDrawer({
         has_estimate: Boolean(nextActivity.estimateMinutes),
       });
     },
-    [activities.length, addActivity, capture, focusGoalId, recordShowUp]
+    [activities.length, addActivity, capture, focusGoal?.title, focusGoalId, recordShowUp]
   );
 
   return (

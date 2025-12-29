@@ -1,5 +1,14 @@
 import * as React from 'react';
-import { Animated, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Animated,
+  Image,
+  Pressable,
+  StyleSheet,
+  View,
+  type ImageSourcePropType,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { blurs } from '../../theme/overlays';
@@ -11,9 +20,9 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 /**
  * Default height of the header bar below the safe area inset (not including inset).
  *
- * Design target: 36px action pills + ~12px bottom breathing room => 48px.
+ * Design target: 36px action pills + ~8px bottom breathing room => 44px.
  */
-export const OBJECT_PAGE_HEADER_BAR_HEIGHT = 48;
+export const OBJECT_PAGE_HEADER_BAR_HEIGHT = 44;
 
 export type ObjectPageHeaderProps = {
   /**
@@ -36,6 +45,17 @@ export type ObjectPageHeaderProps = {
    * Optional background color for the header bar when `backgroundOpacity` is 1.
    */
   backgroundColor?: string;
+  /**
+   * Optional hero/artwork image rendered behind the header controls.
+   *
+   * This is clipped to the header's total height (safe-area inset + barHeight),
+   * so it never bleeds into the scroll content below.
+   */
+  backgroundImageSource?: ImageSourcePropType;
+  /**
+   * Optional opacity for the background image layer. Defaults to 1.
+   */
+  backgroundImageOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
   /**
    * Left-side element (usually a back pill).
    */
@@ -84,6 +104,8 @@ export function ObjectPageHeader({
   backgroundOpacity,
   actionPillOpacity,
   backgroundColor = colors.canvas,
+  backgroundImageSource,
+  backgroundImageOpacity,
   left,
   center,
   right,
@@ -99,6 +121,10 @@ export function ObjectPageHeader({
 
   const resolvedBgOpacity =
     backgroundOpacity ?? new Animated.Value(1);
+  const resolvedImageOpacity = backgroundImageOpacity ?? new Animated.Value(1);
+  const resolvedArtwork = backgroundImageSource ? Image.resolveAssetSource(backgroundImageSource) : undefined;
+  const artworkAspectRatio =
+    resolvedArtwork?.width && resolvedArtwork?.height ? resolvedArtwork.width / resolvedArtwork.height : undefined;
 
   const resolvedPillOpacity =
     actionPillOpacity ??
@@ -112,6 +138,22 @@ export function ObjectPageHeader({
 
   return (
     <View pointerEvents="box-none" style={[styles.fixedHeaderOverlay, { height: totalHeight }, style]}>
+      {backgroundImageSource ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.backgroundImageClip, { opacity: resolvedImageOpacity as any }]}
+        >
+          {artworkAspectRatio ? (
+            <Image
+              source={backgroundImageSource}
+              style={{ width: '100%', aspectRatio: artworkAspectRatio }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image source={backgroundImageSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          )}
+        </Animated.View>
+      ) : null}
       {blurBackground ? (
         <Animated.View
           pointerEvents="none"
@@ -247,6 +289,14 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     zIndex: 50,
+  },
+  backgroundImageClip: {
+    ...StyleSheet.absoluteFillObject,
+    // Critical: prevent hero artwork from bleeding into the scroll content below the header.
+    overflow: 'hidden',
+    // Width-driven render: keep the image centered and let the header height crop top/bottom.
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fixedHeaderBackground: {
     ...StyleSheet.absoluteFillObject,

@@ -63,9 +63,9 @@ export const styles = StyleSheet.create({
   tagsFieldContainer: {
     width: '100%',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: colors.fieldFill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 44,
@@ -291,7 +291,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowPressed: {
-    backgroundColor: colors.shellAlt,
+    backgroundColor: colors.fieldFillPressed,
   },
   rowLabel: {
     ...typography.body,
@@ -317,9 +317,9 @@ export const styles = StyleSheet.create({
   },
   rowsCard: {
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: colors.fieldFill,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
   },
@@ -338,7 +338,7 @@ export const styles = StyleSheet.create({
   },
   inputLabel: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: colors.formLabel,
     paddingHorizontal: spacing.sm,
     marginBottom: 2,
   },
@@ -352,7 +352,7 @@ export const styles = StyleSheet.create({
   },
   stepsHeaderLabel: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: colors.formLabel,
   },
   addStepButton: {
     flexDirection: 'row',

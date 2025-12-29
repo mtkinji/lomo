@@ -100,6 +100,35 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
   const [newStepTitle, setNewStepTitle] = React.useState('');
   const newStepInputRef = React.useRef<TextInput | null>(null);
 
+  const commitInlineDraftStep = React.useCallback(
+    (mode: 'continue' | 'exit' = 'exit') => {
+      const trimmed = newStepTitle.trim();
+      if (!trimmed) {
+        setIsAddingStepInline(false);
+        setNewStepTitle('');
+        return;
+      }
+
+      onChange((prev) => ({
+        ...prev,
+        steps: [
+          ...(prev.steps ?? []),
+          { id: `draft-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, title: trimmed },
+        ],
+      }));
+
+      setNewStepTitle('');
+      if (mode === 'exit') {
+        setIsAddingStepInline(false);
+        return;
+      }
+      requestAnimationFrame(() => {
+        newStepInputRef.current?.focus();
+      });
+    },
+    [newStepTitle, onChange],
+  );
+
   React.useEffect(() => {
     if (!estimateSheetVisible) return;
     const seed = draft.estimateMinutes != null && draft.estimateMinutes > 0 ? draft.estimateMinutes : 30;
@@ -306,34 +335,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 size="sm"
                 variant="inline"
                 multiline={false}
-                blurOnSubmit
+                blurOnSubmit={false}
                 returnKeyType="done"
-                onSubmitEditing={() => {
-                  const trimmed = newStepTitle.trim();
-                  setIsAddingStepInline(false);
-                  setNewStepTitle('');
-                  if (!trimmed) return;
-                  onChange((prev) => ({
-                    ...prev,
-                    steps: [
-                      ...(prev.steps ?? []),
-                      { id: `draft-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, title: trimmed },
-                    ],
-                  }));
-                }}
-                onBlur={() => {
-                  const trimmed = newStepTitle.trim();
-                  setIsAddingStepInline(false);
-                  setNewStepTitle('');
-                  if (!trimmed) return;
-                  onChange((prev) => ({
-                    ...prev,
-                    steps: [
-                      ...(prev.steps ?? []),
-                      { id: `draft-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, title: trimmed },
-                    ],
-                  }));
-                }}
+                onSubmitEditing={() => commitInlineDraftStep('continue')}
+                onBlur={() => commitInlineDraftStep('exit')}
               />
             ) : (
               <Text style={styles.addStepInlineText}>Add step</Text>
@@ -497,6 +502,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 drawerSnapPoints={['55%']}
                 size="compact"
                 leadingIcon="difficulty"
+                fieldVariant="filled"
               />
             </VStack>
           </View>
@@ -509,6 +515,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
         <LongTextField
           label="Notes"
           hideLabel
+          surfaceVariant="filled"
           value={draft.notes ?? ''}
           placeholder="Add context or reminders for this activity."
           autosaveDebounceMs={0}
@@ -536,7 +543,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                   removeTag(tag);
                 }}
               >
-                <Badge variant="secondary" style={styles.tagChip}>
+                <Badge variant="outline" style={styles.tagChip}>
                   <HStack space="xs" alignItems="center">
                     <Text style={styles.tagChipText}>{tag}</Text>
                     <Icon name="close" size={14} color={colors.textSecondary} />
@@ -610,6 +617,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           drawerSnapPoints={['60%']}
           size="compact"
           leadingIcon="activity"
+          fieldVariant="filled"
         />
       </View>
 
@@ -800,6 +808,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
               valueMinutes={estimateDraftMinutes}
               onChangeMinutes={setEstimateDraftMinutes}
               accessibilityLabel="Select duration"
+              iosUseEdgeFades={false}
             />
             <HStack space="sm">
               <Button
@@ -880,15 +889,15 @@ const styles = StyleSheet.create({
   },
   rowsCard: {
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: colors.fieldFill,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
   },
   inputLabel: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: colors.formLabel,
     paddingHorizontal: spacing.sm,
     marginBottom: 2,
   },
@@ -898,7 +907,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowPressed: {
-    backgroundColor: colors.shellAlt,
+    backgroundColor: colors.fieldFillPressed,
   },
   rowValue: {
     ...typography.bodySm,
@@ -954,9 +963,9 @@ const styles = StyleSheet.create({
   tagsFieldContainer: {
     width: '100%',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: colors.fieldFill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     minHeight: 44,

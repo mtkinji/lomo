@@ -246,6 +246,11 @@ export type ActivitySuggestion = {
    * If omitted, the host will default to `task`.
    */
   type?: ActivityType;
+  /**
+   * Optional lightweight grouping tags (e.g. "errands", "outdoors").
+   * These are stored directly on the Activity as simple strings.
+   */
+  tags?: string[];
   why?: string;
   timeEstimateMinutes?: number;
   energyLevel?: 'light' | 'focused';
@@ -302,6 +307,26 @@ function normalizeActivitySuggestion(raw: unknown): ActivitySuggestion | null {
   const normalizedType = normalizeActivityType((maybe as any).type);
   if (normalizedType) {
     normalized.type = normalizedType;
+  }
+
+  if (Array.isArray((maybe as any).tags)) {
+    const seen = new Set<string>();
+    const tags = ((maybe as any).tags as unknown[])
+      .filter((t): t is string => typeof t === 'string')
+      .map((t) => t.trim())
+      .map((t) => (t.startsWith('#') ? t.slice(1).trim() : t))
+      .filter((t) => t.length > 0)
+      .filter((t) => {
+        const key = t.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 5);
+
+    if (tags.length > 0) {
+      normalized.tags = tags;
+    }
   }
 
   if (typeof maybe.why === 'string' && maybe.why.trim().length > 0) {
@@ -2820,11 +2845,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
             'Format:\n' +
             'ACTIVITY_SUGGESTIONS_JSON: {"suggestions":[{...}]}\n' +
             'Each suggestion MUST include: id (string), title (string), why (string), timeEstimateMinutes (number), type ("task"|"checklist"|"shopping_list"|"instructions"|"plan").\n' +
-            'Each suggestion MAY include: type ("task"|"checklist"|"shopping_list"|"instructions"|"plan"), steps (array of {title,isOptional}), energyLevel ("light"|"focused"), kind ("setup"|"progress"|"maintenance"|"stretch").\n' +
+            'Each suggestion MAY include: tags (array of 0–5 strings like "errands", no "#"), steps (array of {title,isOptional}), energyLevel ("light"|"focused"), kind ("setup"|"progress"|"maintenance"|"stretch").\n' +
             'If the user request implies a checklist-style output (for example, a shopping list, a packing list, or a meal-prep plan), express it via `steps` and set type appropriately ("shopping_list", "checklist", or "instructions").\n' +
             'Choose the most appropriate `type` for each suggestion based on content, and diversify types when it improves clarity.\n' +
             'Rules:\n' +
             '- Every suggestion MUST include a `type` field.\n' +
+            '- Tags should be short and reusable; prefer reusing tags that appear in the workspace snapshot/tag history when possible.\n' +
             '- For "shopping_list" and "checklist", express the content as steps (each step is one item).\n' +
             '- For "instructions", include steps that read like a short recipe / how-to.\n' +
             '- For "plan", include steps that read like a simple timeline or sequence.\n' +
@@ -3528,16 +3554,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                       ]}
                                     />
                                   </View>
-                                  <Button variant="outline" size="small" disabled>
-                                    <HStack space="xs" alignItems="center">
-                                      <Icon
-                                        name="plus"
-                                        color={CHAT_COLORS.textSecondary}
-                                        size={14}
-                                      />
-                                      <ButtonLabel size="sm">Add</ButtonLabel>
-                                    </HStack>
-                                  </Button>
+                                  <View
+                                    style={[
+                                      styles.activitySuggestionSkeletonBlock,
+                                      styles.activitySuggestionSkeletonButton,
+                                    ]}
+                                  />
                                 </HStack>
                               </Card>
                             ))}
@@ -3561,16 +3583,25 @@ export const AiChatPane = forwardRef(function AiChatPane(
                               </ButtonLabel>
                             </HStack>
                           </Button>
-                          <Button
-                            variant="primary"
-                            size="md"
-                            onPress={handleAcceptAllSuggestions}
-                            disabled={!activitySuggestions || activitySuggestions.length === 0}
-                          >
-                            <ButtonLabel size="md" tone="inverse">
-                              Add all
-                            </ButtonLabel>
-                          </Button>
+                          {activitySuggestions ? (
+                            <Button
+                              variant="primary"
+                              size="md"
+                              onPress={handleAcceptAllSuggestions}
+                              disabled={activitySuggestions.length === 0}
+                            >
+                              <ButtonLabel size="md" tone="inverse">
+                                Add all
+                              </ButtonLabel>
+                            </Button>
+                          ) : (
+                            <View
+                              style={[
+                                styles.activitySuggestionSkeletonBlock,
+                                styles.activitySuggestionSkeletonAddAllButton,
+                              ]}
+                            />
+                          )}
                         </View>
                       </View>
                     </View>
@@ -4555,6 +4586,16 @@ const styles = StyleSheet.create({
   activitySuggestionSkeletonTitle: {
     width: '82%',
     height: 12,
+  },
+  activitySuggestionSkeletonButton: {
+    width: 88,
+    height: 36,
+    borderRadius: 12,
+  },
+  activitySuggestionSkeletonAddAllButton: {
+    width: 104,
+    height: 44,
+    borderRadius: 12,
   },
   activitySuggestionRegenerateLabel: {
     ...typography.bodySm,
