@@ -205,7 +205,7 @@ export function NotificationsSettingsScreen() {
             notificationsEnabled: true,
             allowDailyFocus: true,
             dailyFocusTime: time,
-            dailyFocusTimeMode: 'manual',
+            dailyFocusTimeMode: 'manual' as const,
           }
         : timePickerTarget === 'goalNudge'
           ? {

@@ -4,7 +4,7 @@ import { cardElevation, colors, spacing, typography } from '../theme';
 import { Text } from './primitives';
 import { Icon } from './Icon';
 
-export type ToastVariant = 'default' | 'success' | 'warning' | 'danger' | 'credits';
+export type ToastVariant = 'default' | 'success' | 'warning' | 'danger' | 'credits' | 'light';
 
 export function Toast(props: {
   visible: boolean;
@@ -37,6 +37,13 @@ export function Toast(props: {
 
   const palette = useMemo(() => {
     switch (variant) {
+      case 'light':
+        return {
+          backgroundColor: colors.shell,
+          borderColor: colors.border,
+          textColor: colors.textPrimary,
+          icon: 'check' as const,
+        };
       case 'success':
         return {
           backgroundColor: colors.pine700,

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Animated, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -15,7 +14,6 @@ import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import type { ActivityDifficulty, ActivityType } from '../../domain/types';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
-import { blurs } from '../../theme/overlays';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -65,10 +63,6 @@ export function ActivityDetailRefresh(props: any) {
     goal,
     navigation,
     headerV2Enabled,
-    showDoneButton,
-    handleDoneEditing,
-    handleToggleComplete,
-    isCompleted,
     handleSendToShare,
     handleBackToActivities,
     rootNavigationRef,
@@ -166,7 +160,6 @@ export function ActivityDetailRefresh(props: any) {
     outputRange: [1, 0.82],
     extrapolate: 'clamp',
   });
-  const headerMaterial = blurs.headerActionOnLight;
   // Use SUMI for darker ink on light surfaces (consistent with our warm neutral palette).
   const headerInk = colors.sumi;
 
@@ -230,36 +223,10 @@ export function ActivityDetailRefresh(props: any) {
               <Icon name="chevronLeft" size={20} color={headerInk} />
             </HeaderActionPill>
           }
-          center={
-            <View style={[localStyles.headerTypePill, { borderColor: headerMaterial.borderColor }]}>
-              <BlurView
-                intensity={headerMaterial.intensity}
-                tint={headerMaterial.tint}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <View
-                pointerEvents="none"
-                style={[localStyles.headerTypePillTint, { backgroundColor: headerMaterial.overlayColor }]}
-              />
-              <HStack alignItems="center" space="xs" style={localStyles.headerTypePillContent}>
-                <Icon name="activities" size={12} color={headerInk} />
-                <Text style={[styles.narrativeTypePillLabel, { color: headerInk }]}>Activity</Text>
-              </HStack>
-            </View>
-          }
+          // Intentionally omit the object-type pill in the header for Activity detail.
+          center={null}
           right={
             <HStack alignItems="center" space="sm">
-              {showDoneButton ? (
-                <HeaderActionPill
-                  onPress={handleDoneEditing}
-                  accessibilityLabel="Done editing"
-                  materialOpacity={headerActionPillOpacity}
-                  materialVariant="onLight"
-                  size={44}
-                >
-                  <Text style={styles.doneButtonText}>Done</Text>
-                </HeaderActionPill>
-              ) : null}
               <DropdownMenu>
                 <DropdownMenuTrigger accessibilityLabel="Activity actions">
                   <HeaderActionPill
@@ -361,20 +328,31 @@ export function ActivityDetailRefresh(props: any) {
                 />
               </View>
               <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                {showDoneButton ? (
-                  <Pressable
-                    onPress={handleDoneEditing}
-                    accessibilityRole="button"
-                    accessibilityLabel="Done editing"
-                    hitSlop={8}
-                    style={({ pressed }) => [
-                      styles.doneButton,
-                      pressed && styles.doneButtonPressed,
-                    ]}
-                  >
-                    <Text style={styles.doneButtonText}>Done</Text>
-                  </Pressable>
-                ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                    <IconButton style={styles.optionsButton} pointerEvents="none" accessible={false}>
+                      <Icon name="more" size={18} color={headerInk} />
+                    </IconButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                    <DropdownMenuItem
+                      onPress={() => {
+                        handleSendToShare().catch(() => undefined);
+                      }}
+                    >
+                      <View style={styles.menuItemRow}>
+                        <Icon name="share" size={16} color={headerInk} />
+                        <Text style={styles.menuRowText}>Share</Text>
+                      </View>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                      <View style={styles.menuItemRow}>
+                        <Icon name="trash" size={16} color={colors.destructive} />
+                        <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
+                      </View>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </View>
             </HStack>
           </View>

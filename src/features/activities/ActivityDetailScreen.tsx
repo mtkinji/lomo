@@ -15,10 +15,8 @@ import {
   findNodeHandle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { AppShell } from '../../ui/layout/AppShell';
 import { colors, spacing, typography, fonts } from '../../theme';
-import { blurs } from '../../theme/overlays';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
@@ -117,11 +115,11 @@ export function ActivityDetailScreen() {
   const { capture } = useAnalytics();
   const showToast = useToastStore((s) => s.showToast);
   const insets = useSafeAreaInsets();
-  const headerMaterial = blurs.headerActionOnLight;
   const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
   const { activityId, openFocus } = route.params;
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Geometry for screen-edge scroll fade (only affects scroll content beneath header/dock).
   // AppShell applies `spacing.sm + insets.top` padding to the canvas; we use that to extend
@@ -130,7 +128,7 @@ export function ActivityDetailScreen() {
   const [refreshContainerHeightPx, setRefreshContainerHeightPx] = useState<number | null>(null);
   const [actionDockLayoutY, setActionDockLayoutY] = useState<number | null>(null);
   const bottomFadeHeightPx =
-    refreshContainerHeightPx != null && actionDockLayoutY != null
+    !isKeyboardVisible && refreshContainerHeightPx != null && actionDockLayoutY != null
       ? Math.max(0, refreshContainerHeightPx - actionDockLayoutY)
       : undefined;
 
@@ -375,7 +373,6 @@ export function ActivityDetailScreen() {
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isAddingStepInline, setIsAddingStepInline] = useState(false);
   const newStepInputRef = useRef<TextInput | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const inputFocusCountRef = useRef(0);
   const [isAnyInputFocused, setIsAnyInputFocused] = useState(false);
   const [goalComboboxOpen, setGoalComboboxOpen] = useState(false);
@@ -423,6 +420,7 @@ export function ActivityDetailScreen() {
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
+  const finishMutationRef = useRef<{ completedAtStamp: string; stepIds: string[] } | null>(null);
   const [detailGuideStep, setDetailGuideStep] = useState(0);
   const [isTitleStepsBundleReady, setIsTitleStepsBundleReady] = useState(false);
   const [isScheduleCardReady, setIsScheduleCardReady] = useState(false);
@@ -534,6 +532,22 @@ export function ActivityDetailScreen() {
   }, [buildSendToSearchQuery, openExternalUrl]);
 
   useEffect(() => {
+    // iOS interactive dismissal can fail to fire `keyboardDidHide`, leaving stale state.
+    // Use the more reliable "will*" + frame-change events on iOS.
+    if (Platform.OS === 'ios') {
+      const showSub = Keyboard.addListener('keyboardWillShow', () => setIsKeyboardVisible(true));
+      const hideSub = Keyboard.addListener('keyboardWillHide', () => setIsKeyboardVisible(false));
+      const frameSub = Keyboard.addListener('keyboardWillChangeFrame', (e: any) => {
+        const nextHeight = e?.endCoordinates?.height ?? 0;
+        setIsKeyboardVisible(nextHeight > 0);
+      });
+      return () => {
+        showSub.remove();
+        hideSub.remove();
+        frameSub.remove();
+      };
+    }
+
     const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
     const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
     return () => {
@@ -574,7 +588,9 @@ export function ActivityDetailScreen() {
   }
 
   const isCompleted = activity.status === 'done';
-  const showDoneButton = isKeyboardVisible || isAnyInputFocused || isEditingTitle || isAddingStepInline;
+  // Editing/keyboard state: used to suppress certain UI (coachmarks, completion checkmark)
+  // that can be confusing when the keyboard is present.
+  const editingUiActive = isKeyboardVisible || isEditingTitle || isAddingStepInline;
   const showTagsAutofill =
     (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0;
 
@@ -587,7 +603,7 @@ export function ActivityDetailScreen() {
     isFocused &&
     isOnboardingActivity &&
     !hasDismissedActivityDetailGuide &&
-    !showDoneButton &&
+    !editingUiActive &&
     !goalComboboxOpen &&
     !difficultyComboboxOpen &&
     !reminderSheetVisible &&
@@ -619,13 +635,18 @@ export function ActivityDetailScreen() {
   const detailGuideTitle = detailGuideStep === 0 ? 'Edit + complete here' : 'Schedule + plan';
   const detailGuideBody =
     detailGuideStep === 0
-      ? 'Tap the circle to mark done. Add a few steps for clarity—when required steps are completed, the Activity completes automatically.'
+      ? 'Check steps to make progress—when all steps are checked, the Activity is complete. Tap the bottom-right button to finish remaining steps fast; tap again to undo that finish.'
       : 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
 
   const handleDoneEditing = () => {
     // Prefer blurring the known inline inputs first so their onBlur commits fire.
     titleInputRef.current?.blur();
     newStepInputRef.current?.blur();
+    // Also blur any currently-focused input (e.g. step title Input) so iOS reliably exits edit mode.
+    const focused = (TextInput as any)?.State?.currentlyFocusedInput?.();
+    if (focused) {
+      (TextInput as any)?.State?.blurTextInput?.(focused);
+    }
     Keyboard.dismiss();
   };
 
@@ -1386,19 +1407,16 @@ export function ActivityDetailScreen() {
       return { nextStatus: prevStatus, nextCompletedAt: prevCompletedAt ?? null };
     }
 
-    const requiredSteps = nextSteps.filter((step) => !step.isOptional);
-    const allRequiredComplete = requiredSteps.length > 0 && requiredSteps.every((s) => !!s.completedAt);
+    const allStepsComplete = nextSteps.length > 0 && nextSteps.every((s) => !!s.completedAt);
     const anyStepComplete = nextSteps.some((s) => !!s.completedAt);
 
     let nextStatus: ActivityStatus = prevStatus;
-    if (allRequiredComplete) {
+    if (allStepsComplete) {
       nextStatus = 'done';
-    } else if (anyStepComplete && prevStatus === 'planned') {
+    } else if (anyStepComplete) {
       nextStatus = 'in_progress';
-    } else if (!anyStepComplete && prevStatus === 'in_progress') {
+    } else {
       nextStatus = 'planned';
-    } else if (!anyStepComplete && prevStatus === 'done') {
-      nextStatus = 'in_progress';
     }
 
     const nextCompletedAt = nextStatus === 'done' ? prevCompletedAt ?? timestamp : null;
@@ -1518,25 +1536,59 @@ export function ActivityDetailScreen() {
 
   const handleToggleComplete = () => {
     const timestamp = new Date().toISOString();
-    const wasCompleted = isCompleted;
-    updateActivity(activity.id, (prev) => {
-      const nextIsDone = prev.status !== 'done';
-      const nextSteps =
-        prev.steps?.map((step) =>
-          nextIsDone && !step.completedAt ? { ...step, completedAt: timestamp } : step
-        ) ?? prev.steps;
-      return {
-        ...prev,
-        steps: nextSteps,
-        status: nextIsDone ? 'done' : 'planned',
-        completedAt: nextIsDone ? timestamp : null,
-        updatedAt: timestamp,
-      };
-    });
-    if (!wasCompleted) {
-      // Toggling from not-done to done counts as "showing up" for the day.
-      recordShowUp();
+    const hasSteps = (stepsDraft?.length ?? 0) > 0;
+
+    // No steps: keep the manual done toggle behavior.
+    if (!hasSteps) {
+      finishMutationRef.current = null;
+      const wasCompleted = isCompleted;
+      updateActivity(activity.id, (prev) => {
+        const nextIsDone = prev.status !== 'done';
+        return {
+          ...prev,
+          status: nextIsDone ? 'done' : 'planned',
+          completedAt: nextIsDone ? timestamp : null,
+          updatedAt: timestamp,
+        };
+      });
+      if (!wasCompleted) {
+        // Toggling from not-done to done counts as "showing up" for the day.
+        recordShowUp();
+      }
+      return;
     }
+
+    // Steps exist: completion is driven by steps. The button is a Finish/Undo shortcut.
+    const stepsNow = stepsDraft ?? [];
+    const allStepsCompleteNow = stepsNow.length > 0 && stepsNow.every((s) => !!s.completedAt);
+
+    if (!allStepsCompleteNow) {
+      const stepIdsToComplete = stepsNow.filter((s) => !s.completedAt).map((s) => s.id);
+      if (stepIdsToComplete.length === 0) return;
+      finishMutationRef.current = { completedAtStamp: timestamp, stepIds: stepIdsToComplete };
+      const idSet = new Set(stepIdsToComplete);
+      applyStepUpdate((steps) =>
+        steps.map((step) =>
+          idSet.has(step.id) && !step.completedAt ? { ...step, completedAt: timestamp } : step
+        )
+      );
+      return;
+    }
+
+    // Undo finish: only revert steps that were completed by the most recent Finish action.
+    const mutation = finishMutationRef.current;
+    if (!mutation || mutation.stepIds.length === 0) {
+      return;
+    }
+    finishMutationRef.current = null;
+    const idSet = new Set(mutation.stepIds);
+    applyStepUpdate((steps) =>
+      steps.map((step) =>
+        idSet.has(step.id) && step.completedAt === mutation.completedAtStamp
+          ? { ...step, completedAt: null }
+          : step
+      )
+    );
   };
 
   const handleSelectReminder = (offsetDays: number, hours = 9, minutes = 0) => {
@@ -1787,10 +1839,68 @@ export function ActivityDetailScreen() {
   };
 
   const completedStepsCount = useMemo(
-    () => (activity.steps ?? []).filter((step) => !!step.completedAt).length,
-    [activity.steps]
+    () => (stepsDraft ?? []).filter((step) => !!step.completedAt).length,
+    [stepsDraft]
   );
-  const totalStepsCount = activity.steps?.length ?? 0;
+  const totalStepsCount = stepsDraft?.length ?? 0;
+
+  const actionDockRightProgress =
+    totalStepsCount > 0 ? Math.max(0, Math.min(1, completedStepsCount / totalStepsCount)) : undefined;
+  const allStepsComplete = totalStepsCount > 0 && completedStepsCount >= totalStepsCount;
+  const dockCompleteColor = colors.pine700;
+  const actionDockCountLabel = totalStepsCount > 0 ? `${completedStepsCount}/${totalStepsCount}` : undefined;
+
+  const [rightItemCelebrateKey, setRightItemCelebrateKey] = useState(0);
+  const prevProgressRef = useRef<number>(0);
+  const [rightItemCenterLabelPulseKey, setRightItemCenterLabelPulseKey] = useState(0);
+  const prevCompletedCountRef = useRef<number>(completedStepsCount);
+  const completionToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activityTypeLabel = useMemo(() => {
+    const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity.type);
+    return (match?.label ?? 'Activity') as string;
+  }, [activity.type, activityTypeOptions]);
+  useEffect(() => {
+    const next = typeof actionDockRightProgress === 'number' && Number.isFinite(actionDockRightProgress) ? actionDockRightProgress : 0;
+    const prev = prevProgressRef.current;
+    // Trigger only on the edge: < 1 -> 1
+    if (prev < 1 && next >= 1) {
+      setRightItemCelebrateKey((k) => k + 1);
+      if (completionToastTimeoutRef.current) {
+        clearTimeout(completionToastTimeoutRef.current);
+        completionToastTimeoutRef.current = null;
+      }
+      // Pop after the celebration finishes (ring 420ms + confetti 450ms ≈ 870ms).
+      completionToastTimeoutRef.current = setTimeout(() => {
+        showToast({
+          message: `${activityTypeLabel} complete`,
+          variant: 'light',
+          durationMs: 2200,
+        });
+      }, 900);
+    }
+    prevProgressRef.current = next;
+  }, [actionDockRightProgress]);
+
+  useEffect(() => {
+    // Pulse the center count only on single-step toggles while in partial completion.
+    if (totalStepsCount <= 0) return;
+    if (completedStepsCount >= totalStepsCount) return;
+    const prevCompleted = prevCompletedCountRef.current;
+    const delta = completedStepsCount - prevCompleted;
+    if (Math.abs(delta) === 1) {
+      setRightItemCenterLabelPulseKey((k) => k + 1);
+    }
+    prevCompletedCountRef.current = completedStepsCount;
+  }, [completedStepsCount, totalStepsCount]);
+
+  useEffect(() => {
+    return () => {
+      if (completionToastTimeoutRef.current) {
+        clearTimeout(completionToastTimeoutRef.current);
+        completionToastTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const formatMinutes = (minutes: number) => {
     if (minutes < 60) return `${minutes} min`;
@@ -1958,7 +2068,7 @@ export function ActivityDetailScreen() {
               goal={goal}
               navigation={navigation}
               headerV2Enabled={headerV2Enabled}
-              showDoneButton={showDoneButton}
+              editingUiActive={editingUiActive}
               handleDoneEditing={handleDoneEditing}
               handleToggleComplete={handleToggleComplete}
               isCompleted={isCompleted}
@@ -2047,92 +2157,100 @@ export function ActivityDetailScreen() {
               pageGutterX={spacing.xl}
               bottomFadeHeightPx={bottomFadeHeightPx}
               />
-              <ActionDock
-                onLayout={(e) => {
-                  const y = e?.nativeEvent?.layout?.y;
-                  if (typeof y === 'number' && Number.isFinite(y)) setActionDockLayoutY(y);
-                }}
-                leftItems={[
-                  {
-                    id: 'focus',
-                    icon: 'focus',
-                    accessibilityLabel: 'Open focus mode',
-                    onPress: () => {
-                      capture(AnalyticsEvent.ActivityActionInvoked, {
-                        activityId: activity.id,
-                        action: 'focusMode',
-                      });
-                      openFocusSheet();
+              {!isKeyboardVisible ? (
+                <ActionDock
+                  onLayout={(e) => {
+                    const y = e?.nativeEvent?.layout?.y;
+                    if (typeof y === 'number' && Number.isFinite(y)) setActionDockLayoutY(y);
+                  }}
+                  leftItems={[
+                    {
+                      id: 'focus',
+                      icon: 'focus',
+                      accessibilityLabel: 'Open focus mode',
+                      onPress: () => {
+                        capture(AnalyticsEvent.ActivityActionInvoked, {
+                          activityId: activity.id,
+                          action: 'focusMode',
+                        });
+                        openFocusSheet();
+                      },
+                      // Preserve existing e2e id
+                      testID: 'e2e.activityDetail.keyAction.focusMode',
                     },
-                    // Preserve existing e2e id
-                    testID: 'e2e.activityDetail.keyAction.focusMode',
-                  },
-                  {
-                    id: 'schedule',
-                    icon: 'today',
-                    accessibilityLabel: 'Send to calendar',
-                    onPress: () => {
-                      capture(AnalyticsEvent.ActivityActionInvoked, {
-                        activityId: activity.id,
-                        action: 'addToCalendar',
-                      });
-                      openCalendarSheet();
+                    {
+                      id: 'schedule',
+                      icon: 'sendToCalendar',
+                      accessibilityLabel: 'Send to calendar',
+                      onPress: () => {
+                        capture(AnalyticsEvent.ActivityActionInvoked, {
+                          activityId: activity.id,
+                          action: 'addToCalendar',
+                        });
+                        openCalendarSheet();
+                      },
+                      // Preserve existing e2e id
+                      testID: 'e2e.activityDetail.keyAction.addToCalendar',
                     },
-                    // Preserve existing e2e id
-                    testID: 'e2e.activityDetail.keyAction.addToCalendar',
-                  },
-                  ...(canSendTo
-                    ? ([
-                        {
-                          id: 'sendTo',
-                          icon: 'send',
-                          accessibilityLabel: 'Send to…',
-                          onPress: () => {
-                            capture(AnalyticsEvent.ActivityActionInvoked, {
-                              activityId: activity.id,
-                              action: 'sendTo',
-                            });
-                            setActiveSheet('sendTo');
+                    ...(canSendTo
+                      ? ([
+                          {
+                            id: 'sendTo',
+                            icon: 'sendTo',
+                            accessibilityLabel: 'Send to…',
+                            onPress: () => {
+                              capture(AnalyticsEvent.ActivityActionInvoked, {
+                                activityId: activity.id,
+                                action: 'sendTo',
+                              });
+                              setActiveSheet('sendTo');
+                            },
+                            testID: 'e2e.activityDetail.dock.sendTo',
                           },
-                          testID: 'e2e.activityDetail.dock.sendTo',
-                        },
-                      ] as const)
-                    : []),
-                  {
-                    id: 'ai',
-                    icon: 'sparkles',
-                    accessibilityLabel: 'Get help from AI',
-                    onPress: () => {
-                      capture(AnalyticsEvent.ActivityActionInvoked, {
-                        activityId: activity.id,
-                        action: 'chatWithAi',
-                      });
-                      openAgentForActivity({ objectType: 'activity', objectId: activity.id });
+                        ] as const)
+                      : []),
+                    {
+                      id: 'ai',
+                      icon: 'sparkles',
+                      accessibilityLabel: 'Get help from AI',
+                      onPress: () => {
+                        capture(AnalyticsEvent.ActivityActionInvoked, {
+                          activityId: activity.id,
+                          action: 'chatWithAi',
+                        });
+                        openAgentForActivity({ objectType: 'activity', objectId: activity.id });
+                      },
+                      testID: 'e2e.activityDetail.dock.ai',
                     },
-                    testID: 'e2e.activityDetail.dock.ai',
-                  },
-                ]}
-                rightItem={{
-                  id: 'done',
-                  icon: 'check',
-                  accessibilityLabel: isCompleted
-                    ? 'Mark activity as not done'
-                    : 'Mark activity as done',
-                  onPress: handleToggleComplete,
-                  testID: 'e2e.activityDetail.dock.donePrimary',
-                  // Make it more obvious by tinting the icon when incomplete.
-                  color: isCompleted ? colors.textPrimary : colors.accent,
-                }}
-                // AppShell already provides the canvas gutter; keep docks “nested” into the corners.
-                // Nestle into the corners, but keep a consistent 16pt inset from the canvas edges.
-                // Match Arc/Goal effective page gutter (xl) while ActivityDetail runs inside
-                // AppShell's default gutter (sm). Add the delta so total ~= xl.
-                insetX={spacing.xl}
-                insetBottom={16}
-                // Notes-style: apply a partial safe-area lift so the dock “matches the corner curve”
-                // without jumping as high as the full home-indicator inset.
-                safeAreaLift="half"
-              />
+                  ]}
+                  rightItem={{
+                    id: 'done',
+                    icon: 'check',
+                    accessibilityLabel: isCompleted
+                      ? 'Mark activity as not done'
+                      : 'Mark activity as done',
+                    onPress: handleToggleComplete,
+                    testID: 'e2e.activityDetail.dock.donePrimary',
+                    // Keep the checkmark Sumi until all steps are complete.
+                    color: allStepsComplete ? colors.parchment : colors.sumi,
+                  }}
+                  rightItemProgress={actionDockRightProgress}
+                  rightItemRingColor={dockCompleteColor}
+                  rightItemBackgroundColor={allStepsComplete ? dockCompleteColor : undefined}
+                  rightItemCelebrateKey={rightItemCelebrateKey}
+                  rightItemCenterLabel={actionDockCountLabel}
+                  rightItemCenterLabelPulseKey={rightItemCenterLabelPulseKey}
+                  // AppShell already provides the canvas gutter; keep docks “nested” into the corners.
+                  // Nestle into the corners, but keep a consistent 16pt inset from the canvas edges.
+                  // Match Arc/Goal effective page gutter (xl) while ActivityDetail runs inside
+                  // AppShell's default gutter (sm). Add the delta so total ~= xl.
+                  insetX={spacing.xl}
+                  insetBottom={16}
+                  // Notes-style: apply a partial safe-area lift so the dock “matches the corner curve”
+                  // without jumping as high as the full home-indicator inset.
+                  safeAreaLift="half"
+                />
+              ) : null}
             </View>
           ) : null}
 
@@ -2190,17 +2308,7 @@ export function ActivityDetailScreen() {
                   />
                 </View>
                 <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                  {showDoneButton ? (
-                    <Pressable
-                      onPress={handleDoneEditing}
-                      accessibilityRole="button"
-                      accessibilityLabel="Done editing"
-                      hitSlop={8}
-                      style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
-                    >
-                      <Text style={styles.doneButtonText}>Done</Text>
-                    </Pressable>
-                  ) : headerV2Enabled ? (
+                  {headerV2Enabled ? (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -2263,35 +2371,8 @@ export function ActivityDetailScreen() {
                         >
                           <Icon name="chevronLeft" size={20} color={headerInk} />
                         </HeaderActionPill>
-                        <View style={[styles.headerTypePill, { borderColor: headerMaterial.borderColor }]}>
-                          <BlurView
-                            intensity={headerMaterial.intensity}
-                            tint={headerMaterial.tint}
-                            style={StyleSheet.absoluteFillObject}
-                          />
-                          <View
-                            pointerEvents="none"
-                            style={[
-                              styles.headerTypePillTint,
-                              { backgroundColor: headerMaterial.overlayColor },
-                            ]}
-                          />
-                          <HStack alignItems="center" space="xs" style={styles.headerTypePillContent}>
-                          <Icon name="activities" size={14} color={headerInk} />
-                          <Text style={styles.objectTypeLabelV2}>Activity</Text>
-                          </HStack>
-                        </View>
                       </HStack>
-                      {showDoneButton ? (
-                        <HeaderActionPill
-                          onPress={handleDoneEditing}
-                          accessibilityLabel="Done editing"
-                          materialVariant="onLight"
-                          size={44}
-                        >
-                          <Text style={styles.doneButtonText}>Done</Text>
-                        </HeaderActionPill>
-                      ) : (
+                      {(
                         <HeaderActionPill
                           onPress={() => {
                             handleSendToShare().catch(() => undefined);
@@ -2321,36 +2402,10 @@ export function ActivityDetailScreen() {
                       </HeaderActionPill>
                     </View>
                     <View style={styles.headerCenter}>
-                      <View style={[styles.headerTypePill, { borderColor: headerMaterial.borderColor }]}>
-                        <BlurView
-                          intensity={headerMaterial.intensity}
-                          tint={headerMaterial.tint}
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                        <View
-                          pointerEvents="none"
-                          style={[
-                            styles.headerTypePillTint,
-                            { backgroundColor: headerMaterial.overlayColor },
-                          ]}
-                        />
-                        <HStack alignItems="center" space="xs" style={styles.headerTypePillContent}>
-                          <Icon name="activities" size={14} color={headerInk} />
-                          <Text style={styles.objectTypeLabel}>Activity</Text>
-                        </HStack>
-                      </View>
+                      {/* Intentionally omit the object-type pill in the header for Activity detail. */}
                     </View>
                     <View style={styles.headerSideRight}>
-                      {showDoneButton ? (
-                        <HeaderActionPill
-                          onPress={handleDoneEditing}
-                          accessibilityLabel="Done editing"
-                          materialVariant="onLight"
-                          size={44}
-                        >
-                          <Text style={styles.doneButtonText}>Done</Text>
-                        </HeaderActionPill>
-                      ) : (
+                      {(
                         <DropdownMenu>
                           <DropdownMenuTrigger accessibilityLabel="Activity actions">
                             <HeaderActionPill
@@ -2631,7 +2686,7 @@ export function ActivityDetailScreen() {
                       },
                       {
                         id: 'addToCalendar',
-                        icon: 'today',
+                              icon: 'sendToCalendar',
                         label: 'Send to calendar',
                         tileBackgroundColor: colors.pine700,
                         tileBorderColor: 'rgba(255,255,255,0.10)',
@@ -2669,7 +2724,7 @@ export function ActivityDetailScreen() {
                         ? ([
                             {
                               id: 'sendTo',
-                              icon: 'share',
+                              icon: 'sendTo',
                               label: 'Send to…',
                               tileBackgroundColor: colors.pine700,
                               tileBorderColor: 'rgba(255,255,255,0.10)',

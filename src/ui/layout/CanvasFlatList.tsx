@@ -89,7 +89,7 @@ export const CanvasFlatListWithRef = React.forwardRef(function CanvasFlatListWit
   props: CanvasFlatListProps<T> & { ref?: React.Ref<FlatList<T>> },
 ) => React.ReactElement;
 
-CanvasFlatListWithRef.displayName = 'CanvasFlatListWithRef';
+(CanvasFlatListWithRef as unknown as { displayName?: string }).displayName = 'CanvasFlatListWithRef';
 
 const styles = StyleSheet.create({
   container: {

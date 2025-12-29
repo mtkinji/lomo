@@ -164,7 +164,7 @@ export function GoalMasonryTile({
     if (goal.status === 'completed') return { label: 'Completed', icon: 'check' as IconName, muted: true };
 
     if (activityCount === 0) return { label: 'Add first activity', icon: 'plus' as IconName, muted: false };
-    if (doneCount >= activityCount && activityCount > 0 && goal.status !== 'completed') {
+    if (doneCount >= activityCount && activityCount > 0) {
       return { label: 'Mark complete', icon: 'check' as IconName, muted: false };
     }
     if (goal.status === 'in_progress' && !goal.targetDate)

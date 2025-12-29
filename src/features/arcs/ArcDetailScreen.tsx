@@ -506,12 +506,6 @@ export function ArcDetailScreen() {
 
   // Hero banner is always visible; the previous "hide banner" toggle has been removed.
 
-  useEffect(() => {
-    logArcDetailDebug('heroModal:visibility-changed', {
-      isHeroModalVisible,
-    });
-  }, [isHeroModalVisible]);
-
   const handleDeleteArc = useCallback(() => {
     if (!arc) {
       return;
@@ -848,6 +842,9 @@ export function ArcDetailScreen() {
               }
               // Jump to Goals section (Airbnb-style: no tabs).
               requestAnimationFrame(() => {
+                if (goalsSectionOffset == null) {
+                  return;
+                }
                 const targetY = Math.max(0, goalsSectionOffset - HEADER_BOTTOM_Y - spacing.md);
                 scrollRef.current?.scrollTo({ y: targetY, animated: true });
               });

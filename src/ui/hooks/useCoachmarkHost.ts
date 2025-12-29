@@ -58,6 +58,15 @@ export function useCoachmarkHost({
   const [isPositioned, setIsPositioned] = useState(false);
   const [remeasureKey, setRemeasureKey] = useState(0);
   const positioningRunIdRef = useRef(0);
+  const scrollToRef = useRef<CoachmarkScrollTo | undefined>(scrollTo);
+
+  // `scrollTo` is frequently passed as an inline arrow (new identity each render).
+  // If we include it in the positioning effect deps, we can accidentally create a
+  // render -> effect -> setState -> render loop while `active` is true.
+  // Keep a ref to the latest implementation instead.
+  useEffect(() => {
+    scrollToRef.current = scrollTo;
+  }, [scrollTo]);
 
   useEffect(() => {
     if (!active) {
@@ -73,8 +82,9 @@ export function useCoachmarkHost({
         ? Math.max(0, targetScrollY)
         : null;
 
-    if (scrollTo && y != null) {
-      scrollTo({ y, animated: true });
+    const latestScrollTo = scrollToRef.current;
+    if (latestScrollTo && y != null) {
+      latestScrollTo({ y, animated: true });
     }
 
     // Let the scroll/layout settle for at least a frame, then show + re-measure once.
@@ -92,7 +102,7 @@ export function useCoachmarkHost({
       if (raf2 != null) cancelAnimationFrame(raf2);
     };
     // stepKey is intentionally part of positioning semantics.
-  }, [active, scrollTo, targetScrollY, stepKey]);
+  }, [active, targetScrollY, stepKey]);
 
   const coachmarkVisible = active && isPositioned;
   const scrollEnabled = !coachmarkVisible;

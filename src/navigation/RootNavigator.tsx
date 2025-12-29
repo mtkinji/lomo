@@ -29,6 +29,7 @@ import { AppearanceSettingsScreen } from '../features/account/AppearanceSettings
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
+import { RedeemProCodeScreen } from '../features/account/RedeemProCodeScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
@@ -122,6 +123,7 @@ export type SettingsStackParamList = {
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
   SettingsHaptics: undefined;
+  SettingsRedeemProCode: undefined;
   SettingsManageSubscription:
     | {
         /**
@@ -559,6 +561,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsHaptics"
         component={HapticsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsRedeemProCode"
+        component={RedeemProCodeScreen}
       />
       <SettingsStack.Screen
         name="SettingsManageSubscription"

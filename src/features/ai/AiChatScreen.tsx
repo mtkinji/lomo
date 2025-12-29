@@ -1346,6 +1346,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [composerHeight, setComposerHeight] = useState(0);
   const [composerInputHeight, setComposerInputHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
+  // In React 18 dev (StrictMode), mount effects can run twice.
+  // Guard bootstrap so we never start multiple concurrent “first reply” fetches.
+  const bootstrapStartedRef = useRef(false);
   const [arcProposal, setArcProposal] = useState<GeneratedArc | null>(null);
   const [goalProposal, setGoalProposal] = useState<ProposedGoalDraft | null>(null);
   const [goalDraftTitle, setGoalDraftTitle] = useState('');
@@ -2378,6 +2381,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
     if (mode === 'activityCreation') {
       return;
     }
+
+    if (bootstrapStartedRef.current) {
+      return;
+    }
+    bootstrapStartedRef.current = true;
 
     let cancelled = false;
 

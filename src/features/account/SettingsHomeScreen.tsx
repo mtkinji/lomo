@@ -394,6 +394,28 @@ export function SettingsHomeScreen() {
             </Pressable>
           </View>
 
+          {/* Pro code redemption (Free only). */}
+          {!isPro ? (
+            <View style={styles.groupSection}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Redeem a Pro code"
+                onPress={() => navigation.navigate('SettingsRedeemProCode')}
+              >
+                <HStack style={styles.itemRow} alignItems="center" space="md">
+                  <View style={styles.itemIcon}>
+                    <Icon name="sparkles" size={18} color={colors.accent} />
+                  </View>
+                  <VStack flex={1}>
+                    <Text style={styles.itemTitle}>Redeem Pro code</Text>
+                    <Text style={styles.itemSubtitle}>Enter an access code to unlock Kwilt Pro.</Text>
+                  </VStack>
+                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                </HStack>
+              </Pressable>
+            </View>
+          ) : null}
+
           {/* Subscriptions entry (moved to bottom of the list). */}
           <View style={styles.groupSection}>
             <Pressable
