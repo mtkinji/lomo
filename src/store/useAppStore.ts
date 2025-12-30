@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState as RNAppState, InteractionManager } from 'react-native';
 import {
   DEFAULT_DAILY_FOCUS_TIME,
   DAILY_FOCUS_TIME_ROUND_MINUTES,
@@ -33,6 +34,108 @@ import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
 
 type Updater<T> = (item: T) => T;
+
+type DomainState = Pick<AppState, 'arcs' | 'goals' | 'activities' | 'activityTagHistory'>;
+
+const DOMAIN_STORAGE_KEY = 'kwilt-domain-v1';
+// In dev, JS reloads can interrupt scheduled persistence; keep the debounce short and avoid
+// InteractionManager deferrals so domain objects survive quick reloads.
+const DOMAIN_PERSIST_DEBOUNCE_MS = __DEV__ ? 250 : 3000;
+
+let domainPersistTimeout: ReturnType<typeof setTimeout> | null = null;
+let domainPersistInFlight = false;
+let domainPersistQueued: DomainState | null = null;
+
+const persistDomainStateNow = async (snapshot: DomainState): Promise<void> => {
+  const serialized = JSON.stringify(snapshot);
+  await AsyncStorage.setItem(DOMAIN_STORAGE_KEY, serialized);
+};
+
+const schedulePersistDomainState = (domain: DomainState) => {
+  domainPersistQueued = domain;
+
+  // Critical safety: never write to `DOMAIN_STORAGE_KEY` until the domain has hydrated.
+  // This prevents unrelated startup store writes (notifications, entitlements, etc.) from
+  // overwriting the user's domain snapshot with the initial empty arrays on refresh.
+  //
+  // We still keep the latest snapshot queued so early user actions are persisted as soon
+  // as hydration completes (see the `domainHydrated` subscription near the bottom).
+  if (useAppStore.getState().domainHydrated !== true) {
+    return;
+  }
+
+  if (domainPersistTimeout) clearTimeout(domainPersistTimeout);
+  domainPersistTimeout = setTimeout(() => {
+    const snapshot = domainPersistQueued;
+    domainPersistQueued = null;
+    domainPersistTimeout = null;
+    if (!snapshot) return;
+
+    // Avoid back-to-back multi-second JSON.stringify calls; keep only the latest.
+    if (domainPersistInFlight) {
+      domainPersistQueued = snapshot;
+      return;
+    }
+
+    domainPersistInFlight = true;
+    const persistNow = async () => {
+      try {
+        await persistDomainStateNow(snapshot);
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('[store] Failed to persist domain snapshot', error);
+        }
+        // best-effort only; keep the snapshot queued so a later attempt can retry.
+        domainPersistQueued = snapshot;
+      } finally {
+        domainPersistInFlight = false;
+        // Flush the latest queued state soon.
+        if (domainPersistQueued) schedulePersistDomainState(domainPersistQueued);
+      }
+    };
+
+    if (__DEV__) {
+      void persistNow();
+      return;
+    }
+
+    InteractionManager.runAfterInteractions(() => {
+      void persistNow();
+    });
+  }, DOMAIN_PERSIST_DEBOUNCE_MS);
+};
+
+const flushPersistDomainState = () => {
+  const state = useAppStore.getState();
+  // Critical safety: during cold start, domain objects are loaded asynchronously from
+  // `DOMAIN_STORAGE_KEY`. Do NOT flush an empty snapshot before hydration completes,
+  // otherwise a transient "empty store" moment can overwrite the user's saved domain.
+  //
+  // If we *do* have a queued domain snapshot (i.e. real mutations occurred), allow flush.
+  const queued = domainPersistQueued;
+  if (!queued && state.domainHydrated !== true) return;
+
+  if (domainPersistTimeout) {
+    clearTimeout(domainPersistTimeout);
+    domainPersistTimeout = null;
+  }
+
+  domainPersistQueued = null;
+  const snapshot: DomainState =
+    queued ?? {
+      arcs: state.arcs ?? [],
+      goals: state.goals ?? [],
+      activities: state.activities ?? [],
+      activityTagHistory: state.activityTagHistory ?? {},
+    };
+
+  // Best-effort: on background/exit, favor durability over throttling.
+  void persistDomainStateNow(snapshot).catch((error) => {
+    if (__DEV__) {
+      console.warn('[store] Failed to flush domain snapshot', error);
+    }
+  });
+};
 
 export type ActivityTagUsage = {
   activityId: string;
@@ -215,6 +318,15 @@ interface AppState {
    * the user's existing tagging language before inventing new tags.
    */
   activityTagHistory: ActivityTagHistoryIndex;
+  /**
+   * Domain objects (arcs/goals/activities/tag history) are persisted separately under
+   * `DOMAIN_STORAGE_KEY` for performance. This flag indicates that the domain snapshot
+   * has finished loading (or we have definitively decided there's nothing to load yet).
+   *
+   * Screens that depend on domain objects should avoid showing scary "not found" empty
+   * states until this is true, because the arrays start empty on cold start.
+   */
+  domainHydrated: boolean;
   /**
    * Dev-only feature flags / experiments. Persisted so we can A/B UX patterns
    * locally across reloads, but always gated behind `__DEV__` at the callsite.
@@ -622,6 +734,19 @@ const canonicalForces: Force[] = canonicalForceSeeds.map((seed) => ({
 const withUpdate = <T extends { id: string }>(items: T[], id: string, updater: Updater<T>): T[] =>
   items.map((item) => (item.id === id ? updater(item) : item));
 
+const countCompletedSteps = (steps: unknown): number => {
+  if (!Array.isArray(steps)) return 0;
+  let count = 0;
+  for (const step of steps) {
+    if (!step || typeof step !== 'object') continue;
+    const completedAt = (step as any).completedAt;
+    if (typeof completedAt === 'string' && completedAt.trim().length > 0) {
+      count += 1;
+    }
+  }
+  return count;
+};
+
 // Fresh installs must start with *no* out-of-the-box user objects (Arcs/Goals/Activities).
 // Dev/test data should be created explicitly via DevTools, not implicitly via store defaults.
 const initialArcs: Arc[] = [];
@@ -647,14 +772,15 @@ const initialActivityViews: ActivityView[] = [
   },
 ];
 
-export const useAppStore = create(
-  persist<AppState>(
-    (set, get) => ({
+export const useAppStore = create<AppState>()(
+  subscribeWithSelector(
+    persist<AppState>((set, get) => ({
       forces: canonicalForces,
       arcs: initialArcs,
       goals: initialGoals,
       activities: initialActivities,
       activityTagHistory: {},
+      domainHydrated: false,
       devBreadcrumbsEnabled: false,
       devObjectDetailHeaderV2Enabled: false,
       devArcDetailDebugLoggingEnabled: false,
@@ -862,6 +988,24 @@ export const useAppStore = create(
             prev && next
               ? state.activities.map((item) => (item.id === activityId ? next : item))
               : state.activities;
+          const shouldBumpGoalStatus = (() => {
+            if (!prev || !next) return false;
+            const goalId = next.goalId ?? prev.goalId ?? null;
+            if (!goalId) return false;
+
+            const goal = state.goals.find((g) => g.id === goalId) ?? null;
+            // Only auto-bump from Planned → In progress (never override Completed/Archived).
+            if (!goal || goal.status !== 'planned') return false;
+
+            const prevStepsComplete = countCompletedSteps(prev.steps);
+            const nextStepsComplete = countCompletedSteps(next.steps);
+            const didCompleteMoreSteps = nextStepsComplete > prevStepsComplete;
+            const didMarkDoneNow = prev.status !== 'done' && next.status === 'done';
+            const didLeavePlannedNow = prev.status === 'planned' && next.status !== 'planned';
+            const didSetCompletedAtNow = !prev.completedAt && Boolean(next.completedAt);
+
+            return didCompleteMoreSteps || didMarkDoneNow || didLeavePlannedNow || didSetCompletedAtNow;
+          })();
           const shouldRecordUsage =
             prev != null &&
             next != null &&
@@ -871,15 +1015,60 @@ export const useAppStore = create(
 
           return {
             activities: nextActivities,
+            goals:
+              shouldBumpGoalStatus && next?.goalId
+                ? withUpdate(state.goals, next.goalId, (g) => ({
+                    ...g,
+                    status: 'in_progress',
+                    updatedAt: atIso,
+                  }))
+                : state.goals,
             activityTagHistory: shouldRecordUsage && next
               ? recordTagUsageForActivity(state.activityTagHistory, next, atIso)
               : state.activityTagHistory,
           };
         }),
       removeActivity: (activityId) =>
-        set((state) => ({
-          activities: state.activities.filter((activity) => activity.id !== activityId),
-        })),
+        set((state) => {
+          const atIso = now();
+          const remaining = state.activities.filter((activity) => activity.id !== activityId);
+          const nextActivities = remaining.map((activity) => {
+            let didChange = false;
+
+            const nextSteps =
+              (activity.steps ?? []).length === 0
+                ? activity.steps
+                : (activity.steps ?? []).map((step: any) => {
+                    if (step?.linkedActivityId !== activityId) return step;
+                    didChange = true;
+                    return {
+                      ...step,
+                      linkedActivityId: null,
+                      linkedAt: undefined,
+                      // Once unlinked, the step is a normal checklist item again; do not force completion.
+                      completedAt: null,
+                    };
+                  });
+
+            const origin = (activity as any).origin;
+            const shouldClearOrigin =
+              origin?.kind === 'activity_step' && origin?.parentActivityId === activityId;
+            const nextOrigin = shouldClearOrigin ? undefined : origin;
+            if (shouldClearOrigin) didChange = true;
+
+            if (!didChange) return activity;
+            return {
+              ...activity,
+              steps: nextSteps,
+              origin: nextOrigin,
+              updatedAt: atIso,
+            };
+          });
+
+          return {
+            activities: nextActivities,
+          };
+        }),
       setGoalRecommendations: (arcId, goals) =>
         set((state) => ({
           goalRecommendations: {
@@ -1358,6 +1547,8 @@ export const useAppStore = create(
           arcs: [],
           goals: [],
           activities: [],
+          activityTagHistory: {},
+          domainHydrated: true,
           devBreadcrumbsEnabled: false,
           devObjectDetailHeaderV2Enabled: false,
           devArcDetailDebugLoggingEnabled: false,
@@ -1400,9 +1591,19 @@ export const useAppStore = create(
       // AsyncStorage namespace for the main kwilt app store.
       name: 'kwilt-store',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => state,
+      // Performance: don't persist huge domain object graphs (Activities/Goals/Arcs/tag history)
+      // alongside lightweight UI prefs. Those are persisted separately via DOMAIN_STORAGE_KEY.
+      partialize: (state) => {
+        // `domainHydrated` is runtime-only. Persisting it can briefly flip it "true" during
+        // startup rehydrate, which risks overwriting `DOMAIN_STORAGE_KEY` with an empty snapshot.
+        const { arcs, goals, activities, activityTagHistory, domainHydrated, ...rest } = state as any;
+        return rest;
+      },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        // Domain objects are loaded asynchronously from a separate key.
+        // Ensure the runtime flag starts false each launch so screens can gate their empty states.
+        (state as any).domainHydrated = false;
         // Backward-compatible: older persisted stores won't have hapticsEnabled.
         const anyState = state as any;
         if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
@@ -1623,10 +1824,87 @@ export const useAppStore = create(
         if (!state.redeemedReferralCodes || typeof state.redeemedReferralCodes !== 'object') {
           state.redeemedReferralCodes = {};
         }
+
+        // Migrate/hydrate domain objects from separate storage key to keep UI interactions fast.
+        void (async () => {
+          try {
+            const raw = await AsyncStorage.getItem(DOMAIN_STORAGE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw) as Partial<DomainState>;
+              const next: Partial<DomainState> = {};
+              if (Array.isArray(parsed.arcs)) next.arcs = parsed.arcs as any;
+              if (Array.isArray(parsed.goals)) next.goals = parsed.goals as any;
+              if (Array.isArray(parsed.activities)) next.activities = parsed.activities as any;
+              if (parsed.activityTagHistory && typeof parsed.activityTagHistory === 'object') {
+                next.activityTagHistory = parsed.activityTagHistory as any;
+              }
+              if (Object.keys(next).length > 0) {
+                useAppStore.setState({ ...(next as any), domainHydrated: true } as any);
+                return;
+              }
+            }
+
+            // If no domain snapshot exists yet, seed it from the currently hydrated state.
+            // (This preserves existing users upgrading from the prior monolithic persisted store.)
+            schedulePersistDomainState({
+              arcs: (state as any).arcs ?? [],
+              goals: (state as any).goals ?? [],
+              activities: (state as any).activities ?? [],
+              activityTagHistory: (state as any).activityTagHistory ?? {},
+            });
+            useAppStore.setState({ domainHydrated: true } as any);
+          } catch {
+            // best-effort only; still unblock UI so screens don't hang in "loading".
+            useAppStore.setState({ domainHydrated: true } as any);
+          }
+        })();
       },
-    }
+    })
   )
 );
+
+// Persist domain objects separately so lightweight UI changes don't serialize giant graphs.
+useAppStore.subscribe((state, prevState) => {
+  // Only persist when the domain slice references actually change.
+  // This avoids persisting on unrelated startup store writes (notifications, entitlements, etc.).
+  if (
+    prevState &&
+    state.arcs === prevState.arcs &&
+    state.goals === prevState.goals &&
+    state.activities === prevState.activities &&
+    state.activityTagHistory === prevState.activityTagHistory
+  ) {
+    return;
+  }
+
+  schedulePersistDomainState({
+    arcs: state.arcs ?? [],
+    goals: state.goals ?? [],
+    activities: state.activities ?? [],
+    activityTagHistory: state.activityTagHistory ?? {},
+  });
+});
+
+// If domain mutations happened before hydration completed (common during startup),
+// ensure we persist them immediately once hydration flips true.
+useAppStore.subscribe(
+  (s) => s.domainHydrated,
+  (hydrated, prevHydrated) => {
+    if (hydrated === true && prevHydrated !== true) {
+      flushPersistDomainState();
+    }
+  },
+);
+
+// Reliability: flush domain snapshot when the app backgrounds so users don't lose newly
+// created objects if the process is killed before the debounce fires.
+RNAppState.addEventListener('change', (nextState) => {
+  // iOS often transitions through "inactive" briefly (e.g. during startup / interruptions).
+  // Only flush when truly backgrounding to reduce the risk of overwriting domain storage
+  // during hydration.
+  if (nextState !== 'background') return;
+  flushPersistDomainState();
+});
 
 export const getCanonicalForce = (forceId: string): Force | undefined =>
   canonicalForces.find((force) => force.id === forceId);

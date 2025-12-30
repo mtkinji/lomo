@@ -45,7 +45,10 @@ export type CoachmarkProps = {
   body: ReactNode;
   media?: ReactNode;
   /**
-   * Optional footer actions. When omitted, a single "Got it" affordance is rendered.
+   * Optional footer actions.
+   * - When omitted (`undefined`), a single "Got it" affordance is rendered.
+   * - When provided as an empty array (`[]`), no footer actions are rendered (useful
+   *   for flows that require tapping the highlighted target to proceed).
    * Keep these small so the coachmark doesn't compete with the highlighted target.
    */
   actions?: Array<{
@@ -183,8 +186,18 @@ export function Coachmark({
   useEffect(() => {
     if (!visible) return;
     // Measure on the next frame so layout settles.
+    // Then re-measure a couple more times shortly after showing to handle:
+    // - animated scroll-to positioning (target moves after initial frame)
+    // - late layout shifts (e.g. async content, font load, etc.)
     const raf = requestAnimationFrame(() => measureTarget());
-    return () => cancelAnimationFrame(raf);
+    const t1 = setTimeout(() => measureTarget(), 120);
+    const t2 = setTimeout(() => measureTarget(), 420);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [visible, measureTarget, remeasureKey]);
 
   useEffect(() => {
@@ -271,7 +284,7 @@ export function Coachmark({
 
   const footerActions = useMemo(() => {
     const baseActions =
-      actions && actions.length > 0
+      actions !== undefined
         ? actions
         : [
             {
@@ -493,38 +506,42 @@ export function Coachmark({
               ) : null}
             </View>
             {media ? <View style={styles.mediaRow}>{media}</View> : null}
-            <View style={styles.bodyRow}>{body}</View>
-            <View style={styles.footerRow}>
-              {footerActions.map((action) => {
-                const variant = action.variant ?? 'outline';
-                const handlePress = () => {
-                  if (action.id === 'dismiss') {
-                    onDismiss();
-                    return;
-                  }
-                  onAction?.(action.id);
-                };
-                const buttonStyle =
-                  variant === 'accent'
-                    ? { backgroundColor: resolvedActionColor, borderColor: resolvedActionColor }
-                    : { borderColor: resolvedActionColor };
-                const labelStyle =
-                  variant === 'accent'
-                    ? styles.actionLabelInverse
-                    : { color: resolvedActionColor };
-                return (
-                  <Button
-                    key={action.id}
-                    variant={variant}
-                    size="small"
-                    onPress={handlePress}
-                    style={buttonStyle}
-                  >
-                    <Text style={labelStyle}>{action.label}</Text>
-                  </Button>
-                );
-              })}
+            <View style={[styles.bodyRow, footerActions.length === 0 ? styles.bodyRowNoFooter : null]}>
+              {body}
             </View>
+            {footerActions.length > 0 ? (
+              <View style={styles.footerRow}>
+                {footerActions.map((action) => {
+                  const variant = action.variant ?? 'outline';
+                  const handlePress = () => {
+                    if (action.id === 'dismiss') {
+                      onDismiss();
+                      return;
+                    }
+                    onAction?.(action.id);
+                  };
+                  const buttonStyle =
+                    variant === 'accent'
+                      ? { backgroundColor: resolvedActionColor, borderColor: resolvedActionColor }
+                      : { borderColor: resolvedActionColor };
+                  const labelStyle =
+                    variant === 'accent'
+                      ? styles.actionLabelInverse
+                      : { color: resolvedActionColor };
+                  return (
+                    <Button
+                      key={action.id}
+                      variant={variant}
+                      size="small"
+                      onPress={handlePress}
+                      style={buttonStyle}
+                    >
+                      <Text style={labelStyle}>{action.label}</Text>
+                    </Button>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -595,6 +612,9 @@ const styles = StyleSheet.create({
   },
   bodyRow: {
     marginBottom: spacing.md,
+  },
+  bodyRowNoFooter: {
+    marginBottom: 0,
   },
   footerRow: {
     flexDirection: 'row',

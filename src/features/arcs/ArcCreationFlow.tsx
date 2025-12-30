@@ -11,7 +11,9 @@ import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import type { ArchetypeAdmiredQualityId, ArchetypeRoleModelTypeId } from '../../domain/archetypeTaps';
 import { ARCHETYPE_ADMIRED_QUALITIES, ARCHETYPE_ROLE_MODEL_TYPES } from '../../domain/archetypeTaps';
+import { DOMAIN_OPTIONS, MOTIVATION_OPTIONS, PROUD_MOMENT_OPTIONS, WHY_NOW_OPTIONS } from '../../domain/arcCreationSurveyOptions';
 import { htmlToPlainText } from '../../ui/richText';
+import { ARC_CREATION_SURVEY_COPY, ARC_CREATION_SURVEY_STEP_ORDER, type ArcCreationSurveyStepId } from './arcCreationSurvey';
 
 type ArcCreationFlowProps = {
   /**
@@ -21,17 +23,6 @@ type ArcCreationFlowProps = {
    */
   chatControllerRef?: React.RefObject<ChatTimelineController | null>;
 };
-
-type ChoiceOption = { id: string; label: string };
-
-// Keep this aligned with `WHY_NOW_OPTIONS` in `IdentityAspirationFlow` (reuseIdentityForNewArc).
-const WHY_NOW_OPTIONS: ChoiceOption[] = [
-  { id: 'excited_and_serious', label: "I’m excited about this and want to take it seriously." },
-  { id: 'fits_future_me', label: "It fits who I’m trying to become." },
-  { id: 'keeps_returning', label: 'It keeps coming back to me.' },
-  { id: 'change_for_good', label: 'It would really change things in a good way.' },
-  { id: 'bigger_than_me', label: 'It’s about more than just me.' },
-];
 
 function labelFor<T extends { id: string; label: string }>(options: T[], id: string | null | undefined) {
   if (!id) return null;
@@ -60,19 +51,15 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const [step, setStep] = useState<'dream' | 'whyNow' | 'roleModelType' | 'admiredQualities'>(
-    'dream',
-  );
-  const stepLabel = useMemo(() => {
-    const index = step === 'dream' ? 1 : step === 'whyNow' ? 2 : step === 'roleModelType' ? 3 : 4;
-    return `${index} of 4`;
-  }, [step]);
-  const currentStepIndex = useMemo(() => {
-    return step === 'dream' ? 0 : step === 'whyNow' ? 1 : step === 'roleModelType' ? 2 : 3;
-  }, [step]);
+  const [stepIndex, setStepIndex] = useState(0);
+  const currentSurveyStepId = (ARC_CREATION_SURVEY_STEP_ORDER[stepIndex] ?? 'dreams') as ArcCreationSurveyStepId;
+  const stepLabel = useMemo(() => `${stepIndex + 1} of ${ARC_CREATION_SURVEY_STEP_ORDER.length}`, [stepIndex]);
 
   const [dreamInput, setDreamInput] = useState('');
   const [whyNowId, setWhyNowId] = useState<string | null>(null);
+  const [domainId, setDomainId] = useState<string | null>(null);
+  const [proudMomentId, setProudMomentId] = useState<string | null>(null);
+  const [motivationId, setMotivationId] = useState<string | null>(null);
   const [roleModelTypeId, setRoleModelTypeId] = useState<ArchetypeRoleModelTypeId | null>(null);
   const [admiredQualityIds, setAdmiredQualityIds] = useState<ArchetypeAdmiredQualityId[]>([]);
 
@@ -93,19 +80,47 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
 
     const trimmedDream = htmlToPlainText(dreamInput).trim();
     if (!trimmedDream) return;
-    if (!whyNowId) return;
+    // whyNow is optional by design; don't block submission.
     if (!roleModelTypeId) return;
+    if (!domainId) return;
+    if (!proudMomentId) return;
+    if (!motivationId) return;
     if (admiredQualityIds.length === 0) return;
 
     const whyNowLabel = WHY_NOW_OPTIONS.find((o) => o.id === whyNowId)?.label ?? null;
+    const domainOption = DOMAIN_OPTIONS.find((o) => o.id === domainId) ?? null;
+    const domainLabel = domainOption?.label ?? null;
+    const domainLabelForChat = domainOption?.emoji ? `${domainOption.emoji} ${domainOption.label}` : domainLabel;
+    const proudMomentLabel = labelFor(PROUD_MOMENT_OPTIONS, proudMomentId);
+    const motivationLabel = labelFor(MOTIVATION_OPTIONS, motivationId);
     const roleModelTypeLabel = labelFor(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId);
     const admiredLabels = admiredQualityIds
       .map((id) => labelFor(ARCHETYPE_ADMIRED_QUALITIES, id))
       .filter((l): l is string => Boolean(l));
 
+    // Mirror one compact summary into the visible transcript so the agent step
+    // sees the structured survey answers without relying on per-step appends
+    // (avoids duplicate/contradictory signals if the user goes back and changes answers).
+    const controller = chatControllerRef?.current;
+    if (controller) {
+      const lines = [
+        `Dream: ${trimmedDream}`,
+        whyNowLabel ? `Why now: ${whyNowLabel}` : null,
+        domainLabelForChat ? `Domain: ${domainLabelForChat}` : null,
+        proudMomentLabel ? `Proud moment: ${proudMomentLabel}` : null,
+        motivationLabel ? `Motivation: ${motivationLabel}` : null,
+        roleModelTypeLabel ? `People I look up to: ${roleModelTypeLabel}` : null,
+        admiredLabels.length ? `I admire: ${admiredLabels.join(', ')}` : null,
+      ].filter((l): l is string => Boolean(l));
+      controller.appendUserMessage(lines.join('\n'));
+    }
+
     workflowRuntime.completeStep('context_collect', {
       prompt: trimmedDream,
       whyNow: whyNowLabel,
+      domain: domainLabel,
+      proudMoment: proudMomentLabel,
+      motivation: motivationLabel,
       roleModelType: roleModelTypeLabel,
       admiredQualities: admiredLabels.length ? admiredLabels : null,
     });
@@ -116,11 +131,18 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [admiredQualityIds, dreamInput, isArcCreationWorkflow, roleModelTypeId, whyNowId, workflowRuntime]);
-
-  if (!isContextStepActive) {
-    return null;
-  }
+  }, [
+    admiredQualityIds,
+    chatControllerRef,
+    domainId,
+    dreamInput,
+    isArcCreationWorkflow,
+    motivationId,
+    proudMomentId,
+    roleModelTypeId,
+    whyNowId,
+    workflowRuntime,
+  ]);
 
   const steps = useMemo<SurveyStep[]>(() => {
     const dreamPlain = htmlToPlainText(dreamInput).trim();
@@ -129,8 +151,8 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
 
     return [
       {
-        id: 'dream',
-        title: "Looking ahead, what’s one big thing you’d love to bring to life?",
+        id: 'dreams',
+        title: ARC_CREATION_SURVEY_COPY.dreamsTitle,
         canProceed: hasDream,
         render: () => (
           <Input
@@ -141,7 +163,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
             // while placeholder/content size changes.
             multilineMinHeight={140}
             multilineMaxHeight={140}
-            placeholder="e.g., Rewild our back acreage into a native meadow; restore a 1970s 911; build a small timber-frame home."
+            placeholder={ARC_CREATION_SURVEY_COPY.dreamsPlaceholder}
             autoCapitalize="sentences"
             returnKeyType="done"
             blurOnSubmit
@@ -151,8 +173,9 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
       },
       {
         id: 'whyNow',
-        title: 'Why does this feel important to you?',
-        canProceed: Boolean(whyNowId),
+        title: ARC_CREATION_SURVEY_COPY.whyNowTitle,
+        // Optional: always allow proceeding.
+        canProceed: true,
         render: () => (
           <View style={styles.fullWidthList}>
             {WHY_NOW_OPTIONS.map((option) => {
@@ -165,8 +188,131 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   accessibilityState={{ selected }}
                   onPress={() => {
                     setWhyNowId(option.id);
-                    chatControllerRef?.current?.appendUserMessage(option.label);
-                    setStep('roleModelType');
+                    setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
+                  }}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+                      {selected ? <View style={styles.radioInner} /> : null}
+                    </View>
+                    <Text
+                      style={[
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+            <View style={styles.whyNowFooterRow}>
+              <Button
+                variant="ghost"
+                onPress={() => setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1))}
+                accessibilityLabel={ARC_CREATION_SURVEY_COPY.skipWhyNowLabel}
+              >
+                <ButtonLabel size="md">{ARC_CREATION_SURVEY_COPY.skipWhyNowLabel}</ButtonLabel>
+              </Button>
+            </View>
+          </View>
+        ),
+      },
+      {
+        id: 'domain',
+        title: ARC_CREATION_SURVEY_COPY.domainTitle,
+        canProceed: Boolean(domainId),
+        render: () => (
+          <View style={styles.fullWidthList}>
+            {DOMAIN_OPTIONS.map((option) => {
+              const selected = domainId === option.id;
+              const labelWithEmoji = option.emoji ? `${option.emoji} ${option.label}` : option.label;
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    setDomainId(option.id);
+                    setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
+                  }}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+                      {selected ? <View style={styles.radioInner} /> : null}
+                    </View>
+                    <Text
+                      style={[
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
+                      ]}
+                    >
+                      {labelWithEmoji}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ),
+      },
+      {
+        id: 'proudMoment',
+        title: ARC_CREATION_SURVEY_COPY.proudMomentTitle,
+        canProceed: Boolean(proudMomentId),
+        render: () => (
+          <View style={styles.fullWidthList}>
+            {PROUD_MOMENT_OPTIONS.map((option) => {
+              const selected = proudMomentId === option.id;
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    setProudMomentId(option.id);
+                    setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
+                  }}
+                >
+                  <View style={styles.fullWidthOptionContent}>
+                    <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+                      {selected ? <View style={styles.radioInner} /> : null}
+                    </View>
+                    <Text
+                      style={[
+                        styles.fullWidthOptionLabel,
+                        selected && styles.fullWidthOptionLabelSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ),
+      },
+      {
+        id: 'motivation',
+        title: ARC_CREATION_SURVEY_COPY.motivationTitle,
+        canProceed: Boolean(motivationId),
+        render: () => (
+          <View style={styles.fullWidthList}>
+            {MOTIVATION_OPTIONS.map((option) => {
+              const selected = motivationId === option.id;
+              return (
+                <Pressable
+                  key={option.id}
+                  style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    setMotivationId(option.id);
+                    setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                   }}
                 >
                   <View style={styles.fullWidthOptionContent}>
@@ -190,7 +336,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
       },
       {
         id: 'roleModelType',
-        title: 'What kind of people do you look up to?',
+        title: ARC_CREATION_SURVEY_COPY.roleModelTypeTitle,
         canProceed: Boolean(roleModelTypeId),
         render: () => (
           <View style={styles.fullWidthList}>
@@ -204,8 +350,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   accessibilityState={{ selected }}
                   onPress={() => {
                     setRoleModelTypeId(option.id);
-                    chatControllerRef?.current?.appendUserMessage(`People I look up to: ${option.label}`);
-                    setStep('admiredQualities');
+                    setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                   }}
                 >
                   <View style={styles.fullWidthOptionContent}>
@@ -229,7 +374,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
       },
       {
         id: 'admiredQualities',
-        title: 'What qualities do you admire in them? (Pick 1–3)',
+        title: ARC_CREATION_SURVEY_COPY.admiredQualitiesTitle,
         canProceed: canSubmit,
         render: () => (
           <View style={styles.fullWidthList}>
@@ -267,23 +412,30 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
     admiredQualityIds,
     chatControllerRef,
     dreamInput,
+    domainId,
+    motivationId,
+    proudMomentId,
     roleModelTypeId,
     submitting,
     toggleAdmiredQuality,
     whyNowId,
   ]);
 
-  const currentStep = steps[currentStepIndex];
+  if (!isContextStepActive) {
+    return null;
+  }
+
+  const currentStep = steps[stepIndex];
   const canProceed = currentStep?.canProceed ?? true;
   const isPrimaryDisabled = !canProceed;
-  const isFirst = currentStepIndex === 0;
-  const isLast = currentStepIndex === steps.length - 1;
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex === steps.length - 1;
 
   return (
     <SurveyCard
       variant="stacked"
       steps={steps}
-      currentStepIndex={currentStepIndex}
+      currentStepIndex={stepIndex}
       stepLabel={stepLabel}
       nextLabel="Continue"
       submitLabel={submitting ? 'Thinking…' : 'Continue'}
@@ -291,15 +443,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
         <HStack alignItems="center" justifyContent="flex-end" space="sm">
           {!isFirst ? (
             <Button variant="ghost" onPress={() => {
-              setStep((current) =>
-                current === 'admiredQualities'
-                  ? 'roleModelType'
-                  : current === 'roleModelType'
-                    ? 'whyNow'
-                    : current === 'whyNow'
-                      ? 'dream'
-                      : 'dream',
-              );
+              setStepIndex((idx) => Math.max(0, idx - 1));
             }} accessibilityLabel="Back">
               <ButtonLabel size="md">Back</ButtonLabel>
             </Button>
@@ -310,29 +454,15 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
             style={isPrimaryDisabled ? styles.primaryDisabled : undefined}
             onPress={isLast ? (() => {
               if (submitting) return;
-              const labels = admiredQualityIds
-                .map((id) => labelFor(ARCHETYPE_ADMIRED_QUALITIES, id))
-                .filter((l): l is string => Boolean(l));
-              if (labels.length === 0) return;
-              chatControllerRef?.current?.appendUserMessage(`I admire: ${labels.join(', ')}`);
               void handleSubmit();
             }) : (() => {
-              if (step === 'dream') {
+              if (currentSurveyStepId === 'dreams') {
                 const dreamPlain = htmlToPlainText(dreamInput).trim();
                 if (!dreamPlain) return;
-                chatControllerRef?.current?.appendUserMessage(dreamPlain);
-                setStep('whyNow');
+                setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                 return;
               }
-              if (step === 'whyNow') {
-                if (!whyNowId) return;
-                setStep('roleModelType');
-                return;
-              }
-              if (step === 'roleModelType') {
-                if (!roleModelTypeId) return;
-                setStep('admiredQualities');
-              }
+              setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
             })}
             accessibilityLabel="Continue"
           >
@@ -343,41 +473,19 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
         </HStack>
       }
       onBack={() => {
-        setStep((current) =>
-          current === 'admiredQualities'
-            ? 'roleModelType'
-            : current === 'roleModelType'
-              ? 'whyNow'
-              : current === 'whyNow'
-                ? 'dream'
-                : 'dream',
-        );
+        setStepIndex((idx) => Math.max(0, idx - 1));
       }}
       onNext={() => {
-        if (step === 'dream') {
+        if (currentSurveyStepId === 'dreams') {
           const dreamPlain = htmlToPlainText(dreamInput).trim();
           if (!dreamPlain) return;
-          chatControllerRef?.current?.appendUserMessage(dreamPlain);
-          setStep('whyNow');
+          setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
           return;
         }
-        if (step === 'whyNow') {
-          if (!whyNowId) return;
-          setStep('roleModelType');
-          return;
-        }
-        if (step === 'roleModelType') {
-          if (!roleModelTypeId) return;
-          setStep('admiredQualities');
-        }
+        setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
       }}
       onSubmit={() => {
         if (submitting) return;
-        const labels = admiredQualityIds
-          .map((id) => labelFor(ARCHETYPE_ADMIRED_QUALITIES, id))
-          .filter((l): l is string => Boolean(l));
-        if (labels.length === 0) return;
-        chatControllerRef?.current?.appendUserMessage(`I admire: ${labels.join(', ')}`);
         void handleSubmit();
       }}
       style={styles.surveyCard}
@@ -454,5 +562,9 @@ const styles = StyleSheet.create({
   checkboxOuterSelected: {
     borderColor: colors.turmeric,
     backgroundColor: colors.turmeric,
+  },
+  whyNowFooterRow: {
+    alignItems: 'flex-start',
+    paddingTop: spacing.xs,
   },
 });

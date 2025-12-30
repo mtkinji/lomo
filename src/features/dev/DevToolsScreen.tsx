@@ -39,6 +39,7 @@ import {
   listCoachConversationMemoryKeys,
   loadCoachConversationMemoryByKey,
 } from '../../services/ai';
+import { resetOpenAiQuotaFlag } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
 import { ArcTestingLauncher } from './ArcTestingLauncher';
 import type { Activity } from '../../domain/types';
@@ -1637,7 +1638,14 @@ export function DevToolsScreen() {
               </HStack>
 
               <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
-                <Button variant="secondary" onPress={devResetGenerativeCredits} style={styles.cardAction}>
+                <Button
+                  variant="secondary"
+                  onPress={() => {
+                    devResetGenerativeCredits();
+                    resetOpenAiQuotaFlag();
+                  }}
+                  style={styles.cardAction}
+                >
                   <ButtonLabel size="md">Reset AI credits</ButtonLabel>
                 </Button>
                 <Button

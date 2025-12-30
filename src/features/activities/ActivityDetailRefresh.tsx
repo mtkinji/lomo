@@ -77,9 +77,13 @@ export function ActivityDetailRefresh(props: any) {
     setIsTitleStepsBundleReady,
     setTitleStepsBundleOffset,
     stepsDraft,
+    activitiesById,
+    openActivityDetail,
     handleToggleStepComplete,
     handleRemoveStep,
     handleChangeStepTitle,
+    handleConvertStepToActivity,
+    handleUnlinkStepActivity,
     beginAddStepInline,
     isAddingStepInline,
     newStepInputRef,
@@ -147,6 +151,28 @@ export function ActivityDetailRefresh(props: any) {
     safeAreaTopInsetPx,
     pageGutterX,
   } = props;
+
+  const planConfiguredCount = React.useMemo(() => {
+    const hasReminder = Boolean(activity?.reminderAt);
+    const hasDueDate = Boolean(activity?.scheduledDate);
+    const hasRepeat = Boolean(activity?.repeatRule);
+    const hasEstimate = Boolean(hasTimeEstimate);
+    const hasDiff = Boolean(hasDifficulty);
+    return [hasReminder, hasDueDate, hasRepeat, hasEstimate, hasDiff].filter(Boolean).length;
+  }, [activity?.reminderAt, activity?.scheduledDate, activity?.repeatRule, hasDifficulty, hasTimeEstimate]);
+
+  const detailsConfiguredCount = React.useMemo(() => {
+    const hasNotes = Boolean((activity?.notes ?? '').trim().length);
+    const tagCount = Array.isArray(activity?.tags) ? activity.tags.length : 0;
+    const hasTags = tagCount > 0;
+    const hasLinkedGoal = Boolean(activity?.goalId);
+    // Avoid showing a "configured" signal just because the default ActivityType exists.
+    const hasNonDefaultType = Boolean(activity?.type && activity.type !== 'task');
+    return [hasNotes, hasTags, hasLinkedGoal, hasNonDefaultType].filter(Boolean).length;
+  }, [activity?.goalId, activity?.notes, activity?.tags, activity?.type]);
+
+  const showPlanCountBadge = !planExpanded && planConfiguredCount > 0;
+  const showDetailsCountBadge = !detailsExpanded && detailsConfiguredCount > 0;
 
   const planChevronAnim = React.useRef(new Animated.Value(planExpanded ? 1 : 0)).current;
   const detailsChevronAnim = React.useRef(new Animated.Value(detailsExpanded ? 1 : 0)).current;
@@ -307,7 +333,7 @@ export function ActivityDetailRefresh(props: any) {
                     </HeaderActionPill>
                   </View>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
                   <DropdownMenuItem
                     onPress={() => {
                       handleSendToShare().catch(() => undefined);
@@ -315,13 +341,17 @@ export function ActivityDetailRefresh(props: any) {
                   >
                     <View style={styles.menuItemRow}>
                       <Icon name="share" size={16} color={headerInk} />
-                      <Text style={styles.menuRowText}>Share</Text>
+                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                        Share
+                      </Text>
                     </View>
                   </DropdownMenuItem>
                   <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
                     <View style={styles.menuItemRow}>
                       <Icon name="trash" size={16} color={colors.destructive} />
-                      <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
+                      <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
+                        Delete activity
+                      </Text>
                     </View>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -393,6 +423,20 @@ export function ActivityDetailRefresh(props: any) {
                           },
                         ]
                       : []),
+                    ...(activity?.origin?.kind === 'activity_step'
+                      ? (() => {
+                          const parentId = activity.origin.parentActivityId;
+                          const parent = activitiesById?.[parentId] ?? null;
+                          if (!parent) return [];
+                          return [
+                            {
+                              id: 'parentActivity',
+                              label: parent.title ?? 'Activity',
+                              onPress: () => openActivityDetail?.(parentId),
+                            },
+                          ];
+                        })()
+                      : []),
                     { id: 'activity', label: activity?.title ?? 'Activity' },
                   ]}
                 />
@@ -406,7 +450,7 @@ export function ActivityDetailRefresh(props: any) {
                       </IconButton>
                     </View>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
                     <DropdownMenuItem
                       onPress={() => {
                         handleSendToShare().catch(() => undefined);
@@ -414,13 +458,17 @@ export function ActivityDetailRefresh(props: any) {
                     >
                       <View style={styles.menuItemRow}>
                         <Icon name="share" size={16} color={headerInk} />
-                        <Text style={styles.menuRowText}>Share</Text>
+                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          Share
+                        </Text>
                       </View>
                     </DropdownMenuItem>
                     <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
                       <View style={styles.menuItemRow}>
                         <Icon name="trash" size={16} color={colors.destructive} />
-                        <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
+                        <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          Delete activity
+                        </Text>
                       </View>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -513,6 +561,26 @@ export function ActivityDetailRefresh(props: any) {
               inputStyle={styles.narrativeTitleInput}
               containerStyle={styles.narrativeTitleContainer}
             />
+            {activity?.origin?.kind === 'activity_step' ? (() => {
+              const parentId = activity.origin.parentActivityId;
+              const parent = parentId ? activitiesById?.[parentId] ?? null : null;
+              if (!parentId || !parent) return null;
+              const label = parent.title ?? 'Parent activity';
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open parent activity: ${parent.title}`}
+                  onPress={() => openActivityDetail?.(parentId)}
+                  style={({ pressed }) => [styles.originLinkRow, pressed ? { opacity: 0.7 } : null]}
+                  hitSlop={8}
+                >
+                  <Icon name="link" size={12} color={colors.linked} />
+                  <Text style={styles.originLinkText} numberOfLines={1} ellipsizeMode="tail">
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })() : null}
           </View>
         </View>
 
@@ -536,35 +604,78 @@ export function ActivityDetailRefresh(props: any) {
             {stepsDraft.length === 0 ? null : (
               <VStack space="xs">
                 {stepsDraft.map((step: any) => {
-                  const isChecked = !!step.completedAt;
+                  const linkedActivityId = step?.linkedActivityId ?? null;
+                  const linkedActivity = linkedActivityId ? activitiesById?.[linkedActivityId] ?? null : null;
+                  const isLinked = Boolean(linkedActivityId);
+                  const isLinkedDone = Boolean(linkedActivity && (linkedActivity.status === 'done' || linkedActivity.completedAt));
+                  const isChecked = isLinked ? isLinkedDone : !!step.completedAt;
+                  const primaryTitle = isLinked ? (linkedActivity?.title ?? step.title) : step.title;
+                  const openLinkedActivity =
+                    isLinked && linkedActivityId && linkedActivity ? () => openActivityDetail?.(linkedActivityId) : undefined;
+                  const linkedStatusLabel = linkedActivity
+                    ? linkedActivity.status === 'done'
+                      ? 'Completed'
+                      : linkedActivity.status === 'in_progress'
+                        ? 'In progress'
+                        : 'Planned'
+                    : 'Activity missing';
                   return (
                     <View key={step.id}>
                       <ThreeColumnRow
                         style={styles.stepRow}
-                        contentStyle={styles.stepRowContent}
+                        contentStyle={isLinked ? styles.linkedStepRowContent : styles.stepRowContent}
                         left={
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              isChecked ? 'Mark step as not done' : 'Mark step as done'
-                            }
-                            hitSlop={8}
-                            onPress={() => handleToggleStepComplete(step.id)}
-                          >
-                            <View style={styles.stepLeftIconBox}>
-                              <View
-                                style={[
-                                  styles.checkboxBase,
-                                  isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
-                                  styles.stepCheckbox,
-                                ]}
-                              >
-                                {isChecked ? (
-                                  <Icon name="check" size={12} color={colors.primaryForeground} />
-                                ) : null}
+                          isLinked ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={
+                                linkedActivity ? `Open linked activity: ${primaryTitle}` : 'Linked activity missing'
+                              }
+                              disabled={!openLinkedActivity}
+                              hitSlop={8}
+                              onPress={openLinkedActivity}
+                              style={({ pressed }) => [pressed ? { opacity: 0.7 } : null]}
+                            >
+                              <View style={styles.stepLeftIconBox}>
+                                <View
+                                  style={[
+                                    styles.checkboxBase,
+                                    isChecked ? styles.linkedCheckboxCompleted : styles.linkedCheckboxPlanned,
+                                    styles.stepCheckbox,
+                                  ]}
+                                >
+                                  <Icon
+                                    name="link"
+                                    size={12}
+                                    color={isChecked ? colors.linkedForeground : colors.linked}
+                                  />
+                                </View>
                               </View>
-                            </View>
-                          </Pressable>
+                            </Pressable>
+                          ) : (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={
+                                isChecked ? 'Mark step as not done' : 'Mark step as done'
+                              }
+                              hitSlop={8}
+                              onPress={() => handleToggleStepComplete(step.id)}
+                            >
+                              <View style={styles.stepLeftIconBox}>
+                                <View
+                                  style={[
+                                    styles.checkboxBase,
+                                    isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
+                                    styles.stepCheckbox,
+                                  ]}
+                                >
+                                  {isChecked ? (
+                                    <Icon name="check" size={12} color={colors.primaryForeground} />
+                                  ) : null}
+                                </View>
+                              </View>
+                            </Pressable>
+                          )
                         }
                         right={
                           <DropdownMenu>
@@ -580,31 +691,94 @@ export function ActivityDetailRefresh(props: any) {
                                 <Icon name="more" size={16} color={colors.textSecondary} />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                            <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
+                              {isLinked ? (
+                                <>
+                                  {linkedActivityId && linkedActivity ? (
+                                    <DropdownMenuItem onPress={() => openActivityDetail?.(linkedActivityId)}>
+                                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                                        Open activity
+                                      </Text>
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  <DropdownMenuItem onPress={() => handleUnlinkStepActivity?.(step.id)}>
+                                    <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                                      Unlink
+                                    </Text>
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <DropdownMenuItem onPress={() => handleConvertStepToActivity?.(step.id)}>
+                                  <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                                    Convert to activity
+                                  </Text>
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onPress={() => handleRemoveStep(step.id)}
                                 variant="destructive"
                               >
-                                <Text style={styles.destructiveMenuRowText}>Delete step</Text>
+                                <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
+                                  Delete step
+                                </Text>
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         }
                       >
-                        <Input
-                          value={step.title}
-                          onChangeText={(text) => handleChangeStepTitle(step.id, text)}
-                          onFocus={handleAnyInputFocus}
-                          onBlur={handleAnyInputBlur}
-                          placeholder="Describe the step"
-                          size="sm"
-                          variant="inline"
-                          multiline
-                          multilineMinHeight={typography.bodySm.lineHeight}
-                          multilineMaxHeight={typography.bodySm.lineHeight * 4 + spacing.sm}
-                          blurOnSubmit
-                          returnKeyType="done"
-                        />
+                        {isLinked ? (
+                          openLinkedActivity ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Open linked activity: ${primaryTitle}`}
+                              onPress={openLinkedActivity}
+                              style={({ pressed }) => [styles.linkedStepTextBlock, pressed ? { opacity: 0.7 } : null]}
+                            >
+                              <Text
+                                style={[styles.linkedStepTitle, styles.linkedStepTitleLinked]}
+                                numberOfLines={2}
+                                ellipsizeMode="tail"
+                              >
+                                {primaryTitle}
+                              </Text>
+                              {!linkedActivity ? (
+                                <Text style={styles.linkedStepSubtitle} numberOfLines={1} ellipsizeMode="tail">
+                                  {linkedStatusLabel}
+                                </Text>
+                              ) : null}
+                            </Pressable>
+                          ) : (
+                            <View style={styles.linkedStepTextBlock}>
+                              <Text
+                                style={[styles.linkedStepTitle, styles.linkedStepTitleLinked]}
+                                numberOfLines={2}
+                                ellipsizeMode="tail"
+                              >
+                                {primaryTitle}
+                              </Text>
+                              {!linkedActivity ? (
+                                <Text style={styles.linkedStepSubtitle} numberOfLines={1} ellipsizeMode="tail">
+                                  {linkedStatusLabel}
+                                </Text>
+                              ) : null}
+                            </View>
+                          )
+                        ) : (
+                          <Input
+                            value={step.title}
+                            onChangeText={(text) => handleChangeStepTitle(step.id, text)}
+                            onFocus={handleAnyInputFocus}
+                            onBlur={handleAnyInputBlur}
+                            placeholder="Describe the step"
+                            size="sm"
+                            variant="inline"
+                            multiline
+                            multilineMinHeight={typography.bodySm.lineHeight}
+                            multilineMaxHeight={typography.bodySm.lineHeight * 4 + spacing.sm}
+                            blurOnSubmit
+                            returnKeyType="done"
+                          />
+                        )}
                       </ThreeColumnRow>
                     </View>
                   );
@@ -659,7 +833,9 @@ export function ActivityDetailRefresh(props: any) {
         <View style={styles.section}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Plan${planExpanded ? ', expanded' : ', collapsed'}`}
+            accessibilityLabel={`Plan${planExpanded ? ', expanded' : ', collapsed'}${
+              showPlanCountBadge ? `, ${planConfiguredCount} set` : ''
+            }`}
             accessibilityState={{ expanded: !!planExpanded }}
             onPress={onTogglePlanExpanded}
             hitSlop={8}
@@ -669,16 +845,28 @@ export function ActivityDetailRefresh(props: any) {
             ]}
             testID="e2e.activityDetail.plan.toggle"
           >
-            <Text
-              style={[
-                styles.sectionTitleBlock,
-                { flex: 1 },
-                // Keep header row height stable; spacing is applied to the expanded body instead.
-                { marginBottom: 0 },
-              ]}
-            >
-              Plan
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minHeight: 28 }}>
+              <Text
+                style={[
+                  styles.sectionTitleBlock,
+                  { flexShrink: 1 },
+                  // Keep header row height stable; spacing is applied to the expanded body instead.
+                  { marginBottom: 0 },
+                ]}
+                numberOfLines={1}
+              >
+                Plan
+              </Text>
+              {showPlanCountBadge ? (
+                <Badge
+                  variant="secondary"
+                  style={styles.sectionCountBadge}
+                  textStyle={styles.sectionCountBadgeText}
+                >
+                  {planConfiguredCount}
+                </Badge>
+              ) : null}
+            </View>
             <Animated.View
               style={{
                 width: 24,
@@ -833,7 +1021,9 @@ export function ActivityDetailRefresh(props: any) {
         <View style={styles.section}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Details${detailsExpanded ? ', expanded' : ', collapsed'}`}
+            accessibilityLabel={`Details${detailsExpanded ? ', expanded' : ', collapsed'}${
+              showDetailsCountBadge ? `, ${detailsConfiguredCount} set` : ''
+            }`}
             accessibilityState={{ expanded: !!detailsExpanded }}
             onPress={onToggleDetailsExpanded}
             hitSlop={8}
@@ -843,16 +1033,28 @@ export function ActivityDetailRefresh(props: any) {
             ]}
             testID="e2e.activityDetail.details.toggle"
           >
-            <Text
-              style={[
-                styles.sectionTitleBlock,
-                { flex: 1 },
-                // Keep header row height stable; spacing is applied to the expanded body instead.
-                { marginBottom: 0 },
-              ]}
-            >
-              Details
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minHeight: 28 }}>
+              <Text
+                style={[
+                  styles.sectionTitleBlock,
+                  { flexShrink: 1 },
+                  // Keep header row height stable; spacing is applied to the expanded body instead.
+                  { marginBottom: 0 },
+                ]}
+                numberOfLines={1}
+              >
+                Details
+              </Text>
+              {showDetailsCountBadge ? (
+                <Badge
+                  variant="secondary"
+                  style={styles.sectionCountBadge}
+                  textStyle={styles.sectionCountBadgeText}
+                >
+                  {detailsConfiguredCount}
+                </Badge>
+              ) : null}
+            </View>
             <Animated.View
               style={{
                 width: 24,

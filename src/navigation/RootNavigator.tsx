@@ -604,23 +604,7 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
 function KwiltDrawerContent(props: any) {
   const insets = useSafeAreaInsets();
   const userProfile = useAppStore((state) => state.userProfile);
-  const arcs = useAppStore((state) => state.arcs);
-
-  const generatedNameFromFirstArc = (() => {
-    let firstArcName: string | null = null;
-    let firstArcCreatedAt: string | null = null;
-    for (const arc of arcs) {
-      const arcName = arc?.name?.trim();
-      if (!arcName) continue;
-      if (!firstArcCreatedAt || arc.createdAt < firstArcCreatedAt) {
-        firstArcCreatedAt = arc.createdAt;
-        firstArcName = arcName;
-      }
-    }
-    return firstArcName;
-  })();
-
-  const displayName = userProfile?.fullName?.trim() || generatedNameFromFirstArc || 'Kwilter';
+  const displayName = userProfile?.fullName?.trim() || 'Kwilter';
   const subscriptionLabel = 'Kwilt Free';
 
   // Hide the top-level Settings item from the drawer list while keeping the

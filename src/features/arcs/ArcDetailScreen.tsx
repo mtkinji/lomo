@@ -1,4 +1,4 @@
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import {
   Animated,
   StyleSheet,
@@ -46,9 +46,9 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { LongTextField } from '../../ui/LongTextField';
+import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomGuide } from '../../ui/BottomGuide';
-import { Coachmark } from '../../ui/Coachmark';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { EditableTextArea } from '../../ui/EditableTextArea';
@@ -103,6 +103,7 @@ type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'Ar
 export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
+  const isFocused = useIsFocused();
   const { arcId, openGoalCreation, showFirstArcCelebration: showCelebrationFromRoute } =
     route.params;
   const insets = useSafeAreaInsets();
@@ -114,6 +115,7 @@ export function ArcDetailScreen() {
   const insightsSectionRef = useRef<View>(null);
 
   const arcs = useAppStore((state) => state.arcs);
+  const domainHydrated = useAppStore((state) => state.domainHydrated);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
@@ -139,8 +141,6 @@ export function ArcDetailScreen() {
   const setHasDismissedOnboardingGoalGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingGoalGuide
   );
-  const hasDismissedArcExploreGuide = useAppStore((state) => state.hasDismissedArcExploreGuide);
-  const setHasDismissedArcExploreGuide = useAppStore((state) => state.setHasDismissedArcExploreGuide);
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
 
@@ -198,8 +198,6 @@ export function ArcDetailScreen() {
   );
   const onboardingArcHandoffHapticPlayedRef = useRef(false);
   const hasConsumedRouteCelebrationRef = useRef(false);
-  const [arcExploreGuideStep, setArcExploreGuideStep] = useState(0);
-  const hasStartedArcExploreGuideRef = useRef(false);
   const [goalsSectionOffset, setGoalsSectionOffset] = useState<number | null>(null);
   const [insightsSectionOffset, setInsightsSectionOffset] = useState<number | null>(null);
 
@@ -393,47 +391,6 @@ export function ArcDetailScreen() {
     active: Boolean(shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalCtaRef.current),
     stepKey: 'onboardingGoal',
   });
-
-  const shouldOfferArcExploreGuide =
-    Boolean(arc) && !showOnboardingArcHandoff && !hasDismissedArcExploreGuide;
-
-  const arcExploreTargetScrollY = useMemo(() => {
-    if (arcExploreGuideStep === 0) return 0;
-    if (arcExploreGuideStep === 1) {
-      return goalsSectionOffset != null ? Math.max(0, goalsSectionOffset - 120) : null;
-    }
-    return insightsSectionOffset != null ? Math.max(0, insightsSectionOffset - 120) : null;
-  }, [arcExploreGuideStep, goalsSectionOffset, insightsSectionOffset]);
-
-  const arcExploreStepReady =
-    arcExploreGuideStep === 0 ||
-    (arcExploreGuideStep === 1 && goalsSectionOffset != null) ||
-    (arcExploreGuideStep === 2 && insightsSectionOffset != null);
-
-  const arcExploreGuideHost = useCoachmarkHost({
-    active: shouldOfferArcExploreGuide && arcExploreStepReady,
-    stepKey: arcExploreGuideStep,
-    targetScrollY: arcExploreTargetScrollY,
-    scrollTo: (args) => scrollRef.current?.scrollTo(args),
-  });
-
-  useEffect(() => {
-    // When the user navigates between Arcs, allow the guide to re-arm if it has not
-    // been dismissed yet (still gated by the persisted dismissal flag).
-    hasStartedArcExploreGuideRef.current = false;
-    setArcExploreGuideStep(0);
-  }, [arcId]);
-
-  useEffect(() => {
-    if (!shouldOfferArcExploreGuide) return;
-    if (hasStartedArcExploreGuideRef.current) return;
-    hasStartedArcExploreGuideRef.current = true;
-    setArcExploreGuideStep(0);
-  }, [shouldOfferArcExploreGuide]);
-
-  const dismissArcExploreGuide = useCallback(() => {
-    setHasDismissedArcExploreGuide(true);
-  }, [setHasDismissedArcExploreGuide]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -697,6 +654,16 @@ export function ArcDetailScreen() {
   // History tab removed (Airbnb-style listing scroll). We may reintroduce a timeline section later.
 
   if (!arc) {
+    if (!domainHydrated) {
+      return (
+        <AppShell>
+          <View style={styles.emptyStateContainer}>
+            <ActivityIndicator color={colors.textPrimary} />
+            <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading Arc…</Text>
+          </View>
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
         <View style={styles.emptyStateContainer}>
@@ -810,6 +777,11 @@ export function ArcDetailScreen() {
     );
   };
 
+  const showBottomCtaBar = arcGoals.length > 0;
+  // When the bottom CTA bar is hidden (e.g. empty goals), the last card's iOS shadow can get
+  // clipped by the scrollview bounds. Add a bit of extra visual gutter in that case.
+  const scrollBottomGutter = showBottomCtaBar ? BOTTOM_CTA_BAR_HEIGHT : spacing.xl;
+
   return (
     <AppShell fullBleedCanvas>
       <BottomGuide
@@ -889,14 +861,14 @@ export function ArcDetailScreen() {
                     </HeaderActionPill>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                    <DropdownMenuItem
-                      onPress={() => {
-                        setIsHeroModalVisible(true);
-                      }}
-                    >
+                      <DropdownMenuItem
+                        onPress={() => {
+                          setIsHeroModalVisible(true);
+                        }}
+                      >
                       <View style={styles.menuItemRow}>
                         <Icon name="edit" size={16} color={colors.textSecondary} />
-                        <Text style={styles.menuItemLabel}>Edit banner</Text>
+                          <Text style={styles.menuItemLabel}>Cover image</Text>
                       </View>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -930,10 +902,13 @@ export function ArcDetailScreen() {
             style={styles.scroll}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: spacing['2xl'] + insets.bottom + BOTTOM_CTA_BAR_HEIGHT },
+              {
+                paddingBottom:
+                  spacing['2xl'] + insets.bottom + scrollBottomGutter,
+              },
             ]}
             showsVerticalScrollIndicator={false}
-            scrollEnabled={arcExploreGuideHost.scrollEnabled && onboardingGoalCoachmarkHost.scrollEnabled}
+            scrollEnabled={onboardingGoalCoachmarkHost.scrollEnabled}
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
             keyboardShouldPersistTaps="handled"
             onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -1130,6 +1105,7 @@ export function ArcDetailScreen() {
                           ctaLabel="Create goal"
                           ctaVariant="inverse"
                           ctaLeadingIconName="sparkles"
+                          ctaTargetRef={createGoalCtaRef}
                           onPressCta={() => {
                             setHasDismissedOnboardingGoalGuide(true);
                             setIsGoalCoachVisible(true);
@@ -1225,43 +1201,36 @@ export function ArcDetailScreen() {
               </View>
             </View>
           </KeyboardAwareScrollView>
-          <View
-            pointerEvents="box-none"
-            style={[styles.bottomCtaBar, { paddingBottom: insets.bottom }]}
-          >
-            <View style={styles.bottomCtaRow}>
-              <View style={styles.bottomCtaLeftMeta}>
-                <Text style={styles.bottomCtaMetaTitle}>Goals</Text>
-                <Text style={styles.bottomCtaMetaBody}>
-                  {arcGoals.length === 0
-                    ? 'None yet'
-                    : `${completedArcGoals.length}/${arcGoals.length} completed`}
-                </Text>
-              </View>
-              <View style={styles.bottomCtaRight}>
-                <View
-                  ref={createGoalCtaRef}
-                  collapsable={false}
-                  style={styles.bottomCtaActionTarget}
-                >
-                  {shouldShowOnboardingGoalGuide ? (
-                    <View pointerEvents="none" style={styles.bottomCtaPrimaryButtonRing} />
-                  ) : null}
-                <Button
-                  variant="ai"
-                  fullWidth={false}
-                  onPress={() => {
-                    setHasDismissedOnboardingGoalGuide(true);
-                    setIsGoalCoachVisible(true);
-                  }}
-                  accessibilityLabel="Create a goal for this Arc"
-                >
-                  <Text style={styles.bottomCtaLabel}>Create goal</Text>
-                </Button>
+          {showBottomCtaBar ? (
+            <View pointerEvents="box-none" style={[styles.bottomCtaBar, { paddingBottom: insets.bottom }]}>
+              <View style={styles.bottomCtaRow}>
+                <View style={styles.bottomCtaLeftMeta}>
+                  <Text style={styles.bottomCtaMetaTitle}>Goals</Text>
+                  <Text style={styles.bottomCtaMetaBody}>
+                    {arcGoals.length === 0 ? 'None yet' : `${completedArcGoals.length}/${arcGoals.length} completed`}
+                  </Text>
+                </View>
+                <View style={styles.bottomCtaRight}>
+                  <View ref={createGoalCtaRef} collapsable={false} style={styles.bottomCtaActionTarget}>
+                    {shouldShowOnboardingGoalGuide ? (
+                      <View pointerEvents="none" style={styles.bottomCtaPrimaryButtonRing} />
+                    ) : null}
+                    <Button
+                      variant="ai"
+                      fullWidth={false}
+                      onPress={() => {
+                        setHasDismissedOnboardingGoalGuide(true);
+                        setIsGoalCoachVisible(true);
+                      }}
+                      accessibilityLabel="Create a goal for this Arc"
+                    >
+                      <Text style={styles.bottomCtaLabel}>Create goal</Text>
+                    </Button>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
+          ) : null}
         </View>
       <ArcBannerSheet
         visible={isHeroModalVisible}
@@ -1318,77 +1287,6 @@ export function ArcDetailScreen() {
           we can reintroduce a contextual FAB here that fits the final UX. */}
       {AgentWorkspaceSheet}
       <Coachmark
-        visible={Boolean(
-          arcExploreGuideHost.coachmarkVisible &&
-            (arcExploreGuideStep === 0
-              ? heroSpotlightRef.current
-              : arcExploreGuideStep === 1
-                ? goalsHeaderRef.current
-                : hasDevelopmentInsights && insightsSectionRef.current),
-        )}
-        targetRef={
-          arcExploreGuideStep === 0
-            ? heroSpotlightRef
-            : arcExploreGuideStep === 1
-              ? goalsHeaderRef
-              : insightsSectionRef
-        }
-        remeasureKey={arcExploreGuideHost.remeasureKey}
-        scrimToken="subtle"
-        spotlight="hole"
-        spotlightPadding={spacing.xs}
-        spotlightRadius={18}
-        offset={spacing.xs}
-        highlightColor={colors.turmeric}
-        actionColor={colors.turmeric}
-        attentionPulse
-        attentionPulseDelayMs={2500}
-        attentionPulseDurationMs={12000}
-        title={
-          <Text style={styles.arcExploreCoachmarkTitle}>
-            {arcExploreGuideStep === 0
-              ? 'Make this Arc yours'
-              : arcExploreGuideStep === 1
-                ? 'Turn it into goals'
-                : 'Review your insights'}
-          </Text>
-        }
-        body={
-          <Text style={styles.arcExploreCoachmarkBody}>
-            {arcExploreGuideStep === 0
-              ? 'Tap the banner to change the image (upload, curated picks, or search the image library).'
-              : arcExploreGuideStep === 1
-                ? 'Scroll down to the Goals section and add 3–5 goals so kwilt knows what success looks like.'
-                : 'We generated insights to help you steer this chapter. Review them and adjust your goals or plan as needed.'}
-          </Text>
-        }
-        progressLabel={`${arcExploreGuideStep + 1} of ${hasDevelopmentInsights ? 3 : 2}`}
-        actions={[
-          { id: 'skip', label: 'Skip', variant: 'outline' },
-          {
-            id:
-              arcExploreGuideStep + 1 < (hasDevelopmentInsights ? 3 : 2) ? 'next' : 'done',
-            label:
-              arcExploreGuideStep + 1 < (hasDevelopmentInsights ? 3 : 2) ? 'Next' : 'Got it',
-            variant: 'accent',
-          },
-        ]}
-        onAction={(actionId) => {
-          if (actionId === 'skip') {
-            dismissArcExploreGuide();
-            return;
-          }
-          if (actionId === 'next') {
-            const totalSteps = hasDevelopmentInsights ? 3 : 2;
-            setArcExploreGuideStep((current) => Math.min(current + 1, totalSteps - 1));
-            return;
-          }
-          dismissArcExploreGuide();
-        }}
-        onDismiss={dismissArcExploreGuide}
-        placement="below"
-      />
-      <Coachmark
         visible={onboardingGoalCoachmarkHost.coachmarkVisible}
         targetRef={createGoalCtaRef}
         remeasureKey={onboardingGoalCoachmarkHost.remeasureKey}
@@ -1408,6 +1306,7 @@ export function ArcDetailScreen() {
             Tap “Create goal" to add your first goal.
           </Text>
         }
+        actions={[]}
         onDismiss={() => setHasDismissedOnboardingGoalGuide(true)}
         placement="above"
       />

@@ -236,6 +236,7 @@ type GoalProposalTimelineItem = {
   proposal: ProposedGoalDraft;
   createdAt: string;
   isActive: boolean;
+  isPending?: boolean;
 };
 
 export type ActivitySuggestion = {
@@ -1382,13 +1383,21 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [isGoalDraftTargetDatePickerVisible, setIsGoalDraftTargetDatePickerVisible] = useState(false);
   const [goalProposalPostNote, setGoalProposalPostNote] = useState('');
   const [goalProposalTimeline, setGoalProposalTimeline] = useState<GoalProposalTimelineItem[]>([]);
+  const goalProposalTimelineRef = useRef<GoalProposalTimelineItem[]>([]);
   const [activeGoalProposalId, setActiveGoalProposalId] = useState<string | null>(null);
+  const [goalProposalHeroLoadState, setGoalProposalHeroLoadState] = useState<
+    Record<string, { uri: string; loaded: boolean }>
+  >({});
   const [goalDraftTitleWrapWidth, setGoalDraftTitleWrapWidth] = useState<number>(0);
   const [shouldTitleBeMultiline, setShouldTitleBeMultiline] = useState(false);
   const [selectedGoalArcId, setSelectedGoalArcId] = useState<string | null>(null);
   const [activitySuggestions, setActivitySuggestions] = useState<ActivitySuggestion[] | null>(
     null
   );
+  const activitySuggestionsRef = useRef<ActivitySuggestion[] | null>(null);
+  useEffect(() => {
+    activitySuggestionsRef.current = activitySuggestions;
+  }, [activitySuggestions]);
   const [arcDraftName, setArcDraftName] = useState('');
   const [arcDraftNarrative, setArcDraftNarrative] = useState('');
   const [isFeedbackInlineVisible, setIsFeedbackInlineVisible] = useState(false);
@@ -1406,6 +1415,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const typingControllerRef = useRef<{ skip: () => void } | null>(null);
   const goalProposalPostNoteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasShownGoalProposalRef = useRef(false);
+  const pendingGoalProposalIdRef = useRef<string | null>(null);
+  const pendingGoalProposalAnchorMessageIdRef = useRef<string | null>(null);
+  const finalizedGoalProposalAnchorIdsRef = useRef<Set<string>>(new Set());
   const [dictationState, setDictationState] = useState<DictationState>(
     iosSpeechModule ? 'idle' : 'unavailable'
   );
@@ -1542,15 +1554,30 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const focusedGoalTitle = extractFocusedGoalTitleFromLaunchContext(launchContext);
   const focusedArcName = extractFocusedArcNameFromLaunchContext(launchContext);
 
-  const goalCreationDefaultLeadIn = useMemo(() => {
-    if (mode !== 'goalCreation') {
-      return "Here’s a goal based on what you shared.";
-    }
-    if (focusedArcName) {
-      return `Here’s a starter goal for your ${focusedArcName} Arc. Edit anything, then adopt it when it feels right.`;
-    }
-    return "Here’s a starter goal draft. Edit anything, then adopt it when it feels right.";
-  }, [focusedArcName, mode]);
+  useEffect(() => {
+    goalProposalTimelineRef.current = goalProposalTimeline;
+  }, [goalProposalTimeline]);
+
+  const goalDraftingStatusCopy = useMemo(() => {
+    const arc = focusedArcName?.trim();
+    return arc && arc.length > 0
+      ? `I’m drafting a goal for your **${arc}** arc. You can edit it before adopting.`
+      : 'I’m drafting a goal. You can edit it before adopting.';
+  }, [focusedArcName]);
+
+  const appendSystemMessage = (content: string, baseId = 'system-hidden') => {
+    const message: ChatMessage = {
+      id: `${baseId}-${Date.now()}`,
+      role: 'system',
+      content,
+    };
+    setMessages((prev) => {
+      const next = [...prev, message];
+      messagesRef.current = next;
+      scheduleDraftSave(next, input);
+      return next;
+    });
+  };
 
   const isDictationActive = dictationState === 'recording' || dictationState === 'starting';
   const voiceButtonLabel = isDictationActive ? 'Stop voice input' : 'Start voice input';
@@ -1894,8 +1921,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
     (proposal: ProposedGoalDraft, anchorMessageId: string) => {
       const id = `goal-proposal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const createdAt = new Date().toISOString();
+      pendingGoalProposalIdRef.current = null;
       setGoalProposalTimeline((prev) => [
-        ...prev.map((item) => ({ ...item, isActive: false })),
+        // Never keep pending skeleton cards once we have a real proposal.
+        ...prev.filter((item) => !item.isPending).map((item) => ({ ...item, isActive: false })),
         {
           id,
           anchorMessageId,
@@ -1914,16 +1943,57 @@ export const AiChatPane = forwardRef(function AiChatPane(
     [],
   );
 
-  const dismissActiveGoalProposal = useCallback(() => {
-    if (!activeGoalProposalId) return;
-    setGoalProposalTimeline((prev) => prev.filter((item) => item.id !== activeGoalProposalId));
-    setActiveGoalProposalId(null);
+  const appendPendingGoalProposalTimelineItem = useCallback((anchorMessageId: string) => {
+    const id = `goal-proposal-pending-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const createdAt = new Date().toISOString();
+    pendingGoalProposalIdRef.current = id;
+    pendingGoalProposalAnchorMessageIdRef.current = anchorMessageId;
+    setGoalProposalTimeline((prev) => [
+      // If we already rendered a real proposal anchored to this message, never re-introduce
+      // a pending skeleton (can happen when the agent reply returns before the pending card
+      // state update flushes).
+      ...(finalizedGoalProposalAnchorIdsRef.current.has(anchorMessageId) ? prev : []),
+      // Only allow one pending skeleton at a time.
+      ...prev.filter((item) => !item.isPending).map((item) => ({ ...item, isActive: false })),
+      {
+        id,
+        anchorMessageId,
+        proposal: { title: '' },
+        createdAt,
+        isActive: true,
+        isPending: true,
+      },
+    ]);
+    setActiveGoalProposalId(id);
     setGoalProposal(null);
     setGoalDraftTitle('');
     setGoalDraftDescription('');
     setGoalDraftTargetDate('');
     setIsGoalDraftTargetDatePickerVisible(false);
-  }, [activeGoalProposalId]);
+    setGoalProposalPostNote('');
+  }, []);
+
+  // NOTE: We intentionally avoid "hydrating" in-place because the pending skeleton can be
+  // enqueued but not yet committed when the agent reply arrives, resulting in a stuck blank card.
+  // Instead we always append a real proposal and rely on the pending guard above to prevent any
+  // late pending-state commit from reintroducing the skeleton.
+
+  const dismissActiveGoalProposal = useCallback(
+    (id?: string) => {
+      const targetId = id ?? activeGoalProposalId;
+      if (!targetId) return;
+      setGoalProposalTimeline((prev) => prev.filter((item) => item.id !== targetId));
+      if (targetId === activeGoalProposalId) {
+        setActiveGoalProposalId(null);
+        setGoalProposal(null);
+        setGoalDraftTitle('');
+        setGoalDraftDescription('');
+        setGoalDraftTargetDate('');
+        setIsGoalDraftTargetDatePickerVisible(false);
+      }
+    },
+    [activeGoalProposalId],
+  );
 
   const dismissGoalProposalById = useCallback(
     (id: string) => {
@@ -1942,7 +2012,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
   const renderGoalProposalCard = useCallback(
     (item: GoalProposalTimelineItem) => {
-      const isActive = item.id === activeGoalProposalId && Boolean(goalProposal);
+      const isPending = Boolean(item.isPending);
+      // Important: treat the timeline item as the source of truth for "active"
+      // so we don't accidentally render the inactive footer (Dismiss-only) due
+      // to state timing between `goalProposalTimeline` and `goalProposal`.
+      const isActive = Boolean(item.isActive);
       const proposal = isActive && goalProposal ? goalProposal : item.proposal;
       const titleValue = isActive ? goalDraftTitle : proposal.title ?? '';
       const descriptionValue = isActive ? goalDraftDescription : proposal.description ?? '';
@@ -1963,6 +2037,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
         const index = hashStringToIndex(seed, ARC_HERO_LIBRARY.length);
         return ARC_HERO_LIBRARY[index]?.uri ?? ARC_HERO_LIBRARY[0]?.uri;
       })();
+      const heroLoadEntry = goalProposalHeroLoadState[item.id];
+      const heroLoadedForUri = Boolean(heroUri && heroLoadEntry?.uri === heroUri && heroLoadEntry.loaded);
       const targetDatePickerValue = (() => {
         const ms = Date.parse(targetDateValue);
         if (Number.isFinite(ms)) return new Date(ms);
@@ -1981,6 +2057,43 @@ export const AiChatPane = forwardRef(function AiChatPane(
           ? 'Set target date'
           : '—';
 
+      if (isPending) {
+        return (
+          <Fragment key={item.id}>
+            <View style={styles.goalDraftCard}>
+              <View style={styles.goalDraftLabelRow}>
+                <Icon name="sparkles" size={14} color={CHAT_COLORS.textSecondary} />
+                <Text style={styles.goalDraftLabel}>AI Goal Proposal</Text>
+              </View>
+
+              <View style={styles.goalProposalHeroWrapper}>
+                <View style={styles.goalProposalHeroSkeleton} />
+              </View>
+
+              <View style={styles.skeletonLineLg} />
+              <View style={styles.skeletonLineMd} />
+              <View style={styles.skeletonLineMd} />
+
+              <View style={styles.goalProposalMetaRow}>
+                <Text style={styles.goalProposalMetaLabel}>Target date</Text>
+                <View style={[styles.goalProposalDateValueField, { opacity: 0.6 }]}>
+                  <View style={styles.skeletonPill} />
+                </View>
+              </View>
+
+              <View style={styles.goalDraftButtonsRow}>
+                <Button variant="outline" disabled>
+                  <Text style={styles.goalDraftSecondaryButtonText}>Not now</Text>
+                </Button>
+                <Button variant="ai" disabled>
+                  <Text style={styles.goalDraftConfirmText}>Adopt Goal</Text>
+                </Button>
+              </View>
+            </View>
+          </Fragment>
+        );
+      }
+
       return (
         <Fragment key={item.id}>
           <View style={styles.goalDraftCard}>
@@ -1990,10 +2103,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
             </View>
 
             <View style={styles.goalProposalHeroWrapper}>
+              {!heroLoadedForUri ? <View style={styles.goalProposalHeroSkeleton} /> : null}
               {heroUri ? (
-                <Image source={{ uri: heroUri }} style={styles.goalProposalHeroImage} />
+                <Image
+                  source={{ uri: heroUri }}
+                  style={[styles.goalProposalHeroImage, !heroLoadedForUri ? styles.goalProposalHeroImageHidden : null]}
+                  onLoadStart={() => {
+                    setGoalProposalHeroLoadState((prev) => ({
+                      ...prev,
+                      [item.id]: { uri: heroUri, loaded: false },
+                    }));
+                  }}
+                  onLoadEnd={() => {
+                    setGoalProposalHeroLoadState((prev) => ({
+                      ...prev,
+                      [item.id]: { uri: heroUri, loaded: true },
+                    }));
+                  }}
+                  onError={() => {
+                    // Treat errors as "done" so we don't show an infinite skeleton.
+                    setGoalProposalHeroLoadState((prev) => ({
+                      ...prev,
+                      [item.id]: { uri: heroUri, loaded: true },
+                    }));
+                  }}
+                />
               ) : (
-                <View style={styles.goalProposalHeroFallback} />
+                <View style={styles.goalProposalHeroSkeleton} />
               )}
             </View>
 
@@ -2015,13 +2151,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       setShouldTitleBeMultiline(lineCount > 1);
                     }}
                   >
-                    {titleValue || 'Ship the Kwilt App MVP'}
+                    {titleValue || 'Goal title'}
                   </Text>
                 ) : null}
                 <Input
                   value={titleValue}
                   onChangeText={setGoalDraftTitle}
-                  placeholder="Ship the Kwilt App MVP"
+                  placeholder="Goal title"
                   multiline={shouldTitleBeMultiline}
                   multilineMinHeight={44}
                   multilineMaxHeight={88}
@@ -2061,10 +2197,25 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 accessibilityLabel="Edit target date"
                 disabled={!isActive}
                 onPress={() => setIsGoalDraftTargetDatePickerVisible((current) => !current)}
-                style={[styles.goalProposalMetaValueButton, !isActive && { opacity: 0.6 }]}
+                style={!isActive ? { opacity: 0.6 } : null}
               >
-                <Text style={styles.goalProposalMetaValueText}>{targetDateLabel}</Text>
-                {isActive ? <Icon name="today" size={16} color={CHAT_COLORS.textSecondary} /> : null}
+                {/* Use a standard filled field treatment for the date value. */}
+                {/* Ensure the parent Pressable receives taps (TextInput can swallow touches). */}
+                <View pointerEvents="none">
+                  <Input
+                    value={targetDateLabel}
+                    editable={false}
+                    size="sm"
+                    variant="filled"
+                    elevation="flat"
+                    trailingIcon="today"
+                    inputStyle={styles.goalProposalDateValueText}
+                    // `editable={false}` dims the whole Input container by design; for the
+                    // date value we still want full-contrast text so it doesn't read like
+                    // placeholder copy.
+                    containerStyle={[styles.goalProposalDateValueField, { opacity: 1 }]}
+                  />
+                </View>
               </Pressable>
             </View>
 
@@ -2111,7 +2262,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 <Button
                   variant="outline"
                   onPress={() => {
-                    dismissActiveGoalProposal();
+                    dismissActiveGoalProposal(item.id);
                   }}
                 >
                   <Text style={styles.goalDraftSecondaryButtonText}>Not now</Text>
@@ -2134,7 +2285,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         description: trimmedDescription.length ? trimmedDescription : undefined,
                         ...(resolvedTargetDate ? { targetDate: resolvedTargetDate } : null),
                       });
-                      dismissActiveGoalProposal();
+                      dismissActiveGoalProposal(item.id);
                       onDismiss?.();
                       return;
                     }
@@ -2191,7 +2342,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     useAppStore.getState().recordShowUp();
                     addGoal(goal);
                     onGoalCreated?.(goal.id);
-                    dismissActiveGoalProposal();
+                    dismissActiveGoalProposal(item.id);
 
                     if (workflowRuntime?.definition?.chatMode === 'goalCreation') {
                       workflowRuntime.completeStep('agent_generate_goals', {
@@ -2326,31 +2477,64 @@ export const AiChatPane = forwardRef(function AiChatPane(
           }
           streamAssistantReply(parsed.displayContent, baseId, opts);
         } else if (mode === 'goalCreation') {
+          // When we see the workflow "drafting…" status message, immediately show
+          // a pending/skeleton proposal card anchored to that message.
+          if (baseId === 'assistant-goal-status') {
+            const messageId = streamAssistantReply(goalDraftingStatusCopy, baseId, opts);
+            if (messageId) {
+              appendPendingGoalProposalTimelineItem(messageId);
+            }
+            return;
+          }
+
+          // For the agent reply, keep the full GOAL_PROPOSAL_JSON in hidden history,
+          // but avoid adding a second visible lead-in bubble. Attach the proposal card to the
+          // prior drafting/status message when possible.
           const parsed = extractGoalProposalFromAssistantMessage(fullText);
-          // Defer proposal card rendering until after the typed assistant message finishes.
           const nextProposal = parsed.goalProposal ?? null;
-          const leadIn =
-            nextProposal && (!parsed.displayContent || parsed.displayContent.trim().length === 0)
-              ? hasShownGoalProposalRef.current
-                ? 'Here’s an updated goal based on your feedback.'
-                : goalCreationDefaultLeadIn
-              : parsed.displayContent;
-          const leadInMessageId = streamAssistantReply(leadIn, baseId, {
-            ...opts,
-            onDone: () => {
-              if (nextProposal) {
-                // Anchor this card to the assistant message that introduced it so it "stays put"
-                // above any future user messages (e.g. tweak requests).
-                if (leadInMessageId) {
-                  appendGoalProposalTimelineItem(nextProposal, leadInMessageId);
-                } else {
-                  // Fallback: still show the proposal, but it may not anchor correctly.
-                  commitGoalProposal(nextProposal);
-                }
-              }
+          if (nextProposal) {
+            appendSystemMessage(fullText, 'system-goal-proposal');
+            const pendingAnchorId = pendingGoalProposalAnchorMessageIdRef.current;
+            const latestStatus = [...messagesRef.current]
+              .slice()
+              .reverse()
+              .find((m) => m.role === 'assistant' && m.id.startsWith('assistant-goal-status-'));
+            const anchorId = pendingAnchorId ?? latestStatus?.id ?? null;
+
+            if (anchorId) {
+              finalizedGoalProposalAnchorIdsRef.current.add(anchorId);
+              pendingGoalProposalIdRef.current = null;
+              pendingGoalProposalAnchorMessageIdRef.current = null;
+              appendGoalProposalTimelineItem(nextProposal, anchorId);
               opts?.onDone?.();
-            },
-          });
+              return;
+            }
+
+            const fallbackId = streamAssistantReply('Draft ready.', baseId, {
+              ...opts,
+              onDone: () => opts?.onDone?.(),
+            });
+            if (fallbackId) {
+              finalizedGoalProposalAnchorIdsRef.current.add(fallbackId);
+              pendingGoalProposalIdRef.current = null;
+              pendingGoalProposalAnchorMessageIdRef.current = null;
+              appendGoalProposalTimelineItem(nextProposal, fallbackId);
+              return;
+            }
+
+            // Extreme fallback: commit proposal without anchoring.
+            setGoalProposal(nextProposal);
+            setGoalDraftTitle(nextProposal.title ?? '');
+            setGoalDraftDescription(nextProposal.description ?? '');
+            setGoalDraftTargetDate(nextProposal.targetDate ?? '');
+            setIsGoalDraftTargetDatePickerVisible(false);
+            setGoalProposalPostNote('');
+            hasShownGoalProposalRef.current = true;
+            opts?.onDone?.();
+            return;
+          }
+
+          streamAssistantReply(parsed.displayContent || fullText, baseId, opts);
         } else if (mode === 'arcCreation') {
           const parsed = extractArcProposalFromAssistantMessage(fullText);
           if (parsed.arcProposal) {
@@ -2442,7 +2626,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         if (cancelled) return;
         const bootLeadIn =
           bootGoalProposal && (!goalParsed.displayContent || goalParsed.displayContent.trim().length === 0)
-            ? goalCreationDefaultLeadIn
+            ? 'Draft ready.'
             : goalParsed.displayContent;
         const bootMessageId = streamAssistantReply(bootLeadIn, 'assistant-bootstrap', {
           onDone: () => {
@@ -2709,7 +2893,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         nextGoalProposal && (!goalParsed.displayContent || goalParsed.displayContent.trim().length === 0)
           ? hasShownGoalProposalRef.current
             ? 'Here’s an updated goal based on your feedback.'
-            : goalCreationDefaultLeadIn
+            : 'Draft ready.'
           : goalParsed.displayContent;
       const leadInMessageId = streamAssistantReply(leadIn, 'assistant', {
         onDone: () => {
@@ -2823,13 +3007,20 @@ export const AiChatPane = forwardRef(function AiChatPane(
       setIsGeneratingActivitySuggestions(true);
       setHasTransportError(false);
       setHasGenerativeQuotaExceeded(false);
-      if (reason === 'regenerate') {
-        // Clear current suggestions so the UI shows a lightweight skeleton while we work.
-        setActivitySuggestions(null);
-      }
+      // "Get more ideas" should *append* new suggestions, not replace the current list.
 
       try {
-        const rejectedTitles = (dismissedActivitySuggestionTitles ?? [])
+        const existingIdSet =
+          reason === 'regenerate'
+            ? new Set((activitySuggestionsRef.current ?? []).map((s) => (s.id ?? '').trim()).filter(Boolean))
+            : new Set<string>();
+        const existingTitles =
+          reason === 'regenerate'
+            ? (activitySuggestionsRef.current ?? [])
+                .map((s) => (s.title ?? '').trim())
+                .filter((t) => t.length > 0)
+            : [];
+        const rejectedTitles = [...(dismissedActivitySuggestionTitles ?? []), ...existingTitles]
           .map((t) => t.trim())
           .filter((t) => t.length > 0);
         const rejectedTitleSet = new Set(rejectedTitles.map(normalizeActivitySuggestionTitle));
@@ -2889,11 +3080,59 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 return firstIndex === index;
               })
           : null;
-        setActivitySuggestions(nextSuggestions);
+        const nextSuggestionsWithUniqueIds = nextSuggestions
+          ? (() => {
+              const used = new Set<string>(existingIdSet);
+              const collisionCounterByBase = new Map<string, number>();
+              return nextSuggestions.map((suggestion) => {
+                const rawId = (suggestion.id ?? '').trim();
+                const rawTitle = (suggestion.title ?? '').trim();
+                const titleSeed = normalizeActivitySuggestionTitle(rawTitle).slice(0, 32) || 'idea';
+                const baseSeed = (rawId || 'suggestion').replace(/[^a-zA-Z0-9_-]+/g, '_');
+
+                let nextId = rawId || baseSeed;
+                if (!nextId) nextId = 'suggestion';
+
+                if (used.has(nextId)) {
+                  const base = `${baseSeed}_${titleSeed}`.replace(/[^a-zA-Z0-9_-]+/g, '_');
+                  const start = collisionCounterByBase.get(base) ?? 0;
+                  let n = start;
+                  do {
+                    n += 1;
+                    nextId = `${base}_${n}`;
+                  } while (used.has(nextId));
+                  collisionCounterByBase.set(base, n);
+                }
+
+                used.add(nextId);
+                return nextId === suggestion.id ? suggestion : { ...suggestion, id: nextId };
+              });
+            })()
+          : null;
+
+        setActivitySuggestions((current) => {
+          if (reason !== 'regenerate') {
+            return nextSuggestionsWithUniqueIds;
+          }
+          if (!nextSuggestionsWithUniqueIds || nextSuggestionsWithUniqueIds.length === 0) {
+            return current;
+          }
+          const base = current ?? [];
+          const seen = new Set(base.map((s) => normalizeActivitySuggestionTitle(s.title ?? '')));
+          const merged: ActivitySuggestion[] = [...base];
+          nextSuggestionsWithUniqueIds.forEach((s) => {
+            const normalized = normalizeActivitySuggestionTitle(s.title ?? '');
+            if (!normalized || seen.has(normalized)) return;
+            seen.add(normalized);
+            merged.push(s);
+          });
+          // Keep the rail bounded so it stays manageable.
+          return merged.slice(0, 12);
+        });
         setEditingActivitySuggestionId(null);
         setActivitySuggestionEdits({});
 
-        if (nextSuggestions) {
+        if (nextSuggestionsWithUniqueIds && reason !== 'regenerate') {
           setAdoptedActivityCount(0);
           setShowActivitySummary(false);
         }
@@ -2901,7 +3140,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         if (workflowRuntime?.definition?.chatMode === 'activityCreation') {
           workflowRuntime.completeStep(
             'agent_generate_activities',
-            { suggestedCount: nextSuggestions?.length ?? 0, reason },
+            { suggestedCount: nextSuggestionsWithUniqueIds?.length ?? 0, reason },
             'agent_generate_activities',
           );
         }
@@ -3281,7 +3520,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     mode === 'goalCreation'
       ? 'This coach helps you shape one clear 30–90 day goal inside your life architecture, using any Arc and Goal context the app has already collected.'
       : mode === 'activityCreation'
-      ? 'This coach helps you turn your current goals and arcs into small, concrete activities you can actually do in the near term.'
+      ? 'This coach helps you turn your current goals and arcs into small, concrete activities you can actually do in the near term. It also looks at Activities you’ve already added (especially for this Goal) to keep suggestions aligned and non-duplicative.'
       : mode === 'firstTimeOnboarding'
       ? 'This guide helps you define an initial identity direction and aspiration using quick, tap-first inputs.'
       : isArcCreationMode
@@ -3579,7 +3818,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                 <Icon name="refresh" size={14} color={CHAT_COLORS.textPrimary} />
                               )}
                               <ButtonLabel size="md">
-                                {isGeneratingActivitySuggestions ? 'Generating…' : 'Generate again'}
+                                {isGeneratingActivitySuggestions ? 'Generating ideas…' : 'Get more ideas'}
                               </ButtonLabel>
                             </HStack>
                           </Button>
@@ -4107,6 +4346,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 {hasContextMeta && launchContext && (
                   <View style={styles.arcInfoSection}>
                     <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
+                    {mode === 'activityCreation' && (
+                      <Text style={styles.arcInfoBody}>
+                        We use your focused Goal, its existing Activities, and your wider workspace (other goals and
+                        activities) to suggest next steps that fit what you’re already doing — without repeating
+                        what’s already on your list.
+                      </Text>
+                    )}
 
                     {mode === 'activityGuidance' && (
                       <View style={styles.arcInfoSubSection}>
@@ -4536,32 +4782,40 @@ const styles = StyleSheet.create({
   activitySuggestionRow: {
     flex: 1,
     alignItems: 'center',
-    minHeight: 36,
+    // Match the icon button hit target so single-line titles feel vertically centered.
+    minHeight: 32,
   },
   activitySuggestionTitle: {
     // Match ActivityListItem title hierarchy (15pt semibold).
     ...typography.body,
     fontFamily: fonts.semibold,
     fontSize: 15,
-    lineHeight: 22,
+    // iOS: a slightly tighter lineHeight reads more vertically centered for single-line rows
+    // (while still leaving enough breathing room for 2-line wrapping).
+    lineHeight: Platform.OS === 'ios' ? 20 : 22,
     color: CHAT_COLORS.textPrimary,
-    flex: 1,
+    // IMPORTANT: don't use `flex: 1` here. It makes the Text stretch vertically and appear
+    // top-aligned inside the centered pressable, especially for single-line titles.
+    flexShrink: 1,
   },
   activitySuggestionTitlePressable: {
     flex: 1,
     justifyContent: 'center',
-    minHeight: 36,
+    minHeight: 32,
   },
   activitySuggestionTitleInput: {
     // Match the non-editing title style, but behave like an inline field.
     ...typography.body,
     fontFamily: fonts.semibold,
     fontSize: 15,
-    lineHeight: 22,
+    // iOS: keep single-line TextInput baselines visually centered in the fixed-height row.
+    // (Our display text uses a generous lineHeight for multi-line readability.)
+    lineHeight: Platform.OS === 'ios' ? 17 : 22,
     color: CHAT_COLORS.textPrimary,
     paddingVertical: 0,
     paddingHorizontal: 0,
     includeFontPadding: false,
+    ...(Platform.OS === 'android' ? ({ textAlignVertical: 'center' } as const) : null),
   },
   activitySuggestionsFooterRow: {
     marginTop: spacing.sm,
@@ -5107,7 +5361,7 @@ const styles = StyleSheet.create({
     backgroundColor: CHAT_COLORS.assistantBubble,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
-    ...(cardElevation.lift as object),
+    ...(cardElevation.composer as object),
     gap: spacing.sm,
   },
   goalDraftArcRow: {
@@ -5145,7 +5399,9 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   goalDraftTitleMeasure: {
-    ...typography.titleSm,
+    // Match the actual proposal title style so our line-measurement logic
+    // correctly detects when the title needs to wrap.
+    ...typography.titleMd,
     color: 'transparent',
     position: 'absolute',
     left: 0,
@@ -5167,17 +5423,20 @@ const styles = StyleSheet.create({
   goalProposalHeroWrapper: {
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: CHAT_COLORS.surface,
+    backgroundColor: colors.gray100,
   },
   goalProposalHeroImage: {
     width: '100%',
     height: 128,
     resizeMode: 'cover',
   },
-  goalProposalHeroFallback: {
+  goalProposalHeroImageHidden: {
+    opacity: 0,
+  },
+  goalProposalHeroSkeleton: {
     width: '100%',
     height: 128,
-    backgroundColor: CHAT_COLORS.surface,
+    backgroundColor: colors.gray100,
   },
   goalProposalTitleContainer: {
     paddingVertical: 2,
@@ -5191,27 +5450,46 @@ const styles = StyleSheet.create({
   },
   goalProposalDescriptionText: {
     ...typography.bodySm,
-    color: CHAT_COLORS.textSecondary,
+    // Proposal body copy should use our standard dark text color (not the pine-tinted secondary).
+    color: CHAT_COLORS.textPrimary,
   },
   goalProposalMetaRow: {
     marginTop: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+    // Standard label-above / field-below form treatment.
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.xs,
   },
   goalProposalMetaLabel: {
     ...typography.bodySm,
     color: CHAT_COLORS.textSecondary,
   },
-  goalProposalMetaValueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  goalProposalDateValueField: {
+    width: '100%',
   },
-  goalProposalMetaValueText: {
+  goalProposalDateValueText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
+  },
+  skeletonLineLg: {
+    height: 18,
+    borderRadius: 10,
+    backgroundColor: colors.gray100,
+    marginTop: spacing.md,
+    width: '86%',
+  },
+  skeletonLineMd: {
+    height: 14,
+    borderRadius: 10,
+    backgroundColor: colors.gray100,
+    marginTop: spacing.sm,
+    width: '92%',
+  },
+  skeletonPill: {
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: colors.gray100,
+    width: 110,
   },
   goalDraftButtonsRow: {
     flexDirection: 'row',

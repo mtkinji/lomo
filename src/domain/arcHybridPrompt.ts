@@ -36,12 +36,12 @@ export const HYBRID_ARC_HARD_CONSTRAINTS = [
  * How we want those 3 sentences to function.
  * We explicitly bake in the two concreteness requirements that improve rubric scores:
  * - an everyday scene
- * - a micro-behavior the user could do this week
+ * - a small concrete behavior cue (no explicit timeframe)
  */
 export const HYBRID_ARC_SENTENCE_ROLES = [
   'Sentence 1: Start with "I want…" and state the identity direction in plain language.',
   'Sentence 2: Why this matters now (use user signals; keep it specific).',
-  'Sentence 3: Include (a) one ordinary-life scene AND (b) one micro-behavior they could do this week. Make it easy to picture.',
+  'Sentence 3: Include (a) one ordinary-life scene AND (b) one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week"). Make it easy to picture.',
 ].join('\n');
 
 /**

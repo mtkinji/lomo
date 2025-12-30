@@ -222,6 +222,16 @@ export interface ActivityStep {
   id: string;
   title: string;
   /**
+   * When set, this step has been converted into (and now redirects to) a standalone Activity.
+   * The step remains in-place for plan continuity, but its completion becomes derived from
+   * the linked Activity and the row becomes a tappable redirect.
+   */
+  linkedActivityId?: string | null;
+  /**
+   * ISO timestamp for when this step was linked to an Activity.
+   */
+  linkedAt?: string;
+  /**
    * Optional micro-checklist items that are nice to do but not required for
    * completing the activity.
    */
@@ -338,6 +348,14 @@ export interface Activity {
   id: string;
   goalId: string | null;
   title: string;
+  /**
+   * Optional provenance so Activities created from other objects can link back to their origin.
+   */
+  origin?: {
+    kind: 'activity_step';
+    parentActivityId: string;
+    parentStepId: string;
+  };
   /**
    * High-level category of this activity (e.g. task vs shopping list vs recipe).
    * Used by planning views + AI to generate different *kinds* of helpful activity artifacts.

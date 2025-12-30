@@ -98,13 +98,22 @@ export const colors = {
 
   // Borderless input fill surfaces (used by `Input` variant="filled", `LongTextField` surfaceVariant="filled", etc).
   // Keep extremely subtle; rely on focus ring / pressed state for affordance.
-  fieldFill: '#FAFAF9', // sumi50
-  fieldFillPressed: '#F5F5F4', // sumi100
+  // Use the official neutral/brand gray scale (no pine tint).
+  fieldFill: '#F5F5F4', // gray100 / sumi100 (lighter, still separates from white canvas)
+  fieldFillPressed: '#E7E5E4', // gray200
 
   // Primary brand accent: kwilt green.
   accent: '#315545',
   // Muted accent: slightly softer/desaturated green for secondary fills (badges, info surfaces, etc.).
   accentMuted: '#3F6F5C',
+
+  /**
+   * Link / derived state tint.
+   * Used when an affordance represents a *relationship* (e.g. checklist step linked to an Activity),
+   * so it doesn't compete with the primary completion/success color.
+   */
+  linked: '#324966', // quiltBlue600 (darker, more confident semantic tint)
+  linkedForeground: '#FAFAFA',
 
   /**
    * AI brand tokens (used for AI actions like "AI Suggestion").

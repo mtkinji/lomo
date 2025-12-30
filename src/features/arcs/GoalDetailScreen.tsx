@@ -4,6 +4,7 @@ import {
   LayoutAnimation,
   StyleSheet,
   View,
+  ActivityIndicator,
   Platform,
   TextInput,
   TouchableOpacity,
@@ -133,6 +134,7 @@ export function GoalDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
+  const domainHydrated = useAppStore((state) => state.domainHydrated);
   const hasCompletedFirstTimeOnboarding = useAppStore((state) => state.hasCompletedFirstTimeOnboarding);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const pendingPostGoalPlanGuideGoalId = useAppStore((state) => state.pendingPostGoalPlanGuideGoalId);
@@ -155,10 +157,6 @@ export function GoalDetailScreen() {
   );
   const setHasDismissedOnboardingPlanReadyGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingPlanReadyGuide
-  );
-  const hasDismissedGoalVectorsGuide = useAppStore((state) => state.hasDismissedGoalVectorsGuide);
-  const setHasDismissedGoalVectorsGuide = useAppStore(
-    (state) => state.setHasDismissedGoalVectorsGuide
   );
   const hasSeenFirstGoalCelebration = useAppStore(
     (state) => state.hasSeenFirstGoalCelebration
@@ -440,13 +438,14 @@ export function GoalDetailScreen() {
   const addActivitiesButtonRef = useRef<View>(null);
   const [isAddActivitiesButtonReady, setIsAddActivitiesButtonReady] = useState(false);
   const [addActivitiesButtonOffset, setAddActivitiesButtonOffset] = useState<number | null>(null);
+  const vectorsSectionRef = useRef<View | null>(null);
+  const [vectorsSectionOffset, setVectorsSectionOffset] = useState<number | null>(null);
   /**
    * We only want to "spotlight" the + button when the user arrives to Plan via
    * the onboarding handoff (mirrors the Arc → Goals coachmark pattern).
    */
   const [shouldPromptAddActivity, setShouldPromptAddActivity] = useState(false);
-  const vectorsSectionRef = useRef<View>(null);
-  const [vectorsSectionOffset, setVectorsSectionOffset] = useState<number | null>(null);
+  const [hasTransitionedFromActivitiesGuide, setHasTransitionedFromActivitiesGuide] = useState(false);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
@@ -623,6 +622,13 @@ export function GoalDetailScreen() {
     // no-op placeholder; reserved for future debug instrumentation
   }, []);
 
+  useEffect(() => {
+    // Reset local handoff state when navigating between goals (or replaying onboarding)
+    // so the "Your new Goal is ready" guide can show again when eligible.
+    setHasTransitionedFromActivitiesGuide(false);
+    setShouldPromptAddActivity(false);
+  }, [goalId]);
+
   const arcOptions = useMemo<ObjectPickerOption[]>(() => {
     const list = [...arcs];
     list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
@@ -640,14 +646,18 @@ export function GoalDetailScreen() {
     [activities, goalId]
   );
   const isPlanEmpty = goalActivities.length === 0;
-  const shouldShowOnboardingActivitiesGuide =
+  const isOnboardingActivitiesHandoffEligible =
     goal?.id === lastOnboardingGoalId &&
     goalActivities.length === 0 &&
     !showFirstGoalCelebration &&
     !hasDismissedOnboardingActivitiesGuide;
 
+  const shouldShowOnboardingActivitiesGuide =
+    isOnboardingActivitiesHandoffEligible && !hasTransitionedFromActivitiesGuide;
+
   const shouldShowOnboardingActivitiesCoachmark =
-    shouldShowOnboardingActivitiesGuide &&
+    isOnboardingActivitiesHandoffEligible &&
+    hasTransitionedFromActivitiesGuide &&
     isAddActivitiesButtonReady &&
     shouldPromptAddActivity &&
     !activityCoachVisible &&
@@ -677,19 +687,21 @@ export function GoalDetailScreen() {
     hasAutoSwitchedToPlanRef.current = true;
     setShouldPromptAddActivity(true);
   }, [goal?.id, hasCompletedFirstTimeOnboarding, pendingPostGoalPlanGuideGoalId]);
-  const shouldShowGoalVectorsCoachmark =
-    Boolean(goal) &&
-    !hasDismissedGoalVectorsGuide &&
-    !showFirstGoalCelebration &&
-    !shouldShowOnboardingActivitiesGuide &&
-    !editingForces &&
-    !vectorsInfoVisible &&
-    !editModalVisible;
 
   const isAnyBottomGuideVisible =
     shouldShowOnboardingActivitiesGuide ||
     shouldShowPostGoalPlanGuide ||
     shouldShowOnboardingPlanReadyGuide;
+
+  const handleOpenActivityCoach = useCallback(() => {
+    // Once the user taps into the Activities creation surface, consider the
+    // onboarding "add activities" handoff complete so it doesn't re-appear.
+    if (isOnboardingActivitiesHandoffEligible) {
+      setHasDismissedOnboardingActivitiesGuide(true);
+    }
+    setShouldPromptAddActivity(false);
+    setActivityCoachVisible(true);
+  }, [isOnboardingActivitiesHandoffEligible, setHasDismissedOnboardingActivitiesGuide]);
 
   const onboardingActivitiesCoachmarkHost = useCoachmarkHost({
     active:
@@ -702,16 +714,7 @@ export function GoalDetailScreen() {
     scrollTo: (args) => scrollRef.current?.scrollTo(args),
   });
 
-  const goalVectorsCoachmarkHost = useCoachmarkHost({
-    active: shouldShowGoalVectorsCoachmark && !isAnyBottomGuideVisible && vectorsSectionOffset != null,
-    stepKey: 'goalVectors',
-    targetScrollY:
-      vectorsSectionOffset != null ? Math.max(0, vectorsSectionOffset - 120) : null,
-    scrollTo: (args) => scrollRef.current?.scrollTo(args),
-  });
-
-  const scrollEnabledWhileGuiding =
-    onboardingActivitiesCoachmarkHost.scrollEnabled && goalVectorsCoachmarkHost.scrollEnabled;
+  const scrollEnabledWhileGuiding = onboardingActivitiesCoachmarkHost.scrollEnabled;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -933,6 +936,26 @@ export function GoalDetailScreen() {
   const displayThumbnailUrl = goal?.thumbnailUrl ?? arc?.thumbnailUrl;
 
   if (!goal) {
+    if (!domainHydrated) {
+      return (
+        <AppShell>
+          <VStack space="md">
+            <Button
+              size="icon"
+              style={styles.backButton}
+              onPress={handleBack}
+              accessibilityLabel="Back"
+            >
+              <Icon name="arrowLeft" size={20} color={colors.canvas} />
+            </Button>
+            <View style={{ paddingTop: spacing.md }}>
+              <ActivityIndicator color={colors.textPrimary} />
+              <Text style={{ marginTop: spacing.lg }}>Loading Goal…</Text>
+            </View>
+          </VStack>
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
         <VStack space="md">
@@ -1607,7 +1630,8 @@ export function GoalDetailScreen() {
       >
         <Heading variant="sm">Your new Goal is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Next, add 1–3 Activities so you always know what to do next.
+          Next, we’ll add 1–3 Activities so you always know what to work on next — and we’ll use AI to help
+          plan them out (or you can switch to Manual).
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
@@ -1619,8 +1643,10 @@ export function GoalDetailScreen() {
           <Button
             variant="turmeric"
             onPress={() => {
+              // Mirror the first Arc handoff pattern: take the user to *where* the
+              // Activities CTA lives, then coachmark that CTA (no confirmation button).
+              setHasTransitionedFromActivitiesGuide(true);
               setShouldPromptAddActivity(true);
-              setActivityCoachVisible(true);
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
@@ -1714,35 +1740,8 @@ export function GoalDetailScreen() {
             already know you should do next).
           </Text>
         }
+        actions={[]}
         onDismiss={() => setHasDismissedOnboardingActivitiesGuide(true)}
-        placement="below"
-      />
-      <Coachmark
-        visible={Boolean(goalVectorsCoachmarkHost.coachmarkVisible && vectorsSectionRef.current)}
-        targetRef={vectorsSectionRef}
-        remeasureKey={goalVectorsCoachmarkHost.remeasureKey}
-        scrimToken="pineSubtle"
-        spotlight="hole"
-        spotlightPadding={spacing.xs}
-        spotlightRadius={18}
-        offset={spacing.xs}
-        highlightColor={colors.turmeric}
-        actionColor={colors.turmeric}
-        attentionPulse
-        attentionPulseDelayMs={2500}
-        attentionPulseDurationMs={12000}
-        title={<Text style={styles.goalCoachmarkTitle}>Vectors keep goals balanced</Text>}
-        body={
-          <Text style={styles.goalCoachmarkBody}>
-            These show which core dimensions this goal develops (Activity, Connection, Mastery,
-            Spirituality). Keeping them balanced helps you grow sustainably — not just in one
-            dimension.
-          </Text>
-        }
-        actions={[
-          { id: 'dismiss', label: 'Got it', variant: 'accent' },
-        ]}
-        onDismiss={() => setHasDismissedGoalVectorsGuide(true)}
         placement="below"
       />
       {editingForces && (
@@ -1961,7 +1960,7 @@ export function GoalDetailScreen() {
                         <Button
                           variant="ai"
                           size="sm"
-                          onPress={() => setActivityCoachVisible(true)}
+                          onPress={handleOpenActivityCoach}
                           accessibilityLabel="Plan activities with AI"
                         >
                           <HStack alignItems="center" space="xs">
@@ -1992,7 +1991,7 @@ export function GoalDetailScreen() {
                         ctaLabel="Add activities"
                         ctaVariant="inverse"
                         shadow="layered"
-                        onPressCta={() => setActivityCoachVisible(true)}
+                        onPressCta={handleOpenActivityCoach}
                         ctaAccessibilityLabel="Add activities"
                         style={styles.planValueCard}
                       />

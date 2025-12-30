@@ -37,9 +37,8 @@ export function getActivityHeaderArtworkFamily(activityType: ActivityType): Acti
     case 'plan':
       return 'indigo';
     default: {
-      // Exhaustive guard (ActivityType is intentionally extensible via `custom:${string}`).
-      const _exhaustive: never = activityType;
-      return _exhaustive;
+      // Defensive fallback: ActivityType is intentionally extensible via `custom:${string}`.
+      return 'pine';
     }
   }
 }

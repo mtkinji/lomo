@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import React from 'react';
 import {
   Animated,
@@ -19,6 +20,7 @@ import { Icon, type IconName } from './Icon';
 import Svg, { Circle } from 'react-native-svg';
 import Reanimated, {
   Easing as ReanimatedEasing,
+  type SharedValue,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
@@ -43,7 +45,7 @@ type ConfettiPillProps = {
   rotateDeg: number;
   color: string;
   ringSize: number;
-  confettiT: Reanimated.SharedValue<number>;
+  confettiT: SharedValue<number>;
 };
 
 function ConfettiPill({ dx, dy, rotateDeg, color, ringSize, confettiT }: ConfettiPillProps) {
@@ -101,9 +103,19 @@ type Props = {
    */
   leftItems: ActionDockItem[];
   /**
+   * Optional ref target for coachmarks/tutorials to spotlight the *entire* left dock pill.
+   * Note: target wrapper should be `collapsable={false}` so `measureInWindow` works on Android.
+   */
+  leftDockTargetRef?: RefObject<View | null>;
+  /**
    * Optional single right-side dock button (Notes-style compose).
    */
   rightItem?: ActionDockItem;
+  /**
+   * Optional ref target for coachmarks/tutorials to spotlight the right-side primary action button.
+   * Note: target wrapper should be `collapsable={false}` so `measureInWindow` works on Android.
+   */
+  rightDockTargetRef?: RefObject<View | null>;
   /**
    * Optional progress value (0..1) to render an inset ring inside the right-side dock button.
    * When omitted, no ring is rendered.
@@ -175,7 +187,9 @@ const RIGHT_ITEM_SIZE = 56;
 
 export function ActionDock({
   leftItems,
+  leftDockTargetRef,
   rightItem,
+  rightDockTargetRef,
   rightItemProgress,
   rightItemRingColor,
   rightItemBackgroundColor,
@@ -483,7 +497,11 @@ export function ActionDock({
     >
       <HStack alignItems="center" justifyContent="space-between">
         <View style={styles.dockShadow}>
-          <View style={styles.dock}>
+          <View
+            ref={leftDockTargetRef}
+            collapsable={false}
+            style={styles.dock}
+          >
             <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFillObject} />
             <View pointerEvents="none" style={styles.dockTint} />
             <HStack alignItems="center" justifyContent="space-between" style={styles.row}>
@@ -519,7 +537,12 @@ export function ActionDock({
 
         {rightItem ? (
           <View style={styles.dockShadow}>
-            <View pointerEvents="box-none" style={styles.rightButtonWrap}>
+            <View
+              ref={rightDockTargetRef}
+              collapsable={false}
+              pointerEvents="box-none"
+              style={styles.rightButtonWrap}
+            >
               <Pressable
                 testID={rightItem.testID}
                 accessibilityRole="button"

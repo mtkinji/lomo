@@ -123,6 +123,20 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
+  sectionCountBadge: {
+    // Give the count a bit more breathing room from the label (matches list-row badge rhythm).
+    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    borderRadius: 999,
+    alignSelf: 'center',
+  },
+  sectionCountBadgeText: {
+    fontSize: 12,
+    lineHeight: 14,
+    // Slightly tighter tracking to read as a small count token.
+    letterSpacing: 0.2,
+  },
   keyActionsInset: {
     // AppShell already provides the page gutter. Keep Key Actions aligned with the
     // rest of the Activity canvas (and avoid double-padding).
@@ -139,6 +153,29 @@ export const styles = StyleSheet.create({
     width: '100%',
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  originLinkRow: {
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.linked,
+    backgroundColor: colors.shellAlt,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    maxWidth: '100%',
+    overflow: 'hidden',
+  },
+  originLinkText: {
+    // Match "label" sizing without the uppercase/letterspacing so this reads as subtle provenance.
+    ...typography.label,
+    color: colors.linked,
+    textTransform: 'none',
+    letterSpacing: 0,
+    flexShrink: 1,
   },
   narrativeTypePillRow: {
     marginBottom: spacing.xs,
@@ -285,6 +322,14 @@ export const styles = StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: colors.accent,
   },
+  linkedCheckboxPlanned: {
+    borderColor: colors.linked,
+    backgroundColor: colors.canvas,
+  },
+  linkedCheckboxCompleted: {
+    borderColor: colors.linked,
+    backgroundColor: colors.linked,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,6 +427,10 @@ export const styles = StyleSheet.create({
     paddingVertical: 0,
     justifyContent: 'center',
   },
+  linkedStepRowContent: {
+    paddingVertical: 0,
+    justifyContent: 'flex-start',
+  },
   stepCheckbox: {
     width: 20,
     height: 20,
@@ -399,6 +448,23 @@ export const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
+  },
+  linkedStepTextBlock: {
+    width: '100%',
+  },
+  linkedStepTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  linkedStepTitleLinked: {
+    // Subtle "this is a link / derived" tint without adding extra words.
+    color: colors.linked,
+    fontFamily: fonts.medium,
+  },
+  linkedStepSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   stepOptionalPill: {
     paddingHorizontal: spacing.sm,

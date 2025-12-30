@@ -2,9 +2,11 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
+  InteractionManager,
   LayoutAnimation,
   View,
   Text,
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   TextInput,
@@ -18,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
+import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -32,6 +35,7 @@ import type {
   ActivityStep,
   ActivityType,
 } from '../../domain/types';
+import type { Activity } from '../../domain/types';
 import type {
   ActivitiesStackParamList,
 } from '../../navigation/RootNavigator';
@@ -99,8 +103,8 @@ type FocusSessionState =
     };
 
 type ActivityDetailRouteProp = RouteProp<
-  { ActivityDetail: ActivityDetailRouteParams },
-  'ActivityDetail'
+  { ActivityDetail: ActivityDetailRouteParams; ActivityDetailFromGoal: ActivityDetailRouteParams },
+  'ActivityDetail' | 'ActivityDetailFromGoal'
 >;
 
 type ActivityDetailNavigationProp = NativeStackNavigationProp<
@@ -120,7 +124,7 @@ export function ActivityDetailScreen() {
   const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
-  const { activityId, openFocus } = route.params;
+  const { activityId, openFocus } = route.params as ActivityDetailRouteParams;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const planExpanded = useAppStore((s) => s.activityDetailPlanExpanded);
   const detailsExpanded = useAppStore((s) => s.activityDetailDetailsExpanded);
@@ -155,11 +159,13 @@ export function ActivityDetailScreen() {
   const goals = useAppStore((state) => state.goals);
   const arcs = useAppStore((state) => state.arcs);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const domainHydrated = useAppStore((state) => state.domainHydrated);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
   const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
   // Activity detail uses the refresh layout only (legacy implementation removed).
+  const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
@@ -186,6 +192,29 @@ export function ActivityDetailScreen() {
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
     [activities, activityId],
+  );
+
+  const activitiesById = useMemo(() => {
+    const map: Record<string, Activity> = {};
+    for (const item of activities) {
+      map[item.id] = item;
+    }
+    return map;
+  }, [activities]);
+
+  const openActivityDetail = useCallback(
+    (nextActivityId: string) => {
+      const screenName = route.name === 'ActivityDetailFromGoal' ? 'ActivityDetailFromGoal' : 'ActivityDetail';
+      // Important: from inside ActivityDetail, we want the user to be able to go "back"
+      // to the previous Activity detail (e.g. when converting a checklist step into an Activity).
+      // `navigate` may reuse an existing route instance; `push` guarantees a new detail view.
+      (navigation as any).push(screenName, {
+        activityId: nextActivityId,
+        // Preserve entryPoint semantics when present (e.g., goalPlan back behavior).
+        entryPoint: (route.params as any)?.entryPoint,
+      });
+    },
+    [navigation, route.name, route.params]
   );
 
   const activityWorkspaceSnapshot = useMemo(() => {
@@ -432,19 +461,36 @@ export function ActivityDetailScreen() {
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
+  const actionDockLeftRef = useRef<View | null>(null);
+  const actionDockRightRef = useRef<View | null>(null);
   const finishMutationRef = useRef<{ completedAtStamp: string; stepIds: string[] } | null>(null);
   const [detailGuideStep, setDetailGuideStep] = useState(0);
   const [isTitleStepsBundleReady, setIsTitleStepsBundleReady] = useState(false);
   const [isScheduleCardReady, setIsScheduleCardReady] = useState(false);
+  const [isActionDockReady, setIsActionDockReady] = useState(false);
   const [titleStepsBundleOffset, setTitleStepsBundleOffset] = useState<number | null>(null);
   const [scheduleCardOffset, setScheduleCardOffset] = useState<number | null>(null);
 
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
-    } else {
-      navigation.navigate('ActivitiesList');
+      return;
     }
+
+    // Fallback for deep links / cold opens: if this Activity was created from a checklist step,
+    // prefer returning to the parent Activity detail rather than dumping the user into the list.
+    const origin = (activity as any)?.origin;
+    const parentActivityId = origin?.kind === 'activity_step' ? origin?.parentActivityId : null;
+    if (parentActivityId) {
+      const screenName = route.name === 'ActivityDetailFromGoal' ? 'ActivityDetailFromGoal' : 'ActivityDetail';
+      (navigation as any).navigate(screenName, {
+        activityId: parentActivityId,
+        entryPoint: (route.params as any)?.entryPoint,
+      });
+      return;
+    }
+
+    navigation.navigate('ActivitiesList');
   };
 
   const canSendTo = useMemo(() => {
@@ -587,8 +633,20 @@ export function ActivityDetailScreen() {
   };
 
   if (!activity) {
+    if (!domainHydrated) {
+      return (
+        <AppShell>
+          <PageHeader title="Activity" onPressBack={handleBackToActivities} />
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={colors.textPrimary} />
+            <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading activity…</Text>
+          </View>
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
+        <PageHeader title="Activity" onPressBack={handleBackToActivities} />
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>Activity not found</Text>
           <Text style={styles.emptyBody}>
@@ -611,6 +669,14 @@ export function ActivityDetailScreen() {
     lastOnboardingGoalId && activity.goalId === lastOnboardingGoalId
   );
 
+  const detailGuideStepCount = 4;
+  const detailGuideStepReady = (() => {
+    if (detailGuideStep === 0) return isTitleStepsBundleReady;
+    if (detailGuideStep === 1) return isScheduleCardReady;
+    // Dock steps: require the dock to be mounted (it is hidden while keyboard/editing UI is active).
+    return isActionDockReady;
+  })();
+
   const shouldShowDetailGuide =
     isFocused &&
     isOnboardingActivity &&
@@ -622,17 +688,19 @@ export function ActivityDetailScreen() {
     !dueDateSheetVisible &&
     !repeatSheetVisible &&
     !estimateSheetVisible &&
-    (detailGuideStep === 0 ? isTitleStepsBundleReady : isScheduleCardReady);
+    detailGuideStepReady;
 
   const detailGuideTargetScrollY = useMemo(() => {
     if (detailGuideStep === 0) return 0;
-    return scheduleCardOffset != null ? Math.max(0, scheduleCardOffset - 120) : null;
+    if (detailGuideStep === 1) {
+      return scheduleCardOffset != null ? Math.max(0, scheduleCardOffset - 120) : null;
+    }
+    // Dock targets are fixed to the bottom of the viewport; no scroll needed.
+    return null;
   }, [detailGuideStep, scheduleCardOffset]);
 
-  const detailGuideStepReady = detailGuideStep === 0 || scheduleCardOffset != null;
-
   const detailGuideHost = useCoachmarkHost({
-    active: shouldShowDetailGuide && detailGuideStepReady,
+    active: shouldShowDetailGuide,
     stepKey: detailGuideStep,
     targetScrollY: detailGuideTargetScrollY,
     scrollTo: (args) => scrollRef.current?.scrollTo(args),
@@ -643,12 +711,35 @@ export function ActivityDetailScreen() {
     setDetailGuideStep(0);
   };
 
-  const detailGuideTargetRef = detailGuideStep === 0 ? titleStepsBundleRef : scheduleAndPlanningCardRef;
-  const detailGuideTitle = detailGuideStep === 0 ? 'Edit + complete here' : 'Schedule + plan';
-  const detailGuideBody =
-    detailGuideStep === 0
-      ? 'Check steps to make progress—when all steps are checked, the Activity is complete. Tap the bottom-right button to finish remaining steps fast; tap again to undo that finish.'
-      : 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
+  const detailGuideTargetRef = (() => {
+    if (detailGuideStep === 0) return titleStepsBundleRef;
+    if (detailGuideStep === 1) return scheduleAndPlanningCardRef;
+    if (detailGuideStep === 2) return actionDockLeftRef;
+    return actionDockRightRef;
+  })();
+
+  const detailGuideTitle = (() => {
+    if (detailGuideStep === 0) return 'Edit + complete here';
+    if (detailGuideStep === 1) return 'Schedule + plan';
+    if (detailGuideStep === 2) return 'Quick actions';
+    return 'Finish fast';
+  })();
+
+  const detailGuideBody = (() => {
+    if (detailGuideStep === 0) {
+      return 'Check steps to make progress—when all steps are checked, the Activity is complete. Tap the bottom-right button to finish remaining steps fast; tap again to undo that finish.';
+    }
+    if (detailGuideStep === 1) {
+      return 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
+    }
+    if (detailGuideStep === 2) {
+      return 'Use the left action dock for common shortcuts like Focus mode, Calendar, Send to… (when available), and AI help.';
+    }
+    return 'Use the bottom-right button to mark the activity done (or undo). When your steps are complete, you’ll see the progress ring fill and the button celebrate.';
+  })();
+
+  const detailGuidePlacement = detailGuideStep >= 2 ? 'above' : 'below';
+  const detailGuideIsFinalStep = detailGuideStep >= detailGuideStepCount - 1;
 
   const handleDoneEditing = () => {
     // Prefer blurring the known inline inputs first so their onBlur commits fire.
@@ -1437,50 +1528,64 @@ export function ActivityDetailScreen() {
   };
 
   const applyStepUpdate = (updater: (current: ActivityStep[]) => ActivityStep[]) => {
-    const timestamp = new Date().toISOString();
-    let markedDone = false;
-    let nextLocalSteps: ActivityStep[] = [];
-
-    updateActivity(activity.id, (prev) => {
-      const currentSteps = prev.steps ?? [];
-      const nextSteps = updater(currentSteps);
-      nextLocalSteps = nextSteps;
-      const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
-        prev.status,
-        nextSteps,
-        timestamp,
-        prev.completedAt
-      );
-
-      if (prev.status !== 'done' && nextStatus === 'done') {
-        markedDone = true;
-      }
-
-      return {
-        ...prev,
-        steps: nextSteps,
-        status: nextStatus,
-        completedAt: nextCompletedAt ?? prev.completedAt ?? null,
-        updatedAt: timestamp,
-      };
-    });
-
+    // Important: Persisting the app store currently serializes a large object to AsyncStorage.
+    // Doing that synchronously in the press handler can delay the visual checkmark update.
+    // We apply the change locally first (instant UI feedback) and defer the persisted store
+    // write until after interactions so touches feel snappy.
+    const localCurrent = stepsDraft ?? [];
+    const nextLocalSteps = updater(localCurrent);
     setStepsDraft(nextLocalSteps);
 
-    if (markedDone) {
-      recordShowUp();
-      capture(AnalyticsEvent.ActivityCompletionToggled, {
-        source: 'activity_detail',
-        activity_id: activity.id,
-        goal_id: activity.goalId ?? null,
-        next_status: 'done',
-        had_steps: Boolean(nextLocalSteps.length > 0),
+    // Defer the heavier store update/persistence.
+    InteractionManager.runAfterInteractions(() => {
+      const timestamp = new Date().toISOString();
+      let markedDone = false;
+      let hadSteps = false;
+
+      updateActivity(activity.id, (prev) => {
+        const currentSteps = prev.steps ?? [];
+        const nextSteps = updater(currentSteps);
+        hadSteps = nextSteps.length > 0;
+        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
+          prev.status,
+          nextSteps,
+          timestamp,
+          prev.completedAt
+        );
+
+        if (prev.status !== 'done' && nextStatus === 'done') {
+          markedDone = true;
+        }
+
+        return {
+          ...prev,
+          steps: nextSteps,
+          status: nextStatus,
+          // Important: allow un-finishing to clear completedAt (don't keep the prior stamp).
+          completedAt: nextCompletedAt,
+          updatedAt: timestamp,
+        };
       });
-    }
+
+      if (markedDone) {
+        recordShowUp();
+        capture(AnalyticsEvent.ActivityCompletionToggled, {
+          source: 'activity_detail',
+          activity_id: activity.id,
+          goal_id: activity.goalId ?? null,
+          next_status: 'done',
+          had_steps: hadSteps,
+        });
+      }
+    });
   };
 
   const handleToggleStepComplete = (stepId: string) => {
     const existing = (stepsDraft ?? []).find((s) => s.id === stepId);
+    if (existing?.linkedActivityId) {
+      // Linked steps mirror completion from the target Activity and are not directly checkable here.
+      return;
+    }
     // Marking a step complete is meaningful progress; count it as "showing up".
     if (existing && !existing.completedAt) {
       recordShowUp();
@@ -1506,6 +1611,110 @@ export function ActivityDetailScreen() {
   const handleRemoveStep = (stepId: string) => {
     applyStepUpdate((steps) => steps.filter((step) => step.id !== stepId));
   };
+
+  const handleConvertStepToActivity = useCallback(
+    (stepId: string) => {
+      const step = (stepsDraft ?? []).find((s) => s.id === stepId) ?? null;
+      if (!step) return;
+      if (step.linkedActivityId) {
+        // Already linked; just open the existing Activity.
+        if (step.linkedActivityId) openActivityDetail(step.linkedActivityId);
+        return;
+      }
+      const trimmedTitle = (step.title ?? '').trim();
+      if (!trimmedTitle) return;
+
+      const timestamp = new Date().toISOString();
+      const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const nextActivity: Activity = {
+        id,
+        goalId: activity.goalId ?? null,
+        title: trimmedTitle,
+        type: 'task',
+        tags: [],
+        notes: undefined,
+        steps: [],
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: null,
+        creationSource: 'manual',
+        planGroupId: null,
+        scheduledDate: null,
+        scheduledAt: null,
+        repeatRule: undefined,
+        repeatCustom: undefined,
+        orderIndex: (activities.length || 0) + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        aiPlanning: undefined,
+        forceActual: {},
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        origin: {
+          kind: 'activity_step',
+          parentActivityId: activity.id,
+          parentStepId: stepId,
+        },
+      };
+
+      recordShowUp();
+      addActivity(nextActivity);
+      // Replace the step with a linked redirect row (completion becomes derived).
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        steps: (prev.steps ?? []).map((s) =>
+          s.id === stepId ? { ...s, linkedActivityId: id, linkedAt: timestamp, completedAt: null } : s
+        ),
+        updatedAt: timestamp,
+      }));
+
+      openActivityDetail(id);
+    },
+    [activities.length, activity.goalId, activity.id, addActivity, openActivityDetail, recordShowUp, stepsDraft, updateActivity]
+  );
+
+  const handleUnlinkStepActivity = useCallback(
+    (stepId: string) => {
+      const step = (stepsDraft ?? []).find((s) => s.id === stepId) ?? null;
+      const linkedActivityId = step?.linkedActivityId ?? null;
+      if (!linkedActivityId) return;
+
+      Alert.alert(
+        'Unlink activity?',
+        'This will turn the row back into a normal checklist step. The linked activity will remain.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unlink',
+            style: 'destructive',
+            onPress: () => {
+              const timestamp = new Date().toISOString();
+              updateActivity(activity.id, (prev) => ({
+                ...prev,
+                steps: (prev.steps ?? []).map((s) =>
+                  s.id === stepId
+                    ? { ...s, linkedActivityId: null, linkedAt: undefined, completedAt: null }
+                    : s
+                ),
+                updatedAt: timestamp,
+              }));
+              // Best-effort: clear provenance on the child activity so it no longer points back.
+              updateActivity(linkedActivityId, (prev) => ({
+                ...prev,
+                origin: undefined,
+                updatedAt: timestamp,
+              }));
+            },
+          },
+        ]
+      );
+    },
+    [activity.id, stepsDraft, updateActivity]
+  );
 
   const handleAddStep = () => {
     const newStep: ActivityStep = {
@@ -1896,6 +2105,14 @@ export function ActivityDetailScreen() {
 
   useEffect(() => {
     const next = typeof actionDockRightProgress === 'number' && Number.isFinite(actionDockRightProgress) ? actionDockRightProgress : 0;
+    // Only emit completion celebration/toast while this screen is actually visible.
+    // When we `push` into another ActivityDetail (e.g. after converting a linked step),
+    // the parent ActivityDetail remains mounted underneath; without this guard it can
+    // schedule a duplicate toast.
+    if (!isFocused) {
+      prevProgressRef.current = next;
+      return;
+    }
     if (!hasInitializedProgressRef.current) {
       // Establish baseline for this activity's current completion state.
       // This prevents a fully-complete activity from triggering celebration just by opening it.
@@ -1921,7 +2138,17 @@ export function ActivityDetailScreen() {
       }, 900);
     }
     prevProgressRef.current = next;
-  }, [actionDockRightProgress, activityTypeLabel, showToast]);
+  }, [actionDockRightProgress, activityTypeLabel, isFocused, showToast]);
+
+  useEffect(() => {
+    // If we leave this screen (push/blur), cancel any queued completion toast.
+    // This prevents delayed toasts from firing after the user has navigated away.
+    if (isFocused) return;
+    if (completionToastTimeoutRef.current) {
+      clearTimeout(completionToastTimeoutRef.current);
+      completionToastTimeoutRef.current = null;
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     // Pulse the center count only on single-step toggles while in partial completion.
@@ -2091,6 +2318,51 @@ export function ActivityDetailScreen() {
     setStepsDraft(activity.steps ?? []);
   }, [activity.title, activity.notes, activity.steps, activity.id]);
 
+  useEffect(() => {
+    // Keep linked-step completion mirrored with the target activity so both UI and
+    // parent-activity status derivation stay consistent across screens.
+    const currentSteps = activity.steps ?? [];
+    if (currentSteps.length === 0) return;
+    const hasLinked = currentSteps.some((s) => !!s.linkedActivityId);
+    if (!hasLinked) return;
+
+    let didChange = false;
+    const timestamp = new Date().toISOString();
+    const nextSteps = currentSteps.map((s) => {
+      const linkedId = s.linkedActivityId ?? null;
+      if (!linkedId) return s;
+      const linked = activitiesById[linkedId] ?? null;
+      const isLinkedDone = Boolean(linked && (linked.status === 'done' || linked.completedAt));
+      const nextCompletedAt = isLinkedDone ? s.completedAt ?? linked?.completedAt ?? timestamp : null;
+      if ((s.completedAt ?? null) === (nextCompletedAt ?? null)) return s;
+      didChange = true;
+      return { ...s, completedAt: nextCompletedAt };
+    });
+
+    if (!didChange) return;
+
+    // Defer this writeback so it can't block the user's tap/scroll interactions.
+    InteractionManager.runAfterInteractions(() => {
+      updateActivity(activity.id, (prev) => {
+        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
+          prev.status,
+          nextSteps,
+          timestamp,
+          prev.completedAt
+        );
+        return {
+          ...prev,
+          steps: nextSteps,
+          status: nextStatus,
+          // Important: allow linked-step sync to clear completedAt when the child is un-completed.
+          completedAt: nextCompletedAt,
+          updatedAt: timestamp,
+        };
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity.id, activity.steps, activitiesById, updateActivity]);
+
   const togglePlanExpanded = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     togglePlanExpandedInStore();
@@ -2146,9 +2418,13 @@ export function ActivityDetailScreen() {
               setIsTitleStepsBundleReady={setIsTitleStepsBundleReady}
               setTitleStepsBundleOffset={setTitleStepsBundleOffset}
               stepsDraft={stepsDraft}
+              activitiesById={activitiesById}
+              openActivityDetail={openActivityDetail}
               handleToggleStepComplete={handleToggleStepComplete}
               handleRemoveStep={handleRemoveStep}
               handleChangeStepTitle={handleChangeStepTitle}
+              handleConvertStepToActivity={handleConvertStepToActivity}
+              handleUnlinkStepActivity={handleUnlinkStepActivity}
               beginAddStepInline={beginAddStepInline}
               isAddingStepInline={isAddingStepInline}
               newStepInputRef={newStepInputRef}
@@ -2217,7 +2493,10 @@ export function ActivityDetailScreen() {
                   onLayout={(e) => {
                     const y = e?.nativeEvent?.layout?.y;
                     if (typeof y === 'number' && Number.isFinite(y)) setActionDockLayoutY(y);
+                    if (!isActionDockReady) setIsActionDockReady(true);
                   }}
+                  leftDockTargetRef={actionDockLeftRef}
+                  rightDockTargetRef={actionDockRightRef}
                   leftItems={[
                     {
                       id: 'focus',
@@ -2327,12 +2606,12 @@ export function ActivityDetailScreen() {
         attentionPulseDurationMs={15000}
         title={<Text style={styles.detailGuideTitle}>{detailGuideTitle}</Text>}
         body={<Text style={styles.detailGuideBody}>{detailGuideBody}</Text>}
-        progressLabel={`${detailGuideStep + 1} of 2`}
+        progressLabel={`${detailGuideStep + 1} of ${detailGuideStepCount}`}
         actions={[
           { id: 'skip', label: 'Skip', variant: 'outline' },
           {
-            id: detailGuideStep === 0 ? 'next' : 'done',
-            label: detailGuideStep === 0 ? 'Next' : 'Got it',
+            id: detailGuideIsFinalStep ? 'done' : 'next',
+            label: detailGuideIsFinalStep ? 'Got it' : 'Next',
             variant: 'accent',
           },
         ]}
@@ -2342,13 +2621,13 @@ export function ActivityDetailScreen() {
             return;
           }
           if (actionId === 'next') {
-            setDetailGuideStep(1);
+            setDetailGuideStep((s) => Math.min(detailGuideStepCount - 1, s + 1));
             return;
           }
           dismissDetailGuide();
         }}
         onDismiss={dismissDetailGuide}
-        placement="below"
+        placement={detailGuidePlacement}
       />
 
       <BottomDrawer

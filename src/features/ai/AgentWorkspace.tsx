@@ -21,7 +21,7 @@ import { IdentityAspirationFlow } from '../onboarding/IdentityAspirationFlow';
 import { ArcCreationFlow } from '../arcs/ArcCreationFlow';
 import { GoalCreationFlow } from '../goals/GoalCreationFlow';
 import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
-import { sendCoachChat } from '../../services/ai';
+import { getOpenAiQuotaExceededStatus, sendCoachChat } from '../../services/ai';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { PaywallContent } from '../paywall/PaywallDrawer';
@@ -223,6 +223,15 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   }, [launchContext.source]);
 
   const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
+  const [hasAiQuotaExceeded, setHasAiQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    // If dev tooling (or time-based proxy retryAt) clears the global quota flag,
+    // un-pin the local quota state so the paywall disappears immediately.
+    if (hasAiQuotaExceeded && aiCreditsRemaining > 0 && !getOpenAiQuotaExceededStatus()) {
+      setHasAiQuotaExceeded(false);
+    }
+  }, [aiCreditsRemaining, hasAiQuotaExceeded]);
 
   const launchContextText = useMemo(() => {
     const base = serializeLaunchContext(launchContext);
@@ -416,6 +425,20 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         const reply = await sendCoachChat([...history, ...stepGuidanceTurns], coachOptions);
         controller.streamAssistantReplyFromWorkflow(reply, 'assistant-workflow');
       } catch (error) {
+        const message = String((error as any)?.message ?? '');
+        const lower = message.toLowerCase();
+        const isQuotaExceeded =
+          getOpenAiQuotaExceededStatus() ||
+          lower.includes('quota_exceeded') ||
+          lower.includes('monthly quota exceeded') ||
+          lower.includes('openai quota exceeded');
+
+        if (isQuotaExceeded) {
+          setHasAiQuotaExceeded(true);
+          props.onTransportError?.();
+          throw error;
+        }
+
         controller.streamAssistantReplyFromWorkflow(
           'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
           'assistant-error-workflow'
@@ -590,7 +613,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   // introduce real workflow instances and richer card rendering, this
   // component remains the primary host for all AI workflows and their single
   // shared chat surface.
-  if (aiCreditsRemaining <= 0) {
+  if (aiCreditsRemaining <= 0 || hasAiQuotaExceeded || (!__DEV__ && getOpenAiQuotaExceededStatus())) {
     const modeLabel = effectiveMode
       ? (WORKFLOW_REGISTRY as Record<string, WorkflowDefinition | undefined>)[effectiveMode]?.label
       : undefined;

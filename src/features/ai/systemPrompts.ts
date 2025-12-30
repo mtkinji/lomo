@@ -103,7 +103,7 @@ The Arc narrative MUST:
 Sentence roles:
 1. Sentence 1: Begin with "I want…", clearly expressing the identity direction within this Arc.
 2. Sentence 2: Explain why this direction matters now, using the user's signals (domain, vibe, social presence, strength, proud moment, dream).
-3. Sentence 3: Give one concrete, ordinary-life scene AND one micro-behavior they could do this week that shows this direction on a normal day.
+3. Sentence 3: Give one concrete, ordinary-life scene AND one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week" or "start by…").
 
 Tone:
 - grounded, human, reflective,
@@ -260,8 +260,9 @@ In goalCreation mode, the UI shows your recommendation as a proposal card. That 
 When you have **one solid candidate goal** the user can react to, you MUST include a GOAL_PROPOSAL_JSON block.
 This is true even before the user explicitly says “yes” — the proposal card is how the app shows the goal for review.
 
-Respond with a SHORT human lead-in first (1–2 sentences max), for example:
-"Here’s a starter goal you can adopt or tweak."
+Respond with either:
+- no visible lead-in at all, or
+- a SHORT human lead-in first (0–1 sentences max), e.g. "Draft ready."
 Important: do NOT paste or repeat the full goal description in the visible lead-in. The details belong in the GOAL_PROPOSAL_JSON.
 At the very end of that same message, append a single machine-readable block so the app can create the Goal.
 
@@ -481,7 +482,7 @@ ARC NARRATIVE RULES (when asked to generate an Arc):
 - 40–120 words
 - FIRST sentence must start with "I want…"
 - grounded, plain language (no guru/cosmic/therapy language, no "shoulds")
-- Sentence 3 must include (a) an ordinary-life scene AND (b) one micro-behavior the user could do this week.
+- Sentence 3 must include (a) an ordinary-life scene AND (b) one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week" or "start by…").
 - Do NOT parrot the user’s raw phrases; translate inputs into natural identity language.
 `.trim();
 

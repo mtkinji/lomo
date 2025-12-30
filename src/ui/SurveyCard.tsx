@@ -3,7 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Button } from './Button';
 import { HStack, VStack, ButtonLabel, Text } from './primitives';
 import { QuestionCard } from './QuestionCard';
-import { colors, spacing } from '../theme';
+import { cardElevation, colors, spacing } from '../theme';
 
 export type SurveyStep = {
   id: string;
@@ -19,6 +19,7 @@ export type SurveyStep = {
 
 type SurveyCardVariant = 'stacked' | 'flat';
 type SurveyCardMode = 'active' | 'completed';
+type ShadowSafetyMode = 'alignToCanvas' | 'guaranteeNoClip';
 
 type SurveyCardProps = {
   steps: SurveyStep[];
@@ -54,6 +55,27 @@ type SurveyCardProps = {
    * actions (active mode) or completion badge (completed mode).
    */
   footerRight?: ReactNode;
+  /**
+   * Controls how aggressively SurveyCard insets itself horizontally to avoid shadow clipping.
+   *
+   * - "alignToCanvas" (default): match AppShell's canvas gutter (spacing.sm) so the card edge
+   *   aligns with the app shell. Note: in hosts that clip rounded corners via `overflow: hidden`
+   *   (e.g. drawers/sheets), large shadows like `composer` can still clip if the host doesn't
+   *   provide enough horizontal gutter.
+   * - "guaranteeNoClip": increase horizontal inset to at least the largest shadow radius used
+   *   by the front/behind cards (so it won't clip even inside overflow-hidden hosts).
+   */
+  shadowSafety?: ShadowSafetyMode;
+  /**
+   * Elevation for the front (white) card.
+   * Defaults to "lift" (stronger than "soft" but less spread than "composer").
+   */
+  frontElevation?: keyof typeof cardElevation;
+  /**
+   * Shadow token for the behind (muted) rotated card.
+   * Defaults to "composer" for the strongest "sheet under sheet" look.
+   */
+  behindElevation?: keyof typeof cardElevation;
   style?: StyleProp<ViewStyle>;
   cardStyle?: StyleProp<ViewStyle>;
 };
@@ -73,6 +95,9 @@ export function SurveyCard({
   completedLabel = 'Completed',
   footerLeft,
   footerRight,
+  shadowSafety = 'alignToCanvas',
+  frontElevation = 'lift',
+  behindElevation = 'composer',
   style,
   cardStyle,
 }: SurveyCardProps) {
@@ -91,17 +116,26 @@ export function SurveyCard({
   const resolvedStepLabel =
     stepLabel ?? (isCompleted ? completedLabel : `${safeIndex + 1} of ${totalSteps}`);
 
+  const canvasGutterPx = spacing.sm;
+  const frontShadowRadius = cardElevation[frontElevation]?.shadowRadius ?? 0;
+  const behindShadowRadius = cardElevation[behindElevation]?.shadowRadius ?? 0;
+  const requiredInsetPx =
+    shadowSafety === 'guaranteeNoClip'
+      ? Math.max(canvasGutterPx, frontShadowRadius, behindShadowRadius)
+      : canvasGutterPx;
+  const behindShadowStyle = cardElevation[behindElevation] as ViewStyle | undefined;
+
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, { paddingHorizontal: requiredInsetPx }, style]}>
       <View style={styles.deck}>
         {variant === 'stacked' ? (
-          <View pointerEvents="none" style={styles.behindCard} />
+          <View pointerEvents="none" style={[styles.behindCard, behindShadowStyle]} />
         ) : null}
 
         <QuestionCard
           title={step.title}
           titleAccessory={step.titleAccessory}
-          elevation="raised"
+          elevation={frontElevation}
           style={[styles.frontCard, cardStyle]}
         >
           <VStack space="md">
@@ -152,9 +186,7 @@ export function SurveyCard({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    // Keep the front card inset so the rotated behind card has room to “peek”
-    // on the left/right (no negative margins).
-    paddingHorizontal: spacing.lg,
+    // Horizontal inset is computed dynamically (see `shadowSafety`).
     paddingVertical: spacing.sm,
     // Extra separation from the content above so the behind card doesn't
     // visually collide with prior bubbles.
@@ -178,11 +210,7 @@ const styles = StyleSheet.create({
     // Flat “paper” behind (no border/shadow).
     borderWidth: 0,
     borderColor: 'transparent',
-    // shadowColor: '#0F172A',
-    // shadowOpacity: 0.035,
-    // shadowOffset: { width: 0, height: 5 },
-    // shadowRadius: 14,
-    elevation: 2,
+    // Shadow style is computed dynamically from `behindElevation`.
     transform: [
       // Clockwise tilt
       { rotate: '3.5deg' },

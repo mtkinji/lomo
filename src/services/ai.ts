@@ -10,6 +10,7 @@ import { mockGenerateArcs } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../store/useAppStore';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
+import { useCreditsInterstitialStore } from '../store/useCreditsInterstitialStore';
 import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import { getInstallId } from './installId';
 import type { ChatMode } from '../features/ai/workflowRegistry';
@@ -1988,12 +1989,30 @@ export async function generateArcBannerVibeQuery(
   const narrative = input.arcNarrative ? richTextToPlainText(input.arcNarrative).trim() : '';
   const goalTitles = (input.goalTitles ?? []).map((g) => g.trim()).filter(Boolean).slice(0, 8);
 
+  const buildLocalFallbackQuery = (): string | null => {
+    // Keep it short and "search friendly". If we don't have usable text, return null so callers
+    // can fall back to curated imagery.
+    const base = arcName || (goalTitles[0] ?? '');
+    const cleaned = String(base)
+      .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!cleaned) return null;
+    return cleaned.split(' ').slice(0, 5).join(' ');
+  };
+
   devLog('bannerVibe:init', {
     arcName,
     narrativePreview: previewText(narrative),
     goalCount: goalTitles.length,
     apiKey: describeKey(apiKey),
   });
+
+  // If quota is already marked as exceeded, do not keep spamming the proxy; just return a
+  // local fallback query so the rest of the UX can proceed (Unsplash + curated fallback).
+  if (isAiQuotaBlocked()) {
+    return buildLocalFallbackQuery();
+  }
 
   if (!apiKey) {
     return null;
@@ -2054,6 +2073,10 @@ Return one photo-library search phrase that matches the Arc's vibe.
       status: response.status,
       fullResponse: error.raw,
     });
+    // If quota exceeded, mark it so subsequent calls stop spamming, then fall back locally.
+    if (markOpenAiQuotaExceeded('bannerVibe', response.status, errorText, apiKey)) {
+      return buildLocalFallbackQuery();
+    }
     return null;
   }
 
@@ -2371,6 +2394,9 @@ export async function sendCoachChat(
     // If this came from the Kwilt AI proxy (per-day quota), treat it as a user-facing limit,
     // not a billing outage.
     if (KWILT_PROXY_QUOTA_RETRY_AT) {
+      if (!isProductionEnvironment()) {
+        return buildDevMockCoachChatReply(messages, options);
+      }
       const isPro = useEntitlementsStore.getState().isPro;
       throw new Error(
         isPro
@@ -2385,10 +2411,8 @@ export async function sendCoachChat(
           'This is a critical production issue that requires immediate attention.'
       );
     }
-    // In dev, provide a helpful error message
-    throw new Error(
-      'OpenAI quota exceeded. Switch Arc Testing scoring to Heuristic, or add billing / a key with quota.'
-    );
+    // In dev, fall back to a mock reply so product flows can still be exercised.
+    return buildDevMockCoachChatReply(messages, options);
   }
   
   const apiKey = resolveOpenAiApiKey();
@@ -2425,6 +2449,24 @@ export async function sendCoachChat(
       throw new Error('Generative credits exhausted');
     }
   }
+
+  const maybeTriggerOnboardingCreditsTutorial = () => {
+    if (!isFirstTimeOnboarding) return;
+    const state = useAppStore.getState();
+    if (state.hasSeenCreditsEducationInterstitial) return;
+    try {
+      state.setHasSeenCreditsEducationInterstitial(true);
+      setTimeout(() => {
+        try {
+          useCreditsInterstitialStore.getState().open({ kind: 'education', spentCredits: 1 });
+        } catch {
+          // best-effort only
+        }
+      }, 250);
+    } catch {
+      // best-effort only
+    }
+  };
 
   const baseSystemPrompt =
     'You are kwilt Coach, a calm, practical life architecture coach. ' +
@@ -2597,6 +2639,11 @@ export async function sendCoachChat(
     const error = parseOpenAiError(errorText);
     
     if (markOpenAiQuotaExceeded('coachChat', response.status, errorText, apiKey)) {
+      // In development, degrade gracefully to mock replies so the app can still be exercised
+      // even when the proxy or account quota is exhausted.
+      if (!isProductionEnvironment()) {
+        return buildDevMockCoachChatReply(messages, options);
+      }
       throw new Error(`OpenAI quota exceeded: ${error.message}`);
     }
     
@@ -2699,6 +2746,7 @@ export async function sendCoachChat(
     });
 
     scheduleConversationSummaryMaintenance();
+    maybeTriggerOnboardingCreditsTutorial();
     return content as string;
   }
 
@@ -2820,7 +2868,132 @@ export async function sendCoachChat(
   });
 
   scheduleConversationSummaryMaintenance();
+  maybeTriggerOnboardingCreditsTutorial();
   return finalContent as string;
+}
+
+function buildDevMockCoachChatReply(messages: CoachChatTurn[], options?: CoachChatOptions): string {
+  const mode = options?.mode ?? 'default';
+  const stepId = options?.workflowStepId ?? null;
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content?.trim() ?? '';
+
+  // Keep this deterministic-ish but "fresh" enough for UI testing.
+  const now = new Date();
+  const target = new Date(now);
+  target.setDate(target.getDate() + 30);
+  const targetDate = target.toISOString().slice(0, 10);
+
+  if (mode === 'goalCreation') {
+    const title = lastUser ? `Make progress on: ${lastUser.slice(0, 48)}` : 'Draft a starter goal';
+    const safeTitle = title.length > 72 ? `${title.slice(0, 69)}…` : title;
+    return [
+      'Draft ready.',
+      '',
+      'GOAL_PROPOSAL_JSON:',
+      JSON.stringify(
+        {
+          title: safeTitle,
+          description:
+            'A dev mock goal (AI quota exceeded). Edit this title/description, then adopt when ready.',
+          status: 'planned',
+          targetDate,
+          suggestedArcName: null,
+          forceIntent: {
+            'force-activity': 1,
+            'force-connection': 1,
+            'force-mastery': 1,
+            'force-spirituality': 0,
+          },
+        },
+        null,
+        0
+      ),
+    ].join('\n');
+  }
+
+  if (mode === 'arcCreation') {
+    return [
+      'Draft ready.',
+      '',
+      'ARC_PROPOSAL_JSON:',
+      JSON.stringify(
+        {
+          name: 'A new Arc (dev mock)',
+          narrative:
+            'A dev mock Arc because AI quota is exceeded. Rename it to match the identity you want to grow.',
+          status: 'active',
+        },
+        null,
+        0
+      ),
+    ].join('\n');
+  }
+
+  if (mode === 'firstTimeOnboarding') {
+    // IdentityAspirationFlow expects structured JSON for several steps.
+    // Return JSON-only (no markdown) so its parsers succeed.
+    if (stepId === 'aspiration_generate') {
+      const name = 'Identity Growth';
+      return JSON.stringify(
+        {
+          name,
+          narrative:
+            "You’re becoming the kind of person who shows up consistently for what matters—especially when the excitement fades and it’s just you and the work.",
+          nextSmallStep: 'Pick one tiny action you can do in the next 10 minutes to move this Arc forward.',
+        },
+        null,
+        0
+      );
+    }
+
+    if (stepId === 'aspiration_quality_check') {
+      return JSON.stringify(
+        {
+          total_score: 9.2,
+          reasoning: 'Clear identity spine, grounded language, and grammatically clean.',
+        },
+        null,
+        0
+      );
+    }
+
+    if (stepId === 'arc_insights_generate') {
+      return JSON.stringify(
+        {
+          strengths: [
+            'Noticing what matters and returning to it without waiting for perfect conditions.',
+            'Making small, steady commitments that compound over time.',
+          ],
+          growthEdges: [
+            'Letting “good enough” count so momentum stays alive.',
+            'Staying with the quieter middle stretch after the first burst of motivation.',
+          ],
+          pitfalls: [
+            'Over-scoping the Arc and losing the next clear step.',
+            'Interpreting a slow week as a signal to quit instead of to simplify.',
+          ],
+        },
+        null,
+        0
+      );
+    }
+
+    if (stepId === 'arc_insights_quality_check') {
+      return JSON.stringify(
+        {
+          total_score: 8.6,
+          reasoning: 'Supportive tone, concrete invitations, no harsh/clinical framing.',
+        },
+        null,
+        0
+      );
+    }
+
+    // Default onboarding steps consume plain assistant copy; keep it short.
+    return stepId ? `Got it. (dev mock reply for ${stepId})` : 'Got it. (dev mock reply)';
+  }
+
+  return 'Got it. (dev mock reply — AI quota exceeded)';
 }
 
 async function fetchWithTimeout(

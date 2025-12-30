@@ -448,7 +448,7 @@ serve(async (req) => {
   }
 
   if (isOnboarding) {
-    // Onboarding allowance is shielded from daily/monthly quotas, but capped to prevent abuse.
+    // Onboarding allowance is shielded from daily/monthly quotas, but protected by fair-use limits.
     const onboardingCount = await incrementOnboardingUsage({ quotaKey, actionsCost });
     if (onboardingCount == null) {
       return json(503, {
