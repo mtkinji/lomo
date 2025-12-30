@@ -1853,7 +1853,7 @@ export const useAppStore = create<AppState>()(
               activityTagHistory: (state as any).activityTagHistory ?? {},
             });
             useAppStore.setState({ domainHydrated: true } as any);
-          } catch {
+          } catch (error) {
             // best-effort only; still unblock UI so screens don't hang in "loading".
             useAppStore.setState({ domainHydrated: true } as any);
           }

@@ -77,7 +77,11 @@ export const colors = {
   canvas: '#FFFFFF',
   card: '#FFFFFF',
   cardMuted: '#F5F5F4',
+  // General border/divider token used across the app (inputs, separators, etc).
+  // Keep slightly darker than card borders so dividers still read.
   border: '#E4E4E7',
+  // Card border token: lighter stroke for white-on-white card surfaces (reference look).
+  cardBorder: '#E7E5E4', // gray200
 
   // ShadCN-inspired primitives
   // Primary (dark) – aligned to Sumi so copy + primary controls share the same ink.

@@ -4612,7 +4612,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    backgroundColor: colors.shell,
+    backgroundColor: colors.canvas,
     position: 'relative',
   },
   scroll: {

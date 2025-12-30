@@ -3,7 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Button } from './Button';
 import { HStack, VStack, ButtonLabel, Text } from './primitives';
 import { QuestionCard } from './QuestionCard';
-import { cardElevation, colors, spacing } from '../theme';
+import { cardElevation, cardSurfaceStyle, colors, spacing } from '../theme';
 
 export type SurveyStep = {
   id: string;
@@ -19,7 +19,6 @@ export type SurveyStep = {
 
 type SurveyCardVariant = 'stacked' | 'flat';
 type SurveyCardMode = 'active' | 'completed';
-type ShadowSafetyMode = 'alignToCanvas' | 'guaranteeNoClip';
 
 type SurveyCardProps = {
   steps: SurveyStep[];
@@ -55,27 +54,6 @@ type SurveyCardProps = {
    * actions (active mode) or completion badge (completed mode).
    */
   footerRight?: ReactNode;
-  /**
-   * Controls how aggressively SurveyCard insets itself horizontally to avoid shadow clipping.
-   *
-   * - "alignToCanvas" (default): match AppShell's canvas gutter (spacing.sm) so the card edge
-   *   aligns with the app shell. Note: in hosts that clip rounded corners via `overflow: hidden`
-   *   (e.g. drawers/sheets), large shadows like `composer` can still clip if the host doesn't
-   *   provide enough horizontal gutter.
-   * - "guaranteeNoClip": increase horizontal inset to at least the largest shadow radius used
-   *   by the front/behind cards (so it won't clip even inside overflow-hidden hosts).
-   */
-  shadowSafety?: ShadowSafetyMode;
-  /**
-   * Elevation for the front (white) card.
-   * Defaults to "lift" (stronger than "soft" but less spread than "composer").
-   */
-  frontElevation?: keyof typeof cardElevation;
-  /**
-   * Shadow token for the behind (muted) rotated card.
-   * Defaults to "composer" for the strongest "sheet under sheet" look.
-   */
-  behindElevation?: keyof typeof cardElevation;
   style?: StyleProp<ViewStyle>;
   cardStyle?: StyleProp<ViewStyle>;
 };
@@ -95,9 +73,6 @@ export function SurveyCard({
   completedLabel = 'Completed',
   footerLeft,
   footerRight,
-  shadowSafety = 'alignToCanvas',
-  frontElevation = 'lift',
-  behindElevation = 'composer',
   style,
   cardStyle,
 }: SurveyCardProps) {
@@ -116,26 +91,18 @@ export function SurveyCard({
   const resolvedStepLabel =
     stepLabel ?? (isCompleted ? completedLabel : `${safeIndex + 1} of ${totalSteps}`);
 
-  const canvasGutterPx = spacing.sm;
-  const frontShadowRadius = cardElevation[frontElevation]?.shadowRadius ?? 0;
-  const behindShadowRadius = cardElevation[behindElevation]?.shadowRadius ?? 0;
-  const requiredInsetPx =
-    shadowSafety === 'guaranteeNoClip'
-      ? Math.max(canvasGutterPx, frontShadowRadius, behindShadowRadius)
-      : canvasGutterPx;
-  const behindShadowStyle = cardElevation[behindElevation] as ViewStyle | undefined;
-
   return (
-    <View style={[styles.container, { paddingHorizontal: requiredInsetPx }, style]}>
+    <View style={[styles.container, style]}>
       <View style={styles.deck}>
         {variant === 'stacked' ? (
-          <View pointerEvents="none" style={[styles.behindCard, behindShadowStyle]} />
+          <View pointerEvents="none" style={styles.behindCard} />
         ) : null}
 
         <QuestionCard
           title={step.title}
           titleAccessory={step.titleAccessory}
-          elevation={frontElevation}
+          // Use the app's standard Card look for consistency.
+          elevation="soft"
           style={[styles.frontCard, cardStyle]}
         >
           <VStack space="md">
@@ -186,7 +153,10 @@ export function SurveyCard({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    // Horizontal inset is computed dynamically (see `shadowSafety`).
+    // Keep the card the same size (no extra padding). If you want a large-radius
+    // shadow without side clipping, the host must provide more gutter; otherwise
+    // we need to use a tighter elevation token.
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     // Extra separation from the content above so the behind card doesn't
     // visually collide with prior bubbles.
@@ -198,32 +168,24 @@ const styles = StyleSheet.create({
   },
   behindCard: {
     position: 'absolute',
-    // Match the front card size so rotation reveals corners on all sides.
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    // Must differ from both the page canvas and the front card; otherwise the
-    // "stack" reads like a single card (canvas + card are both #FFF).
-    backgroundColor: colors.cardMuted,
-    borderRadius: 18,
-    // Flat “paper” behind (no border/shadow).
-    borderWidth: 0,
-    borderColor: 'transparent',
-    // Shadow style is computed dynamically from `behindElevation`.
-    transform: [
-      // Clockwise tilt
-      { rotate: '3.5deg' },
-      { translateX: 0 },
-      { translateY: 0 },
-    ],
+    ...cardSurfaceStyle,
+    // Tighter token to avoid phone-edge clipping while keeping the card size unchanged.
+    ...cardElevation.lift,
+    // Keep the “stack” readable primarily via rotation + shadow + border.
+    // (Both sheets are white by design.)
+    backgroundColor: colors.gray50,
+    // Slight tilt to indicate a second sheet.
+    transform: [{ rotate: '5deg' }, { translateX: 0 }, { translateY: 0 }],
   },
   frontCard: {
     // QuestionCard uses Card defaults that include a vertical margin; remove it so
     // the behind card aligns and reads like a true “stack”.
     marginVertical: 0,
-    // Reference looks essentially borderless.
-    borderColor: 'transparent',
+    // Let the standard Card look show through.
   },
   footerRow: {
     paddingTop: spacing.xs,
