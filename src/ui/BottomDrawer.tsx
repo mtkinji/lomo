@@ -672,7 +672,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.shell,
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    overflow: 'hidden',
+    // Allow in-sheet cards to cast shadows into the horizontal gutter without being clipped
+    // by the sheet's rounded corners. Content is already inset by padding, so it should not
+    // visually bleed past the corner radii in normal layouts.
+    overflow: 'visible',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     // Elevate the drawer above the canvas.

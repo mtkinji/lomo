@@ -1468,6 +1468,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // `hostBottomInsetAlreadyApplied` as a reliable signal that we're inside BottomDrawer.
   const hostHorizontalPadding = hostBottomInsetAlreadyApplied ? spacing.lg : spacing.sm;
   const composerHorizontalInsetCompensation = Math.max(0, hostHorizontalPadding - composerKeyboardGap);
+  // iOS ScrollView clips its children to its own bounds. When AiChatPane is hosted inside
+  // BottomDrawer, the sheet applies horizontal padding, which shrinks the ScrollView bounds
+  // and can clip card shadows at the gutter edge. We "bleed" the ScrollView out to the sheet
+  // edges (no size change for content) and re-apply the same padding inside the content container.
+  const shouldBleedScrollToHostEdges = hostBottomInsetAlreadyApplied;
+  const scrollBleedStyle = shouldBleedScrollToHostEdges
+    ? { marginHorizontal: -hostHorizontalPadding }
+    : null;
+  const scrollContentGutterStyle = shouldBleedScrollToHostEdges
+    ? { paddingHorizontal: hostHorizontalPadding }
+    : null;
   const composerBottom =
     keyboardHeight > 0 ? keyboardHeight + composerKeyboardGap : composerRestingBottom;
   const resolvedPaddingBottom = useMemo(() => {
@@ -3565,8 +3576,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
         >
           <ScrollView
             ref={scrollRef}
-            style={styles.scroll}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: resolvedPaddingBottom }]}
+            style={[styles.scroll, scrollBleedStyle]}
+            contentContainerStyle={[
+              styles.scrollContent,
+              scrollContentGutterStyle,
+              { paddingBottom: resolvedPaddingBottom },
+            ]}
             showsVerticalScrollIndicator={false}
             // AiChatScreen already manages keyboard-safe layout (keyboard height padding + scroll-to-focus).
             // Leaving RN's automatic keyboard inset adjustment on can double-apply offsets,
@@ -5361,7 +5376,7 @@ const styles = StyleSheet.create({
     backgroundColor: CHAT_COLORS.assistantBubble,
     borderWidth: 1,
     borderColor: CHAT_COLORS.border,
-    ...(cardElevation.composer as object),
+    ...(cardElevation.lift as object),
     gap: spacing.sm,
   },
   goalDraftArcRow: {
