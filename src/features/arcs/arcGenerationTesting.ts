@@ -2036,7 +2036,7 @@ HARD OUTPUT CONSTRAINTS (must follow exactly):
 
 QUALITY REQUIREMENTS (what "best" means):
 - Personal: weave in the domain + proud moment + vibe; if role-model signals exist, translate them into *their* identity (do NOT name-drop or copy the role model).
-- Concrete: include at least one everyday scene ("on a Tuesday...", "after practice...", "at my desk...") AND one specific micro-behavior they could do this week.
+- Concrete: include at least one everyday scene ("on a Tuesday...", "after practice...", "at my desk...") AND one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week" or "start by…").
 - Readable: aim for a 14-year-old to understand instantly; short words, short sentences, no jargon.
 - Useful: make the arc feel like a clear identity direction someone could adopt.
 

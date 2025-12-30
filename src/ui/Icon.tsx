@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { KwiltIcon, type KwiltIconName } from '../icons/KwiltIcons';
 
 // NOTE:
 // We originally used `lucide-react-native` icons rendered via `react-native-svg`.
@@ -15,9 +16,12 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 type FeatherName = ComponentProps<typeof Feather>['name'];
 type IonName = ComponentProps<typeof Ionicons>['name'];
 
-type IconLibrary = 'feather' | 'ion';
+type IconLibrary = 'feather' | 'ion' | 'kwilt';
 
-type IconEntry = { library: IconLibrary; name: FeatherName | IonName };
+type IconEntry =
+  | { library: 'feather'; name: FeatherName }
+  | { library: 'ion'; name: IonName }
+  | { library: 'kwilt'; name: KwiltIconName };
 
 const iconMap: Record<string, IconEntry> = {
   today: { library: 'feather', name: 'calendar' },
@@ -70,6 +74,14 @@ const iconMap: Record<string, IconEntry> = {
   check: { library: 'feather', name: 'check' },
   dev: { library: 'feather', name: 'code' },
   sparkles: { library: 'feather', name: 'zap' },
+  // Calm focus affordance (used for Focus mode / execution).
+  focus: { library: 'kwilt', name: 'focus' },
+  // Send/push payload outside of Kwilt (export / send out).
+  // Use Feather's paper-plane glyph for a clean, familiar “send out” affordance.
+  sendTo: { library: 'feather', name: 'send' },
+  // Export to external calendar (distinct from “pick a date” calendar usage).
+  sendToCalendar: { library: 'kwilt', name: 'sendToCalendar' },
+  send: { library: 'feather', name: 'send' },
   clipboard: { library: 'feather', name: 'clipboard' },
   cart: { library: 'feather', name: 'shopping-cart' },
   // Star icons: use Ionicons for both outline and filled variants so the shape stays consistent.
@@ -81,6 +93,7 @@ const iconMap: Record<string, IconEntry> = {
   thumbsUp: { library: 'feather', name: 'thumbs-up' },
   sound: { library: 'feather', name: 'volume-2' },
   soundOff: { library: 'feather', name: 'volume-x' },
+  lock: { library: 'feather', name: 'lock' },
   pause: { library: 'feather', name: 'pause' },
   play: { library: 'feather', name: 'play' },
   stop: { library: 'feather', name: 'square' },
@@ -107,13 +120,19 @@ interface IconProps extends Omit<FeatherProps, 'name'> {
 }
 
 export function Icon({ name, size = 20, color = '#F9FAFB', ...rest }: IconProps) {
-  const entry = iconMap[name] ?? { library: 'feather', name: 'circle' as FeatherName };
+  const entry = iconMap[name] ?? ({ library: 'feather', name: 'circle' } as const);
 
   if (entry.library === 'ion') {
-    return <Ionicons name={entry.name as IonName} size={size} color={color} {...rest} />;
+    return <Ionicons name={entry.name} size={size} color={color} {...rest} />;
   }
 
-  return <Feather name={entry.name as FeatherName} size={size} color={color} {...rest} />;
+  if (entry.library === 'kwilt') {
+    // `@expo/vector-icons` color prop allows `OpaqueColorValue`; KwiltIcons are string-only.
+    const kwiltColor = typeof color === 'string' ? color : '#000';
+    return <KwiltIcon name={entry.name} size={size} color={kwiltColor} />;
+  }
+
+  return <Feather name={entry.name} size={size} color={color} {...rest} />;
 }
 
 

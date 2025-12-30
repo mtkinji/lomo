@@ -39,6 +39,7 @@ import {
   listCoachConversationMemoryKeys,
   loadCoachConversationMemoryByKey,
 } from '../../services/ai';
+import { resetOpenAiQuotaFlag } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
 import { ArcTestingLauncher } from './ArcTestingLauncher';
 import type { Activity } from '../../domain/types';
@@ -96,6 +97,10 @@ export function DevToolsScreen() {
   const setDevBreadcrumbsEnabled = useAppStore((state) => state.setDevBreadcrumbsEnabled);
   const devObjectDetailHeaderV2Enabled = useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const setDevObjectDetailHeaderV2Enabled = useAppStore((state) => state.setDevObjectDetailHeaderV2Enabled);
+  const devArcDetailDebugLoggingEnabled = useAppStore((state) => state.devArcDetailDebugLoggingEnabled);
+  const setDevArcDetailDebugLoggingEnabled = useAppStore(
+    (state) => state.setDevArcDetailDebugLoggingEnabled
+  );
   const devResetGenerativeCredits = useAppStore((state) => state.devResetGenerativeCredits);
   const devSetGenerativeCreditsUsedThisMonth = useAppStore((state) => state.devSetGenerativeCreditsUsedThisMonth);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
@@ -1633,7 +1638,14 @@ export function DevToolsScreen() {
               </HStack>
 
               <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
-                <Button variant="secondary" onPress={devResetGenerativeCredits} style={styles.cardAction}>
+                <Button
+                  variant="secondary"
+                  onPress={() => {
+                    devResetGenerativeCredits();
+                    resetOpenAiQuotaFlag();
+                  }}
+                  style={styles.cardAction}
+                >
                   <ButtonLabel size="md">Reset AI credits</ButtonLabel>
                 </Button>
                 <Button
@@ -1720,6 +1732,22 @@ export function DevToolsScreen() {
                 When enabled, object detail headers use a chevron back button, move the object type to the left,
                 and add a share affordance on the right.
               </Text>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Arc detail debug logs</Text>
+                <Switch
+                  value={devArcDetailDebugLoggingEnabled}
+                  onValueChange={(next) => setDevArcDetailDebugLoggingEnabled(next)}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                  ios_backgroundColor={colors.border}
+                  accessibilityLabel="Toggle Arc detail debug logs"
+                />
+              </View>
+              <Text style={styles.meta}>
+                When enabled, Arc detail screens will emit verbose debug logs (e.g. onboarding handoff state) to the console.
+              </Text>
+
             </View>
 
             <View style={styles.card}>

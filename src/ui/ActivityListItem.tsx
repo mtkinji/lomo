@@ -43,11 +43,11 @@ type ActivityListItemProps = {
    */
   onToggleComplete?: () => void;
   /**
-   * When true, visually emphasizes the right-side star as a Priority 1 flag.
+   * When true, visually emphasizes the right-side star as a "Starred" flag.
    */
   isPriorityOne?: boolean;
   /**
-   * Optional handler for toggling the Priority 1 flag.
+   * Optional handler for toggling the "Starred" flag.
    */
   onTogglePriority?: () => void;
   /**

@@ -3,7 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Button } from './Button';
 import { HStack, VStack, ButtonLabel, Text } from './primitives';
 import { QuestionCard } from './QuestionCard';
-import { colors, spacing } from '../theme';
+import { cardElevation, cardSurfaceStyle, colors, spacing } from '../theme';
 
 export type SurveyStep = {
   id: string;
@@ -101,7 +101,8 @@ export function SurveyCard({
         <QuestionCard
           title={step.title}
           titleAccessory={step.titleAccessory}
-          elevation="raised"
+          // Use the app's standard Card look for consistency.
+          elevation="soft"
           style={[styles.frontCard, cardStyle]}
         >
           <VStack space="md">
@@ -152,9 +153,10 @@ export function SurveyCard({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    // Keep the front card inset so the rotated behind card has room to “peek”
-    // on the left/right (no negative margins).
-    paddingHorizontal: spacing.lg,
+    // Keep the card the same size (no extra padding). If you want a large-radius
+    // shadow without side clipping, the host must provide more gutter; otherwise
+    // we need to use a tighter elevation token.
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.sm,
     // Extra separation from the content above so the behind card doesn't
     // visually collide with prior bubbles.
@@ -166,36 +168,24 @@ const styles = StyleSheet.create({
   },
   behindCard: {
     position: 'absolute',
-    // Match the front card size so rotation reveals corners on all sides.
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    // Must differ from both the page canvas and the front card; otherwise the
-    // "stack" reads like a single card (canvas + card are both #FFF).
-    backgroundColor: colors.cardMuted,
-    borderRadius: 18,
-    // Flat “paper” behind (no border/shadow).
-    borderWidth: 0,
-    borderColor: 'transparent',
-    // shadowColor: '#0F172A',
-    // shadowOpacity: 0.035,
-    // shadowOffset: { width: 0, height: 5 },
-    // shadowRadius: 14,
-    elevation: 2,
-    transform: [
-      // Clockwise tilt
-      { rotate: '3.5deg' },
-      { translateX: 0 },
-      { translateY: 0 },
-    ],
+    ...cardSurfaceStyle,
+    // Tighter token to avoid phone-edge clipping while keeping the card size unchanged.
+    ...cardElevation.lift,
+    // Keep the “stack” readable primarily via rotation + shadow + border.
+    // (Both sheets are white by design.)
+    backgroundColor: colors.gray50,
+    // Slight tilt to indicate a second sheet.
+    transform: [{ rotate: '5deg' }, { translateX: 0 }, { translateY: 0 }],
   },
   frontCard: {
     // QuestionCard uses Card defaults that include a vertical margin; remove it so
     // the behind card aligns and reads like a true “stack”.
     marginVertical: 0,
-    // Reference looks essentially borderless.
-    borderColor: 'transparent',
+    // Let the standard Card look show through.
   },
   footerRow: {
     paddingTop: spacing.xs,

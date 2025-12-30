@@ -85,6 +85,16 @@ function getDailyRailLimit(isPro: boolean): number | null {
   return null;
 }
 
+function getPreviewDailyRailLimit(isPro: boolean): number | null {
+  // Optional: separate daily rail for "preview" requests (unmetered to the user, but costs Kwilt).
+  // If unset, default to a conservative cap to prevent runaway background calls.
+  const raw = Deno.env.get(isPro ? 'KWILT_AI_PREVIEW_DAILY_PRO_QUOTA' : 'KWILT_AI_PREVIEW_DAILY_FREE_QUOTA');
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  // Defaults: Free 2/day, Pro 25/day (tunable).
+  return isPro ? 25 : 2;
+}
+
 function getOnboardingActionsCap(): number {
   const raw = Deno.env.get('KWILT_AI_ONBOARDING_ACTIONS_CAP');
   const parsed = raw ? Number(raw) : NaN;
@@ -274,6 +284,11 @@ function validateRequestShape(route: string, parsed: any): { ok: true } | { ok: 
     return { ok: true };
   }
 
+  if (route === '/v1/commit') {
+    // Minimal shape: { actionsCost?: number }
+    return { ok: true };
+  }
+
   return { ok: true };
 }
 
@@ -292,12 +307,14 @@ serve(async (req) => {
   const idx = fullPath.indexOf(marker);
   const route = idx >= 0 ? fullPath.slice(idx + marker.length) : fullPath;
 
-  if (route !== '/v1/chat/completions' && route !== '/v1/images/generations') {
+  const isUpstreamRoute = route === '/v1/chat/completions' || route === '/v1/images/generations';
+  const isCommitRoute = route === '/v1/commit';
+  if (!isUpstreamRoute && !isCommitRoute) {
     return json(404, { error: { message: 'Not found', code: 'not_found' } });
   }
 
-  const openAiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openAiKey) {
+  const openAiKey = isUpstreamRoute ? Deno.env.get('OPENAI_API_KEY') : null;
+  if (isUpstreamRoute && !openAiKey) {
     return json(503, {
       error: { message: 'AI provider unavailable', code: 'provider_unavailable' },
     });
@@ -313,7 +330,10 @@ serve(async (req) => {
   const isPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
   const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
   const isOnboarding = chatMode === 'firstTimeOnboarding';
-  const quotaKey = `install:${installId}`;
+  const isPreview = chatMode.startsWith('preview_');
+  // Preview calls should not consume the user's monthly credits. We isolate them into a separate
+  // quota bucket keyed by `preview:<installId>` so we can cap them independently.
+  const quotaKey = isPreview ? `preview:${installId}` : `install:${installId}`;
 
   const now = new Date();
   const day = getUtcDayString(now);
@@ -321,7 +341,7 @@ serve(async (req) => {
   const baseMonthlyLimit = getMonthlyActionsLimit(isPro);
   const bonusMonthlyLimit = isOnboarding ? 0 : await getMonthlyBonusActions({ quotaKey, month });
   const monthlyLimit = baseMonthlyLimit + bonusMonthlyLimit;
-  const dailyRail = getDailyRailLimit(isPro);
+  const dailyRail = isPreview ? getPreviewDailyRailLimit(isPro) : getDailyRailLimit(isPro);
   const rpmLimit = getRpmLimit();
   const onboardingCap = getOnboardingActionsCap();
 
@@ -351,7 +371,12 @@ serve(async (req) => {
   }
 
   // Determine action cost: 1 per chat completion call; higher for image generation.
-  const actionsCost = route === '/v1/images/generations' ? getImageActionsCost() : 1;
+  const actionsCost =
+    route === '/v1/images/generations'
+      ? getImageActionsCost()
+      : route === '/v1/commit'
+        ? Math.max(1, Math.min(Math.floor(Number(parsedBody?.actionsCost ?? 1)), getImageActionsCost()))
+        : 1;
 
   // Per-minute request limiter (applies equally to Free + Pro).
   // This is independent of actionsCost and exists to stop runaway loops / abuse bursts.
@@ -389,6 +414,7 @@ serve(async (req) => {
   }
 
   // Daily rail (optional) uses the existing daily counter RPC.
+  // Preview calls count against the preview-specific bucket (quotaKey already swapped).
   if (!isOnboarding && dailyRail) {
     const dailyCount = await incrementDailyUsage({ quotaKey, day });
     if (dailyCount == null) {
@@ -422,7 +448,7 @@ serve(async (req) => {
   }
 
   if (isOnboarding) {
-    // Onboarding allowance is shielded from daily/monthly quotas, but capped to prevent abuse.
+    // Onboarding allowance is shielded from daily/monthly quotas, but protected by fair-use limits.
     const onboardingCount = await incrementOnboardingUsage({ quotaKey, actionsCost });
     if (onboardingCount == null) {
       return json(503, {
@@ -452,7 +478,7 @@ serve(async (req) => {
         { 'Retry-After': retryAt }
       );
     }
-  } else {
+  } else if (!isPreview) {
     // Monthly actions quota: increment now (fail closed to protect costs if quota DB is misconfigured).
     const monthlyCount = await incrementMonthlyUsage({
       quotaKey,
@@ -489,6 +515,24 @@ serve(async (req) => {
         { 'Retry-After': retryAt }
       );
     }
+  }
+
+  // Commit route: incremented quota above. No upstream OpenAI call needed.
+  if (route === '/v1/commit') {
+    void recordRequest({
+      quotaKey,
+      isPro,
+      route,
+      model: null,
+      status: 200,
+      durationMs: 0,
+      errorCode: null,
+      actionsCost,
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+    });
+    return json(200, { ok: true, actionsCost });
   }
 
   // Clamp max_tokens for chat requests (safety even under actions-only quotas).

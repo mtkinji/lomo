@@ -28,16 +28,47 @@ type Spotlight = 'none' | 'hole' | 'ring';
 
 const ARROW_SIZE = 10;
 
+function getAutoSpotlightBaseRadius(targetRect: Rect): number {
+  const w = Math.max(0, targetRect.width);
+  const h = Math.max(0, targetRect.height);
+  const minDim = Math.max(0, Math.min(w, h));
+  if (minDim <= 0) return 14;
+
+  // Detect shapes where the effective radius is essentially "as round as possible":
+  // - nearly-square targets (icon buttons, FABs) -> circle
+  // - very wide/tall targets -> pill
+  const aspect = h > 0 ? w / h : 1;
+  const squareish = aspect >= 0.9 && aspect <= 1.1;
+  const pillish = aspect >= 1.6 || aspect <= 1 / 1.6;
+  if (squareish || pillish) return minDim / 2;
+
+  // Otherwise: bucket to our common surface radii so coachmarks visually match the app.
+  if (minDim >= 96) return 18;
+  if (minDim >= 64) return 16;
+  return 12;
+}
+
 export type CoachmarkProps = {
   visible: boolean;
   targetRef: RefObject<View | null>;
+  /**
+   * Optional explicit re-measure trigger. When this value changes while visible,
+   * the coachmark will re-run `measureInWindow` once on the next frame.
+   *
+   * This is intended for callers who programmatically scroll the target into view
+   * (or otherwise change layout) and want a single re-measure after things settle.
+   */
+  remeasureKey?: string | number;
   onDismiss: () => void;
   onAction?: (actionId: string) => void;
   title?: ReactNode;
   body: ReactNode;
   media?: ReactNode;
   /**
-   * Optional footer actions. When omitted, a single "Got it" affordance is rendered.
+   * Optional footer actions.
+   * - When omitted (`undefined`), a single "Got it" affordance is rendered.
+   * - When provided as an empty array (`[]`), no footer actions are rendered (useful
+   *   for flows that require tapping the highlighted target to proceed).
    * Keep these small so the coachmark doesn't compete with the highlighted target.
    */
   actions?: Array<{
@@ -62,8 +93,14 @@ export type CoachmarkProps = {
   spotlightPadding?: number;
   /**
    * Corner radius for the spotlight hole/ring.
+   *
+   * - When a number is provided, treat it as the target's base radius (before padding).
+   *   The coachmark will expand the radius along with `spotlightPadding` so the cutout
+   *   remains a "parallel curve" around the highlighted element.
+   * - When `'auto'`, infer a reasonable radius from the measured target size (useful
+   *   for circular buttons and pill-shaped docks).
    */
-  spotlightRadius?: number;
+  spotlightRadius?: number | 'auto';
   /**
    * Brand color used for the spotlight ring + ripple. Defaults to the app accent.
    */
@@ -113,6 +150,7 @@ function parseProgressLabel(progressLabel?: string) {
 export function Coachmark({
   visible,
   targetRef,
+  remeasureKey,
   onDismiss,
   onAction,
   title,
@@ -123,7 +161,7 @@ export function Coachmark({
   scrimToken = 'subtle',
   spotlight = 'hole',
   spotlightPadding = spacing.xs,
-  spotlightRadius = 14,
+  spotlightRadius: spotlightRadiusProp = 'auto',
   highlightColor = colors.accent,
   actionColor,
   attentionPulse = false,
@@ -174,23 +212,19 @@ export function Coachmark({
   useEffect(() => {
     if (!visible) return;
     // Measure on the next frame so layout settles.
+    // Then re-measure a couple more times shortly after showing to handle:
+    // - animated scroll-to positioning (target moves after initial frame)
+    // - late layout shifts (e.g. async content, font load, etc.)
     const raf = requestAnimationFrame(() => measureTarget());
-    return () => cancelAnimationFrame(raf);
-  }, [visible, measureTarget]);
+    const t1 = setTimeout(() => measureTarget(), 120);
+    const t2 = setTimeout(() => measureTarget(), 420);
 
-  useEffect(() => {
-    if (!visible) return;
-    // If the user scrolls (or any other layout-affecting gesture occurs) while a coachmark
-    // is visible, the target moves but the coachmark would otherwise remain "stuck" to the
-    // old measurement. To keep the spotlight aligned, re-measure periodically while visible.
-    //
-    // Throttle to avoid excessive bridge churn; coachmarks are short-lived and rare.
-    const intervalMs = 120;
-    const intervalId = setInterval(() => {
-      measureTarget();
-    }, intervalMs);
-    return () => clearInterval(intervalId);
-  }, [measureTarget, visible]);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [visible, measureTarget, remeasureKey]);
 
   useEffect(() => {
     if (!visible) return;
@@ -276,7 +310,7 @@ export function Coachmark({
 
   const footerActions = useMemo(() => {
     const baseActions =
-      actions && actions.length > 0
+      actions !== undefined
         ? actions
         : [
             {
@@ -297,6 +331,16 @@ export function Coachmark({
     return withoutSkip.length > 0 ? withoutSkip : baseActions;
   }, [actions, progressLabel]);
 
+  const spotlightBaseRadius = useMemo(() => {
+    if (spotlightRadiusProp === 'auto') {
+      return targetRect ? getAutoSpotlightBaseRadius(targetRect) : 14;
+    }
+    if (typeof spotlightRadiusProp === 'number' && Number.isFinite(spotlightRadiusProp)) {
+      return spotlightRadiusProp;
+    }
+    return 14;
+  }, [spotlightRadiusProp, targetRect]);
+
   const spotlightRect = targetRect
     ? {
         x: Math.max(targetRect.x - spotlightPadding, 0),
@@ -305,6 +349,15 @@ export function Coachmark({
         height: Math.max(targetRect.height + spotlightPadding * 2, 0),
       }
     : null;
+
+  const spotlightRadius = useMemo(() => {
+    // Keep the spotlight shape consistent when the cutout is expanded by padding:
+    // expanding a rounded rectangle outward by P should also expand its radius by P.
+    const grown = spotlightBaseRadius + spotlightPadding;
+    if (!spotlightRect) return grown;
+    const maxUseful = Math.min(spotlightRect.width, spotlightRect.height) / 2;
+    return Math.max(0, Math.min(grown, maxUseful));
+  }, [spotlightBaseRadius, spotlightPadding, spotlightRect]);
 
   const shouldShowRing = Boolean(spotlightRect && (spotlight === 'ring' || attentionPulse));
   const ringRect = spotlightRect;
@@ -498,38 +551,42 @@ export function Coachmark({
               ) : null}
             </View>
             {media ? <View style={styles.mediaRow}>{media}</View> : null}
-            <View style={styles.bodyRow}>{body}</View>
-            <View style={styles.footerRow}>
-              {footerActions.map((action) => {
-                const variant = action.variant ?? 'outline';
-                const handlePress = () => {
-                  if (action.id === 'dismiss') {
-                    onDismiss();
-                    return;
-                  }
-                  onAction?.(action.id);
-                };
-                const buttonStyle =
-                  variant === 'accent'
-                    ? { backgroundColor: resolvedActionColor, borderColor: resolvedActionColor }
-                    : { borderColor: resolvedActionColor };
-                const labelStyle =
-                  variant === 'accent'
-                    ? styles.actionLabelInverse
-                    : { color: resolvedActionColor };
-                return (
-                  <Button
-                    key={action.id}
-                    variant={variant}
-                    size="small"
-                    onPress={handlePress}
-                    style={buttonStyle}
-                  >
-                    <Text style={labelStyle}>{action.label}</Text>
-                  </Button>
-                );
-              })}
+            <View style={[styles.bodyRow, footerActions.length === 0 ? styles.bodyRowNoFooter : null]}>
+              {body}
             </View>
+            {footerActions.length > 0 ? (
+              <View style={styles.footerRow}>
+                {footerActions.map((action) => {
+                  const variant = action.variant ?? 'outline';
+                  const handlePress = () => {
+                    if (action.id === 'dismiss') {
+                      onDismiss();
+                      return;
+                    }
+                    onAction?.(action.id);
+                  };
+                  const buttonStyle =
+                    variant === 'accent'
+                      ? { backgroundColor: resolvedActionColor, borderColor: resolvedActionColor }
+                      : { borderColor: resolvedActionColor };
+                  const labelStyle =
+                    variant === 'accent'
+                      ? styles.actionLabelInverse
+                      : { color: resolvedActionColor };
+                  return (
+                    <Button
+                      key={action.id}
+                      variant={variant}
+                      size="small"
+                      onPress={handlePress}
+                      style={buttonStyle}
+                    >
+                      <Text style={labelStyle}>{action.label}</Text>
+                    </Button>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -600,6 +657,9 @@ const styles = StyleSheet.create({
   },
   bodyRow: {
     marginBottom: spacing.md,
+  },
+  bodyRowNoFooter: {
+    marginBottom: 0,
   },
   footerRow: {
     flexDirection: 'row',

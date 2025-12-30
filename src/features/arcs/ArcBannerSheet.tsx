@@ -28,16 +28,6 @@ import {
 import { searchUnsplashPhotos, UnsplashError, type UnsplashPhoto } from '../../services/unsplash';
 import { generateArcBannerVibeQuery } from '../../services/ai';
 
-const logArcBannerSheetDebug = (event: string, payload?: Record<string, unknown>) => {
-  if (__DEV__) {
-    if (payload) {
-      console.log(`[arcBannerSheet] ${event}`, payload);
-    } else {
-      console.log(`[arcBannerSheet] ${event}`);
-    }
-  }
-};
-
 export type ArcBannerSheetProps = {
   visible: boolean;
   onClose: () => void;
@@ -165,20 +155,19 @@ export function ArcBannerSheet({
   );
 
   useEffect(() => {
-    logArcBannerSheetDebug('visible-prop-changed', { visible });
     if (!visible) {
-      setSourceTab(defaultTab);
-      setUnsplashQuery('');
-      setUnsplashError(null);
-      setUnsplashResults([]);
-      setUnsplashLoading(false);
-      setGridWidth(0);
+      setSourceTab((current) => (current === defaultTab ? current : defaultTab));
+      setUnsplashQuery((current) => (current === '' ? current : ''));
+      setUnsplashError((current) => (current === null ? current : null));
+      setUnsplashResults((current) => (current.length === 0 ? current : []));
+      setUnsplashLoading((current) => (current === false ? current : false));
+      setGridWidth((current) => (current === 0 ? current : 0));
       hasAutoSearchedRef.current = false;
       return;
     }
 
     // Default to image search (Pro) or Curated (Free).
-    setSourceTab(defaultTab);
+    setSourceTab((current) => (current === defaultTab ? current : defaultTab));
     if (!canUseUnsplash) {
       hasAutoSearchedRef.current = true;
       return;

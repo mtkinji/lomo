@@ -1,5 +1,14 @@
 import * as React from 'react';
-import { Animated, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Animated,
+  Image,
+  Pressable,
+  StyleSheet,
+  View,
+  type ImageSourcePropType,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { blurs } from '../../theme/overlays';
@@ -11,9 +20,9 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 /**
  * Default height of the header bar below the safe area inset (not including inset).
  *
- * Design target: 36px action pills + ~12px bottom breathing room => 48px.
+ * Design target: 36px action pills + ~8px bottom breathing room => 44px.
  */
-export const OBJECT_PAGE_HEADER_BAR_HEIGHT = 48;
+export const OBJECT_PAGE_HEADER_BAR_HEIGHT = 44;
 
 export type ObjectPageHeaderProps = {
   /**
@@ -37,6 +46,17 @@ export type ObjectPageHeaderProps = {
    */
   backgroundColor?: string;
   /**
+   * Optional hero/artwork image rendered behind the header controls.
+   *
+   * This is clipped to the header's total height (safe-area inset + barHeight),
+   * so it never bleeds into the scroll content below.
+   */
+  backgroundImageSource?: ImageSourcePropType;
+  /**
+   * Optional opacity for the background image layer. Defaults to 1.
+   */
+  backgroundImageOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
+  /**
    * Left-side element (usually a back pill).
    */
   left?: React.ReactNode;
@@ -57,6 +77,26 @@ export type ObjectPageHeaderProps = {
    * Additional style for the fixed overlay wrapper.
    */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Override for the safe-area top inset used by the header.
+   *
+   * Default behavior uses `useSafeAreaInsets().top` (full-screen headers).
+   * For screens rendered inside an already-safe-area-padded canvas (e.g. AppShell),
+   * pass `0` to avoid double-counting and pushing the header down.
+   */
+  safeAreaTopInset?: number;
+  /**
+   * Horizontal padding inside the header row.
+   *
+   * Defaults to `spacing.xl` (Arc/Goal full-bleed layouts). For screens already
+   * padded by an AppShell canvas, pass `0` (or a smaller value).
+   */
+  horizontalPadding?: number;
+  /**
+   * When true, renders a blurred header background material (in addition to the
+   * action pill blur). Defaults to false to preserve existing Arc/Goal headers.
+   */
+  blurBackground?: boolean;
 };
 
 export function ObjectPageHeader({
@@ -64,17 +104,27 @@ export function ObjectPageHeader({
   backgroundOpacity,
   actionPillOpacity,
   backgroundColor = colors.canvas,
+  backgroundImageSource,
+  backgroundImageOpacity,
   left,
   center,
   right,
   sideSlotWidth,
   style,
+  safeAreaTopInset,
+  horizontalPadding = spacing.xl,
+  blurBackground = false,
 }: ObjectPageHeaderProps) {
   const insets = useSafeAreaInsets();
-  const totalHeight = insets.top + barHeight;
+  const resolvedTopInset = typeof safeAreaTopInset === 'number' ? safeAreaTopInset : insets.top;
+  const totalHeight = resolvedTopInset + barHeight;
 
   const resolvedBgOpacity =
     backgroundOpacity ?? new Animated.Value(1);
+  const resolvedImageOpacity = backgroundImageOpacity ?? new Animated.Value(1);
+  const resolvedArtwork = backgroundImageSource ? Image.resolveAssetSource(backgroundImageSource) : undefined;
+  const artworkAspectRatio =
+    resolvedArtwork?.width && resolvedArtwork?.height ? resolvedArtwork.width / resolvedArtwork.height : undefined;
 
   const resolvedPillOpacity =
     actionPillOpacity ??
@@ -88,17 +138,55 @@ export function ObjectPageHeader({
 
   return (
     <View pointerEvents="box-none" style={[styles.fixedHeaderOverlay, { height: totalHeight }, style]}>
+      {backgroundImageSource ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.backgroundImageClip, { opacity: resolvedImageOpacity as any }]}
+        >
+          {artworkAspectRatio ? (
+            <Image
+              source={backgroundImageSource}
+              style={{ width: '100%', aspectRatio: artworkAspectRatio }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image source={backgroundImageSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          )}
+        </Animated.View>
+      ) : null}
+      {blurBackground ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFillObject, { opacity: resolvedBgOpacity as any }]}
+        >
+          <BlurView
+            intensity={blurs.headerAction.intensity}
+            tint={blurs.headerAction.tint}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View style={styles.headerBlurTint} />
+        </Animated.View>
+      ) : null}
       <Animated.View
         pointerEvents="none"
         style={[
           styles.fixedHeaderBackground,
           {
             opacity: resolvedBgOpacity as any,
-            backgroundColor,
+            backgroundColor: blurBackground ? 'transparent' : backgroundColor,
           },
         ]}
       />
-      <View style={[styles.fixedHeaderRow, { paddingTop: insets.top, height: totalHeight }]}>
+      <View
+        style={[
+          styles.fixedHeaderRow,
+          {
+            paddingTop: resolvedTopInset,
+            height: totalHeight,
+            paddingHorizontal: horizontalPadding,
+          },
+        ]}
+      >
         <View style={[styles.sideSlot, sideSlotWidth ? { width: sideSlotWidth } : null]}>{left}</View>
         <View style={styles.centerSlot}>{center}</View>
         <View style={[styles.sideSlotRight, sideSlotWidth ? { width: sideSlotWidth } : null]}>{right}</View>
@@ -116,6 +204,12 @@ export type HeaderActionPillProps = {
   children: React.ReactNode;
   onPress?: () => void;
   accessibilityLabel: string;
+  /**
+   * Which material token to use for the frosted background.
+   * - default: tuned for dark/hero imagery (lighter border).
+   * - onLight: tuned for white canvas (darker border so the pill reads).
+   */
+  materialVariant?: 'default' | 'onLight';
   /**
    * Diameter of the circular pill in px.
    * Defaults to 36 (Arc header).
@@ -142,6 +236,7 @@ export function HeaderActionPill({
   children,
   onPress,
   accessibilityLabel,
+  materialVariant = 'default',
   size = 36,
   materialOpacity,
   material = true,
@@ -150,12 +245,14 @@ export function HeaderActionPill({
   disabled,
 }: HeaderActionPillProps) {
   const resolvedOpacity = materialOpacity ?? new Animated.Value(1);
+  const materialToken = materialVariant === 'onLight' ? blurs.headerActionOnLight : blurs.headerAction;
 
   return (
     <AnimatedPressable
       style={[
         styles.headerActionCircle,
         { width: size, height: size, borderRadius: size / 2 },
+        { borderColor: materialToken.borderColor },
         style,
       ]}
       onPress={onPress}
@@ -171,11 +268,11 @@ export function HeaderActionPill({
           style={[styles.headerActionCircleBg, { opacity: resolvedOpacity as any }]}
         >
           <BlurView
-            intensity={blurs.headerAction.intensity}
-            tint={blurs.headerAction.tint}
+            intensity={materialToken.intensity}
+            tint={materialToken.tint}
             style={StyleSheet.absoluteFillObject}
           />
-          <View style={styles.headerActionCircleTint} />
+          <View style={[styles.headerActionCircleTint, { backgroundColor: materialToken.overlayColor }]} />
         </Animated.View>
       ) : null}
       <HStack alignItems="center" justifyContent="center">
@@ -192,6 +289,14 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     zIndex: 50,
+  },
+  backgroundImageClip: {
+    ...StyleSheet.absoluteFillObject,
+    // Critical: prevent hero artwork from bleeding into the scroll content below the header.
+    overflow: 'hidden',
+    // Width-driven render: keep the image centered and let the header height crop top/bottom.
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fixedHeaderBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -231,12 +336,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: blurs.headerAction.borderColor,
   },
   headerActionCircleBg: {
     ...StyleSheet.absoluteFillObject,
   },
   headerActionCircleTint: {
+    ...StyleSheet.absoluteFillObject,
+    // backgroundColor set via `materialVariant` (default/onLight) at render-time.
+  },
+  headerBlurTint: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: blurs.headerAction.overlayColor,
   },

@@ -5,6 +5,7 @@ import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
+  FlatList,
   Keyboard,
   LayoutAnimation,
   Platform,
@@ -18,7 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
+import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
 import type {
   ActivitiesStackParamList,
   RootDrawerParamList,
@@ -55,6 +56,7 @@ import {
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
+import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { useQuickAddDockController } from './useQuickAddDockController';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
@@ -250,13 +252,26 @@ export function ActivitiesScreen() {
   const [highlightSuggested, setHighlightSuggested] = React.useState<boolean>(
     Boolean(route.params?.highlightSuggested),
   );
+  const [hasDismissedSuggestedCard, setHasDismissedSuggestedCard] = React.useState(false);
   const [quickAddInfoVisible, setQuickAddInfoVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    // Enable LayoutAnimation on Android (no-op on newer RN versions where it's enabled).
+    UIManager.setLayoutAnimationEnabledExperimental?.(true);
+  }, []);
 
   React.useEffect(() => {
     if (route.params?.highlightSuggested) {
       setHighlightSuggested(true);
     }
   }, [route.params?.highlightSuggested]);
+
+  React.useEffect(() => {
+    // Views (and their editor) are Pro Tools; don't leave the editor open if Pro is lost.
+    if (!isPro && viewEditorVisible) {
+      setViewEditorVisible(false);
+    }
+  }, [isPro, viewEditorVisible]);
 
   const suggested = React.useMemo(() => {
     return getSuggestedNextStep({
@@ -266,6 +281,17 @@ export function ActivitiesScreen() {
       now: new Date(),
     });
   }, [activities, arcs, goals]);
+
+  const suggestedKey = React.useMemo(() => {
+    if (!suggested) return 'none';
+    if (suggested.kind === 'activity') return `activity:${suggested.activityId}`;
+    return `setup:${suggested.reason}`;
+  }, [suggested]);
+
+  React.useEffect(() => {
+    // If the suggestion changes, allow showing the new card even if the previous one was dismissed.
+    setHasDismissedSuggestedCard(false);
+  }, [suggestedKey]);
 
   const suggestedActivity = React.useMemo(() => {
     if (!suggested || suggested.kind !== 'activity') return null;
@@ -331,12 +357,19 @@ export function ActivitiesScreen() {
     setHighlightSuggested(false);
   }, [navigation, setActivityCoachVisible, showToast, suggested, suggestedActivity, updateActivity]);
 
+  const dismissSuggestedCard = React.useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setHasDismissedSuggestedCard(true);
+    setHighlightSuggested(false);
+  }, []);
+
   const shouldShowSuggestedCard = React.useMemo(() => {
+    if (hasDismissedSuggestedCard) return false;
     if (highlightSuggested) return true;
     if (!suggested) return false;
     // Only surface deterministic suggestions on "empty today" days to avoid noise.
     return !hasAnyActivitiesScheduledForToday({ activities, now: new Date() });
-  }, [activities, highlightSuggested, suggested]);
+  }, [activities, hasDismissedSuggestedCard, highlightSuggested, suggested]);
 
   // Post-create "add a trigger" nudge (Option A): encourage a lightweight if/then
   // trigger after quick-add activity creation without forcing navigation.
@@ -437,7 +470,7 @@ export function ActivitiesScreen() {
   const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = React.useState(false);
   const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = React.useState(false);
   const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = React.useState(false);
-  const canvasScrollRef = React.useRef<ScrollView | null>(null);
+  const canvasScrollRef = React.useRef<FlatList<Activity> | null>(null);
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
   const lastKnownKeyboardHeightRef = React.useRef<number>(320);
@@ -446,7 +479,7 @@ export function ActivitiesScreen() {
     if (!highlightSuggested) return;
     const y = suggestedCardYRef.current;
     if (typeof y !== 'number') return;
-    canvasScrollRef.current?.scrollTo({ y: Math.max(0, y - spacing.lg), animated: true });
+    canvasScrollRef.current?.scrollToOffset({ offset: Math.max(0, y - spacing.lg), animated: true });
     const t = setTimeout(() => setHighlightSuggested(false), 2400);
     return () => clearTimeout(t);
   }, [highlightSuggested]);
@@ -488,6 +521,11 @@ export function ActivitiesScreen() {
     setActivitiesGuideStep(0);
   }, [setHasDismissedActivitiesListGuide]);
 
+  const activitiesGuideHost = useCoachmarkHost({
+    active: shouldShowActivitiesListGuide,
+    stepKey: activitiesGuideStep,
+  });
+
   const guideTargetRef =
     guideVariant === 'empty'
       ? addButtonRef
@@ -501,36 +539,46 @@ export function ActivitiesScreen() {
     if (guideVariant === 'empty') {
       return {
         title: 'Start here',
-        body: 'Tap + to add your first Activity. Once you have a few, you can use Views, Filters, and Sort to stay focused.',
+        body: 'Tap + to add your first Activity. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
       };
     }
     if (activitiesGuideStep === 0) {
       return {
-        title: 'Views = saved setups',
-        body: 'Views remember your filter + sort (and “show completed”). Create a few like “This week” or “P1 only.”',
+        title: isPro ? 'Views = saved setups' : 'Pro Tools: Views',
+        body: isPro
+          ? 'Views save your Filter + Sort (and whether completed items show). Create a few like “This week” or “Starred only.”'
+          : 'Upgrade to Pro to save Views (Filter + Sort) so you can switch contexts without reconfiguring your list.',
       };
     }
     if (activitiesGuideStep === 1) {
       return {
-        title: 'Filter the list',
-        body: 'Quickly switch between All, Active, Completed, or Priority 1 activities.',
+        title: isPro ? 'Filter the list' : 'Pro Tools: Filters',
+        body: isPro
+          ? 'Switch between All, Active, Completed, or Starred. Tap the ★ on an activity to star it.'
+          : 'Upgrade to Pro to filter your Activities list (All, Active, Completed, Starred).',
       };
     }
     return {
-      title: 'Sort changes the order',
-      body: 'Try due date or priority sorting when the list grows. Manual keeps your custom ordering.',
+      title: isPro ? 'Sort changes the order' : 'Pro Tools: Sort',
+      body: isPro
+        ? 'Try due date or “Starred first” when the list grows. Manual keeps your custom ordering.'
+        : 'Upgrade to Pro to sort by title, due date, or starred first when the list grows.',
     };
-  }, [activitiesGuideStep, guideVariant]);
+  }, [activitiesGuideStep, guideVariant, isPro]);
+
+  const effectiveActiveViewId = isPro ? activeActivityViewId : 'default';
 
   const activeView: ActivityView | undefined = React.useMemo(() => {
-    const current =
-      activityViews.find((view) => view.id === activeActivityViewId) ?? activityViews[0];
+    const targetId = effectiveActiveViewId ?? 'default';
+    const current = activityViews.find((view) => view.id === targetId) ?? activityViews[0];
     return current;
-  }, [activityViews, activeActivityViewId]);
+  }, [activityViews, effectiveActiveViewId]);
 
-  const filterMode = activeView?.filterMode ?? 'all';
-  const sortMode = activeView?.sortMode ?? 'manual';
-  const showCompleted = activeView?.showCompleted ?? true;
+  // Views + filtering/sorting are Pro Tools. Free users should see the baseline list,
+  // even if they previously customized system views while Pro.
+  const filterMode = isPro ? (activeView?.filterMode ?? 'all') : 'all';
+  const sortMode = isPro ? (activeView?.sortMode ?? 'manual') : 'manual';
+  const showCompleted = isPro ? (activeView?.showCompleted ?? true) : true;
 
   const goalTitleById = React.useMemo(
     () =>
@@ -1016,17 +1064,25 @@ export function ActivitiesScreen() {
 
   const applyView = React.useCallback(
     (viewId: string) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' });
+        return;
+      }
       // Haptic only when the view actually changes.
       if (viewId !== activeActivityViewId) {
         void HapticsService.trigger('canvas.selection');
       }
       setActiveActivityViewId(viewId);
     },
-    [activeActivityViewId, setActiveActivityViewId],
+    [activeActivityViewId, isPro, setActiveActivityViewId],
   );
 
   const handleUpdateFilterMode = React.useCallback(
     (next: ActivityFilterMode) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' });
+        return;
+      }
       if (!activeView) return;
       if (next !== activeView.filterMode) {
         void HapticsService.trigger('canvas.selection');
@@ -1036,11 +1092,15 @@ export function ActivitiesScreen() {
         filterMode: next,
       }));
     },
-    [activeView, updateActivityView],
+    [activeView, isPro, updateActivityView],
   );
 
   const handleUpdateSortMode = React.useCallback(
     (next: ActivitySortMode) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' });
+        return;
+      }
       if (!activeView) return;
       if (next !== activeView.sortMode) {
         void HapticsService.trigger('canvas.selection');
@@ -1050,7 +1110,7 @@ export function ActivitiesScreen() {
         sortMode: next,
       }));
     },
-    [activeView, updateActivityView],
+    [activeView, isPro, updateActivityView],
   );
 
   const handleUpdateShowCompleted = React.useCallback(
@@ -1065,20 +1125,28 @@ export function ActivitiesScreen() {
   );
 
   const handleOpenCreateView = React.useCallback(() => {
+    if (!isPro) {
+      openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' });
+      return;
+    }
     setViewEditorMode('create');
     setViewEditorTargetId(null);
     setViewEditorName('New view');
     setViewEditorVisible(true);
-  }, []);
+  }, [isPro]);
 
   const handleOpenViewSettings = React.useCallback(
     (view: ActivityView) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' });
+        return;
+      }
       setViewEditorMode('settings');
       setViewEditorTargetId(view.id);
       setViewEditorName(view.name);
       setViewEditorVisible(true);
     },
-    [],
+    [isPro],
   );
 
   const handleConfirmViewEdit = React.useCallback(() => {
@@ -1184,6 +1252,7 @@ export function ActivitiesScreen() {
               accessibilityRole="button"
               accessibilityLabel="Add Activity"
               style={styles.addActivityIconButton}
+              hitSlop={8}
               onPress={() => {
                 setActivityCoachVisible(true);
               }}
@@ -1194,12 +1263,13 @@ export function ActivitiesScreen() {
         }
       />
       <Coachmark
-        visible={shouldShowActivitiesListGuide}
+        visible={activitiesGuideHost.coachmarkVisible}
         targetRef={guideTargetRef}
+        remeasureKey={activitiesGuideHost.remeasureKey}
         scrimToken="subtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
-        spotlightRadius={16}
+        spotlightRadius="auto"
         highlightColor={colors.turmeric}
         actionColor={colors.turmeric}
         title={<Text style={styles.activitiesGuideTitle}>{guideCopy.title}</Text>}
@@ -1231,306 +1301,423 @@ export function ActivitiesScreen() {
         onDismiss={dismissActivitiesListGuide}
         placement="below"
       />
-      <CanvasScrollView
+      <CanvasFlatListWithRef
         ref={canvasScrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         extraBottomPadding={scrollExtraBottomPadding}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={activitiesGuideHost.scrollEnabled}
         // The Activities screen owns keyboard avoidance for the docked quick-add.
         // Letting the scroll view also auto-adjust can cause iOS to "fight" the
         // keyboard transition and immediately dismiss it.
         automaticallyAdjustKeyboardInsets={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {shouldShowSuggestedCard && (
-          <View
-            onLayout={(e) => {
-              suggestedCardYRef.current = e.nativeEvent.layout.y;
-            }}
-          >
-            <OpportunityCard
-              tone="brand"
-              shadow="layered"
-              // Match canonical opportunity card interior rhythm used across Arc/Goal empty states.
-              padding="xs"
-              ctaAlign="right"
-              header={
-                <HStack justifyContent="space-between" alignItems="center">
-                  <HStack alignItems="center" space="xs">
-                    <Icon name="sparkles" size={14} color={colors.parchment} />
-                    <Text style={styles.aiPickOnBrandLabel}>AI quick add</Text>
-                  </HStack>
-                  <HStack alignItems="center" space="xs">
-                    {suggested?.kind === 'setup' ? (
-                      <Text style={styles.aiPickOnBrandPill}>Setup</Text>
-                    ) : null}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="About AI pick"
-                      hitSlop={10}
-                      onPress={() => setQuickAddInfoVisible(true)}
-                    >
-                      <Icon name="info" size={16} color={colors.parchment} />
-                    </Pressable>
+        data={activeActivities}
+        keyExtractor={(activity) => activity.id}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
+        renderItem={({ item: activity }) => {
+          const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
+          const { meta, metaLeadingIconName } = buildActivityListMeta({ activity, goalTitle });
+          const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
+
+          return (
+            <ActivityListItem
+              title={activity.title}
+              meta={meta}
+              metaLeadingIconName={metaLeadingIconName}
+              metaLoading={metaLoading}
+              isCompleted={activity.status === 'done'}
+              onToggleComplete={() => handleToggleComplete(activity.id)}
+              isPriorityOne={activity.priority === 1}
+              onTogglePriority={() => handleTogglePriorityOne(activity.id)}
+              onPress={() =>
+                navigation.push('ActivityDetail', {
+                  activityId: activity.id,
+                })
+              }
+            />
+          );
+        }}
+        ListHeaderComponent={
+          <>
+            {shouldShowSuggestedCard && (
+              <View
+                onLayout={(e) => {
+                  suggestedCardYRef.current = e.nativeEvent.layout.y;
+                }}
+              >
+                <OpportunityCard
+                  tone="brand"
+                  shadow="layered"
+                  // Match canonical opportunity card interior rhythm used across Arc/Goal empty states.
+                  padding="xs"
+                  ctaAlign="right"
+                  header={
+                    <HStack justifyContent="space-between" alignItems="center">
+                      <HStack alignItems="center" space="xs">
+                        <Icon name="sparkles" size={14} color={colors.parchment} />
+                        <Text style={styles.aiPickOnBrandLabel}>Quick add</Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="About Quick add"
+                          hitSlop={10}
+                          onPress={() => setQuickAddInfoVisible(true)}
+                        >
+                          <Icon name="info" size={16} color={colors.parchment} />
+                        </Pressable>
+                      </HStack>
+                      <HStack alignItems="center" space="xs">
+                        {suggested?.kind === 'setup' ? (
+                          <Text style={styles.aiPickOnBrandPill}>Setup</Text>
+                        ) : null}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Dismiss Quick add"
+                          hitSlop={10}
+                          onPress={dismissSuggestedCard}
+                        >
+                          <Icon name="close" size={16} color={colors.parchment} />
+                        </Pressable>
+                      </HStack>
+                    </HStack>
+                  }
+                  title={null}
+                  body={
+                    suggested?.kind === 'activity' && suggestedActivity ? (
+                      <ActivityListItem
+                        title={suggestedActivity.title}
+                        meta={suggestedActivityMeta.meta}
+                        metaLeadingIconName={suggestedActivityMeta.metaLeadingIconName}
+                        onPress={() =>
+                          navigation.push('ActivityDetail', { activityId: suggestedActivity.id })
+                        }
+                        showPriorityControl={false}
+                      />
+                    ) : (
+                      suggestedCardBody
+                    )
+                  }
+                  ctaLabel={
+                    suggested?.kind === 'setup'
+                      ? suggested.reason === 'no_goals'
+                        ? 'Create goal'
+                        : 'Add activity'
+                      : 'Add to Today'
+                  }
+                  ctaVariant={suggested?.kind === 'activity' ? 'inverse' : 'inverse'}
+                  // Icon lives in the header; keep the CTA clean.
+                  ctaLeadingIconName={suggested?.kind === 'activity' ? undefined : 'sparkles'}
+                  ctaSize="xs"
+                  ctaAccessibilityLabel={
+                    suggested?.kind === 'activity'
+                      ? 'Add suggested activity to Today'
+                      : 'Add activity'
+                  }
+                  onPressCta={handleAcceptSuggested}
+                  secondaryCtaLabel="Not now"
+                  secondaryCtaVariant="ghost"
+                  secondaryCtaSize="xs"
+                  secondaryCtaAccessibilityLabel="Dismiss Quick add"
+                  onPressSecondaryCta={dismissSuggestedCard}
+                  style={[
+                    styles.suggestedOpportunityCard,
+                    highlightSuggested && styles.suggestedOpportunityCardHighlighted,
+                  ]}
+                />
+              </View>
+            )}
+
+            {activities.length > 0 && (
+              <>
+                <HStack
+                  style={styles.toolbarRow}
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
+                  <View style={styles.toolbarButtonWrapper}>
+                    {isPro ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          testID="e2e.activities.toolbar.views"
+                          accessibilityRole="button"
+                          accessibilityLabel="Views menu"
+                        >
+                          <Button
+                            ref={viewsButtonRef}
+                            collapsable={false}
+                            variant="outline"
+                            size="small"
+                            pointerEvents="none"
+                            accessible={false}
+                          >
+                            <HStack alignItems="center" space="xs">
+                              <Icon name="panelLeft" size={14} color={colors.textPrimary} />
+                              <Text style={styles.toolbarButtonLabel}>
+                                {activeView?.name ?? 'Default view'}
+                              </Text>
+                            </HStack>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        {!viewEditorVisible && (
+                          <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                            {activityViews.map((view) => (
+                              <ViewMenuItem
+                                key={view.id}
+                                view={view}
+                                onApplyView={applyView}
+                                onOpenViewSettings={handleOpenViewSettings}
+                              />
+                            ))}
+                            <DropdownMenuItem
+                              onPress={handleOpenCreateView}
+                              style={styles.newViewMenuItem}
+                            >
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="plus" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>New view</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        )}
+                      </DropdownMenu>
+                    ) : (
+                      <Pressable
+                        testID="e2e.activities.toolbar.views"
+                        accessibilityRole="button"
+                        accessibilityLabel="Views (Pro)"
+                        onPress={() =>
+                          openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' })
+                        }
+                      >
+                        <Button
+                          ref={viewsButtonRef}
+                          collapsable={false}
+                          variant="outline"
+                          size="small"
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Icon name="panelLeft" size={14} color={colors.textPrimary} />
+                            <Text style={styles.toolbarButtonLabel}>Default view</Text>
+                            <Icon name="lock" size={12} color={colors.textSecondary} />
+                          </HStack>
+                        </Button>
+                      </Pressable>
+                    )}
+                  </View>
+
+                  <HStack space="sm" alignItems="center">
+                    <View style={styles.toolbarButtonWrapper}>
+                      {isPro ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            testID="e2e.activities.toolbar.filter"
+                            accessibilityRole="button"
+                            accessibilityLabel="Filter activities"
+                          >
+                            <Button
+                              ref={filterButtonRef}
+                              collapsable={false}
+                              variant="outline"
+                              size="small"
+                              pointerEvents="none"
+                              accessible={false}
+                            >
+                              <Icon name="funnel" size={14} color={colors.textPrimary} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('all')}>
+                              <Text style={styles.menuItemText}>All activities</Text>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('priority1')}>
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="star" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>Starred</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('active')}>
+                              <Text style={styles.menuItemText}>Active</Text>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('completed')}>
+                              <Text style={styles.menuItemText}>Completed</Text>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <Pressable
+                          testID="e2e.activities.toolbar.filter"
+                          accessibilityRole="button"
+                          accessibilityLabel="Filter activities (Pro)"
+                          onPress={() =>
+                            openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
+                          }
+                        >
+                          <View style={styles.proLockedButton}>
+                            <Button
+                              ref={filterButtonRef}
+                              collapsable={false}
+                              variant="outline"
+                              size="small"
+                              pointerEvents="none"
+                              accessible={false}
+                            >
+                              <Icon name="funnel" size={14} color={colors.textPrimary} />
+                            </Button>
+                            <View style={styles.proLockedBadge}>
+                              <Icon name="lock" size={10} color={colors.textSecondary} />
+                            </View>
+                          </View>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    <View style={styles.toolbarButtonWrapper}>
+                      {isPro ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            testID="e2e.activities.toolbar.sort"
+                            accessibilityRole="button"
+                            accessibilityLabel="Sort activities"
+                          >
+                            <Button
+                              ref={sortButtonRef}
+                              collapsable={false}
+                              variant="outline"
+                              size="small"
+                              pointerEvents="none"
+                              accessible={false}
+                            >
+                              <Icon name="sort" size={14} color={colors.textPrimary} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                            <DropdownMenuItem onPress={() => handleUpdateSortMode('manual')}>
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="menu" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>Manual order</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateSortMode('titleAsc')}>
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="arrowUp" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>Title A–Z</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateSortMode('titleDesc')}>
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="arrowDown" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>Title Z–A</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateAsc')}>
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="today" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>Due date (soonest first)</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateDesc')}>
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="today" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>Due date (latest first)</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => handleUpdateSortMode('priority')}>
+                              <HStack alignItems="center" space="xs">
+                                <Icon name="star" size={14} color={colors.textSecondary} />
+                                <Text style={styles.menuItemText}>Starred first</Text>
+                              </HStack>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <Pressable
+                          testID="e2e.activities.toolbar.sort"
+                          accessibilityRole="button"
+                          accessibilityLabel="Sort activities (Pro)"
+                          onPress={() =>
+                            openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
+                          }
+                        >
+                          <View style={styles.proLockedButton}>
+                            <Button
+                              ref={sortButtonRef}
+                              collapsable={false}
+                              variant="outline"
+                              size="small"
+                              pointerEvents="none"
+                              accessible={false}
+                            >
+                              <Icon name="sort" size={14} color={colors.textPrimary} />
+                            </Button>
+                            <View style={styles.proLockedBadge}>
+                              <Icon name="lock" size={10} color={colors.textSecondary} />
+                            </View>
+                          </View>
+                        </Pressable>
+                      )}
+                    </View>
                   </HStack>
                 </HStack>
-              }
-              title={null}
-              body={
-                suggested?.kind === 'activity' && suggestedActivity ? (
-                  <ActivityListItem
-                    title={suggestedActivity.title}
-                    meta={suggestedActivityMeta.meta}
-                    metaLeadingIconName={suggestedActivityMeta.metaLeadingIconName}
-                    onPress={() => navigation.push('ActivityDetail', { activityId: suggestedActivity.id })}
-                    showPriorityControl={false}
-                  />
-                ) : (
-                  suggestedCardBody
-                )
-              }
-              ctaLabel={
-                suggested?.kind === 'setup'
-                  ? suggested.reason === 'no_goals'
-                    ? 'Create goal'
-                    : 'Add activity'
-                  : 'Add to Today'
-              }
-              ctaVariant={suggested?.kind === 'activity' ? 'inverse' : 'inverse'}
-              // Icon lives in the header; keep the CTA clean.
-              ctaLeadingIconName={suggested?.kind === 'activity' ? null : 'sparkles'}
-              ctaSize="xs"
-              ctaAccessibilityLabel={
-                suggested?.kind === 'activity' ? 'Add suggested activity to Today' : 'Add activity'
-              }
-              onPressCta={handleAcceptSuggested}
-              secondaryCtaLabel="Not now"
-              secondaryCtaVariant="ghost"
-              secondaryCtaSize="xs"
-              secondaryCtaAccessibilityLabel="Dismiss AI pick"
-              onPressSecondaryCta={() => setHighlightSuggested(false)}
-              style={[
-                styles.suggestedOpportunityCard,
-                highlightSuggested && styles.suggestedOpportunityCardHighlighted,
-              ]}
-            />
-          </View>
-        )}
-        {activities.length > 0 && (
-          <>
-            <HStack
-              style={styles.toolbarRow}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <View style={styles.toolbarButtonWrapper}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityRole="button" accessibilityLabel="Views menu">
-                    <Button
-                      ref={viewsButtonRef}
-                      collapsable={false}
-                      variant="outline"
-                      size="small"
-                      pointerEvents="none"
-                      accessible={false}
-                    >
-                      <HStack alignItems="center" space="xs">
-                        <Icon name="panelLeft" size={14} color={colors.textPrimary} />
-                        <Text style={styles.toolbarButtonLabel}>
-                          {activeView?.name ?? 'Default view'}
-                        </Text>
-                      </HStack>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  {!viewEditorVisible && (
-                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                      {activityViews.map((view) => (
-                        <ViewMenuItem
-                          key={view.id}
-                          view={view}
-                          onApplyView={applyView}
-                          onOpenViewSettings={handleOpenViewSettings}
-                        />
-                      ))}
-                      <DropdownMenuItem
-                        onPress={handleOpenCreateView}
-                        style={styles.newViewMenuItem}
-                      >
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="plus" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>New view</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  )}
-                </DropdownMenu>
-              </View>
 
-              <HStack space="sm" alignItems="center">
-                <View style={styles.toolbarButtonWrapper}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      accessibilityRole="button"
-                      accessibilityLabel="Filter activities"
-                    >
-                      <Button
-                        ref={filterButtonRef}
-                        collapsable={false}
-                        variant="outline"
-                        size="small"
-                        pointerEvents="none"
-                        accessible={false}
+                {(filterMode !== 'all' || sortMode !== 'manual') && (
+                  <HStack style={styles.appliedChipsRow} space="xs" alignItems="center">
+                    {filterMode !== 'all' && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear activity filters"
+                        onPress={() => handleUpdateFilterMode('all')}
+                        style={styles.appliedChip}
                       >
-                          <Icon name="funnel" size={14} color={colors.textPrimary} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('all')}>
-                        <Text style={styles.menuItemText}>All activities</Text>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('priority1')}>
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="star" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>Starred</Text>
+                        <HStack space="xs" alignItems="center">
+                          <Text style={styles.appliedChipLabel}>
+                            Filter: {getFilterLabel(filterMode)}
+                          </Text>
+                          <Icon name="close" size={12} color={colors.textSecondary} />
                         </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('active')}>
-                        <Text style={styles.menuItemText}>Active</Text>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('completed')}>
-                        <Text style={styles.menuItemText}>Completed</Text>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </View>
-
-                <View style={styles.toolbarButtonWrapper}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger accessibilityRole="button" accessibilityLabel="Sort activities">
-                      <Button
-                        ref={sortButtonRef}
-                        collapsable={false}
-                        variant="outline"
-                        size="small"
-                        pointerEvents="none"
-                        accessible={false}
+                      </Pressable>
+                    )}
+                    {sortMode !== 'manual' && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Reset sort to manual order"
+                        onPress={() => handleUpdateSortMode('manual')}
+                        style={styles.appliedChip}
                       >
-                          <Icon name="sort" size={14} color={colors.textPrimary} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                      <DropdownMenuItem onPress={() => handleUpdateSortMode('manual')}>
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="menu" size={14} color={colors.textSecondary} />
-                        <Text style={styles.menuItemText}>Manual order</Text>
+                        <HStack space="xs" alignItems="center">
+                          <Text style={styles.appliedChipLabel}>
+                            Sort: {getSortLabel(sortMode)}
+                          </Text>
+                          <Icon name="close" size={12} color={colors.textSecondary} />
                         </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateSortMode('titleAsc')}>
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="arrowUp" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>Title A–Z</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateSortMode('titleDesc')}>
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="arrowDown" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>Title Z–A</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateAsc')}>
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="today" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>Due date (soonest first)</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateDesc')}>
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="today" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>Due date (latest first)</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => handleUpdateSortMode('priority')}>
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="star" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>Priority (P1 first)</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </View>
-              </HStack>
-            </HStack>
-
-            {(filterMode !== 'all' || sortMode !== 'manual') && (
-              <HStack style={styles.appliedChipsRow} space="xs" alignItems="center">
-                {filterMode !== 'all' && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear activity filters"
-                    onPress={() => handleUpdateFilterMode('all')}
-                    style={styles.appliedChip}
-                  >
-                    <HStack space="xs" alignItems="center">
-                      <Text style={styles.appliedChipLabel}>
-                        Filter: {getFilterLabel(filterMode)}
-                      </Text>
-                      <Icon name="close" size={12} color={colors.textSecondary} />
-                    </HStack>
-                  </Pressable>
+                      </Pressable>
+                    )}
+                  </HStack>
                 )}
-                {sortMode !== 'manual' && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Reset sort to manual order"
-                    onPress={() => handleUpdateSortMode('manual')}
-                    style={styles.appliedChip}
-                  >
-                    <HStack space="xs" alignItems="center">
-                      <Text style={styles.appliedChipLabel}>
-                        Sort: {getSortLabel(sortMode)}
-                      </Text>
-                      <Icon name="close" size={12} color={colors.textSecondary} />
-                    </HStack>
-                  </Pressable>
-                )}
-              </HStack>
+              </>
             )}
           </>
-        )}
-
-        {hasAnyActivities ? (
-          <>
-            {activeActivities.length > 0 && (
-              <VStack space="xs">
-                {activeActivities.map((activity) => {
-                  const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-                  const { meta, metaLeadingIconName } = buildActivityListMeta({ activity, goalTitle });
-                  const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
-
-                  return (
-                    <ActivityListItem
-                      key={activity.id}
-                      title={activity.title}
-                      meta={meta}
-                      metaLeadingIconName={metaLeadingIconName}
-                      metaLoading={metaLoading}
-                      isCompleted={activity.status === 'done'}
-                      onToggleComplete={() => handleToggleComplete(activity.id)}
-                      isPriorityOne={activity.priority === 1}
-                      onTogglePriority={() => handleTogglePriorityOne(activity.id)}
-                      onPress={() =>
-                        navigation.push('ActivityDetail', {
-                          activityId: activity.id,
-                        })
-                      }
-                    />
-                  );
-                })}
-              </VStack>
-            )}
-
-            {completedActivities.length > 0 && (
+        }
+        ListEmptyComponent={
+          !hasAnyActivities ? (
+            <EmptyState
+              title="No activities yet"
+              instructions="Add your first activity to start building momentum."
+              primaryAction={{
+                label: 'Add activity',
+                variant: 'accent',
+                onPress: () => setActivityCoachVisible(true),
+                accessibilityLabel: 'Add a new activity',
+              }}
+              style={styles.emptyState}
+            />
+          ) : null
+        }
+        ListFooterComponent={
+          completedActivities.length > 0 ? (
+            <View style={{ marginTop: activeActivities.length > 0 ? spacing.sm : 0 }}>
               <CompletedActivitySection
                 activities={completedActivities}
                 goalTitleById={goalTitleById}
@@ -1543,22 +1730,12 @@ export function ActivitiesScreen() {
                 }
                 isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
               />
-            )}
-          </>
-        ) : (
-          <EmptyState
-            title="No activities yet"
-            instructions="Add your first activity to start building momentum."
-            primaryAction={{
-              label: 'Add activity',
-              variant: 'accent',
-              onPress: () => setActivityCoachVisible(true),
-              accessibilityLabel: 'Add a new activity',
-            }}
-            style={styles.emptyState}
-          />
-        )}
-      </CanvasScrollView>
+            </View>
+          ) : (
+            <View />
+          )
+        }
+      />
       <QuickAddDock
         value={quickAddTitle}
         onChangeText={handleQuickAddChangeText}
@@ -1669,7 +1846,8 @@ export function ActivitiesScreen() {
             setQuickAddIsDueDatePickerVisible(false);
           })
         }
-        snapPoints={['45%']}
+        // iOS inline date picker needs more vertical space; otherwise it renders below the fold.
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
         presentation="inline"
         hideBackdrop
       >
@@ -1859,6 +2037,8 @@ const QUICK_ADD_BAR_HEIGHT = 64;
 
 const styles = StyleSheet.create({
   addActivityIconButton: {
+    alignSelf: 'flex-start',
+    marginTop: 0,
     backgroundColor: colors.primary,
   },
   scroll: {
@@ -1883,6 +2063,22 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
   },
+  proLockedButton: {
+    position: 'relative',
+  },
+  proLockedBadge: {
+    position: 'absolute',
+    right: -4,
+    top: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   appliedChipsRow: {
     // Keep a comfortable gap between the applied chips and the Activities list
     // so the controls feel visually separate from the canvas, while still
@@ -1890,9 +2086,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   emptyState: {
-    // When the list is empty, keep the "No activities yet" message close to the
-    // filter/sort controls so the total gap feels like a single `lg` step.
-    marginTop: spacing.lg,
+    marginTop: spacing['2xl'],
   },
   suggestedCard: {
     // Deprecated: Suggested card has been migrated to OpportunityCard.
@@ -2144,7 +2338,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: colors.formLabel,
     paddingHorizontal: spacing.sm,
     marginBottom: spacing.xs,
   },
@@ -2400,7 +2594,7 @@ function getSortLabel(mode: ActivitySortMode): string {
     case 'dueDateDesc':
       return 'Due date (latest first)';
     case 'priority':
-      return 'Priority (P1 first)';
+      return 'Starred first';
     case 'manual':
     default:
       return 'Manual order';
@@ -2616,7 +2810,7 @@ function ActivityCoachDrawer({
           goalId: null,
           title: trimmedTitle,
           type: 'task',
-          tags: [],
+          tags: suggestTagsFromText(trimmedTitle),
           notes: undefined,
           steps: [],
           reminderAt: null,
@@ -2672,7 +2866,10 @@ function ActivityCoachDrawer({
         goalId: null,
         title: suggestion.title.trim(),
         type: suggestion.type ?? 'task',
-        tags: [],
+        tags:
+          Array.isArray(suggestion.tags) && suggestion.tags.length > 0
+            ? suggestion.tags
+            : suggestTagsFromText(suggestion.title, suggestion.why ?? null),
         notes: suggestion.why,
         steps,
         reminderAt: null,

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 import { Card, type CardElevation, type CardPadding } from './Card';
@@ -23,6 +23,10 @@ type OpportunityCardProps = {
   ctaLeadingIconName?: React.ComponentProps<typeof Icon>['name'];
   ctaAccessibilityLabel?: string;
   ctaSize?: React.ComponentProps<typeof Button>['size'];
+  /**
+   * Optional ref hook for coachmarks / guided tours (points at the primary CTA target).
+   */
+  ctaTargetRef?: Ref<View>;
 
   /**
    * Optional secondary CTA (e.g. "Not now").
@@ -69,6 +73,7 @@ export function OpportunityCard({
   ctaLeadingIconName = 'sparkles',
   ctaAccessibilityLabel,
   ctaSize,
+  ctaTargetRef,
   secondaryCtaLabel,
   onPressSecondaryCta,
   secondaryCtaVariant = 'outline',
@@ -172,6 +177,8 @@ export function OpportunityCard({
                   </HStack>
                 </Button>
                 <Button
+                  ref={ctaTargetRef as any}
+                  collapsable={false}
                   variant={ctaVariant}
                   size={ctaSize}
                   onPress={onPressCta}
@@ -190,6 +197,8 @@ export function OpportunityCard({
             ) : (
               <>
                 <Button
+                  ref={ctaTargetRef as any}
+                  collapsable={false}
                   variant={ctaVariant}
                   size={ctaSize}
                   onPress={onPressCta}
@@ -225,10 +234,15 @@ export function OpportunityCard({
           </HStack>
         ) : (
           <Button
+            ref={ctaTargetRef as any}
+            collapsable={false}
+            fullWidth
             variant={ctaVariant}
             size={ctaSize}
             onPress={onPressCta}
-            accessibilityLabel={ctaAccessibilityLabel ?? (typeof ctaLabel === 'string' ? ctaLabel : 'Call to action')}
+            accessibilityLabel={
+              ctaAccessibilityLabel ?? (typeof ctaLabel === 'string' ? ctaLabel : 'Call to action')
+            }
           >
             <HStack alignItems="center" justifyContent="center" space="xs">
               {ctaLeadingIconName ? <Icon name={ctaLeadingIconName} size={14} color={primaryCtaIconColor} /> : null}

@@ -34,6 +34,7 @@ function useCreditStats() {
 export function CreditsInterstitialDrawerHost() {
   const visible = useCreditsInterstitialStore((s) => s.visible);
   const kind = useCreditsInterstitialStore((s) => s.kind);
+  const spentCredits = useCreditsInterstitialStore((s) => s.spentCredits);
   const close = useCreditsInterstitialStore((s) => s.close);
   const stats = useCreditStats();
 
@@ -42,7 +43,7 @@ export function CreditsInterstitialDrawerHost() {
       ? 'You’re topped up'
       : kind === 'reward'
       ? 'You earned AI credits'
-      : 'AI credits (Free tier)';
+      : 'AI credits';
 
   const subtitle =
     kind === 'completion'
@@ -50,6 +51,13 @@ export function CreditsInterstitialDrawerHost() {
       : kind === 'reward'
       ? `You have ${stats.remaining}/${stats.limit} AI credits available this month.`
       : `You’re currently on ${stats.isPro ? 'Pro' : 'Free'}. You get ${stats.base} credits per month.`;
+
+  const hero =
+    kind === 'education' && spentCredits && spentCredits > 0
+      ? { value: String(spentCredits), label: 'AI credit used' }
+      : kind === 'completion'
+      ? { value: String(stats.base), label: 'AI credits available' }
+      : null;
 
   return (
     <BottomDrawer
@@ -72,11 +80,18 @@ export function CreditsInterstitialDrawerHost() {
 
         <Text style={styles.subtitle}>{subtitle}</Text>
 
+        {hero ? (
+          <View style={styles.hero}>
+            <Text style={styles.heroValue}>{hero.value}</Text>
+            <Text style={styles.heroLabel}>{hero.label}</Text>
+          </View>
+        ) : null}
+
         {kind === 'education' ? (
           <View style={styles.body}>
-            <Text style={styles.bullet}>• Credits reset monthly.</Text>
-            <Text style={styles.bullet}>• Onboarding AI help is free, but capped to prevent abuse.</Text>
-            <Text style={styles.bullet}>• Finish onboarding to start with a full {stats.base}/{stats.base}.</Text>
+            <Text style={styles.bullet}>• Credits refresh monthly.</Text>
+            <Text style={styles.bullet}>• During onboarding, AI help is included (fair-use limits).</Text>
+            <Text style={styles.bullet}>• Finish onboarding to start with a full {stats.base}/{stats.base} this month.</Text>
           </View>
         ) : null}
 
@@ -135,6 +150,23 @@ const styles = StyleSheet.create({
   body: {
     gap: spacing.sm,
     marginBottom: spacing.xl,
+  },
+  hero: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  heroValue: {
+    fontSize: 72,
+    lineHeight: 72,
+    letterSpacing: -2,
+    color: colors.textPrimary,
+    ...(typography.titleMd as any),
+  },
+  heroLabel: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   bullet: {
     ...typography.body,

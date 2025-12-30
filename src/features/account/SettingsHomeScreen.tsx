@@ -79,7 +79,6 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
 
 export function SettingsHomeScreen() {
   const userProfile = useAppStore((state) => state.userProfile);
-  const arcs = useAppStore((state) => state.arcs);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const navigation = useNavigation<SettingsNavigationProp>();
   const drawerNavigation = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
@@ -109,21 +108,7 @@ export function SettingsHomeScreen() {
     }
   };
 
-  const generatedNameFromFirstArc = (() => {
-    let firstArcName: string | null = null;
-    let firstArcCreatedAt: string | null = null;
-    for (const arc of arcs) {
-      const arcName = arc?.name?.trim();
-      if (!arcName) continue;
-      if (!firstArcCreatedAt || arc.createdAt < firstArcCreatedAt) {
-        firstArcCreatedAt = arc.createdAt;
-        firstArcName = arcName;
-      }
-    }
-    return firstArcName;
-  })();
-
-  const displayName = userProfile?.fullName?.trim() || generatedNameFromFirstArc || 'Kwilter';
+  const displayName = userProfile?.fullName?.trim() || 'Kwilter';
   const profileSubtitle = userProfile?.email?.trim() || 'Add your email address';
   const avatarSource = userProfile?.avatarUrl ? { uri: userProfile.avatarUrl } : null;
 
@@ -393,6 +378,28 @@ export function SettingsHomeScreen() {
               </HStack>
             </Pressable>
           </View>
+
+          {/* Pro code redemption (Free only). */}
+          {!isPro ? (
+            <View style={styles.groupSection}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Redeem a Pro code"
+                onPress={() => navigation.navigate('SettingsRedeemProCode')}
+              >
+                <HStack style={styles.itemRow} alignItems="center" space="md">
+                  <View style={styles.itemIcon}>
+                    <Icon name="sparkles" size={18} color={colors.accent} />
+                  </View>
+                  <VStack flex={1}>
+                    <Text style={styles.itemTitle}>Redeem Pro code</Text>
+                    <Text style={styles.itemSubtitle}>Enter an access code to unlock Kwilt Pro.</Text>
+                  </VStack>
+                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                </HStack>
+              </Pressable>
+            </View>
+          ) : null}
 
           {/* Subscriptions entry (moved to bottom of the list). */}
           <View style={styles.groupSection}>

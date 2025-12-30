@@ -29,6 +29,7 @@ import { AppearanceSettingsScreen } from '../features/account/AppearanceSettings
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
+import { RedeemProCodeScreen } from '../features/account/RedeemProCodeScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
@@ -122,6 +123,7 @@ export type SettingsStackParamList = {
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
   SettingsHaptics: undefined;
+  SettingsRedeemProCode: undefined;
   SettingsManageSubscription:
     | {
         /**
@@ -165,7 +167,9 @@ const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
   // top-level canvas the user is on.
   animation: 'slide_from_right',
   animationTypeForReplace: 'push',
-  fullScreenGestureEnabled: true,
+  // Avoid accidental back-swipes when users are primarily vertically scrolling.
+  // (Still allows the standard iOS "edge swipe" back gesture unless a screen disables it.)
+  fullScreenGestureEnabled: false,
 };
 
 const navTheme: Theme = {
@@ -482,7 +486,15 @@ function ArcsStackNavigator() {
       <ArcsStack.Screen name="ArcsList" component={ArcsScreen} />
       <ArcsStack.Screen name="ArcDetail" component={ArcDetailScreen} />
       <ArcsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
-      <ArcsStack.Screen name="ActivityDetailFromGoal" component={ActivityDetailScreen} />
+      <ArcsStack.Screen
+        name="ActivityDetailFromGoal"
+        component={ActivityDetailScreen}
+        options={{
+          // Prevent accidental "swipe back" while vertically scrolling dense content.
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
     </ArcsStack.Navigator>
   );
 }
@@ -496,7 +508,15 @@ function GoalsStackNavigator() {
     >
       <GoalsStack.Screen name="GoalsList" component={GoalsScreen} />
       <GoalsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
-      <GoalsStack.Screen name="ActivityDetailFromGoal" component={ActivityDetailScreen} />
+      <GoalsStack.Screen
+        name="ActivityDetailFromGoal"
+        component={ActivityDetailScreen}
+        options={{
+          // Prevent accidental "swipe back" while vertically scrolling dense content.
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
     </GoalsStack.Navigator>
   );
 }
@@ -505,7 +525,15 @@ function ActivitiesStackNavigator() {
   return (
     <ActivitiesStack.Navigator screenOptions={STACK_SCREEN_OPTIONS}>
       <ActivitiesStack.Screen name="ActivitiesList" component={ActivitiesScreen} />
-      <ActivitiesStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
+      <ActivitiesStack.Screen
+        name="ActivityDetail"
+        component={ActivityDetailScreen}
+        options={{
+          // Prevent accidental "swipe back" while vertically scrolling dense content.
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
     </ActivitiesStack.Navigator>
   );
 }
@@ -533,6 +561,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsHaptics"
         component={HapticsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsRedeemProCode"
+        component={RedeemProCodeScreen}
       />
       <SettingsStack.Screen
         name="SettingsManageSubscription"
@@ -572,23 +604,7 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
 function KwiltDrawerContent(props: any) {
   const insets = useSafeAreaInsets();
   const userProfile = useAppStore((state) => state.userProfile);
-  const arcs = useAppStore((state) => state.arcs);
-
-  const generatedNameFromFirstArc = (() => {
-    let firstArcName: string | null = null;
-    let firstArcCreatedAt: string | null = null;
-    for (const arc of arcs) {
-      const arcName = arc?.name?.trim();
-      if (!arcName) continue;
-      if (!firstArcCreatedAt || arc.createdAt < firstArcCreatedAt) {
-        firstArcCreatedAt = arc.createdAt;
-        firstArcName = arcName;
-      }
-    }
-    return firstArcName;
-  })();
-
-  const displayName = userProfile?.fullName?.trim() || generatedNameFromFirstArc || 'Kwilter';
+  const displayName = userProfile?.fullName?.trim() || 'Kwilter';
   const subscriptionLabel = 'Kwilt Free';
 
   // Hide the top-level Settings item from the drawer list while keeping the

@@ -77,7 +77,11 @@ export const colors = {
   canvas: '#FFFFFF',
   card: '#FFFFFF',
   cardMuted: '#F5F5F4',
+  // General border/divider token used across the app (inputs, separators, etc).
+  // Keep slightly darker than card borders so dividers still read.
   border: '#E4E4E7',
+  // Card border token: lighter stroke for white-on-white card surfaces (reference look).
+  cardBorder: '#E7E5E4', // gray200
 
   // ShadCN-inspired primitives
   // Primary (dark) – aligned to Sumi so copy + primary controls share the same ink.
@@ -93,10 +97,27 @@ export const colors = {
   textSecondary: '#5D6B54',
   muted: '#8E9B83',
 
+  // Form field section labels (e.g., NOTES / TAGS / LINKED GOAL). Keep in the Sumi family (no pine tint).
+  formLabel: '#57534E', // sumi600
+
+  // Borderless input fill surfaces (used by `Input` variant="filled", `LongTextField` surfaceVariant="filled", etc).
+  // Keep extremely subtle; rely on focus ring / pressed state for affordance.
+  // Use the official neutral/brand gray scale (no pine tint).
+  fieldFill: '#F5F5F4', // gray100 / sumi100 (lighter, still separates from white canvas)
+  fieldFillPressed: '#E7E5E4', // gray200
+
   // Primary brand accent: kwilt green.
   accent: '#315545',
   // Muted accent: slightly softer/desaturated green for secondary fills (badges, info surfaces, etc.).
   accentMuted: '#3F6F5C',
+
+  /**
+   * Link / derived state tint.
+   * Used when an affordance represents a *relationship* (e.g. checklist step linked to an Activity),
+   * so it doesn't compete with the primary completion/success color.
+   */
+  linked: '#324966', // quiltBlue600 (darker, more confident semantic tint)
+  linkedForeground: '#FAFAFA',
 
   /**
    * AI brand tokens (used for AI actions like "AI Suggestion").

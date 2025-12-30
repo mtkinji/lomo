@@ -34,7 +34,7 @@ type BadgeProps = {
 };
 
 const BACKGROUND_BY_VARIANT: Record<BadgeVariant, string> = {
-  default: colors.accent,
+  default: colors.primary,
   secondary: colors.shellAlt,
   destructive: colors.destructive,
   outline: colors.canvas,
@@ -42,7 +42,7 @@ const BACKGROUND_BY_VARIANT: Record<BadgeVariant, string> = {
 };
 
 const TEXT_COLOR_BY_VARIANT: Record<BadgeVariant, string> = {
-  default: colors.canvas,
+  default: colors.primaryForeground,
   secondary: colors.textSecondary,
   destructive: colors.canvas,
   outline: colors.textPrimary,

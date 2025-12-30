@@ -31,6 +31,9 @@ const PRO_VALUE_ATTAINMENTS: PaywallBenefit[] = [
     title: 'Focus sessions up to 180 minutes',
   },
   {
+    title: 'Saved views + advanced filters for activities',
+  },
+  {
     title: 'More banner images + search',
   },
   {
@@ -76,6 +79,12 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
         title: 'Make your plan show up in your real life',
         subtitle:
           'Get your activities into your calendar so your intentions become commitments—and your days feel aligned instead of reactive.',
+      };
+    case 'pro_only_views_filters':
+      return {
+        title: 'Turn your Activities list into a tool',
+        subtitle:
+          'Pro Tools unlocks saved views plus filtering and sorting—so you can focus on what matters right now without losing your place.',
       };
     case 'pro_only_ai_scheduling':
       return {

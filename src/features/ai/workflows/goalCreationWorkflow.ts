@@ -68,7 +68,7 @@ export const goalCreationWorkflow: WorkflowDefinition = {
           '  "title": "…",',
           '  "description": "…",',
           '  "status": "planned" | "in_progress",',
-          '  "targetDate": "YYYY-MM-DD" | "ISO-8601 timestamp" (optional),',
+          '  "targetDate": "YYYY-MM-DD" | "ISO-8601 timestamp",',
           '  "metrics": [',
           '    { "id": "metric-1", "kind": "count" | "threshold" | "event_count" | "milestone", "label": "…", "baseline": 0, "target": 6, "unit": "…" },',
           '  ] (optional),',
@@ -78,7 +78,7 @@ export const goalCreationWorkflow: WorkflowDefinition = {
           '',
           'Guidance:',
           "- The description should include a clear definition of done and an implied timeframe that matches the user's intent.",
-          '- If you can confidently infer a calendar target date, include `targetDate` (prefer YYYY-MM-DD).',
+          '- Always include `targetDate`. It must not be in the past. If the user didn’t specify one, choose a reasonable date that matches the stated horizon (default to ~30 days from today). Prefer YYYY-MM-DD.',
           '- If you can express definition-of-done as a simple metric, include one entry in `metrics` (milestone for binary outcomes; count/event_count for repeats).',
           '- Use the workspace snapshot to avoid duplicating existing goals/activities verbatim.',
           '- Do NOT use markdown fences around the JSON.',
@@ -86,8 +86,7 @@ export const goalCreationWorkflow: WorkflowDefinition = {
       validationHint:
         "Produce exactly one concrete, realistic goal that matches the user's intended timeframe and does not duplicate existing goals verbatim.",
       agentBehavior: {
-        loadingMessage:
-          "One sec — I’m drafting a starter goal from your kwilt context. You can adopt it as-is, or edit the title and description first.",
+        loadingMessage: 'I’m drafting a starter goal. You can edit it before adopting.',
         loadingMessageId: 'assistant-goal-status',
       },
       // IMPORTANT: The host app confirms adoption via the proposal card UI, so we do not

@@ -2,10 +2,13 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
-  StyleSheet,
+  InteractionManager,
+  LayoutAnimation,
   View,
   Text,
+  ActivityIndicator,
   Pressable,
+  StyleSheet,
   TextInput,
   Platform,
   Keyboard,
@@ -13,9 +16,11 @@ import {
   Share,
   Linking,
   findNodeHandle,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
+import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -30,6 +35,7 @@ import type {
   ActivityStep,
   ActivityType,
 } from '../../domain/types';
+import type { Activity } from '../../domain/types';
 import type {
   ActivitiesStackParamList,
 } from '../../navigation/RootNavigator';
@@ -49,6 +55,8 @@ import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { LongTextField } from '../../ui/LongTextField';
+import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
+import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
 import { DurationPicker } from './DurationPicker';
 import { Badge } from '../../ui/Badge';
@@ -77,6 +85,10 @@ import { openPaywallInterstitial } from '../../services/paywall';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 import { HapticsService } from '../../services/HapticsService';
+import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
+import { styles } from './activityDetailStyles';
+import { ActivityDetailRefresh } from './ActivityDetailRefresh';
+import { ActionDock } from '../../ui/ActionDock';
 
 type FocusSessionState =
   | {
@@ -91,8 +103,8 @@ type FocusSessionState =
     };
 
 type ActivityDetailRouteProp = RouteProp<
-  { ActivityDetail: ActivityDetailRouteParams },
-  'ActivityDetail'
+  { ActivityDetail: ActivityDetailRouteParams; ActivityDetailFromGoal: ActivityDetailRouteParams },
+  'ActivityDetail' | 'ActivityDetailFromGoal'
 >;
 
 type ActivityDetailNavigationProp = NativeStackNavigationProp<
@@ -106,24 +118,59 @@ export function ActivityDetailScreen() {
   const isPro = useEntitlementsStore((state) => state.isPro);
   const focusMaxMinutes = isPro ? 180 : 10;
   const isFocused = useIsFocused();
+  const isFocusedRef = useRef(isFocused);
   const { capture } = useAnalytics();
   const showToast = useToastStore((s) => s.showToast);
   const insets = useSafeAreaInsets();
+  const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
-  const { activityId, openFocus } = route.params;
+  const { activityId, openFocus } = route.params as ActivityDetailRouteParams;
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const planExpanded = useAppStore((s) => s.activityDetailPlanExpanded);
+  const detailsExpanded = useAppStore((s) => s.activityDetailDetailsExpanded);
+  const togglePlanExpandedInStore = useAppStore((s) => s.toggleActivityDetailPlanExpanded);
+  const toggleDetailsExpandedInStore = useAppStore((s) => s.toggleActivityDetailDetailsExpanded);
+
+  // Geometry for screen-edge scroll fade (only affects scroll content beneath header/dock).
+  // AppShell applies `spacing.sm + insets.top` padding to the canvas; we use that to extend
+  // the top fade up to the physical top of the device.
+  const appShellTopInsetPx = spacing.sm + insets.top;
+  const [refreshContainerHeightPx, setRefreshContainerHeightPx] = useState<number | null>(null);
+  const [actionDockLayoutY, setActionDockLayoutY] = useState<number | null>(null);
+  const bottomFadeHeightPx =
+    !isKeyboardVisible && refreshContainerHeightPx != null && actionDockLayoutY != null
+      ? Math.max(0, refreshContainerHeightPx - actionDockLayoutY)
+      : undefined;
 
   const KEYBOARD_CLEARANCE = spacing['2xl'] + spacing.lg;
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+
+  useEffect(() => {
+    isFocusedRef.current = isFocused;
+  }, [isFocused]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    // Enable LayoutAnimation on Android (no-op on newer RN versions where it's enabled).
+    try {
+      UIManager.setLayoutAnimationEnabledExperimental?.(true);
+    } catch {
+      // no-op
+    }
+  }, []);
 
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const arcs = useAppStore((state) => state.arcs);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const domainHydrated = useAppStore((state) => state.domainHydrated);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
   const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
+  // Activity detail uses the refresh layout only (legacy implementation removed).
+  const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
@@ -150,6 +197,29 @@ export function ActivityDetailScreen() {
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
     [activities, activityId],
+  );
+
+  const activitiesById = useMemo(() => {
+    const map: Record<string, Activity> = {};
+    for (const item of activities) {
+      map[item.id] = item;
+    }
+    return map;
+  }, [activities]);
+
+  const openActivityDetail = useCallback(
+    (nextActivityId: string) => {
+      const screenName = route.name === 'ActivityDetailFromGoal' ? 'ActivityDetailFromGoal' : 'ActivityDetail';
+      // Important: from inside ActivityDetail, we want the user to be able to go "back"
+      // to the previous Activity detail (e.g. when converting a checklist step into an Activity).
+      // `navigate` may reuse an existing route instance; `push` guarantees a new detail view.
+      (navigation as any).push(screenName, {
+        activityId: nextActivityId,
+        // Preserve entryPoint semantics when present (e.g., goalPlan back behavior).
+        entryPoint: (route.params as any)?.entryPoint,
+      });
+    },
+    [navigation, route.name, route.params]
   );
 
   const activityWorkspaceSnapshot = useMemo(() => {
@@ -349,7 +419,6 @@ export function ActivityDetailScreen() {
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isAddingStepInline, setIsAddingStepInline] = useState(false);
   const newStepInputRef = useRef<TextInput | null>(null);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const inputFocusCountRef = useRef(0);
   const [isAnyInputFocused, setIsAnyInputFocused] = useState(false);
   const [goalComboboxOpen, setGoalComboboxOpen] = useState(false);
@@ -397,16 +466,36 @@ export function ActivityDetailScreen() {
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
+  const actionDockLeftRef = useRef<View | null>(null);
+  const actionDockRightRef = useRef<View | null>(null);
+  const finishMutationRef = useRef<{ completedAtStamp: string; stepIds: string[] } | null>(null);
   const [detailGuideStep, setDetailGuideStep] = useState(0);
   const [isTitleStepsBundleReady, setIsTitleStepsBundleReady] = useState(false);
   const [isScheduleCardReady, setIsScheduleCardReady] = useState(false);
+  const [isActionDockReady, setIsActionDockReady] = useState(false);
+  const [titleStepsBundleOffset, setTitleStepsBundleOffset] = useState<number | null>(null);
+  const [scheduleCardOffset, setScheduleCardOffset] = useState<number | null>(null);
 
   const handleBackToActivities = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
-    } else {
-      navigation.navigate('ActivitiesList');
+      return;
     }
+
+    // Fallback for deep links / cold opens: if this Activity was created from a checklist step,
+    // prefer returning to the parent Activity detail rather than dumping the user into the list.
+    const origin = (activity as any)?.origin;
+    const parentActivityId = origin?.kind === 'activity_step' ? origin?.parentActivityId : null;
+    if (parentActivityId) {
+      const screenName = route.name === 'ActivityDetailFromGoal' ? 'ActivityDetailFromGoal' : 'ActivityDetail';
+      (navigation as any).navigate(screenName, {
+        activityId: parentActivityId,
+        entryPoint: (route.params as any)?.entryPoint,
+      });
+      return;
+    }
+
+    navigation.navigate('ActivitiesList');
   };
 
   const canSendTo = useMemo(() => {
@@ -506,6 +595,22 @@ export function ActivityDetailScreen() {
   }, [buildSendToSearchQuery, openExternalUrl]);
 
   useEffect(() => {
+    // iOS interactive dismissal can fail to fire `keyboardDidHide`, leaving stale state.
+    // Use the more reliable "will*" + frame-change events on iOS.
+    if (Platform.OS === 'ios') {
+      const showSub = Keyboard.addListener('keyboardWillShow', () => setIsKeyboardVisible(true));
+      const hideSub = Keyboard.addListener('keyboardWillHide', () => setIsKeyboardVisible(false));
+      const frameSub = Keyboard.addListener('keyboardWillChangeFrame', (e: any) => {
+        const nextHeight = e?.endCoordinates?.height ?? 0;
+        setIsKeyboardVisible(nextHeight > 0);
+      });
+      return () => {
+        showSub.remove();
+        hideSub.remove();
+        frameSub.remove();
+      };
+    }
+
     const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
     const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
     return () => {
@@ -533,8 +638,20 @@ export function ActivityDetailScreen() {
   };
 
   if (!activity) {
+    if (!domainHydrated) {
+      return (
+        <AppShell>
+          <PageHeader title="Activity" onPressBack={handleBackToActivities} />
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={colors.textPrimary} />
+            <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading activity…</Text>
+          </View>
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
+        <PageHeader title="Activity" onPressBack={handleBackToActivities} />
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>Activity not found</Text>
           <Text style={styles.emptyBody}>
@@ -546,7 +663,9 @@ export function ActivityDetailScreen() {
   }
 
   const isCompleted = activity.status === 'done';
-  const showDoneButton = isKeyboardVisible || isAnyInputFocused || isEditingTitle || isAddingStepInline;
+  // Editing/keyboard state: used to suppress certain UI (coachmarks, completion checkmark)
+  // that can be confusing when the keyboard is present.
+  const editingUiActive = isKeyboardVisible || isEditingTitle || isAddingStepInline;
   const showTagsAutofill =
     (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0;
 
@@ -555,35 +674,87 @@ export function ActivityDetailScreen() {
     lastOnboardingGoalId && activity.goalId === lastOnboardingGoalId
   );
 
+  const detailGuideStepCount = 4;
+  const detailGuideStepReady = (() => {
+    if (detailGuideStep === 0) return isTitleStepsBundleReady;
+    if (detailGuideStep === 1) return isScheduleCardReady;
+    // Dock steps: require the dock to be mounted (it is hidden while keyboard/editing UI is active).
+    return isActionDockReady;
+  })();
+
   const shouldShowDetailGuide =
     isFocused &&
     isOnboardingActivity &&
     !hasDismissedActivityDetailGuide &&
-    !showDoneButton &&
+    !editingUiActive &&
     !goalComboboxOpen &&
     !difficultyComboboxOpen &&
     !reminderSheetVisible &&
     !dueDateSheetVisible &&
     !repeatSheetVisible &&
     !estimateSheetVisible &&
-    (detailGuideStep === 0 ? isTitleStepsBundleReady : isScheduleCardReady);
+    detailGuideStepReady;
+
+  const detailGuideTargetScrollY = useMemo(() => {
+    if (detailGuideStep === 0) return 0;
+    if (detailGuideStep === 1) {
+      return scheduleCardOffset != null ? Math.max(0, scheduleCardOffset - 120) : null;
+    }
+    // Dock targets are fixed to the bottom of the viewport; no scroll needed.
+    return null;
+  }, [detailGuideStep, scheduleCardOffset]);
+
+  const detailGuideHost = useCoachmarkHost({
+    active: shouldShowDetailGuide,
+    stepKey: detailGuideStep,
+    targetScrollY: detailGuideTargetScrollY,
+    scrollTo: (args) => scrollRef.current?.scrollTo(args),
+  });
 
   const dismissDetailGuide = () => {
     setHasDismissedActivityDetailGuide(true);
     setDetailGuideStep(0);
   };
 
-  const detailGuideTargetRef = detailGuideStep === 0 ? titleStepsBundleRef : scheduleAndPlanningCardRef;
-  const detailGuideTitle = detailGuideStep === 0 ? 'Edit + complete here' : 'Schedule + plan';
-  const detailGuideBody =
-    detailGuideStep === 0
-      ? 'Tap the circle to mark done. Add a few steps for clarity—when required steps are completed, the Activity completes automatically.'
-      : 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
+  const detailGuideTargetRef = (() => {
+    if (detailGuideStep === 0) return titleStepsBundleRef;
+    if (detailGuideStep === 1) return scheduleAndPlanningCardRef;
+    if (detailGuideStep === 2) return actionDockLeftRef;
+    return actionDockRightRef;
+  })();
+
+  const detailGuideTitle = (() => {
+    if (detailGuideStep === 0) return 'Edit + complete here';
+    if (detailGuideStep === 1) return 'Schedule + plan';
+    if (detailGuideStep === 2) return 'Quick actions';
+    return 'Finish fast';
+  })();
+
+  const detailGuideBody = (() => {
+    if (detailGuideStep === 0) {
+      return 'Check steps to make progress—when all steps are checked, the Activity is complete. Tap the bottom-right button to finish remaining steps fast; tap again to undo that finish.';
+    }
+    if (detailGuideStep === 1) {
+      return 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
+    }
+    if (detailGuideStep === 2) {
+      return 'Use the left action dock for common shortcuts like Focus mode, Calendar, Send to… (when available), and AI help.';
+    }
+    return 'Use the bottom-right button to mark the activity done (or undo). When your steps are complete, you’ll see the progress ring fill and the button celebrate.';
+  })();
+
+  const detailGuidePlacement = detailGuideStep >= 2 ? 'above' : 'below';
+  const detailGuideIsFinalStep = detailGuideStep >= detailGuideStepCount - 1;
 
   const handleDoneEditing = () => {
     // Prefer blurring the known inline inputs first so their onBlur commits fire.
     titleInputRef.current?.blur();
     newStepInputRef.current?.blur();
+    // Also blur any currently-focused input (e.g. step title Input) so iOS reliably exits edit mode.
+    const focused = (TextInput as any)?.State?.currentlyFocusedInput?.();
+    if (focused) {
+      (TextInput as any)?.State?.blurTextInput?.(focused);
+    }
     Keyboard.dismiss();
   };
 
@@ -1344,19 +1515,16 @@ export function ActivityDetailScreen() {
       return { nextStatus: prevStatus, nextCompletedAt: prevCompletedAt ?? null };
     }
 
-    const requiredSteps = nextSteps.filter((step) => !step.isOptional);
-    const allRequiredComplete = requiredSteps.length > 0 && requiredSteps.every((s) => !!s.completedAt);
+    const allStepsComplete = nextSteps.length > 0 && nextSteps.every((s) => !!s.completedAt);
     const anyStepComplete = nextSteps.some((s) => !!s.completedAt);
 
     let nextStatus: ActivityStatus = prevStatus;
-    if (allRequiredComplete) {
+    if (allStepsComplete) {
       nextStatus = 'done';
-    } else if (anyStepComplete && prevStatus === 'planned') {
+    } else if (anyStepComplete) {
       nextStatus = 'in_progress';
-    } else if (!anyStepComplete && prevStatus === 'in_progress') {
+    } else {
       nextStatus = 'planned';
-    } else if (!anyStepComplete && prevStatus === 'done') {
-      nextStatus = 'in_progress';
     }
 
     const nextCompletedAt = nextStatus === 'done' ? prevCompletedAt ?? timestamp : null;
@@ -1365,50 +1533,64 @@ export function ActivityDetailScreen() {
   };
 
   const applyStepUpdate = (updater: (current: ActivityStep[]) => ActivityStep[]) => {
-    const timestamp = new Date().toISOString();
-    let markedDone = false;
-    let nextLocalSteps: ActivityStep[] = [];
-
-    updateActivity(activity.id, (prev) => {
-      const currentSteps = prev.steps ?? [];
-      const nextSteps = updater(currentSteps);
-      nextLocalSteps = nextSteps;
-      const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
-        prev.status,
-        nextSteps,
-        timestamp,
-        prev.completedAt
-      );
-
-      if (prev.status !== 'done' && nextStatus === 'done') {
-        markedDone = true;
-      }
-
-      return {
-        ...prev,
-        steps: nextSteps,
-        status: nextStatus,
-        completedAt: nextCompletedAt ?? prev.completedAt ?? null,
-        updatedAt: timestamp,
-      };
-    });
-
+    // Important: Persisting the app store currently serializes a large object to AsyncStorage.
+    // Doing that synchronously in the press handler can delay the visual checkmark update.
+    // We apply the change locally first (instant UI feedback) and defer the persisted store
+    // write until after interactions so touches feel snappy.
+    const localCurrent = stepsDraft ?? [];
+    const nextLocalSteps = updater(localCurrent);
     setStepsDraft(nextLocalSteps);
 
-    if (markedDone) {
-      recordShowUp();
-      capture(AnalyticsEvent.ActivityCompletionToggled, {
-        source: 'activity_detail',
-        activity_id: activity.id,
-        goal_id: activity.goalId ?? null,
-        next_status: 'done',
-        had_steps: Boolean(nextLocalSteps.length > 0),
+    // Defer the heavier store update/persistence.
+    InteractionManager.runAfterInteractions(() => {
+      const timestamp = new Date().toISOString();
+      let markedDone = false;
+      let hadSteps = false;
+
+      updateActivity(activity.id, (prev) => {
+        const currentSteps = prev.steps ?? [];
+        const nextSteps = updater(currentSteps);
+        hadSteps = nextSteps.length > 0;
+        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
+          prev.status,
+          nextSteps,
+          timestamp,
+          prev.completedAt
+        );
+
+        if (prev.status !== 'done' && nextStatus === 'done') {
+          markedDone = true;
+        }
+
+        return {
+          ...prev,
+          steps: nextSteps,
+          status: nextStatus,
+          // Important: allow un-finishing to clear completedAt (don't keep the prior stamp).
+          completedAt: nextCompletedAt,
+          updatedAt: timestamp,
+        };
       });
-    }
+
+      if (markedDone) {
+        recordShowUp();
+        capture(AnalyticsEvent.ActivityCompletionToggled, {
+          source: 'activity_detail',
+          activity_id: activity.id,
+          goal_id: activity.goalId ?? null,
+          next_status: 'done',
+          had_steps: hadSteps,
+        });
+      }
+    });
   };
 
   const handleToggleStepComplete = (stepId: string) => {
     const existing = (stepsDraft ?? []).find((s) => s.id === stepId);
+    if (existing?.linkedActivityId) {
+      // Linked steps mirror completion from the target Activity and are not directly checkable here.
+      return;
+    }
     // Marking a step complete is meaningful progress; count it as "showing up".
     if (existing && !existing.completedAt) {
       recordShowUp();
@@ -1435,6 +1617,110 @@ export function ActivityDetailScreen() {
     applyStepUpdate((steps) => steps.filter((step) => step.id !== stepId));
   };
 
+  const handleConvertStepToActivity = useCallback(
+    (stepId: string) => {
+      const step = (stepsDraft ?? []).find((s) => s.id === stepId) ?? null;
+      if (!step) return;
+      if (step.linkedActivityId) {
+        // Already linked; just open the existing Activity.
+        if (step.linkedActivityId) openActivityDetail(step.linkedActivityId);
+        return;
+      }
+      const trimmedTitle = (step.title ?? '').trim();
+      if (!trimmedTitle) return;
+
+      const timestamp = new Date().toISOString();
+      const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+      const nextActivity: Activity = {
+        id,
+        goalId: activity.goalId ?? null,
+        title: trimmedTitle,
+        type: 'task',
+        tags: [],
+        notes: undefined,
+        steps: [],
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: null,
+        creationSource: 'manual',
+        planGroupId: null,
+        scheduledDate: null,
+        scheduledAt: null,
+        repeatRule: undefined,
+        repeatCustom: undefined,
+        orderIndex: (activities.length || 0) + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        aiPlanning: undefined,
+        forceActual: {},
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        origin: {
+          kind: 'activity_step',
+          parentActivityId: activity.id,
+          parentStepId: stepId,
+        },
+      };
+
+      recordShowUp();
+      addActivity(nextActivity);
+      // Replace the step with a linked redirect row (completion becomes derived).
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        steps: (prev.steps ?? []).map((s) =>
+          s.id === stepId ? { ...s, linkedActivityId: id, linkedAt: timestamp, completedAt: null } : s
+        ),
+        updatedAt: timestamp,
+      }));
+
+      openActivityDetail(id);
+    },
+    [activities.length, activity.goalId, activity.id, addActivity, openActivityDetail, recordShowUp, stepsDraft, updateActivity]
+  );
+
+  const handleUnlinkStepActivity = useCallback(
+    (stepId: string) => {
+      const step = (stepsDraft ?? []).find((s) => s.id === stepId) ?? null;
+      const linkedActivityId = step?.linkedActivityId ?? null;
+      if (!linkedActivityId) return;
+
+      Alert.alert(
+        'Unlink activity?',
+        'This will turn the row back into a normal checklist step. The linked activity will remain.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unlink',
+            style: 'destructive',
+            onPress: () => {
+              const timestamp = new Date().toISOString();
+              updateActivity(activity.id, (prev) => ({
+                ...prev,
+                steps: (prev.steps ?? []).map((s) =>
+                  s.id === stepId
+                    ? { ...s, linkedActivityId: null, linkedAt: undefined, completedAt: null }
+                    : s
+                ),
+                updatedAt: timestamp,
+              }));
+              // Best-effort: clear provenance on the child activity so it no longer points back.
+              updateActivity(linkedActivityId, (prev) => ({
+                ...prev,
+                origin: undefined,
+                updatedAt: timestamp,
+              }));
+            },
+          },
+        ]
+      );
+    },
+    [activity.id, stepsDraft, updateActivity]
+  );
+
   const handleAddStep = () => {
     const newStep: ActivityStep = {
       id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1454,7 +1740,7 @@ export function ActivityDetailScreen() {
     });
   };
 
-  const commitInlineStep = () => {
+  const commitInlineStep = (mode: 'continue' | 'exit' = 'exit') => {
     const trimmed = newStepTitle.trim();
     if (!trimmed) {
       setIsAddingStepInline(false);
@@ -1470,31 +1756,73 @@ export function ActivityDetailScreen() {
       orderIndex: stepsDraft.length,
     };
     applyStepUpdate((steps) => [...steps, newStep]);
-    setIsAddingStepInline(false);
     setNewStepTitle('');
+    if (mode === 'exit') {
+      setIsAddingStepInline(false);
+      return;
+    }
+    // Keep the inline "Add step" input active so users can rapidly enter multiple steps.
+    // (We don't rely solely on `blurOnSubmit={false}`; re-focusing is defensive across platforms.)
+    requestAnimationFrame(() => {
+      newStepInputRef.current?.focus();
+    });
   };
 
   const handleToggleComplete = () => {
     const timestamp = new Date().toISOString();
-    const wasCompleted = isCompleted;
-    updateActivity(activity.id, (prev) => {
-      const nextIsDone = prev.status !== 'done';
-      const nextSteps =
-        prev.steps?.map((step) =>
-          nextIsDone && !step.completedAt ? { ...step, completedAt: timestamp } : step
-        ) ?? prev.steps;
-      return {
-        ...prev,
-        steps: nextSteps,
-        status: nextIsDone ? 'done' : 'planned',
-        completedAt: nextIsDone ? timestamp : null,
-        updatedAt: timestamp,
-      };
-    });
-    if (!wasCompleted) {
-      // Toggling from not-done to done counts as "showing up" for the day.
-      recordShowUp();
+    const hasSteps = (stepsDraft?.length ?? 0) > 0;
+
+    // No steps: keep the manual done toggle behavior.
+    if (!hasSteps) {
+      finishMutationRef.current = null;
+      const wasCompleted = isCompleted;
+      updateActivity(activity.id, (prev) => {
+        const nextIsDone = prev.status !== 'done';
+        return {
+          ...prev,
+          status: nextIsDone ? 'done' : 'planned',
+          completedAt: nextIsDone ? timestamp : null,
+          updatedAt: timestamp,
+        };
+      });
+      if (!wasCompleted) {
+        // Toggling from not-done to done counts as "showing up" for the day.
+        recordShowUp();
+      }
+      return;
     }
+
+    // Steps exist: completion is driven by steps. The button is a Finish/Undo shortcut.
+    const stepsNow = stepsDraft ?? [];
+    const allStepsCompleteNow = stepsNow.length > 0 && stepsNow.every((s) => !!s.completedAt);
+
+    if (!allStepsCompleteNow) {
+      const stepIdsToComplete = stepsNow.filter((s) => !s.completedAt).map((s) => s.id);
+      if (stepIdsToComplete.length === 0) return;
+      finishMutationRef.current = { completedAtStamp: timestamp, stepIds: stepIdsToComplete };
+      const idSet = new Set(stepIdsToComplete);
+      applyStepUpdate((steps) =>
+        steps.map((step) =>
+          idSet.has(step.id) && !step.completedAt ? { ...step, completedAt: timestamp } : step
+        )
+      );
+      return;
+    }
+
+    // Undo finish: only revert steps that were completed by the most recent Finish action.
+    const mutation = finishMutationRef.current;
+    if (!mutation || mutation.stepIds.length === 0) {
+      return;
+    }
+    finishMutationRef.current = null;
+    const idSet = new Set(mutation.stepIds);
+    applyStepUpdate((steps) =>
+      steps.map((step) =>
+        idSet.has(step.id) && step.completedAt === mutation.completedAtStamp
+          ? { ...step, completedAt: null }
+          : step
+      )
+    );
   };
 
   const handleSelectReminder = (offsetDays: number, hours = 9, minutes = 0) => {
@@ -1745,10 +2073,72 @@ export function ActivityDetailScreen() {
   };
 
   const completedStepsCount = useMemo(
-    () => (activity.steps ?? []).filter((step) => !!step.completedAt).length,
-    [activity.steps]
+    () => (stepsDraft ?? []).filter((step) => !!step.completedAt).length,
+    [stepsDraft]
   );
-  const totalStepsCount = activity.steps?.length ?? 0;
+  const totalStepsCount = stepsDraft?.length ?? 0;
+
+  const actionDockRightProgress =
+    totalStepsCount > 0 ? Math.max(0, Math.min(1, completedStepsCount / totalStepsCount)) : undefined;
+  const allStepsComplete = totalStepsCount > 0 && completedStepsCount >= totalStepsCount;
+  const dockCompleteColor = colors.pine700;
+  const actionDockCountLabel = totalStepsCount > 0 ? `${completedStepsCount}/${totalStepsCount}` : undefined;
+
+  const [rightItemCelebrateKey, setRightItemCelebrateKey] = useState(0);
+  const prevProgressRef = useRef<number>(0);
+  const hasInitializedProgressRef = useRef(false);
+  const [rightItemCenterLabelPulseKey, setRightItemCenterLabelPulseKey] = useState(0);
+  const prevCompletedCountRef = useRef<number>(completedStepsCount);
+  const activityTypeLabel = useMemo(() => {
+    const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity.type);
+    return (match?.label ?? 'Activity') as string;
+  }, [activity.type, activityTypeOptions]);
+
+  useEffect(() => {
+    // Defensive: if this screen instance is reused for a different activity id,
+    // reset baseline refs so we don't "celebrate on mount" for the next activity.
+    hasInitializedProgressRef.current = false;
+    prevProgressRef.current = 0;
+    prevCompletedCountRef.current = completedStepsCount;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity.id]);
+
+  useEffect(() => {
+    const next = typeof actionDockRightProgress === 'number' && Number.isFinite(actionDockRightProgress) ? actionDockRightProgress : 0;
+    // Only emit completion celebration/toast while this screen is actually visible.
+    // When we `push` into another ActivityDetail (e.g. after converting a linked step),
+    // the parent ActivityDetail remains mounted underneath; without this guard it can
+    // schedule a duplicate toast.
+    if (!isFocused) {
+      prevProgressRef.current = next;
+      return;
+    }
+    if (!hasInitializedProgressRef.current) {
+      // Establish baseline for this activity's current completion state.
+      // This prevents a fully-complete activity from triggering celebration just by opening it.
+      hasInitializedProgressRef.current = true;
+      prevProgressRef.current = next;
+      return;
+    }
+    const prev = prevProgressRef.current;
+    // Trigger only on the edge: < 1 -> 1
+    if (prev < 1 && next >= 1) {
+      setRightItemCelebrateKey((k) => k + 1);
+    }
+    prevProgressRef.current = next;
+  }, [actionDockRightProgress, activityTypeLabel, isFocused, showToast]);
+
+  useEffect(() => {
+    // Pulse the center count only on single-step toggles while in partial completion.
+    if (totalStepsCount <= 0) return;
+    if (completedStepsCount >= totalStepsCount) return;
+    const prevCompleted = prevCompletedCountRef.current;
+    const delta = completedStepsCount - prevCompleted;
+    if (Math.abs(delta) === 1) {
+      setRightItemCenterLabelPulseKey((k) => k + 1);
+    }
+    prevCompletedCountRef.current = completedStepsCount;
+  }, [completedStepsCount, totalStepsCount]);
 
   const formatMinutes = (minutes: number) => {
     if (minutes < 60) return `${minutes} min`;
@@ -1897,1034 +2287,294 @@ export function ActivityDetailScreen() {
     setStepsDraft(activity.steps ?? []);
   }, [activity.title, activity.notes, activity.steps, activity.id]);
 
+  useEffect(() => {
+    // Keep linked-step completion mirrored with the target activity so both UI and
+    // parent-activity status derivation stay consistent across screens.
+    const currentSteps = activity.steps ?? [];
+    if (currentSteps.length === 0) return;
+    const hasLinked = currentSteps.some((s) => !!s.linkedActivityId);
+    if (!hasLinked) return;
+
+    let didChange = false;
+    const timestamp = new Date().toISOString();
+    const nextSteps = currentSteps.map((s) => {
+      const linkedId = s.linkedActivityId ?? null;
+      if (!linkedId) return s;
+      const linked = activitiesById[linkedId] ?? null;
+      const isLinkedDone = Boolean(linked && (linked.status === 'done' || linked.completedAt));
+      const nextCompletedAt = isLinkedDone ? s.completedAt ?? linked?.completedAt ?? timestamp : null;
+      if ((s.completedAt ?? null) === (nextCompletedAt ?? null)) return s;
+      didChange = true;
+      return { ...s, completedAt: nextCompletedAt };
+    });
+
+    if (!didChange) return;
+
+    // Defer this writeback so it can't block the user's tap/scroll interactions.
+    InteractionManager.runAfterInteractions(() => {
+      updateActivity(activity.id, (prev) => {
+        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
+          prev.status,
+          nextSteps,
+          timestamp,
+          prev.completedAt
+        );
+        return {
+          ...prev,
+          steps: nextSteps,
+          status: nextStatus,
+          // Important: allow linked-step sync to clear completedAt when the child is un-completed.
+          completedAt: nextCompletedAt,
+          updatedAt: timestamp,
+        };
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity.id, activity.steps, activitiesById, updateActivity]);
+
+  const togglePlanExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    togglePlanExpandedInStore();
+  }, [togglePlanExpandedInStore]);
+
+  const toggleDetailsExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    toggleDetailsExpandedInStore();
+  }, [toggleDetailsExpandedInStore]);
+
   return (
-    <AppShell>
+    <AppShell fullBleedCanvas>
       <View style={styles.screen}>
         {/* Credits warning toasts are rendered globally via AppShell. */}
         <VStack space="lg" style={styles.pageContent}>
-          <HStack alignItems="center">
-            {breadcrumbsEnabled ? (
-              <>
-                <View style={styles.breadcrumbsLeft}>
-                  <BreadcrumbBar
-                    items={[
-                      {
-                        id: 'arcs',
-                        label: 'Arcs',
-                        onPress: () => rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' }),
-                      },
-                      ...(arc?.id
-                        ? [
-                            {
-                              id: 'arc',
-                              label: arc?.name ?? 'Arc',
-                              onPress: () =>
-                                rootNavigationRef.navigate('ArcsStack', {
-                                  screen: 'ArcDetail',
-                                  params: { arcId: arc.id },
-                                }),
-                            },
-                          ]
-                        : []),
-                      ...(goal?.id
-                        ? [
-                            {
-                              id: 'goal',
-                              label: goal?.title ?? 'Goal',
-                              onPress: () => {
-                                if (navigation.canGoBack()) {
-                                  navigation.goBack();
-                                  return;
-                                }
-                                rootNavigationRef.navigate('Goals', {
-                                  screen: 'GoalDetail',
-                                  params: { goalId: goal.id, entryPoint: 'goalsTab' },
-                                });
-                              },
-                            },
-                          ]
-                        : []),
-                      { id: 'activity', label: activity?.title ?? 'Activity' },
-                    ]}
-                  />
-                </View>
-                <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                  {showDoneButton ? (
-                    <Pressable
-                      onPress={handleDoneEditing}
-                      accessibilityRole="button"
-                      accessibilityLabel="Done editing"
-                      hitSlop={8}
-                      style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
-                    >
-                      <Text style={styles.doneButtonText}>Done</Text>
-                    </Pressable>
-                  ) : headerV2Enabled ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onPress={() => {
-                        handleSendToShare().catch(() => undefined);
-                      }}
-                      accessibilityLabel="Share activity"
-                    >
-                      <Icon name="share" size={18} color={colors.textPrimary} />
-                    </Button>
-                  ) : (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger accessibilityLabel="Activity actions">
-                        <IconButton style={styles.optionsButton} pointerEvents="none" accessible={false}>
-                          <Icon name="more" size={18} color={colors.canvas} />
-                        </IconButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                        <DropdownMenuItem
-                          onPress={() => {
-                            capture(AnalyticsEvent.ActivityActionInvoked, {
-                              activityId: activity.id,
-                              action: 'focusMode',
-                            });
-                            openFocusSheet();
-                          }}
-                        >
-                          <Text style={styles.menuRowText}>Focus mode</Text>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onPress={() => {
-                            capture(AnalyticsEvent.ActivityActionInvoked, {
-                              activityId: activity.id,
-                              action: 'addToCalendar',
-                            });
-                            openCalendarSheet();
-                          }}
-                        >
-                          <Text style={styles.menuRowText}>Send to calendar</Text>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                          <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </View>
-              </>
-            ) : (
-              <>
-                {headerV2Enabled ? (
-                  <View style={styles.headerV2}>
-                    <View style={styles.headerV2TopRow}>
-                      <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onPress={handleBackToActivities}
-                          accessibilityLabel="Back to Activities"
-                        >
-                          <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-                        </Button>
-                        <View style={styles.objectTypeRow}>
-                          <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
-                          <Text style={styles.objectTypeLabelV2}>Activity</Text>
-                        </View>
-                      </HStack>
-                      {showDoneButton ? (
-                        <Pressable
-                          onPress={handleDoneEditing}
-                          accessibilityRole="button"
-                          accessibilityLabel="Done editing"
-                          hitSlop={8}
-                          style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
-                        >
-                          <Text style={styles.doneButtonText}>Done</Text>
-                        </Pressable>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onPress={() => {
-                            handleSendToShare().catch(() => undefined);
-                          }}
-                          accessibilityLabel="Share activity"
-                        >
-                          <Icon name="share" size={18} color={colors.textPrimary} />
-                        </Button>
-                      )}
-                    </View>
-                    <Text style={styles.headerV2Title} numberOfLines={1} ellipsizeMode="tail">
-                      {(activity?.title ?? '').trim() || 'Activity'}
-                    </Text>
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.headerSide}>
-                      <IconButton
-                        style={styles.backButton}
-                        onPress={handleBackToActivities}
-                        accessibilityLabel="Back to Activities"
-                      >
-                        <Icon name="arrowLeft" size={20} color={colors.canvas} />
-                      </IconButton>
-                    </View>
-                    <View style={styles.headerCenter}>
-                      <View style={styles.objectTypeRow}>
-                        <ObjectTypeIconBadge iconName="activities" tone="activity" size={16} badgeSize={28} />
-                        <Text style={styles.objectTypeLabel}>Activity</Text>
-                      </View>
-                    </View>
-                    <View style={styles.headerSideRight}>
-                      {showDoneButton ? (
-                        <Pressable
-                          onPress={handleDoneEditing}
-                          accessibilityRole="button"
-                          accessibilityLabel="Done editing"
-                          hitSlop={8}
-                          style={({ pressed }) => [styles.doneButton, pressed && styles.doneButtonPressed]}
-                        >
-                          <Text style={styles.doneButtonText}>Done</Text>
-                        </Pressable>
-                      ) : (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger accessibilityLabel="Activity actions">
-                            <IconButton style={styles.optionsButton} pointerEvents="none" accessible={false}>
-                              <Icon name="more" size={18} color={colors.canvas} />
-                            </IconButton>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                            <DropdownMenuItem
-                              onPress={() => {
-                                capture(AnalyticsEvent.ActivityActionInvoked, {
-                                  activityId: activity.id,
-                                  action: 'focusMode',
-                                });
-                                openFocusSheet();
-                              }}
-                            >
-                              <Text style={styles.menuRowText}>Focus mode</Text>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onPress={() => {
-                                capture(AnalyticsEvent.ActivityActionInvoked, {
-                                  activityId: activity.id,
-                                  action: 'addToCalendar',
-                                });
-                                openCalendarSheet();
-                              }}
-                            >
-                              <Text style={styles.menuRowText}>Send to calendar</Text>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                              <Text style={styles.destructiveMenuRowText}>Delete activity</Text>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </View>
-                  </>
-                )}
-              </>
-            )}
-          </HStack>
-
-          <KeyboardAwareScrollView
-            ref={scrollRef}
-            style={styles.scroll}
-            contentContainerStyle={styles.content}
-            // Activity detail has a few composite controls (e.g. tag chips) where the
-            // focused TextInput sits inside a taller bordered container. Slightly
-            // increase the clearance so the *whole* field clears the keyboard.
-            keyboardClearance={KEYBOARD_CLEARANCE + spacing.lg}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Title + Steps bundle (task-style, no enclosing card) */}
-            <View style={styles.section}>
-              <View
-                ref={titleStepsBundleRef}
-                collapsable={false}
-                style={styles.titleStepsBundle}
-                onLayout={() => {
-                  // Ensure the onboarding coachmark can safely measure this target.
-                  setIsTitleStepsBundleReady(true);
-                }}
-              >
-                <ThreeColumnRow
-                  style={styles.titleRow}
-                  contentStyle={styles.titleRowContent}
-                  left={
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        isCompleted ? 'Mark activity as not done' : 'Mark activity as done'
-                      }
-                      hitSlop={8}
-                      onPress={handleToggleComplete}
-                    >
-                      <View
-                        style={[
-                          styles.checkboxBase,
-                          isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
-                        ]}
-                      >
-                        {isCompleted ? (
-                          <Icon name="check" size={14} color={colors.primaryForeground} />
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  }
-                  right={null}
-                >
-                  <Pressable
-                    style={styles.titlePressable}
-                    onPress={() => {
-                      if (!isEditingTitle) {
-                        setIsEditingTitle(true);
-                        requestAnimationFrame(() => {
-                          titleInputRef.current?.focus();
-                        });
-                      }
-                    }}
-                  >
-                    {isEditingTitle ? (
-                      <TextInput
-                        ref={titleInputRef}
-                        style={styles.titleInput}
-                        value={titleDraft}
-                        onChangeText={setTitleDraft}
-                        placeholder="Name this activity"
-                        placeholderTextColor={colors.muted}
-                        onFocus={handleAnyInputFocus}
-                        onBlur={() => {
-                          handleAnyInputBlur();
-                          commitTitle();
-                        }}
-                        onSubmitEditing={commitTitle}
-                        multiline
-                        scrollEnabled={false}
-                        blurOnSubmit
-                        returnKeyType="done"
-                      />
-                    ) : (
-                      <Text style={styles.titleText}>{activity.title || 'Name this activity'}</Text>
-                    )}
-                  </Pressable>
-                </ThreeColumnRow>
-
-                {/* No divider between title and steps; treat as one continuous bundle. */}
-
-                {stepsDraft.length === 0 ? null : (
-                  <VStack space="xs">
-                    {stepsDraft.map((step) => {
-                      const isChecked = !!step.completedAt;
-                      return (
-                        <View key={step.id}>
-                          <ThreeColumnRow
-                            style={styles.stepRow}
-                            contentStyle={styles.stepRowContent}
-                            left={
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={
-                                  isChecked ? 'Mark step as not done' : 'Mark step as done'
-                                }
-                                hitSlop={8}
-                                onPress={() => handleToggleStepComplete(step.id)}
-                              >
-                                {/* Keep the step circle visually smaller, but align its CENTER with the title circle. */}
-                                <View style={styles.stepLeftIconBox}>
-                                  <View
-                                    style={[
-                                      styles.checkboxBase,
-                                      isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
-                                      styles.stepCheckbox,
-                                    ]}
-                                  >
-                                    {isChecked ? (
-                                      <Icon name="check" size={12} color={colors.primaryForeground} />
-                                    ) : null}
-                                  </View>
-                                </View>
-                              </Pressable>
-                            }
-                            right={
-                              <DropdownMenu>
-                                <DropdownMenuTrigger accessibilityLabel="Step actions">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    iconButtonSize={24}
-                                    style={styles.removeStepButton}
-                                    pointerEvents="none"
-                                    accessible={false}
-                                  >
-                                    <Icon name="more" size={16} color={colors.textSecondary} />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                                  <DropdownMenuItem
-                                    onPress={() => handleRemoveStep(step.id)}
-                                    variant="destructive"
-                                  >
-                                    <Text style={styles.destructiveMenuRowText}>Delete step</Text>
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            }
-                          >
-                            <Input
-                              value={step.title}
-                              onChangeText={(text) => handleChangeStepTitle(step.id, text)}
-                              onFocus={handleAnyInputFocus}
-                              onBlur={handleAnyInputBlur}
-                              placeholder="Describe the step"
-                              size="sm"
-                              variant="inline"
-                              // Allow step titles to wrap (and grow) up to 4 lines so content remains visible.
-                              multiline
-                              multilineMinHeight={typography.bodySm.lineHeight}
-                              multilineMaxHeight={typography.bodySm.lineHeight * 4 + spacing.sm}
-                              blurOnSubmit
-                              returnKeyType="done"
-                            />
-                          </ThreeColumnRow>
-                        </View>
-                      );
-                    })}
-                  </VStack>
-                )}
-
-                <ThreeColumnRow
-                  left={
-                    <View style={styles.stepLeftIconBox}>
-                      <Icon name="plus" size={16} color={colors.accent} />
-                    </View>
-                  }
-                  right={null}
-                  onPress={beginAddStepInline}
-                  testID="e2e.activityDetail.steps.addRow"
-                  accessibilityLabel="Add a step to this activity"
-                  style={[styles.stepRow, styles.addStepRow]}
-                  contentStyle={styles.stepRowContent}
-                >
-                  {isAddingStepInline ? (
-                    <Input
-                      ref={newStepInputRef}
-                      testID="e2e.activityDetail.steps.newInput"
-                      value={newStepTitle}
-                      onChangeText={setNewStepTitle}
-                      onFocus={handleAnyInputFocus}
-                      placeholder="Add step"
-                      size="sm"
-                      variant="inline"
-                      multiline={false}
-                      blurOnSubmit
-                      returnKeyType="done"
-                      onSubmitEditing={commitInlineStep}
-                      onBlur={() => {
-                        handleAnyInputBlur();
-                        commitInlineStep();
-                      }}
-                    />
-                  ) : (
-                    <Text style={styles.addStepInlineText}>Add step</Text>
-                  )}
-                </ThreeColumnRow>
-              </View>
-            </View>
-
-            {/* Key actions */}
-            <View style={styles.section}>
-              <View style={styles.keyActionsInset}>
-                <VStack space="sm">
-                  <KeyActionsRow
-                    testIDPrefix="e2e.activityDetail.keyAction"
-                    items={[
-                      {
-                        id: 'focusMode',
-                        icon: 'estimate',
-                        label: 'Focus mode',
-                        tileBackgroundColor: colors.pine700,
-                        tileBorderColor: 'rgba(255,255,255,0.10)',
-                        tileLabelColor: colors.primaryForeground,
-                        onPress: () => {
-                          capture(AnalyticsEvent.ActivityActionInvoked, {
-                            activityId: activity.id,
-                            action: 'focusMode',
-                          });
-                          openFocusSheet();
-                        },
-                      },
-                      {
-                        id: 'addToCalendar',
-                        icon: 'today',
-                        label: 'Send to calendar',
-                        tileBackgroundColor: colors.pine700,
-                        tileBorderColor: 'rgba(255,255,255,0.10)',
-                        tileLabelColor: colors.primaryForeground,
-                        onPress: () => {
-                          capture(AnalyticsEvent.ActivityActionInvoked, {
-                            activityId: activity.id,
-                            action: 'addToCalendar',
-                          });
-                          openCalendarSheet();
-                        },
-                      },
-                    ]}
-                  />
-
-                  <KeyActionsRow
-                    testIDPrefix="e2e.activityDetail.keyAction"
-                    items={[
-                      {
-                        id: 'chatWithAi',
-                        icon: 'sparkles',
-                        label: 'Get help from AI',
-                        tileBackgroundColor: colors.pine700,
-                        tileBorderColor: 'rgba(255,255,255,0.10)',
-                        tileLabelColor: colors.primaryForeground,
-                        onPress: () => {
-                          capture(AnalyticsEvent.ActivityActionInvoked, {
-                            activityId: activity.id,
-                            action: 'chatWithAi',
-                          });
-                          openAgentForActivity({ objectType: 'activity', objectId: activity.id });
-                        },
-                      },
-                      ...(canSendTo
-                        ? ([
-                            {
-                              id: 'sendTo',
-                              icon: 'share',
-                              label: 'Send to…',
-                              tileBackgroundColor: colors.pine700,
-                              tileBorderColor: 'rgba(255,255,255,0.10)',
-                              tileLabelColor: colors.primaryForeground,
-                              onPress: () => {
-                                capture(AnalyticsEvent.ActivityActionInvoked, {
-                                  activityId: activity.id,
-                                  action: 'sendTo',
-                                });
-                                setActiveSheet('sendTo');
-                              },
-                            },
-                          ] as const)
-                        : []),
-                    ]}
-                  />
-                </VStack>
-              </View>
-            </View>
-
-            {/* 3) Triggers (time-based) */}
-            <View style={styles.section}>
-              <Text style={styles.inputLabel}>TRIGGERS</Text>
-              <View
-                ref={scheduleAndPlanningCardRef}
-                collapsable={false}
-                style={styles.rowsCard}
-                onLayout={() => {
-                  // Ensure the onboarding coachmark can safely measure this target.
-                  setIsScheduleCardReady(true);
-                }}
-              >
-                <View style={styles.rowPadding}>
-                  <VStack space="xs">
-                  <VStack space="sm">
-                    <Pressable
-                      testID="e2e.activityDetail.triggers.reminder.open"
-                      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                      onPress={() => setActiveSheet('reminder')}
-                      accessibilityRole="button"
-                      accessibilityLabel="Edit reminder"
-                    >
-                      <ThreeColumnRow
-                        left={<Icon name="bell" size={16} color={colors.textSecondary} />}
-                        right={
-                          activity.reminderAt ? (
-                            <Pressable
-                              onPress={(event) => {
-                                event.stopPropagation();
-                                handleClearReminder();
-                              }}
-                              accessibilityRole="button"
-                              accessibilityLabel="Clear reminder"
-                              hitSlop={8}
-                            >
-                              <Icon name="close" size={16} color={colors.textSecondary} />
-                            </Pressable>
-                          ) : null
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.rowValue,
-                            reminderLabel !== 'None' && styles.rowValueSet,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {reminderLabel === 'None' ? 'Time trigger (reminder)' : reminderLabel}
-                        </Text>
-                      </ThreeColumnRow>
-                    </Pressable>
-                  </VStack>
-
-                  <VStack space="sm">
-                    <Pressable
-                      testID="e2e.activityDetail.triggers.dueDate.open"
-                      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                      onPress={() => setActiveSheet('due')}
-                      accessibilityRole="button"
-                      accessibilityLabel="Edit due date"
-                    >
-                      <ThreeColumnRow
-                        left={<Icon name="today" size={16} color={colors.textSecondary} />}
-                        right={
-                          activity.scheduledDate ? (
-                            <Pressable
-                              onPress={(event) => {
-                                event.stopPropagation();
-                                handleClearDueDate();
-                              }}
-                              accessibilityRole="button"
-                              accessibilityLabel="Clear due date"
-                              hitSlop={8}
-                            >
-                              <Icon name="close" size={16} color={colors.textSecondary} />
-                            </Pressable>
-                          ) : null
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.rowValue,
-                            activity.scheduledDate && styles.rowValueSet,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {activity.scheduledDate ? dueDateLabel : 'Deadline (due date)'}
-                        </Text>
-                      </ThreeColumnRow>
-                    </Pressable>
-                  </VStack>
-
-                  <VStack space="sm">
-                    <Pressable
-                      testID="e2e.activityDetail.triggers.repeat.open"
-                      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                      onPress={() => setActiveSheet('repeat')}
-                      accessibilityRole="button"
-                      accessibilityLabel="Edit repeat schedule"
-                    >
-                      <ThreeColumnRow
-                        left={<Icon name="refresh" size={16} color={colors.textSecondary} />}
-                        right={
-                          activity.repeatRule ? (
-                            <Pressable
-                              onPress={(event) => {
-                                event.stopPropagation();
-                                handleClearRepeatRule();
-                              }}
-                              accessibilityRole="button"
-                              accessibilityLabel="Clear repeat schedule"
-                              hitSlop={8}
-                            >
-                              <Icon name="close" size={16} color={colors.textSecondary} />
-                            </Pressable>
-                          ) : null
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.rowValue,
-                            repeatLabel !== 'Off' && styles.rowValueSet,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {repeatLabel === 'Off' ? 'Repeat trigger' : repeatLabel}
-                        </Text>
-                      </ThreeColumnRow>
-                    </Pressable>
-                  </VStack>
-                </VStack>
-                </View>
-              </View>
-            </View>
-
-            {/* 4) Planning */}
-            <View style={styles.section}>
-              <Text style={styles.inputLabel}>PLANNING</Text>
-              <View style={styles.rowsCard}>
-                <View style={styles.rowPadding}>
-                  <VStack space="xs">
-                  <View style={styles.row}>
-                    <ThreeColumnRow
-                      left={<Icon name="estimate" size={16} color={colors.textSecondary} />}
-                      right={
-                        hasTimeEstimate ? (
-                          <Pressable
-                            onPress={(event) => {
-                              event.stopPropagation();
-                              handleClearTimeEstimate();
-                            }}
-                            accessibilityRole="button"
-                            accessibilityLabel="Clear time estimate"
-                            hitSlop={8}
-                          >
-                            <Icon name="close" size={16} color={colors.textSecondary} />
-                          </Pressable>
-                        ) : (
-                          <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-                        )
-                      }
-                      onPress={openEstimateSheet}
-                      accessibilityLabel="Edit time estimate"
-                      testID="e2e.activityDetail.planning.estimate.open"
-                    >
-                      <Text
-                        style={[
-                          styles.rowValue,
-                            hasTimeEstimate && !timeEstimateIsAi && styles.rowValueSet,
-                          timeEstimateIsAi && styles.rowValueAi,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {timeEstimateLabel}
-                      </Text>
-                    </ThreeColumnRow>
-                  </View>
-
-                  <Combobox
-                    open={difficultyComboboxOpen}
-                    onOpenChange={setDifficultyComboboxOpen}
-                    value={activity.difficulty ?? ''}
-                    onValueChange={(nextDifficulty) => {
-                      const timestamp = new Date().toISOString();
-                      updateActivity(activity.id, (prev) => ({
-                        ...prev,
-                        difficulty: (nextDifficulty || undefined) as ActivityDifficulty | undefined,
-                        updatedAt: timestamp,
-                      }));
-                    }}
-                    options={difficultyOptions}
-                    searchPlaceholder="Search difficulty…"
-                    emptyText="No difficulty options found."
-                    allowDeselect
-                    trigger={
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit difficulty"
-                        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                      >
-                        <ThreeColumnRow
-                          left={<Icon name="difficulty" size={16} color={colors.textSecondary} />}
-                          right={
-                            hasDifficulty ? (
-                              <Pressable
-                                onPress={(event) => {
-                                  event.stopPropagation();
-                                  handleClearDifficulty();
-                                }}
-                                accessibilityRole="button"
-                                accessibilityLabel="Clear difficulty estimate"
-                                hitSlop={8}
-                              >
-                                <Icon name="close" size={16} color={colors.textSecondary} />
-                              </Pressable>
-                            ) : (
-                              <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-                            )
-                          }
-                        >
-                          <Text
-                            style={[
-                              styles.rowValue,
-                              hasDifficulty && !difficultyIsAi && styles.rowValueSet,
-                              difficultyIsAi && styles.rowValueAi,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {difficultyLabel}
-                          </Text>
-                        </ThreeColumnRow>
-                      </Pressable>
-                    }
-                  />
-                </VStack>
-                </View>
-              </View>
-            </View>
-
-            {/* Notes */}
-            <View style={styles.section}>
-              <Text style={styles.inputLabel}>NOTES</Text>
-              <LongTextField
-                testID="e2e.activityDetail.notes"
-                label="Notes"
-                hideLabel
-                value={activity.notes ?? ''}
-                placeholder="Add context or reminders for this activity."
-                autosaveDebounceMs={900}
-                onChange={(next) => {
-                  const nextValue = next.trim().length ? next : '';
-                  const current = activity.notes ?? '';
-                  if (nextValue === current) return;
-                  const timestamp = new Date().toISOString();
-                  updateActivity(activity.id, (prev) => ({
-                    ...prev,
-                    notes: nextValue.length ? nextValue : undefined,
-                    updatedAt: timestamp,
-                  }));
-                }}
+            <View
+              style={{ flex: 1 }}
+              onLayout={(e) => {
+                const h = e?.nativeEvent?.layout?.height;
+                if (typeof h === 'number' && Number.isFinite(h)) setRefreshContainerHeightPx(h);
+              }}
+            >
+              <ActivityDetailRefresh
+              breadcrumbsEnabled={breadcrumbsEnabled}
+              arc={arc}
+              goal={goal}
+              navigation={navigation}
+              headerV2Enabled={headerV2Enabled}
+              editingUiActive={editingUiActive}
+              handleDoneEditing={handleDoneEditing}
+              handleToggleComplete={handleToggleComplete}
+              isCompleted={isCompleted}
+              handleSendToShare={handleSendToShare}
+              handleBackToActivities={handleBackToActivities}
+              rootNavigationRef={rootNavigationRef}
+              activity={activity}
+              capture={capture}
+              openFocusSheet={openFocusSheet}
+              openCalendarSheet={openCalendarSheet}
+              openAgentForActivity={openAgentForActivity}
+              canSendTo={canSendTo}
+              setActiveSheet={setActiveSheet}
+              scrollRef={scrollRef}
+              KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
+              detailGuideHost={detailGuideHost}
+              styles={styles}
+              planExpanded={planExpanded}
+              onTogglePlanExpanded={togglePlanExpanded}
+              detailsExpanded={detailsExpanded}
+              onToggleDetailsExpanded={toggleDetailsExpanded}
+              updateActivity={updateActivity}
+              titleStepsBundleRef={titleStepsBundleRef}
+              setIsTitleStepsBundleReady={setIsTitleStepsBundleReady}
+              setTitleStepsBundleOffset={setTitleStepsBundleOffset}
+              stepsDraft={stepsDraft}
+              activitiesById={activitiesById}
+              openActivityDetail={openActivityDetail}
+              handleToggleStepComplete={handleToggleStepComplete}
+              handleRemoveStep={handleRemoveStep}
+              handleChangeStepTitle={handleChangeStepTitle}
+              handleConvertStepToActivity={handleConvertStepToActivity}
+              handleUnlinkStepActivity={handleUnlinkStepActivity}
+              beginAddStepInline={beginAddStepInline}
+              isAddingStepInline={isAddingStepInline}
+              newStepInputRef={newStepInputRef}
+              newStepTitle={newStepTitle}
+              setNewStepTitle={setNewStepTitle}
+              commitInlineStep={commitInlineStep}
+              handleAnyInputFocus={handleAnyInputFocus}
+              handleAnyInputBlur={handleAnyInputBlur}
+              scheduleAndPlanningCardRef={scheduleAndPlanningCardRef}
+              setIsScheduleCardReady={setIsScheduleCardReady}
+              setScheduleCardOffset={setScheduleCardOffset}
+              reminderLabel={reminderLabel}
+              dueDateLabel={dueDateLabel}
+              repeatLabel={repeatLabel}
+              timeEstimateLabel={timeEstimateLabel}
+              timeEstimateIsAi={timeEstimateIsAi}
+              difficultyLabel={difficultyLabel}
+              difficultyIsAi={difficultyIsAi}
+              hasTimeEstimate={hasTimeEstimate}
+              hasDifficulty={hasDifficulty}
+              handleClearReminder={handleClearReminder}
+              handleClearDueDate={handleClearDueDate}
+              handleClearRepeatRule={handleClearRepeatRule}
+              openEstimateSheet={openEstimateSheet}
+              handleClearTimeEstimate={handleClearTimeEstimate}
+              difficultyComboboxOpen={difficultyComboboxOpen}
+              setDifficultyComboboxOpen={setDifficultyComboboxOpen}
+              difficultyOptions={difficultyOptions}
+              handleClearDifficulty={handleClearDifficulty}
+              totalStepsCount={totalStepsCount}
+              completedStepsCount={completedStepsCount}
+              tagsFieldContainerRef={tagsFieldContainerRef}
+              tagsInputRef={tagsInputRef}
+              prepareRevealTagsField={prepareRevealTagsField}
+              tagsInputDraft={tagsInputDraft}
+              setTagsInputDraft={setTagsInputDraft}
+              showTagsAutofill={showTagsAutofill}
+              TAGS_AI_AUTOFILL_SIZE={TAGS_AI_AUTOFILL_SIZE}
+              isTagsAutofillThinking={isTagsAutofillThinking}
+              tagsAutofillInFlightRef={tagsAutofillInFlightRef}
+              isPro={isPro}
+              tryConsumeGenerativeCredit={tryConsumeGenerativeCredit}
+              openPaywallInterstitial={openPaywallInterstitial}
+              suggestActivityTagsWithAi={suggestActivityTagsWithAi}
+              activityTagHistory={activityTagHistory}
+              goalTitle={goalTitle}
+              suggestTagsFromText={suggestTagsFromText}
+              addTags={addTags}
+              isKeyboardVisible={isKeyboardVisible}
+              TAGS_REVEAL_EXTRA_OFFSET={TAGS_REVEAL_EXTRA_OFFSET}
+              commitTagsInputDraft={commitTagsInputDraft}
+              handleRemoveTag={handleRemoveTag}
+              goalOptions={goalOptions}
+              recommendedGoalOption={recommendedGoalOption}
+              activityTypeOptions={activityTypeOptions}
+              handleDeleteActivity={handleDeleteActivity}
+              setIsTagsAutofillThinking={setIsTagsAutofillThinking}
+              // Full-bleed canvas: the refresh layout handles safe area itself.
+              appShellTopInsetPx={0}
+              safeAreaTopInsetPx={insets.top}
+              pageGutterX={spacing.xl}
+              bottomFadeHeightPx={bottomFadeHeightPx}
               />
-            </View>
-
-            {/* Tags */}
-            <View style={styles.section}>
-              <Text style={styles.inputLabel}>TAGS</Text>
-              <View ref={tagsFieldContainerRef} collapsable={false}>
-                <Pressable
-                  testID="e2e.activityDetail.tags.open"
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit tags"
-                  onPress={() => {
-                    // Set the reveal target *before* focusing so the keyboard-open auto-scroll
-                    // lands on the whole field container (not just the inner TextInput).
-                    prepareRevealTagsField();
-                    tagsInputRef.current?.focus();
+              {!isKeyboardVisible ? (
+                <ActionDock
+                  onLayout={(e) => {
+                    const y = e?.nativeEvent?.layout?.y;
+                    if (typeof y === 'number' && Number.isFinite(y)) setActionDockLayoutY(y);
+                    if (!isActionDockReady) setIsActionDockReady(true);
                   }}
-                  style={[
-                    styles.tagsFieldContainer,
-                    showTagsAutofill
-                      ? { paddingRight: spacing.md + TAGS_AI_AUTOFILL_SIZE + spacing.sm }
-                      : null,
-                  ]}
-                >
-                  <View style={styles.tagsFieldInner}>
-                  {(activity.tags ?? []).map((tag) => (
-                    <Pressable
-                      key={tag}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Remove tag ${tag}`}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleRemoveTag(tag);
-                      }}
-                    >
-                      <Badge variant="secondary" style={styles.tagChip}>
-                        <HStack space="xs" alignItems="center">
-                          <Text style={styles.tagChipText}>{tag}</Text>
-                          <Icon name="close" size={14} color={colors.textSecondary} />
-                        </HStack>
-                      </Badge>
-                    </Pressable>
-                  ))}
-                  <TextInput
-                    ref={tagsInputRef}
-                    testID="e2e.activityDetail.tags.input"
-                    value={tagsInputDraft}
-                    onChangeText={(next) => {
-                      // If the user types/pastes a comma-separated list, adopt all completed tags
-                      // and keep the trailing fragment in the input.
-                      if (next.includes(',')) {
-                        const parts = next.split(',');
-                        const trailing = parts.pop() ?? '';
-                        const completed = parts.join(',');
-                        addTags(completed);
-                        setTagsInputDraft(trailing.trimStart());
-                        return;
-                      }
-                      setTagsInputDraft(next);
-                    }}
-                    onFocus={() => {
-                      handleAnyInputFocus();
-                      // Let the screen-level keyboard strategy handle revealing this field.
-                      // (Avoid per-field scroll calls that can fight the container.)
-                      const handle = prepareRevealTagsField();
-                      // If the keyboard is already open, we won't get a keyboardDidShow event,
-                      // so run the reveal immediately.
-                      if (handle && isKeyboardVisible) {
-                        const totalOffset = KEYBOARD_CLEARANCE + spacing.lg + TAGS_REVEAL_EXTRA_OFFSET;
-                        requestAnimationFrame(() => {
-                          scrollRef.current?.scrollToNodeHandle(handle, totalOffset);
+                  leftDockTargetRef={actionDockLeftRef}
+                  rightDockTargetRef={actionDockRightRef}
+                  leftItems={[
+                    {
+                      id: 'focus',
+                      icon: 'focus',
+                      accessibilityLabel: 'Open focus mode',
+                      onPress: () => {
+                        capture(AnalyticsEvent.ActivityActionInvoked, {
+                          activityId: activity.id,
+                          action: 'focusMode',
                         });
-                      }
-                    }}
-                    onBlur={() => {
-                      handleAnyInputBlur();
-                      commitTagsInputDraft();
-                    }}
-                    onSubmitEditing={commitTagsInputDraft}
-                    placeholder={(activity.tags ?? []).length === 0 ? 'e.g., errands, outdoors' : ''}
-                    placeholderTextColor={colors.muted}
-                    style={styles.tagsTextInput}
-                    returnKeyType="done"
-                    // "Done" should dismiss the keyboard for this lightweight chip input.
-                    // (We still commit the draft via `onSubmitEditing`.)
-                    blurOnSubmit
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    onKeyPress={(e) => {
-                      // Backspace on empty input removes the last tag (nice token-input affordance).
-                      if (e.nativeEvent.key !== 'Backspace') return;
-                      if (tagsInputDraft.length > 0) return;
-                      const current = activity.tags ?? [];
-                      const last = current[current.length - 1];
-                      if (!last) return;
-                      handleRemoveTag(last);
-                    }}
-                  />
-                </View>
-                  {showTagsAutofill ? (
-                    <View
-                      pointerEvents="box-none"
-                      style={[
-                        styles.tagsAutofillBadge,
-                        { right: spacing.md, top: 22 - TAGS_AI_AUTOFILL_SIZE / 2 },
-                      ]}
-                    >
-                      <AiAutofillBadge
-                        accessibilityLabel="Autofill tags with AI"
-                        size={TAGS_AI_AUTOFILL_SIZE}
-                        loading={isTagsAutofillThinking}
-                        onPress={() => {
-                        if (tagsAutofillInFlightRef.current) return;
-                        // TODO(entitlements): replace tier selection with real Pro state.
-                        const tier: 'free' | 'pro' = isPro ? 'pro' : 'free';
-                        const consumed = tryConsumeGenerativeCredit({ tier });
-                        if (!consumed.ok) {
-                          openPaywallInterstitial({
-                            reason: 'generative_quota_exceeded',
-                            source: 'activity_tags_ai',
-                          });
-                          return;
-                        }
-                        tagsAutofillInFlightRef.current = true;
-                        setIsTagsAutofillThinking(true);
-                        (async () => {
-                          const aiTags = await suggestActivityTagsWithAi({
-                            activityTitle: activity.title,
-                            activityNotes: activity.notes,
-                            goalTitle: goalTitle ?? null,
-                            tagHistory: activityTagHistory,
-                            maxTags: 4,
-                          });
-                          const suggested =
-                            aiTags && aiTags.length > 0
-                              ? aiTags
-                              : suggestTagsFromText(activity.title, activity.notes, goalTitle);
-                          addTags(suggested);
-                        })()
-                          .catch(() => undefined)
-                          .finally(() => {
-                            tagsAutofillInFlightRef.current = false;
-                            setIsTagsAutofillThinking(false);
-                          });
-                        }}
-                      />
-                    </View>
-                  ) : null}
-                </Pressable>
-              </View>
+                        openFocusSheet();
+                      },
+                      // Preserve existing e2e id
+                      testID: 'e2e.activityDetail.keyAction.focusMode',
+                    },
+                    {
+                      id: 'schedule',
+                      icon: 'sendToCalendar',
+                      accessibilityLabel: 'Send to calendar',
+                      onPress: () => {
+                        capture(AnalyticsEvent.ActivityActionInvoked, {
+                          activityId: activity.id,
+                          action: 'addToCalendar',
+                        });
+                        openCalendarSheet();
+                      },
+                      // Preserve existing e2e id
+                      testID: 'e2e.activityDetail.keyAction.addToCalendar',
+                    },
+                    ...(canSendTo
+                      ? ([
+                          {
+                            id: 'sendTo',
+                            icon: 'sendTo',
+                            accessibilityLabel: 'Send to…',
+                            onPress: () => {
+                              capture(AnalyticsEvent.ActivityActionInvoked, {
+                                activityId: activity.id,
+                                action: 'sendTo',
+                              });
+                              setActiveSheet('sendTo');
+                            },
+                            testID: 'e2e.activityDetail.dock.sendTo',
+                          },
+                        ] as const)
+                      : []),
+                    {
+                      id: 'ai',
+                      icon: 'sparkles',
+                      accessibilityLabel: 'Get help from AI',
+                      onPress: () => {
+                        capture(AnalyticsEvent.ActivityActionInvoked, {
+                          activityId: activity.id,
+                          action: 'chatWithAi',
+                        });
+                        openAgentForActivity({ objectType: 'activity', objectId: activity.id });
+                      },
+                      testID: 'e2e.activityDetail.dock.ai',
+                    },
+                  ]}
+                  rightItem={{
+                    id: 'done',
+                    icon: 'check',
+                    accessibilityLabel: isCompleted
+                      ? 'Mark activity as not done'
+                      : 'Mark activity as done',
+                    onPress: handleToggleComplete,
+                    testID: 'e2e.activityDetail.dock.donePrimary',
+                    // Keep the checkmark Sumi until all steps are complete.
+                    color: allStepsComplete ? colors.parchment : colors.sumi,
+                  }}
+                  rightItemProgress={actionDockRightProgress}
+                  rightItemRingColor={dockCompleteColor}
+                  rightItemBackgroundColor={allStepsComplete ? dockCompleteColor : undefined}
+                  rightItemCelebrateKey={rightItemCelebrateKey}
+                  onRightItemCelebrateComplete={() => {
+                    if (!isFocusedRef.current) return;
+                    showToast({
+                      message: `${activityTypeLabel} complete`,
+                      variant: 'light',
+                      durationMs: 2200,
+                    });
+                  }}
+                  rightItemCenterLabel={actionDockCountLabel}
+                  rightItemCenterLabelPulseKey={rightItemCenterLabelPulseKey}
+                  // AppShell already provides the canvas gutter; keep docks “nested” into the corners.
+                  // Nestle into the corners, but keep a consistent 16pt inset from the canvas edges.
+                  // Match Arc/Goal effective page gutter (xl) while ActivityDetail runs inside
+                  // AppShell's default gutter (sm). Add the delta so total ~= xl.
+                  insetX={spacing.xl}
+                  insetBottom={16}
+                  // Notes-style: apply a partial safe-area lift so the dock “matches the corner curve”
+                  // without jumping as high as the full home-indicator inset.
+                  safeAreaLift="half"
+                />
+              ) : null}
             </View>
 
-            {/* Linked Goal */}
-            <View style={styles.section}>
-              <Text style={styles.inputLabel}>Linked Goal</Text>
-              <ObjectPicker
-                value={activity.goalId ?? ''}
-                onValueChange={(nextGoalId) => {
-                  const timestamp = new Date().toISOString();
-                  updateActivity(activity.id, (prev) => ({
-                    ...prev,
-                    goalId: nextGoalId ? nextGoalId : null,
-                    updatedAt: timestamp,
-                  }));
-                }}
-                options={goalOptions}
-                recommendedOption={recommendedGoalOption ?? undefined}
-                placeholder="Select goal…"
-                searchPlaceholder="Search goals…"
-                emptyText="No goals found."
-                accessibilityLabel="Change linked goal"
-                allowDeselect
-                presentation="drawer"
-                drawerSnapPoints={['60%']}
-                size="compact"
-                leadingIcon="goals"
-              />
-            </View>
-
-            {/* Type */}
-            <View style={styles.section}>
-              <Text style={styles.inputLabel}>Type</Text>
-              <ObjectPicker
-                value={activity.type}
-                onValueChange={(nextType) => {
-                  const timestamp = new Date().toISOString();
-                  const normalized = (nextType || 'task') as ActivityType;
-                  updateActivity(activity.id, (prev) => ({
-                    ...prev,
-                    type: normalized,
-                    updatedAt: timestamp,
-                  }));
-                }}
-                options={activityTypeOptions}
-                placeholder="Select type…"
-                searchPlaceholder="Search types…"
-                emptyText="No type options found."
-                accessibilityLabel="Change activity type"
-                allowDeselect={false}
-                presentation="drawer"
-                drawerSnapPoints={['45%']}
-                size="compact"
-                leadingIcon="listBulleted"
-              />
-            </View>
-
-            {headerV2Enabled ? (
-              <View style={styles.section}>
-                <Card>
-                  <Text style={styles.actionsTitle}>Actions</Text>
-                  <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                    <Button
-                      variant="secondary"
-                      fullWidth
-                      onPress={openFocusSheet}
-                      accessibilityLabel="Open focus mode"
-                      testID="e2e.activityDetail.openFocus"
-                    >
-                      <Text style={styles.actionsButtonLabel}>Focus mode</Text>
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      fullWidth
-                      onPress={openCalendarSheet}
-                      accessibilityLabel="Send to calendar"
-                      testID="e2e.activityDetail.openCalendar"
-                    >
-                      <Text style={styles.actionsButtonLabel}>Send to calendar</Text>
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      fullWidth
-                      onPress={handleDeleteActivity}
-                      accessibilityLabel="Delete activity"
-                    >
-                      <Text style={styles.actionsButtonLabelDestructive}>Delete activity</Text>
-                    </Button>
-                  </VStack>
-                </Card>
-              </View>
-            ) : null}
-          </KeyboardAwareScrollView>
         </VStack>
       </View>
 
       <Coachmark
-        visible={shouldShowDetailGuide}
+        visible={detailGuideHost.coachmarkVisible}
         targetRef={detailGuideTargetRef}
+        remeasureKey={detailGuideHost.remeasureKey}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
-        spotlightRadius={18}
+        spotlightRadius={detailGuideStep >= 2 ? 'auto' : 18}
         offset={spacing.xs}
         highlightColor={colors.turmeric}
         actionColor={colors.turmeric}
@@ -2933,12 +2583,12 @@ export function ActivityDetailScreen() {
         attentionPulseDurationMs={15000}
         title={<Text style={styles.detailGuideTitle}>{detailGuideTitle}</Text>}
         body={<Text style={styles.detailGuideBody}>{detailGuideBody}</Text>}
-        progressLabel={`${detailGuideStep + 1} of 2`}
+        progressLabel={`${detailGuideStep + 1} of ${detailGuideStepCount}`}
         actions={[
           { id: 'skip', label: 'Skip', variant: 'outline' },
           {
-            id: detailGuideStep === 0 ? 'next' : 'done',
-            label: detailGuideStep === 0 ? 'Next' : 'Got it',
+            id: detailGuideIsFinalStep ? 'done' : 'next',
+            label: detailGuideIsFinalStep ? 'Got it' : 'Next',
             variant: 'accent',
           },
         ]}
@@ -2948,13 +2598,13 @@ export function ActivityDetailScreen() {
             return;
           }
           if (actionId === 'next') {
-            setDetailGuideStep(1);
+            setDetailGuideStep((s) => Math.min(detailGuideStepCount - 1, s + 1));
             return;
           }
           dismissDetailGuide();
         }}
         onDismiss={dismissDetailGuide}
-        placement="below"
+        placement={detailGuidePlacement}
       />
 
       <BottomDrawer
@@ -3014,7 +2664,9 @@ export function ActivityDetailScreen() {
           setActiveSheet(null);
           setIsDueDatePickerVisible(false);
         }}
-        snapPoints={['40%']}
+        // iOS inline date picker needs more vertical space; otherwise "Pick a date…"
+        // appears to do nothing because the picker renders below the fold.
+        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
         scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
@@ -3229,6 +2881,7 @@ export function ActivityDetailScreen() {
               valueMinutes={estimateDraftMinutes}
               onChangeMinutes={setEstimateDraftMinutes}
               accessibilityLabel="Select duration"
+              iosUseEdgeFades={false}
             />
 
             <HStack space="sm">
@@ -3669,707 +3322,3 @@ function SheetOption({ label, onPress, testID }: SheetOptionProps) {
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  pageContent: {
-    flex: 1,
-  },
-  headerSide: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSideRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  breadcrumbsLeft: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingRight: spacing.sm,
-  },
-  breadcrumbsRight: {
-    flex: 0,
-  },
-  menuRowText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  tagsFieldContainer: {
-    width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 44,
-  },
-  tagsFieldInner: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tagChipText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  tagsTextInput: {
-    flexGrow: 1,
-    flexShrink: 1,
-    // Important: keep this small so the presence of an (empty) TextInput does NOT
-    // force a second wrapped row when chips still fit on the current row.
-    flexBasis: 40,
-    minWidth: 40,
-    fontFamily: typography.bodySm.fontFamily,
-    fontSize: typography.bodySm.fontSize,
-    lineHeight: typography.bodySm.lineHeight + 2,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  tagsAutofillBadge: {
-    position: 'absolute',
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingBottom: spacing['2xl'],
-    gap: spacing.xs,
-  },
-  section: {
-    paddingVertical: spacing.xs,
-  },
-  keyActionsInset: {
-    // AppShell already provides the page gutter. Keep Key Actions aligned with the
-    // rest of the Activity canvas (and avoid double-padding).
-    paddingHorizontal: 0,
-    paddingVertical: spacing.xs,
-  },
-  activityHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    columnGap: spacing.md,
-    flexWrap: 'wrap',
-  },
-  rowPadding: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  titleStepsBundle: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  bundleDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    borderRadius: 999,
-    marginVertical: 2,
-  },
-  titlePressable: {
-    flex: 1,
-    flexShrink: 1,
-    justifyContent: 'center',
-  },
-  titleRow: {
-    paddingHorizontal: 0,
-    minHeight: 44,
-  },
-  titleRowContent: {
-    // Keep the title vertically centered against the (slightly larger) checkbox.
-    paddingVertical: spacing.xs,
-  },
-  titleText: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  titleInput: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    padding: 0,
-    flexShrink: 1,
-  },
-  comboboxTrigger: {
-    width: '100%',
-  },
-    comboboxValueContainer: {
-      // `Input` dims non-editable fields by default. For combobox triggers, we want the
-      // selected value to use the standard dark text appearance like other inputs.
-      opacity: 1,
-    },
-    comboboxValueInput: {
-      // Improve vertical centering of single-line value text (icon is already centered).
-      color: colors.textPrimary,
-      paddingVertical: 0,
-      // Keep these explicit so we can safely override line metrics.
-      fontFamily: typography.bodySm.fontFamily,
-      fontSize: typography.bodySm.fontSize,
-      // Line-height strongly affects perceived vertical centering.
-      lineHeight: Platform.OS === 'ios' ? typography.bodySm.fontSize + 2 : typography.bodySm.lineHeight,
-      // Android-only props (harmless on iOS, but not relied upon there).
-      includeFontPadding: false,
-      textAlignVertical: 'center',
-      // iOS: very small baseline nudge upward (text tends to sit slightly low).
-      ...(Platform.OS === 'ios' ? { marginTop: -1 } : null),
-    },
-  metaText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  detailGuideTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  detailGuideBody: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  checkboxBase: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxPlanned: {
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-  },
-  checkboxCompleted: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rowPressed: {
-    backgroundColor: colors.shellAlt,
-  },
-  rowLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  rowLabelActive: {
-    color: colors.accent,
-  },
-  rowValueSet: {
-    color: colors.sumi,
-  },
-  rowContent: {
-    // Slightly taller than default row height without feeling oversized.
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  cardSectionDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    borderRadius: 999,
-    marginVertical: 2,
-  },
-  rowsCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-  },
-  inputLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.sm,
-    marginBottom: 2,
-  },
-  sectionLabelRow: {
-    paddingHorizontal: spacing.sm,
-    paddingBottom: 2,
-  },
-  stepsHeaderRow: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  stepsHeaderLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-  },
-  addStepButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  addStepButtonText: {
-    ...typography.label,
-    color: colors.primaryForeground,
-  },
-  stepsEmpty: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  stepRow: {
-    minHeight: 40,
-    // Center checkbox / text / actions vertically for consistent row rhythm.
-    alignItems: 'center',
-  },
-  stepRowContent: {
-    paddingVertical: 0,
-    justifyContent: 'center',
-  },
-  stepCheckbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1.5,
-  },
-  stepLeftIconBox: {
-    // Alignment box: keep left-column centers consistent with the title's 24x24 check-circle,
-    // while allowing the actual step circle to remain smaller (via `stepCheckbox`).
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepInput: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    paddingVertical: spacing.xs / 2,
-  },
-  stepOptionalPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    backgroundColor: colors.shell,
-  },
-  stepOptionalText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  stepOptionalTextActive: {
-    color: colors.accent,
-  },
-  removeStepButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-  },
-  addStepRow: {
-    marginTop: 0,
-  },
-  addStepInlineText: {
-    ...typography.bodySm,
-    color: colors.accent,
-    // Match the inline `Input` baseline metrics so "Add step" aligns with step titles.
-    // (Vector icon glyphs + iOS baselines tend to read slightly low otherwise.)
-    lineHeight: 18,
-    ...(Platform.OS === 'android'
-      ? ({
-          includeFontPadding: false,
-          textAlignVertical: 'center',
-        } as const)
-      : ({ marginTop: -1 } as const)),
-  },
-  rowValue: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    flexShrink: 1,
-  },
-  rowRight: {
-    flexShrink: 1,
-    paddingHorizontal: spacing.sm,
-  },
-  rowValueAi: {
-    color: colors.accent,
-  },
-  sheetContent: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  sheetTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  estimateFieldsRow: {
-    width: '100%',
-  },
-  estimatePickerContainer: {
-    width: '100%',
-    // Keep the wheel comfortably separated from the buttons.
-    paddingVertical: spacing.sm,
-    // Let the iOS wheel claim vertical space inside the sheet.
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  estimateField: {
-    flex: 1,
-  },
-  estimateFieldLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  sheetRow: {
-    paddingVertical: spacing.sm,
-  },
-  sheetRowLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  customRepeatHeaderRow: {
-    width: '100%',
-    marginBottom: spacing.md,
-  },
-  customRepeatHeaderTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    flexShrink: 1,
-  },
-  customRepeatSetLabel: {
-    ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.semibold,
-  },
-  customRepeatPickerBlock: {
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  iosWheelFrame: {
-    width: 140,
-    height: 190,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    backgroundColor: colors.canvas,
-    overflow: 'hidden',
-  },
-  iosWheelItem: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  customRepeatSectionLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  customRepeatWeekdayRow: {
-    flexWrap: 'wrap',
-  },
-  customRepeatWeekdayChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customRepeatWeekdayChipSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  customRepeatWeekdayChipText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  customRepeatWeekdayChipTextSelected: {
-    color: colors.primaryForeground,
-  },
-  datePickerContainer: {
-    marginTop: spacing.sm,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  emptyTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  emptyBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  objectTypeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-  },
-  objectTypeLabel: {
-    fontFamily: fonts.medium,
-    fontSize: 20,
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    color: colors.textSecondary,
-  },
-  objectTypeLabelV2: {
-    ...typography.label,
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  headerV2: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-  },
-  headerV2TopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  headerV2Title: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.xs,
-  },
-  actionsTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  actionsButtonLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontFamily: fonts.medium,
-  },
-  actionsButtonLabelDestructive: {
-    ...typography.body,
-    color: colors.canvas,
-    fontFamily: fonts.medium,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    backgroundColor: colors.primary,
-  },
-  optionsButton: {
-    alignSelf: 'flex-end',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    backgroundColor: colors.primary,
-  },
-  destructiveMenuRowText: {
-    ...typography.body,
-    color: colors.destructive,
-  },
-  doneButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  doneButtonPressed: {
-    opacity: 0.75,
-  },
-  doneButtonText: {
-    fontFamily: fonts.medium,
-    fontSize: 18,
-    lineHeight: 22,
-    color: colors.textPrimary,
-  },
-  sheetDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  calendarPermissionNotice: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  calendarListContainer: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  calendarChoiceRow: {
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.shell,
-  },
-  calendarChoiceRowSelected: {
-    backgroundColor: colors.accent,
-  },
-  calendarChoiceLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  calendarChoiceLabelSelected: {
-    color: colors.primaryForeground,
-  },
-  focusPresetRow: {
-    flexWrap: 'wrap',
-  },
-  focusPresetChip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  focusPresetChipPressed: {
-    opacity: 0.86,
-  },
-  focusPresetChipSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  focusPresetChipText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  focusPresetChipTextSelected: {
-    color: colors.primaryForeground,
-  },
-  focusOverlay: {
-    flex: 1,
-    backgroundColor: colors.pine700,
-    paddingHorizontal: spacing.lg,
-  },
-  focusTopBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  focusSoundToggle: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  focusSoundToggleOn: {
-    backgroundColor: colors.parchment,
-    borderColor: 'rgba(250,247,237,0.9)',
-  },
-  focusSoundToggleOff: {
-    backgroundColor: 'rgba(250,247,237,0.08)',
-    borderColor: 'rgba(250,247,237,0.35)',
-  },
-  focusSoundTogglePressed: {
-    opacity: 0.9,
-  },
-  focusSoundToggleLabel: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    letterSpacing: 0.2,
-  },
-  focusSoundToggleLabelOn: {
-    color: colors.pine800,
-  },
-  focusSoundToggleLabelOff: {
-    color: colors.parchment,
-  },
-  focusSoundscapeTrigger: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    alignSelf: 'flex-start',
-  },
-  focusSoundscapeTriggerText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  focusCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  focusStreakOverlayLabel: {
-    ...typography.body,
-    color: colors.parchment,
-    opacity: 0.9,
-    marginTop: spacing.sm,
-  },
-  focusStreakSheetLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  focusTimer: {
-    // Best approximation of the Apple Watch “thick rounded” vibe without bundling new fonts:
-    // iOS will render a very watch-like result with heavy system weights and tabular numbers.
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro Rounded' : fonts.black,
-    fontWeight: Platform.OS === 'ios' ? '900' : '900',
-    fontVariant: ['tabular-nums'],
-    letterSpacing: -1.2,
-    fontSize: 78,
-    lineHeight: 84,
-    color: colors.parchment,
-    textAlign: 'center',
-  },
-  focusActivityTitle: {
-    ...typography.body,
-    fontFamily: fonts.semibold,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
-  focusBottomBar: {
-    marginTop: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  focusActionIconButton: {
-    borderWidth: 1,
-    borderColor: 'rgba(250,247,237,0.28)',
-    backgroundColor: 'rgba(250,247,237,0.08)',
-  },
-});
-
-

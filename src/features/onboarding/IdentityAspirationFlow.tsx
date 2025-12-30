@@ -48,7 +48,13 @@ import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { useToastStore } from '../../store/useToastStore';
-import { useCreditsInterstitialStore } from '../../store/useCreditsInterstitialStore';
+import {
+  DOMAIN_OPTIONS,
+  MOTIVATION_OPTIONS,
+  PROUD_MOMENT_OPTIONS,
+  WHY_NOW_OPTIONS,
+} from '../../domain/arcCreationSurveyOptions';
+import { ARC_CREATION_SURVEY_COPY, ARC_CREATION_SURVEY_STEP_ORDER } from '../arcs/arcCreationSurvey';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -115,108 +121,6 @@ type ChoiceOption = {
   emoji?: string;
 };
 
-// Q1 – Domain of becoming (the arena)
-const DOMAIN_OPTIONS: ChoiceOption[] = [
-  {
-    id: 'creativity_expression',
-    label: 'Creativity & expression',
-    emoji: '🎨',
-    tags: ['creative', 'expression', 'mastery'],
-  },
-  {
-    id: 'craft_skill_building',
-    label: 'Craft, skill & building',
-    emoji: '🛠️',
-    tags: ['mastery', 'making', 'strength'],
-  },
-  {
-    id: 'leadership_influence',
-    label: 'Leadership & influence',
-    emoji: '🌟',
-    tags: ['leadership', 'relationships'],
-  },
-  {
-    id: 'relationships_connection',
-    label: 'Relationships & connection',
-    emoji: '🤝',
-    tags: ['relationships', 'helping'],
-  },
-  {
-    id: 'purpose_meaning_contribution',
-    label: 'Purpose, meaning & contribution',
-    emoji: '🌱',
-    tags: ['meaning', 'values', 'helping', 'making_meaningful'],
-  },
-  {
-    id: 'courage_confidence',
-    label: 'Courage & confidence',
-    emoji: '💪',
-    tags: ['courage', 'self_belief'],
-  },
-  {
-    id: 'habits_discipline_energy',
-    label: 'Habits, discipline & energy',
-    emoji: '📅',
-    tags: ['discipline', 'consistency', 'strength'],
-  },
-  {
-    id: 'adventure_exploration',
-    label: 'Adventure & exploration',
-    emoji: '🧭',
-    tags: ['exploration', 'courage'],
-  },
-  {
-    id: 'inner_life_mindset',
-    label: 'Inner life & mindset',
-    emoji: '🧘',
-    tags: ['calm', 'emotion_regulation', 'meaning'],
-  },
-];
-
-// Q2 – Motivational style (their drive)
-const MOTIVATION_OPTIONS: ChoiceOption[] = [
-  {
-    id: 'make_new_things',
-    label: 'Making things that didn’t exist before',
-    tags: ['creative', 'making', 'mastery'],
-  },
-  {
-    id: 'reliable_for_others',
-    label: 'Being someone others can rely on',
-    tags: ['reliability', 'relationships', 'helping'],
-  },
-  {
-    id: 'excellence_through_effort',
-    label: 'Achieving excellence through effort',
-    tags: ['excellence', 'discipline', 'mastery'],
-  },
-  {
-    id: 'solve_hard_problems',
-    label: 'Figuring out problems others can’t',
-    tags: ['problem_solving', 'mastery'],
-  },
-  {
-    id: 'help_people_feel_valued',
-    label: 'Helping people feel valued',
-    tags: ['helping', 'relationships', 'values'],
-  },
-  {
-    id: 'express_ideas_new_way',
-    label: 'Expressing ideas in a new way',
-    tags: ['expression', 'creative', 'new_thinking'],
-  },
-  {
-    id: 'become_stronger',
-    label: 'Becoming stronger—mentally or physically',
-    tags: ['strength', 'mastery', 'courage'],
-  },
-  {
-    id: 'stand_up_for_what_matters',
-    label: 'Standing up for what matters',
-    tags: ['values', 'courage'],
-  },
-];
-
 // Q3 – Signature trait (their flavor)
 const SIGNATURE_TRAIT_OPTIONS: ChoiceOption[] = [
   { id: 'curiosity', label: 'Curiosity', tags: ['curiosity', 'exploration'] },
@@ -243,31 +147,6 @@ const GROWTH_EDGE_OPTIONS: ChoiceOption[] = [
   { id: 'managing_emotions', label: 'Managing emotions', tags: ['emotion_regulation'] },
   { id: 'being_patient', label: 'Being patient', tags: ['patience'] },
   { id: 'staying_focused', label: 'Staying focused', tags: ['focus', 'discipline'] },
-];
-
-// Q5 – Everyday proud moment (embodiment)
-const PROUD_MOMENT_OPTIONS: ChoiceOption[] = [
-  {
-    id: 'showing_up_when_hard',
-    label: 'Showing up even when it’s hard',
-    tags: ['showing_up', 'consistency', 'courage'],
-  },
-  {
-    id: 'making_something_meaningful',
-    label: 'Making something meaningful',
-    tags: ['making_meaningful', 'creative', 'making'],
-  },
-  { id: 'helping_someone', label: 'Helping someone', tags: ['helping', 'relationships'] },
-  { id: 'pushing_yourself', label: 'Pushing yourself', tags: ['courage', 'strength'] },
-  { id: 'thinking_in_new_way', label: 'Thinking in a new way', tags: ['new_thinking', 'exploration'] },
-  { id: 'being_honest_or_brave', label: 'Being honest or brave', tags: ['honesty_bravery', 'values', 'courage'] },
-  { id: 'improving_a_skill', label: 'Improving a skill', tags: ['skill_improvement', 'mastery'] },
-  { id: 'supporting_a_friend', label: 'Supporting a friend', tags: ['friend_support', 'relationships', 'helping'] },
-  {
-    id: 'caring_for_energy',
-    label: 'Taking care of your body & energy',
-    tags: ['calm', 'discipline', 'strength'],
-  },
 ];
 
 // Q6 – Source of meaning
@@ -311,38 +190,6 @@ const MEANING_OPTIONS: ChoiceOption[] = [
     id: 'becoming_strongest_self',
     label: 'Becoming your strongest self',
     tags: ['strength', 'self_belief'],
-  },
-];
-
-// Optional – "Why now" / turning point for the identity Arc.
-// Currently used in the Arc creation flow launched from the Arcs inventory
-// (reuseIdentityForNewArc mode) so we can tune the narrative around the
-// season the user is in without adding friction to the first-time FTUE.
-const WHY_NOW_OPTIONS: ChoiceOption[] = [
-  {
-    id: 'excited_and_serious',
-    label: "I’m excited about this and want to take it seriously.",
-    tags: ['making_meaningful', 'mastery'],
-  },
-  {
-    id: 'fits_future_me',
-    label: "It fits who I’m trying to become.",
-    tags: ['values', 'meaning'],
-  },
-  {
-    id: 'keeps_returning',
-    label: 'It keeps coming back to me.',
-    tags: ['new_thinking', 'exploration'],
-  },
-  {
-    id: 'change_for_good',
-    label: 'It would really change things in a good way.',
-    tags: ['making_meaningful'],
-  },
-  {
-    id: 'bigger_than_me',
-    label: 'It’s about more than just me.',
-    tags: ['meaning', 'values', 'making_meaningful'],
   },
 ];
 
@@ -519,14 +366,7 @@ type Phase =
   | 'reveal'
   | 'tweak';
 
-const FIRST_TIME_ONBOARDING_SURVEY_PHASES: Phase[] = [
-  'dreams',
-  'domain',
-  'proudMoment',
-  'motivation',
-  'roleModelType',
-  'admiredQualities',
-];
+const FIRST_TIME_ONBOARDING_SURVEY_PHASES: Phase[] = ARC_CREATION_SURVEY_STEP_ORDER;
 
 type ArcIdentitySlices = {
   identity: string;
@@ -778,10 +618,6 @@ export function IdentityAspirationFlow({
   const [expandedOptionSets, setExpandedOptionSets] = useState<Record<string, boolean>>({});
 
   const isFirstTimeOnboarding = mode === 'firstTimeOnboarding';
-  const hasSeenCreditsEducationInterstitial = useAppStore((state) => state.hasSeenCreditsEducationInterstitial);
-  const setHasSeenCreditsEducationInterstitial = useAppStore(
-    (state) => state.setHasSeenCreditsEducationInterstitial
-  );
 
   const setSurveyPhaseByIndex = useCallback(
     (index: number) => {
@@ -803,23 +639,8 @@ export function IdentityAspirationFlow({
     setSurveyStepIndex(idx);
   }, [isFirstTimeOnboarding, phase, surveyStepIndex]);
 
-  useEffect(() => {
-    if (!isFirstTimeOnboarding) return;
-    if (hasSeenCreditsEducationInterstitial) return;
-    // Show a lightweight credits explainer early, before heavy AI steps.
-    setHasSeenCreditsEducationInterstitial(true);
-    setTimeout(() => {
-      try {
-        useCreditsInterstitialStore.getState().open({ kind: 'education' });
-      } catch {
-        // best-effort only
-      }
-    }, 300);
-  }, [
-    hasSeenCreditsEducationInterstitial,
-    isFirstTimeOnboarding,
-    setHasSeenCreditsEducationInterstitial,
-  ]);
+  // Note: AI credits tutorial is triggered after the first onboarding AI response
+  // (see `src/services/ai.ts`) so it lands like a “game beat” tied to real usage.
 
   const callOnboardingAgentStep = useCallback(
     async (stepId: string, messages: CoachChatTurn[]): Promise<string> => {
@@ -2030,7 +1851,7 @@ export function IdentityAspirationFlow({
           'Sentence roles:',
           '1. Sentence 1: Begin with "I want…", clearly expressing the identity direction within this Arc. When the user has given a specific big dream (e.g., record an album, build a cabin, start a studio), weave that dream directly into this first sentence so it feels like the heart of the direction, not a side note.',
           '2. Sentence 2: In a short sentence, explain why this direction matters now, using the user\'s signals (domain, vibe, social presence, strength, proud moment, dream).',
-          '3. Sentence 3: In another short sentence, give one concrete, ordinary-life scene AND one micro-behavior they could do this week that shows this direction on a normal day.',
+          '3. Sentence 3: In another short sentence, give one concrete, ordinary-life scene AND one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week" or "start by…").',
           '',
           'Tone:',
           '- grounded, human, reflective,',
@@ -2275,11 +2096,11 @@ export function IdentityAspirationFlow({
         console.error('[onboarding] Failed to generate identity aspiration', err);
         if (isLikelyOfflineError(err)) {
           setError(
-            "It looks like you're offline right now, so I can't load this step yet. Once you're back on Wi‑Fi or data, try again."
+            "We aren't able to reach the internet right now. Check your connection and try again."
           );
         } else {
           setError(
-            'Something went wrong while getting this identity Arc and tiny next step. Please try again in a moment.'
+            "We couldn't load this step right now. Please try again in a moment."
           );
         }
       } finally {
@@ -3955,10 +3776,33 @@ export function IdentityAspirationFlow({
                 </View>
               </View>
               <View style={styles.loadingRow}>
-                <ActivityIndicator color={colors.textPrimary} />
-                <Text style={styles.bodyText}>Pulling the threads together…</Text>
+                {isGenerating ? <ActivityIndicator color={colors.textPrimary} /> : null}
+                <Text style={styles.bodyText}>
+                  {isGenerating ? 'Pulling the threads together…' : 'Ready when you are.'}
+                </Text>
               </View>
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {error ? (
+                <View style={styles.errorBlock}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  {!isGenerating ? (
+                    <View style={styles.errorActions}>
+                      <Button
+                        variant="primary"
+                        style={[styles.primaryButton, { flex: 1 }]}
+                        onPress={() => {
+                          setPhase('generating');
+                          void generateArc();
+                        }}
+                        accessibilityLabel="Try again"
+                      >
+                        <ButtonLabel size="md" tone="inverse">
+                          Try again
+                        </ButtonLabel>
+                      </Button>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
           }
         />
@@ -4223,10 +4067,10 @@ export function IdentityAspirationFlow({
           >
             <Button
               style={styles.introActionButton}
-              variant="accent"
+              variant="secondary"
               onPress={handleBeginSurvey}
             >
-              <ButtonLabel size="md" tone="inverse">
+              <ButtonLabel size="md">
                 💪 Let's do it!
               </ButtonLabel>
             </Button>
@@ -4271,7 +4115,7 @@ export function IdentityAspirationFlow({
         steps={[
           {
             id: 'dreams',
-            title: 'Looking ahead, what’s one big thing you’d love to bring to life?',
+            title: ARC_CREATION_SURVEY_COPY.dreamsTitle,
             canProceed: hasStreamedDreamsIntroCopy && dreamInput.trim().length > 0,
             render: () => {
               if (!hasStreamedDreamsIntroCopy) {
@@ -4291,7 +4135,7 @@ export function IdentityAspirationFlow({
                   // (avoid auto-growing off-screen during placeholder/content size changes).
                   multilineMinHeight={140}
                   multilineMaxHeight={140}
-                  placeholder="e.g., Start a creative side project I’m proud of."
+                  placeholder={ARC_CREATION_SURVEY_COPY.dreamsPlaceholder}
                   autoCapitalize="sentences"
                   returnKeyType="done"
                   blurOnSubmit
@@ -4301,10 +4145,60 @@ export function IdentityAspirationFlow({
             },
           },
           {
+            id: 'whyNow',
+            title: ARC_CREATION_SURVEY_COPY.whyNowTitle,
+            canProceed: true,
+            render: () => (
+              <View style={styles.fullWidthList}>
+                {WHY_NOW_OPTIONS.map((option) => {
+                  const selected = whyNowIds.includes(option.id);
+                  return (
+                    <Pressable
+                      key={option.id}
+                      style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        setWhyNowIds([option.id]);
+                        appendChatUserMessage(option.label);
+                        setError(null);
+                        setSurveyPhaseByIndex(surveyStepIndex + 1);
+                      }}
+                    >
+                      <View style={styles.fullWidthOptionContent}>
+                        {renderRadioIndicator(selected)}
+                        <Text
+                          style={[
+                            styles.fullWidthOptionLabel,
+                            selected && styles.fullWidthOptionLabelSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+                <View style={styles.whyNowFooterRow}>
+                  <Button
+                    variant="ghost"
+                    onPress={() => {
+                      setError(null);
+                      setSurveyPhaseByIndex(surveyStepIndex + 1);
+                    }}
+                    accessibilityLabel={ARC_CREATION_SURVEY_COPY.skipWhyNowLabel}
+                  >
+                    <ButtonLabel size="md">{ARC_CREATION_SURVEY_COPY.skipWhyNowLabel}</ButtonLabel>
+                  </Button>
+                </View>
+              </View>
+            ),
+          },
+          {
             id: 'domain',
             title: (
               <>
-                Which part of yourself are you most excited to grow right now?{' '}
+                {ARC_CREATION_SURVEY_COPY.domainTitle}{' '}
                 <Pressable
                   style={styles.questionInfoTrigger}
                   accessibilityRole="button"
@@ -4338,7 +4232,7 @@ export function IdentityAspirationFlow({
                           setDomainIds([option.id]);
                           workflowRuntime?.completeStep('vibe_select', { domain: option.label });
                           setError(null);
-                          setSurveyPhaseByIndex(2);
+                          setSurveyPhaseByIndex(surveyStepIndex + 1);
                         }}
                       >
                         <View style={styles.fullWidthOptionContent}>
@@ -4386,8 +4280,7 @@ export function IdentityAspirationFlow({
             id: 'proudMoment',
             title: (
               <>
-                On a normal day in that future—not a big moment—what could you do that would make you feel
-                quietly proud of yourself?{' '}
+                {ARC_CREATION_SURVEY_COPY.proudMomentTitle}{' '}
                 <Text
                   style={styles.questionInfoTrigger}
                   accessibilityRole="button"
@@ -4430,7 +4323,7 @@ export function IdentityAspirationFlow({
                           setProudMomentIds([option.id]);
                           workflowRuntime?.completeStep('everyday_moment', { proudMoment: option.label });
                           setError(null);
-                          setSurveyPhaseByIndex(3);
+                          setSurveyPhaseByIndex(surveyStepIndex + 1);
                         }}
                       >
                         <View style={styles.fullWidthOptionContent}>
@@ -4499,8 +4392,7 @@ export function IdentityAspirationFlow({
             id: 'motivation',
             title: (
               <>
-                Thinking about that future version of you, what do you think would motivate them the most
-                here?{' '}
+                {ARC_CREATION_SURVEY_COPY.motivationTitle}{' '}
                 <Text
                   style={styles.questionInfoTrigger}
                   accessibilityRole="button"
@@ -4543,7 +4435,7 @@ export function IdentityAspirationFlow({
                           setMotivationIds([option.id]);
                           workflowRuntime?.completeStep('social_mirror', { motivation: option.label });
                           setError(null);
-                          setSurveyPhaseByIndex(4);
+                          setSurveyPhaseByIndex(surveyStepIndex + 1);
                         }}
                       >
                         <View style={styles.fullWidthOptionContent}>
@@ -4620,7 +4512,7 @@ export function IdentityAspirationFlow({
           },
           {
             id: 'roleModelType',
-            title: 'What kind of people do you look up to?',
+            title: ARC_CREATION_SURVEY_COPY.roleModelTypeTitle,
             canProceed: Boolean(roleModelTypeId),
             render: () => (
               <>
@@ -4636,7 +4528,7 @@ export function IdentityAspirationFlow({
                         accessibilityState={{ selected }}
                         onPress={() => {
                           setRoleModelTypeId(option.id);
-                          setSurveyPhaseByIndex(5);
+                          setSurveyPhaseByIndex(surveyStepIndex + 1);
                         }}
                       >
                         <View style={styles.fullWidthOptionContent}>
@@ -4659,7 +4551,7 @@ export function IdentityAspirationFlow({
           },
           {
             id: 'admiredQualities',
-            title: 'What qualities do you admire in them? (Pick 1–3)',
+            title: ARC_CREATION_SURVEY_COPY.admiredQualitiesTitle,
             canProceed: admiredQualityIds.length > 0,
             render: () => (
               <View style={styles.fullWidthList}>
@@ -5060,6 +4952,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: spacing.xs,
   },
+  whyNowFooterRow: {
+    alignItems: 'flex-start',
+    paddingTop: spacing.sm,
+  },
   selectOnlyOneLabel: {
     ...typography.label,
     color: colors.muted,
@@ -5144,9 +5040,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  errorBlock: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  errorActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
   errorText: {
     ...typography.bodySm,
-    color: '#B91C1C',
+    color: colors.textSecondary,
   },
   introActionsContainer: {
     marginTop: spacing.md,

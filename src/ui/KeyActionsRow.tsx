@@ -44,7 +44,7 @@ type KeyActionsRowProps = {
 };
 
 export function KeyActionsRow({ items, size = 'md', testIDPrefix }: KeyActionsRowProps) {
-  const iconSize = size === 'lg' ? 22 : 18;
+  const iconSize = size === 'lg' ? 24 : 20;
   const tileStyle = size === 'lg' ? styles.tileLg : styles.tile;
   return (
     <HStack space="sm" style={styles.row}>

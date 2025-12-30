@@ -10,13 +10,14 @@ import { getEnvVar } from '../utils/getEnv';
  */
 
 const ENTITLEMENTS_CACHE_KEY = 'kwilt-entitlements-cache-v1';
+const PRO_CODE_OVERRIDE_KEY = 'kwilt-pro-code-override-v1';
 // If offline / RC fails, we’ll use last-known state for this window.
 const LAST_KNOWN_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 export type EntitlementsSnapshot = {
   isPro: boolean;
   checkedAt: string;
-  source: 'revenuecat' | 'cache' | 'none' | 'dev';
+  source: 'revenuecat' | 'cache' | 'none' | 'dev' | 'code';
   isStale?: boolean;
   error?: string;
 };
@@ -78,7 +79,12 @@ async function readCachedEntitlements(): Promise<EntitlementsSnapshot | null> {
   if (!parsed || typeof parsed !== 'object') return null;
   if (typeof parsed.isPro !== 'boolean') return null;
   if (typeof parsed.checkedAt !== 'string') return null;
-  if (parsed.source !== 'revenuecat' && parsed.source !== 'cache' && parsed.source !== 'none') {
+  if (
+    parsed.source !== 'revenuecat' &&
+    parsed.source !== 'cache' &&
+    parsed.source !== 'none' &&
+    parsed.source !== 'code'
+  ) {
     return null;
   }
   return parsed;
@@ -86,6 +92,15 @@ async function readCachedEntitlements(): Promise<EntitlementsSnapshot | null> {
 
 async function writeCachedEntitlements(snapshot: EntitlementsSnapshot): Promise<void> {
   await AsyncStorage.setItem(ENTITLEMENTS_CACHE_KEY, JSON.stringify(snapshot));
+}
+
+export async function setProCodeOverrideEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(PRO_CODE_OVERRIDE_KEY, enabled ? 'true' : 'false');
+}
+
+export async function getProCodeOverrideEnabled(): Promise<boolean> {
+  const raw = await AsyncStorage.getItem(PRO_CODE_OVERRIDE_KEY);
+  return (raw ?? '').trim().toLowerCase() === 'true';
 }
 
 function getPurchasesModule(): RevenueCatPurchasesLike | null {
@@ -122,6 +137,7 @@ async function configureRevenueCatIfNeeded(purchases: RevenueCatPurchasesLike): 
 
 export async function getEntitlements(params?: { forceRefresh?: boolean }): Promise<EntitlementsSnapshot> {
   const cached = await readCachedEntitlements();
+  const proCodeOverride = await getProCodeOverrideEnabled().catch(() => false);
   const cachedAgeMs =
     cached?.checkedAt && Number.isFinite(Date.parse(cached.checkedAt))
       ? Date.now() - Date.parse(cached.checkedAt)
@@ -130,6 +146,10 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
 
   // Fast path: use cached within bounded window if we weren't asked to refresh.
   if (!params?.forceRefresh && cachedIsFresh) {
+    // Even when using cached, ensure we honor a locally redeemed Pro code.
+    if (proCodeOverride && !cached.isPro) {
+      return { ...cached, isPro: true, source: 'cache', isStale: false };
+    }
     return { ...cached, source: 'cache', isStale: false };
   }
 
@@ -138,12 +158,16 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   if (!purchases || !apiKey) {
     // RevenueCat not available yet — fall back to last known (if any).
     if (cachedIsFresh) {
-      return { ...cached, source: 'cache', isStale: true, error: 'RevenueCat not configured' };
+      const base = { ...cached, source: 'cache', isStale: true, error: 'RevenueCat not configured' } as EntitlementsSnapshot;
+      if (proCodeOverride) {
+        return { ...base, isPro: true };
+      }
+      return base;
     }
     const snapshot: EntitlementsSnapshot = {
-      isPro: false,
+      isPro: Boolean(proCodeOverride),
       checkedAt: nowIso(),
-      source: 'none',
+      source: proCodeOverride ? 'code' : 'none',
       isStale: true,
       error: 'RevenueCat not configured',
     };
@@ -154,10 +178,12 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   try {
     await configureRevenueCatIfNeeded(purchases);
     const info = await purchases.getCustomerInfo?.();
+    const rcIsPro = extractIsPro(info);
+    const isPro = rcIsPro || Boolean(proCodeOverride);
     const snapshot: EntitlementsSnapshot = {
-      isPro: extractIsPro(info),
+      isPro,
       checkedAt: nowIso(),
-      source: 'revenuecat',
+      source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
       isStale: false,
     };
     await writeCachedEntitlements(snapshot);
@@ -165,12 +191,16 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   } catch (e: any) {
     const message = typeof e?.message === 'string' ? e.message : 'Failed to refresh entitlements';
     if (cachedIsFresh) {
-      return { ...cached, source: 'cache', isStale: true, error: message };
+      const base = { ...cached, source: 'cache', isStale: true, error: message } as EntitlementsSnapshot;
+      if (proCodeOverride) {
+        return { ...base, isPro: true };
+      }
+      return base;
     }
     const snapshot: EntitlementsSnapshot = {
-      isPro: false,
+      isPro: Boolean(proCodeOverride),
       checkedAt: nowIso(),
-      source: 'none',
+      source: proCodeOverride ? 'code' : 'none',
       isStale: true,
       error: message,
     };

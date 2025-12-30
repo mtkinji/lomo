@@ -12,6 +12,7 @@ import { Icon } from './Icon';
 export type ObjectPickerOption = ComboboxOption;
 
 type ObjectPickerSize = 'default' | 'compact';
+type ObjectPickerFieldVariant = 'outline' | 'filled';
 
 type Props = {
   /**
@@ -44,6 +45,7 @@ type Props = {
    */
   size?: ObjectPickerSize;
   leadingIcon?: IconName;
+  fieldVariant?: ObjectPickerFieldVariant;
 };
 
 /**
@@ -67,6 +69,7 @@ export function ObjectPicker({
   recommendedOption,
   size = 'default',
   leadingIcon,
+  fieldVariant = 'outline',
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -114,7 +117,7 @@ export function ObjectPicker({
               value={selectedLabel}
               placeholder={placeholder}
               editable={false}
-              variant="outline"
+              variant={fieldVariant}
               elevation="flat"
               leadingIcon={leadingIcon}
               size={inputSize}

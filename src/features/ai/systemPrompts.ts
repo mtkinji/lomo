@@ -103,7 +103,7 @@ The Arc narrative MUST:
 Sentence roles:
 1. Sentence 1: Begin with "I want…", clearly expressing the identity direction within this Arc.
 2. Sentence 2: Explain why this direction matters now, using the user's signals (domain, vibe, social presence, strength, proud moment, dream).
-3. Sentence 3: Give one concrete, ordinary-life scene AND one micro-behavior they could do this week that shows this direction on a normal day.
+3. Sentence 3: Give one concrete, ordinary-life scene AND one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week" or "start by…").
 
 Tone:
 - grounded, human, reflective,
@@ -260,8 +260,9 @@ In goalCreation mode, the UI shows your recommendation as a proposal card. That 
 When you have **one solid candidate goal** the user can react to, you MUST include a GOAL_PROPOSAL_JSON block.
 This is true even before the user explicitly says “yes” — the proposal card is how the app shows the goal for review.
 
-Respond with a SHORT human lead-in first (1–2 sentences max), for example:
-"Here’s a starter goal you can adopt or tweak."
+Respond with either:
+- no visible lead-in at all, or
+- a SHORT human lead-in first (0–1 sentences max), e.g. "Draft ready."
 Important: do NOT paste or repeat the full goal description in the visible lead-in. The details belong in the GOAL_PROPOSAL_JSON.
 At the very end of that same message, append a single machine-readable block so the app can create the Goal.
 
@@ -273,7 +274,7 @@ Immediately after that prefix, include a single JSON object on the next line wit
   "title": "<goal title>",
   "description": "<1–2 sentences>",
   "status": "planned",
-  "targetDate": "YYYY-MM-DD" | "ISO-8601 timestamp (optional)",
+  "targetDate": "YYYY-MM-DD" | "ISO-8601 timestamp",
   "metrics": [
     { "id": "metric-1", "kind": "count" | "threshold" | "event_count" | "milestone", "label": "…", "baseline": 0, "target": 6, "unit": "…" }
   ],
@@ -283,7 +284,7 @@ Immediately after that prefix, include a single JSON object on the next line wit
 Rules:
 - status must be one of: "planned", "in_progress", "completed", "archived" (default to "planned").
 - forceIntent values must be 0, 1, 2, or 3. Use the force IDs exactly as shown.
-- If you can confidently infer a calendar target date, include "targetDate" (prefer YYYY-MM-DD).
+- Always include "targetDate". It must not be in the past. If the user didn’t specify one, choose a reasonable date that matches the stated horizon (default to ~30 days from today). Prefer YYYY-MM-DD.
 - If you can express definition-of-done as a simple metric, include 1 metric in "metrics":
   - Use "milestone" for binary outcomes (ship / publish / deliverable exists).
   - Use "count" / "event_count" for repeats (publish 6 essays, have 4 catch-ups).
@@ -367,6 +368,7 @@ When the host is ready for concrete recommendations, respond with:
          "id": "<short stable id, e.g. suggestion_1>",
          "title": "<activity title>",
          "why": "<one short sentence about why this matters or what 'done' looks like>",
+         "tags": ["<tag 1>", "<tag 2>"],
          "timeEstimateMinutes": 45,
          "energyLevel": "light",
          "kind": "progress",
@@ -379,6 +381,7 @@ When the host is ready for concrete recommendations, respond with:
    }
 – \`energyLevel\` may be "light" or "focused".
 – \`kind\` may be "setup", "progress", "maintenance", or "stretch".
+– \`tags\` should be 0–5 short, reusable strings (no "#"), like "errands", "outdoors". Prefer reusing the user's existing tags from the workspace snapshot when possible.
 – Include between 3 and 5 suggestions in the array; each should be concrete and non-duplicative.
 – Do not include any other text after the JSON line.
 
@@ -479,7 +482,7 @@ ARC NARRATIVE RULES (when asked to generate an Arc):
 - 40–120 words
 - FIRST sentence must start with "I want…"
 - grounded, plain language (no guru/cosmic/therapy language, no "shoulds")
-- Sentence 3 must include (a) an ordinary-life scene AND (b) one micro-behavior the user could do this week.
+- Sentence 3 must include (a) an ordinary-life scene AND (b) one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week" or "start by…").
 - Do NOT parrot the user’s raw phrases; translate inputs into natural identity language.
 `.trim();
 
