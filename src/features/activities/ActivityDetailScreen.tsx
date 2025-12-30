@@ -118,6 +118,7 @@ export function ActivityDetailScreen() {
   const isPro = useEntitlementsStore((state) => state.isPro);
   const focusMaxMinutes = isPro ? 180 : 10;
   const isFocused = useIsFocused();
+  const isFocusedRef = useRef(isFocused);
   const { capture } = useAnalytics();
   const showToast = useToastStore((s) => s.showToast);
   const insets = useSafeAreaInsets();
@@ -144,6 +145,10 @@ export function ActivityDetailScreen() {
 
   const KEYBOARD_CLEARANCE = spacing['2xl'] + spacing.lg;
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+
+  useEffect(() => {
+    isFocusedRef.current = isFocused;
+  }, [isFocused]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -2084,7 +2089,6 @@ export function ActivityDetailScreen() {
   const hasInitializedProgressRef = useRef(false);
   const [rightItemCenterLabelPulseKey, setRightItemCenterLabelPulseKey] = useState(0);
   const prevCompletedCountRef = useRef<number>(completedStepsCount);
-  const completionToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activityTypeLabel = useMemo(() => {
     const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity.type);
     return (match?.label ?? 'Activity') as string;
@@ -2096,10 +2100,6 @@ export function ActivityDetailScreen() {
     hasInitializedProgressRef.current = false;
     prevProgressRef.current = 0;
     prevCompletedCountRef.current = completedStepsCount;
-    if (completionToastTimeoutRef.current) {
-      clearTimeout(completionToastTimeoutRef.current);
-      completionToastTimeoutRef.current = null;
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activity.id]);
 
@@ -2124,31 +2124,9 @@ export function ActivityDetailScreen() {
     // Trigger only on the edge: < 1 -> 1
     if (prev < 1 && next >= 1) {
       setRightItemCelebrateKey((k) => k + 1);
-      if (completionToastTimeoutRef.current) {
-        clearTimeout(completionToastTimeoutRef.current);
-        completionToastTimeoutRef.current = null;
-      }
-      // Pop after the celebration finishes (ring 420ms + confetti 450ms ≈ 870ms).
-      completionToastTimeoutRef.current = setTimeout(() => {
-        showToast({
-          message: `${activityTypeLabel} complete`,
-          variant: 'light',
-          durationMs: 2200,
-        });
-      }, 900);
     }
     prevProgressRef.current = next;
   }, [actionDockRightProgress, activityTypeLabel, isFocused, showToast]);
-
-  useEffect(() => {
-    // If we leave this screen (push/blur), cancel any queued completion toast.
-    // This prevents delayed toasts from firing after the user has navigated away.
-    if (isFocused) return;
-    if (completionToastTimeoutRef.current) {
-      clearTimeout(completionToastTimeoutRef.current);
-      completionToastTimeoutRef.current = null;
-    }
-  }, [isFocused]);
 
   useEffect(() => {
     // Pulse the center count only on single-step toggles while in partial completion.
@@ -2161,15 +2139,6 @@ export function ActivityDetailScreen() {
     }
     prevCompletedCountRef.current = completedStepsCount;
   }, [completedStepsCount, totalStepsCount]);
-
-  useEffect(() => {
-    return () => {
-      if (completionToastTimeoutRef.current) {
-        clearTimeout(completionToastTimeoutRef.current);
-        completionToastTimeoutRef.current = null;
-      }
-    };
-  }, []);
 
   const formatMinutes = (minutes: number) => {
     if (minutes < 60) return `${minutes} min`;
@@ -2572,6 +2541,14 @@ export function ActivityDetailScreen() {
                   rightItemRingColor={dockCompleteColor}
                   rightItemBackgroundColor={allStepsComplete ? dockCompleteColor : undefined}
                   rightItemCelebrateKey={rightItemCelebrateKey}
+                  onRightItemCelebrateComplete={() => {
+                    if (!isFocusedRef.current) return;
+                    showToast({
+                      message: `${activityTypeLabel} complete`,
+                      variant: 'light',
+                      durationMs: 2200,
+                    });
+                  }}
                   rightItemCenterLabel={actionDockCountLabel}
                   rightItemCenterLabelPulseKey={rightItemCenterLabelPulseKey}
                   // AppShell already provides the canvas gutter; keep docks “nested” into the corners.
@@ -2597,7 +2574,7 @@ export function ActivityDetailScreen() {
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
-        spotlightRadius={18}
+        spotlightRadius={detailGuideStep >= 2 ? 'auto' : 18}
         offset={spacing.xs}
         highlightColor={colors.turmeric}
         actionColor={colors.turmeric}

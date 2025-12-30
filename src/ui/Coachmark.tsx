@@ -28,6 +28,26 @@ type Spotlight = 'none' | 'hole' | 'ring';
 
 const ARROW_SIZE = 10;
 
+function getAutoSpotlightBaseRadius(targetRect: Rect): number {
+  const w = Math.max(0, targetRect.width);
+  const h = Math.max(0, targetRect.height);
+  const minDim = Math.max(0, Math.min(w, h));
+  if (minDim <= 0) return 14;
+
+  // Detect shapes where the effective radius is essentially "as round as possible":
+  // - nearly-square targets (icon buttons, FABs) -> circle
+  // - very wide/tall targets -> pill
+  const aspect = h > 0 ? w / h : 1;
+  const squareish = aspect >= 0.9 && aspect <= 1.1;
+  const pillish = aspect >= 1.6 || aspect <= 1 / 1.6;
+  if (squareish || pillish) return minDim / 2;
+
+  // Otherwise: bucket to our common surface radii so coachmarks visually match the app.
+  if (minDim >= 96) return 18;
+  if (minDim >= 64) return 16;
+  return 12;
+}
+
 export type CoachmarkProps = {
   visible: boolean;
   targetRef: RefObject<View | null>;
@@ -73,8 +93,14 @@ export type CoachmarkProps = {
   spotlightPadding?: number;
   /**
    * Corner radius for the spotlight hole/ring.
+   *
+   * - When a number is provided, treat it as the target's base radius (before padding).
+   *   The coachmark will expand the radius along with `spotlightPadding` so the cutout
+   *   remains a "parallel curve" around the highlighted element.
+   * - When `'auto'`, infer a reasonable radius from the measured target size (useful
+   *   for circular buttons and pill-shaped docks).
    */
-  spotlightRadius?: number;
+  spotlightRadius?: number | 'auto';
   /**
    * Brand color used for the spotlight ring + ripple. Defaults to the app accent.
    */
@@ -135,7 +161,7 @@ export function Coachmark({
   scrimToken = 'subtle',
   spotlight = 'hole',
   spotlightPadding = spacing.xs,
-  spotlightRadius = 14,
+  spotlightRadius: spotlightRadiusProp = 'auto',
   highlightColor = colors.accent,
   actionColor,
   attentionPulse = false,
@@ -305,6 +331,16 @@ export function Coachmark({
     return withoutSkip.length > 0 ? withoutSkip : baseActions;
   }, [actions, progressLabel]);
 
+  const spotlightBaseRadius = useMemo(() => {
+    if (spotlightRadiusProp === 'auto') {
+      return targetRect ? getAutoSpotlightBaseRadius(targetRect) : 14;
+    }
+    if (typeof spotlightRadiusProp === 'number' && Number.isFinite(spotlightRadiusProp)) {
+      return spotlightRadiusProp;
+    }
+    return 14;
+  }, [spotlightRadiusProp, targetRect]);
+
   const spotlightRect = targetRect
     ? {
         x: Math.max(targetRect.x - spotlightPadding, 0),
@@ -313,6 +349,15 @@ export function Coachmark({
         height: Math.max(targetRect.height + spotlightPadding * 2, 0),
       }
     : null;
+
+  const spotlightRadius = useMemo(() => {
+    // Keep the spotlight shape consistent when the cutout is expanded by padding:
+    // expanding a rounded rectangle outward by P should also expand its radius by P.
+    const grown = spotlightBaseRadius + spotlightPadding;
+    if (!spotlightRect) return grown;
+    const maxUseful = Math.min(spotlightRect.width, spotlightRect.height) / 2;
+    return Math.max(0, Math.min(grown, maxUseful));
+  }, [spotlightBaseRadius, spotlightPadding, spotlightRect]);
 
   const shouldShowRing = Boolean(spotlightRect && (spotlight === 'ring' || attentionPulse));
   const ringRect = spotlightRect;

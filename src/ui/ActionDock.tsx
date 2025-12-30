@@ -136,6 +136,14 @@ type Props = {
    */
   rightItemCelebrateKey?: number;
   /**
+   * Optional callback fired on the JS thread after the staged celebration animation completes.
+   *
+   * The celebration animation runs on the UI thread (reanimated). This callback is scheduled from
+   * the same effect that triggers the animation so callers can reliably show follow-up UI (e.g. a toast)
+   * *after* the celebration finishes.
+   */
+  onRightItemCelebrateComplete?: () => void;
+  /**
    * Optional center label (e.g. "2/4") shown temporarily on step toggles.
    */
   rightItemCenterLabel?: string;
@@ -194,6 +202,7 @@ export function ActionDock({
   rightItemRingColor,
   rightItemBackgroundColor,
   rightItemCelebrateKey,
+  onRightItemCelebrateComplete,
   rightItemCenterLabel,
   rightItemCenterLabelPulseKey,
   keyboardExpandedLeftItems,
@@ -294,6 +303,7 @@ export function ActionDock({
   const prevCelebrateKeyRef = React.useRef<number | null>(null);
   const prevBgDefinedRef = React.useRef<boolean>(Boolean(rightItemBackgroundColor));
   const hapticTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const celebrateCompleteTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevCenterLabelPulseKeyRef = React.useRef<number | null>(null);
 
   // Initialize fill state so already-complete activities render correctly on first paint.
@@ -364,38 +374,68 @@ export function ActionDock({
       clearTimeout(hapticTimeoutRef.current);
       hapticTimeoutRef.current = null;
     }
+    // Cancel any pending completion callback from a previous celebration.
+    if (celebrateCompleteTimeoutRef.current) {
+      clearTimeout(celebrateCompleteTimeoutRef.current);
+      celebrateCompleteTimeoutRef.current = null;
+    }
 
     // Staged sequence:
     // 1) Force ring to full
     // 2) After ring finishes, fade in fill + launch confetti
-    ringProgress.value = withTiming(1, { duration: 420, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) });
+    const ringMs = 420;
+    const fillMs = 240;
+    const confettiMs = 450;
+    // Small buffer so JS-driven follow-ups never overlap the last confetti frames
+    // (and to account for render/effect scheduling before the animation actually starts).
+    const completeBufferMs = 240;
+
+    ringProgress.value = withTiming(1, { duration: ringMs, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) });
 
     // Fill is purely visual; it only matters if a fill color exists.
     if (rightItemBackgroundColor) {
       bgOpacity.value = 0;
       bgOpacity.value = withDelay(
-        420,
-        withTiming(1, { duration: 240, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) }),
+        ringMs,
+        withTiming(1, { duration: fillMs, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) }),
       );
     }
 
     confettiT.value = 0;
     confettiT.value = withDelay(
-      420,
-      withTiming(1, { duration: 450, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) }),
+      ringMs,
+      withTiming(1, { duration: confettiMs, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) }),
     );
 
     // Trigger haptic on JS thread when the fill completes (ring 420ms + fill 240ms).
     hapticTimeoutRef.current = setTimeout(() => {
       void HapticsService.trigger('outcome.success');
-    }, 420 + 240);
-  }, [bgOpacity, confettiT, ringProgress, rightItemBackgroundColor, rightItemCelebrateKey]);
+    }, ringMs + fillMs);
+
+    // Notify on JS thread after the celebration should be fully finished.
+    if (onRightItemCelebrateComplete) {
+      celebrateCompleteTimeoutRef.current = setTimeout(() => {
+        onRightItemCelebrateComplete();
+      }, ringMs + confettiMs + completeBufferMs);
+    }
+  }, [
+    bgOpacity,
+    confettiT,
+    ringProgress,
+    rightItemBackgroundColor,
+    rightItemCelebrateKey,
+    onRightItemCelebrateComplete,
+  ]);
 
   React.useEffect(() => {
     return () => {
       if (hapticTimeoutRef.current) {
         clearTimeout(hapticTimeoutRef.current);
         hapticTimeoutRef.current = null;
+      }
+      if (celebrateCompleteTimeoutRef.current) {
+        clearTimeout(celebrateCompleteTimeoutRef.current);
+        celebrateCompleteTimeoutRef.current = null;
       }
     };
   }, []);

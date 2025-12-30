@@ -446,6 +446,7 @@ export function GoalDetailScreen() {
    */
   const [shouldPromptAddActivity, setShouldPromptAddActivity] = useState(false);
   const [hasTransitionedFromActivitiesGuide, setHasTransitionedFromActivitiesGuide] = useState(false);
+  const [hasTransitionedFromPostGoalPlanGuide, setHasTransitionedFromPostGoalPlanGuide] = useState(false);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
   const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
@@ -627,6 +628,7 @@ export function GoalDetailScreen() {
     // so the "Your new Goal is ready" guide can show again when eligible.
     setHasTransitionedFromActivitiesGuide(false);
     setShouldPromptAddActivity(false);
+    setHasTransitionedFromPostGoalPlanGuide(false);
   }, [goalId]);
 
   const arcOptions = useMemo<ObjectPickerOption[]>(() => {
@@ -699,22 +701,45 @@ export function GoalDetailScreen() {
     if (isOnboardingActivitiesHandoffEligible) {
       setHasDismissedOnboardingActivitiesGuide(true);
     }
+    // Also permanently dismiss the post-goal "create a plan" guide the first time
+    // the user enters the Activities creation surface from this goal.
+    if (goal?.id && goal.id === pendingPostGoalPlanGuideGoalId) {
+      dismissPostGoalPlanGuideForGoal(goal.id);
+    }
     setShouldPromptAddActivity(false);
+    setHasTransitionedFromPostGoalPlanGuide(false);
     setActivityCoachVisible(true);
-  }, [isOnboardingActivitiesHandoffEligible, setHasDismissedOnboardingActivitiesGuide]);
+  }, [
+    dismissPostGoalPlanGuideForGoal,
+    goal?.id,
+    isOnboardingActivitiesHandoffEligible,
+    pendingPostGoalPlanGuideGoalId,
+    setHasDismissedOnboardingActivitiesGuide,
+  ]);
 
-  const onboardingActivitiesCoachmarkHost = useCoachmarkHost({
-    active:
-      shouldShowOnboardingActivitiesCoachmark &&
-      !isAnyBottomGuideVisible &&
-      addActivitiesButtonOffset != null,
-    stepKey: 'onboardingActivities',
+  const shouldShowPostGoalPlanCoachmark =
+    hasTransitionedFromPostGoalPlanGuide &&
+    hasCompletedFirstTimeOnboarding &&
+    isPlanEmpty &&
+    isAddActivitiesButtonReady &&
+    shouldPromptAddActivity &&
+    !activityCoachVisible &&
+    !activityComposerVisible;
+
+  const shouldShowAddActivitiesCoachmark =
+    (shouldShowOnboardingActivitiesCoachmark || shouldShowPostGoalPlanCoachmark) &&
+    !isAnyBottomGuideVisible &&
+    addActivitiesButtonOffset != null;
+
+  const addActivitiesCoachmarkHost = useCoachmarkHost({
+    active: shouldShowAddActivitiesCoachmark,
+    stepKey: shouldShowOnboardingActivitiesCoachmark ? 'onboardingActivities' : 'postGoalPlanActivities',
     targetScrollY:
       addActivitiesButtonOffset != null ? Math.max(0, addActivitiesButtonOffset - 120) : null,
     scrollTo: (args) => scrollRef.current?.scrollTo(args),
   });
 
-  const scrollEnabledWhileGuiding = onboardingActivitiesCoachmarkHost.scrollEnabled;
+  const scrollEnabledWhileGuiding = addActivitiesCoachmarkHost.scrollEnabled;
   const activeGoalActivities = useMemo(
     () => goalActivities.filter((activity) => activity.status !== 'done'),
     [goalActivities]
@@ -1683,7 +1708,10 @@ export function GoalDetailScreen() {
               if (goal?.id) {
                 dismissPostGoalPlanGuideForGoal(goal.id);
               }
-              setActivityCoachVisible(true);
+              // Intended flow: dismiss this guide, then spotlight the in-canvas
+              // "Add activities" CTA with a coachmark (user taps CTA to open AI or Manual).
+              setHasTransitionedFromPostGoalPlanGuide(true);
+              setShouldPromptAddActivity(true);
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
@@ -1720,9 +1748,9 @@ export function GoalDetailScreen() {
         </HStack>
       </BottomGuide>
       <Coachmark
-        visible={onboardingActivitiesCoachmarkHost.coachmarkVisible}
+        visible={addActivitiesCoachmarkHost.coachmarkVisible}
         targetRef={addActivitiesButtonRef}
-        remeasureKey={onboardingActivitiesCoachmarkHost.remeasureKey}
+        remeasureKey={addActivitiesCoachmarkHost.remeasureKey}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -1741,7 +1769,15 @@ export function GoalDetailScreen() {
           </Text>
         }
         actions={[]}
-        onDismiss={() => setHasDismissedOnboardingActivitiesGuide(true)}
+        onDismiss={() => {
+          // Coachmarks with `actions={[]}` are typically dismissed by completing the intended action.
+          // Still provide a safe fallback in case the component adds dismiss affordances later.
+          if (isOnboardingActivitiesHandoffEligible) {
+            setHasDismissedOnboardingActivitiesGuide(true);
+          }
+          setHasTransitionedFromPostGoalPlanGuide(false);
+          setShouldPromptAddActivity(false);
+        }}
         placement="below"
       />
       {editingForces && (

@@ -1269,7 +1269,7 @@ export function ActivitiesScreen() {
         scrimToken="subtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
-        spotlightRadius={16}
+        spotlightRadius="auto"
         highlightColor={colors.turmeric}
         actionColor={colors.turmeric}
         title={<Text style={styles.activitiesGuideTitle}>{guideCopy.title}</Text>}
