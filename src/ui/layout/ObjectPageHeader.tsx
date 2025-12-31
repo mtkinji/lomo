@@ -282,6 +282,75 @@ export function HeaderActionPill({
   );
 }
 
+export type HeaderActionGroupPillProps = {
+  children: React.ReactNode;
+  /**
+   * Accessibility label for the container. Typically the inner tap targets
+   * have their own labels; keep this for grouping semantics.
+   */
+  accessibilityLabel: string;
+  /**
+   * Which material token to use for the frosted background.
+   * - default: tuned for dark/hero imagery (lighter border).
+   * - onLight: tuned for white canvas (darker border so the pill reads).
+   */
+  materialVariant?: 'default' | 'onLight';
+  /**
+   * Height of the pill in px. Defaults to 36 to match `HeaderActionPill`.
+   */
+  height?: number;
+  /**
+   * Opacity for the frosted material background.
+   */
+  materialOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
+  /**
+   * When true, renders the material background (BlurView + tint overlay).
+   * Defaults to true.
+   */
+  material?: boolean;
+  style?: StyleProp<ViewStyle>;
+};
+
+export function HeaderActionGroupPill({
+  children,
+  accessibilityLabel,
+  materialVariant = 'default',
+  height = 36,
+  materialOpacity,
+  material = true,
+  style,
+}: HeaderActionGroupPillProps) {
+  const resolvedOpacity = materialOpacity ?? new Animated.Value(1);
+  const materialToken = materialVariant === 'onLight' ? blurs.headerActionOnLight : blurs.headerAction;
+
+  return (
+    <View
+      accessible={false}
+      accessibilityLabel={accessibilityLabel}
+      style={[
+        styles.headerActionGroupPill,
+        { height, borderRadius: height / 2, borderColor: materialToken.borderColor },
+        style,
+      ]}
+    >
+      {material ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.headerActionGroupPillBg, { opacity: resolvedOpacity as any }]}
+        >
+          <BlurView
+            intensity={materialToken.intensity}
+            tint={materialToken.tint}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View style={[styles.headerActionGroupPillTint, { backgroundColor: materialToken.overlayColor }]} />
+        </Animated.View>
+      ) : null}
+      {children}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   fixedHeaderOverlay: {
     position: 'absolute',
@@ -343,6 +412,19 @@ const styles = StyleSheet.create({
   headerActionCircleTint: {
     ...StyleSheet.absoluteFillObject,
     // backgroundColor set via `materialVariant` (default/onLight) at render-time.
+  },
+  headerActionGroupPill: {
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerActionGroupPillBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerActionGroupPillTint: {
+    ...StyleSheet.absoluteFillObject,
   },
   headerBlurTint: {
     ...StyleSheet.absoluteFillObject,

@@ -91,6 +91,7 @@ import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from 
 import {
   ObjectPageHeader,
   HeaderActionPill,
+  HeaderActionGroupPill,
   OBJECT_PAGE_HEADER_BAR_HEIGHT,
 } from '../../ui/layout/ObjectPageHeader';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -115,6 +116,8 @@ import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../s
 import { listGoalMembers, type SharedMember } from '../../services/sharedGoals';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
+import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
+import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -135,6 +138,8 @@ export function GoalDetailScreen() {
   const setToastsSuppressed = useToastStore((state) => state.setToastsSuppressed);
   const { capture } = useAnalytics();
   const isFocused = useIsFocused();
+  const authIdentity = useAppStore((state) => state.authIdentity);
+  const userProfile = useAppStore((state) => state.userProfile);
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -497,6 +502,7 @@ export function GoalDetailScreen() {
 
   const [sharedMembers, setSharedMembers] = useState<SharedMember[] | null>(null);
   const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
+  const [membersSheetVisible, setMembersSheetVisible] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -523,6 +529,16 @@ export function GoalDetailScreen() {
       cancelled = true;
     };
   }, [goalId, isFocused]);
+
+  const headerAvatars = useMemo(() => {
+    if (Array.isArray(sharedMembers) && sharedMembers.length > 0) {
+      return sharedMembers.map((m) => ({ id: m.userId, name: m.name ?? null, avatarUrl: m.avatarUrl ?? null }));
+    }
+    const fallbackId = authIdentity?.userId || userProfile?.id || 'local';
+    const fallbackName = authIdentity?.name || userProfile?.fullName || 'You';
+    const fallbackAvatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl || null;
+    return [{ id: String(fallbackId), name: fallbackName, avatarUrl: fallbackAvatarUrl }];
+  }, [authIdentity?.avatarUrl, authIdentity?.name, authIdentity?.userId, sharedMembers, userProfile?.avatarUrl, userProfile?.fullName, userProfile?.id]);
 
   const setGoalTargetDateByOffsetDays = useCallback(
     (offsetDays: number) => {
@@ -1941,13 +1957,38 @@ export function GoalDetailScreen() {
               }
               right={
                 <HStack alignItems="center" space="sm">
-                  <HeaderActionPill
-                    onPress={handleShareGoal}
-                    accessibilityLabel="Share goal"
+                  <HeaderActionGroupPill
+                    accessibilityLabel="Share goal and members"
                     materialOpacity={headerActionPillOpacity}
+                    style={styles.headerShareMembersPill}
                   >
-                    <Icon name="share" size={18} color={colors.textPrimary} />
-                  </HeaderActionPill>
+                    <HStack alignItems="center" space="sm">
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Share goal"
+                        hitSlop={10}
+                        onPress={handleShareGoal}
+                        style={styles.headerShareZone}
+                      >
+                        <Icon name="share" size={18} color={colors.textPrimary} />
+                      </Pressable>
+                      <View style={styles.headerShareMembersDivider} />
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="View members"
+                        hitSlop={10}
+                        onPress={() => setMembersSheetVisible(true)}
+                        style={styles.headerMembersZone}
+                      >
+                        <OverlappingAvatarStack
+                          avatars={headerAvatars}
+                          size={22}
+                          maxVisible={3}
+                          overlapPx={10}
+                        />
+                      </Pressable>
+                    </HStack>
+                  </HeaderActionGroupPill>
                   <DropdownMenu>
                     <DropdownMenuTrigger accessibilityLabel="Goal actions">
                       <HeaderActionPill
@@ -2087,32 +2128,10 @@ export function GoalDetailScreen() {
                           style={styles.goalSignalsRow}
                           signals={goalProgressSignals}
                         />
-                        {Array.isArray(sharedMembers) && sharedMembers.length > 1 && !sharedMembersBusy ? (
-                          <View style={styles.sharedMembersRow}>
-                            <Text style={styles.sharedMembersLabel}>
-                              Shared with {sharedMembers.length}{' '}
-                              {sharedMembers.length === 2 ? 'person' : 'people'}
-                            </Text>
-                            <View style={styles.sharedAvatarStack}>
-                              {sharedMembers.slice(0, 3).map((m, idx) => (
-                                <View
-                                  key={m.userId}
-                                  style={[styles.sharedAvatarWrap, idx > 0 ? { marginLeft: -10 } : null]}
-                                >
-                                  <ProfileAvatar
-                                    name={m.name ?? 'Member'}
-                                    avatarUrl={m.avatarUrl ?? undefined}
-                                    size={28}
-                                    borderRadius={14}
-                                  />
-                                </View>
-                              ))}
-                              {sharedMembers.length > 3 ? (
-                                <Text style={styles.sharedMoreLabel}>+{sharedMembers.length - 3}</Text>
-                              ) : null}
-                            </View>
-                          </View>
-                        ) : null}
+                        {/*
+                          Shared members indicator is now rendered in the header as a combined pill
+                          (share + overlapping avatars). Avoid duplicating it in the canvas.
+                        */}
 
                         <View style={{ marginTop: spacing.sm, width: '100%' }}>
                     <LongTextField
@@ -2523,6 +2542,84 @@ export function GoalDetailScreen() {
         onSubmit={handleSaveGoal}
         insetTop={insets.top}
       />
+      <BottomDrawer
+        visible={membersSheetVisible}
+        onClose={() => setMembersSheetVisible(false)}
+        snapPoints={['55%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.membersSheetContent}>
+          <Text style={styles.membersSheetTitle}>Shared with</Text>
+          {authIdentity ? (
+            <>
+              {sharedMembersBusy ? (
+                <Text style={styles.membersSheetBody}>Loading members…</Text>
+              ) : Array.isArray(sharedMembers) && sharedMembers.length > 0 ? (
+                <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                  {sharedMembers.map((m) => (
+                    <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
+                      <ProfileAvatar
+                        name={m.name ?? undefined}
+                        avatarUrl={m.avatarUrl ?? undefined}
+                        size={36}
+                        borderRadius={18}
+                      />
+                      <VStack flex={1} space="xs">
+                        <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
+                        {m.role ? <Text style={styles.memberMeta}>{m.role}</Text> : null}
+                      </VStack>
+                    </HStack>
+                  ))}
+                </VStack>
+              ) : (
+                <Text style={styles.membersSheetBody}>
+                  No members found yet. If you just joined, try again in a moment.
+                </Text>
+              )}
+            </>
+          ) : (
+            <Text style={styles.membersSheetBody}>
+              Sign in to see members and invite others.
+            </Text>
+          )}
+
+          <View style={styles.membersSheetActions}>
+            {!authIdentity ? (
+              <Button
+                variant="secondary"
+                fullWidth
+                onPress={async () => {
+                  try {
+                    await ensureSignedInWithPrompt('share_goal');
+                    // Refresh roster after sign-in.
+                    setSharedMembersBusy(true);
+                    const members = await listGoalMembers(goalId);
+                    setSharedMembers(members);
+                  } catch {
+                    // user cancelled
+                  } finally {
+                    setSharedMembersBusy(false);
+                  }
+                }}
+                accessibilityLabel="Sign in"
+              >
+                <Text style={styles.membersSheetButtonLabel}>Sign in</Text>
+              </Button>
+            ) : null}
+            <Button
+              variant="ai"
+              fullWidth
+              onPress={() => {
+                setMembersSheetVisible(false);
+                void handleShareGoal();
+              }}
+              accessibilityLabel="Invite"
+            >
+              <Text style={styles.membersSheetButtonLabel}>Invite</Text>
+            </Button>
+          </View>
+        </View>
+      </BottomDrawer>
       <BottomDrawer
         visible={refineGoalSheetVisible}
         onClose={() => setRefineGoalSheetVisible(false)}
@@ -4279,30 +4376,58 @@ const styles = StyleSheet.create({
   goalSignalsRow: {
     marginBottom: spacing.md,
   },
-  sharedMembersRow: {
-    width: '100%',
+  headerShareMembersPill: {
+    paddingHorizontal: spacing.sm,
+  },
+  headerShareZone: {
+    paddingVertical: spacing.xs / 2,
+    paddingRight: spacing.xs,
+  },
+  headerMembersZone: {
+    paddingVertical: spacing.xs / 2,
+    paddingLeft: spacing.xs,
+  },
+  headerShareMembersDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 18,
+    backgroundColor: colors.gray300,
+    opacity: 0.7,
+  },
+  membersSheetContent: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  membersSheetTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  membersSheetBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
     marginTop: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  sharedMembersLabel: {
+  memberRow: {
+    paddingVertical: spacing.xs,
+  },
+  memberName: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  memberMeta: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  sharedAvatarStack: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  membersSheetActions: {
+    marginTop: spacing.lg,
+    gap: spacing.sm,
   },
-  sharedAvatarWrap: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.canvas,
-  },
-  sharedMoreLabel: {
+  membersSheetButtonLabel: {
     ...typography.bodySm,
-    color: colors.textSecondary,
-    marginLeft: spacing.sm,
+    color: colors.primaryForeground,
+    fontFamily: fonts.medium,
   },
   editableField: {
     borderWidth: 1,

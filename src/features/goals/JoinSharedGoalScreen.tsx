@@ -9,6 +9,7 @@ import { acceptGoalInvite, previewGoalInvite } from '../../services/invites';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import type { JoinSharedGoalRouteParams } from '../../navigation/routeParams';
 import { useToastStore } from '../../store/useToastStore';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 
 type JoinSharedGoalRouteProp = RouteProp<{ JoinSharedGoal: JoinSharedGoalRouteParams }, 'JoinSharedGoal'>;
 
@@ -29,6 +30,7 @@ export function JoinSharedGoalScreen() {
     canJoin?: boolean;
     inviteState?: 'active' | 'expired' | 'consumed';
   } | null>(null);
+  const [drawerVisible, setDrawerVisible] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +84,17 @@ export function JoinSharedGoalScreen() {
     // Replace so back doesn't return to the join surface.
     navigation.replace('GoalDetail', { goalId, entryPoint: 'goalsTab', initialTab: 'details' });
   }, [alreadyHasGoal, navigation, preview?.goalId]);
+
+  const handleClose = useCallback(() => {
+    // Close the drawer and return to the Goals list canvas within the shell.
+    setDrawerVisible(false);
+    try {
+      navigation.replace('GoalsList');
+    } catch {
+      // Fallback if replace isn't available in some nav states.
+      navigation.navigate('GoalsList');
+    }
+  }, [navigation]);
 
   const handleJoin = useCallback(async () => {
     if (!inviteCode) {
@@ -172,49 +185,62 @@ export function JoinSharedGoalScreen() {
 
   return (
     <AppShell>
-      <View style={styles.container}>
-        <VStack space="md">
-          <Heading style={styles.title}>Join shared goal</Heading>
-          {previewBusy ? (
-            <Text style={styles.subtle}>Loading invite details…</Text>
-          ) : preview ? (
+      {/* Keep the underlying canvas/shell visible; the join experience is a bottom drawer overlay. */}
+      <View style={styles.underlay} />
+      <BottomDrawer
+        visible={drawerVisible}
+        onClose={handleClose}
+        snapPoints={['55%', '85%']}
+        initialSnapIndex={0}
+      >
+        <View style={styles.drawerContent}>
+          <VStack space="md">
+            <Heading style={styles.title}>Join shared goal</Heading>
+            {previewBusy ? (
+              <Text style={styles.subtle}>Loading invite details…</Text>
+            ) : preview ? (
+              <Text style={styles.body}>
+                {inviterLabel ? (
+                  <>
+                    <Text style={styles.bold}>{inviterLabel}</Text> invited you to{' '}
+                  </>
+                ) : (
+                  'You’ve been invited to '
+                )}
+                <Text style={styles.bold}>“{previewTitle}”</Text>.
+              </Text>
+            ) : null}
             <Text style={styles.body}>
-              {inviterLabel ? (
-                <>
-                  <Text style={styles.bold}>{inviterLabel}</Text> invited you to{' '}
-                </>
-              ) : (
-                'You’ve been invited to '
-              )}
-              <Text style={styles.bold}>“{previewTitle}”</Text>.
+              By default you share <Text style={styles.bold}>signals only</Text> (check-ins + cheers). Activity titles
+              stay private unless you choose to share them.
             </Text>
-          ) : null}
-          <Text style={styles.body}>
-            By default you share <Text style={styles.bold}>signals only</Text> (check-ins + cheers). Activity titles
-            stay private unless you choose to share them.
-          </Text>
-          <Text style={styles.subtle}>Invite code: {inviteCode || '—'}</Text>
+            <Text style={styles.subtle}>Invite code: {inviteCode || '—'}</Text>
 
-          <Button onPress={handleJoin} disabled={busy || previewBusy}>
-            {busy ? (
-              <View style={styles.busyRow}>
-                <ActivityIndicator color={colors.canvas} />
-                <Text style={styles.busyLabel}>Joining…</Text>
-              </View>
-            ) : (
-              alreadyHasGoal ? 'Open goal' : 'Join'
-            )}
-          </Button>
-        </VStack>
-      </View>
+            <Button onPress={handleJoin} disabled={busy || previewBusy}>
+              {busy ? (
+                <View style={styles.busyRow}>
+                  <ActivityIndicator color={colors.canvas} />
+                  <Text style={styles.busyLabel}>Joining…</Text>
+                </View>
+              ) : (
+                alreadyHasGoal ? 'Open goal' : 'Join'
+              )}
+            </Button>
+          </VStack>
+        </View>
+      </BottomDrawer>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  underlay: {
     flex: 1,
     padding: spacing.lg,
+  },
+  drawerContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   title: {
     marginTop: spacing.md,
