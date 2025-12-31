@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, TouchableOpacity, View, Pressable, Share } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,6 +26,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { paywallTheme } from '../paywall/paywallTheme';
 import { openManageSubscription } from '../../services/entitlements';
 import { createReferralCode } from '../../services/referrals';
+import { getAdminProCodesStatus } from '../../services/proCodes';
+import { signOut } from '../../services/backend/auth';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -78,6 +80,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
 ];
 
 export function SettingsHomeScreen() {
+  const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const navigation = useNavigation<SettingsNavigationProp>();
@@ -91,9 +94,18 @@ export function SettingsHomeScreen() {
   const isPro = useEntitlementsStore((state) => state.isPro);
   const restore = useEntitlementsStore((state) => state.restore);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const settingsItems = useMemo(() => SETTINGS_GROUPS.flatMap((group) => group.items), []);
   const hasMatches = settingsItems.length > 0;
+
+  useEffect(() => {
+    // Best-effort: only show Admin entry if the signed-in user is allowlisted server-side.
+    // Fail closed (hidden) to avoid confusing non-admin users.
+    getAdminProCodesStatus()
+      .then((s) => setShowAdmin(Boolean(s.isAdmin)))
+      .catch(() => setShowAdmin(false));
+  }, []);
 
   const handleNavigate = (item: SettingsItem) => {
     if (item.disabled || !item.route) {
@@ -108,9 +120,10 @@ export function SettingsHomeScreen() {
     }
   };
 
-  const displayName = userProfile?.fullName?.trim() || 'Kwilter';
-  const profileSubtitle = userProfile?.email?.trim() || 'Add your email address';
-  const avatarSource = userProfile?.avatarUrl ? { uri: userProfile.avatarUrl } : null;
+  const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const profileSubtitle = authIdentity?.email?.trim() || userProfile?.email?.trim() || 'Not signed in';
+  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const avatarSource = avatarUrl ? { uri: avatarUrl } : null;
 
   const baseMonthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
   const currentKey = getMonthKey(new Date());
@@ -267,8 +280,8 @@ export function SettingsHomeScreen() {
               }}
             >
               <ProfileAvatar
-                name={userProfile?.fullName}
-                avatarUrl={userProfile?.avatarUrl}
+                name={displayName}
+                avatarUrl={avatarUrl}
                 size={64}
                 borderRadius={16}
               />
@@ -289,6 +302,51 @@ export function SettingsHomeScreen() {
               <Icon name="chevronRight" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
+
+          {!!authIdentity && (
+            <View style={styles.groupSection}>
+              <Card>
+                <VStack space="sm">
+                  <VStack space="xs">
+                    <Text style={styles.authTitle}>Signed in</Text>
+                    <Text style={styles.authSubtitle} numberOfLines={1}>
+                      {authIdentity.email ?? authIdentity.userId}
+                    </Text>
+                  </VStack>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Sign out"
+                    style={styles.signOutButton}
+                    onPress={() => {
+                      Alert.alert('Sign out?', 'You can sign back in anytime.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Sign out',
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              await signOut();
+                            } catch (err: any) {
+                              Alert.alert(
+                                'Unable to sign out',
+                                typeof err?.message === 'string' ? err.message : 'Please try again.',
+                              );
+                            }
+                          },
+                        },
+                      ]);
+                    }}
+                  >
+                    <HStack alignItems="center" space="sm">
+                      <Icon name="lock" size={18} color={colors.textPrimary} />
+                      <Text style={styles.signOutLabel}>Sign out</Text>
+                    </HStack>
+                  </Pressable>
+                </VStack>
+              </Card>
+            </View>
+          )}
+
           {/* Hide category labels; render a single flat list of settings items. */}
           {settingsItems.length > 0 && (
             <View style={styles.groupSection}>
@@ -394,6 +452,28 @@ export function SettingsHomeScreen() {
                   <VStack flex={1}>
                     <Text style={styles.itemTitle}>Redeem Pro code</Text>
                     <Text style={styles.itemSubtitle}>Enter an access code to unlock Kwilt Pro.</Text>
+                  </VStack>
+                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                </HStack>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {/* Admin tools (allowlisted, signed-in only). */}
+          {showAdmin ? (
+            <View style={styles.groupSection}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Admin Pro codes"
+                onPress={() => navigation.navigate('SettingsAdminProCodes')}
+              >
+                <HStack style={styles.itemRow} alignItems="center" space="md">
+                  <View style={styles.itemIcon}>
+                    <Icon name="dev" size={18} color={colors.accent} />
+                  </View>
+                  <VStack flex={1}>
+                    <Text style={styles.itemTitle}>Admin</Text>
+                    <Text style={styles.itemSubtitle}>Generate Pro access codes.</Text>
                   </VStack>
                   <Icon name="chevronRight" size={18} color={colors.textSecondary} />
                 </HStack>
@@ -533,6 +613,29 @@ const styles = StyleSheet.create({
   profileSubtitle: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  authTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  authSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  signOutButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 14,
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  signOutLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
   },
   groupSection: {
     // Don't introduce extra vertical spacing; let the parent ScrollView `gap`

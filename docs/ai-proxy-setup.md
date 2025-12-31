@@ -48,7 +48,7 @@ Configure these as **Supabase Function secrets** (never in the client):
 
 - `OPENAI_API_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `KWILT_AI_MONTHLY_FREE_ACTIONS` (default: 25)
+- `KWILT_AI_MONTHLY_FREE_ACTIONS` (default: 50)
 - `KWILT_AI_MONTHLY_PRO_ACTIONS` (default: 1000)
 - `KWILT_AI_DAILY_FREE_QUOTA` (optional daily safety rail; recommended: 2–3)
 - `KWILT_AI_DAILY_PRO_QUOTA` (optional daily safety rail; recommended: 50–100)
@@ -88,7 +88,7 @@ npx supabase functions deploy ai-chat
 
 ### Recommended MVP quota posture (matches product strategy)
 
-- Free: **25 actions/month** (AI “taste”)
+- Free: **50 actions/month** (AI “taste”)
 - Pro: **1000 actions/month** (daily use)
 - Add daily rails to prevent burst spend:
   - Free: 2–3/day

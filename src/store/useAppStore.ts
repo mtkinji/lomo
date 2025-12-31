@@ -307,6 +307,14 @@ export type EnqueueAgentHostAction =
       completed: boolean;
     };
 
+export type AuthIdentity = {
+  userId: string;
+  email?: string;
+  name?: string;
+  avatarUrl?: string;
+  provider?: string;
+};
+
 interface AppState {
   forces: Force[];
   arcs: Arc[];
@@ -399,6 +407,11 @@ interface AppState {
    */
   goalRecommendations: Record<string, GoalDraft[]>;
   arcFeedback: ArcProposalFeedback[];
+  /**
+   * Runtime-only signed-in identity derived from Supabase Auth session.
+   * Intentionally separate from `userProfile` (local coaching profile).
+   */
+  authIdentity: AuthIdentity | null;
   userProfile: UserProfile | null;
   llmModel: LlmModel;
   /**
@@ -424,7 +437,7 @@ interface AppState {
   hasCompletedFirstTimeOnboarding: boolean;
   /**
    * One-time reward flag: user completed onboarding (Arc + Goal + ≥1 Activity),
-   * and we've granted the "exit with 25/25" top-up + shown the reward reveal.
+   * and we've granted the "exit with 50/50" top-up + shown the reward reveal.
    */
   hasReceivedOnboardingCompletionReward: boolean;
   /**
@@ -594,6 +607,8 @@ interface AppState {
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
   addArcFeedback: (feedback: ArcProposalFeedback) => void;
+  setAuthIdentity: (identity: AuthIdentity) => void;
+  clearAuthIdentity: () => void;
   setUserProfile: (profile: UserProfile) => void;
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
@@ -840,6 +855,7 @@ export const useAppStore = create<AppState>()(
         }));
         return matches;
       },
+      authIdentity: null,
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
       generativeCredits: {
@@ -1100,6 +1116,8 @@ export const useAppStore = create<AppState>()(
             next.length > maxEntries ? next.slice(next.length - maxEntries) : next;
           return { arcFeedback: trimmed };
         }),
+      setAuthIdentity: (identity) => set(() => ({ authIdentity: identity })),
+      clearAuthIdentity: () => set(() => ({ authIdentity: null })),
       setLastOnboardingArcId: (arcId) =>
         set(() => ({
           lastOnboardingArcId: arcId,
@@ -1596,7 +1614,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => {
         // `domainHydrated` is runtime-only. Persisting it can briefly flip it "true" during
         // startup rehydrate, which risks overwriting `DOMAIN_STORAGE_KEY` with an empty snapshot.
-        const { arcs, goals, activities, activityTagHistory, domainHydrated, ...rest } = state as any;
+        const { arcs, goals, activities, activityTagHistory, domainHydrated, authIdentity, ...rest } = state as any;
         return rest;
       },
       onRehydrateStorage: () => (state) => {

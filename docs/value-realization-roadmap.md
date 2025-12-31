@@ -289,7 +289,7 @@ This phase is intentionally lightweight; it should evolve as usage data arrives.
 ### 4.1 Growth flywheel (post-launch)
 
 - [ ] Phase 0 (launch-safe): share prompt + share affordance (no accounts required)
-- [ ] Phase 1+: shared goals (1:1) with minimal identity (recommended: Sign in with Apple only when needed)
+- [ ] Phase 1+: shared goals (1:1) with minimal identity (recommended: Sign in with Apple + Google only when needed)
 - [ ] Phase 2+: check-ins, reactions, shared feed, AI-assisted “gentle nudges”
 
 Owner PRD: `docs/prds/growth-evangelism-shared-goals-prd.md` (builds on `docs/shared-goals-feature-spec.md`)

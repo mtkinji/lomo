@@ -35,7 +35,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.6',
+  version: '1.0.7',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -59,7 +59,7 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '13',
+    buildNumber: '14',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
@@ -104,6 +104,9 @@ const config: ExpoConfig = {
       process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
       process.env.SUPABASE_ANON_KEY ??
       process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    // Supabase project URL (safe to embed). Required for Supabase Auth + shared goals.
+    // Example: https://<project-ref>.supabase.co
+    supabaseUrl: process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL,
     giphyApiKey: process.env.GIPHY_API_KEY,
     // Unsplash Access Key (Client ID). Support a few common env var names so
     // local/dev setups don't silently break.

@@ -64,8 +64,8 @@ function getMonthlyActionsLimit(isPro: boolean): number {
   const raw = Deno.env.get(isPro ? 'KWILT_AI_MONTHLY_PRO_ACTIONS' : 'KWILT_AI_MONTHLY_FREE_ACTIONS');
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  // Defaults match app posture: Free 25/mo, Pro 1000/mo.
-  return isPro ? 1000 : 25;
+  // Defaults match app posture: Free 50/mo, Pro 1000/mo.
+  return isPro ? 1000 : 50;
 }
 
 function getRpmLimit(): number {
@@ -91,8 +91,8 @@ function getPreviewDailyRailLimit(isPro: boolean): number | null {
   const raw = Deno.env.get(isPro ? 'KWILT_AI_PREVIEW_DAILY_PRO_QUOTA' : 'KWILT_AI_PREVIEW_DAILY_FREE_QUOTA');
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  // Defaults: Free 2/day, Pro 25/day (tunable).
-  return isPro ? 25 : 2;
+  // Defaults: Free 2/day, Pro 50/day (tunable).
+  return isPro ? 50 : 2;
 }
 
 function getOnboardingActionsCap(): number {

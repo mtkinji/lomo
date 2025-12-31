@@ -49,4 +49,8 @@ export type ActivitiesListRouteParams = {
   suggestedSource?: 'notification' | 'manual';
 };
 
+export type JoinSharedGoalRouteParams = {
+  inviteCode: string;
+};
+
 

@@ -23,6 +23,8 @@ import { useAppStore } from './src/store/useAppStore';
 import { useEntitlementsStore } from './src/store/useEntitlementsStore';
 import { NotificationService } from './src/services/NotificationService';
 import { HapticsService } from './src/services/HapticsService';
+import { getSupabaseClient } from './src/services/backend/supabaseClient';
+import { deriveAuthIdentityFromSession } from './src/services/backend/auth';
 import {
   reconcileNotificationsFiredEstimated,
   registerNotificationReconcileTask,
@@ -54,10 +56,44 @@ export default function App() {
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
   const hapticsEnabled = useAppStore((state) => state.hapticsEnabled);
+  const setAuthIdentity = useAppStore((state) => state.setAuthIdentity);
+  const clearAuthIdentity = useAppStore((state) => state.clearAuthIdentity);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
   const [isBootstrapped, setIsBootstrapped] = useState(false);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    let cancelled = false;
+
+    // Hydrate once on mount (covers cold start with persisted Supabase session).
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const identity = deriveAuthIdentityFromSession(data.session ?? null);
+        if (identity) setAuthIdentity(identity);
+        else clearAuthIdentity();
+      })
+      .catch(() => {
+        if (cancelled) return;
+        clearAuthIdentity();
+      });
+
+    // Keep in sync as auth changes.
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      const identity = deriveAuthIdentityFromSession(session);
+      if (identity) setAuthIdentity(identity);
+      else clearAuthIdentity();
+    });
+
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
+  }, [setAuthIdentity, clearAuthIdentity]);
 
   useEffect(() => {
     // Ensure remote feature flags / experiments are available as early as possible.

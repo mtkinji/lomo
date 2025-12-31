@@ -65,7 +65,7 @@ Use **Supabase as the backend spine**:
 ### Recommended approach
 
 - **Supabase Auth** as the identity provider.
-- Primary sign-in method: **Sign in with Apple** (add Google later if desired).
+- Primary sign-in methods: **Sign in with Apple + Sign in with Google** (intent-gated; only required for collaboration).
 - Client posture:
   - Let the user stay **anonymous/local** until they want:
     - collaboration (create/join shared objects), or
@@ -439,7 +439,7 @@ This is the minimal path to a working backend spine while keeping the app local-
 
 ### Phase B (true collaboration v1: shared goals)
 
-- Auth (Apple) required for create/join shared goals
+- Auth (Apple + Google) required for create/join shared goals
 - Shared goal CRUD + memberships + realtime
 - Feed events + reactions/comments (lightweight)
 

@@ -40,6 +40,77 @@ function getSupabaseAdmin() {
   });
 }
 
+function getSupabaseAnon() {
+  const url = (Deno.env.get('SUPABASE_URL') ?? '').trim();
+  const anon =
+    (Deno.env.get('SUPABASE_ANON_KEY') ?? '').trim() ||
+    (Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '').trim();
+  if (!url || !anon) return null;
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+function parseCsvList(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function getBearerToken(req: Request): string | null {
+  const h = (req.headers.get('authorization') ?? '').trim();
+  if (!h) return null;
+  const m = /^Bearer\s+(.+)$/i.exec(h);
+  return m?.[1]?.trim() ? m[1].trim() : null;
+}
+
+async function requireAdminUser(req: Request): Promise<
+  | { ok: true; userId: string; email: string | null }
+  | { ok: false; response: Response }
+> {
+  const token = getBearerToken(req);
+  if (!token) {
+    return { ok: false, response: json(401, { error: { message: 'Missing Authorization', code: 'unauthorized' } }) };
+  }
+
+  const anon = getSupabaseAnon();
+  if (!anon) {
+    return {
+      ok: false,
+      response: json(503, { error: { message: 'Auth unavailable', code: 'provider_unavailable' } }),
+    };
+  }
+
+  const { data, error } = await anon.auth.getUser(token);
+  if (error || !data?.user) {
+    return { ok: false, response: json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } }) };
+  }
+
+  const adminEmails = parseCsvList(Deno.env.get('KWILT_ADMIN_EMAILS'));
+  const adminUserIds = parseCsvList(Deno.env.get('KWILT_ADMIN_USER_IDS'));
+  if (adminEmails.length === 0 && adminUserIds.length === 0) {
+    return {
+      ok: false,
+      response: json(403, { error: { message: 'Admin not configured', code: 'forbidden' } }),
+    };
+  }
+
+  const userId = String(data.user.id);
+  const email = typeof data.user.email === 'string' ? data.user.email : null;
+  const emailLower = email?.toLowerCase() ?? null;
+  const isAdmin =
+    adminUserIds.includes(userId) ||
+    (emailLower ? adminEmails.map((e) => e.toLowerCase()).includes(emailLower) : false);
+
+  if (!isAdmin) {
+    return { ok: false, response: json(403, { error: { message: 'Forbidden', code: 'forbidden' } }) };
+  }
+
+  return { ok: true, userId, email };
+}
+
 function normalizeCode(input: string): string {
   // Accept codes with spaces/dashes; normalize to lowercase alphanumerics + dashes removed.
   return input.trim().replace(/\s+/g, '').replace(/-/g, '').toLowerCase();
@@ -92,6 +163,12 @@ serve(async (req) => {
   const installId = (req.headers.get('x-kwilt-install-id') ?? '').trim();
   const quotaKey = installId ? `install:${installId}` : '';
 
+  if (route === '/admin/status') {
+    const check = await requireAdminUser(req);
+    if (!check.ok) return check.response;
+    return json(200, { isAdmin: true, userId: check.userId, email: check.email });
+  }
+
   if (route === '/status') {
     if (!installId) {
       return json(400, { error: { message: 'Missing x-kwilt-install-id', code: 'bad_request' } });
@@ -133,11 +210,14 @@ serve(async (req) => {
   }
 
   if (route === '/create') {
-    // Admin-only: require a shared secret header (NOT the service role key).
+    // Admin-only: allow either (A) shared secret header for scripts or
+    // (B) authenticated Supabase user on allowlist (for in-app admin UI).
     const required = (Deno.env.get('KWILT_PRO_CODE_ADMIN_SECRET') ?? '').trim();
     const provided = (req.headers.get('x-kwilt-admin-secret') ?? '').trim();
-    if (!required || provided !== required) {
-      return json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } });
+    const hasSecretAuth = Boolean(required && provided && provided === required);
+    if (!hasSecretAuth) {
+      const check = await requireAdminUser(req);
+      if (!check.ok) return check.response;
     }
 
     const body = await req.json().catch(() => ({}));

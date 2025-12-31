@@ -48,7 +48,9 @@ returns text
 language sql
 immutable
 as $$
-  select encode(digest(lower(trim(p_code)), 'sha256'), 'hex');
+  -- In Supabase, pgcrypto functions typically live in the `extensions` schema.
+  -- Qualify explicitly to avoid search_path differences across environments.
+  select encode(extensions.digest(lower(trim(p_code)), 'sha256'), 'hex');
 $$;
 
 -- Redeem a code for a quota key (install/user bucket).

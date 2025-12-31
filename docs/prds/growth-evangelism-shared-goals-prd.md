@@ -77,7 +77,7 @@ This phase aligns with `docs/shared-goals-feature-spec.md` Phase 1, but makes id
 
 We need *some* notion of identity to co-own objects:
 
-Option A (recommended): **Sign in with Apple** (optional, only when creating/joining shared goals)
+Option A (recommended): **Sign in with Apple + Google** (optional, only when creating/joining shared goals)
 
 - Keeps core solo product authless.
 - Meets Apple requirements cleanly.

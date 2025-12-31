@@ -63,6 +63,15 @@ const body = {
 const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 const data = await res.json().catch(() => null);
 if (!res.ok) {
+  if (res.status === 404) {
+    console.error(
+      'Failed to create code: HTTP 404 (pro-codes function not found). Did you deploy it?\n' +
+        'Try:\n' +
+        '  npx supabase db push\n' +
+        '  npx supabase functions deploy pro-codes --project-ref <your-project-ref>\n',
+    );
+    process.exit(1);
+  }
   const msg = data?.error?.message ? String(data.error.message) : `HTTP ${res.status}`;
   console.error(`Failed to create code: ${msg}`);
   process.exit(1);

@@ -14,6 +14,7 @@ import {
   Keyboard,
   Pressable,
   Share,
+  Linking,
   UIManager,
   findNodeHandle,
 } from 'react-native';
@@ -110,6 +111,10 @@ import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { HapticsService } from '../../services/HapticsService';
 import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
+import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
+import { listGoalMembers, type SharedMember } from '../../services/sharedGoals';
+import Constants from 'expo-constants';
+import { ProfileAvatar } from '../../ui/ProfileAvatar';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -490,6 +495,35 @@ export function GoalDetailScreen() {
   const goal = useMemo(() => goals.find((g) => g.id === goalId), [goals, goalId]);
   const arc = useMemo(() => arcs.find((a) => a.id === goal?.arcId), [arcs, goal?.arcId]);
 
+  const [sharedMembers, setSharedMembers] = useState<SharedMember[] | null>(null);
+  const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isFocused) return;
+    if (!goalId) return;
+
+    setSharedMembersBusy(true);
+    listGoalMembers(goalId)
+      .then((members) => {
+        if (cancelled) return;
+        setSharedMembers(members);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Best-effort: do not surface errors in the core canvas.
+        setSharedMembers(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setSharedMembersBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [goalId, isFocused]);
+
   const setGoalTargetDateByOffsetDays = useCallback(
     (offsetDays: number) => {
       if (!goal?.id) return;
@@ -610,14 +644,117 @@ export function GoalDetailScreen() {
   const handleShareGoal = useCallback(async () => {
     try {
       if (!goal) return;
-      const arcName = arc?.name ? ` (${arc.name})` : '';
-      await Share.share({
-        message: `Goal in kwilt${arcName}: “${goal.title}”.`,
-      });
+      const isExpoGo = Constants.appOwnership === 'expo';
+      Alert.alert(
+        'Share goal',
+        'Invite a buddy (1 person) or start a squad (2–6). By default you share signals only (check-ins + cheers).',
+        [
+          {
+            text: 'Invite buddy',
+            onPress: async () => {
+              try {
+                const { inviteUrl, inviteRedirectUrl } = await createGoalInvite({
+                  goalId: goal.id,
+                  goalTitle: goal.title,
+                  kind: 'buddy',
+                });
+                const open = buildInviteOpenUrl(extractInviteCode(inviteUrl));
+                // Prefer HTTPS links in share payload so copy/paste into Safari works.
+                // In Expo Go, include the exp:// link as a query param so the landing page
+                // can offer an "Open in Expo Go" button.
+                const tapUrl = inviteRedirectUrl
+                  ? isExpoGo
+                    ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
+                    : inviteRedirectUrl
+                  : open.primary;
+                const message =
+                  `Join my goal in Kwilt: “${goal.title}”.\n\n` +
+                  `By default we share signals only (check-ins + cheers). Activity titles stay private unless we choose to share them.\n\n` +
+                  `Open (tap): ${tapUrl}\n` +
+                  `Alt (copy/paste): ${open.alt}`;
+
+                const openSms = async () => {
+                  const body = encodeURIComponent(message);
+                  const smsUrl = Platform.OS === 'ios' ? `sms:&body=${body}` : `sms:?body=${body}`;
+                  const can = await Linking.canOpenURL(smsUrl).catch(() => false);
+                  if (!can) {
+                    await Share.share({ message });
+                    return;
+                  }
+                  await Linking.openURL(smsUrl);
+                };
+
+                Alert.alert('Invite ready', 'How would you like to send it?', [
+                  { text: 'Text message', onPress: () => void openSms() },
+                  { text: 'More…', onPress: () => void Share.share({ message }) },
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              } catch (e: any) {
+                const msg =
+                  typeof e?.message === 'string'
+                    ? e.message
+                    : typeof e === 'string'
+                      ? e
+                      : 'Please try again.';
+                Alert.alert('Unable to create invite', msg);
+              }
+            },
+          },
+          {
+            text: 'Start squad',
+            onPress: async () => {
+              try {
+                const { inviteUrl, inviteRedirectUrl } = await createGoalInvite({
+                  goalId: goal.id,
+                  goalTitle: goal.title,
+                  kind: 'squad',
+                });
+                const open = buildInviteOpenUrl(extractInviteCode(inviteUrl));
+                const tapUrl = inviteRedirectUrl
+                  ? isExpoGo
+                    ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
+                    : inviteRedirectUrl
+                  : open.primary;
+                const message =
+                  `Join my shared goal squad in Kwilt: “${goal.title}”.\n\n` +
+                  `By default we share signals only (check-ins + cheers). Activity titles stay private unless we choose to share them.\n\n` +
+                  `Open (tap): ${tapUrl}\n` +
+                  `Alt (copy/paste): ${open.alt}`;
+
+                const openSms = async () => {
+                  const body = encodeURIComponent(message);
+                  const smsUrl = Platform.OS === 'ios' ? `sms:&body=${body}` : `sms:?body=${body}`;
+                  const can = await Linking.canOpenURL(smsUrl).catch(() => false);
+                  if (!can) {
+                    await Share.share({ message });
+                    return;
+                  }
+                  await Linking.openURL(smsUrl);
+                };
+
+                Alert.alert('Invite ready', 'How would you like to send it?', [
+                  { text: 'Text message', onPress: () => void openSms() },
+                  { text: 'More…', onPress: () => void Share.share({ message }) },
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              } catch (e: any) {
+                const msg =
+                  typeof e?.message === 'string'
+                    ? e.message
+                    : typeof e === 'string'
+                      ? e
+                      : 'Please try again.';
+                Alert.alert('Unable to create invite', msg);
+              }
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
     } catch {
       // No-op: Share sheets can be dismissed or unavailable on some platforms.
     }
-  }, [arc?.name, goal]);
+  }, [goal]);
 
   useEffect(() => {
     // no-op placeholder; reserved for future debug instrumentation
@@ -1950,6 +2087,32 @@ export function GoalDetailScreen() {
                           style={styles.goalSignalsRow}
                           signals={goalProgressSignals}
                         />
+                        {Array.isArray(sharedMembers) && sharedMembers.length > 1 && !sharedMembersBusy ? (
+                          <View style={styles.sharedMembersRow}>
+                            <Text style={styles.sharedMembersLabel}>
+                              Shared with {sharedMembers.length}{' '}
+                              {sharedMembers.length === 2 ? 'person' : 'people'}
+                            </Text>
+                            <View style={styles.sharedAvatarStack}>
+                              {sharedMembers.slice(0, 3).map((m, idx) => (
+                                <View
+                                  key={m.userId}
+                                  style={[styles.sharedAvatarWrap, idx > 0 ? { marginLeft: -10 } : null]}
+                                >
+                                  <ProfileAvatar
+                                    name={m.name ?? 'Member'}
+                                    avatarUrl={m.avatarUrl ?? undefined}
+                                    size={28}
+                                    borderRadius={14}
+                                  />
+                                </View>
+                              ))}
+                              {sharedMembers.length > 3 ? (
+                                <Text style={styles.sharedMoreLabel}>+{sharedMembers.length - 3}</Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        ) : null}
 
                         <View style={{ marginTop: spacing.sm, width: '100%' }}>
                     <LongTextField
@@ -4115,6 +4278,31 @@ const styles = StyleSheet.create({
   },
   goalSignalsRow: {
     marginBottom: spacing.md,
+  },
+  sharedMembersRow: {
+    width: '100%',
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sharedMembersLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  sharedAvatarStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sharedAvatarWrap: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.canvas,
+  },
+  sharedMoreLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
   },
   editableField: {
     borderWidth: 1,

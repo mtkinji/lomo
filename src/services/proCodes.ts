@@ -3,6 +3,7 @@ import { getInstallId } from './installId';
 import { setProCodeOverrideEnabled } from './entitlements';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { useToastStore } from '../store/useToastStore';
+import { getAccessToken, ensureSignedInWithPrompt } from './backend/auth';
 
 const AI_PROXY_BASE_URL_RAW = getEnvVar<string>('aiProxyBaseUrl');
 const AI_PROXY_BASE_URL =
@@ -28,6 +29,18 @@ async function buildEdgeHeaders(): Promise<Headers> {
   }
   const installId = await getInstallId();
   headers.set('x-kwilt-install-id', installId);
+  return headers;
+}
+
+async function buildAuthedAdminHeaders(): Promise<Headers> {
+  // Ensure the user is signed in so we can attach a JWT for admin authorization.
+  await ensureSignedInWithPrompt('admin');
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('Missing session token');
+  }
+  const headers = await buildEdgeHeaders();
+  headers.set('Authorization', `Bearer ${token}`);
   return headers;
 }
 
@@ -61,6 +74,62 @@ export async function redeemProCode(code: string): Promise<{ alreadyRedeemed: bo
   });
 
   return { alreadyRedeemed };
+}
+
+export async function getAdminProCodesStatus(): Promise<{ isAdmin: boolean; email?: string | null }> {
+  const base = getProCodesBaseUrl();
+  if (!base) {
+    throw new Error('Pro codes service not configured');
+  }
+
+  const res = await fetch(`${base}/admin/status`, {
+    method: 'POST',
+    headers: await buildAuthedAdminHeaders(),
+    body: JSON.stringify({}),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    // 401/403 should be treated as "not admin" for UI gating.
+    if (res.status === 401 || res.status === 403) return { isAdmin: false };
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to check admin status';
+    throw new Error(msg);
+  }
+
+  return { isAdmin: Boolean(data?.isAdmin), email: typeof data?.email === 'string' ? data.email : null };
+}
+
+export type CreateProCodeAdminInput = {
+  maxUses?: number;
+  expiresAt?: string;
+  note?: string;
+};
+
+export async function createProCodeAdmin(input?: CreateProCodeAdminInput): Promise<{ code: string }> {
+  const base = getProCodesBaseUrl();
+  if (!base) {
+    throw new Error('Pro codes service not configured');
+  }
+
+  const res = await fetch(`${base}/create`, {
+    method: 'POST',
+    headers: await buildAuthedAdminHeaders(),
+    body: JSON.stringify({
+      ...(typeof input?.maxUses === 'number' ? { maxUses: input.maxUses } : {}),
+      ...(typeof input?.expiresAt === 'string' && input.expiresAt.trim() ? { expiresAt: input.expiresAt.trim() } : {}),
+      ...(typeof input?.note === 'string' && input.note.trim() ? { note: input.note.trim() } : {}),
+    }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('Pro codes service not deployed (HTTP 404). Deploy the `pro-codes` edge function.');
+    }
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to create code';
+    throw new Error(msg);
+  }
+  const code = typeof data?.code === 'string' ? data.code : '';
+  if (!code) throw new Error('No code returned');
+  return { code };
 }
 
 

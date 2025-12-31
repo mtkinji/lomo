@@ -17,6 +17,7 @@
 - **Calendar Export (ICS)**: `docs/prds/calendar-export-ics-prd.md`
 - **Keyboard & Input Safety**: `docs/prds/keyboard-input-safety-prd.md`
 - **Growth Flywheel (Evangelism + Shared Goals)**: `docs/prds/growth-evangelism-shared-goals-prd.md` (builds on `docs/shared-goals-feature-spec.md`)
+- **Shared Goals + Auth (Apple + Google) + Signals-only**: `docs/prds/social-goals-auth-prd.md` (canonical for shared goals implementation posture)
 
 ### Engineering playbooks
 

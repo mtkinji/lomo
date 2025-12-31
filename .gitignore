@@ -33,6 +33,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# local scripts (may contain sensitive IDs / auth helpers)
+JWT Key Generator
+
 # local env files
 .env
 .env*.local

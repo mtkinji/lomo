@@ -2,14 +2,14 @@
 
 This doc describes the **current shipped implementation** of:
 - **AI credits** (monthly limits, client gating)
-- **Onboarding shielding** (AI help during onboarding without spending the user’s monthly 25)
+- **Onboarding shielding** (AI help during onboarding without spending the user’s monthly 50)
 - **Bonus credits** (reward credits that add to the monthly limit)
 - **Referral rewards** (invite link + code, server-validated)
 
 ### Concepts
 
 - **Base monthly credits**
-  - Free: `25/month`
+  - Free: `50/month`
   - Pro: `1000/month`
   - Defined in [`src/domain/generativeCredits.ts`](../src/domain/generativeCredits.ts).
 
@@ -41,7 +41,7 @@ The proxy enforces:
 
 ### Onboarding shielding
 
-Goal: users can complete onboarding and still **exit with 25/25** monthly credits available.
+Goal: users can complete onboarding and still **exit with 50/50** monthly credits available.
 
 Mechanics:
 - Client sends headers for onboarding chat:

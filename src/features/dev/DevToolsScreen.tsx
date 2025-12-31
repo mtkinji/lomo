@@ -1650,14 +1650,14 @@ export function DevToolsScreen() {
                 </Button>
                 <Button
                   variant="secondary"
-                  onPress={() => devSetGenerativeCreditsUsedThisMonth(20)}
+                  onPress={() => devSetGenerativeCreditsUsedThisMonth(45)}
                   style={styles.cardAction}
                 >
                   <ButtonLabel size="md">Set credits to “warning” (5 left)</ButtonLabel>
                 </Button>
                 <Button
                   variant="secondary"
-                  onPress={() => devSetGenerativeCreditsUsedThisMonth(25)}
+                  onPress={() => devSetGenerativeCreditsUsedThisMonth(50)}
                   style={styles.cardAction}
                 >
                   <ButtonLabel size="md">Set credits to exhausted</ButtonLabel>

@@ -193,11 +193,9 @@ export function sanitizeRichTextHtml(html: string): string {
     .replace(/<\/?span[^>]*>/gi, '')
     .replace(/<\/?font[^>]*>/gi, '');
 
-  // 2.5) Normalize "blank paragraphs" emitted by the rich editor.
-  // The editor often represents a line break as an empty paragraph (`<p><br></p>`),
-  // which can render as a *full line-height* gap in the read surface.
-  // For the read surface, we prefer a tighter rhythm—remove these blocks entirely.
-  out = out.replace(/<p>\s*(?:<br\s*\/?>|\s|&nbsp;)*\s*<\/p>/gi, '');
+  // 2.5) IMPORTANT: Do NOT strip "blank paragraphs" (`<p><br></p>`).
+  // These are how the editor represents intentional blank lines (double-enter).
+  // Removing them makes Enter feel broken and also changes user-authored spacing.
 
   // 3) Defensive: remove empty style attributes left behind (rare).
   out = out.replace(/\sstyle=\s*(?:""|''|\s)/gi, '');

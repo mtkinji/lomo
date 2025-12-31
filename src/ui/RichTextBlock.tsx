@@ -4,6 +4,28 @@ import RenderHTML from 'react-native-render-html';
 import { colors, spacing, typography, fonts } from '../theme';
 import { normalizeToHtml } from './richText';
 
+/**
+ * For the read surface, we want blank lines (typically encoded as `<p><br/></p>`)
+ * to be present but visually tighter than a full paragraph block.
+ *
+ * We convert those into an explicit spacer block so spacing is deterministic and
+ * doesn't depend on paragraph margins or text line-height.
+ */
+function compactBlankLinesForReadSurface(html: string): string {
+  const raw = html ?? '';
+  if (!raw) return raw;
+  // Match empty paragraphs that contain only whitespace, &nbsp;, and/or a single <br>.
+  // Replace with a block-level spacer.
+  const withBlankLines = raw.replace(
+    /<p>\s*(?:<br\s*\/?>|\s|&nbsp;)*\s*<\/p>/gi,
+    '<div class="kwilt-blank-line"></div>'
+  );
+  // Defensive: rich editors sometimes include pretty-printed newlines between tags.
+  // `react-native-render-html` will parse those as text nodes; depending on renderer
+  // and layout, that can surface as RN's invariant about raw strings in <View>.
+  return withBlankLines.replace(/>\s+</g, '><');
+}
+
 export function RichTextBlock({
   value,
   horizontalPaddingPx = spacing.md,
@@ -18,6 +40,7 @@ export function RichTextBlock({
   const { width: windowWidth } = useWindowDimensions();
 
   const html = useMemo(() => normalizeToHtml(value), [value]);
+  const renderHtml = useMemo(() => compactBlankLinesForReadSurface(html), [html]);
   const contentWidth = Math.max(0, windowWidth - horizontalPaddingPx * 2);
 
   const systemFonts = useMemo(() => Object.values(fonts), []);
@@ -76,7 +99,7 @@ export function RichTextBlock({
 
   const baseStyle = useMemo(
     () => ({
-      ...(typography.bodySm as any),
+      ...(typography.body as any),
       color: colors.textPrimary,
     }),
     []
@@ -86,10 +109,9 @@ export function RichTextBlock({
     () => ({
       p: {
         marginTop: 0,
-        // `react-native-render-html` lays out block elements on their own lines.
-        // Even with margin 0, consecutive paragraphs can feel like a full extra line break.
-        // Pull paragraphs slightly closer to better match the in-editor rhythm.
-        marginBottom: -10,
+        // Avoid negative margins here — they can cause overlapping lines, especially
+        // around intentional blank lines (double-enter) represented as `<p><br/></p>`.
+        marginBottom: spacing.xs,
       },
       div: {
         marginTop: 0,
@@ -134,6 +156,17 @@ export function RichTextBlock({
     []
   );
 
+  const classesStyles = useMemo(
+    () => ({
+      // Render blank lines as a compact, deterministic spacer block.
+      // (Slightly smaller than a full line-height to avoid "too tall" gaps.)
+      'kwilt-blank-line': {
+        height: Math.round(typography.body.lineHeight * 0.6),
+      },
+    }),
+    []
+  );
+
   const renderersProps = useMemo(
     () => ({
       a: { onPress: onLinkPress },
@@ -141,7 +174,7 @@ export function RichTextBlock({
     [onLinkPress]
   );
 
-  const source = useMemo(() => ({ html: `<div>${html}</div>` }), [html]);
+  const source = useMemo(() => ({ html: `<div>${renderHtml}</div>` }), [renderHtml]);
 
   return (
     <RenderHTML
@@ -153,6 +186,7 @@ export function RichTextBlock({
       domVisitors={domVisitors}
       baseStyle={baseStyle}
       tagsStyles={tagsStyles}
+      classesStyles={classesStyles}
       renderersProps={renderersProps}
     />
   );

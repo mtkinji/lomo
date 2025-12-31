@@ -22,6 +22,7 @@ import { ArcsScreen } from '../features/arcs/ArcsScreen';
 import { ArcDetailScreen } from '../features/arcs/ArcDetailScreen';
 import { GoalDetailScreen } from '../features/arcs/GoalDetailScreen';
 import { GoalsScreen } from '../features/goals/GoalsScreen';
+import { JoinSharedGoalScreen } from '../features/goals/JoinSharedGoalScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { ActivityDetailScreen } from '../features/activities/ActivityDetailScreen';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
@@ -30,6 +31,7 @@ import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { RedeemProCodeScreen } from '../features/account/RedeemProCodeScreen';
+import { AdminProCodesScreen } from '../features/account/AdminProCodesScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
@@ -37,6 +39,7 @@ import { PaywallDrawerHost } from '../features/paywall/PaywallDrawer';
 import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInterstitialDrawer';
 import { ToastHost } from '../ui/ToastHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
+import { handleIncomingInviteUrl } from '../services/invites';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
@@ -50,6 +53,7 @@ import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
   ActivitiesListRouteParams,
+  JoinSharedGoalRouteParams,
 } from './routeParams';
 
 export type RootDrawerParamList = {
@@ -109,6 +113,7 @@ export type GoalsStackParamList = {
   GoalsList: undefined;
   GoalDetail: GoalDetailRouteParams;
   ActivityDetailFromGoal: ActivityDetailRouteParams;
+  JoinSharedGoal: JoinSharedGoalRouteParams;
 };
 
 export type ActivitiesStackParamList = {
@@ -124,6 +129,7 @@ export type SettingsStackParamList = {
   SettingsNotifications: undefined;
   SettingsHaptics: undefined;
   SettingsRedeemProCode: undefined;
+  SettingsAdminProCodes: undefined;
   SettingsManageSubscription:
     | {
         /**
@@ -257,7 +263,9 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
     const handleUrl = async (url: string) => {
       if (!mounted) return;
-      await handleIncomingReferralUrl(url);
+      const didHandleReferral = await handleIncomingReferralUrl(url);
+      if (didHandleReferral) return;
+      await handleIncomingInviteUrl(url);
     };
 
     // Best-effort sync so bonus credits granted server-side (e.g. referrals)
@@ -507,6 +515,7 @@ function GoalsStackNavigator() {
       screenOptions={STACK_SCREEN_OPTIONS}
     >
       <GoalsStack.Screen name="GoalsList" component={GoalsScreen} />
+      <GoalsStack.Screen name="JoinSharedGoal" component={JoinSharedGoalScreen} />
       <GoalsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
       <GoalsStack.Screen
         name="ActivityDetailFromGoal"
@@ -567,6 +576,10 @@ function SettingsStackNavigator() {
         component={RedeemProCodeScreen}
       />
       <SettingsStack.Screen
+        name="SettingsAdminProCodes"
+        component={AdminProCodesScreen}
+      />
+      <SettingsStack.Screen
         name="SettingsManageSubscription"
         component={ManageSubscriptionScreen}
       />
@@ -603,8 +616,10 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
 
 function KwiltDrawerContent(props: any) {
   const insets = useSafeAreaInsets();
+  const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
-  const displayName = userProfile?.fullName?.trim() || 'Kwilter';
+  const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const subtitle = authIdentity?.email?.trim() || '';
   const subscriptionLabel = 'Kwilt Free';
 
   // Hide the top-level Settings item from the drawer list while keeping the
@@ -742,7 +757,7 @@ function KwiltDrawerContent(props: any) {
           >
             <ProfileAvatar
               name={displayName}
-              avatarUrl={userProfile?.avatarUrl}
+              avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
               size={36}
               borderRadius={18}
               style={styles.avatarPlaceholder}
@@ -751,6 +766,11 @@ function KwiltDrawerContent(props: any) {
               <Text style={styles.profileName} numberOfLines={1}>
                 {displayName}
               </Text>
+              {subtitle ? (
+                <Text style={styles.profileSubtitle} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              ) : null}
               <Badge variant="secondary" style={styles.subscriptionBadge}>
                 {subscriptionLabel}
               </Badge>
@@ -807,6 +827,11 @@ const styles = StyleSheet.create({
   profileName: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  profileSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   subscriptionBadge: {
     alignSelf: 'flex-start',

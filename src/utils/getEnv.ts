@@ -38,6 +38,10 @@ export function getSupabasePublishableKey(): string | undefined {
   return getEnvVar<string>('supabasePublishableKey');
 }
 
+export function getSupabaseUrl(): string | undefined {
+  return getEnvVar<string>('supabaseUrl');
+}
+
 export function getAmazonAssociatesTag(): string | undefined {
   return getEnvVar<string>('amazonAssociatesTag');
 }

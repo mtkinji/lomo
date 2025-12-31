@@ -162,7 +162,7 @@ This is feasible on iOS via **Apple subscription Family Sharing**:
 
 Important implication:
 
-- Family Sharing solves **pricing/entitlement sharing**, not identity. Shared goals still require an identity model (recommended: optional Sign in with Apple only when creating/joining shared goals).
+- Family Sharing solves **pricing/entitlement sharing**, not identity. Shared goals still require an identity model (recommended: optional Sign in with Apple + Google only when creating/joining shared goals).
 
 MVP recommendation:
 
@@ -224,10 +224,10 @@ We should treat “generative actions” as a **single, easy-to-understand month
 
 - **Definition (suggested):** any **user-initiated** action that calls an LLM to *create or transform* content (e.g. generate arcs/goals/activities, AI autofill on rich text fields, tag suggestion, “regenerate”, “refresh”).
 - **Metering unit:** “Generations” (1 generation = 1 request that produces new content).
-- **Free:** **25 generations / month** (reset monthly).
+- **Free:** **50 generations / month** (reset monthly).
   - **No rollover**: unused credits do not carry forward (“use it or lose it”).
 - **Pro Tools Trial (30 days):** **200 generations total per trial window** (expires with trial).
-  - Optional safety: also cap at **~25/day** so a single binge session can’t consume the entire trial budget instantly.
+  - Optional safety: also cap at **~50/day** so a single binge session can’t consume the entire trial budget instantly.
 - **Pro:** **1,000 generations / month** (reset monthly; still bounded to prevent runaway spend).
   - **No rollover**: unused credits do not carry forward (“use it or lose it”).
 

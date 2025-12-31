@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'rea
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme';
 import { ButtonContext } from './ButtonContext';
+import { ButtonLabel } from './Typography';
 import {
   BUTTON_SIZE_TOKENS,
   BUTTON_VARIANT_TOKENS,
@@ -105,6 +106,9 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
   const resolvedBorderColor =
     variantTokens.borderColor ?? (shouldReserveBorderSpace ? 'transparent' : 'transparent');
 
+  const shouldWrapChildrenAsLabel = typeof children === 'string' || typeof children === 'number';
+  const labelTone = variantTokens.textTone;
+
   return (
     <Pressable
       ref={ref}
@@ -163,7 +167,13 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
           />
         </View>
       ) : null}
-      <ButtonContext.Provider value={contextValue}>{children}</ButtonContext.Provider>
+      <ButtonContext.Provider value={contextValue}>
+        {shouldWrapChildrenAsLabel ? (
+          <ButtonLabel tone={labelTone}>{children}</ButtonLabel>
+        ) : (
+          children
+        )}
+      </ButtonContext.Provider>
     </Pressable>
   );
 });
@@ -176,6 +186,7 @@ type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
  */
 export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconButtonProps>(
   function IconButton({ style, children, className, ...rest }, ref) {
+    const shouldWrapChildrenAsLabel = typeof children === 'string' || typeof children === 'number';
     return (
       <Pressable
         ref={ref}
@@ -198,7 +209,7 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
           style,
         ]}
       >
-        {children}
+        {shouldWrapChildrenAsLabel ? <ButtonLabel tone="inverse">{children}</ButtonLabel> : children}
       </Pressable>
     );
   },

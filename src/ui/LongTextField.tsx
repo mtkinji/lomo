@@ -149,6 +149,9 @@ export function LongTextField({
     lastCommittedRef.current = nextHtml;
   }, [editorVisible, value]);
 
+  const normalizedReadHtml = normalizeToHtml(value);
+  const readSurfaceHasLinks = /<a\b[^>]*\bhref\s*=\s*['"][^'"]+['"][^>]*>/i.test(normalizedReadHtml);
+
   const flush = (next: string) => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -468,29 +471,75 @@ export function LongTextField({
         </View>
       ) : null}
 
-      <Pressable
-        testID={testID}
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${label}`}
-        disabled={disabled}
-        onPress={openEditor}
-        style={({ pressed }) => [
-          surfaceVariant === 'flat'
-            ? styles.readSurfaceFlat
-            : surfaceVariant === 'filled'
-            ? styles.readSurfaceFilled
-            : styles.readSurface,
-          disabled && styles.readSurfaceDisabled,
-          pressed && !disabled ? styles.readSurfacePressed : null,
-          surfaceVariant === 'flat' ? null : surfaceVariant === 'filled' ? null : cardElevation.soft,
-        ]}
-      >
-        {htmlToPlainText(normalizeToHtml(value)).length ? (
-          <RichTextBlock value={value} horizontalPaddingPx={surfaceVariant === 'flat' ? 0 : spacing.md} />
-        ) : (
-          <Text style={styles.placeholderText}>{placeholder}</Text>
-        )}
-      </Pressable>
+      {readSurfaceHasLinks ? (
+        <View
+          style={[
+            surfaceVariant === 'flat'
+              ? styles.readSurfaceFlat
+              : surfaceVariant === 'filled'
+              ? styles.readSurfaceFilled
+              : styles.readSurface,
+            disabled && styles.readSurfaceDisabled,
+            surfaceVariant === 'flat' ? null : surfaceVariant === 'filled' ? null : cardElevation.soft,
+          ]}
+        >
+          {htmlToPlainText(normalizedReadHtml).length ? (
+            <>
+              <RichTextBlock value={value} horizontalPaddingPx={surfaceVariant === 'flat' ? 0 : spacing.md} />
+              {!disabled ? (
+                <View style={styles.readSurfaceFooterRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${label}`}
+                    onPress={openEditor}
+                    hitSlop={8}
+                    style={({ pressed }) => [styles.readSurfaceEditButton, pressed ? { opacity: 0.85 } : null]}
+                  >
+                    <Icon name="edit" size={14} color={colors.accent} />
+                    <Text style={styles.readSurfaceEditText}>Edit</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </>
+          ) : (
+            // Even if we *would* have links, empty state should stay tappable.
+            <Pressable
+              testID={testID}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${label}`}
+              disabled={disabled}
+              onPress={openEditor}
+              style={({ pressed }) => [pressed && !disabled ? styles.readSurfacePressed : null]}
+            >
+              <Text style={styles.placeholderText}>{placeholder}</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : (
+        <Pressable
+          testID={testID}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${label}`}
+          disabled={disabled}
+          onPress={openEditor}
+          style={({ pressed }) => [
+            surfaceVariant === 'flat'
+              ? styles.readSurfaceFlat
+              : surfaceVariant === 'filled'
+              ? styles.readSurfaceFilled
+              : styles.readSurface,
+            disabled && styles.readSurfaceDisabled,
+            pressed && !disabled ? styles.readSurfacePressed : null,
+            surfaceVariant === 'flat' ? null : surfaceVariant === 'filled' ? null : cardElevation.soft,
+          ]}
+        >
+          {htmlToPlainText(normalizeToHtml(value)).length ? (
+            <RichTextBlock value={value} horizontalPaddingPx={surfaceVariant === 'flat' ? 0 : spacing.md} />
+          ) : (
+            <Text style={styles.placeholderText}>{placeholder}</Text>
+          )}
+        </Pressable>
+      )}
 
       <UnderKeyboardDrawer
         visible={editorVisible}
@@ -605,8 +654,8 @@ export function LongTextField({
               initialCSSText: `
                 html, body, .content, .pell-content {
                   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                  font-size: ${typography.bodySm.fontSize}px !important;
-                  line-height: ${typography.bodySm.lineHeight}px !important;
+                  font-size: ${typography.body.fontSize}px !important;
+                  line-height: ${typography.body.lineHeight}px !important;
                 }
                 html, body { overflow-x: hidden !important; }
                 .content, .pell, .pell-content { overflow-x: hidden !important; }
@@ -621,8 +670,8 @@ export function LongTextField({
               `,
               contentCSSText: `
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                font-size: ${typography.bodySm.fontSize}px !important;
-                line-height: ${typography.bodySm.lineHeight}px !important;
+                font-size: ${typography.body.fontSize}px !important;
+                line-height: ${typography.body.lineHeight}px !important;
                 overflow-x: hidden !important;
                 word-break: break-word !important;
                 overflow-wrap: anywhere !important;
@@ -832,6 +881,26 @@ const styles = StyleSheet.create({
   placeholderText: {
     ...typography.bodySm,
     color: colors.muted,
+  },
+  readSurfaceFooterRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  readSurfaceEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  readSurfaceEditText: {
+    ...typography.bodySm,
+    color: colors.accent,
   },
   headerTitle: {
     ...typography.label,
