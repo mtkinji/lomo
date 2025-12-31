@@ -6,6 +6,12 @@ Enable users to create and pursue **shared goals** with one or more other app us
 
 This doc is intentionally high level so the feature can be implemented in a future iteration without locking in specific APIs or storage details.
 
+> **Status / scope note (Dec 2025)**: This doc is a broad, long-term concept spec.
+> The **canonical v1 implementation spec** for “Shared Goals + Auth + signals-only social mechanics” is:
+> - `docs/prds/social-goals-auth-prd.md`
+>
+> If you see differences, treat this doc as “future expansion ideas” and keep v1 aligned to the PRD above.
+
 ---
 
 ### Goals & Rationale
@@ -106,10 +112,10 @@ Leverage the existing goal detail canvas as the main surface, and extend it with
 
 - **Activity Feed**
   - Stream of important events:
-    - Check-ins.
-    - Completed tasks.
-    - Notes added or edited.
-  - Lightweight reactions (e.g., quick emoji or short “Nice!” reply) to reduce friction and increase support.
+    - Join/leave events.
+    - **Explicit check-ins** (“signals-only”).
+    - Cheers / lightweight reactions.
+  - v1 explicitly does **not** share activity titles/notes by default (signals-only contract).
 
 - **Notes & Resources**
   - Shared notes area for both participants to add:
@@ -120,10 +126,12 @@ Leverage the existing goal detail canvas as the main surface, and extend it with
 #### Invitation Flow
 
 - From a personal goal:
-  - User taps **“Invite someone to this goal”**.
-  - Choose invite method (exact UX TBD; potential options):
-    - Search existing users by handle / name.
-    - Invite via email or shareable link (depends on identity model).
+  - User taps **“Share goal”** (single entry point in the Goal detail canvas).
+  - v1 uses **link-based invites** (auth-backed):
+    - Buddy invite: `max_uses=1`
+    - Squad invite: `max_uses=5`
+    - TTL: `expires_at=14 days`
+  - Auth is **intent-gated**: if the user is signed out, we prompt for Apple/Google **only because** they’re initiating a share/invite.
   - Show a **pending state**:
     - Banner or inline notice: “Waiting for [Name] to join. They’ll see this goal once they accept.”
   - Once the invite is accepted:
@@ -232,12 +240,11 @@ These pieces do not need to be implemented in the first version but should be co
 These should be clarified before implementation:
 
 - **Identity & invitations**
-  - How do we identify and invite other users? (Handles, emails, phone numbers, links?)
-  - Are there constraints on who can invite whom (friends list, permissions)?
+  - v1 uses **auth-backed link invites** (no handles/email search, no friends graph).
+  - Invites are constrained by expiry + max uses; permissions are role-based via memberships (start with `co_owner`).
 
 - **Privacy defaults**
-  - What is the default visibility for tasks and notes created in a shared goal?
-  - How do we communicate “private vs shared” clearly in the UI?
+  - v1 default is **signals-only** (check-ins + cheers). Activity titles/notes stay private unless explicitly shared in a later phase.
 
 - **Ownership and permissions**
   - Are all participants co-owners, or is there a “primary owner”?
@@ -251,6 +258,6 @@ These should be clarified before implementation:
   - What events generate notifications (check-ins, completed milestones, nudges)?
   - How do we avoid notification fatigue while preserving accountability?
 
-Answering these questions and aligning them with the existing domain and UX architecture will prepare this feature for implementation in a future cycle.
+For v1 answers and the build plan, see `docs/prds/social-goals-auth-prd.md`.
 
 

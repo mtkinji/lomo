@@ -286,8 +286,8 @@ This is the concrete build plan for V1A/V1B. Keep the UX in the **goal canvas** 
 - Providers: **Apple + Google** enabled in Supabase Auth.
 - Signals-only contract: **explicit check-ins + cheers only** (no inferred activity sharing by default).
 - Invite limits:
-  - `expires_at` (recommended: 7–30 days)
-  - `max_uses` (recommended: 1 for Buddy, 5 for Squad, configurable)
+  - `expires_at`: **14 days** (Buddy + Squad) (adjustable later)
+  - `max_uses`: **1 for Buddy**, **5 for Squad** (adjustable later)
 - Role posture:
   - Recommended v1: `co_owner` only in UX, schema supports `collaborator`.
 
@@ -308,22 +308,33 @@ Create a migration that introduces the collaboration spine for Goals:
 
 ### 2) Edge Functions (invites + redirect)
 
-Implement these Supabase Edge Functions (names flexible; keep routes stable):
-- `POST /invites/create`
-  - input: `{ entityType: 'goal', entityId, kind: 'buddy'|'squad' }`
-  - output: `{ code, url, expiresAt, maxUses }`
-  - increments analytics: `shared_goal_invite_created`
-- `GET /i/:code`
-  - logs: `shared_goal_invite_opened`
-  - redirects to:
-    - universal link / app scheme for installed users
-    - store fallback when not installed
-- `POST /invites/:code/accept`
-  - requires auth (Supabase user JWT)
-  - validates code (expiry/uses/maxUses)
-  - creates membership row (idempotent)
-  - emits feed event `member_joined`
-  - increments analytics: `shared_goal_invite_accepted`
+Implement these Supabase Edge Functions (keep routes stable):
+- `POST /invite-create`
+  - input: `{ entityType: 'goal', entityId: string, kind: 'buddy'|'squad', goalTitle?: string }`
+  - auth: **required** (Supabase user access token)
+  - output: `{ inviteCode, inviteUrl, entityType, entityId, payload: { kind, goalTitle, expiresAt, maxUses } }`
+  - behavior:
+    - ensures inviter has an active membership (idempotent upsert)
+    - creates `kwilt_invites` row (random code)
+    - emits feed event `invite_created`
+- `POST /invite-preview`
+  - input: `{ inviteCode: string }`
+  - auth: **not required** (invite code is the secret)
+  - output: `{ ok, entityType, entityId, payload, inviter?, inviteState: 'active'|'expired'|'consumed', canJoin }`
+  - behavior:
+    - returns goal + inviter metadata even if expired/consumed so UI can explain what happened
+- `POST /invite-accept`
+  - input: `{ inviteCode: string }`
+  - auth: **required** (Supabase user access token)
+  - output: `{ ok, entityType, entityId, payload }`
+  - behavior:
+    - validates code (expiry/uses/maxUses)
+    - creates membership row (idempotent)
+    - increments invite uses (best-effort)
+    - emits feed event `member_joined`
+- `GET /invite-redirect/i/<code>`
+  - public redirect to `kwilt://invite?code=<code>`
+  - optional: `GET /invite-redirect/i/<code>?exp=<exp://...>` to support Expo Go handoff
 
 Abuse controls (v1):
 - Rate-limit invite create/accept by IP + installId + userId.
@@ -340,7 +351,8 @@ Implement client auth integration so it can be invoked mid-flow:
 ### 4) Client: deep-link handling (invite join)
 
 Extend deep-link routing (alongside existing referral deep links):
-- New deep link route: `kwilt://invite?code=<code>` (or universal link equivalent)
+- Deep link route (v1): `kwilt://invite?code=<code>`
+- Expo Go support (dev-only): `exp://<ip>:<port>/--/invite?code=<code>`
 - When opened:
   - If signed in: navigate to `JoinSharedGoalScreen(code)` and allow “Join”
   - If not signed in: run `ensureSignedIn({ reason: 'join_goal' })` then continue
@@ -369,8 +381,9 @@ Signals-only feed (minimal):
 ### 6) Client services layer
 
 Create a thin API wrapper layer (names illustrative):
-- `src/services/backend/invites.ts`: create/accept, resolve invite preview, generate share URL
-- `src/services/backend/sharedGoals.ts`: memberships, feed subscription, check-in submit
+- `src/services/invites.ts`: create/preview/accept, deep-link handler, generate share URL(s)
+- `src/services/sharedGoals.ts`: memberships roster + shared goal data fetch (and later: feed subscription, check-in submit)
+- `src/services/backend/auth.ts`: intent-gated auth helper used by shared-goals flows
 
 ### 7) Realtime (optional in V1A, recommended by V1B)
 
