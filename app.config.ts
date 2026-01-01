@@ -45,9 +45,11 @@ const config: ExpoConfig = {
     icon: './assets/icon.png',
     color: '#1F5226',
   },
-  // Enable React Native New Architecture so SDK 54-compatible libraries like
-  // Reanimated and Worklets can install their pods correctly on EAS.
-  newArchEnabled: true,
+  // NOTE:
+  // The New Architecture has caused release-only crashes for us in the past
+  // (notably with `react-native-svg` view manager registration).
+  // Keep it OFF for TestFlight/App Store stability unless we explicitly opt in.
+  newArchEnabled: false,
   splash: {
     image: './assets/icon.png',
     resizeMode: 'contain',
