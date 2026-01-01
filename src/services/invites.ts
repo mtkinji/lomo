@@ -91,7 +91,12 @@ export async function sendGoalInviteEmail(params: {
     throw new Error(`[invite-email-send] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     const msg =
       typeof data?.error?.message === 'string'
@@ -151,7 +156,12 @@ export async function createGoalInvite(params: {
     throw new Error(`[invite-create] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   const inviteCode = typeof data?.inviteCode === 'string' ? data.inviteCode.trim() : '';
   const inviteUrl = typeof data?.inviteUrl === 'string' ? data.inviteUrl.trim() : '';
 
@@ -234,7 +244,12 @@ export async function acceptGoalInvite(inviteCode: string): Promise<{ goalId: st
     throw new Error(`[invite-accept] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     const msg =
       typeof data?.error?.message === 'string'
@@ -293,7 +308,12 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
     throw new Error(`[invite-preview] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     const msg =
       typeof data?.error?.message === 'string'

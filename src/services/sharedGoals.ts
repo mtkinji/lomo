@@ -70,7 +70,12 @@ export async function listGoalMembers(goalId: string): Promise<SharedMember[] | 
     throw new Error(`[memberships-list] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     // Treat "not a member" as a non-fatal empty state (e.g. auth mismatch or invite not accepted yet).
     const code = (data?.error?.code ?? '').toString();
@@ -118,7 +123,12 @@ export async function leaveSharedGoal(goalId: string): Promise<{ ok: true }> {
     throw new Error(`[memberships-leave] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     const msg =
       typeof data?.error?.message === 'string'

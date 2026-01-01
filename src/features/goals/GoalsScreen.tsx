@@ -1221,7 +1221,10 @@ export function GoalCoachDrawer({
                               <Text
                                 style={[styles.manualHeroAttributionText, styles.manualHeroAttributionLink]}
                                 onPress={() => {
-                                  Linking.openURL(draft.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
+                                  const url = draft.heroImageMeta?.unsplashAuthorLink;
+                                  if (url) {
+                                    Linking.openURL(url).catch(() => {});
+                                  }
                                 }}
                               >
                                 {draft.heroImageMeta.unsplashAuthorName}
@@ -1230,7 +1233,10 @@ export function GoalCoachDrawer({
                               <Text
                                 style={[styles.manualHeroAttributionText, styles.manualHeroAttributionLink]}
                                 onPress={() => {
-                                  Linking.openURL(draft.heroImageMeta!.unsplashLink!).catch(() => {});
+                                  const url = draft.heroImageMeta?.unsplashLink;
+                                  if (url) {
+                                    Linking.openURL(url).catch(() => {});
+                                  }
                                 }}
                               >
                                 Unsplash
