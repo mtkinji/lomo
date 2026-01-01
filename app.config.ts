@@ -46,10 +46,11 @@ const config: ExpoConfig = {
     color: '#1F5226',
   },
   // NOTE:
-  // The New Architecture has caused release-only crashes for us in the past
-  // (notably with `react-native-svg` view manager registration).
-  // Keep it OFF for TestFlight/App Store stability unless we explicitly opt in.
-  newArchEnabled: false,
+  // Reanimated v4+ requires the New Architecture on iOS (pods assert otherwise).
+  // We keep New Arch enabled and instead guard against native SVG crashes by
+  // optionally shimming `react-native-svg` at bundle time via `KWILT_SVG_SHIM=1`
+  // (see `metro.config.js`).
+  newArchEnabled: true,
   splash: {
     image: './assets/icon.png',
     resizeMode: 'contain',

@@ -26,6 +26,10 @@ module.exports = {
   __esModule: true,
   default: Svg,
   Svg,
+  // Common convenience renderers used by `react-native-svg` consumers.
+  // In shim mode they should render nothing (but must exist to avoid crashing).
+  SvgXml: Noop,
+  SvgUri: Noop,
   Path: Noop,
   Circle: Noop,
   Rect: Noop,
