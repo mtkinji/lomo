@@ -113,11 +113,12 @@ import { HapticsService } from '../../services/HapticsService';
 import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
-import { listGoalMembers, type SharedMember } from '../../services/sharedGoals';
+import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
+import { ShareGoalDrawer } from '../goals/ShareGoalDrawer';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -218,6 +219,7 @@ export function GoalDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
+  const [shareGoalDrawerVisible, setShareGoalDrawerVisible] = useState(false);
 
   // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
   // Header bar height below the safe area inset (not including inset).
@@ -503,6 +505,14 @@ export function GoalDetailScreen() {
   const [sharedMembers, setSharedMembers] = useState<SharedMember[] | null>(null);
   const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
+  const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
+
+  const canLeaveSharedGoal = useMemo(() => {
+    const uid = authIdentity?.userId ?? '';
+    if (!uid) return false;
+    if (!Array.isArray(sharedMembers) || sharedMembers.length === 0) return false;
+    return sharedMembers.some((m) => m.userId === uid);
+  }, [authIdentity?.userId, sharedMembers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -660,113 +670,7 @@ export function GoalDetailScreen() {
   const handleShareGoal = useCallback(async () => {
     try {
       if (!goal) return;
-      const isExpoGo = Constants.appOwnership === 'expo';
-      Alert.alert(
-        'Share goal',
-        'Invite a buddy (1 person) or start a squad (2–6). By default you share signals only (check-ins + cheers).',
-        [
-          {
-            text: 'Invite buddy',
-            onPress: async () => {
-              try {
-                const { inviteUrl, inviteRedirectUrl } = await createGoalInvite({
-                  goalId: goal.id,
-                  goalTitle: goal.title,
-                  kind: 'buddy',
-                });
-                const open = buildInviteOpenUrl(extractInviteCode(inviteUrl));
-                // Prefer HTTPS links in share payload so copy/paste into Safari works.
-                // In Expo Go, include the exp:// link as a query param so the landing page
-                // can offer an "Open in Expo Go" button.
-                const tapUrl = inviteRedirectUrl
-                  ? isExpoGo
-                    ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
-                    : inviteRedirectUrl
-                  : open.primary;
-                const message =
-                  `Join my goal in Kwilt: “${goal.title}”.\n\n` +
-                  `By default we share signals only (check-ins + cheers). Activity titles stay private unless we choose to share them.\n\n` +
-                  `Open (tap): ${tapUrl}\n` +
-                  `Alt (copy/paste): ${open.alt}`;
-
-                const openSms = async () => {
-                  const body = encodeURIComponent(message);
-                  const smsUrl = Platform.OS === 'ios' ? `sms:&body=${body}` : `sms:?body=${body}`;
-                  const can = await Linking.canOpenURL(smsUrl).catch(() => false);
-                  if (!can) {
-                    await Share.share({ message });
-                    return;
-                  }
-                  await Linking.openURL(smsUrl);
-                };
-
-                Alert.alert('Invite ready', 'How would you like to send it?', [
-                  { text: 'Text message', onPress: () => void openSms() },
-                  { text: 'More…', onPress: () => void Share.share({ message }) },
-                  { text: 'Cancel', style: 'cancel' },
-                ]);
-              } catch (e: any) {
-                const msg =
-                  typeof e?.message === 'string'
-                    ? e.message
-                    : typeof e === 'string'
-                      ? e
-                      : 'Please try again.';
-                Alert.alert('Unable to create invite', msg);
-              }
-            },
-          },
-          {
-            text: 'Start squad',
-            onPress: async () => {
-              try {
-                const { inviteUrl, inviteRedirectUrl } = await createGoalInvite({
-                  goalId: goal.id,
-                  goalTitle: goal.title,
-                  kind: 'squad',
-                });
-                const open = buildInviteOpenUrl(extractInviteCode(inviteUrl));
-                const tapUrl = inviteRedirectUrl
-                  ? isExpoGo
-                    ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
-                    : inviteRedirectUrl
-                  : open.primary;
-                const message =
-                  `Join my shared goal squad in Kwilt: “${goal.title}”.\n\n` +
-                  `By default we share signals only (check-ins + cheers). Activity titles stay private unless we choose to share them.\n\n` +
-                  `Open (tap): ${tapUrl}\n` +
-                  `Alt (copy/paste): ${open.alt}`;
-
-                const openSms = async () => {
-                  const body = encodeURIComponent(message);
-                  const smsUrl = Platform.OS === 'ios' ? `sms:&body=${body}` : `sms:?body=${body}`;
-                  const can = await Linking.canOpenURL(smsUrl).catch(() => false);
-                  if (!can) {
-                    await Share.share({ message });
-                    return;
-                  }
-                  await Linking.openURL(smsUrl);
-                };
-
-                Alert.alert('Invite ready', 'How would you like to send it?', [
-                  { text: 'Text message', onPress: () => void openSms() },
-                  { text: 'More…', onPress: () => void Share.share({ message }) },
-                  { text: 'Cancel', style: 'cancel' },
-                ]);
-              } catch (e: any) {
-                const msg =
-                  typeof e?.message === 'string'
-                    ? e.message
-                    : typeof e === 'string'
-                      ? e
-                      : 'Please try again.';
-                Alert.alert('Unable to create invite', msg);
-              }
-            },
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-      );
+      setShareGoalDrawerVisible(true);
     } catch {
       // No-op: Share sheets can be dismissed or unavailable on some platforms.
     }
@@ -1721,6 +1625,14 @@ export function GoalDetailScreen() {
   return (
     <AppShell fullBleedCanvas>
       <StatusBar style={statusBarStyle} animated />
+      {goal ? (
+        <ShareGoalDrawer
+          visible={shareGoalDrawerVisible}
+          onClose={() => setShareGoalDrawerVisible(false)}
+          goalId={goal.id}
+          goalTitle={goal.title}
+        />
+      ) : null}
       <FullScreenInterstitial
         visible={showFirstGoalCelebration}
         onDismiss={handleDismissFirstGoalCelebration}
@@ -1962,17 +1874,7 @@ export function GoalDetailScreen() {
                     materialOpacity={headerActionPillOpacity}
                     style={styles.headerShareMembersPill}
                   >
-                    <HStack alignItems="center" space="sm">
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Share goal"
-                        hitSlop={10}
-                        onPress={handleShareGoal}
-                        style={styles.headerShareZone}
-                      >
-                        <Icon name="share" size={18} color={colors.textPrimary} />
-                      </Pressable>
-                      <View style={styles.headerShareMembersDivider} />
+                    <HStack alignItems="center" space="md">
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="View members"
@@ -1986,6 +1888,15 @@ export function GoalDetailScreen() {
                           maxVisible={3}
                           overlapPx={10}
                         />
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Share goal"
+                        hitSlop={10}
+                        onPress={handleShareGoal}
+                        style={styles.headerShareZone}
+                      >
+                        <Icon name="share" size={18} color={colors.textPrimary} />
                       </Pressable>
                     </HStack>
                   </HeaderActionGroupPill>
@@ -2604,6 +2515,49 @@ export function GoalDetailScreen() {
                 accessibilityLabel="Sign in"
               >
                 <Text style={styles.membersSheetButtonLabel}>Sign in</Text>
+              </Button>
+            ) : null}
+            {authIdentity && canLeaveSharedGoal ? (
+              <Button
+                variant="secondary"
+                fullWidth
+                disabled={leaveSharedGoalBusy}
+                onPress={() => {
+                  if (leaveSharedGoalBusy) return;
+                  Alert.alert(
+                    'Leave shared goal?',
+                    'You’ll lose access to this shared goal on this account. You can rejoin later with a new invite link.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Leave',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            setLeaveSharedGoalBusy(true);
+                            await leaveSharedGoal(goalId);
+                            // Local-first: remove the goal from this device so the canvas stays consistent.
+                            removeGoal(goalId);
+                            setMembersSheetVisible(false);
+                            handleBack();
+                            useToastStore.getState().showToast({
+                              message: 'Left shared goal',
+                              variant: 'success',
+                              durationMs: 2200,
+                            });
+                          } catch {
+                            Alert.alert('Unable to leave', 'Please try again.');
+                          } finally {
+                            setLeaveSharedGoalBusy(false);
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+                accessibilityLabel="Leave shared goal"
+              >
+                <Text style={styles.membersSheetButtonLabel}>Leave goal</Text>
               </Button>
             ) : null}
             <Button
@@ -4381,17 +4335,11 @@ const styles = StyleSheet.create({
   },
   headerShareZone: {
     paddingVertical: spacing.xs / 2,
-    paddingRight: spacing.xs,
+    paddingLeft: 0,
   },
   headerMembersZone: {
     paddingVertical: spacing.xs / 2,
-    paddingLeft: spacing.xs,
-  },
-  headerShareMembersDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 18,
-    backgroundColor: colors.gray300,
-    opacity: 0.7,
+    paddingRight: spacing.xs,
   },
   membersSheetContent: {
     flex: 1,

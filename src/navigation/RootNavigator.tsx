@@ -37,6 +37,7 @@ import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
 import { PaywallDrawerHost } from '../features/paywall/PaywallDrawer';
 import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInterstitialDrawer';
+import { JoinSharedGoalDrawerHost } from '../features/goals/JoinSharedGoalDrawerHost';
 import { ToastHost } from '../ui/ToastHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { handleIncomingInviteUrl } from '../services/invites';
@@ -297,7 +298,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   // Deep links embedded in calendar events and share surfaces.
   // Example: `kwilt://activity/<id>?openFocus=1`
   const linking: LinkingOptions<RootDrawerParamList> = {
-    prefixes: ['kwilt://'],
+    prefixes: ['kwilt://', 'https://go.kwilt.app', 'https://kwilt.app'],
     config: {
       screens: {
         Activities: {
@@ -448,6 +449,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       </Drawer.Navigator>
       <CreditsInterstitialDrawerHost />
       <PaywallDrawerHost />
+      <JoinSharedGoalDrawerHost />
       <ToastHost />
     </NavigationContainer>
   );

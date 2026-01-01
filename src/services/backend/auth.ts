@@ -27,7 +27,16 @@ export async function getSession(): Promise<Session | null> {
 
 export async function signOut(): Promise<void> {
   const supabase = getSupabaseClient();
-  const { error } = await supabase.auth.signOut();
+  // Prefer a global sign-out so revoking sessions feels predictable across devices.
+  // Fallback to local sign-out if the client/library doesn't support scope options.
+  let error: { message?: string } | null = null;
+  try {
+    const res = await (supabase.auth as any).signOut({ scope: 'global' });
+    error = res?.error ?? null;
+  } catch {
+    const res = await supabase.auth.signOut();
+    error = (res as any)?.error ?? null;
+  }
   if (error) {
     throw new Error(error.message);
   }
@@ -195,7 +204,9 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
  * Intent-gated auth prompt used by shared goals flows.
  * Keeps auth out of the global onboarding path while still allowing flows to continue.
  */
-export async function ensureSignedInWithPrompt(reason: 'share_goal' | 'join_goal' | 'admin'): Promise<Session> {
+export async function ensureSignedInWithPrompt(
+  reason: 'share_goal' | 'share_goal_email' | 'join_goal' | 'admin',
+): Promise<Session> {
   const existing = await getSession();
   if (existing) return existing;
 
@@ -203,6 +214,8 @@ export async function ensureSignedInWithPrompt(reason: 'share_goal' | 'join_goal
   const message =
     reason === 'share_goal'
       ? 'To invite someone to a shared goal, you need to sign in so access stays safe.'
+      : reason === 'share_goal_email'
+        ? 'To email an invite link, you need to sign in so access stays safe.'
       : reason === 'join_goal'
         ? 'To join this shared goal, you need to sign in so access stays safe.'
         : 'To access Admin tools, you need to sign in.';

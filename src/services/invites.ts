@@ -2,15 +2,25 @@ import { Alert } from 'react-native';
 import Constants from 'expo-constants';
 import * as AuthSession from 'expo-auth-session';
 import { getAiProxyBaseUrl, getSupabasePublishableKey } from '../utils/getEnv';
+import { getEnvVar } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { ensureSignedInWithPrompt, getAccessToken } from './backend/auth';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
 import { useToastStore } from '../store/useToastStore';
 import { useAppStore } from '../store/useAppStore';
+import { useJoinSharedGoalDrawerStore } from '../store/useJoinSharedGoalDrawerStore';
+import { handleIncomingReferralUrl } from './referrals';
 
 const AI_PROXY_BASE_URL_RAW = getAiProxyBaseUrl();
 const AI_PROXY_BASE_URL =
   typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
+
+function getInviteLandingBaseUrl(): string | null {
+  const raw = getEnvVar<string>('inviteLandingBaseUrl');
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 function getFunctionBaseUrl(functionName: string): string | null {
   if (!AI_PROXY_BASE_URL) return null;
@@ -46,11 +56,72 @@ async function buildEdgeHeaders(requireAuth: boolean, accessToken?: string | nul
 
 export type InviteKind = 'buddy' | 'squad';
 
+export async function sendGoalInviteEmail(params: {
+  goalId: string;
+  goalTitle: string;
+  kind: InviteKind;
+  recipientEmail: string;
+  inviteCode?: string | null;
+  referralCode?: string | null;
+}): Promise<{ ok: true }> {
+  const base = getFunctionBaseUrl('invite-email-send');
+  if (!base) throw new Error('Invites service not configured');
+
+  const session = await ensureSignedInWithPrompt('share_goal_email');
+  const accessToken = session?.access_token ?? null;
+
+  let res: Response;
+  let rawText: string | null = null;
+  try {
+    res = await fetch(base, {
+      method: 'POST',
+      headers: await buildEdgeHeaders(true, accessToken),
+      body: JSON.stringify({
+        goalId: params.goalId,
+        goalTitle: params.goalTitle,
+        kind: params.kind,
+        recipientEmail: params.recipientEmail,
+        inviteCode: typeof params.inviteCode === 'string' ? params.inviteCode.trim() : null,
+        referralCode: typeof params.referralCode === 'string' ? params.referralCode.trim() : null,
+      }),
+    });
+    rawText = await res.text().catch(() => null);
+  } catch (e: any) {
+    const msg = typeof e?.message === 'string' ? e.message : 'Network request failed';
+    throw new Error(`[invite-email-send] ${msg}`);
+  }
+
+  const data = rawText ? JSON.parse(rawText) : null;
+  if (!res.ok) {
+    const msg =
+      typeof data?.error?.message === 'string'
+        ? data.error.message
+        : typeof data?.message === 'string'
+          ? data.message
+          : `Unable to send invite email (status ${res.status})`;
+    const bodyPreview = typeof rawText === 'string' && rawText.length > 0 ? rawText.slice(0, 500) : '(empty)';
+    const err = new Error(`[invite-email-send] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`) as Error & {
+      status?: number;
+      code?: string;
+    };
+    err.status = res.status;
+    err.code = typeof data?.error?.code === 'string' ? data.error.code : undefined;
+    throw err;
+  }
+
+  return { ok: true };
+}
+
 export async function createGoalInvite(params: {
   goalId: string;
   goalTitle: string;
   kind: InviteKind;
-}): Promise<{ inviteCode: string; inviteUrl: string; inviteRedirectUrl: string | null }> {
+}): Promise<{
+  inviteCode: string;
+  inviteUrl: string;
+  inviteRedirectUrl: string | null;
+  inviteLandingUrl: string | null;
+}> {
   const base = getFunctionBaseUrl('invite-create');
   if (!base) throw new Error('Invites service not configured');
 
@@ -101,18 +172,39 @@ export async function createGoalInvite(params: {
   const redirectBase = getFunctionBaseUrl('invite-redirect');
   const inviteRedirectUrl = redirectBase ? `${redirectBase}/i/${encodeURIComponent(inviteCode)}` : null;
 
-  return { inviteCode, inviteUrl, inviteRedirectUrl };
+  const landingBase = getInviteLandingBaseUrl();
+  const inviteLandingUrl = landingBase ? `${landingBase}/i/${encodeURIComponent(inviteCode)}` : null;
+
+  return { inviteCode, inviteUrl, inviteRedirectUrl, inviteLandingUrl };
 }
 
 export function extractInviteCode(inviteUrlOrCode: string): string {
   const raw = inviteUrlOrCode.trim();
   if (!raw) return '';
-  // Accept either a raw code or a kwilt://invite?code=... URL.
+  // Accept either a raw code or a URL.
   if (!raw.includes('://')) return raw;
   try {
     const u = new URL(raw);
-    const code = (u.searchParams.get('code') ?? '').trim();
-    return code;
+    // 1) kwilt://invite?code=...
+    const codeFromQuery = (u.searchParams.get('code') ?? '').trim();
+    if (codeFromQuery) return codeFromQuery;
+
+    // 2) https://go.kwilt.app/i/<code> (or kwilt.app)
+    const host = (u.hostname ?? '').toLowerCase();
+    if (u.protocol === 'https:' || u.protocol === 'http:') {
+      if (host === 'go.kwilt.app' || host === 'kwilt.app') {
+        const m = /^\/i\/([^/]+)$/.exec(u.pathname ?? '');
+        if (m?.[1]) {
+          try {
+            return decodeURIComponent(m[1]).trim();
+          } catch {
+            return m[1].trim();
+          }
+        }
+      }
+    }
+
+    return '';
   } catch {
     return '';
   }
@@ -248,9 +340,12 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url);
     let code = '';
+    let looksLikeInvite = false;
+    const ref = (parsed.searchParams.get('ref') ?? '').trim() || (parsed.searchParams.get('referral') ?? '').trim();
 
     // 1) Production/dev-build format: kwilt://invite?code=...
     if (parsed.protocol === 'kwilt:' && parsed.hostname === 'invite') {
+      looksLikeInvite = true;
       code = (parsed.searchParams.get('code') ?? '').trim();
     }
 
@@ -259,13 +354,48 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
     if (!code && (parsed.protocol === 'exp:' || parsed.protocol === 'exps:')) {
       const path = parsed.pathname ?? '';
       if (path.endsWith('/invite') || path.endsWith('/--/invite')) {
+        looksLikeInvite = true;
         code = (parsed.searchParams.get('code') ?? '').trim();
       } else if (path.includes('/--/invite')) {
+        looksLikeInvite = true;
         code = (parsed.searchParams.get('code') ?? '').trim();
       }
     }
 
+    // 3) Universal link format:
+    // - https://go.kwilt.app/i/<code>
+    // - https://kwilt.app/i/<code>
+    if (!code && (parsed.protocol === 'https:' || parsed.protocol === 'http:')) {
+      const host = (parsed.hostname ?? '').toLowerCase();
+      if (host === 'go.kwilt.app' || host === 'kwilt.app') {
+        const path = parsed.pathname ?? '';
+        const m = /^\/i\/([^/]+)$/.exec(path);
+        if (m?.[1]) {
+          looksLikeInvite = true;
+          try {
+            code = decodeURIComponent(m[1]).trim();
+          } catch {
+            code = m[1].trim();
+          }
+        } else if (path === '/invite' || path === '/join') {
+          looksLikeInvite = true;
+          code = (parsed.searchParams.get('code') ?? '').trim();
+        } else if ((parsed.searchParams.get('code') ?? '').trim()) {
+          // Allow query-param invite code so link generators can evolve.
+          looksLikeInvite = true;
+          code = (parsed.searchParams.get('code') ?? '').trim();
+        }
+      }
+    }
+
+    if (!looksLikeInvite) return false;
     if (!code) return true;
+
+    // Best-effort: if the invite includes a referral code, redeem it so both sides get credits.
+    if (ref) {
+      // Use existing referral handler for idempotence + persistence.
+      void handleIncomingReferralUrl(`kwilt://referral?code=${encodeURIComponent(ref)}`);
+    }
 
     // If we can resolve the goal id and it's already in the local store,
     // skip the join UI entirely and jump straight into the goal.
@@ -311,8 +441,8 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
       // Preview can fail (bad code / network). Fall back to join UI.
     }
 
-    // Default: show the join affordance.
-    rootNavigationRef.navigate('Goals', { screen: 'JoinSharedGoal', params: { inviteCode: code } } as any);
+    // Default: open the join drawer (avoid showing a dedicated "join page").
+    useJoinSharedGoalDrawerStore.getState().open({ inviteCode: code, source: 'deeplink' });
 
     return true;
   } catch {

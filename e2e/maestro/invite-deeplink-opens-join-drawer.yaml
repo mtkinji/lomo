@@ -1,0 +1,15 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Deep link smoke: opening an invite link should open the Join Shared Goal drawer.
+#
+# Note: this uses a fake invite code so the flow doesn't depend on backend state.
+# We only assert that the drawer opens and shows the parsed code.
+
+- launchApp
+
+- openLink: "kwilt://invite?code=e2e-test-code"
+
+- assertVisible: "Join shared goal"
+- assertVisible: "Invite code: e2e-test-code"
+
+

@@ -101,6 +101,21 @@ Even before login, the app uses an install-scoped identifier:
 On sign-in:
 - Server associates historical `installId` usage to the user account (for quota, attribution, and link opens).
 
+### Log out semantics (client UX contract)
+
+Kwilt is **local-first**. Signing in enables collaboration and server-backed services, but the core app remains usable without an account.
+
+- **Log out (recommended default behavior)**
+  - Clears the Supabase Auth session on-device (disconnects the cloud identity).
+  - Returns the app to an “unsigned” posture (auth-gated flows will prompt sign-in again).
+  - **Does not delete local data** (arcs/goals/activities) or local coaching/profile preferences.
+  - Rationale: preserve user work and keep offline-first utility; avoid surprising data loss.
+
+- **Erase local data (separate, optional action for shared devices)**
+  - Destructive confirmation required.
+  - Clears local domain storage and resets local store state to defaults.
+  - Rationale: shared-device privacy / account switching without carrying over personal data.
+
 ---
 
 ## “Signals-only” (privacy contract) — canonical definition
@@ -277,6 +292,31 @@ Include properties:
 
 ---
 
+## Implementation status (as of 2026-01-01)
+
+This section tracks what is **implemented in `Kwilt` repo** vs what remains. Status legend:
+- ✅ **Complete**
+- 🟡 **Partial / shipped primitive but not full UX**
+- ⏳ **Not started**
+
+### V1A — Shared goals foundation (current)
+
+- ✅ **Apple + Google sign-in (intent-gated)**: `src/services/backend/auth.ts`, `App.tsx` session listener
+- ✅ **Invite create/preview/accept/redirect (link-based)**: `supabase/functions/invite-{create,preview,accept,redirect}`, `src/services/invites.ts`
+- ✅ **Membership model + RLS**: `supabase/migrations/20251230000000_kwilt_shared_goals_v1.sql` + `20251230000010_kwilt_shared_goals_text_ids.sql`
+- ✅ **Goal detail: member header + Share goal action**: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/goals/ShareGoalDrawer.tsx`
+- ✅ **Join flow UX (Join drawer + accept)**: `src/features/goals/JoinSharedGoalDrawerHost.tsx`, `src/services/invites.ts`
+- ✅ **Member roster (members list)**: `supabase/functions/memberships-list`, `src/services/sharedGoals.ts`
+- ✅ **Leave shared goal (basic “mute/leave” guardrail)**: `supabase/functions/memberships-leave`, `src/services/sharedGoals.ts`, Goal members sheet in `GoalDetailScreen`
+- ✅ **Deep links**:
+  - Scheme + Expo Go: `kwilt://invite?...` and `exp://.../invite?...` via `RootNavigator` + `handleIncomingInviteUrl`
+  - Universal links parsing in-app: `https://go.kwilt.app/i/<code>` / `https://kwilt.app/i/<code>` supported in `src/services/invites.ts`
+  - iOS/Android app-side association config: `app.config.ts` (requires hosting AASA/assetlinks in the marketing/link repo)
+- 🟡 **Analytics instrumentation**: implemented for share/join flows, but event names differ from PRD’s suggested canonical names (`src/services/analytics/events.ts`)
+- ⏳ **Signals-only feed (check-ins + cheers UI)**: schema exists (`goal_checkins`, `kwilt_feed_events`), but no client UI/services yet
+- ⏳ **Reactions / cheers**: not yet implemented client/server-side beyond copy/contract
+- ⏳ **Invite revoke / owner tools**: not yet implemented (V1B)
+
 ## Engineering execution checklist (ship plan)
 
 This is the concrete build plan for V1A/V1B. Keep the UX in the **goal canvas** and preserve **shell/canvas** layering at every step.
@@ -305,6 +345,8 @@ Create a migration that introduces the collaboration spine for Goals:
   - Writes allowed only for members; invite creation allowed for members with the right role.
 - Helper functions (optional but recommended for readable RLS):
   - `is_member(entity_type, entity_id, uid)` / `member_role(entity_type, entity_id, uid)`
+
+Status: ✅ Complete (see migrations `20251230000000_kwilt_shared_goals_v1.sql` and `20251230000010_kwilt_shared_goals_text_ids.sql`)
 
 ### 2) Edge Functions (invites + redirect)
 
@@ -336,6 +378,8 @@ Implement these Supabase Edge Functions (keep routes stable):
   - public redirect to `kwilt://invite?code=<code>`
   - optional: `GET /invite-redirect/i/<code>?exp=<exp://...>` to support Expo Go handoff
 
+Status: ✅ Complete (+ `invite-email-send` exists as an optional channel)
+
 Abuse controls (v1):
 - Rate-limit invite create/accept by IP + installId + userId.
 - TTL on codes; max uses enforced; ability to revoke (owner only) can be V1B.
@@ -348,6 +392,8 @@ Implement client auth integration so it can be invoked mid-flow:
   - returns to the same canvas on success.
 - Support Apple + Google providers.
 
+Status: ✅ Complete (intent-gated helper exists; Google path included)
+
 ### 4) Client: deep-link handling (invite join)
 
 Extend deep-link routing (alongside existing referral deep links):
@@ -356,6 +402,8 @@ Extend deep-link routing (alongside existing referral deep links):
 - When opened:
   - If signed in: navigate to `JoinSharedGoalScreen(code)` and allow “Join”
   - If not signed in: run `ensureSignedIn({ reason: 'join_goal' })` then continue
+
+Status: ✅ Complete for scheme + Expo + universal-link parsing (note: universal-link hosting is external)
 
 ### 5) Client screens + UI surfaces (V1A)
 
@@ -373,10 +421,14 @@ Join screen:
   - displays signals-only contract
   - CTA: Join
 
+Status: ✅ Complete (implemented as Join drawer host + optional screen route)
+
 Signals-only feed (minimal):
 - In Goal detail, add a section or tab for:
   - Check-in composer (preset + optional text)
   - Recent feed items (join + check-ins + cheers)
+
+Status: ⏳ Not started (schema exists; client UI/services TBD)
 
 ### 6) Client services layer
 
@@ -384,6 +436,8 @@ Create a thin API wrapper layer (names illustrative):
 - `src/services/invites.ts`: create/preview/accept, deep-link handler, generate share URL(s)
 - `src/services/sharedGoals.ts`: memberships roster + shared goal data fetch (and later: feed subscription, check-in submit)
 - `src/services/backend/auth.ts`: intent-gated auth helper used by shared-goals flows
+
+Status: ✅ Complete for invites + roster + leave; ⏳ feed/check-ins/reactions pending
 
 ### 7) Realtime (optional in V1A, recommended by V1B)
 
@@ -402,6 +456,8 @@ Emit:
 - `shared_goal_invite_accepted`
 - `shared_goal_checkin_created`
 - `shared_goal_reaction_added`
+
+Status: 🟡 Partial — share/join events exist but names differ; check-ins/reactions pending
 
 ### 9) QA checklist (minimum)
 
