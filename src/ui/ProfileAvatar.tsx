@@ -75,6 +75,7 @@ export function ProfileAvatar({
   const initials = getInitials(name);
   const [startColor, endColor] = getGradientForName(name);
   const radius = borderRadius ?? size / 2;
+  const initialsFontSize = Math.max(10, Math.round(size * 0.38));
 
   if (avatarUrl) {
     return (
@@ -112,7 +113,17 @@ export function ProfileAvatar({
         style,
       ]}
     >
-      <Text style={styles.initials} numberOfLines={1} adjustsFontSizeToFit>
+      <Text
+        style={[
+          styles.initials,
+          {
+            fontSize: initialsFontSize,
+            lineHeight: initialsFontSize,
+          },
+        ]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {initials}
       </Text>
     </LinearGradient>
@@ -129,5 +140,8 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.canvas,
     fontFamily: typography.titleSm.fontFamily,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
 });

@@ -69,10 +69,10 @@ export async function redeemReferralCode(referralCode: string): Promise<{ alread
 
   const alreadyRedeemed = Boolean(data?.alreadyRedeemed);
 
-  // The server grants bonus credits to the inviter. The friend sees confirmation only.
+  // The server grants bonus credits to both inviter + friend. The friend sees confirmation.
   if (!alreadyRedeemed) {
     useToastStore.getState().showToast({
-      message: 'Invite redeemed. Thanks for joining Kwilt.',
+      message: 'Invite redeemed. You earned +25 AI credits.',
       variant: 'success',
     });
   }
@@ -131,9 +131,42 @@ export async function syncBonusCreditsThisMonth(): Promise<void> {
 export async function handleIncomingReferralUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'kwilt:') return false;
-    if (parsed.hostname !== 'referral') return false;
-    const code = (parsed.searchParams.get('code') ?? '').trim();
+    let code = '';
+    let looksLikeReferral = false;
+
+    // 1) In-app scheme: kwilt://referral?code=...
+    if (parsed.protocol === 'kwilt:' && parsed.hostname === 'referral') {
+      looksLikeReferral = true;
+      code = (parsed.searchParams.get('code') ?? '').trim();
+    }
+
+    // 2) Universal link format:
+    // - https://go.kwilt.app/r/<code>
+    // - https://kwilt.app/r/<code>
+    if (!code && (parsed.protocol === 'https:' || parsed.protocol === 'http:')) {
+      const host = (parsed.hostname ?? '').toLowerCase();
+      if (host === 'go.kwilt.app' || host === 'kwilt.app') {
+        const path = parsed.pathname ?? '';
+        const m = /^\/r\/([^/]+)$/.exec(path);
+        if (m?.[1]) {
+          looksLikeReferral = true;
+          try {
+            code = decodeURIComponent(m[1]).trim();
+          } catch {
+            code = m[1].trim();
+          }
+        } else if (path === '/referral') {
+          looksLikeReferral = true;
+          code = (parsed.searchParams.get('code') ?? '').trim();
+        } else if ((parsed.searchParams.get('ref') ?? '').trim()) {
+          // Allow ?ref=... as a convenience for link builders.
+          looksLikeReferral = true;
+          code = (parsed.searchParams.get('ref') ?? '').trim();
+        }
+      }
+    }
+
+    if (!looksLikeReferral) return false;
     if (!code) return true;
 
     // Best-effort idempotence: if we already redeemed this code, skip network call.

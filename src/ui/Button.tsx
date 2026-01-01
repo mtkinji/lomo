@@ -5,12 +5,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme';
 import { ButtonContext } from './ButtonContext';
 import { ButtonLabel } from './Typography';
+import type { HapticsEvent } from '../services/HapticsService';
 import {
   BUTTON_SIZE_TOKENS,
   BUTTON_VARIANT_TOKENS,
   type ButtonSizeToken,
   type ButtonVariantToken,
 } from './buttonTokens';
+import { withHapticPress } from './haptics/withHapticPress';
 
 type ButtonVariant =
   | 'default'
@@ -46,6 +48,11 @@ type Props = {
    * When true, stretches the button to fill the horizontal space.
    */
   fullWidth?: boolean;
+  /**
+   * Optional haptics event for the press. Defaults to `canvas.selection`.
+   * Set to `false` to disable haptics for this button.
+   */
+  haptic?: HapticsEvent | false;
 } & Omit<React.ComponentProps<typeof Pressable>, 'style'>;
 
 export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(function Button(
@@ -57,6 +64,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
     fullWidth,
     children,
     className,
+    haptic = 'canvas.selection',
     ...rest
   },
   ref,
@@ -108,11 +116,14 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
 
   const shouldWrapChildrenAsLabel = typeof children === 'string' || typeof children === 'number';
   const labelTone = variantTokens.textTone;
+  const { onPress, ...pressableRest } = rest;
+  const onPressWithHaptics = React.useMemo(() => withHapticPress(onPress as any, haptic), [onPress, haptic]);
 
   return (
     <Pressable
       ref={ref}
-      {...rest}
+      {...pressableRest}
+      onPress={onPressWithHaptics as any}
       style={({ pressed }) => [
         // Base shape + sizing
         !isIconOnly && {
@@ -187,10 +198,16 @@ type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
 export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconButtonProps>(
   function IconButton({ style, children, className, ...rest }, ref) {
     const shouldWrapChildrenAsLabel = typeof children === 'string' || typeof children === 'number';
+    const { onPress, ...pressableRest } = rest;
+    const onPressWithHaptics = React.useMemo(
+      () => withHapticPress(onPress as any, 'canvas.selection'),
+      [onPress],
+    );
     return (
       <Pressable
         ref={ref}
-        {...rest}
+        {...pressableRest}
+        onPress={onPressWithHaptics as any}
         style={({ pressed }) => [
           {
             width: 32,

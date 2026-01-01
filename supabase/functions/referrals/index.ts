@@ -38,7 +38,7 @@ function getReferralBonusActions(): number {
   const raw = Deno.env.get('KWILT_REFERRAL_BONUS_ACTIONS');
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  return 10;
+  return 25;
 }
 
 function getSupabaseAdmin() {
@@ -174,14 +174,23 @@ serve(async (req) => {
     const bonusDelta = getReferralBonusActions();
     const month = getUtcMonthKey(now);
 
-    const { data: inviterBonus, error: bonusErr } = await admin.rpc('kwilt_increment_ai_bonus_monthly', {
+    // Grant bonus to both inviter and friend (joiner).
+    const { data: inviterBonus, error: inviterBonusErr } = await admin.rpc('kwilt_increment_ai_bonus_monthly', {
       p_quota_key: inviterQuotaKey,
       p_month: month,
       p_bonus_actions: bonusDelta,
     });
+    if (inviterBonusErr) {
+      return json(503, { error: { message: 'Unable to grant inviter reward', code: 'provider_unavailable' } });
+    }
 
-    if (bonusErr) {
-      return json(503, { error: { message: 'Unable to grant referral reward', code: 'provider_unavailable' } });
+    const { data: friendBonus, error: friendBonusErr } = await admin.rpc('kwilt_increment_ai_bonus_monthly', {
+      p_quota_key: quotaKey,
+      p_month: month,
+      p_bonus_actions: bonusDelta,
+    });
+    if (friendBonusErr) {
+      return json(503, { error: { message: 'Unable to grant joiner reward', code: 'provider_unavailable' } });
     }
 
     return json(200, {
@@ -189,6 +198,7 @@ serve(async (req) => {
       alreadyRedeemed: false,
       bonusDelta,
       inviterBonusThisMonth: typeof inviterBonus === 'number' ? inviterBonus : null,
+      friendBonusThisMonth: typeof friendBonus === 'number' ? friendBonus : null,
     });
   }
 

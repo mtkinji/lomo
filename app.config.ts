@@ -59,7 +59,10 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '14',
+    buildNumber: '16',
+    // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
+    // Requires `apple-app-site-association` to be served from those domains.
+    associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
@@ -77,12 +80,29 @@ const config: ExpoConfig = {
   android: {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
+    // Must be monotonically increasing for Play uploads.
+    versionCode: 16,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    // Android App Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
+    // Requires `/.well-known/assetlinks.json` to be served from those domains.
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        category: ['BROWSABLE', 'DEFAULT'],
+        data: [
+          { scheme: 'https', host: 'go.kwilt.app', pathPrefix: '/i/' },
+          { scheme: 'https', host: 'go.kwilt.app', pathPrefix: '/r/' },
+          { scheme: 'https', host: 'kwilt.app', pathPrefix: '/i/' },
+          { scheme: 'https', host: 'kwilt.app', pathPrefix: '/r/' },
+        ],
+      },
+    ],
   },
   web: {
     favicon: './assets/favicon.png',
@@ -141,6 +161,12 @@ const config: ExpoConfig = {
     posthogDebug:
       process.env.POSTHOG_DEBUG ??
       process.env.EXPO_PUBLIC_POSTHOG_DEBUG,
+    // Public invite/referral landing domain (Vercel). Used for share links so
+    // invites work even if the recipient hasn’t installed the app yet.
+    inviteLandingBaseUrl:
+      process.env.INVITE_LANDING_BASE_URL ??
+      process.env.EXPO_PUBLIC_INVITE_LANDING_BASE_URL ??
+      'https://go.kwilt.app',
     // Expose the resolved environment to the app runtime so we can distinguish
     // production installs from development/preview for things like demo data.
     environment: NODE_ENV,

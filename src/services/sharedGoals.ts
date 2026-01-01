@@ -98,4 +98,46 @@ export async function listGoalMembers(goalId: string): Promise<SharedMember[] | 
     .filter((m: SharedMember) => Boolean(m.userId));
 }
 
+export async function leaveSharedGoal(goalId: string): Promise<{ ok: true }> {
+  const base = getFunctionBaseUrl('memberships-leave');
+  if (!base) {
+    throw new Error('Membership service not configured');
+  }
+
+  let res: Response;
+  let rawText: string | null = null;
+  try {
+    res = await fetch(base, {
+      method: 'POST',
+      headers: await buildEdgeHeaders(true),
+      body: JSON.stringify({ entityType: 'goal', entityId: goalId }),
+    });
+    rawText = await res.text().catch(() => null);
+  } catch (e: any) {
+    const msg = typeof e?.message === 'string' ? e.message : 'Network request failed';
+    throw new Error(`[memberships-leave] ${msg}`);
+  }
+
+  const data = rawText ? JSON.parse(rawText) : null;
+  if (!res.ok) {
+    const msg =
+      typeof data?.error?.message === 'string'
+        ? data.error.message
+        : typeof data?.message === 'string'
+          ? data.message
+          : `Unable to leave goal (status ${res.status})`;
+    const code = typeof data?.error?.code === 'string' ? data.error.code : undefined;
+    const bodyPreview = typeof rawText === 'string' && rawText.length > 0 ? rawText.slice(0, 500) : '(empty)';
+    const err = new Error(`[memberships-leave] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`) as Error & {
+      status?: number;
+      code?: string;
+    };
+    err.status = res.status;
+    err.code = code;
+    throw err;
+  }
+
+  return { ok: true };
+}
+
 

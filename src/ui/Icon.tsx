@@ -93,6 +93,8 @@ const iconMap: Record<string, IconEntry> = {
   thumbsUp: { library: 'feather', name: 'thumbs-up' },
   sound: { library: 'feather', name: 'volume-2' },
   soundOff: { library: 'feather', name: 'volume-x' },
+  // Haptics / tactile feedback (device vibration)
+  haptics: { library: 'feather', name: 'smartphone' },
   lock: { library: 'feather', name: 'lock' },
   pause: { library: 'feather', name: 'pause' },
   play: { library: 'feather', name: 'play' },

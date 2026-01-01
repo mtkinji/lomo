@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, TouchableOpacity, View, Pressable, Share } from 'react-native';
+import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, View, Pressable, Share } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -9,7 +9,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Icon, IconName } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { colors, spacing, typography } from '../../theme';
+import { colors, fonts, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { VStack, Heading, Text, HStack } from '../../ui/primitives';
@@ -21,13 +21,13 @@ import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { getMonthKey } from '../../domain/generativeCredits';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH } from '../../domain/generativeCredits';
-import { Card } from '../../ui/Card';
 import { LinearGradient } from 'expo-linear-gradient';
 import { paywallTheme } from '../paywall/paywallTheme';
 import { openManageSubscription } from '../../services/entitlements';
 import { createReferralCode } from '../../services/referrals';
 import { getAdminProCodesStatus } from '../../services/proCodes';
 import { signOut } from '../../services/backend/auth';
+import { withHapticPress } from '../../ui/haptics/withHapticPress';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -63,7 +63,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         id: 'haptics',
         title: 'Haptics',
         description: 'Make key moments feel more immersive.',
-        icon: 'sparkles',
+        icon: 'haptics',
         route: 'SettingsHaptics',
         tags: ['feedback', 'touch', 'immersion'],
       },
@@ -97,7 +97,6 @@ export function SettingsHomeScreen() {
   const [showAdmin, setShowAdmin] = useState(false);
 
   const settingsItems = useMemo(() => SETTINGS_GROUPS.flatMap((group) => group.items), []);
-  const hasMatches = settingsItems.length > 0;
 
   useEffect(() => {
     // Best-effort: only show Admin entry if the signed-in user is allowlisted server-side.
@@ -112,6 +111,64 @@ export function SettingsHomeScreen() {
       return;
     }
     navigation.navigate(item.route);
+  };
+
+  type RowAction = {
+    id: string;
+    title: string;
+    icon: IconName;
+    onPress?: () => void;
+    disabled?: boolean;
+    status?: 'new' | 'soon';
+    variant?: 'default' | 'destructive';
+    showChevron?: boolean;
+  };
+
+  const renderRow = (row: RowAction, { isLast }: { isLast: boolean }) => {
+    const disabled = Boolean(row.disabled) || !row.onPress;
+    const showChevron = row.showChevron ?? (!disabled && row.variant !== 'destructive');
+    const iconColor =
+      row.variant === 'destructive'
+        ? colors.accentRoseStrong
+        : disabled
+          ? colors.textSecondary
+          : colors.textPrimary;
+    const titleColor =
+      row.variant === 'destructive'
+        ? colors.accentRoseStrong
+        : disabled
+          ? colors.textSecondary
+          : colors.textPrimary;
+
+    return (
+      <Pressable
+        key={row.id}
+        accessibilityRole={disabled ? undefined : 'button'}
+        accessibilityState={{ disabled }}
+        onPress={withHapticPress(row.onPress, 'canvas.selection')}
+        disabled={disabled}
+        style={({ pressed }) => [
+          styles.listRow,
+          pressed && !disabled ? styles.listRowPressed : null,
+          !isLast && styles.listRowGap,
+        ]}
+      >
+        <View style={styles.listRowIcon}>
+          <Icon name={row.icon} size={18} color={iconColor} />
+        </View>
+        <VStack flex={1} space={0}>
+          <Text style={[styles.listRowTitle, { color: titleColor }]}>{row.title}</Text>
+        </VStack>
+        <HStack alignItems="center" space="xs">
+          {row.status === 'soon' ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeLabel}>Soon</Text>
+            </View>
+          ) : null}
+          {showChevron ? <Icon name="chevronRight" size={18} color={colors.textSecondary} /> : null}
+        </HStack>
+      </Pressable>
+    );
   };
 
   const handleOpenMenu = () => {
@@ -205,6 +262,115 @@ export function SettingsHomeScreen() {
     setAvatarSheetVisible(false);
   };
 
+  const accountRows: RowAction[] = [
+    {
+      id: 'accountSettings',
+      title: 'Account settings',
+      icon: 'identity',
+      onPress: () => navigation.navigate('SettingsProfile'),
+      showChevron: true,
+    },
+    {
+      id: 'subscriptions',
+      title: 'Subscriptions',
+      icon: 'cart',
+      onPress: () => {
+        if (isPro) {
+          openManageSubscription().catch(() => navigation.navigate('SettingsManageSubscription'));
+          return;
+        }
+        navigation.navigate('SettingsManageSubscription');
+      },
+      showChevron: true,
+    },
+    {
+      id: 'inviteFriend',
+      title: 'Invite a friend',
+      icon: 'share',
+      onPress: async () => {
+        try {
+          const code = await createReferralCode();
+          const link = `kwilt://referral?code=${encodeURIComponent(code)}`;
+          await Share.share({
+            message: `Try Kwilt — it’s helping me turn motivation into a real plan.\n\nOpen this link after you install: ${link}`,
+          });
+        } catch (err: any) {
+          Alert.alert(
+            'Unable to create invite',
+            typeof err?.message === 'string' ? err.message : 'Please try again in a moment.',
+          );
+        }
+      },
+      showChevron: true,
+    },
+  ];
+
+  const personalizationRows: RowAction[] = settingsItems.map((item) => ({
+    id: item.id,
+    title: item.title,
+    icon: item.icon,
+    onPress: item.disabled || !item.route ? undefined : () => handleNavigate(item),
+    disabled: item.disabled || !item.route,
+    status: item.status,
+    showChevron: true,
+  }));
+
+  const utilityRows: RowAction[] = [
+    ...(!isPro
+      ? ([
+          {
+            id: 'redeemProCode',
+            title: 'Redeem Pro code',
+            icon: 'sparkles',
+            onPress: () => navigation.navigate('SettingsRedeemProCode'),
+            showChevron: true,
+          },
+        ] satisfies RowAction[])
+      : []),
+    ...(showAdmin
+      ? ([
+          {
+            id: 'admin',
+            title: 'Admin',
+            icon: 'dev',
+            onPress: () => navigation.navigate('SettingsAdminProCodes'),
+            showChevron: true,
+          },
+        ] satisfies RowAction[])
+      : []),
+    ...(authIdentity
+      ? ([
+          {
+            id: 'logout',
+            title: 'Log out',
+            icon: 'lock',
+            showChevron: false,
+            onPress: () => {
+              Alert.alert('Log out?', 'You can sign back in anytime.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Log out',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await signOut();
+                    } catch (err: any) {
+                      Alert.alert(
+                        'Unable to log out',
+                        typeof err?.message === 'string' ? err.message : 'Please try again.',
+                      );
+                    }
+                  },
+                },
+              ]);
+            },
+          },
+        ] satisfies RowAction[])
+      : []),
+  ];
+
+  const allRows: RowAction[] = [...accountRows, ...personalizationRows, ...utilityRows];
+
   return (
     <AppShell>
       <View style={styles.screen}>
@@ -217,6 +383,34 @@ export function SettingsHomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.profileHeader}>
+            <RNPressable
+              style={styles.profileAvatarPressable}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              accessibilityState={{ busy: isUpdatingAvatar }}
+              hitSlop={8}
+              disabled={isUpdatingAvatar}
+              onPress={() => {
+                if (isUpdatingAvatar) return;
+                setAvatarSheetVisible(true);
+              }}
+            >
+              <View style={styles.profileAvatarWrap}>
+                <ProfileAvatar name={displayName} avatarUrl={avatarUrl} size={96} />
+                <View style={styles.profileAvatarBadge}>
+                  <Icon name="camera" size={16} color={colors.canvas} />
+                </View>
+              </View>
+            </RNPressable>
+            <Text style={styles.profileHeaderTitle} numberOfLines={1}>
+              {displayName}
+            </Text>
+            <Text style={styles.profileHeaderSubtitle} numberOfLines={1}>
+              {profileSubtitle}
+            </Text>
+          </View>
+
           {/* Pro upsell (Free only). Keep this as a single, clear "Get Kwilt Pro" card. */}
           {!isPro ? (
             <View style={styles.proCardSection}>
@@ -264,252 +458,11 @@ export function SettingsHomeScreen() {
             </View>
           ) : null}
 
-          <View style={styles.profileRow}>
-            <RNPressable
-              style={styles.profileAvatarButton}
-              accessibilityRole="button"
-              accessibilityLabel="Change profile photo"
-              accessibilityState={{ busy: isUpdatingAvatar }}
-              hitSlop={8}
-              disabled={isUpdatingAvatar}
-              onPress={() => {
-                if (isUpdatingAvatar) {
-                  return;
-                }
-                setAvatarSheetVisible(true);
-              }}
-            >
-              <ProfileAvatar
-                name={displayName}
-                avatarUrl={avatarUrl}
-                size={64}
-                borderRadius={16}
-              />
-            </RNPressable>
-            <TouchableOpacity
-              style={styles.profileInfoButton}
-              accessibilityRole="button"
-              accessibilityLabel="Edit your profile information"
-              onPress={() => navigation.navigate('SettingsProfile')}
-              activeOpacity={0.9}
-            >
-              <VStack flex={1} space="xs" style={styles.profileInfo}>
-                <Text style={styles.profileTitle}>{displayName}</Text>
-                {profileSubtitle ? (
-                  <Text style={styles.profileSubtitle}>{profileSubtitle}</Text>
-                ) : null}
-              </VStack>
-              <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {!!authIdentity && (
-            <View style={styles.groupSection}>
-              <Card>
-                <VStack space="sm">
-                  <VStack space="xs">
-                    <Text style={styles.authTitle}>Signed in</Text>
-                    <Text style={styles.authSubtitle} numberOfLines={1}>
-                      {authIdentity.email ?? authIdentity.userId}
-                    </Text>
-                  </VStack>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Sign out"
-                    style={styles.signOutButton}
-                    onPress={() => {
-                      Alert.alert('Sign out?', 'You can sign back in anytime.', [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Sign out',
-                          style: 'destructive',
-                          onPress: async () => {
-                            try {
-                              await signOut();
-                            } catch (err: any) {
-                              Alert.alert(
-                                'Unable to sign out',
-                                typeof err?.message === 'string' ? err.message : 'Please try again.',
-                              );
-                            }
-                          },
-                        },
-                      ]);
-                    }}
-                  >
-                    <HStack alignItems="center" space="sm">
-                      <Icon name="lock" size={18} color={colors.textPrimary} />
-                      <Text style={styles.signOutLabel}>Sign out</Text>
-                    </HStack>
-                  </Pressable>
-                </VStack>
-              </Card>
-            </View>
-          )}
-
-          {/* Hide category labels; render a single flat list of settings items. */}
-          {settingsItems.length > 0 && (
-            <View style={styles.groupSection}>
-              <VStack space="xs">
-                {settingsItems.map((item) => {
-                  const disabled = item.disabled || !item.route;
-                  return (
-                    <Pressable
-                      key={item.id}
-                      accessibilityRole={disabled ? undefined : 'button'}
-                      accessibilityState={{ disabled }}
-                      onPress={() => handleNavigate(item)}
-                      disabled={disabled}
-                    >
-                      <HStack style={styles.itemRow} alignItems="center" space="md">
-                        <View style={styles.itemIcon}>
-                          <Icon
-                            name={item.icon}
-                            size={18}
-                            color={disabled ? colors.textSecondary : colors.accent}
-                          />
-                        </View>
-                        <VStack flex={1}>
-                          <Text style={styles.itemTitle}>{item.title}</Text>
-                        </VStack>
-                        <HStack alignItems="center" space="xs">
-                          {item.status === 'soon' && (
-                            <View style={styles.badge}>
-                              <Text style={styles.badgeLabel}>Soon</Text>
-                            </View>
-                          )}
-                          {!disabled ? (
-                            <Icon
-                              name="chevronRight"
-                              size={18}
-                              color={colors.textSecondary}
-                            />
-                          ) : null}
-                        </HStack>
-                      </HStack>
-                    </Pressable>
-                  );
-                })}
-              </VStack>
-            </View>
-          )}
-          {!hasMatches && (
-            <View style={styles.emptyState}>
-              <Heading style={styles.emptyTitle}>No settings yet</Heading>
-              <Text style={styles.emptyBody}>
-                Settings categories will appear here as they unlock.
-              </Text>
-            </View>
-          )}
-
-          {/* Referral hook (credits rewards) */}
-          <View style={styles.groupSection}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Invite a friend"
-              onPress={async () => {
-                try {
-                  const code = await createReferralCode();
-                  const link = `kwilt://referral?code=${encodeURIComponent(code)}`;
-                  await Share.share({
-                    message: `Try Kwilt — it’s helping me turn motivation into a real plan.\n\nOpen this link after you install: ${link}`,
-                  });
-                } catch (err: any) {
-                  Alert.alert(
-                    'Unable to create invite',
-                    typeof err?.message === 'string' ? err.message : 'Please try again in a moment.',
-                  );
-                }
-              }}
-            >
-              <HStack style={styles.itemRow} alignItems="center" space="md">
-                <View style={styles.itemIcon}>
-                  <Icon name="share" size={18} color={colors.accent} />
-                </View>
-                <VStack flex={1}>
-                  <Text style={styles.itemTitle}>Invite a friend</Text>
-                  <Text style={styles.itemSubtitle}>
-                    Earn bonus AI credits when a friend joins.
-                  </Text>
-                </VStack>
-                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-              </HStack>
-            </Pressable>
-          </View>
-
-          {/* Pro code redemption (Free only). */}
-          {!isPro ? (
-            <View style={styles.groupSection}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Redeem a Pro code"
-                onPress={() => navigation.navigate('SettingsRedeemProCode')}
-              >
-                <HStack style={styles.itemRow} alignItems="center" space="md">
-                  <View style={styles.itemIcon}>
-                    <Icon name="sparkles" size={18} color={colors.accent} />
-                  </View>
-                  <VStack flex={1}>
-                    <Text style={styles.itemTitle}>Redeem Pro code</Text>
-                    <Text style={styles.itemSubtitle}>Enter an access code to unlock Kwilt Pro.</Text>
-                  </VStack>
-                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-                </HStack>
-              </Pressable>
+          {allRows.length > 0 ? (
+            <View>
+              {allRows.map((row, idx) => renderRow(row, { isLast: idx === allRows.length - 1 }))}
             </View>
           ) : null}
-
-          {/* Admin tools (allowlisted, signed-in only). */}
-          {showAdmin ? (
-            <View style={styles.groupSection}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Admin Pro codes"
-                onPress={() => navigation.navigate('SettingsAdminProCodes')}
-              >
-                <HStack style={styles.itemRow} alignItems="center" space="md">
-                  <View style={styles.itemIcon}>
-                    <Icon name="dev" size={18} color={colors.accent} />
-                  </View>
-                  <VStack flex={1}>
-                    <Text style={styles.itemTitle}>Admin</Text>
-                    <Text style={styles.itemSubtitle}>Generate Pro access codes.</Text>
-                  </VStack>
-                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-                </HStack>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {/* Subscriptions entry (moved to bottom of the list). */}
-          <View style={styles.groupSection}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isPro ? 'Manage subscription' : 'View subscription plans'}
-              onPress={() => {
-                if (isPro) {
-                  openManageSubscription().catch(() =>
-                    navigation.navigate('SettingsManageSubscription')
-                  );
-                  return;
-                }
-                navigation.navigate('SettingsManageSubscription');
-              }}
-            >
-              <HStack style={styles.itemRow} alignItems="center" space="md">
-                <View style={styles.itemIcon}>
-                  <Icon name="dot" size={18} color={colors.accent} />
-                </View>
-                <VStack flex={1}>
-                  <Text style={styles.itemTitle}>Subscriptions</Text>
-                  <Text style={styles.itemSubtitle}>
-                    {`${isPro ? 'Manage in App Store' : 'See plans and pricing'} • AI credits: ${remainingCredits}/${monthlyLimit}`}
-                  </Text>
-                </VStack>
-                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-              </HStack>
-            </Pressable>
-          </View>
         </ScrollView>
         <BottomDrawer
           visible={avatarSheetVisible}
@@ -574,80 +527,47 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing['2xl'],
     // Keep global spacing tight; we handle larger separations with section wrappers.
-    gap: spacing.xs,
+    gap: spacing.md,
   },
   proCardSection: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  profileRow: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 18,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.canvas,
-  },
-  profileAvatarButton: {
-    padding: spacing.xs,
-    borderRadius: 24,
-  },
-  profileInfoButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  profileSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  authTitle: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  authSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  signOutButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 14,
-    backgroundColor: colors.shellAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  signOutLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  groupSection: {
-    // Don't introduce extra vertical spacing; let the parent ScrollView `gap`
-    // control spacing between adjacent blocks (XS).
     marginTop: 0,
-    gap: 0,
+    marginBottom: 0,
   },
-  proCard: {
-    borderRadius: 18,
-    backgroundColor: colors.shellAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
+  profileHeader: {
+    alignItems: 'center',
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  profileAvatarPressable: {
+    borderRadius: 999,
+  },
+  profileAvatarWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.textPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.canvas,
+  },
+  profileHeaderTitle: {
+    ...typography.titleMd,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+  },
+  profileHeaderSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   proCardGradient: {
     borderRadius: paywallTheme.cornerRadius,
@@ -691,31 +611,28 @@ const styles = StyleSheet.create({
     opacity: 0.92,
     textDecorationLine: 'underline',
   },
-  itemRow: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.canvas,
-  },
-  itemIcon: {
-    width: 36,
-    height: 36,
     borderRadius: 12,
+  },
+  listRowPressed: {
     backgroundColor: colors.shellAlt,
+  },
+  listRowGap: {
+    marginBottom: spacing.sm,
+  },
+  listRowIcon: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemTitle: {
+  listRowTitle: {
     ...typography.body,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  itemSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   badge: {
     borderRadius: 999,
@@ -729,20 +646,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontSize: 10,
     letterSpacing: 1,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  emptyBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
   sheetContent: {
     paddingHorizontal: spacing.xl,
