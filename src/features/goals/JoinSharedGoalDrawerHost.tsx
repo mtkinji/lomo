@@ -193,7 +193,7 @@ export function JoinSharedGoalDrawerHost() {
       <View style={styles.surface}>
         <View style={styles.headerRow}>
           <Heading style={styles.headerTitle}>Join shared goal</Heading>
-          <IconButton accessibilityLabel="Close" onPress={close}>
+          <IconButton accessibilityLabel="Close" onPress={close} variant="ghost">
             <Icon name="close" size={18} color={colors.textPrimary} />
           </IconButton>
         </View>

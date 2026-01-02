@@ -69,6 +69,7 @@ function getExpoHaptics(): ExpoHapticsModule | null {
 let isEnabled = true;
 let reduceMotionEnabled: boolean | null = null;
 let reduceMotionSubscriptionAttached = false;
+let hasWarnedMissingHapticsModule = false;
 
 // Keep haptics subtle by default; prevent "machine gun" feel.
 const DEFAULT_THROTTLE_MS = 80;
@@ -196,7 +197,13 @@ export const HapticsService = {
     ensureReduceMotionSubscription();
     await refreshReduceMotionFlag();
     // Warm the module cache (no-op if not installed).
-    void getExpoHaptics();
+    const h = getExpoHaptics();
+    if (__DEV__ && !h && !hasWarnedMissingHapticsModule) {
+      hasWarnedMissingHapticsModule = true;
+      console.warn(
+        '[haptics] expo-haptics is not available; semantic haptics will be a no-op (install `expo-haptics` to enable).'
+      );
+    }
   },
 
   setEnabled(enabled: boolean) {
@@ -205,6 +212,19 @@ export const HapticsService = {
 
   getEnabled() {
     return isEnabled;
+  },
+
+  /**
+   * Debug-only introspection helper.
+   * Useful for diagnosing "haptics feel missing" reports on device.
+   */
+  getDebugState() {
+    return {
+      enabled: isEnabled,
+      reduceMotionEnabled,
+      // This checks whether the JS module is available to require() (not a guarantee of native availability).
+      expoHapticsModuleAvailable: Boolean(getExpoHaptics()),
+    };
   },
 
   /**

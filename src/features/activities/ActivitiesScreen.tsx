@@ -24,7 +24,7 @@ import type {
   ActivitiesStackParamList,
   RootDrawerParamList,
 } from '../../navigation/RootNavigator';
-import { Button, IconButton } from '../../ui/Button';
+import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import {
   VStack,
@@ -234,7 +234,6 @@ export function ActivitiesScreen() {
   const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
   const [viewEditorName, setViewEditorName] = React.useState('');
 
-  const addButtonRef = React.useRef<View | null>(null);
   const viewsButtonRef = React.useRef<View | null>(null);
   const filterButtonRef = React.useRef<View | null>(null);
   const sortButtonRef = React.useRef<View | null>(null);
@@ -528,7 +527,7 @@ export function ActivitiesScreen() {
 
   const guideTargetRef =
     guideVariant === 'empty'
-      ? addButtonRef
+      ? quickAddInputRef
       : activitiesGuideStep === 0
       ? viewsButtonRef
       : activitiesGuideStep === 1
@@ -539,7 +538,7 @@ export function ActivitiesScreen() {
     if (guideVariant === 'empty') {
       return {
         title: 'Start here',
-        body: 'Tap + to add your first Activity. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
+        body: 'Use the Quick Add bar at the bottom to add your first Activity. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
       };
     }
     if (activitiesGuideStep === 0) {
@@ -1244,22 +1243,7 @@ export function ActivitiesScreen() {
             >
               <ButtonLabel size="xs">Done</ButtonLabel>
             </Button>
-          ) : (
-            <IconButton
-              ref={addButtonRef}
-              collapsable={false}
-              testID="e2e.activities.openCoach"
-              accessibilityRole="button"
-              accessibilityLabel="Add Activity"
-              style={styles.addActivityIconButton}
-              hitSlop={8}
-              onPress={() => {
-                setActivityCoachVisible(true);
-              }}
-            >
-              <Icon name="plus" size={18} color="#FFFFFF" />
-            </IconButton>
-          )
+          ) : null
         }
       />
       <Coachmark
@@ -2036,11 +2020,6 @@ export function ActivitiesScreen() {
 const QUICK_ADD_BAR_HEIGHT = 64;
 
 const styles = StyleSheet.create({
-  addActivityIconButton: {
-    alignSelf: 'flex-start',
-    marginTop: 0,
-    backgroundColor: colors.primary,
-  },
   scroll: {
     flex: 1,
     // Let the scroll view extend into the AppShell horizontal padding so shadows

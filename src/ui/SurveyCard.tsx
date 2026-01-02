@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Button } from './Button';
-import { HStack, VStack, ButtonLabel, Text } from './primitives';
+import { HStack, VStack } from './Stack';
+import { ButtonLabel, Text } from './Typography';
 import { QuestionCard } from './QuestionCard';
 import { cardElevation, cardSurfaceStyle, colors, spacing } from '../theme';
 

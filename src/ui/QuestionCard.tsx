@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Card, type CardElevation, type CardPadding } from './Card';
-import { Heading, Text, VStack, HStack } from './primitives';
+import { HStack, VStack } from './Stack';
+import { Heading, Text } from './Typography';
 import { spacing } from '../theme';
 
 type QuestionCardProps = {

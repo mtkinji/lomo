@@ -9,6 +9,8 @@ import { colors, spacing, typography } from '../../theme';
 import { VStack, Text } from '../../ui/primitives';
 import { useAppStore } from '../../store/useAppStore';
 import { HapticsService } from '../../services/HapticsService';
+import { Button } from '../../ui/Button';
+import { ButtonLabel } from '../../ui/Typography';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHaptics'>;
 
@@ -24,6 +26,19 @@ export function HapticsSettingsScreen() {
         : 'Haptics are off. Kwilt will stay silent even on success/error moments.',
     [enabled],
   );
+
+  const debugState = useMemo(() => HapticsService.getDebugState(), [enabled]);
+  const debugLines = useMemo(() => {
+    if (!__DEV__) return null;
+    const lines = [
+      `expo-haptics module: ${debugState.expoHapticsModuleAvailable ? 'available' : 'missing'}`,
+      `reduce motion: ${
+        debugState.reduceMotionEnabled === null ? 'unknown' : debugState.reduceMotionEnabled ? 'on' : 'off'
+      }`,
+      `app haptics: ${debugState.enabled ? 'enabled' : 'disabled'}`,
+    ];
+    return lines.join('\n');
+  }, [debugState]);
 
   return (
     <AppShell>
@@ -61,6 +76,35 @@ export function HapticsSettingsScreen() {
                   thumbColor={colors.canvas}
                 />
               </View>
+            </VStack>
+          </View>
+
+          <View style={styles.card}>
+            <VStack space="sm">
+              <Text style={styles.rowTitle}>Test haptics</Text>
+              <Text style={styles.sectionBody}>
+                If you don’t feel these on a physical device, something is suppressing haptics (system settings,
+                Reduce Motion, or a missing native module in your installed build).
+              </Text>
+              <View style={styles.testRow}>
+                <Button
+                  size="small"
+                  variant="ghost"
+                  haptic={false}
+                  onPress={() => void HapticsService.trigger('canvas.selection')}
+                >
+                  <ButtonLabel size="sm">Test selection</ButtonLabel>
+                </Button>
+                <Button
+                  size="small"
+                  variant="ghost"
+                  haptic={false}
+                  onPress={() => void HapticsService.trigger('outcome.success')}
+                >
+                  <ButtonLabel size="sm">Test success</ButtonLabel>
+                </Button>
+              </View>
+              {debugLines ? <Text style={styles.debugText}>{debugLines}</Text> : null}
             </VStack>
           </View>
 
@@ -122,6 +166,16 @@ const styles = StyleSheet.create({
   helperText: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  testRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+  },
+  debugText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: typography.mono.fontFamily,
   },
 });
 

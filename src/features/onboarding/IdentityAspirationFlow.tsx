@@ -23,6 +23,7 @@ import { colors, spacing, typography, fonts } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../services/ai';
 import { generateArcBannerVibeQuery } from '../../services/ai';
+import { HapticsService } from '../../services/HapticsService';
 import { searchUnsplashPhotos, trackUnsplashDownload, UnsplashError, withUnsplashReferral } from '../../services/unsplash';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -572,7 +573,10 @@ export function IdentityAspirationFlow({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={expanded ? 'Hide answers' : 'Review answers'}
-            onPress={onToggle}
+            onPress={() => {
+              void HapticsService.trigger('canvas.selection');
+              onToggle();
+            }}
             style={styles.reviewPanelHeader}
           >
             <Text style={styles.reviewPanelTitle}>Review answers</Text>
@@ -2760,6 +2764,7 @@ export function IdentityAspirationFlow({
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 onPress={() => {
+                  void HapticsService.trigger('canvas.selection');
                   setRoleModelTypeId(option.id);
                   appendChatUserMessage(`People I look up to: ${option.label}`);
                   // Minimal + Archetype: jump straight to admired qualities.
@@ -2801,6 +2806,7 @@ export function IdentityAspirationFlow({
                   const next = toggleIdInList(option.id, admiredQualityIds);
                   // Enforce 1–3 selection to keep signal crisp (and keep this truly "quick").
                   if (next.length > 3) return;
+                  void HapticsService.trigger('canvas.selection');
                   setAdmiredQualityIds(next as ArchetypeAdmiredQualityId[]);
                 }}
               >
@@ -2991,6 +2997,7 @@ export function IdentityAspirationFlow({
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 onPress={() => {
+                  void HapticsService.trigger('canvas.selection');
                   // Single-select: clear previous selection contributions, then apply the new one
                   const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
                   previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
@@ -3067,6 +3074,7 @@ export function IdentityAspirationFlow({
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 onPress={() => {
+                  void HapticsService.trigger('canvas.selection');
                   const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
                     motivationIds.includes(o.id)
                   );
@@ -3266,6 +3274,7 @@ export function IdentityAspirationFlow({
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 onPress={() => {
+                  void HapticsService.trigger('canvas.selection');
                   const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
                     proudMomentIds.includes(o.id)
                   );
@@ -3333,6 +3342,7 @@ export function IdentityAspirationFlow({
                   key={option.id}
                   style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
                   onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
                     const previousSelected = MEANING_OPTIONS.filter((o) =>
                       meaningIds.includes(o.id)
                     );
@@ -3386,6 +3396,7 @@ export function IdentityAspirationFlow({
               whyNowIds.includes(option.id) && styles.fullWidthOptionSelected,
             ]}
             onPress={() => {
+              void HapticsService.trigger('canvas.selection');
               handleConfirmWhyNow(option.label, option.id);
             }}
           >
@@ -3429,6 +3440,7 @@ export function IdentityAspirationFlow({
                   key={option.id}
                   style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
                   onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
                     const previousSelected = IMPACT_OPTIONS.filter((o) => impactIds.includes(o.id));
                     previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                     updateSignatureForOption(option, true);
@@ -4159,6 +4171,7 @@ export function IdentityAspirationFlow({
                       accessibilityRole="radio"
                       accessibilityState={{ selected }}
                       onPress={() => {
+                        void HapticsService.trigger('canvas.selection');
                         setWhyNowIds([option.id]);
                         appendChatUserMessage(option.label);
                         setError(null);
@@ -4226,6 +4239,7 @@ export function IdentityAspirationFlow({
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
                         onPress={() => {
+                          void HapticsService.trigger('canvas.selection');
                           const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
                           previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
                           updateSignatureForOption(option, true);
@@ -4315,6 +4329,7 @@ export function IdentityAspirationFlow({
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
                         onPress={() => {
+                          void HapticsService.trigger('canvas.selection');
                           const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
                             proudMomentIds.includes(o.id)
                           );
@@ -4427,6 +4442,7 @@ export function IdentityAspirationFlow({
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
                         onPress={() => {
+                          void HapticsService.trigger('canvas.selection');
                           const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
                             motivationIds.includes(o.id)
                           );
@@ -4527,6 +4543,7 @@ export function IdentityAspirationFlow({
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
                         onPress={() => {
+                          void HapticsService.trigger('canvas.selection');
                           setRoleModelTypeId(option.id);
                           setSurveyPhaseByIndex(surveyStepIndex + 1);
                         }}
@@ -4566,6 +4583,7 @@ export function IdentityAspirationFlow({
                       onPress={() => {
                         const next = toggleIdInList(option.id, admiredQualityIds);
                         if (next.length > 3) return;
+                        void HapticsService.trigger('canvas.selection');
                         setAdmiredQualityIds(next as ArchetypeAdmiredQualityId[]);
                       }}
                     >

@@ -78,16 +78,48 @@ serve(async (req) => {
   const body = await req.json().catch(() => null);
   const entityType = typeof body?.entityType === 'string' ? body.entityType.trim() : '';
   const entityId = typeof body?.entityId === 'string' ? body.entityId.trim() : '';
-  const kind = typeof body?.kind === 'string' ? body.kind.trim() : 'buddy';
+  const rawKind = typeof body?.kind === 'string' ? body.kind.trim() : '';
+  // Backward compatible: accept legacy kinds but map to the unified behavior.
+  // We intentionally avoid distinguishing "buddy" vs "squad" in vNext UX.
+  const kind = rawKind === 'people' || rawKind === 'squad' || rawKind === 'buddy' ? 'people' : 'people';
   const goalTitle = typeof body?.goalTitle === 'string' ? body.goalTitle.trim() : '';
+  const goalImageUrl = typeof body?.goalImageUrl === 'string' ? body.goalImageUrl.trim() : '';
+
+  const safeGoalImageUrl = (() => {
+    if (!goalImageUrl) return null;
+    try {
+      const u = new URL(goalImageUrl);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+      return u.toString();
+    } catch {
+      return null;
+    }
+  })();
 
   if (entityType !== 'goal' || !entityId) {
     return json(400, { error: { message: 'Invalid entityType/entityId', code: 'bad_request' } });
   }
 
-  const maxUses = kind === 'squad' ? 5 : 1;
-  const expiresDays = kind === 'squad' ? 14 : 14;
+  const maxUses = 25;
+  const expiresDays = 14;
   const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
+
+  // Lightweight abuse cap: max N invites/day per user.
+  // (We count invites created in the last 24h; this is approximate but good enough.)
+  const INVITES_PER_DAY_CAP = 50;
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await admin
+      .from('kwilt_invites')
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', userId)
+      .gte('created_at', since);
+    if (typeof count === 'number' && count >= INVITES_PER_DAY_CAP) {
+      return json(429, { error: { message: 'Too many invites today', code: 'rate_limited' } });
+    }
+  } catch {
+    // best-effort only
+  }
 
   // Ensure inviter is a member (co_owner) so the entity has a canonical membership.
   // (Idempotent insert.)
@@ -116,6 +148,7 @@ serve(async (req) => {
       payload: {
         kind,
         goalTitle: goalTitle || null,
+        goalImageUrl: safeGoalImageUrl,
       },
     });
     if (!error) break;
@@ -145,7 +178,7 @@ serve(async (req) => {
     inviteUrl,
     entityType: 'goal',
     entityId,
-    payload: { kind, goalTitle: goalTitle || null, expiresAt, maxUses },
+    payload: { kind, goalTitle: goalTitle || null, goalImageUrl: safeGoalImageUrl, expiresAt, maxUses },
   });
 });
 

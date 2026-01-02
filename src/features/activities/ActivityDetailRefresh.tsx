@@ -770,11 +770,12 @@ export function ActivityDetailRefresh(props: any) {
                             onFocus={handleAnyInputFocus}
                             onBlur={handleAnyInputBlur}
                             placeholder="Describe the step"
-                            size="sm"
+                            size="md"
                             variant="inline"
+                            inputStyle={styles.stepInput}
                             multiline
-                            multilineMinHeight={typography.bodySm.lineHeight}
-                            multilineMaxHeight={typography.bodySm.lineHeight * 4 + spacing.sm}
+                            multilineMinHeight={typography.body.lineHeight}
+                            multilineMaxHeight={typography.body.lineHeight * 4 + spacing.sm}
                             blurOnSubmit
                             returnKeyType="done"
                           />
@@ -807,8 +808,9 @@ export function ActivityDetailRefresh(props: any) {
                   onChangeText={setNewStepTitle}
                   onFocus={handleAnyInputFocus}
                   placeholder="Add step"
-                  size="sm"
+                  size="md"
                   variant="inline"
+                  inputStyle={styles.stepInput}
                   multiline={false}
                   blurOnSubmit={false}
                   returnKeyType="done"

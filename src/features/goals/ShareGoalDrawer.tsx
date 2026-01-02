@@ -7,6 +7,7 @@ import { IconButton, Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Heading, Input, Text, VStack } from '../../ui/primitives';
 import { colors, spacing } from '../../theme';
+import { shareUrlWithPreview } from '../../utils/share';
 import {
   buildInviteOpenUrl,
   createGoalInvite,
@@ -31,6 +32,7 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
   const [inviteCode, setInviteCode] = useState<string>('');
   const [referralCode, setReferralCode] = useState<string>('');
   const [tapUrl, setTapUrl] = useState<string>('');
+  const [shareUrl, setShareUrl] = useState<string>('');
   const [altUrl, setAltUrl] = useState<string>('');
   const [shareMessage, setShareMessage] = useState<string>('');
   const [recipientEmail, setRecipientEmail] = useState('');
@@ -43,6 +45,7 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
       setInviteCode('');
       setReferralCode('');
       setTapUrl('');
+      setShareUrl('');
       setAltUrl('');
       setRecipientEmail('');
       return;
@@ -101,9 +104,15 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
             ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
             : inviteRedirectUrl
           : open.primary;
+        // Share-sheet preview needs OG metadata; our Edge Function (`inviteRedirectUrl`) provides it.
+        const shareUrlBase = inviteRedirectUrl ?? inviteLandingUrl ?? fallbackTapUrl;
+
+        // Tap/open URL for humans: prefer the landing host when available.
         const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
         const tapUrl = withRef(tapUrlBase);
+        const shareUrl = withRef(shareUrlBase);
         setTapUrl(tapUrl);
+        setShareUrl(shareUrl);
         setAltUrl(open.alt);
 
         const message =
@@ -129,14 +138,37 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
     const smsUrl = Platform.OS === 'ios' ? `sms:&body=${body}` : `sms:?body=${body}`;
     const can = await Linking.canOpenURL(smsUrl).catch(() => false);
     if (!can) {
-      await Share.share({ message: shareMessage }).catch(() => {});
+      const url = (tapUrl || altUrl).trim();
+      if (url) {
+        await shareUrlWithPreview({
+          url,
+          message: shareMessage,
+          subject: `Join my goal in Kwilt: “${goalTitle}”`,
+          androidDialogTitle: 'Share goal invite',
+          androidAppendUrl: false, // shareMessage already contains links
+        }).catch(() => {});
+      } else {
+        await Share.share({ message: shareMessage }).catch(() => {});
+      }
       return;
     }
     await Linking.openURL(smsUrl);
     capture(AnalyticsEvent.ShareInviteSmsComposerOpened, { goalId, kind: inviteKind });
     showToast({ message: 'Message ready', variant: 'success', durationMs: 2200 });
     onClose();
-  }, [shareMessage]);
+  }, [altUrl, capture, goalId, goalTitle, inviteKind, onClose, shareMessage, showToast, tapUrl]);
+
+  const shareMore = useCallback(async () => {
+    const url = (shareUrl || tapUrl || altUrl).trim();
+    if (!shareMessage || !url) return;
+    await shareUrlWithPreview({
+      url,
+      message: shareMessage,
+      subject: `Join my goal in Kwilt: “${goalTitle}”`,
+      androidDialogTitle: 'Share goal invite',
+      androidAppendUrl: false, // shareMessage already contains links
+    }).catch(() => {});
+  }, [altUrl, goalTitle, shareMessage, shareUrl, tapUrl]);
 
   const copyInviteLink = useCallback(async () => {
     const link = tapUrl || altUrl;
@@ -198,7 +230,7 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
       <View style={styles.surface}>
         <View style={styles.headerRow}>
           <Heading style={styles.headerTitle}>Share goal</Heading>
-          <IconButton accessibilityLabel="Close" onPress={onClose}>
+          <IconButton accessibilityLabel="Close" onPress={onClose} variant="ghost">
             <Icon name="close" size={18} color={colors.textPrimary} />
           </IconButton>
         </View>
@@ -227,7 +259,7 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
             <Button onPress={() => void copyInviteLink()} disabled={busy || (!tapUrl && !altUrl)} variant="outline" fullWidth>
               Copy link
             </Button>
-            <Button onPress={() => void Share.share({ message: shareMessage })} disabled={busy || !shareMessage} variant="ghost" fullWidth>
+            <Button onPress={() => void shareMore()} disabled={busy || !shareMessage || (!tapUrl && !altUrl)} variant="ghost" fullWidth>
               More…
             </Button>
             <Button onPress={() => setStep('kind')} variant="ghost" disabled={busy} fullWidth>

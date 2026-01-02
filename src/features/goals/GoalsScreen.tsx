@@ -16,6 +16,7 @@ import {
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
@@ -76,6 +77,13 @@ import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from 
 import * as ImagePicker from 'expo-image-picker';
 import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
 import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
+import { FloatingActionButton } from '../../ui/FloatingActionButton';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
 
 type GoalDraftEntry = {
   arcId: string;
@@ -114,6 +122,7 @@ export function GoalsScreen() {
     >();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
+  const insets = useSafeAreaInsets();
 
   const goals = useAppStore((state) => state.goals);
   const arcs = useAppStore((state) => state.arcs);
@@ -140,6 +149,7 @@ export function GoalsScreen() {
   const hasGoals = visibleGoals.length > 0;
   const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
   const [goalsMasonryWidth, setGoalsMasonryWidth] = React.useState(0);
+  const [showArchived, setShowArchived] = React.useState(true);
 
   type GoalActivityStats = {
     total: number;
@@ -339,6 +349,8 @@ export function GoalsScreen() {
     setGoalCoachVisible(true);
   };
 
+  const fabClearancePx = insets.bottom + spacing.lg + 56 + spacing.lg;
+
   return (
     <AppShell>
       <PageHeader
@@ -351,20 +363,30 @@ export function GoalsScreen() {
           parent?.dispatch(DrawerActions.openDrawer());
         }}
         rightElement={
-          <IconButton
-            accessibilityRole="button"
-            accessibilityLabel="Create a new goal"
-            style={styles.newGoalButton}
-            hitSlop={8}
-            onPress={handlePressNewGoal}
-          >
-            <Icon name="plus" size={18} color="#FFFFFF" />
-          </IconButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger accessibilityLabel="Goal list options">
+              <IconButton
+                accessibilityRole="button"
+                accessibilityLabel="Goal list options"
+                variant="outline"
+              >
+                <Icon name="more" size={18} color={colors.textPrimary} />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+              <DropdownMenuCheckboxItem
+                checked={showArchived}
+                onCheckedChange={(next) => setShowArchived(Boolean(next))}
+              >
+                <Text style={typography.bodySm}>Show archived</Text>
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
       <CanvasScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: fabClearancePx }]}
         showsVerticalScrollIndicator={false}
       >
       {hasGoals ? (
@@ -429,7 +451,7 @@ export function GoalsScreen() {
         />
       )}
 
-        {archivedGoals.length > 0 && (
+        {showArchived && archivedGoals.length > 0 && (
           <VStack space="xs" style={styles.archivedSection}>
             <Text style={styles.archivedTitle}>Archived</Text>
             <Text style={styles.archivedHint}>
@@ -496,6 +518,12 @@ export function GoalsScreen() {
         onClose={() => setGoalCoachVisible(false)}
         arcs={arcs}
         goals={goals}
+      />
+
+      <FloatingActionButton
+        accessibilityLabel="Create a new goal"
+        onPress={handlePressNewGoal}
+        icon={<Icon name="plus" size={22} color={colors.aiForeground} />}
       />
     </AppShell>
   );
@@ -1441,11 +1469,6 @@ const styles = StyleSheet.create({
   emptyBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
-  },
-  newGoalButton: {
-    alignSelf: 'flex-start',
-    marginTop: 0,
-    backgroundColor: colors.primary,
   },
   draftSection: {
     marginTop: spacing['2xl'],

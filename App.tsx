@@ -34,6 +34,7 @@ import { Logo } from './src/ui/Logo';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
+import { ConfigErrorScreen } from './src/features/onboarding/ConfigErrorScreen';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -62,9 +63,16 @@ export default function App() {
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
   const [isBootstrapped, setIsBootstrapped] = useState(false);
+  const [bootError, setBootError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
+    let supabase: ReturnType<typeof getSupabaseClient> | null = null;
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      setBootError(error as Error);
+      return;
+    }
     let cancelled = false;
 
     // Hydrate once on mount (covers cold start with persisted Supabase session).
@@ -168,6 +176,20 @@ export default function App() {
 
   if (!fontsLoaded) {
     return null;
+  }
+
+  if (bootError) {
+    return (
+      <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.shell }]}>
+        <SafeAreaProvider>
+          <BottomSheetModalProvider>
+            <StatusBar style="dark" />
+            <ConfigErrorScreen message={String(bootError.message ?? bootError)} />
+            <PortalHost />
+          </BottomSheetModalProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
   }
 
   if (!isBootstrapped) {

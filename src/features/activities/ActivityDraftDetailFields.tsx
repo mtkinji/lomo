@@ -298,11 +298,12 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                         }))
                       }
                       placeholder="Describe the step"
-                      size="sm"
+                      size="md"
                       variant="inline"
+                      inputStyle={styles.stepInput}
                       multiline
-                      multilineMinHeight={typography.bodySm.lineHeight}
-                      multilineMaxHeight={typography.bodySm.lineHeight * 4 + spacing.sm}
+                      multilineMinHeight={typography.body.lineHeight}
+                      multilineMaxHeight={typography.body.lineHeight * 4 + spacing.sm}
                       blurOnSubmit
                       returnKeyType="done"
                     />
@@ -332,8 +333,9 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 value={newStepTitle}
                 onChangeText={setNewStepTitle}
                 placeholder="Add step"
-                size="sm"
+                size="md"
                 variant="inline"
+                inputStyle={styles.stepInput}
                 multiline={false}
                 blurOnSubmit={false}
                 returnKeyType="done"
@@ -918,7 +920,7 @@ const styles = StyleSheet.create({
     color: colors.sumi,
   },
   stepRow: {
-    minHeight: 40,
+    minHeight: 44,
     alignItems: 'center',
   },
   stepRowContent: {
@@ -937,7 +939,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepInput: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
   },
@@ -950,9 +952,10 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   addStepInlineText: {
-    ...typography.bodySm,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
     color: colors.accent,
-    lineHeight: 18,
+    lineHeight: typography.body.fontSize + 3,
     ...(Platform.OS === 'android'
       ? ({
           includeFontPadding: false,

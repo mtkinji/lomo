@@ -91,7 +91,7 @@ serve(async (req) => {
   const expiresAt = (invite as any).expires_at as string | null;
   const maxUses = (invite as any).max_uses as number;
   const uses = (invite as any).uses as number;
-  const payload = ((invite as any).payload ?? {}) as Record<string, unknown>;
+  const payload = ((invite as any).payload ?? {}) as JsonValue;
 
   if (entityType !== 'goal' || !entityId) {
     return json(500, { error: { message: 'Invite misconfigured', code: 'server_error' } });

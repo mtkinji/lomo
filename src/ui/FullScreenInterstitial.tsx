@@ -50,7 +50,8 @@ export type BrandBackgroundColor =
   | 'quiltBlue900'
   | 'clay'
   | 'moss'
-  | 'sumi';
+  | 'sumi'
+  | 'sharing';
 
 export type FullScreenInterstitialTransition = 'none' | 'fade' | 'launch';
 

@@ -14,6 +14,30 @@ export function getEnvVar<T = string>(key: string): T | undefined {
   return extras ? (extras[key] as T | undefined) : undefined;
 }
 
+function getProcessEnvString(key: string): string | undefined {
+  // Expo can inline EXPO_PUBLIC_* values at bundle time. In native runtimes,
+  // `process.env` may be partially populated or empty depending on tooling.
+  const v = (process.env as any)?.[key];
+  return typeof v === 'string' ? v : undefined;
+}
+
+function inferSupabaseUrlFromAiProxyBaseUrl(aiProxyBaseUrl: string | undefined): string | undefined {
+  if (!aiProxyBaseUrl) return undefined;
+  try {
+    const u = new URL(aiProxyBaseUrl);
+    // Supabase Edge Functions host format:
+    //   https://<project-ref>.functions.supabase.co/functions/v1/<fn>
+    const host = u.hostname ?? '';
+    const suffix = '.functions.supabase.co';
+    if (!host.endsWith(suffix)) return undefined;
+    const projectRef = host.slice(0, -suffix.length);
+    if (!projectRef) return undefined;
+    return `https://${projectRef}.supabase.co`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function getGiphyApiKey(): string | undefined {
   return getEnvVar<string>('giphyApiKey');
 }
@@ -35,11 +59,26 @@ export function getAiProxyBaseUrl(): string | undefined {
 }
 
 export function getSupabasePublishableKey(): string | undefined {
-  return getEnvVar<string>('supabasePublishableKey');
+  return (
+    getEnvVar<string>('supabasePublishableKey') ??
+    getProcessEnvString('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY') ??
+    getProcessEnvString('EXPO_PUBLIC_SUPABASE_ANON_KEY') ??
+    getProcessEnvString('SUPABASE_PUBLISHABLE_KEY') ??
+    getProcessEnvString('SUPABASE_ANON_KEY')
+  );
 }
 
 export function getSupabaseUrl(): string | undefined {
-  return getEnvVar<string>('supabaseUrl');
+  return (
+    getEnvVar<string>('supabaseUrl') ??
+    getProcessEnvString('EXPO_PUBLIC_SUPABASE_URL') ??
+    getProcessEnvString('SUPABASE_URL') ??
+    inferSupabaseUrlFromAiProxyBaseUrl(
+      getEnvVar<string>('aiProxyBaseUrl') ??
+        getProcessEnvString('EXPO_PUBLIC_AI_PROXY_BASE_URL') ??
+        getProcessEnvString('AI_PROXY_BASE_URL')
+    )
+  );
 }
 
 export function getAmazonAssociatesTag(): string | undefined {

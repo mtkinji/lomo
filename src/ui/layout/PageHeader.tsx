@@ -75,7 +75,8 @@ export function PageHeader({
   boxedTitle = false,
   children,
 }: PageHeaderProps) {
-  const headerBadgeSize = 30;
+  const headerActionSize = 44;
+  const headerBadgeSize = 36;
   const headerBadgeRadius = Math.round(headerBadgeSize * 0.32);
   const badgeColors = getObjectTypeBadgeColors(iconTone);
 
@@ -90,16 +91,20 @@ export function PageHeader({
             <IconButton
               accessibilityLabel={`Go back from ${title}`}
               onPress={onPressBack}
-              style={styles.headerIconButton}
+              style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
             >
-              <Icon name="arrowLeft" size={18} color={iconColor} />
+              <Icon name="arrowLeft" size={20} color={iconColor} />
             </IconButton>
           ) : onPressMenu ? (
             <IconButton
               accessibilityLabel="Open navigation menu"
               testID="nav.drawer.toggle"
               onPress={onPressMenu}
-              style={[styles.headerIconButton, styles.headerIconButtonGhost]}
+              style={[
+                styles.headerIconButton,
+                styles.headerIconButtonGhost,
+                { width: headerActionSize, height: headerActionSize },
+              ]}
             >
               <MenuToggleIcon open={menuOpen} />
             </IconButton>
@@ -119,7 +124,7 @@ export function PageHeader({
                   },
                 ]}
               >
-                <Icon name={iconName} size={18} color={badgeColors.iconColor} />
+                <Icon name={iconName} size={20} color={badgeColors.iconColor} />
                 <Text
                   numberOfLines={1}
                   ellipsizeMode="tail"
@@ -134,7 +139,7 @@ export function PageHeader({
                   <ObjectTypeIconBadge
                     iconName={iconName}
                     tone={iconTone}
-                    size={18}
+                    size={20}
                     badgeSize={headerBadgeSize}
                   />
                 ) : null}
@@ -147,9 +152,9 @@ export function PageHeader({
               <IconButton
                 accessibilityLabel={`Learn about ${title.toLowerCase()}`}
                 onPress={onPressInfo}
-                style={styles.headerIconButton}
+                style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
               >
-                <Icon name="info" size={18} color={iconColor} />
+                <Icon name="info" size={20} color={iconColor} />
               </IconButton>
             ) : null}
           </View>
@@ -170,8 +175,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   headerIconButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
   },
   headerIconButtonGhost: {
     // Menu toggle should appear as a bare icon (no filled background).
@@ -229,14 +234,14 @@ const styles = StyleSheet.create({
   },
   rightElement: {},
   menuIconBox: {
-    width: 28,
-    height: 28,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   menuLine: {
     position: 'absolute',
-    width: 18,
+    width: 22,
     height: 2,
     borderRadius: 1,
     backgroundColor: colors.textPrimary,

@@ -73,7 +73,7 @@ export function CreditsInterstitialDrawerHost() {
       <View style={styles.surface}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>{title}</Text>
-          <IconButton accessibilityLabel="Close" onPress={close}>
+          <IconButton accessibilityLabel="Close" onPress={close} variant="ghost">
             <Icon name="close" size={18} color={colors.textPrimary} />
           </IconButton>
         </View>
