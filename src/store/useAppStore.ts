@@ -548,6 +548,13 @@ interface AppState {
    */
   activeActivityViewId: string | null;
   /**
+   * Optional context binding (e.g. from iOS Focus Filters) used to bias "Next Up"
+   * and (optionally) narrow the Activities canvas to a single Goal.
+   *
+   * Stored as a Goal id; null means no context binding is active.
+   */
+  focusContextGoalId: string | null;
+  /**
    * Per-user denylist of celebration GIF ids that should never be shown again.
    * Populated via lightweight "Not quite right" feedback controls.
    */
@@ -584,6 +591,7 @@ interface AppState {
   setSoundscapeEnabled: (enabled: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setSoundscapeTrackId: (trackId: SoundscapeId) => void;
+  setFocusContextGoalId: (goalId: string | null) => void;
   /**
    * Record that the user "showed up" today by visiting Today or completing
    * an Activity. Updates streak and lastActiveDate.
@@ -832,6 +840,7 @@ export const useAppStore = create<AppState>()(
       bestFocusStreak: 0,
       activityViews: initialActivityViews,
       activeActivityViewId: 'default',
+      focusContextGoalId: null,
       goalRecommendations: {},
       arcFeedback: [],
       blockedCelebrationGifIds: [],
@@ -1410,6 +1419,11 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           soundscapeTrackId: (trackId || 'default') as SoundscapeId,
         })),
+      setFocusContextGoalId: (goalId) =>
+        set(() => ({
+          focusContextGoalId:
+            typeof goalId === 'string' && goalId.trim().length > 0 ? goalId.trim() : null,
+        })),
       recordShowUp: () =>
         set((state) => {
           const nowDate = new Date();
@@ -1585,6 +1599,7 @@ export const useAppStore = create<AppState>()(
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,
           activeActivityViewId: 'default',
+          focusContextGoalId: null,
           lastFocusMinutes: null,
           soundscapeEnabled: false,
           hapticsEnabled: true,

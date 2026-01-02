@@ -1,6 +1,6 @@
 import type { Activity } from '../domain/types';
 
-export type ActivityMetaLeadingIconName = 'today' | 'bell';
+export type ActivityMetaLeadingIconName = 'today' | 'bell' | 'paperclip';
 
 function formatActivityMinutes(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
@@ -41,7 +41,17 @@ export function buildActivityListMeta(args: {
    * Optional contextual label (e.g. parent goal title) to match the Activities list metadata row.
    */
   goalTitle?: string;
-}): { meta?: string; metaLeadingIconName?: ActivityMetaLeadingIconName } {
+}): {
+  meta?: string;
+  /**
+   * Legacy single-leading-icon support (kept for backward compatibility).
+   */
+  metaLeadingIconName?: ActivityMetaLeadingIconName;
+  /**
+   * Preferred: multiple leading icons (e.g. calendar/bell + paperclip).
+   */
+  metaLeadingIconNames?: ActivityMetaLeadingIconName[];
+} {
   const { activity, goalTitle } = args;
 
   const parts: string[] = [];
@@ -70,13 +80,26 @@ export function buildActivityListMeta(args: {
   }
 
   const meta = parts.length > 0 ? parts.join(' · ') : undefined;
-  const metaLeadingIconName: ActivityMetaLeadingIconName | undefined = activity.scheduledDate
+  const metaLeadingIconNames: ActivityMetaLeadingIconName[] = [];
+  const scheduleIcon: ActivityMetaLeadingIconName | null = activity.scheduledDate
     ? 'today'
     : activity.reminderAt
       ? 'bell'
-      : undefined;
+      : null;
+  if (scheduleIcon) metaLeadingIconNames.push(scheduleIcon);
 
-  return { meta, metaLeadingIconName };
+  const attachments = (activity as any).attachments;
+  const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
+  if (hasAttachments) metaLeadingIconNames.push('paperclip');
+
+  const metaLeadingIconName: ActivityMetaLeadingIconName | undefined =
+    metaLeadingIconNames.length > 0 ? metaLeadingIconNames[0] : undefined;
+
+  return {
+    meta,
+    metaLeadingIconName,
+    metaLeadingIconNames: metaLeadingIconNames.length > 0 ? metaLeadingIconNames : undefined,
+  };
 }
 
 

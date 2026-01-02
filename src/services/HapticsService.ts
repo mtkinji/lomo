@@ -22,10 +22,13 @@ export type HapticsEvent =
   | 'canvas.selection'
   | 'canvas.toggle.on'
   | 'canvas.toggle.off'
+  | 'canvas.step.complete'
+  | 'canvas.step.undo'
   | 'canvas.primary.confirm'
   | 'canvas.destructive.confirm'
   // Outcomes
   | 'outcome.success'
+  | 'outcome.bigSuccess'
   | 'outcome.warning'
   | 'outcome.error';
 
@@ -80,8 +83,11 @@ const throttleMsByEvent: Partial<Record<HapticsEvent, number>> = {
   'shell.nav.close': 120,
   // selection can happen quickly (lists, chips, etc.)
   'canvas.selection': 80,
+  'canvas.step.complete': 60,
+  'canvas.step.undo': 60,
   // outcomes should not be swallowed
   'outcome.success': 0,
+  'outcome.bigSuccess': 0,
   'outcome.warning': 0,
   'outcome.error': 0,
 };
@@ -94,6 +100,8 @@ const suppressedWhenReduceMotion = new Set<HapticsEvent>([
   'canvas.selection',
   'canvas.toggle.on',
   'canvas.toggle.off',
+  'canvas.step.complete',
+  'canvas.step.undo',
 ]);
 
 const lastFiredAtByEvent = new Map<HapticsEvent, number>();
@@ -147,6 +155,8 @@ async function fire(event: HapticsEvent): Promise<void> {
   const h = getExpoHaptics();
   if (!h) return;
 
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
   switch (event) {
     // Shell: keep it light / selection-based
     case 'shell.nav.selection':
@@ -163,6 +173,12 @@ async function fire(event: HapticsEvent): Promise<void> {
     case 'canvas.toggle.off':
       await h.selectionAsync();
       return;
+    case 'canvas.step.complete':
+      await h.impactAsync(h.ImpactFeedbackStyle.Light);
+      return;
+    case 'canvas.step.undo':
+      await h.selectionAsync();
+      return;
     case 'canvas.primary.confirm':
       await h.impactAsync(h.ImpactFeedbackStyle.Medium);
       return;
@@ -172,6 +188,12 @@ async function fire(event: HapticsEvent): Promise<void> {
 
     // Outcomes: use notification feedback so users learn the language quickly
     case 'outcome.success':
+      await h.notificationAsync(h.NotificationFeedbackType.Success);
+      return;
+    case 'outcome.bigSuccess':
+      // A stronger "milestone" feel: heavy impact + success notification.
+      await h.impactAsync(h.ImpactFeedbackStyle.Heavy);
+      await sleep(35);
       await h.notificationAsync(h.NotificationFeedbackType.Success);
       return;
     case 'outcome.warning':

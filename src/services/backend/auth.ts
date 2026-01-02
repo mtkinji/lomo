@@ -214,7 +214,7 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
  * Keeps auth out of the global onboarding path while still allowing flows to continue.
  */
 export async function ensureSignedInWithPrompt(
-  reason: 'share_goal' | 'share_goal_email' | 'join_goal' | 'admin',
+  reason: 'share_goal' | 'share_goal_email' | 'join_goal' | 'upload_attachment' | 'admin',
 ): Promise<Session> {
   const existing = await getSession();
   if (existing) return existing;
@@ -227,6 +227,8 @@ export async function ensureSignedInWithPrompt(
         ? 'To email an invite link, you need to sign in so access stays safe.'
       : reason === 'join_goal'
         ? 'To join this shared goal, you need to sign in so access stays safe.'
+        : reason === 'upload_attachment'
+          ? 'To upload attachments, you need to sign in so access stays safe.'
         : 'To access Admin tools, you need to sign in.';
 
   return await new Promise<Session>((resolve, reject) => {

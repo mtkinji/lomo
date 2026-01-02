@@ -344,6 +344,29 @@ export interface ActivityForceActual {
   [forceId: string]: ForceLevel;
 }
 
+export type ActivityAttachmentKind = 'photo' | 'video' | 'audio' | 'document';
+
+export type ActivityAttachmentUploadStatus = 'uploading' | 'uploaded' | 'failed';
+
+export interface ActivityAttachment {
+  id: string;
+  kind: ActivityAttachmentKind;
+  fileName: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  durationSeconds: number | null;
+  storagePath: string;
+  sharedWithGoalMembers: boolean;
+  /**
+   * Client-only state for optimistic UI while uploads are in-flight.
+   * Server rows always represent "uploaded" files.
+   */
+  uploadStatus: ActivityAttachmentUploadStatus;
+  uploadError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Activity {
   id: string;
   goalId: string | null;
@@ -372,6 +395,11 @@ export interface Activity {
    * executable in one sitting.
    */
   steps?: ActivityStep[];
+  /**
+   * Optional rich media attached to this activity (photos, videos, audio notes).
+   * Persisted in Supabase + mirrored locally for offline UX.
+   */
+  attachments?: ActivityAttachment[];
   /**
    * Optional timestamp for a reminder notification associated with this
    * activity (for example, "remind me tomorrow morning"). This is stored as an

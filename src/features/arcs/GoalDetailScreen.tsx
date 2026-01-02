@@ -1037,7 +1037,7 @@ export function GoalDetailScreen() {
         const nextIsDone = activity.status !== 'done';
         if (!didFireHaptic) {
           didFireHaptic = true;
-          void HapticsService.trigger(nextIsDone ? 'outcome.success' : 'canvas.primary.confirm');
+          void HapticsService.trigger(nextIsDone ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
         }
         return {
           ...activity,
@@ -2278,13 +2278,14 @@ export function GoalDetailScreen() {
                       {activeGoalActivities.length > 0 && (
                         <VStack space="xs">
                           {activeGoalActivities.map((activity) => {
-                            const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
+                            const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity });
                             return (
                               <ActivityListItem
                                 key={activity.id}
                                 title={activity.title}
                                 meta={meta}
                                 metaLeadingIconName={metaLeadingIconName}
+                                metaLeadingIconNames={metaLeadingIconNames}
                                 isCompleted={activity.status === 'done'}
                                 onToggleComplete={() => handleToggleActivityComplete(activity.id)}
                                 isPriorityOne={activity.priority === 1}
@@ -2325,13 +2326,14 @@ export function GoalDetailScreen() {
                           {completedActivitiesExpanded && (
                             <VStack space="xs">
                               {completedGoalActivities.map((activity) => {
-                                const { meta, metaLeadingIconName } = buildActivityListMeta({ activity });
+                                const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity });
                                 return (
                                   <ActivityListItem
                                     key={activity.id}
                                     title={activity.title}
                                     meta={meta}
                                     metaLeadingIconName={metaLeadingIconName}
+                                    metaLeadingIconNames={metaLeadingIconNames}
                                     isCompleted={activity.status === 'done'}
                                     onToggleComplete={() => handleToggleActivityComplete(activity.id)}
                                     isPriorityOne={activity.priority === 1}

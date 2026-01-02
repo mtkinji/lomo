@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
@@ -15,6 +15,15 @@ import type { ActivityDifficulty, ActivityType } from '../../domain/types';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import {
+  addDocumentToActivity,
+  addPhotoOrVideoToActivity,
+  deleteAttachment,
+  openAttachment,
+  setAttachmentSharedWithGoalMembers,
+} from '../../services/attachments/activityAttachments';
+import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -165,11 +174,12 @@ export function ActivityDetailRefresh(props: any) {
     const hasNotes = Boolean((activity?.notes ?? '').trim().length);
     const tagCount = Array.isArray(activity?.tags) ? activity.tags.length : 0;
     const hasTags = tagCount > 0;
+    const hasAttachments = Array.isArray(activity?.attachments) && activity.attachments.length > 0;
     const hasLinkedGoal = Boolean(activity?.goalId);
     // Avoid showing a "configured" signal just because the default ActivityType exists.
     const hasNonDefaultType = Boolean(activity?.type && activity.type !== 'task');
-    return [hasNotes, hasTags, hasLinkedGoal, hasNonDefaultType].filter(Boolean).length;
-  }, [activity?.goalId, activity?.notes, activity?.tags, activity?.type]);
+    return [hasNotes, hasTags, hasAttachments, hasLinkedGoal, hasNonDefaultType].filter(Boolean).length;
+  }, [activity?.attachments, activity?.goalId, activity?.notes, activity?.tags, activity?.type]);
 
   const showPlanCountBadge = !planExpanded && planConfiguredCount > 0;
   const showDetailsCountBadge = !detailsExpanded && detailsConfiguredCount > 0;
@@ -1233,6 +1243,200 @@ export function ActivityDetailRefresh(props: any) {
                     ) : null}
                   </Pressable>
                 </View>
+              </View>
+
+              <View style={{ marginTop: spacing.lg }}>
+                <Text style={styles.inputLabel}>ATTACHMENTS</Text>
+                {(() => {
+                  const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
+                  const canUseAttachments = Boolean(isPro || isProToolsTrial);
+                  const attachments = ((activity as any).attachments ?? []) as any[];
+                  const count = attachments.length;
+                  const label = count > 0 ? `Attachments · ${count}` : 'Add attachments';
+
+                  const Field = (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={canUseAttachments ? 'Add attachment' : 'Unlock attachments'}
+                      testID="e2e.activityDetail.attachments.add"
+                      onPress={() => {
+                        if (!canUseAttachments) {
+                          openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
+                        }
+                      }}
+                      style={({ pressed }) => [
+                        styles.attachmentsFieldContainer,
+                        pressed ? { opacity: 0.92 } : null,
+                      ]}
+                    >
+                      <HStack space="sm" alignItems="center" style={styles.attachmentsFieldLeft}>
+                        <Icon name="paperclip" size={16} color={colors.textSecondary} />
+                        <Text numberOfLines={1} style={styles.attachmentsFieldLabel}>
+                          {label}
+                        </Text>
+                      </HStack>
+                      <View style={styles.attachmentsFieldAction}>
+                        <Icon
+                          name={canUseAttachments ? 'plus' : 'lock'}
+                          size={16}
+                          color={colors.textSecondary}
+                        />
+                      </View>
+                    </Pressable>
+                  );
+
+                  if (!canUseAttachments) return Field;
+
+                  return (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>{Field}</DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            void addPhotoOrVideoToActivity(activity).catch(() => undefined);
+                          }}
+                        >
+                          <HStack space="sm" alignItems="center">
+                            <Icon name="image" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemText}>Photo / Video</Text>
+                          </HStack>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            void addDocumentToActivity(activity).catch(() => undefined);
+                          }}
+                        >
+                          <HStack space="sm" alignItems="center">
+                            <Icon name="fileText" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemText}>Document</Text>
+                          </HStack>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            setActiveSheet?.('recordAudio');
+                          }}
+                        >
+                          <HStack space="sm" alignItems="center">
+                            <Icon name="mic" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemText}>Record audio</Text>
+                          </HStack>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  );
+                })()}
+
+                {(() => {
+                  const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
+                  const canUseAttachments = Boolean(isPro || isProToolsTrial);
+                  if (!canUseAttachments) return null;
+                  return (
+                    <View style={{ marginTop: spacing.xs }}>
+                    {(((activity as any).attachments ?? []) as any[]).length === 0 ? null : (
+                      <VStack space="xs">
+                        {(((activity as any).attachments ?? []) as any[]).map((att: any) => {
+                          const kind = (att?.kind ?? '').toString();
+                          const leadingIcon =
+                            kind === 'photo' || kind === 'video'
+                              ? 'image'
+                              : kind === 'document'
+                                ? 'fileText'
+                                : kind === 'audio'
+                                  ? 'mic'
+                                  : 'paperclip';
+                          const status = (att?.uploadStatus ?? 'uploaded').toString();
+                          const statusLabel =
+                            status === 'uploading'
+                              ? 'Uploading…'
+                              : status === 'failed'
+                                ? 'Upload failed'
+                                : '';
+
+                          return (
+                            <Pressable
+                              key={String(att.id)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Open attachment ${att.fileName ?? ''}`}
+                              onPress={() => {
+                                void openAttachment(String(att.id)).catch(() => undefined);
+                              }}
+                              style={({ pressed }) => [
+                                styles.planListRow,
+                                pressed ? styles.planListRowPressed : null,
+                              ]}
+                            >
+                              <ThreeColumnRow
+                                left={<Icon name={leadingIcon} size={18} color={colors.sumi} />}
+                                right={
+                                  <HStack space="sm" alignItems="center">
+                                    {activity.goalId ? (
+                                      <IconButton
+                                        accessibilityLabel={
+                                          att.sharedWithGoalMembers
+                                            ? 'Stop sharing with goal members'
+                                            : 'Share with goal members'
+                                        }
+                                        variant="ghost"
+                                        onPress={() => {
+                                          const next = !Boolean(att.sharedWithGoalMembers);
+                                          void setAttachmentSharedWithGoalMembers({
+                                            activityId: activity.id,
+                                            attachmentId: String(att.id),
+                                            sharedWithGoalMembers: next,
+                                          }).catch(() => undefined);
+                                        }}
+                                      >
+                                        <Icon
+                                          name={att.sharedWithGoalMembers ? 'share' : 'lock'}
+                                          size={18}
+                                          color={colors.textSecondary}
+                                        />
+                                      </IconButton>
+                                    ) : null}
+                                    <IconButton
+                                      accessibilityLabel="Delete attachment"
+                                      variant="ghost"
+                                      onPress={() => {
+                                        Alert.alert('Delete attachment?', 'This will remove it from this activity.', [
+                                          { text: 'Cancel', style: 'cancel' },
+                                          {
+                                            text: 'Delete',
+                                            style: 'destructive',
+                                            onPress: () => {
+                                              void deleteAttachment({
+                                                activityId: activity.id,
+                                                attachmentId: String(att.id),
+                                              }).catch(() => undefined);
+                                            },
+                                          },
+                                        ]);
+                                      }}
+                                    >
+                                      <Icon name="trash" size={18} color={colors.textSecondary} />
+                                    </IconButton>
+                                  </HStack>
+                                }
+                                style={styles.planListRowInner}
+                              >
+                                <VStack space="xs" style={{ flex: 1 }}>
+                                  <Text style={styles.rowLabel} numberOfLines={1}>
+                                    {att.fileName ?? 'Attachment'}
+                                  </Text>
+                                  {statusLabel ? (
+                                    <Text style={[styles.meta, status === 'failed' ? { color: colors.destructive } : null]}>
+                                      {statusLabel}
+                                    </Text>
+                                  ) : null}
+                                </VStack>
+                              </ThreeColumnRow>
+                            </Pressable>
+                          );
+                        })}
+                      </VStack>
+                    )}
+                  </View>
+                  );
+                })()}
               </View>
 
               <View style={{ marginTop: spacing.lg }}>

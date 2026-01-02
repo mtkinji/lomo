@@ -35,6 +35,26 @@ export type ActivityDetailRouteParams = {
    * Used by deep links embedded in calendar events (e.g. `kwilt://activity/<id>?openFocus=1`).
    */
   openFocus?: boolean;
+  /**
+   * When true, ActivityDetail should immediately start a Focus session (best-effort).
+   * This is primarily used by iOS ecosystem entrypoints (widgets/Shortcuts/Spotlight)
+   * that want a single-tap "Start Focus" experience while still routing into the
+   * existing shell/canvas.
+   *
+   * Example: `kwilt://activity/<id>?autoStartFocus=1&minutes=25`
+   */
+  autoStartFocus?: boolean;
+  /**
+   * Optional Focus duration for `autoStartFocus`, in minutes.
+   */
+  minutes?: number;
+  /**
+   * When true, ActivityDetail should best-effort end any in-progress Focus session for this activity.
+   * Used by iOS ecosystem surfaces (e.g. Shortcuts) to stop Focus via deep link.
+   *
+   * Example: `kwilt://activity/<id>?endFocus=1`
+   */
+  endFocus?: boolean;
 };
 
 export type ActivitiesListRouteParams = {
@@ -47,6 +67,13 @@ export type ActivitiesListRouteParams = {
    * Optional hint for showing the most relevant Suggested content.
    */
   suggestedSource?: 'notification' | 'manual';
+  /**
+   * Optional context binding (e.g. from iOS Focus Filters) that narrows initial state
+   * without introducing any new navigation surface area.
+   *
+   * Example: `kwilt://today?contextGoalId=<goalId>`
+   */
+  contextGoalId?: string;
 };
 
 export type JoinSharedGoalRouteParams = {

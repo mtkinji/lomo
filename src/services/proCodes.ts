@@ -44,6 +44,15 @@ async function buildAuthedAdminHeaders(): Promise<Headers> {
   return headers;
 }
 
+async function buildMaybeAuthedHeaders(): Promise<Headers> {
+  const token = await getAccessToken().catch(() => null);
+  const headers = await buildEdgeHeaders();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return headers;
+}
+
 export async function redeemProCode(code: string): Promise<{ alreadyRedeemed: boolean }> {
   const base = getProCodesBaseUrl();
   if (!base) {
@@ -76,7 +85,14 @@ export async function redeemProCode(code: string): Promise<{ alreadyRedeemed: bo
   return { alreadyRedeemed };
 }
 
-export async function getAdminProCodesStatus(): Promise<{ isAdmin: boolean; email?: string | null }> {
+export type AdminRole = 'none' | 'admin' | 'super_admin';
+
+export async function getAdminProCodesStatus(): Promise<{
+  isAdmin: boolean;
+  isSuperAdmin?: boolean;
+  role?: AdminRole;
+  email?: string | null;
+}> {
   const base = getProCodesBaseUrl();
   if (!base) {
     throw new Error('Pro codes service not configured');
@@ -84,7 +100,9 @@ export async function getAdminProCodesStatus(): Promise<{ isAdmin: boolean; emai
 
   const res = await fetch(`${base}/admin/status`, {
     method: 'POST',
-    headers: await buildAuthedAdminHeaders(),
+    // Important: do NOT prompt sign-in just to "check" status.
+    // If not signed in, treat as not admin and keep the UI quiet.
+    headers: await buildMaybeAuthedHeaders(),
     body: JSON.stringify({}),
   });
   const data = await res.json().catch(() => null);
@@ -95,7 +113,16 @@ export async function getAdminProCodesStatus(): Promise<{ isAdmin: boolean; emai
     throw new Error(msg);
   }
 
-  return { isAdmin: Boolean(data?.isAdmin), email: typeof data?.email === 'string' ? data.email : null };
+  const roleRaw = typeof data?.role === 'string' ? data.role : null;
+  const role: AdminRole =
+    roleRaw === 'super_admin' ? 'super_admin' : roleRaw === 'admin' ? 'admin' : 'none';
+
+  return {
+    isAdmin: Boolean(data?.isAdmin),
+    isSuperAdmin: Boolean(data?.isSuperAdmin),
+    role,
+    email: typeof data?.email === 'string' ? data.email : null,
+  };
 }
 
 export type CreateProCodeAdminInput = {
@@ -130,6 +157,37 @@ export async function createProCodeAdmin(input?: CreateProCodeAdminInput): Promi
   const code = typeof data?.code === 'string' ? data.code : '';
   if (!code) throw new Error('No code returned');
   return { code };
+}
+
+export async function sendProCodeSuperAdmin(params: {
+  channel: 'email' | 'sms';
+  code: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  note?: string;
+}): Promise<void> {
+  const base = getProCodesBaseUrl();
+  if (!base) {
+    throw new Error('Pro codes service not configured');
+  }
+
+  const res = await fetch(`${base}/admin/send`, {
+    method: 'POST',
+    headers: await buildAuthedAdminHeaders(),
+    body: JSON.stringify({
+      channel: params.channel,
+      code: params.code,
+      recipientEmail: params.recipientEmail,
+      recipientPhone: params.recipientPhone,
+      note: params.note,
+    }),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to send code';
+    throw new Error(msg);
+  }
 }
 
 

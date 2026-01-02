@@ -6,6 +6,7 @@ import { getEntitlements, purchaseProSku, restorePurchases } from '../services/e
 
 export type EntitlementsState = {
   isPro: boolean;
+  isProToolsTrial: boolean;
   lastCheckedAt: string | null;
   lastSource: EntitlementsSnapshot['source'] | null;
   lastError: string | null;
@@ -31,6 +32,7 @@ export type EntitlementsState = {
 
 const applySnapshot = (snapshot: EntitlementsSnapshot) => ({
   isPro: snapshot.isPro,
+  isProToolsTrial: snapshot.isProToolsTrial,
   lastCheckedAt: snapshot.checkedAt,
   lastSource: snapshot.source,
   lastError: snapshot.error ?? null,
@@ -41,6 +43,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
   persist(
     (set, get) => ({
       isPro: false,
+      isProToolsTrial: false,
       lastCheckedAt: null,
       lastSource: null,
       lastError: null,
@@ -55,6 +58,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
           const checkedAt = new Date().toISOString();
           const snapshot: EntitlementsSnapshot = {
             isPro: Boolean(get().devOverrideIsPro),
+            isProToolsTrial: false,
             checkedAt,
             source: 'dev',
             isStale: true,
@@ -67,6 +71,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
           // Avoid duplicate concurrent refreshes; return whatever we last had.
           return {
             isPro: get().isPro,
+            isProToolsTrial: get().isProToolsTrial,
             checkedAt: get().lastCheckedAt ?? new Date().toISOString(),
             source: get().lastSource ?? 'cache',
             isStale: get().isStale,
@@ -83,6 +88,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
           set({ isRefreshing: false, lastError: message, isStale: true });
           return {
             isPro: get().isPro,
+            isProToolsTrial: get().isProToolsTrial,
             checkedAt: get().lastCheckedAt ?? new Date().toISOString(),
             source: get().lastSource ?? 'cache',
             isStale: true,
@@ -123,6 +129,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
         set({
           devOverrideIsPro: Boolean(nextIsPro),
           isPro: Boolean(nextIsPro),
+          isProToolsTrial: false,
           lastCheckedAt: checkedAt,
           lastSource: 'dev',
           lastError: null,
@@ -156,6 +163,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
       },
       partialize: (state) => ({
         isPro: state.isPro,
+        isProToolsTrial: state.isProToolsTrial,
         lastCheckedAt: state.lastCheckedAt,
         lastSource: state.lastSource,
         lastError: state.lastError,
