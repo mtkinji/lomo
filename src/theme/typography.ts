@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const fonts = {
   regular: 'Inter_400Regular',
   medium: 'Inter_500Medium',
@@ -8,6 +10,13 @@ export const fonts = {
   // Brand wordmark font (loaded in App.tsx).
   logo: 'Urbanist_900Black',
 };
+
+const monoFontFamily =
+  Platform.select({
+    ios: 'Menlo',
+    android: 'monospace',
+    default: 'monospace',
+  }) ?? 'monospace';
 
 export const typography = {
   titleXl: {
@@ -60,5 +69,10 @@ export const typography = {
     fontSize: 34,
     lineHeight: 40,
     letterSpacing: 1,
+  },
+  mono: {
+    fontFamily: monoFontFamily,
+    fontSize: 12,
+    lineHeight: 16,
   },
 };

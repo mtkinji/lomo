@@ -45,8 +45,11 @@ const config: ExpoConfig = {
     icon: './assets/icon.png',
     color: '#1F5226',
   },
-  // Enable React Native New Architecture so SDK 54-compatible libraries like
-  // Reanimated and Worklets can install their pods correctly on EAS.
+  // NOTE:
+  // Reanimated v4+ requires the New Architecture on iOS (pods assert otherwise).
+  // We keep New Arch enabled and instead guard against native SVG crashes by
+  // optionally shimming `react-native-svg` at bundle time via `KWILT_SVG_SHIM=1`
+  // (see `metro.config.js`).
   newArchEnabled: true,
   splash: {
     image: './assets/icon.png',
@@ -59,7 +62,7 @@ const config: ExpoConfig = {
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '16',
+    buildNumber: '19',
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `apple-app-site-association` to be served from those domains.
     associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
@@ -81,7 +84,7 @@ const config: ExpoConfig = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 16,
+    versionCode: 19,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',

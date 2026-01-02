@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
@@ -43,6 +44,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { buildArcThumbnailSeed, getArcGradient } from './thumbnailVisuals';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { FloatingActionButton } from '../../ui/FloatingActionButton';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -62,8 +70,10 @@ export function ArcsScreen() {
   const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
+  const insets = useSafeAreaInsets();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
+  const [showArchived, setShowArchived] = useState(true);
   const [archivedExpanded, setArchivedExpanded] = useState(false);
 
   const visibleArcs = useMemo(() => arcs.filter((arc) => arc.status !== 'archived'), [arcs]);
@@ -94,7 +104,8 @@ export function ArcsScreen() {
   );
 
   const listTopPadding = headerHeight ? headerHeight : spacing['2xl'];
-  const listBottomPadding = 0;
+  const fabClearancePx = insets.bottom + spacing.lg + 56 + spacing.lg;
+  const listBottomPadding = fabClearancePx;
 
   return (
     <AppShell>
@@ -113,17 +124,29 @@ export function ArcsScreen() {
             menuOpen={menuOpen}
             onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
             rightElement={
-              <IconButton
-                accessibilityRole="button"
-                accessibilityLabel="Create a new Arc"
-                style={styles.newArcButton}
-                onPress={() => {
-                  logArcsDebug('newArc:create-pressed');
-                  handleOpenNewArc();
-                }}
-              >
-                <Icon name="plus" size={18} color="#FFFFFF" />
-              </IconButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger accessibilityLabel="Arc list options">
+                  <IconButton
+                    accessibilityRole="button"
+                    accessibilityLabel="Arc list options"
+                    variant="outline"
+                  >
+                    <Icon name="more" size={18} color={colors.textPrimary} />
+                  </IconButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                  <DropdownMenuCheckboxItem
+                    checked={showArchived}
+                    onCheckedChange={(next) => {
+                      const resolved = Boolean(next);
+                      setShowArchived(resolved);
+                      if (!resolved) setArchivedExpanded(false);
+                    }}
+                  >
+                    <Text style={typography.bodySm}>Show archived</Text>
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             }
           />
         </View>
@@ -171,7 +194,7 @@ export function ArcsScreen() {
               )
             }
             ListFooterComponent={
-              archivedArcs.length > 0 ? (
+              showArchived && archivedArcs.length > 0 ? (
                 <View style={styles.archivedSection}>
                   <Pressable
                     accessibilityRole="button"
@@ -210,6 +233,15 @@ export function ArcsScreen() {
             }
           />
         </View>
+
+        <FloatingActionButton
+          accessibilityLabel="Create a new Arc"
+          onPress={() => {
+            logArcsDebug('newArc:create-pressed');
+            handleOpenNewArc();
+          }}
+          icon={<Icon name="plus" size={22} color={colors.aiForeground} />}
+        />
 
         <NewArcModal visible={newArcModalVisible} onClose={() => setNewArcModalVisible(false)} />
       </View>
@@ -285,11 +317,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.canvas,
     fontWeight: '600',
-  },
-  newArcButton: {
-    alignSelf: 'flex-start',
-    marginTop: 0,
-    backgroundColor: colors.primary,
   },
   arcCard: {
     // Use the shared card surface style so Arc rows feel like proper cards

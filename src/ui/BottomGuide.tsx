@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { colors, scrims, spacing } from '../theme';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
@@ -78,46 +78,78 @@ export function BottomGuide({
     };
   }, [visible]);
 
-  const scrimToken = scrim === 'light' ? 'pineSubtle' : 'default';
-  const shouldHideBackdrop = scrim === 'none';
+  /**
+   * BottomGuide is intended to be a lightweight, **non-blocking** overlay on top
+   * of the current canvas.
+   *
+   * Important: `BottomDrawer`'s backdrop is an interactive pressable layer that
+   * will intercept all touches on the underlying screen. That's great for true
+   * modals, but for "guides" it can create the feeling of the entire canvas being
+   * broken/unresponsive (especially on first landing after onboarding).
+   *
+   * Policy:
+   * - Always keep the underlying canvas interactive (no interactive backdrop).
+   * - Optionally render a **visual-only** scrim (`pointerEvents="none"`) to increase salience.
+   */
+  const shouldShowVisualScrim = visible && scrim === 'light';
+  const visualScrimStyle = useMemo(() => {
+    if (!shouldShowVisualScrim) return null;
+    const token = scrims.pineSubtle;
+    return [
+      styles.visualScrim,
+      { backgroundColor: token.color, opacity: token.maxOpacity },
+    ] as const;
+  }, [shouldShowVisualScrim]);
+
+  // Always hide the BottomDrawer backdrop so the guide never blocks taps/scroll on the canvas.
+  const shouldHideBackdrop = true;
   const canDismiss = Boolean(onClose);
   const accent = guideColor ?? colors.border;
 
   return (
-    <BottomDrawer
-      visible={visible}
-      onClose={onClose ?? (() => {})}
-      // Let content define its own height so the guide feels like a compact,
-      // anchored panel instead of a full-height sheet. Use a modest percentage
-      // height so the guide remains compact and non-modal.
-      snapPoints={snapPoints ?? ['35%']}
-      // Default guide is non-blocking. Allow an opt-in light scrim to increase salience.
-      hideBackdrop={shouldHideBackdrop}
-      scrimToken={scrimToken}
-      backdropMaxOpacity={scrim === 'light' ? scrims.pineSubtle.maxOpacity : undefined}
-      dismissOnBackdropPress={!shouldHideBackdrop && canDismiss}
-      dismissable={canDismiss}
-      // Guides should be easy to dismiss with a short swipe, otherwise the handle feels misleading.
-      dismissDragThresholdRatio={0.16}
-      // Render inline so the guide sits inside the current canvas layer and can
-      // remain non-blocking (underlying content stays interactive).
-      presentation="inline"
-      // Style the drawer surface itself as the guide card so it reads as a drawer
-      // (clear background + border + subtle handle), while still living in the
-      // canvas layer.
-      sheetStyle={[styles.sheetSurface, layout === 'fullWidth' && styles.sheetSurfaceFullWidth]}
-      handleContainerStyle={styles.handleContainer}
-      handleStyle={canDismiss ? [styles.handle, { backgroundColor: accent }] : styles.handleHidden}
-      // Let users swipe down anywhere on the guide card to dismiss.
-      enableContentPanningGesture={canDismiss}
-      dynamicSizing={dynamicSizing}
-    >
-      <View style={styles.content}>{children}</View>
-    </BottomDrawer>
+    <>
+      {shouldShowVisualScrim ? (
+        <View pointerEvents="none" style={visualScrimStyle as any} />
+      ) : null}
+      <BottomDrawer
+        visible={visible}
+        onClose={onClose ?? (() => {})}
+        // Let content define its own height so the guide feels like a compact,
+        // anchored panel instead of a full-height sheet. Use a modest percentage
+        // height so the guide remains compact and non-modal.
+        snapPoints={snapPoints ?? ['35%']}
+        // Guides should never block the underlying canvas.
+        hideBackdrop={shouldHideBackdrop}
+        dismissOnBackdropPress={false}
+        dismissable={canDismiss}
+        // Guides should be easy to dismiss with a short swipe, otherwise the handle feels misleading.
+        dismissDragThresholdRatio={0.16}
+        // Render inline so the guide sits inside the current canvas layer and can
+        // remain non-blocking (underlying content stays interactive).
+        presentation="inline"
+        // Style the drawer surface itself as the guide card so it reads as a drawer
+        // (clear background + border + subtle handle), while still living in the
+        // canvas layer.
+        sheetStyle={[styles.sheetSurface, layout === 'fullWidth' && styles.sheetSurfaceFullWidth]}
+        handleContainerStyle={styles.handleContainer}
+        handleStyle={canDismiss ? [styles.handle, { backgroundColor: accent }] : styles.handleHidden}
+        // Let users swipe down anywhere on the guide card to dismiss.
+        enableContentPanningGesture={canDismiss}
+        dynamicSizing={dynamicSizing}
+      >
+        <View style={styles.content}>{children}</View>
+      </BottomDrawer>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  visualScrim: {
+    ...StyleSheet.absoluteFillObject,
+    // Sit beneath the guide sheet but above the canvas content.
+    zIndex: 998,
+    elevation: 998,
+  },
   sheetSurface: {
     // Start from our shared card surface so the guide reads as a foreground drawer.
     ...cardSurfaceStyle,

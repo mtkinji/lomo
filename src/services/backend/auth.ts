@@ -18,6 +18,8 @@ export type AuthIdentity = {
 };
 
 let hasShownExpoGoRedirectDebug = false;
+const shouldShowAuthDebugAlerts = (): boolean =>
+  __DEV__ && (process.env.EXPO_PUBLIC_SHOW_AUTH_DEBUG_ALERTS ?? '').trim() === '1';
 
 export async function getSession(): Promise<Session | null> {
   const supabase = getSupabaseClient();
@@ -108,10 +110,10 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
   if (__DEV__) {
     // Helps diagnose Supabase "redirect URL not allowed" issues.
     // Some environments don't surface console logs reliably, so for Expo Go we
-    // also show the redirect URL in-app once per session.
+    // can optionally show the redirect URL in-app once per session.
     // eslint-disable-next-line no-console
     console.log(`[auth] redirectTo (${isExpoGo ? 'expo-go' : 'native'}):`, redirectTo);
-    if (isExpoGo && !hasShownExpoGoRedirectDebug) {
+    if (shouldShowAuthDebugAlerts() && isExpoGo && !hasShownExpoGoRedirectDebug) {
       hasShownExpoGoRedirectDebug = true;
       Alert.alert(
         'Supabase redirect URL (Expo Go)',
@@ -149,11 +151,18 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
       const u = new URL(data.url);
       const redirectParam = (u.searchParams.get('redirect_to') ?? '').trim();
       if (redirectParam && redirectParam !== redirectTo) {
-        Alert.alert(
-          'OAuth redirect mismatch',
-          `Supabase is redirecting to:\n\n${redirectParam}\n\nBut the app expects:\n\n${redirectTo}\n\nFix: add the Supabase redirect_to value to Supabase Auth → URL Configuration → Redirect URLs (or ensure the app redirect is allowlisted).`,
-          [{ text: 'OK' }],
-        );
+        if (shouldShowAuthDebugAlerts()) {
+          Alert.alert(
+            'OAuth redirect mismatch',
+            `Supabase is redirecting to:\n\n${redirectParam}\n\nBut the app expects:\n\n${redirectTo}\n\nFix: add the Supabase redirect_to value to Supabase Auth → URL Configuration → Redirect URLs (or ensure the app redirect is allowlisted).`,
+            [{ text: 'OK' }],
+          );
+        } else {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[auth] OAuth redirect mismatch (allowlist issue). supabase=${redirectParam} expected=${redirectTo}`,
+          );
+        }
       }
     } catch {
       // ignore

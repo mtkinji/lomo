@@ -419,7 +419,7 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   stepRow: {
-    minHeight: 40,
+    minHeight: 44,
     // Center checkbox / text / actions vertically for consistent row rhythm.
     alignItems: 'center',
   },
@@ -445,7 +445,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepInput: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
   },
@@ -453,7 +453,7 @@ export const styles = StyleSheet.create({
     width: '100%',
   },
   linkedStepTitle: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
   },
   linkedStepTitleLinked: {
@@ -488,11 +488,12 @@ export const styles = StyleSheet.create({
     marginTop: 0,
   },
   addStepInlineText: {
-    ...typography.bodySm,
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
     color: colors.accent,
     // Match the inline `Input` baseline metrics so "Add step" aligns with step titles.
     // (Vector icon glyphs + iOS baselines tend to read slightly low otherwise.)
-    lineHeight: 18,
+    lineHeight: typography.body.fontSize + 3,
     ...(Platform.OS === 'android'
       ? ({
           includeFontPadding: false,

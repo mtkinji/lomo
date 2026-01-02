@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, View, Pressable, Share } from 'react-native';
+import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, View, Pressable } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -28,6 +28,7 @@ import { createReferralCode } from '../../services/referrals';
 import { getAdminProCodesStatus } from '../../services/proCodes';
 import { signOut } from '../../services/backend/auth';
 import { withHapticPress } from '../../ui/haptics/withHapticPress';
+import { shareUrlWithPreview } from '../../utils/share';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -290,9 +291,13 @@ export function SettingsHomeScreen() {
       onPress: async () => {
         try {
           const code = await createReferralCode();
-          const link = `kwilt://referral?code=${encodeURIComponent(code)}`;
-          await Share.share({
-            message: `Try Kwilt — it’s helping me turn motivation into a real plan.\n\nOpen this link after you install: ${link}`,
+          const url = `https://go.kwilt.app/r/${encodeURIComponent(code)}`;
+          const message = `Try Kwilt — it’s helping me turn motivation into a real plan.`;
+          await shareUrlWithPreview({
+            url,
+            message,
+            subject: 'Try Kwilt',
+            androidDialogTitle: 'Invite a friend',
           });
         } catch (err: any) {
           Alert.alert(

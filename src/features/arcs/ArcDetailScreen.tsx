@@ -975,7 +975,10 @@ export function ArcDetailScreen() {
                               <Text
                                 style={[styles.heroAttributionText, styles.heroAttributionLink]}
                                 onPress={() => {
-                                  Linking.openURL(arc.heroImageMeta!.unsplashAuthorLink!).catch(() => {});
+                                  const url = arc.heroImageMeta?.unsplashAuthorLink;
+                                  if (url) {
+                                    Linking.openURL(url).catch(() => {});
+                                  }
                                 }}
                               >
                                 {arc.heroImageMeta.unsplashAuthorName}
@@ -984,7 +987,10 @@ export function ArcDetailScreen() {
                               <Text
                                 style={[styles.heroAttributionText, styles.heroAttributionLink]}
                                 onPress={() => {
-                                  Linking.openURL(arc.heroImageMeta!.unsplashLink!).catch(() => {});
+                                  const url = arc.heroImageMeta?.unsplashLink;
+                                  if (url) {
+                                    Linking.openURL(url).catch(() => {});
+                                  }
                                 }}
                               >
                                 Unsplash

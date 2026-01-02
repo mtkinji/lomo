@@ -196,8 +196,35 @@ type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
  * sizing. Intended for header actions and compact icon-only controls.
  */
 export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconButtonProps>(
-  function IconButton({ style, children, className, ...rest }, ref) {
+  function IconButton({ style, children, className, variant = 'default', ...rest }, ref) {
+    const DEFAULT_ICON_BUTTON_SIZE = 44;
     const shouldWrapChildrenAsLabel = typeof children === 'string' || typeof children === 'number';
+    const logicalVariant: ButtonVariantToken =
+      variant === 'secondary'
+        ? 'secondary'
+        : variant === 'primary'
+          ? 'primary'
+          : variant === 'outline'
+            ? 'outline'
+            : variant === 'ghost'
+              ? 'ghost'
+              : variant === 'link'
+                ? 'link'
+                : variant === 'ai'
+                  ? 'ai'
+                  : variant === 'inverse'
+                    ? 'inverse'
+                    : variant === 'destructive'
+                      ? 'destructive'
+                      : variant === 'turmeric'
+                        ? 'turmeric'
+                        : 'cta';
+    const variantTokens = BUTTON_VARIANT_TOKENS[logicalVariant];
+    const shouldReserveBorderSpace = logicalVariant !== 'ghost' && logicalVariant !== 'link';
+    const resolvedBorderWidth =
+      variantTokens.borderWidth ?? (shouldReserveBorderSpace ? 1 : 0);
+    const resolvedBorderColor =
+      variantTokens.borderColor ?? (shouldReserveBorderSpace ? 'transparent' : 'transparent');
     const { onPress, ...pressableRest } = rest;
     const onPressWithHaptics = React.useMemo(
       () => withHapticPress(onPress as any, 'canvas.selection'),
@@ -210,10 +237,12 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
         onPress={onPressWithHaptics as any}
         style={({ pressed }) => [
           {
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            backgroundColor: colors.accent,
+            width: DEFAULT_ICON_BUTTON_SIZE,
+            height: DEFAULT_ICON_BUTTON_SIZE,
+            borderRadius: DEFAULT_ICON_BUTTON_SIZE / 2,
+            backgroundColor: variantTokens.backgroundColor,
+            borderWidth: resolvedBorderWidth,
+            borderColor: resolvedBorderColor,
             alignItems: 'center',
             justifyContent: 'center',
           },
@@ -226,7 +255,7 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
           style,
         ]}
       >
-        {shouldWrapChildrenAsLabel ? <ButtonLabel tone="inverse">{children}</ButtonLabel> : children}
+        {shouldWrapChildrenAsLabel ? <ButtonLabel tone={variantTokens.textTone}>{children}</ButtonLabel> : children}
       </Pressable>
     );
   },

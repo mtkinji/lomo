@@ -13,7 +13,6 @@ import {
   Alert,
   Keyboard,
   Pressable,
-  Share,
   Linking,
   UIManager,
   findNodeHandle,
@@ -56,6 +55,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI } from '../../services/ai';
 import { suggestTagsFromText } from '../../utils/tags';
+import { shareUrlWithPreview } from '../../utils/share';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   ARC_MOSAIC_COLS,
@@ -113,12 +113,12 @@ import { HapticsService } from '../../services/HapticsService';
 import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
+import { createReferralCode } from '../../services/referrals';
 import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
-import { ensureSignedInWithPrompt } from '../../services/backend/auth';
-import { ShareGoalDrawer } from '../goals/ShareGoalDrawer';
+import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -210,6 +210,8 @@ export function GoalDetailScreen() {
   const [showFirstGoalCelebration, setShowFirstGoalCelebration] = useState(false);
   const [showOnboardingSharePrompt, setShowOnboardingSharePrompt] = useState(false);
   const [pendingOnboardingSharePrompt, setPendingOnboardingSharePrompt] = useState(false);
+  const [shareSignInSheetVisible, setShareSignInSheetVisible] = useState(false);
+  const [shareSignInSheetBusy, setShareSignInSheetBusy] = useState(false);
   // Track activity count transitions so we only trigger onboarding handoffs on
   // *real* changes (not just because a goal already has activities when the screen mounts).
   const onboardingSharePrevActivityCountRef = useRef<number | null>(null);
@@ -219,12 +221,13 @@ export function GoalDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
-  const [shareGoalDrawerVisible, setShareGoalDrawerVisible] = useState(false);
+  // Share UX: vNext prefers native share sheet (FTUE provides onboarding copy once).
 
   // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
   // Header bar height below the safe area inset (not including inset).
-  // Pills are 36px; target ~12px breathing room below them => 48px.
-  const GOAL_HEADER_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT;
+  // We render larger action pills on this screen; keep a bit of breathing room below them.
+  const HEADER_ACTION_PILL_SIZE = 44;
+  const GOAL_HEADER_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT + 8; // ~44px pill + 8px breathing room
   const HEADER_BOTTOM_Y = insets.top + GOAL_HEADER_HEIGHT;
   const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
 
@@ -667,14 +670,95 @@ export function GoalDetailScreen() {
     [goal?.id, showToast, updateGoal],
   );
 
-  const handleShareGoal = useCallback(async () => {
+  const performShareGoalInvite = useCallback(async () => {
     try {
       if (!goal) return;
-      setShareGoalDrawerVisible(true);
+      capture(AnalyticsEvent.ShareInviteChannelSelected, { goalId: goal.id, channel: 'share_sheet' });
+      const referralCode = await createReferralCode().catch(() => '');
+      const goalImageUrl = (() => {
+        const raw = (displayThumbnailUrl ?? '').trim();
+        if (!raw) return undefined;
+        try {
+          const u = new URL(raw);
+          // Only include publicly fetchable URLs for OG previews (no file://, ph://, etc).
+          if (u.protocol !== 'https:' && u.protocol !== 'http:') return undefined;
+          return u.toString();
+        } catch {
+          return undefined;
+        }
+      })();
+
+      const { inviteUrl, inviteRedirectUrl, inviteLandingUrl } = await createGoalInvite({
+        goalId: goal.id,
+        goalTitle: goal.title,
+        goalImageUrl,
+        kind: 'people',
+      });
+      const code = extractInviteCode(inviteUrl);
+      const open = buildInviteOpenUrl(code);
+      const isExpoGo = Constants.appOwnership === 'expo';
+      const fallbackTapUrl = inviteRedirectUrl
+        ? isExpoGo
+          ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
+          : inviteRedirectUrl
+        : open.primary;
+
+      // Share-sheet preview needs a URL that returns OG metadata. Our Edge Function does that.
+      // Note: this URL may not be a Universal Link host; that's ok for previews, and it still
+      // performs a best-effort kwilt:// handoff via HTML.
+      const shareUrlBase = inviteRedirectUrl ?? inviteLandingUrl ?? fallbackTapUrl;
+
+      // Tap/open URL for humans: prefer the public landing host (Universal Links) when available.
+      const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
+
+      const withRef = (rawUrl: string): string => {
+        const ref = referralCode.trim();
+        if (!rawUrl) return rawUrl;
+        if (!ref) return rawUrl;
+        try {
+          const u = new URL(rawUrl);
+          if (!(u.searchParams.get('ref') ?? '').trim()) {
+            u.searchParams.set('ref', ref);
+          }
+          return u.toString();
+        } catch {
+          const joiner = rawUrl.includes('?') ? '&' : '?';
+          return `${rawUrl}${joiner}ref=${encodeURIComponent(ref)}`;
+        }
+      };
+
+      const tapUrl = withRef(tapUrlBase);
+      const shareUrl = withRef(shareUrlBase);
+
+      const title = `Join my shared goal in Kwilt: “${goal.title}”`;
+      // Share sheets: on iOS we must share the URL as the primary item to get a rich preview card.
+      // On Android, most targets only receive `message`, so include the link there.
+      const baseMessage =
+        `Join my shared goal in Kwilt: “${goal.title}”.\n\n` +
+        `Default sharing: signals only (check-ins + cheers). Activity titles stay private unless we choose to share them.\n\n` +
+        `Plus: we’ll both get +25 AI credits when you join.`;
+      const message = Platform.OS === 'android' ? baseMessage : undefined;
+
+      await shareUrlWithPreview({
+        url: shareUrl,
+        message,
+        subject: title,
+        androidDialogTitle: 'Share goal invite',
+      });
     } catch {
       // No-op: Share sheets can be dismissed or unavailable on some platforms.
     }
-  }, [goal]);
+  }, [capture, goal]);
+
+  const handleShareGoal = useCallback(async () => {
+    if (!goal) return;
+    if (!authIdentity) {
+      // Standard share UX: show a bottom sheet auth gate (not a system Alert).
+      setShareSignInSheetVisible(true);
+      return;
+    }
+    await performShareGoalInvite();
+  }, [authIdentity, goal, performShareGoalInvite]);
 
   useEffect(() => {
     // no-op placeholder; reserved for future debug instrumentation
@@ -1625,14 +1709,88 @@ export function GoalDetailScreen() {
   return (
     <AppShell fullBleedCanvas>
       <StatusBar style={statusBarStyle} animated />
-      {goal ? (
-        <ShareGoalDrawer
-          visible={shareGoalDrawerVisible}
-          onClose={() => setShareGoalDrawerVisible(false)}
-          goalId={goal.id}
-          goalTitle={goal.title}
-        />
-      ) : null}
+      {/* ShareGoalDrawer deprecated in vNext share UX; keep removed from render to avoid non-standard flows. */}
+      <BottomDrawer
+        visible={shareSignInSheetVisible}
+        onClose={() => {
+          if (shareSignInSheetBusy) return;
+          setShareSignInSheetVisible(false);
+        }}
+        snapPoints={['50%']}
+        initialSnapIndex={0}
+        dismissable={!shareSignInSheetBusy}
+        enableContentPanningGesture
+        scrimToken="pineSubtle"
+        sheetStyle={styles.shareSignInSheet}
+        handleContainerStyle={styles.shareSignInHandleContainer}
+        handleStyle={styles.shareSignInHandle}
+      >
+        <View style={styles.shareSignInContent}>
+          <VStack space="md">
+            <VStack space="xs">
+              <Text style={styles.shareSignInTitle}>Sign in to share</Text>
+              <Text style={styles.shareSignInBody}>Sign in to share this goal with an invite link.</Text>
+            </VStack>
+            <VStack space="sm" style={styles.shareSignInButtonGroup}>
+              <Button
+                fullWidth
+                variant="outline"
+                style={styles.shareSignInOutlineButton}
+                disabled={shareSignInSheetBusy}
+                onPress={async () => {
+                  if (shareSignInSheetBusy) return;
+                  setShareSignInSheetBusy(true);
+                  try {
+                    await signInWithProvider('apple');
+                    setShareSignInSheetVisible(false);
+                    await performShareGoalInvite();
+                  } finally {
+                    setShareSignInSheetBusy(false);
+                  }
+                }}
+                accessibilityLabel="Continue with Apple to share goal"
+              >
+                <HStack alignItems="center" justifyContent="center" space="sm">
+                  <Icon name="apple" size={18} color={colors.textPrimary} />
+                  <Text style={styles.shareAuthButtonLabel}>Continue with Apple</Text>
+                </HStack>
+              </Button>
+              <Button
+                fullWidth
+                variant="outline"
+                style={styles.shareSignInOutlineButton}
+                disabled={shareSignInSheetBusy}
+                onPress={async () => {
+                  if (shareSignInSheetBusy) return;
+                  setShareSignInSheetBusy(true);
+                  try {
+                    await signInWithProvider('google');
+                    setShareSignInSheetVisible(false);
+                    await performShareGoalInvite();
+                  } finally {
+                    setShareSignInSheetBusy(false);
+                  }
+                }}
+                accessibilityLabel="Continue with Google to share goal"
+              >
+                <HStack alignItems="center" justifyContent="center" space="sm">
+                  <Icon name="google" size={18} color={colors.textPrimary} />
+                  <Text style={styles.shareAuthButtonLabel}>Continue with Google</Text>
+                </HStack>
+              </Button>
+              <Button
+                fullWidth
+                variant="ghost"
+                disabled={shareSignInSheetBusy}
+                onPress={() => setShareSignInSheetVisible(false)}
+                accessibilityLabel="Cancel"
+              >
+                <Text style={styles.shareSignInCancelLabel}>Cancel</Text>
+              </Button>
+            </VStack>
+          </VStack>
+        </View>
+      </BottomDrawer>
       <FullScreenInterstitial
         visible={showFirstGoalCelebration}
         onDismiss={handleDismissFirstGoalCelebration}
@@ -1678,8 +1836,8 @@ export function GoalDetailScreen() {
       <Dialog
         visible={showOnboardingSharePrompt}
         onClose={() => setShowOnboardingSharePrompt(false)}
-        title="Want an accountability buddy?"
-        description="Share your new goal with a friend so someone can cheer you on (or keep you honest)."
+        title="Invite people to this goal?"
+        description="Share an invite link so someone can cheer you on (or keep you honest)."
         footer={
           <HStack space="sm" marginTop={spacing.lg}>
             <Button
@@ -1693,24 +1851,19 @@ export function GoalDetailScreen() {
               style={{ flex: 1 }}
               onPress={async () => {
                 try {
-                  const arcName = arc?.name ? ` (${arc.name})` : '';
-                  await Share.share({
-                    message: `I just set a new goal in kwilt${arcName}: “${goal.title}”. Want to be my accountability buddy?`,
-                  });
-                } catch {
-                  // Swallow share errors; this is a best-effort evangelism hook.
+                  await handleShareGoal();
                 } finally {
                   setShowOnboardingSharePrompt(false);
                 }
               }}
             >
-              <Text style={styles.primaryCtaText}>Invite a friend</Text>
+              <Text style={styles.primaryCtaText}>Invite people</Text>
             </Button>
           </HStack>
         }
       >
         <Text style={styles.firstGoalBody}>
-          The fastest way to follow through is to let someone else see your intention.
+          By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.
         </Text>
       </Dialog>
       <BottomGuide
@@ -1855,58 +2008,51 @@ export function GoalDetailScreen() {
         <View style={{ flex: 1, backgroundColor: colors.canvas }}>
           <View style={{ flex: 1 }}>
             <ObjectPageHeader
-              barHeight={OBJECT_PAGE_HEADER_BAR_HEIGHT}
+              barHeight={GOAL_HEADER_HEIGHT}
               backgroundOpacity={headerBackgroundOpacity}
               actionPillOpacity={headerActionPillOpacity}
               left={
                 <HeaderActionPill
+                  size={HEADER_ACTION_PILL_SIZE}
                   onPress={handleBack}
                   accessibilityLabel="Back"
                   materialOpacity={headerActionPillOpacity}
                 >
-                  <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                  <Icon name="chevronLeft" size={24} color={colors.textPrimary} />
                 </HeaderActionPill>
               }
               right={
                 <HStack alignItems="center" space="sm">
-                  <HeaderActionGroupPill
-                    accessibilityLabel="Share goal and members"
-                    materialOpacity={headerActionPillOpacity}
-                    style={styles.headerShareMembersPill}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="View members"
+                    hitSlop={12}
+                    onPress={() => setMembersSheetVisible(true)}
+                    style={styles.headerMembersStandalone}
                   >
-                    <HStack alignItems="center" space="md">
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="View members"
-                        hitSlop={10}
-                        onPress={() => setMembersSheetVisible(true)}
-                        style={styles.headerMembersZone}
-                      >
-                        <OverlappingAvatarStack
-                          avatars={headerAvatars}
-                          size={22}
-                          maxVisible={3}
-                          overlapPx={10}
-                        />
-                      </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Share goal"
-                        hitSlop={10}
-                        onPress={handleShareGoal}
-                        style={styles.headerShareZone}
-                      >
-                        <Icon name="share" size={18} color={colors.textPrimary} />
-                      </Pressable>
-                    </HStack>
-                  </HeaderActionGroupPill>
+                    <OverlappingAvatarStack
+                      avatars={headerAvatars}
+                      size={HEADER_ACTION_PILL_SIZE}
+                      maxVisible={2}
+                      overlapPx={18}
+                    />
+                  </Pressable>
+                  <HeaderActionPill
+                    accessibilityLabel="Share goal"
+                    materialOpacity={headerActionPillOpacity}
+                    size={HEADER_ACTION_PILL_SIZE}
+                    onPress={handleShareGoal}
+                  >
+                    <Icon name="share" size={22} color={colors.textPrimary} />
+                  </HeaderActionPill>
                   <DropdownMenu>
                     <DropdownMenuTrigger accessibilityLabel="Goal actions">
                       <HeaderActionPill
                         accessibilityLabel="Goal actions"
                         materialOpacity={headerActionPillOpacity}
+                        size={HEADER_ACTION_PILL_SIZE}
                       >
-                        <Icon name="more" size={18} color={colors.textPrimary} />
+                        <Icon name="more" size={22} color={colors.textPrimary} />
                       </HeaderActionPill>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="bottom" sideOffset={6} align="end">
@@ -1977,29 +2123,31 @@ export function GoalDetailScreen() {
                       transform: [{ translateY: heroParallaxTranslateY }],
                     }}
                   >
-                    <TouchableOpacity
-                      style={styles.heroFullBleedWrapper}
-                      onPress={() => setThumbnailSheetVisible(true)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Edit Goal banner"
-                      activeOpacity={0.95}
-                    >
-                  {displayThumbnailUrl ? (
-                    <Image
-                      source={{ uri: displayThumbnailUrl }}
-                          style={styles.heroFullBleedImage}
-                      resizeMode="cover"
-                      accessibilityLabel="Goal banner"
-                    />
-                  ) : (
-                    <LinearGradient
-                      colors={heroGradientColors}
-                      start={heroGradientDirection.start}
-                      end={heroGradientDirection.end}
-                          style={styles.heroFullBleedImage}
-                    />
-                  )}
-                    </TouchableOpacity>
+                    <View style={styles.heroFullBleedWrapper}>
+                      <TouchableOpacity
+                        style={StyleSheet.absoluteFillObject}
+                        onPress={() => setThumbnailSheetVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit Goal banner"
+                        activeOpacity={0.95}
+                      >
+                        {displayThumbnailUrl ? (
+                          <Image
+                            source={{ uri: displayThumbnailUrl }}
+                            style={styles.heroFullBleedImage}
+                            resizeMode="cover"
+                            accessibilityLabel="Goal banner"
+                          />
+                        ) : (
+                          <LinearGradient
+                            colors={heroGradientColors}
+                            start={heroGradientDirection.start}
+                            end={heroGradientDirection.end}
+                            style={styles.heroFullBleedImage}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </Animated.View>
                 </View>
 
@@ -2040,8 +2188,8 @@ export function GoalDetailScreen() {
                           signals={goalProgressSignals}
                         />
                         {/*
-                          Shared members indicator is now rendered in the header as a combined pill
-                          (share + overlapping avatars). Avoid duplicating it in the canvas.
+                          Members avatar is rendered on the hero/banner (canvas) so it can be large
+                          without constraining header action pills.
                         */}
 
                         <View style={{ marginTop: spacing.sm, width: '100%' }}>
@@ -3885,6 +4033,62 @@ const styles = StyleSheet.create({
     color: colors.indigo900,
     lineHeight: 22,
   },
+  shareAuthButton: {
+    backgroundColor: colors.canvas,
+    borderColor: colors.canvas,
+    borderRadius: 18,
+  },
+  shareAuthButtonSharing: {
+    backgroundColor: 'transparent',
+    borderColor: colors.sharing,
+    borderRadius: 18,
+  },
+  shareAuthButtonLabel: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    lineHeight: 22,
+    includeFontPadding: false,
+  },
+  shareAuthNotNowLabel: {
+    ...typography.body,
+    color: colors.indigo100,
+    textAlign: 'center',
+  },
+  shareSignInSheet: {
+    backgroundColor: colors.canvas,
+  },
+  shareSignInHandleContainer: {
+    paddingTop: spacing.sm,
+    backgroundColor: colors.canvas,
+  },
+  shareSignInHandle: {
+    backgroundColor: colors.border,
+  },
+  shareSignInContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  shareSignInButtonGroup: {
+    marginTop: spacing.lg,
+  },
+  shareSignInOutlineButton: {
+    borderRadius: 18,
+  },
+  shareSignInTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  shareSignInBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  shareSignInCancelLabel: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   goalCoachmarkTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
@@ -4272,6 +4476,7 @@ const styles = StyleSheet.create({
   },
   pageContent: {
     width: '100%',
+    position: 'relative',
   },
   goalHeroSection: {
     height: 240,
@@ -4281,10 +4486,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: colors.shellAlt,
+    position: 'relative',
   },
   heroFullBleedImage: {
     width: '100%',
     height: '100%',
+  },
+  headerMembersStandalone: {
+    height: '100%',
+    justifyContent: 'center',
   },
   goalSheet: {
     marginTop: -20,
@@ -4334,12 +4544,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   headerShareZone: {
-    paddingVertical: spacing.xs / 2,
-    paddingLeft: 0,
+    height: '100%',
+    justifyContent: 'center',
+    paddingVertical: 0,
+    paddingHorizontal: spacing.xs,
   },
   headerMembersZone: {
-    paddingVertical: spacing.xs / 2,
-    paddingRight: spacing.xs,
+    height: '100%',
+    justifyContent: 'center',
+    paddingVertical: 0,
+    paddingLeft: spacing.xs,
+    paddingRight: spacing.sm,
   },
   membersSheetContent: {
     flex: 1,

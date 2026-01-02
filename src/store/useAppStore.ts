@@ -518,6 +518,11 @@ interface AppState {
    */
   hasSeenOnboardingSharePrompt: boolean;
   /**
+   * One-time hero interstitial shown when the user first attempts to invite/share a goal
+   * while signed out. Teaches why sign-in is required and what sharing includes.
+   */
+  hasSeenShareSignInHero: boolean;
+  /**
    * One-time educational interstitial teaching AI credits during FTUE.
    */
   hasSeenCreditsEducationInterstitial: boolean;
@@ -629,6 +634,7 @@ interface AppState {
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
   setHasSeenOnboardingSharePrompt: (seen: boolean) => void;
+  setHasSeenShareSignInHero: (seen: boolean) => void;
   setHasSeenCreditsEducationInterstitial: (seen: boolean) => void;
   setHasSeenRefineUndoCoachmark: (seen: boolean) => void;
   setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
@@ -873,6 +879,7 @@ export const useAppStore = create<AppState>()(
       hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
       hasSeenOnboardingSharePrompt: false,
+      hasSeenShareSignInHero: false,
       hasSeenCreditsEducationInterstitial: false,
       redeemedReferralCodes: {},
       hasSeenRefineUndoCoachmark: false,
@@ -1137,6 +1144,10 @@ export const useAppStore = create<AppState>()(
       setHasSeenOnboardingSharePrompt: (seen) =>
         set(() => ({
           hasSeenOnboardingSharePrompt: seen,
+        })),
+      setHasSeenShareSignInHero: (seen) =>
+        set(() => ({
+          hasSeenShareSignInHero: seen,
         })),
       setHasSeenCreditsEducationInterstitial: (seen) =>
         set(() => ({

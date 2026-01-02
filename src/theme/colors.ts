@@ -94,8 +94,9 @@ export const colors = {
 
   // Default "ink" color – aligned with Sumi for a softer, less green-tinted body/heading text.
   textPrimary: '#1C1A19',
-  textSecondary: '#5D6B54',
-  muted: '#8E9B83',
+  // Secondary text should stay neutral (no pine tint) so body copy doesn't read green.
+  textSecondary: '#57534E', // sumi600
+  muted: '#78716C', // sumi500
 
   // Form field section labels (e.g., NOTES / TAGS / LINKED GOAL). Keep in the Sumi family (no pine tint).
   formLabel: '#57534E', // sumi600
@@ -140,6 +141,9 @@ export const colors = {
 
   // Kwilt Craft brand palette (Earthy + Handmade + Cross-Cultural)
   indigo: '#1A2E3F', // Aizome Indigo – 深藍, deep, contemplative, protective
+  // Semantic moment color: sharing/invites. Slightly brighter than indigo so it feels like a distinct “hero” moment.
+  // (Aligned to quiltBlue700.)
+  sharing: '#24364E',
   // Turmeric scale (warm, diffuse, pan-Indian / SE Asian turmeric)
   turmeric50: '#FBF3E5',
   turmeric100: '#F6E6C8',

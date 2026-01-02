@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
+import { HapticsService } from '../../services/HapticsService';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { Input } from '../../ui/Input';
@@ -187,6 +188,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
                     setWhyNowId(option.id);
                     setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                   }}
@@ -235,6 +237,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
                     setDomainId(option.id);
                     setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                   }}
@@ -273,6 +276,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
                     setProudMomentId(option.id);
                     setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                   }}
@@ -311,6 +315,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
                     setMotivationId(option.id);
                     setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                   }}
@@ -349,6 +354,7 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
                   onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
                     setRoleModelTypeId(option.id);
                     setStepIndex((idx) => Math.min(idx + 1, ARC_CREATION_SURVEY_STEP_ORDER.length - 1));
                   }}
@@ -386,7 +392,10 @@ export function ArcCreationFlow({ chatControllerRef }: ArcCreationFlowProps) {
                   style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: selected }}
-                  onPress={() => toggleAdmiredQuality(option.id)}
+                  onPress={() => {
+                    void HapticsService.trigger('canvas.selection');
+                    toggleAdmiredQuality(option.id);
+                  }}
                 >
                   <View style={styles.fullWidthOptionContent}>
                     <View style={[styles.checkboxOuter, selected && styles.checkboxOuterSelected]}>

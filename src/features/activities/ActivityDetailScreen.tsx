@@ -207,6 +207,29 @@ export function ActivityDetailScreen() {
     return map;
   }, [activities]);
 
+  const effectiveGoalId = useMemo((): string | null => {
+    if (activity?.goalId) return activity.goalId;
+
+    // Defensive: some Activities may be missing `goalId` (older persisted snapshots or
+    // step-derived Activities). In that case, try to inherit the goal link from the
+    // origin chain (activity_step → parent activity → ...).
+    const visited = new Set<string>();
+    let cursor: Activity | undefined = activity;
+    let hops = 0;
+    while (cursor && hops < 8) {
+      hops += 1;
+      if (cursor.goalId) return cursor.goalId;
+      if (cursor.id) visited.add(cursor.id);
+
+      const parentId = cursor.origin?.kind === 'activity_step' ? cursor.origin.parentActivityId : null;
+      if (!parentId) break;
+      if (visited.has(parentId)) break;
+      cursor = activitiesById[parentId];
+    }
+
+    return null;
+  }, [activity, activitiesById]);
+
   const openActivityDetail = useCallback(
     (nextActivityId: string) => {
       const screenName = route.name === 'ActivityDetailFromGoal' ? 'ActivityDetailFromGoal' : 'ActivityDetail';
@@ -1634,7 +1657,7 @@ export function ActivityDetailScreen() {
 
       const nextActivity: Activity = {
         id,
-        goalId: activity.goalId ?? null,
+        goalId: effectiveGoalId,
         title: trimmedTitle,
         type: 'task',
         tags: [],
@@ -1679,7 +1702,16 @@ export function ActivityDetailScreen() {
 
       openActivityDetail(id);
     },
-    [activities.length, activity.goalId, activity.id, addActivity, openActivityDetail, recordShowUp, stepsDraft, updateActivity]
+    [
+      activities.length,
+      activity?.id,
+      addActivity,
+      effectiveGoalId,
+      openActivityDetail,
+      recordShowUp,
+      stepsDraft,
+      updateActivity,
+    ]
   );
 
   const handleUnlinkStepActivity = useCallback(

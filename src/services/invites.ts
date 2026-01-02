@@ -54,12 +54,13 @@ async function buildEdgeHeaders(requireAuth: boolean, accessToken?: string | nul
   return headers;
 }
 
-export type InviteKind = 'buddy' | 'squad';
+// Backward compatible: older builds may still send buddy/squad.
+export type InviteKind = 'people' | 'buddy' | 'squad';
 
 export async function sendGoalInviteEmail(params: {
   goalId: string;
   goalTitle: string;
-  kind: InviteKind;
+  kind?: InviteKind;
   recipientEmail: string;
   inviteCode?: string | null;
   referralCode?: string | null;
@@ -79,7 +80,7 @@ export async function sendGoalInviteEmail(params: {
       body: JSON.stringify({
         goalId: params.goalId,
         goalTitle: params.goalTitle,
-        kind: params.kind,
+        kind: (params.kind ?? 'people'),
         recipientEmail: params.recipientEmail,
         inviteCode: typeof params.inviteCode === 'string' ? params.inviteCode.trim() : null,
         referralCode: typeof params.referralCode === 'string' ? params.referralCode.trim() : null,
@@ -91,7 +92,12 @@ export async function sendGoalInviteEmail(params: {
     throw new Error(`[invite-email-send] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     const msg =
       typeof data?.error?.message === 'string'
@@ -115,7 +121,8 @@ export async function sendGoalInviteEmail(params: {
 export async function createGoalInvite(params: {
   goalId: string;
   goalTitle: string;
-  kind: InviteKind;
+  goalImageUrl?: string;
+  kind?: InviteKind;
 }): Promise<{
   inviteCode: string;
   inviteUrl: string;
@@ -138,8 +145,9 @@ export async function createGoalInvite(params: {
       body: JSON.stringify({
         entityType: 'goal',
         entityId: params.goalId,
-        kind: params.kind,
+        kind: (params.kind ?? 'people'),
         goalTitle: params.goalTitle,
+        goalImageUrl: typeof params.goalImageUrl === 'string' ? params.goalImageUrl : undefined,
       }),
     });
     rawText = await res.text().catch(() => null);
@@ -151,7 +159,12 @@ export async function createGoalInvite(params: {
     throw new Error(`[invite-create] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   const inviteCode = typeof data?.inviteCode === 'string' ? data.inviteCode.trim() : '';
   const inviteUrl = typeof data?.inviteUrl === 'string' ? data.inviteUrl.trim() : '';
 
@@ -234,7 +247,12 @@ export async function acceptGoalInvite(inviteCode: string): Promise<{ goalId: st
     throw new Error(`[invite-accept] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     const msg =
       typeof data?.error?.message === 'string'
@@ -293,7 +311,12 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
     throw new Error(`[invite-preview] ${msg}`);
   }
 
-  const data = rawText ? JSON.parse(rawText) : null;
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
     const msg =
       typeof data?.error?.message === 'string'
@@ -472,11 +495,11 @@ export async function shareGoalInviteLink(params: {
   inviteUrl: string;
   kind: InviteKind;
 }): Promise<void> {
-  const kindLabel = params.kind === 'squad' ? 'squad' : 'buddy';
+  const kindLabel = params.kind === 'people' ? 'people' : params.kind === 'squad' ? 'squad' : 'buddy';
   await new Promise<void>((resolve) => {
     Alert.alert(
       'Invite link ready',
-      `You’re inviting a ${kindLabel}.\n\nBy default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.`,
+      `You’re inviting ${kindLabel === 'people' ? 'people' : `a ${kindLabel}`}.\n\nBy default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.`,
       [{ text: 'OK', onPress: () => resolve() }],
       { cancelable: true },
     );

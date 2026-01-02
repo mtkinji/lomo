@@ -101,7 +101,7 @@ serve(async (req) => {
   const expiresAt = (invite as any).expires_at as string | null;
   const maxUses = (invite as any).max_uses as number;
   const uses = (invite as any).uses as number;
-  const payload = ((invite as any).payload ?? {}) as Record<string, unknown>;
+  const payload = ((invite as any).payload ?? {}) as JsonValue;
   const createdBy = (invite as any).created_by as string | null;
 
   if (entityType !== 'goal' || !entityId) {

@@ -760,8 +760,8 @@ function KwiltDrawerContent(props: any) {
             <ProfileAvatar
               name={displayName}
               avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
-              size={36}
-              borderRadius={18}
+              size={44}
+              borderRadius={22}
               style={styles.avatarPlaceholder}
             />
             <View style={styles.profileTextBlock}>
@@ -814,13 +814,13 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   avatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.shell,
   },
   profileTextBlock: {

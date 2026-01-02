@@ -72,9 +72,8 @@ function deriveFunctionBase(args: { reqUrl: string; functionName: string }): str
   }
 }
 
-function renderEmailHtml(params: { goalTitle: string; inviteLink: string; kind: 'buddy' | 'squad' }) {
+function renderEmailHtml(params: { goalTitle: string; inviteLink: string; kind: 'people' | 'buddy' | 'squad' }) {
   const title = params.goalTitle.trim() || 'Shared goal';
-  const kindLabel = params.kind === 'squad' ? 'shared goal squad' : 'goal';
   const link = params.inviteLink;
   return `<!doctype html>
 <html>
@@ -85,7 +84,7 @@ function renderEmailHtml(params: { goalTitle: string; inviteLink: string; kind: 
   </head>
   <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
     <div style="max-width:560px;margin:0 auto;padding:24px;">
-      <h1 style="margin:0 0 12px;font-size:22px;line-height:28px;">Join my ${kindLabel} in Kwilt</h1>
+      <h1 style="margin:0 0 12px;font-size:22px;line-height:28px;">Join my shared goal in Kwilt</h1>
       <p style="margin:0 0 18px;font-size:16px;line-height:22px;color:#374151;">
         <strong style="color:#111827;">“${title.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}”</strong>
       </p>
@@ -138,7 +137,9 @@ serve(async (req) => {
   const body = await req.json().catch(() => null);
   const goalId = typeof body?.goalId === 'string' ? body.goalId.trim() : '';
   const goalTitle = typeof body?.goalTitle === 'string' ? body.goalTitle.trim() : '';
-  const kind = typeof body?.kind === 'string' && body.kind.trim() === 'squad' ? 'squad' : 'buddy';
+  const rawKind = typeof body?.kind === 'string' ? body.kind.trim() : '';
+  // Backward compatible: accept legacy kinds but map to unified behavior.
+  const kind = rawKind === 'people' || rawKind === 'squad' || rawKind === 'buddy' ? 'people' : 'people';
   const recipientEmail = typeof body?.recipientEmail === 'string' ? body.recipientEmail.trim() : '';
   const providedInviteCode = typeof body?.inviteCode === 'string' ? body.inviteCode.trim() : '';
   const referralCode = typeof body?.referralCode === 'string' ? body.referralCode.trim() : '';
@@ -176,7 +177,7 @@ serve(async (req) => {
     { onConflict: 'entity_type,entity_id,user_id' },
   );
 
-  const maxUses = kind === 'squad' ? 5 : 1;
+  const maxUses = 25;
   const expiresDays = 14;
   const expiresAt = new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
 
@@ -244,7 +245,7 @@ serve(async (req) => {
   const fallbackSchemeUrl = `kwilt://invite?code=${encodeURIComponent(inviteCode)}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
   const inviteLink = landingUrl || inviteRedirectUrl || fallbackSchemeUrl;
 
-  const subject = `${kind === 'squad' ? 'Join my shared goal squad' : 'Join my goal'} in Kwilt`;
+  const subject = `Join my shared goal in Kwilt`;
   const html = renderEmailHtml({ goalTitle, inviteLink, kind });
   const text =
     `${subject}: "${goalTitle || 'Shared goal'}"\n\n` +
