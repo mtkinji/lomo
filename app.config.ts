@@ -61,6 +61,8 @@ const config: ExpoConfig = {
     supportsTablet: true,
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
+    // Required for signing additional targets created at prebuild time (e.g. widgets).
+    appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
     buildNumber: '21',
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
