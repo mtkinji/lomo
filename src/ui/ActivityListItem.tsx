@@ -29,6 +29,10 @@ type ActivityListItemProps = {
    */
   metaLeadingIconName?: import('./Icon').IconName;
   /**
+   * Preferred multi-icon support for the meta row (e.g. calendar/bell + paperclip).
+   */
+  metaLeadingIconNames?: Array<import('./Icon').IconName>;
+  /**
    * When true and `meta` is still empty, renders a lightweight animated skeleton
    * placeholder in the metadata row space. Useful while AI enrichment is running.
    */
@@ -68,6 +72,7 @@ export function ActivityListItem({
   meta,
   notes,
   metaLeadingIconName,
+  metaLeadingIconNames,
   metaLoading = false,
   isCompleted = false,
   onToggleComplete,
@@ -152,6 +157,12 @@ export function ActivityListItem({
   });
 
   const showNotes = variant === 'full' && Boolean(notes && notes.trim().length > 0);
+  const resolvedMetaLeadingIcons =
+    Array.isArray(metaLeadingIconNames) && metaLeadingIconNames.length > 0
+      ? metaLeadingIconNames
+      : metaLeadingIconName
+        ? [metaLeadingIconName]
+        : [];
 
   const content = (
     <Card style={[styles.card, variant === 'full' && styles.cardFull]}>
@@ -220,26 +231,32 @@ export function ActivityListItem({
             </Text>
             {meta ? (
               <HStack space={4} alignItems="center">
-                {metaLeadingIconName ? (
-                  <Icon
-                    name={metaLeadingIconName}
-                    size={10}
-                    color={isCompleted ? colors.muted : colors.textSecondary}
-                  />
-                ) : null}
+                {resolvedMetaLeadingIcons.length > 0
+                  ? resolvedMetaLeadingIcons.map((iconName) => (
+                      <Icon
+                        key={iconName}
+                        name={iconName}
+                        size={10}
+                        color={isCompleted ? colors.muted : colors.textSecondary}
+                      />
+                    ))
+                  : null}
                 <Text numberOfLines={1} style={[styles.meta, isCompleted && styles.metaCompleted]}>
                   {meta}
                 </Text>
               </HStack>
             ) : metaLoading ? (
               <HStack space={4} alignItems="center">
-                {metaLeadingIconName ? (
-                  <Icon
-                    name={metaLeadingIconName}
-                    size={10}
-                    color={isCompleted ? colors.muted : colors.textSecondary}
-                  />
-                ) : null}
+                {resolvedMetaLeadingIcons.length > 0
+                  ? resolvedMetaLeadingIcons.map((iconName) => (
+                      <Icon
+                        key={iconName}
+                        name={iconName}
+                        size={10}
+                        color={isCompleted ? colors.muted : colors.textSecondary}
+                      />
+                    ))
+                  : null}
                 <Animated.View
                   style={[
                     styles.metaSkeleton,

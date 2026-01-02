@@ -28,6 +28,9 @@ const PRO_VALUE_ATTAINMENTS: PaywallBenefit[] = [
     title: 'Unlimited arcs + goals',
   },
   {
+    title: 'Attachments for activities',
+  },
+  {
     title: 'Focus sessions up to 180 minutes',
   },
   {
@@ -73,6 +76,12 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
         title: 'Go deep when it’s time to work',
         subtitle:
           'Pro unlocks longer focus sessions so you can do real work—not just get started. Protect your attention and finish what you begin.',
+      };
+    case 'pro_only_attachments':
+      return {
+        title: 'Keep everything for an activity in one place',
+        subtitle:
+          'Attachments are part of Pro Tools—add photos, documents, and recordings right on the activity so execution stays frictionless.',
       };
     case 'pro_only_calendar_export':
       return {

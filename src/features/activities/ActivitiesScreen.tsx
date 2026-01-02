@@ -169,7 +169,7 @@ function CompletedActivitySection({
         <VStack space="xs">
           {activities.map((activity) => {
             const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName } = buildActivityListMeta({ activity, goalTitle });
+            const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity, goalTitle });
             const metaLoading = Boolean(isMetaLoading?.(activity.id)) && !meta;
 
             return (
@@ -178,6 +178,7 @@ function CompletedActivitySection({
                 title={activity.title}
                 meta={meta}
                 metaLeadingIconName={metaLeadingIconName}
+                metaLeadingIconNames={metaLeadingIconNames}
                 metaLoading={metaLoading}
                 isCompleted={activity.status === 'done'}
                 onToggleComplete={() => onToggleComplete(activity.id)}
@@ -227,6 +228,8 @@ export function ActivitiesScreen() {
   const setHasDismissedActivitiesListGuide = useAppStore(
     (state) => state.setHasDismissedActivitiesListGuide,
   );
+  const focusContextGoalId = useAppStore((state) => state.focusContextGoalId);
+  const setFocusContextGoalId = useAppStore((state) => state.setFocusContextGoalId);
 
   const [activityCoachVisible, setActivityCoachVisible] = React.useState(false);
   const [viewEditorVisible, setViewEditorVisible] = React.useState(false);
@@ -264,6 +267,19 @@ export function ActivitiesScreen() {
       setHighlightSuggested(true);
     }
   }, [route.params?.highlightSuggested]);
+
+  React.useEffect(() => {
+    const id = (route.params as any)?.contextGoalId as string | undefined;
+    if (!id) return;
+    setFocusContextGoalId(id);
+    // Best-effort: clear the param so returning to this screen doesn't re-trigger.
+    try {
+      (navigation as any).setParams?.({ contextGoalId: undefined });
+    } catch {
+      // no-op
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(route.params as any)?.contextGoalId]);
 
   React.useEffect(() => {
     // Views (and their editor) are Pro Tools; don't leave the editor open if Pro is lost.
@@ -590,7 +606,12 @@ export function ActivitiesScreen() {
 
   const filteredActivities = React.useMemo(
     () =>
-      activities.filter((activity) => {
+      activities
+        .filter((activity) => {
+          if (focusContextGoalId && activity.goalId !== focusContextGoalId) return false;
+          return true;
+        })
+        .filter((activity) => {
         switch (filterMode) {
           case 'priority1':
             return activity.priority === 1;
@@ -603,7 +624,7 @@ export function ActivitiesScreen() {
             return true;
         }
       }),
-    [activities, filterMode],
+    [activities, filterMode, focusContextGoalId],
   );
 
   const visibleActivities = React.useMemo(() => {
@@ -1021,7 +1042,7 @@ export function ActivitiesScreen() {
         const nextIsDone = activity.status !== 'done';
         if (!didFireHaptic) {
           didFireHaptic = true;
-          void HapticsService.trigger(nextIsDone ? 'outcome.success' : 'canvas.primary.confirm');
+          void HapticsService.trigger(nextIsDone ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
         }
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activities_list',
@@ -1245,7 +1266,23 @@ export function ActivitiesScreen() {
             </Button>
           ) : null
         }
-      />
+      >
+        {focusContextGoalId ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ ...typography.bodySm, color: colors.textSecondary }}>
+              Focus Filter: {goalTitleById[focusContextGoalId] ?? 'Goal'}
+            </Text>
+            <Button
+              variant="secondary"
+              size="xs"
+              accessibilityLabel="Clear Focus Filter"
+              onPress={() => setFocusContextGoalId(null)}
+            >
+              <ButtonLabel size="xs">Clear</ButtonLabel>
+            </Button>
+          </View>
+        ) : null}
+      </PageHeader>
       <Coachmark
         visible={activitiesGuideHost.coachmarkVisible}
         targetRef={guideTargetRef}
@@ -1302,7 +1339,7 @@ export function ActivitiesScreen() {
         ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
         renderItem={({ item: activity }) => {
           const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-          const { meta, metaLeadingIconName } = buildActivityListMeta({ activity, goalTitle });
+          const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity, goalTitle });
           const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
 
           return (
@@ -1310,6 +1347,7 @@ export function ActivitiesScreen() {
               title={activity.title}
               meta={meta}
               metaLeadingIconName={metaLeadingIconName}
+              metaLeadingIconNames={metaLeadingIconNames}
               metaLoading={metaLoading}
               isCompleted={activity.status === 'done'}
               onToggleComplete={() => handleToggleComplete(activity.id)}

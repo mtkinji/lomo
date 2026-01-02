@@ -1,0 +1,81 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Attachments (Pro-gated) smoke:
+# - enable simulated Pro via DevTools
+# - create an Activity via Quick Add
+# - open Activity detail → Details
+# - verify attachments section is present and can open the Record audio sheet
+#
+# Note: uploading a real attachment requires backend + entitlements; this flow focuses on UI gating + wiring.
+
+- launchApp
+
+# Enable Pro simulation (Dev builds).
+- tapOn:
+    id: "nav.drawer.toggle"
+
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+
+- scrollUntilVisible:
+    element:
+      id: "devtools.monetizationTier.pro"
+    direction: DOWN
+
+- tapOn:
+    id: "devtools.monetizationTier.pro"
+
+# Go to Activities.
+- tapOn:
+    id: "nav.drawer.toggle"
+
+- tapOn:
+    id: "nav.drawer.item.Activities"
+
+# Create an Activity.
+- tapOn:
+    id: "e2e.activities.quickAdd.open"
+
+- tapOn:
+    id: "e2e.activities.quickAdd.input"
+
+- inputText: "E2E: attachments"
+
+- tapOn:
+    id: "e2e.activities.quickAdd.submit"
+
+- tapOn:
+    id: "e2e.activities.quickAdd.done"
+    optional: true
+
+# Open Activity detail.
+- tapOn:
+    text: "E2E: attachments"
+
+# Expand Details.
+- tapOn:
+    id: "e2e.activityDetail.details.toggle"
+
+# Scroll until attachments content is visible.
+- scrollUntilVisible:
+    element:
+      text: "No attachments yet."
+    direction: DOWN
+
+- assertVisible:
+    text: "No attachments yet."
+
+# Open attachments menu and select Record audio.
+- tapOn:
+    id: "e2e.activityDetail.attachments.add"
+
+- tapOn:
+    text: "Record audio"
+
+- assertVisible:
+    text: "Record audio"
+
+- tapOn:
+    id: "e2e.activityDetail.attachments.record.cancel"
+
+

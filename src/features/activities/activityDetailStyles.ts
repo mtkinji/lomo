@@ -100,6 +100,39 @@ export const styles = StyleSheet.create({
   tagsAutofillBadge: {
     position: 'absolute',
   },
+  attachmentsFieldContainer: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: colors.fieldFill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  attachmentsFieldLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  attachmentsFieldLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  attachmentsFieldAction: {
+    // Keep the affordance visually “inside” the filled field.
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.fieldFillPressed,
+  },
   scroll: {
     flex: 1,
   },
@@ -522,6 +555,10 @@ export const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  sheetBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   estimateFieldsRow: {
     width: '100%',

@@ -68,6 +68,8 @@ const config: ExpoConfig = {
     associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      // Enable Live Activities for Focus countdown (ActivityKit).
+      NSSupportsLiveActivities: true,
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
       LSApplicationQueriesSchemes: ['ms-outlook'],
       // Needed for soundscapes to continue playing when the screen locks.
@@ -110,7 +112,13 @@ const config: ExpoConfig = {
   web: {
     favicon: './assets/favicon.png',
   },
-  plugins: ['expo-font', 'expo-image-picker', 'expo-notifications', 'expo-localization'],
+  plugins: [
+    'expo-font',
+    'expo-image-picker',
+    'expo-notifications',
+    'expo-localization',
+    './plugins/withAppleEcosystemIntegrations',
+  ],
   extra: {
     eas: {
       // Linked EAS project for the kwilt app (added manually for dynamic config).

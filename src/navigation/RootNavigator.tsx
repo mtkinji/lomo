@@ -32,6 +32,7 @@ import { NotificationsSettingsScreen } from '../features/account/NotificationsSe
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { RedeemProCodeScreen } from '../features/account/RedeemProCodeScreen';
 import { AdminProCodesScreen } from '../features/account/AdminProCodesScreen';
+import { SuperAdminToolsScreen } from '../features/account/SuperAdminToolsScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
@@ -48,7 +49,7 @@ import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 import { ArcTestingResultsPage } from '../features/dev/ArcTestingResultsPage';
 import { useAppStore } from '../store/useAppStore';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
-import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { rootNavigationRef } from './rootNavigationRef';
 import type {
   ActivityDetailRouteParams,
@@ -131,6 +132,7 @@ export type SettingsStackParamList = {
   SettingsHaptics: undefined;
   SettingsRedeemProCode: undefined;
   SettingsAdminProCodes: undefined;
+  SettingsSuperAdminTools: undefined;
   SettingsManageSubscription:
     | {
         /**
@@ -301,12 +303,51 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
     prefixes: ['kwilt://', 'https://go.kwilt.app', 'https://kwilt.app'],
     config: {
       screens: {
+        ArcsStack: {
+          screens: {
+            ArcsList: {
+              path: 'arcs',
+            },
+            ArcDetail: {
+              path: 'arc/:arcId',
+            },
+          },
+        },
+        Goals: {
+          screens: {
+            GoalsList: {
+              path: 'goals',
+            },
+            GoalDetail: {
+              path: 'goal/:goalId',
+            },
+            JoinSharedGoal: {
+              path: 'join/:inviteCode',
+            },
+          },
+        },
         Activities: {
           screens: {
+            ActivitiesList: {
+              // Canonical "Today" entrypoint for ecosystem surfaces.
+              // We route into the Activities canvas (shell/canvas preserved) and let the
+              // screen decide what "Today" means based on current state.
+              path: 'today',
+              parse: {
+                highlightSuggested: (v: string) => v === '1' || v === 'true',
+                contextGoalId: (v: string) => String(v),
+              },
+            },
             ActivityDetail: {
               path: 'activity/:activityId',
               parse: {
                 openFocus: (v: string) => v === '1' || v === 'true',
+                autoStartFocus: (v: string) => v === '1' || v === 'true',
+                endFocus: (v: string) => v === '1' || v === 'true',
+                minutes: (v: string) => {
+                  const parsed = Number(v);
+                  return Number.isFinite(parsed) ? parsed : undefined;
+                },
               },
             },
           },
@@ -582,6 +623,10 @@ function SettingsStackNavigator() {
         component={AdminProCodesScreen}
       />
       <SettingsStack.Screen
+        name="SettingsSuperAdminTools"
+        component={SuperAdminToolsScreen}
+      />
+      <SettingsStack.Screen
         name="SettingsManageSubscription"
         component={ManageSubscriptionScreen}
       />
@@ -622,7 +667,7 @@ function KwiltDrawerContent(props: any) {
   const userProfile = useAppStore((state) => state.userProfile);
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const subtitle = authIdentity?.email?.trim() || '';
-  const subscriptionLabel = 'Kwilt Free';
+  const DRAWER_ICON_SIZE = 24;
 
   // Hide the top-level Settings item from the drawer list while keeping the
   // Settings screen available for navigation from the profile row.
@@ -715,7 +760,7 @@ function KwiltDrawerContent(props: any) {
                   focused={focused}
                   onPress={() => navigateFromDrawer(route.name)}
                   icon={({ color, size }) => (
-                    <Icon name={iconName} color={color} size={size ?? 20} />
+                    <Icon name={iconName} color={color} size={DRAWER_ICON_SIZE ?? size ?? 20} />
                   )}
                   activeTintColor={colors.parchment}
                   inactiveTintColor={colors.textSecondary}
@@ -737,7 +782,7 @@ function KwiltDrawerContent(props: any) {
               focused={activeRouteName === 'DevTools'}
               onPress={() => navigateFromDrawer('DevTools')}
               icon={({ color, size }) => (
-                <Icon name={getDrawerIcon('DevTools')} color={color} size={size ?? 20} />
+                <Icon name={getDrawerIcon('DevTools')} color={color} size={DRAWER_ICON_SIZE ?? size ?? 20} />
               )}
               activeTintColor={colors.parchment}
               inactiveTintColor={colors.textSecondary}
@@ -773,11 +818,28 @@ function KwiltDrawerContent(props: any) {
                   {subtitle}
                 </Text>
               ) : null}
-              <Badge variant="secondary" style={styles.subscriptionBadge}>
-                {subscriptionLabel}
-              </Badge>
             </View>
           </Pressable>
+
+          <View style={styles.upgradeButtonContainer}>
+            <Button
+              fullWidth
+              variant="primary"
+              accessibilityLabel="Upgrade to Kwilt Pro"
+              onPress={() => {
+                props.navigation.navigate('Settings', {
+                  screen: 'SettingsManageSubscription',
+                  params: {
+                    openPricingDrawer: true,
+                    openPricingDrawerNonce: Date.now(),
+                  },
+                });
+                props.navigation.dispatch(DrawerActions.closeDrawer());
+              }}
+            >
+              Upgrade to Kwilt Pro
+            </Button>
+          </View>
         </View>
       </View>
     </DrawerContentScrollView>
@@ -815,7 +877,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
   },
   avatarPlaceholder: {
     width: 44,
@@ -835,18 +897,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
-  subscriptionBadge: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs / 2,
+  upgradeButtonContainer: {
+    marginTop: spacing.sm,
   },
   drawerItem: {
     borderRadius: 12,
-    marginVertical: spacing.xs / 4,
-    paddingVertical: spacing.xs / 8,
-    minHeight: 32,
+    marginVertical: spacing.xs / 2,
+    paddingVertical: spacing.sm / 2,
+    minHeight: 52,
   },
   drawerLabel: {
-    ...typography.bodySm,
+    ...typography.body,
   },
 });
 

@@ -11,13 +11,19 @@ import { getEnvVar } from '../utils/getEnv';
 
 const ENTITLEMENTS_CACHE_KEY = 'kwilt-entitlements-cache-v1';
 const PRO_CODE_OVERRIDE_KEY = 'kwilt-pro-code-override-v1';
+const ADMIN_ENTITLEMENTS_OVERRIDE_KEY = 'kwilt-admin-entitlements-override-v1';
 // If offline / RC fails, we’ll use last-known state for this window.
 const LAST_KNOWN_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 export type EntitlementsSnapshot = {
   isPro: boolean;
+  /**
+   * Trial entitlement for “Pro Tools” (non-structural unlocks).
+   * This should NOT be treated as full Pro for Arc/Goal limits.
+   */
+  isProToolsTrial: boolean;
   checkedAt: string;
-  source: 'revenuecat' | 'cache' | 'none' | 'dev' | 'code';
+  source: 'revenuecat' | 'cache' | 'none' | 'dev' | 'code' | 'admin';
   isStale?: boolean;
   error?: string;
 };
@@ -78,12 +84,14 @@ async function readCachedEntitlements(): Promise<EntitlementsSnapshot | null> {
   const parsed = safeParseJson<EntitlementsSnapshot>(raw);
   if (!parsed || typeof parsed !== 'object') return null;
   if (typeof parsed.isPro !== 'boolean') return null;
+  if (typeof (parsed as any).isProToolsTrial !== 'boolean') return null;
   if (typeof parsed.checkedAt !== 'string') return null;
   if (
     parsed.source !== 'revenuecat' &&
     parsed.source !== 'cache' &&
     parsed.source !== 'none' &&
-    parsed.source !== 'code'
+    parsed.source !== 'code' &&
+    parsed.source !== 'admin'
   ) {
     return null;
   }
@@ -103,6 +111,39 @@ export async function getProCodeOverrideEnabled(): Promise<boolean> {
   return (raw ?? '').trim().toLowerCase() === 'true';
 }
 
+export type AdminEntitlementsOverrideTier = 'real' | 'free' | 'trial' | 'pro';
+
+export async function setAdminEntitlementsOverrideTier(tier: AdminEntitlementsOverrideTier): Promise<void> {
+  await AsyncStorage.setItem(ADMIN_ENTITLEMENTS_OVERRIDE_KEY, tier);
+}
+
+export async function getAdminEntitlementsOverrideTier(): Promise<AdminEntitlementsOverrideTier> {
+  const raw = (await AsyncStorage.getItem(ADMIN_ENTITLEMENTS_OVERRIDE_KEY).catch(() => null)) ?? '';
+  const v = raw.trim().toLowerCase();
+  if (v === 'free' || v === 'trial' || v === 'pro' || v === 'real') return v as AdminEntitlementsOverrideTier;
+  return 'real';
+}
+
+export async function clearAdminEntitlementsOverrideTier(): Promise<void> {
+  await AsyncStorage.removeItem(ADMIN_ENTITLEMENTS_OVERRIDE_KEY);
+}
+
+async function applyAdminOverride(snapshot: EntitlementsSnapshot): Promise<EntitlementsSnapshot> {
+  // Safety note: this override is intended for Super Admin support/testing. Client UI should
+  // ensure only super admins can set it, and clear it on logout / non-super-admin sessions.
+  const tier = await getAdminEntitlementsOverrideTier().catch(() => 'real' as const);
+  if (tier === 'real') return snapshot;
+  const checkedAt = snapshot.checkedAt || new Date().toISOString();
+  if (tier === 'pro') {
+    return { ...snapshot, isPro: true, isProToolsTrial: false, checkedAt, source: 'admin' };
+  }
+  if (tier === 'trial') {
+    return { ...snapshot, isPro: false, isProToolsTrial: true, checkedAt, source: 'admin' };
+  }
+  // free
+  return { ...snapshot, isPro: false, isProToolsTrial: false, checkedAt, source: 'admin' };
+}
+
 function getPurchasesModule(): RevenueCatPurchasesLike | null {
   try {
     // Intentionally use runtime require so the app can compile/run even before
@@ -119,6 +160,11 @@ let hasConfiguredRevenueCat = false;
 function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
   const active = customerInfo?.entitlements?.active ?? {};
   return Boolean((active as any).pro);
+}
+
+function extractIsProToolsTrial(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
+  const active = customerInfo?.entitlements?.active ?? {};
+  return Boolean((active as any).pro_tools_trial);
 }
 
 async function configureRevenueCatIfNeeded(purchases: RevenueCatPurchasesLike): Promise<void> {
@@ -148,9 +194,9 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   if (!params?.forceRefresh && cachedIsFresh) {
     // Even when using cached, ensure we honor a locally redeemed Pro code.
     if (proCodeOverride && !cached.isPro) {
-      return { ...cached, isPro: true, source: 'cache', isStale: false };
+      return await applyAdminOverride({ ...cached, isPro: true, isProToolsTrial: false, source: 'cache', isStale: false });
     }
-    return { ...cached, source: 'cache', isStale: false };
+    return await applyAdminOverride({ ...cached, source: 'cache', isStale: false });
   }
 
   const purchases = getPurchasesModule();
@@ -160,52 +206,57 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     if (cachedIsFresh) {
       const base = { ...cached, source: 'cache', isStale: true, error: 'RevenueCat not configured' } as EntitlementsSnapshot;
       if (proCodeOverride) {
-        return { ...base, isPro: true };
+        return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });
       }
-      return base;
+      return await applyAdminOverride(base);
     }
     const snapshot: EntitlementsSnapshot = {
       isPro: Boolean(proCodeOverride),
+      isProToolsTrial: false,
       checkedAt: nowIso(),
       source: proCodeOverride ? 'code' : 'none',
       isStale: true,
       error: 'RevenueCat not configured',
     };
     await writeCachedEntitlements(snapshot);
-    return snapshot;
+    return await applyAdminOverride(snapshot);
   }
 
   try {
     await configureRevenueCatIfNeeded(purchases);
     const info = await purchases.getCustomerInfo?.();
     const rcIsPro = extractIsPro(info);
+    const rcIsTrial = extractIsProToolsTrial(info);
     const isPro = rcIsPro || Boolean(proCodeOverride);
+    const isProToolsTrial = Boolean(!isPro && rcIsTrial);
     const snapshot: EntitlementsSnapshot = {
       isPro,
+      isProToolsTrial,
       checkedAt: nowIso(),
       source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
       isStale: false,
     };
     await writeCachedEntitlements(snapshot);
-    return snapshot;
+    return await applyAdminOverride(snapshot);
   } catch (e: any) {
     const message = typeof e?.message === 'string' ? e.message : 'Failed to refresh entitlements';
     if (cachedIsFresh) {
       const base = { ...cached, source: 'cache', isStale: true, error: message } as EntitlementsSnapshot;
       if (proCodeOverride) {
-        return { ...base, isPro: true };
+        return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });
       }
-      return base;
+      return await applyAdminOverride(base);
     }
     const snapshot: EntitlementsSnapshot = {
       isPro: Boolean(proCodeOverride),
+      isProToolsTrial: false,
       checkedAt: nowIso(),
       source: proCodeOverride ? 'code' : 'none',
       isStale: true,
       error: message,
     };
     await writeCachedEntitlements(snapshot);
-    return snapshot;
+    return await applyAdminOverride(snapshot);
   }
 }
 
@@ -220,6 +271,7 @@ export async function restorePurchases(): Promise<EntitlementsSnapshot> {
   const info = await purchases.restorePurchases();
   const snapshot: EntitlementsSnapshot = {
     isPro: extractIsPro(info),
+    isProToolsTrial: extractIsProToolsTrial(info),
     checkedAt: nowIso(),
     source: 'revenuecat',
     isStale: false,
@@ -255,6 +307,7 @@ export async function purchasePro(): Promise<EntitlementsSnapshot> {
   const result = await purchases.purchasePackage(selectedPackage);
   const snapshot: EntitlementsSnapshot = {
     isPro: extractIsPro(result?.customerInfo),
+    isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
     isStale: false,
@@ -293,6 +346,7 @@ export async function purchaseProSku(params: {
   const result = await purchases.purchasePackage(selectedPackage);
   const snapshot: EntitlementsSnapshot = {
     isPro: extractIsPro(result?.customerInfo),
+    isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
     isStale: false,

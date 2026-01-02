@@ -25,6 +25,8 @@ import { NotificationService } from './src/services/NotificationService';
 import { HapticsService } from './src/services/HapticsService';
 import { getSupabaseClient } from './src/services/backend/supabaseClient';
 import { deriveAuthIdentityFromSession } from './src/services/backend/auth';
+import { getAdminProCodesStatus } from './src/services/proCodes';
+import { clearAdminEntitlementsOverrideTier } from './src/services/entitlements';
 import {
   reconcileNotificationsFiredEstimated,
   registerNotificationReconcileTask,
@@ -35,6 +37,9 @@ import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
 import { ConfigErrorScreen } from './src/features/onboarding/ConfigErrorScreen';
+import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
+import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
+import { startDomainSync } from './src/services/sync/domainSync';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -59,6 +64,7 @@ export default function App() {
   const hapticsEnabled = useAppStore((state) => state.hapticsEnabled);
   const setAuthIdentity = useAppStore((state) => state.setAuthIdentity);
   const clearAuthIdentity = useAppStore((state) => state.clearAuthIdentity);
+  const authIdentity = useAppStore((state) => state.authIdentity);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
@@ -102,6 +108,32 @@ export default function App() {
       data.subscription.unsubscribe();
     };
   }, [setAuthIdentity, clearAuthIdentity]);
+
+  useEffect(() => {
+    // Safety: super-admin entitlements overrides should never persist across non-super-admin sessions.
+    // We don't want to prompt sign-in here; `getAdminProCodesStatus` fails closed.
+    let cancelled = false;
+    const run = async () => {
+      try {
+        if (!authIdentity?.userId) {
+          await clearAdminEntitlementsOverrideTier().catch(() => undefined);
+          return;
+        }
+        const status = await getAdminProCodesStatus();
+        if (cancelled) return;
+        if (status.role !== 'super_admin') {
+          await clearAdminEntitlementsOverrideTier().catch(() => undefined);
+        }
+      } catch {
+        // If we can't confirm super-admin status, fail closed and clear the override.
+        await clearAdminEntitlementsOverrideTier().catch(() => undefined);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [authIdentity?.userId]);
 
   useEffect(() => {
     // Ensure remote feature flags / experiments are available as early as possible.
@@ -148,6 +180,14 @@ export default function App() {
         console.warn('[entitlements] refresh failed', error);
       }
     });
+
+    // Keep iOS "glanceable state" in sync for widgets/Shortcuts/Live Activities.
+    // Safe no-op on non-iOS and until native App Group plumbing is wired.
+    startGlanceableStateSync();
+    // Best-effort Spotlight indexing (Core Spotlight) for Activities.
+    startSpotlightIndexSync();
+    // Best-effort domain sync (Arcs/Goals/Activities) when authenticated.
+    startDomainSync();
 
     const shouldRunFtue =
       !hasCompletedFirstTimeOnboarding && !isFirstTimeFlowActive;

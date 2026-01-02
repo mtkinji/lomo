@@ -82,6 +82,11 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
+import {
+  cancelAudioRecording,
+  startAudioRecording,
+  stopAudioRecordingAndAttachToActivity,
+} from '../../services/attachments/activityAttachments';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 import { HapticsService } from '../../services/HapticsService';
@@ -89,6 +94,8 @@ import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
 import { ActionDock } from '../../ui/ActionDock';
+import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
+import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
 
 type FocusSessionState =
   | {
@@ -125,7 +132,8 @@ export function ActivityDetailScreen() {
   const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
-  const { activityId, openFocus } = route.params as ActivityDetailRouteParams;
+  const { activityId, openFocus, autoStartFocus, minutes: autoStartMinutes, endFocus } =
+    route.params as ActivityDetailRouteParams;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const planExpanded = useAppStore((s) => s.activityDetailPlanExpanded);
   const detailsExpanded = useAppStore((s) => s.activityDetailDetailsExpanded);
@@ -403,6 +411,7 @@ export function ActivityDetailScreen() {
     | 'focus'
     | 'calendar'
     | 'sendTo'
+    | 'recordAudio'
     | null;
 
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
@@ -439,6 +448,9 @@ export function ActivityDetailScreen() {
   const tagsAutofillInFlightRef = useRef(false);
   const [isTagsAutofillThinking, setIsTagsAutofillThinking] = useState(false);
   const [stepsDraft, setStepsDraft] = useState<ActivityStep[]>(activity?.steps ?? []);
+  // Prevent double-firing the "big completion" haptic when we fire it eagerly on the last step
+  // and the deferred status-derivation logic also detects the done transition.
+  const suppressNextAutoDoneHapticRef = useRef(false);
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isAddingStepInline, setIsAddingStepInline] = useState(false);
   const newStepInputRef = useRef<TextInput | null>(null);
@@ -484,6 +496,8 @@ export function ActivityDetailScreen() {
   const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
   const sendToSheetVisible = activeSheet === 'sendTo';
+  const recordAudioSheetVisible = activeSheet === 'recordAudio';
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isOutlookInstalled, setIsOutlookInstalled] = useState(false);
   const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
 
@@ -838,6 +852,42 @@ export function ActivityDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openFocus]);
 
+  // iOS ecosystem surfaces (Shortcuts / widgets) can request a best-effort single-tap
+  // "Start Focus" experience by deep-linking with `autoStartFocus=1`.
+  useEffect(() => {
+    if (!autoStartFocus) return;
+    if (!activity) return;
+    requestAnimationFrame(() => {
+      const minutes =
+        typeof autoStartMinutes === 'number' && Number.isFinite(autoStartMinutes)
+          ? autoStartMinutes
+          : undefined;
+      startFocusSession(minutes).catch(() => undefined);
+      // Best-effort: clear params so returning to this screen doesn't re-trigger.
+      try {
+        navigation.setParams({ autoStartFocus: undefined, minutes: undefined } as any);
+      } catch {
+        // no-op
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStartFocus, activity?.id]);
+
+  // iOS ecosystem surfaces (Shortcuts) can request ending an in-progress Focus session.
+  useEffect(() => {
+    if (!endFocus) return;
+    if (!activity) return;
+    requestAnimationFrame(() => {
+      endFocusSession().catch(() => undefined);
+      try {
+        navigation.setParams({ endFocus: undefined } as any);
+      } catch {
+        // no-op
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endFocus, activity?.id]);
+
   useEffect(() => {
     if (!isFocused) return;
     if (!pendingCalendarToast) return;
@@ -867,8 +917,12 @@ export function ActivityDetailScreen() {
     setFocusSession(null);
   };
 
-  const startFocusSession = async () => {
-    const minutes = Math.max(1, Math.floor(Number(focusMinutesDraft)));
+  const startFocusSession = async (overrideMinutes?: number) => {
+    const draftOrOverride =
+      typeof overrideMinutes === 'number' && Number.isFinite(overrideMinutes)
+        ? overrideMinutes
+        : Number(focusMinutesDraft);
+    const minutes = Math.max(1, Math.floor(draftOrOverride));
     if (!Number.isFinite(minutes) || minutes <= 0) {
       Alert.alert('Choose a duration', 'Enter a number of minutes greater than 0.');
       return;
@@ -971,6 +1025,52 @@ export function ActivityDetailScreen() {
     }
     stopSoundscapeLoop().catch(() => undefined);
   }, [focusSession?.mode, soundscapeEnabled, soundscapeTrackId]);
+
+  // Best-effort: expose Focus session state to iOS ecosystem surfaces via App Group.
+  useEffect(() => {
+    if (!activity) return;
+    if (!focusSession) {
+      void setGlanceableFocusSession(null);
+      void endLiveActivity();
+      return;
+    }
+
+    const common = {
+      id: `${activity.id}-${focusSession.startedAtMs}`,
+      mode: focusSession.mode,
+      startedAtMs: focusSession.startedAtMs,
+      activityId: activity.id,
+      title: activity.title,
+    } as const;
+
+    if (focusSession.mode === 'running') {
+      void setGlanceableFocusSession({
+        ...common,
+        endAtMs: focusSession.endAtMs,
+      });
+      void syncLiveActivity({
+        mode: 'running',
+        activityId: activity.id,
+        title: activity.title,
+        startedAtMs: focusSession.startedAtMs,
+        endAtMs: focusSession.endAtMs,
+      });
+      return;
+    }
+
+    void setGlanceableFocusSession({
+      ...common,
+      remainingMs: focusSession.remainingMs,
+    });
+    // For v1, end the Live Activity when paused (avoids stale timers).
+    void syncLiveActivity({
+      mode: 'paused',
+      activityId: activity.id,
+      title: activity.title,
+      startedAtMs: focusSession.startedAtMs,
+      endAtMs: Date.now() + focusSession.remainingMs,
+    });
+  }, [activity?.id, activity?.title, focusSession]);
 
   useEffect(() => {
     if (!focusSession) return;
@@ -1596,6 +1696,11 @@ export function ActivityDetailScreen() {
       });
 
       if (markedDone) {
+        if (suppressNextAutoDoneHapticRef.current) {
+          suppressNextAutoDoneHapticRef.current = false;
+        } else {
+          void HapticsService.trigger('outcome.bigSuccess');
+        }
         recordShowUp();
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activity_detail',
@@ -1613,6 +1718,24 @@ export function ActivityDetailScreen() {
     if (existing?.linkedActivityId) {
       // Linked steps mirror completion from the target Activity and are not directly checkable here.
       return;
+    }
+    const willComplete = Boolean(existing && !existing.completedAt);
+    const wouldFinishActivity =
+      willComplete &&
+      (() => {
+        const current = stepsDraft ?? [];
+        const stamp = new Date().toISOString();
+        const next = current.map((s) =>
+          s.id === stepId ? { ...s, completedAt: s.completedAt ? null : stamp } : s
+        );
+        return next.length > 0 && next.every((s) => !!s.completedAt);
+      })();
+
+    if (wouldFinishActivity) {
+      suppressNextAutoDoneHapticRef.current = true;
+      void HapticsService.trigger('outcome.bigSuccess');
+    } else {
+      void HapticsService.trigger(willComplete ? 'canvas.step.complete' : 'canvas.step.undo');
     }
     // Marking a step complete is meaningful progress; count it as "showing up".
     if (existing && !existing.completedAt) {
@@ -1808,6 +1931,7 @@ export function ActivityDetailScreen() {
     if (!hasSteps) {
       finishMutationRef.current = null;
       const wasCompleted = isCompleted;
+      void HapticsService.trigger(wasCompleted ? 'canvas.primary.confirm' : 'outcome.bigSuccess');
       updateActivity(activity.id, (prev) => {
         const nextIsDone = prev.status !== 'done';
         return {
@@ -1829,6 +1953,7 @@ export function ActivityDetailScreen() {
     const allStepsCompleteNow = stepsNow.length > 0 && stepsNow.every((s) => !!s.completedAt);
 
     if (!allStepsCompleteNow) {
+      void HapticsService.trigger('canvas.primary.confirm');
       const stepIdsToComplete = stepsNow.filter((s) => !s.completedAt).map((s) => s.id);
       if (stepIdsToComplete.length === 0) return;
       finishMutationRef.current = { completedAtStamp: timestamp, stepIds: stepIdsToComplete };
@@ -1847,6 +1972,7 @@ export function ActivityDetailScreen() {
       return;
     }
     finishMutationRef.current = null;
+    void HapticsService.trigger('canvas.primary.confirm');
     const idSet = new Set(mutation.stepIds);
     applyStepUpdate((steps) =>
       steps.map((step) =>
@@ -3264,6 +3390,75 @@ export function ActivityDetailScreen() {
       </Modal>
 
       {AgentWorkspaceSheet}
+
+      <BottomDrawer
+        visible={recordAudioSheetVisible}
+        onClose={() => {
+          setActiveSheet(null);
+          if (isRecordingAudio) {
+            setIsRecordingAudio(false);
+            cancelAudioRecording().catch(() => undefined);
+          }
+        }}
+        snapPoints={['40%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.sheetContent}>
+          <Text style={styles.sheetTitle}>Record audio</Text>
+          <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
+            Record a quick voice note and attach it to this activity.
+          </Text>
+
+          <VStack space="sm">
+            <Button
+              variant={isRecordingAudio ? 'outline' : 'primary'}
+              fullWidth
+              accessibilityLabel={isRecordingAudio ? 'Recording in progress' : 'Start recording'}
+              testID="e2e.activityDetail.attachments.record.start"
+              onPress={() => {
+                if (isRecordingAudio) return;
+                startAudioRecording()
+                  .then(() => setIsRecordingAudio(true))
+                  .catch(() => undefined);
+              }}
+            >
+              <Text style={styles.sheetRowLabel}>{isRecordingAudio ? 'Recording…' : 'Start recording'}</Text>
+            </Button>
+
+            <Button
+              variant={isRecordingAudio ? 'primary' : 'outline'}
+              fullWidth
+              accessibilityLabel="Stop recording and attach"
+              testID="e2e.activityDetail.attachments.record.stopAttach"
+              onPress={() => {
+                if (!isRecordingAudio) return;
+                setIsRecordingAudio(false);
+                stopAudioRecordingAndAttachToActivity(activity)
+                  .catch(() => undefined)
+                  .finally(() => {
+                    setActiveSheet(null);
+                  });
+              }}
+            >
+              <Text style={styles.sheetRowLabel}>Stop & attach</Text>
+            </Button>
+
+            <Button
+              variant="outline"
+              fullWidth
+              accessibilityLabel="Cancel recording"
+              testID="e2e.activityDetail.attachments.record.cancel"
+              onPress={() => {
+                setIsRecordingAudio(false);
+                cancelAudioRecording().catch(() => undefined);
+                setActiveSheet(null);
+              }}
+            >
+              <Text style={styles.sheetRowLabel}>Cancel</Text>
+            </Button>
+          </VStack>
+        </View>
+      </BottomDrawer>
 
       <BottomDrawer
         visible={sendToSheetVisible}

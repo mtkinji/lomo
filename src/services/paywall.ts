@@ -10,6 +10,7 @@ export type PaywallReason =
   | 'pro_only_calendar_export'
   | 'pro_only_ai_scheduling'
   | 'pro_only_focus_mode'
+  | 'pro_only_attachments'
   | 'pro_only_views_filters';
 
 export type PaywallSource =
@@ -23,6 +24,7 @@ export type PaywallSource =
   | 'activity_tags_ai'
   | 'activity_quick_add_ai'
   | 'activity_add_to_calendar'
+  | 'activity_attachments'
   | 'activity_views'
   | 'activity_filter'
   | 'activity_sort'

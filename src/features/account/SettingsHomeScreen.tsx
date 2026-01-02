@@ -29,6 +29,7 @@ import { getAdminProCodesStatus } from '../../services/proCodes';
 import { signOut } from '../../services/backend/auth';
 import { withHapticPress } from '../../ui/haptics/withHapticPress';
 import { shareUrlWithPreview } from '../../utils/share';
+import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -96,6 +97,7 @@ export function SettingsHomeScreen() {
   const restore = useEntitlementsStore((state) => state.restore);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showSuperAdmin, setShowSuperAdmin] = useState(false);
 
   const settingsItems = useMemo(() => SETTINGS_GROUPS.flatMap((group) => group.items), []);
 
@@ -103,8 +105,20 @@ export function SettingsHomeScreen() {
     // Best-effort: only show Admin entry if the signed-in user is allowlisted server-side.
     // Fail closed (hidden) to avoid confusing non-admin users.
     getAdminProCodesStatus()
-      .then((s) => setShowAdmin(Boolean(s.isAdmin)))
-      .catch(() => setShowAdmin(false));
+      .then((s) => {
+        setShowAdmin(Boolean(s.isAdmin));
+        setShowSuperAdmin(Boolean(s.role === 'super_admin'));
+        // Safety: if this device is not signed in as super admin, clear any lingering
+        // local admin entitlements override so it can't accidentally leak across sessions.
+        if (s.role !== 'super_admin') {
+          clearAdminEntitlementsOverrideTier().catch(() => undefined);
+        }
+      })
+      .catch(() => {
+        setShowAdmin(false);
+        setShowSuperAdmin(false);
+        clearAdminEntitlementsOverrideTier().catch(() => undefined);
+      });
   }, []);
 
   const handleNavigate = (item: SettingsItem) => {
@@ -343,6 +357,17 @@ export function SettingsHomeScreen() {
           },
         ] satisfies RowAction[])
       : []),
+    ...(showSuperAdmin
+      ? ([
+          {
+            id: 'superAdmin',
+            title: 'Super Admin',
+            icon: 'dev',
+            onPress: () => navigation.navigate('SettingsSuperAdminTools'),
+            showChevron: true,
+          },
+        ] satisfies RowAction[])
+      : []),
     ...(authIdentity
       ? ([
           {
@@ -359,6 +384,8 @@ export function SettingsHomeScreen() {
                   onPress: async () => {
                     try {
                       await signOut();
+                      // Belt-and-suspenders: clear any local Super Admin simulation state on logout.
+                      await clearAdminEntitlementsOverrideTier().catch(() => undefined);
                     } catch (err: any) {
                       Alert.alert(
                         'Unable to log out',
