@@ -408,8 +408,12 @@ class KwiltLiveActivity: NSObject {
             startedAtMs: startedAtMs.int64Value,
             endAtMs: endAtMs.int64Value
           )
-          let content = ActivityContent(state: state, staleDate: nil)
-          KwiltLiveActivity.current = try Activity.request(attributes: attributes, content: content)
+          if #available(iOS 16.2, *) {
+            let content = ActivityContent(state: state, staleDate: nil)
+            KwiltLiveActivity.current = try Activity.request(attributes: attributes, content: content, pushType: nil)
+          } else {
+            KwiltLiveActivity.current = try Activity.request(attributes: attributes, contentState: state, pushType: nil)
+          }
           resolve(true)
         } catch {
           reject("E_LIVE_ACTIVITY_START", "Failed to start Live Activity", error)
@@ -451,7 +455,11 @@ class KwiltLiveActivity: NSObject {
           startedAtMs: startedAtMs.int64Value,
           endAtMs: endAtMs.int64Value
         )
-        await current.update(ActivityContent(state: state, staleDate: nil))
+        if #available(iOS 16.2, *) {
+          await current.update(ActivityContent(state: state, staleDate: nil))
+        } else {
+          await current.update(using: state)
+        }
         resolve(true)
       }
       return
