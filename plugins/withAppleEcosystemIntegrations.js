@@ -730,6 +730,25 @@ if userActivity.activityType == CSSearchableItemActionType,
       return config;
     }
 
+    // Ensure the extension target has a valid SWIFT_VERSION set (Xcode errors if empty).
+    const ensureSwiftVersionForBundleId = (bundleIdentifier, swiftVersion = '5.0') => {
+      const section = project.pbxXCBuildConfigurationSection?.() || {};
+      Object.keys(section).forEach((key) => {
+        const cfg = section[key];
+        if (!cfg || cfg.isa !== 'XCBuildConfiguration') return;
+        const buildSettings = cfg.buildSettings || {};
+        const prodBundle = String(buildSettings.PRODUCT_BUNDLE_IDENTIFIER || '').replace(/^"|"$/g, '');
+        if (prodBundle !== bundleIdentifier) return;
+        const current = String(buildSettings.SWIFT_VERSION ?? '').replace(/^"|"$/g, '').trim();
+        if (!current) {
+          buildSettings.SWIFT_VERSION = `"${swiftVersion}"`;
+        }
+        cfg.buildSettings = buildSettings;
+        section[key] = cfg;
+      });
+    };
+    ensureSwiftVersionForBundleId(targetBundleId, '5.0');
+
     // IMPORTANT:
     // `xcode.addTarget(..., 'app_extension', ...)` creates a target WITHOUT build phases.
     // The xcode library will then "fall back" to the first app target's build phases when
