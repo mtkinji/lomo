@@ -730,6 +730,25 @@ if userActivity.activityType == CSSearchableItemActionType,
       return config;
     }
 
+    // IMPORTANT:
+    // `xcode.addTarget(..., 'app_extension', ...)` creates a target WITHOUT build phases.
+    // The xcode library will then "fall back" to the first app target's build phases when
+    // adding files, which can accidentally compile widget sources into the main app target.
+    // We must ensure the extension target has its own Sources/Resources/Frameworks phases.
+    const ensureBuildPhase = (phaseName, isa) => {
+      try {
+        const existing = project.buildPhase(phaseName, targetUuid);
+        if (!existing) {
+          project.addBuildPhase([], isa, phaseName, targetUuid, 'app_extension');
+        }
+      } catch {
+        // If anything goes wrong, don't block the build; worst case EAS will surface it.
+      }
+    };
+    ensureBuildPhase('Sources', 'PBXSourcesBuildPhase');
+    ensureBuildPhase('Resources', 'PBXResourcesBuildPhase');
+    ensureBuildPhase('Frameworks', 'PBXFrameworksBuildPhase');
+
     // Ensure the PBXGroup exists so file linking doesn't throw.
     ensureGroupRecursively(project, targetSubfolder);
 
@@ -921,6 +940,63 @@ struct ${targetName}Bundle: WidgetBundle {
       'utf8',
     );
 
+    // Ensure widget source is compiled ONLY in the extension target (and not in the main app target).
+    const ensureSourceInTarget = (relPath, groupName, target) => {
+      // Ensure file exists in the PBXFileReference section (create if missing).
+      addBuildSourceFileToGroup({
+        filepath: relPath,
+        groupName,
+        project,
+        targetUuid: target,
+      });
+
+      // Find existing fileRef UUID.
+      const fileRefs = project.pbxFileReferenceSection?.() || {};
+      const fileRefKey = Object.keys(fileRefs).find((key) => {
+        if (key.endsWith('_comment')) return false;
+        const entry = fileRefs[key];
+        const p = String(entry?.path || '').replace(/^"|"$/g, '');
+        return p === relPath;
+      });
+      if (!fileRefKey) return;
+
+      // Ensure it's included in the target's Sources build phase.
+      const sources = project.pbxSourcesBuildPhaseObj?.(target);
+      const base = path.basename(relPath);
+      const already = Array.isArray(sources?.files) && sources.files.some((f) => String(f?.comment || '').includes(base));
+      if (already) return;
+
+      const PbxFile = require('xcode/lib/pbxFile');
+      const f = new PbxFile(relPath);
+      f.fileRef = fileRefKey;
+      f.uuid = project.generateUuid();
+      f.target = target;
+      project.addToPbxBuildFileSection(f);
+      project.addToPbxSourcesBuildPhase(f);
+    };
+
+    const removeSourceFromTargetByBasename = (target, base) => {
+      const sources = project.pbxSourcesBuildPhaseObj?.(target);
+      if (!sources || !Array.isArray(sources.files)) return;
+      const buildFiles = project.pbxBuildFileSection?.() || {};
+      sources.files = sources.files.filter((entry) => {
+        const comment = String(entry?.comment || '');
+        if (!comment.includes(base)) return true;
+        const buildFileUuid = entry?.value;
+        if (buildFileUuid) {
+          delete buildFiles[buildFileUuid];
+          delete buildFiles[`${buildFileUuid}_comment`];
+        }
+        return false;
+      });
+    };
+
+    const appTargetUuid = project.getTarget?.('com.apple.product-type.application')?.uuid || project.getFirstTarget?.()?.uuid;
+    if (appTargetUuid) {
+      removeSourceFromTargetByBasename(appTargetUuid, path.basename(widgetSwiftRel));
+    }
+    ensureSourceInTarget(widgetSwiftRel, targetSubfolder, targetUuid);
+
     // Ensure the shared ActivityAttributes file is compiled into the extension target too.
     const sharedRel = `${projectName}/KwiltFocusLiveActivity.swift`;
     const pbxFileRefs = project.pbxFileReferenceSection?.() || {};
@@ -935,10 +1011,15 @@ struct ${targetName}Bundle: WidgetBundle {
       const PbxFile = require('xcode/lib/pbxFile');
       const f = new PbxFile(sharedRel);
       f.fileRef = sharedFileRefKey;
-      f.uuid = project.generateUuid();
-      f.target = targetUuid;
-      project.addToPbxBuildFileSection(f);
-      project.addToPbxSourcesBuildPhase(f);
+      // Idempotency: don't add duplicate build entries for the same file into the same target.
+      const sources = project.pbxSourcesBuildPhaseObj?.(targetUuid);
+      const already = Array.isArray(sources?.files) && sources.files.some((e) => String(e?.comment || '').includes(path.basename(sharedRel)));
+      if (!already) {
+        f.uuid = project.generateUuid();
+        f.target = targetUuid;
+        project.addToPbxBuildFileSection(f);
+        project.addToPbxSourcesBuildPhase(f);
+      }
     }
 
     // Link files into the extension target.
