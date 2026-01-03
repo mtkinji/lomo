@@ -31,6 +31,8 @@ import {
   reconcileNotificationsFiredEstimated,
   registerNotificationReconcileTask,
 } from './src/services/notifications/notificationBackgroundTask';
+import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
+import './src/services/locationOffers/locationOfferGeofenceTask';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
@@ -152,6 +154,13 @@ export default function App() {
     NotificationService.init().catch((error) => {
       if (__DEV__) {
         console.warn('[notifications] init failed', error);
+      }
+    });
+
+    // Location-based prompts (geofence enter/exit -> local notification).
+    LocationOfferService.init().catch((error) => {
+      if (__DEV__) {
+        console.warn('[locationOffers] init failed', error);
       }
     });
 

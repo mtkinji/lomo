@@ -23,12 +23,47 @@ let activeUser: SyncUser | null = null;
 let pushTimeout: ReturnType<typeof setTimeout> | null = null;
 let pushInFlight = false;
 let suppressNextPush = false;
+let disabledReason: string | null = null;
 
 let prevArcIds = new Set<string>();
 let prevGoalIds = new Set<string>();
 let prevActivityIds = new Set<string>();
 
 const PUSH_DEBOUNCE_MS = 1200;
+
+function getErrorMessage(e: unknown): string {
+  if (!e) return '';
+  const anyE = e as any;
+  if (typeof anyE?.message === 'string') return anyE.message;
+  try {
+    return String(e);
+  } catch {
+    return '';
+  }
+}
+
+function maybeDisableIfSchemaCacheMissingTable(e: unknown): boolean {
+  const msg = getErrorMessage(e);
+  // PostgREST error when the linked Supabase project hasn't had migrations applied
+  // (or PostgREST schema cache hasn't reloaded yet).
+  const looksLikeMissingTable =
+    msg.includes("Could not find the table 'public.kwilt_") && msg.includes('schema cache');
+
+  if (!looksLikeMissingTable) return false;
+
+  if (!disabledReason) {
+    disabledReason = msg;
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[domainSync] disabled (missing Supabase tables in PostgREST schema cache). Apply migrations for kwilt_* tables, then restart the app/dev server.',
+        msg,
+      );
+    }
+  }
+
+  return true;
+}
 
 function parseIsoMs(iso: unknown): number {
   if (typeof iso !== 'string') return 0;
@@ -154,6 +189,7 @@ function buildTombstones(user: SyncUser, removedIds: string[]) {
 async function pushNow(): Promise<void> {
   const user = activeUser;
   if (!user) return;
+  if (disabledReason) return;
 
   // Only push once domain objects have hydrated from the separate domain storage.
   if (useAppStore.getState().domainHydrated !== true) return;
@@ -198,6 +234,7 @@ async function pushNow(): Promise<void> {
     await doUpsert('kwilt_activities', [...activityRows, ...activityTombstones]);
   } catch (e) {
     if (__DEV__) {
+      if (maybeDisableIfSchemaCacheMissingTable(e)) return;
       // eslint-disable-next-line no-console
       console.warn('[domainSync] push failed', e);
     }
@@ -208,6 +245,7 @@ async function pushNow(): Promise<void> {
 
 function schedulePush(): void {
   if (!activeUser) return;
+  if (disabledReason) return;
 
   if (pushTimeout) clearTimeout(pushTimeout);
   pushTimeout = setTimeout(() => {

@@ -25,6 +25,7 @@ import { Text } from '../../ui/primitives';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { NotificationService } from '../../services/NotificationService';
+import { LocationPermissionService } from '../../services/LocationPermissionService';
 import { signInWithProvider } from '../../services/backend/auth';
 import {
   DEFAULT_DAILY_FOCUS_TIME,
@@ -34,7 +35,7 @@ import {
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 
-type FtueStep = 'welcome' | 'notifications' | 'path';
+type FtueStep = 'welcome' | 'notifications' | 'locationOffers' | 'path';
 
 export function FirstTimeUxFlow() {
   const isVisible = useFirstTimeUxStore((state) => state.isFlowActive);
@@ -59,6 +60,8 @@ export function FirstTimeUxFlow() {
   );
   const authIdentity = useAppStore((state) => state.authIdentity);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
+  const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
+  const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [showDevMenu, setShowDevMenu] = useState(false);
@@ -70,6 +73,8 @@ export function FirstTimeUxFlow() {
   const hasPresentedSignupInterstitialRef = useRef(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
   const [isAutoRequestingNotifications, setIsAutoRequestingNotifications] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const { capture } = useAnalytics();
   const hasTrackedVisible = useRef(false);
 
@@ -80,7 +85,7 @@ export function FirstTimeUxFlow() {
   const workflowAnim = useRef(new Animated.Value(0)).current;
   // FTUE is only shown for onboarding runs. Keep the interstitial sequence stable
   // (1/3 → 2/3 → 3/3) even if notifications are already enabled.
-  const flowSteps: FtueStep[] = ['welcome', 'notifications', 'path'];
+  const flowSteps: FtueStep[] = ['welcome', 'notifications', 'locationOffers', 'path'];
 
   useEffect(() => {
     if (!isVisible) {
@@ -126,6 +131,8 @@ export function FirstTimeUxFlow() {
     workflowAnim.setValue(0);
     setNotificationError(null);
     setIsAutoRequestingNotifications(false);
+    setLocationError(null);
+    setIsRequestingLocation(false);
     hasAutoRequestedNotifications.current = false;
     if (notificationAutoPromptTimer.current) {
       clearTimeout(notificationAutoPromptTimer.current);
@@ -216,6 +223,14 @@ export function FirstTimeUxFlow() {
     // restarting the timer while we update preferences during the request flow.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ftueStep, isVisible, notificationPreferences.osPermissionStatus]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    if (ftueStep !== 'locationOffers') return;
+    // Best-effort: refresh OS permission status so the CTA can switch to "Open settings"
+    // when location was previously denied.
+    void LocationPermissionService.syncOsPermissionStatus();
+  }, [ftueStep, isVisible]);
 
   // Animate each interstitial screen in with a light slide-from-right +
   // fade so the sequence feels premium but not busy.
@@ -355,6 +370,17 @@ export function FirstTimeUxFlow() {
             progressTrack: 'rgba(0,0,0,0.14)',
             progressFill: colors.sumi,
           };
+        case 'locationOffers':
+          return {
+            backgroundColor: 'turmeric200' as const,
+            ink: colors.sumi,
+            inkMutedOpacity: 0.72,
+            primaryButtonBg: colors.sumi,
+            primaryButtonText: colors.canvas,
+            secondaryText: colors.sumi,
+            progressTrack: 'rgba(0,0,0,0.14)',
+            progressFill: colors.sumi,
+          };
         case 'path':
         default:
           return {
@@ -381,6 +407,8 @@ export function FirstTimeUxFlow() {
         ? require('../../../assets/illustrations/welcome.png')
         : ftueStep === 'notifications'
           ? require('../../../assets/illustrations/notifications.png')
+          : ftueStep === 'locationOffers'
+            ? require('../../../assets/illustrations/activity-types/image copy.png')
           : ftueStep === 'path'
             ? require('../../../assets/illustrations/aspirations.png')
           : null;
@@ -410,6 +438,19 @@ export function FirstTimeUxFlow() {
         body =
           'Kwilt will help you along with gentle reminders so tiny steps don’t slip through the cracks.';
         ctaLabel = 'Continue';
+        nextStep = 'locationOffers';
+        break;
+      case 'locationOffers':
+        title = 'Optional: location-based prompts';
+        body =
+          'If you attach a place to an Activity, Kwilt can nudge you when you arrive or leave—so it’s easy to mark it done.';
+        ctaLabel =
+          locationOfferPreferences.osPermissionStatus === 'authorized'
+            ? 'Continue'
+            : locationOfferPreferences.osPermissionStatus === 'denied' ||
+                locationOfferPreferences.osPermissionStatus === 'restricted'
+              ? 'Open settings'
+              : 'Enable';
         nextStep = 'path';
         break;
       case 'path':
@@ -527,11 +568,36 @@ export function FirstTimeUxFlow() {
                 </>
               ) : null}
 
+              {ftueStep === 'locationOffers' &&
+              locationOfferPreferences.osPermissionStatus !== 'authorized' ? (
+                <>
+                  <Text style={[styles.ftuePermissionHint, { color: stepTheme.ink }]}>
+                    {locationOfferPreferences.osPermissionStatus === 'denied' ||
+                    locationOfferPreferences.osPermissionStatus === 'restricted'
+                      ? 'Location is currently blocked in system settings.'
+                      : locationOfferPreferences.osPermissionStatus === 'unavailable'
+                        ? 'Location isn’t available in this build yet.'
+                        : isRequestingLocation
+                          ? 'Asking iOS for permission…'
+                          : 'You’ll see an iOS prompt to allow Location.'}
+                  </Text>
+                  {locationError ? (
+                    <Text style={[styles.ftueError, { color: stepTheme.ink }]}>{locationError}</Text>
+                  ) : null}
+                </>
+              ) : null}
+
               <View style={styles.ftuePrimarySlot}>
                 <Button
                   variant="accent"
                   fullWidth
-                  disabled={ftueStep === 'notifications' ? isAutoRequestingNotifications : false}
+                  disabled={
+                    ftueStep === 'notifications'
+                      ? isAutoRequestingNotifications
+                      : ftueStep === 'locationOffers'
+                        ? isRequestingLocation
+                        : false
+                  }
                   style={[
                     styles.ftuePrimaryButton,
                     { backgroundColor: stepTheme.primaryButtonBg, borderColor: stepTheme.primaryButtonBg },
@@ -546,6 +612,42 @@ export function FirstTimeUxFlow() {
                         return;
                       }
                     }
+                    if (ftueStep === 'locationOffers') {
+                      // If permission is already granted, this step becomes a simple "Continue".
+                      if (locationOfferPreferences.osPermissionStatus === 'authorized') {
+                        handleAdvanceStep(nextStep);
+                        return;
+                      }
+
+                      // User opted in at the product layer regardless of OS permission outcome.
+                      setLocationOfferPreferences((current) => ({ ...current, enabled: true }));
+
+                      // If OS permission is blocked, take them to Settings.
+                      if (
+                        locationOfferPreferences.osPermissionStatus === 'denied' ||
+                        locationOfferPreferences.osPermissionStatus === 'restricted'
+                      ) {
+                        void Linking.openSettings();
+                        return;
+                      }
+
+                      setLocationError(null);
+                      setIsRequestingLocation(true);
+                      void (async () => {
+                        try {
+                          const granted = await LocationPermissionService.ensurePermissionWithRationale('ftue');
+                          if (!granted) {
+                            // Let them continue; we’ll re-offer permission when they try to attach a place.
+                            setLocationError('No problem — we’ll ask again when you attach a place to an Activity.');
+                          }
+                        } finally {
+                          setIsRequestingLocation(false);
+                        }
+                      })();
+
+                      // Important: do not auto-advance; let the user read the screen and tap Continue/Not now.
+                      return;
+                    }
                     handleAdvanceStep(nextStep);
                   }}
                 >
@@ -556,6 +658,8 @@ export function FirstTimeUxFlow() {
                       ? 'Open settings'
                       : ftueStep === 'notifications' && isAutoRequestingNotifications
                         ? 'Enabling…'
+                        : ftueStep === 'locationOffers' && isRequestingLocation
+                          ? 'Enabling…'
                         : ctaLabel}
                   </Text>
                 </Button>
@@ -580,6 +684,18 @@ export function FirstTimeUxFlow() {
                       notificationPreferences.osPermissionStatus === 'restricted'
                         ? 'Continue'
                         : 'Not now'}
+                    </Text>
+                  </Button>
+                ) : ftueStep === 'locationOffers' ? (
+                  <Button
+                    variant="ghost"
+                    fullWidth
+                    onPress={() => {
+                      handleAdvanceStep(nextStep);
+                    }}
+                  >
+                    <Text style={[styles.ftueSecondaryButtonLabel, { color: stepTheme.secondaryText }]}>
+                      Not now
                     </Text>
                   </Button>
                 ) : (

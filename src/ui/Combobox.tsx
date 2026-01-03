@@ -100,6 +100,21 @@ type Props = {
    * Snap points for drawer presentation.
    */
   drawerSnapPoints?: BottomDrawerSnapPoint[];
+  /**
+   * Optional portal host for the dropdown content. Useful when rendering inside
+   * other modal-like surfaces (e.g. BottomDrawer) to ensure proper layering.
+   */
+  portalHost?: string;
+  /**
+   * Controlled search query (optional). If omitted, Combobox manages it internally.
+   */
+  query?: string;
+  onQueryChange?: (next: string) => void;
+  /**
+   * Whether to locally filter options by query. For server-driven search results,
+   * set this to false and just pass the already-filtered `options`.
+   */
+  autoFilter?: boolean;
 };
 
 /**
@@ -122,13 +137,25 @@ export function Combobox({
   trigger,
   presentation = 'auto',
   drawerSnapPoints,
+  portalHost,
+  query: controlledQuery,
+  onQueryChange,
+  autoFilter = true,
 }: Props) {
   const resolvedPresentation: ComboboxPresentation =
     presentation === 'auto' ? (Platform.OS === 'web' ? 'popover' : 'drawer') : presentation;
 
   const insets = useSafeAreaInsets();
   const keyboardAware = useKeyboardAwareScroll();
-  const [query, setQuery] = useState('');
+  const [uncontrolledQuery, setUncontrolledQuery] = useState('');
+  const query = controlledQuery ?? uncontrolledQuery;
+  const setQuery = useCallback(
+    (next: string) => {
+      onQueryChange?.(next);
+      if (controlledQuery == null) setUncontrolledQuery(next);
+    },
+    [controlledQuery, onQueryChange],
+  );
   const [triggerWidth, setTriggerWidth] = useState<number | undefined>(undefined);
   const triggerRef = useRef<View | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -221,6 +248,7 @@ export function Combobox({
   }, [keyboardHeight, open, recomputePlacement]);
 
   const filtered = useMemo(() => {
+    if (!autoFilter) return options;
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter((opt) => {
@@ -232,7 +260,7 @@ export function Combobox({
       const keywords = opt.keywords ?? [];
       return keywords.some((k) => String(k).toLowerCase().includes(q));
     });
-  }, [options, query]);
+  }, [autoFilter, options, query]);
 
   const recommendedResolved = useMemo(() => {
     if (!recommendedOption) return null;
@@ -455,6 +483,7 @@ export function Combobox({
 
       {open ? (
         <DropdownMenuContent
+          portalHost={portalHost}
           align="start"
           side={placement.side}
           sideOffset={4}

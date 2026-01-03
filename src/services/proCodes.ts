@@ -10,10 +10,9 @@ const AI_PROXY_BASE_URL =
   typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
 
 function getProCodesBaseUrl(): string | null {
-  if (!AI_PROXY_BASE_URL) return null;
-  // aiProxyBaseUrl is expected to end with `/ai-chat` (edge function name).
-  // Derive the sibling pro-codes function URL.
-  if (AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
+  // Prefer aiProxyBaseUrl when available because it already points at Edge Functions.
+  // Expected to end with `/ai-chat` (edge function name). Derive sibling pro-codes URL.
+  if (AI_PROXY_BASE_URL && AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
     return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/pro-codes`;
   }
   // Fallback: derive from Supabase project URL if aiProxyBaseUrl isn't set in this build.

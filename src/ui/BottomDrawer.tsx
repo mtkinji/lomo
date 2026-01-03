@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { FlatListProps, ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
+import type { FlatListProps, ScrollViewProps, StyleProp, ViewProps, ViewStyle } from 'react-native';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -651,6 +651,28 @@ export function BottomDrawerFlatList<ItemT>(props: FlatListProps<ItemT>) {
   return (
     <GestureDetector gesture={nativeGesture}>
       <AnimatedFlatList {...(props as unknown as FlatListProps<unknown>)} onScroll={onScroll} scrollEventThrottle={16} />
+    </GestureDetector>
+  );
+}
+
+/**
+ * Wrap arbitrary content (e.g. a `MapView`) so its native gestures can run simultaneously
+ * with the BottomDrawer's swipe-to-dismiss gesture.
+ *
+ * Useful for pinch-to-zoom/scroll inside maps embedded in drawers.
+ */
+export function BottomDrawerNativeGestureView(props: ViewProps) {
+  const { setScrollableGesture } = useBottomDrawerContext();
+  const nativeGesture = useMemo(() => Gesture.Native(), []);
+
+  useEffect(() => {
+    setScrollableGesture(nativeGesture);
+    return () => setScrollableGesture(null);
+  }, [nativeGesture, setScrollableGesture]);
+
+  return (
+    <GestureDetector gesture={nativeGesture}>
+      <View {...props} />
     </GestureDetector>
   );
 }

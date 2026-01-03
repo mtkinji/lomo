@@ -29,6 +29,7 @@ type NotificationType =
   | 'dailyFocus'
   | 'goalNudge'
   | 'setupNextStep'
+  | 'locationOffer'
   | 'streak'
   | 'reactivation';
 
@@ -43,6 +44,7 @@ type NotificationData =
   | { type: 'dailyFocus' }
   | { type: 'goalNudge'; goalId: string }
   | { type: 'setupNextStep'; reason: 'no_goals' | 'no_activities' }
+  | { type: 'locationOffer'; activityId: string; event?: 'enter' | 'exit' }
   | { type: 'streak' }
   | { type: 'reactivation' };
 
@@ -1353,6 +1355,18 @@ function attachNotificationResponseListener() {
 
     switch (data.type) {
       case 'activityReminder': {
+        if (!rootNavigationRef.isReady()) {
+          return;
+        }
+        const activityId = (data as { activityId?: string }).activityId;
+        if (!activityId) return;
+        rootNavigationRef.navigate('Activities', {
+          screen: 'ActivityDetail',
+          params: { activityId },
+        });
+        break;
+      }
+      case 'locationOffer': {
         if (!rootNavigationRef.isReady()) {
           return;
         }

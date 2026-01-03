@@ -364,6 +364,17 @@ interface AppState {
     allowStreakAndReactivation: boolean;
   };
   /**
+   * Location-based completion offers (arrive/leave prompts).
+   * Stored as lightweight preferences so FTUE + settings can gate the experience.
+   */
+  locationOfferPreferences: {
+    enabled: boolean;
+    osPermissionStatus: 'notRequested' | 'authorized' | 'denied' | 'restricted' | 'unavailable';
+    dailyCap: number;
+    globalMinSpacingMs: number;
+    defaultCooldownMs: number;
+  };
+  /**
    * Last used Focus mode duration (in minutes). Used as the default suggestion
    * across sessions so Focus feels sticky/personal.
    */
@@ -387,6 +398,26 @@ interface AppState {
   lastShowUpDate: string | null;
   currentShowUpStreak: number;
   lastActiveDate: string | null;
+  /**
+   * Lightweight lifecycle counters used for post-activation nudges (e.g. widgets).
+   * Best-effort only; do not use for billing/security.
+   */
+  appOpenCount: number;
+  firstOpenedAtMs: number | null;
+  lastOpenedAtMs: number | null;
+  /**
+   * iOS widget adoption nudge state machine.
+   */
+  widgetNudge: {
+    status: 'notEligible' | 'eligible' | 'shown' | 'dismissed' | 'completed';
+    shownCount: number;
+    modalShownCount: number;
+    dismissedCount: number;
+    lastShownAtMs: number | null;
+    cooldownUntilMs: number | null;
+    completedAtMs: number | null;
+    completedSource: string | null;
+  };
   /**
    * Focus mode streak: counts days where the user completes at least one *full*
    * Focus session (timer reaches zero). This is independent from "show up".
@@ -577,6 +608,17 @@ interface AppState {
   enqueueAgentHostAction: (action: EnqueueAgentHostAction) => void;
   consumeAgentHostActions: (filter: { objectType: AgentHostAction['objectType']; objectId: string }) => AgentHostAction[];
   /**
+   * Best-effort lifecycle counter updates. Call on cold start rehydrate and when the app
+   * returns to foreground.
+   */
+  recordAppOpen: (reason: 'rehydrate' | 'foreground') => void;
+  /**
+   * Widget nudge state transitions.
+   */
+  markWidgetPromptShown: (surface: 'inline' | 'modal') => void;
+  dismissWidgetPrompt: (surface: 'inline' | 'modal') => void;
+  completeWidgetNudge: (source: string) => void;
+  /**
    * Update notification preferences in a single place so the notifications
    * service and settings screens stay in sync.
    */
@@ -586,6 +628,11 @@ interface AppState {
           current: AppState['notificationPreferences'],
         ) => AppState['notificationPreferences'])
       | AppState['notificationPreferences'],
+  ) => void;
+  setLocationOfferPreferences: (
+    updater:
+      | ((current: AppState['locationOfferPreferences']) => AppState['locationOfferPreferences'])
+      | AppState['locationOfferPreferences'],
   ) => void;
   setLastFocusMinutes: (minutes: number) => void;
   setSoundscapeEnabled: (enabled: boolean) => void;
@@ -827,6 +874,13 @@ export const useAppStore = create<AppState>()(
         goalNudgeTime: null,
         allowStreakAndReactivation: false,
       },
+      locationOfferPreferences: {
+        enabled: false,
+        osPermissionStatus: 'notRequested',
+        dailyCap: 2,
+        globalMinSpacingMs: 6 * 60 * 60 * 1000,
+        defaultCooldownMs: 2 * 60 * 60 * 1000,
+      },
       lastFocusMinutes: null,
       soundscapeEnabled: false,
       hapticsEnabled: true,
@@ -834,6 +888,19 @@ export const useAppStore = create<AppState>()(
       lastShowUpDate: null,
       currentShowUpStreak: 0,
       lastActiveDate: null,
+      appOpenCount: 0,
+      firstOpenedAtMs: null,
+      lastOpenedAtMs: null,
+      widgetNudge: {
+        status: 'notEligible',
+        shownCount: 0,
+        modalShownCount: 0,
+        dismissedCount: 0,
+        lastShownAtMs: null,
+        cooldownUntilMs: null,
+        completedAtMs: null,
+        completedSource: null,
+      },
       lastCompletedFocusSessionDate: null,
       lastCompletedFocusSessionAtIso: null,
       currentFocusStreak: 0,
@@ -869,6 +936,88 @@ export const useAppStore = create<AppState>()(
           ),
         }));
         return matches;
+      },
+      recordAppOpen: (reason) => {
+        const nowMs = Date.now();
+        set((state) => ({
+          appOpenCount: Math.max(0, Math.floor((state.appOpenCount ?? 0) + 1)),
+          firstOpenedAtMs: state.firstOpenedAtMs ?? nowMs,
+          lastOpenedAtMs: nowMs,
+        }));
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[lifecycle] recordAppOpen', reason);
+        }
+      },
+      markWidgetPromptShown: (surface) => {
+        const nowMs = Date.now();
+        set((state) => ({
+          widgetNudge: {
+            ...(state.widgetNudge ?? {
+              status: 'notEligible',
+              shownCount: 0,
+              modalShownCount: 0,
+              dismissedCount: 0,
+              lastShownAtMs: null,
+              cooldownUntilMs: null,
+              completedAtMs: null,
+              completedSource: null,
+            }),
+            status: 'shown',
+            shownCount: Math.max(0, Math.floor(((state.widgetNudge as any)?.shownCount ?? 0) + 1)),
+            modalShownCount:
+              surface === 'modal'
+                ? Math.max(0, Math.floor(((state.widgetNudge as any)?.modalShownCount ?? 0) + 1))
+                : Math.max(0, Math.floor(((state.widgetNudge as any)?.modalShownCount ?? 0))),
+            lastShownAtMs: nowMs,
+          },
+        }));
+      },
+      dismissWidgetPrompt: (surface) => {
+        const nowMs = Date.now();
+        const cooldownMs = 7 * 24 * 60 * 60 * 1000;
+        set((state) => ({
+          widgetNudge: {
+            ...(state.widgetNudge ?? {
+              status: 'notEligible',
+              shownCount: 0,
+              modalShownCount: 0,
+              dismissedCount: 0,
+              lastShownAtMs: null,
+              cooldownUntilMs: null,
+              completedAtMs: null,
+              completedSource: null,
+            }),
+            status: 'dismissed',
+            dismissedCount: Math.max(0, Math.floor(((state.widgetNudge as any)?.dismissedCount ?? 0) + 1)),
+            cooldownUntilMs: nowMs + cooldownMs,
+          },
+        }));
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[widgets] dismissWidgetPrompt', surface);
+        }
+      },
+      completeWidgetNudge: (source) => {
+        const nowMs = Date.now();
+        set((state) => ({
+          widgetNudge: {
+            ...(state.widgetNudge ?? {
+              status: 'notEligible',
+              shownCount: 0,
+              modalShownCount: 0,
+              dismissedCount: 0,
+              lastShownAtMs: null,
+              cooldownUntilMs: null,
+              completedAtMs: null,
+              completedSource: null,
+            }),
+            status: 'completed',
+            completedAtMs: nowMs,
+            completedSource: source,
+            cooldownUntilMs: null,
+          },
+        }));
       },
       authIdentity: null,
       userProfile: buildDefaultUserProfile(),
@@ -1403,6 +1552,16 @@ export const useAppStore = create<AppState>()(
               : updater;
           return { notificationPreferences: next };
         }),
+      setLocationOfferPreferences: (updater) =>
+        set((state) => {
+          const next =
+            typeof updater === 'function'
+              ? (updater as (current: AppState['locationOfferPreferences']) => AppState['locationOfferPreferences'])(
+                  state.locationOfferPreferences,
+                )
+              : updater;
+          return { locationOfferPreferences: next };
+        }),
       setLastFocusMinutes: (minutes) =>
         set(() => ({
           lastFocusMinutes: Number.isFinite(minutes) ? Math.max(1, Math.round(minutes)) : null,
@@ -1629,6 +1788,13 @@ export const useAppStore = create<AppState>()(
           lastCompletedFocusSessionAtIso: null,
           currentFocusStreak: 0,
           bestFocusStreak: 0,
+          locationOfferPreferences: {
+            enabled: false,
+            osPermissionStatus: 'notRequested',
+            dailyCap: 2,
+            globalMinSpacingMs: 6 * 60 * 60 * 1000,
+            defaultCooldownMs: 2 * 60 * 60 * 1000,
+          },
         }),
     }),
     {
@@ -1652,6 +1818,54 @@ export const useAppStore = create<AppState>()(
         const anyState = state as any;
         if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
           (state as any).hapticsEnabled = true;
+        }
+        // Backward-compatible: older persisted stores won't have lifecycle counters / widget nudge state.
+        if (!('appOpenCount' in anyState) || typeof anyState.appOpenCount !== 'number') {
+          (state as any).appOpenCount = 0;
+        }
+        if (
+          !('firstOpenedAtMs' in anyState) ||
+          (anyState.firstOpenedAtMs !== null && typeof anyState.firstOpenedAtMs !== 'number')
+        ) {
+          (state as any).firstOpenedAtMs = null;
+        }
+        if (
+          !('lastOpenedAtMs' in anyState) ||
+          (anyState.lastOpenedAtMs !== null && typeof anyState.lastOpenedAtMs !== 'number')
+        ) {
+          (state as any).lastOpenedAtMs = null;
+        }
+        if (!('widgetNudge' in anyState) || !anyState.widgetNudge || typeof anyState.widgetNudge !== 'object') {
+          (state as any).widgetNudge = {
+            status: 'notEligible',
+            shownCount: 0,
+            modalShownCount: 0,
+            dismissedCount: 0,
+            lastShownAtMs: null,
+            cooldownUntilMs: null,
+            completedAtMs: null,
+            completedSource: null,
+          };
+        } else {
+          const n = anyState.widgetNudge as any;
+          if (!['notEligible', 'eligible', 'shown', 'dismissed', 'completed'].includes(n.status)) n.status = 'notEligible';
+          if (typeof n.shownCount !== 'number' || !Number.isFinite(n.shownCount)) n.shownCount = 0;
+          if (typeof n.modalShownCount !== 'number' || !Number.isFinite(n.modalShownCount)) n.modalShownCount = 0;
+          if (typeof n.dismissedCount !== 'number' || !Number.isFinite(n.dismissedCount)) n.dismissedCount = 0;
+          if (n.lastShownAtMs !== null && (typeof n.lastShownAtMs !== 'number' || !Number.isFinite(n.lastShownAtMs))) n.lastShownAtMs = null;
+          if (n.cooldownUntilMs !== null && (typeof n.cooldownUntilMs !== 'number' || !Number.isFinite(n.cooldownUntilMs))) n.cooldownUntilMs = null;
+          if (n.completedAtMs !== null && (typeof n.completedAtMs !== 'number' || !Number.isFinite(n.completedAtMs))) n.completedAtMs = null;
+          if (n.completedSource !== null && typeof n.completedSource !== 'string') n.completedSource = null;
+          (state as any).widgetNudge = n;
+        }
+        // Count this cold-start as an "open" once hydration completes so it persists.
+        try {
+          const nowMs = Date.now();
+          (state as any).appOpenCount = Math.max(0, Math.floor(((state as any).appOpenCount ?? 0) + 1));
+          (state as any).firstOpenedAtMs = (state as any).firstOpenedAtMs ?? nowMs;
+          (state as any).lastOpenedAtMs = nowMs;
+        } catch {
+          // best-effort
         }
         // Backward-compatible: older persisted stores won't have Activity detail section expansion prefs.
         if (
@@ -1735,6 +1949,49 @@ export const useAppStore = create<AppState>()(
               dailyFocusTime: DEFAULT_DAILY_FOCUS_TIME,
             };
           }
+        }
+
+        // Backward-compatible: older persisted stores won't have location offer preferences.
+        if (
+          !('locationOfferPreferences' in anyState) ||
+          !anyState.locationOfferPreferences ||
+          typeof anyState.locationOfferPreferences !== 'object'
+        ) {
+          (state as any).locationOfferPreferences = {
+            enabled: false,
+            osPermissionStatus: 'notRequested',
+            dailyCap: 2,
+            globalMinSpacingMs: 6 * 60 * 60 * 1000,
+            defaultCooldownMs: 2 * 60 * 60 * 1000,
+          };
+        } else {
+          const locationPrefs = anyState.locationOfferPreferences as any;
+          if (typeof locationPrefs.enabled !== 'boolean') locationPrefs.enabled = false;
+          if (
+            locationPrefs.osPermissionStatus !== 'authorized' &&
+            locationPrefs.osPermissionStatus !== 'denied' &&
+            locationPrefs.osPermissionStatus !== 'restricted' &&
+            locationPrefs.osPermissionStatus !== 'notRequested' &&
+            locationPrefs.osPermissionStatus !== 'unavailable'
+          ) {
+            locationPrefs.osPermissionStatus = 'notRequested';
+          }
+          if (typeof locationPrefs.dailyCap !== 'number' || !Number.isFinite(locationPrefs.dailyCap)) {
+            locationPrefs.dailyCap = 2;
+          }
+          if (
+            typeof locationPrefs.globalMinSpacingMs !== 'number' ||
+            !Number.isFinite(locationPrefs.globalMinSpacingMs)
+          ) {
+            locationPrefs.globalMinSpacingMs = 6 * 60 * 60 * 1000;
+          }
+          if (
+            typeof locationPrefs.defaultCooldownMs !== 'number' ||
+            !Number.isFinite(locationPrefs.defaultCooldownMs)
+          ) {
+            locationPrefs.defaultCooldownMs = 2 * 60 * 60 * 1000;
+          }
+          (state as any).locationOfferPreferences = locationPrefs;
         }
 
         // Backward-compatible: older persisted stores won't have focus completion timestamp.
@@ -1942,12 +2199,24 @@ useAppStore.subscribe(
 
 // Reliability: flush domain snapshot when the app backgrounds so users don't lose newly
 // created objects if the process is killed before the debounce fires.
+let lastKnownAppState = RNAppState.currentState;
 RNAppState.addEventListener('change', (nextState) => {
   // iOS often transitions through "inactive" briefly (e.g. during startup / interruptions).
   // Only flush when truly backgrounding to reduce the risk of overwriting domain storage
   // during hydration.
-  if (nextState !== 'background') return;
-  flushPersistDomainState();
+  if (nextState === 'background') {
+    flushPersistDomainState();
+  }
+
+  // Best-effort: count foreground returns as additional opens.
+  if (nextState === 'active' && lastKnownAppState !== 'active') {
+    try {
+      useAppStore.getState().recordAppOpen('foreground');
+    } catch {
+      // best-effort
+    }
+  }
+  lastKnownAppState = nextState;
 });
 
 export const getCanonicalForce = (forceId: string): Force | undefined =>
