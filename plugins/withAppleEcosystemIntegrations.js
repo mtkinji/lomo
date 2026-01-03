@@ -1038,6 +1038,10 @@ struct ${targetName}Bundle: WidgetBundle {
     const sharedRel = `${projectName}/KwiltFocusLiveActivity.swift`;
     ensureGroupRecursively(project, projectName);
     ensureSourceInTarget(sharedRel, projectName, targetUuid);
+    // And ensure it's compiled into the main app target too (required by `KwiltLiveActivity.swift`).
+    if (appTargetUuid) {
+      ensureSourceInTarget(sharedRel, projectName, appTargetUuid);
+    }
 
     // Link files into the extension target.
     project = addResourceFileToGroup({
