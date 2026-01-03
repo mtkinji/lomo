@@ -4,17 +4,13 @@ import { setProCodeOverrideEnabled } from './entitlements';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { useToastStore } from '../store/useToastStore';
 import { getAccessToken, ensureSignedInWithPrompt } from './backend/auth';
+import { getSupabaseClient } from './backend/supabaseClient';
 
 const AI_PROXY_BASE_URL_RAW = getEnvVar<string>('aiProxyBaseUrl');
 const AI_PROXY_BASE_URL =
   typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
 
 function getProCodesBaseUrl(): string | null {
-  // Prefer aiProxyBaseUrl when available because it already points at Edge Functions.
-  // Expected to end with `/ai-chat` (edge function name). Derive sibling pro-codes URL.
-  if (AI_PROXY_BASE_URL && AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
-    return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/pro-codes`;
-  }
   // Fallback: derive from Supabase project URL if aiProxyBaseUrl isn't set in this build.
   // supabaseUrl format: https://<project-ref>.supabase.co
   const supabaseUrl = getSupabaseUrl()?.trim();
@@ -23,7 +19,15 @@ function getProCodesBaseUrl(): string | null {
     const u = new URL(supabaseUrl);
     const host = u.hostname ?? '';
     const suffix = '.supabase.co';
-    if (!host.endsWith(suffix)) return null;
+    // If we're using a custom domain (e.g. https://auth.kwilt.app), prefer hitting Edge
+    // Functions through the same base URL so the JWT issuer/validation matches.
+    // (Expo Go/dev builds can otherwise see 401 Unauthorized from auth.getUser.)
+    if (!host.endsWith(suffix)) {
+      const normalized = supabaseUrl.replace(/\/+$/, '');
+      return `${normalized}/functions/v1/pro-codes`;
+    }
+
+    // Standard Supabase URL (project-ref).supabase.co -> (project-ref).functions.supabase.co
     const projectRef = host.slice(0, -suffix.length);
     if (!projectRef) return null;
     return `https://${projectRef}.functions.supabase.co/functions/v1/pro-codes`;
@@ -47,8 +51,8 @@ async function buildEdgeHeaders(): Promise<Headers> {
 
 async function buildAuthedAdminHeaders(): Promise<Headers> {
   // Ensure the user is signed in so we can attach a JWT for admin authorization.
-  await ensureSignedInWithPrompt('admin');
-  const token = await getAccessToken();
+  const session = await ensureSignedInWithPrompt('admin');
+  const token = (session as any)?.access_token ?? (await getAccessToken());
   if (!token) {
     throw new Error('Missing session token');
   }
@@ -100,28 +104,66 @@ export async function redeemProCode(code: string): Promise<{ alreadyRedeemed: bo
 
 export type AdminRole = 'none' | 'admin' | 'super_admin';
 
-export async function getAdminProCodesStatus(): Promise<{
+export async function getAdminProCodesStatus(params?: { requireAuth?: boolean }): Promise<{
   isAdmin: boolean;
   isSuperAdmin?: boolean;
   role?: AdminRole;
   email?: string | null;
+  httpStatus?: number;
+  errorMessage?: string;
+  errorCode?: string;
+  debugProCodesBaseUrl?: string;
+  debugSupabaseUrl?: string;
 }> {
   const base = getProCodesBaseUrl();
   if (!base) {
     throw new Error('Pro codes service not configured');
   }
 
-  const res = await fetch(`${base}/admin/status`, {
-    method: 'POST',
-    // Important: do NOT prompt sign-in just to "check" status.
-    // If not signed in, treat as not admin and keep the UI quiet.
-    headers: await buildMaybeAuthedHeaders(),
-    body: JSON.stringify({}),
-  });
-  const data = await res.json().catch(() => null);
+  const requireAuth = Boolean(params?.requireAuth);
+  const debugProCodesBaseUrl = __DEV__ ? base : undefined;
+  const debugSupabaseUrl = __DEV__ ? (getSupabaseUrl()?.trim() ?? '') : undefined;
+  const doFetch = async (headers: Headers) => {
+    const res = await fetch(`${base}/admin/status`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => null);
+    return { res, data };
+  };
+
+  // Default behavior (requireAuth=false): do NOT prompt sign-in just to "check" status.
+  // If not signed in, treat as not admin and keep the UI quiet.
+  // When requireAuth=true: attach a JWT and prompt sign-in if needed (used by Admin/Super Admin screens).
+  let headers = requireAuth ? await buildAuthedAdminHeaders() : await buildMaybeAuthedHeaders();
+  let { res, data } = await doFetch(headers);
+
+  // Expo Go/dev sessions can get "stuck" with a stale JWT (or a token minted against a different project).
+  // If the user explicitly navigated into Admin/Super Admin and we still get 401, force a local sign-out
+  // and re-auth once to obtain a fresh token, then retry.
+  if (requireAuth && res.status === 401) {
+    try {
+      await getSupabaseClient().auth.signOut();
+    } catch {
+      // best-effort
+    }
+    headers = await buildAuthedAdminHeaders();
+    ({ res, data } = await doFetch(headers));
+  }
+
   if (!res.ok) {
     // 401/403 should be treated as "not admin" for UI gating.
-    if (res.status === 401 || res.status === 403) return { isAdmin: false };
+    if (res.status === 401 || res.status === 403)
+      return {
+        isAdmin: false,
+        role: 'none',
+        httpStatus: res.status,
+        errorMessage: typeof data?.error?.message === 'string' ? data.error.message : undefined,
+        errorCode: typeof data?.error?.code === 'string' ? data.error.code : undefined,
+        debugProCodesBaseUrl,
+        debugSupabaseUrl,
+      };
     const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to check admin status';
     throw new Error(msg);
   }
@@ -135,6 +177,9 @@ export async function getAdminProCodesStatus(): Promise<{
     isSuperAdmin: Boolean(data?.isSuperAdmin),
     role,
     email: typeof data?.email === 'string' ? data.email : null,
+    httpStatus: res.status,
+    debugProCodesBaseUrl,
+    debugSupabaseUrl,
   };
 }
 
@@ -201,6 +246,38 @@ export async function sendProCodeSuperAdmin(params: {
     const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to send code';
     throw new Error(msg);
   }
+}
+
+export { getProStatus } from './proCodesStatus';
+export type { ProStatus } from './proCodesStatus';
+
+export async function grantProSuperAdmin(params: { targetType: 'user' | 'install'; email?: string; installId?: string }) {
+  const base = getProCodesBaseUrl();
+  if (!base) {
+    throw new Error('Pro codes service not configured');
+  }
+
+  const res = await fetch(`${base}/admin/grant`, {
+    method: 'POST',
+    headers: await buildAuthedAdminHeaders(),
+    body: JSON.stringify({
+      targetType: params.targetType,
+      email: params.email,
+      installId: params.installId,
+    }),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to grant Pro';
+    throw new Error(msg);
+  }
+  return {
+    quotaKey: typeof data?.quotaKey === 'string' ? data.quotaKey : null,
+    expiresAt: typeof data?.expiresAt === 'string' ? data.expiresAt : null,
+    userId: typeof data?.userId === 'string' ? data.userId : null,
+    email: typeof data?.email === 'string' ? data.email : null,
+  };
 }
 
 

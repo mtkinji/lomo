@@ -69,6 +69,18 @@ export function getSupabasePublishableKey(): string | undefined {
 }
 
 export function getSupabaseUrl(): string | undefined {
+  // Expo Go: prefer inferring the project URL from the Edge Functions host when possible.
+  // This avoids confusing "401 Unauthorized" cases where a custom domain is configured for auth
+  // but the running dev proxy/functions URL points at a different Supabase project ref.
+  if (Constants.appOwnership === 'expo') {
+    const inferred = inferSupabaseUrlFromAiProxyBaseUrl(
+      getEnvVar<string>('aiProxyBaseUrl') ??
+        getProcessEnvString('EXPO_PUBLIC_AI_PROXY_BASE_URL') ??
+        getProcessEnvString('AI_PROXY_BASE_URL')
+    );
+    if (inferred) return inferred;
+  }
+
   return (
     getEnvVar<string>('supabaseUrl') ??
     getProcessEnvString('EXPO_PUBLIC_SUPABASE_URL') ??

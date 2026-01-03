@@ -1464,7 +1464,8 @@ export function ActivitiesScreen() {
         keyboardShouldPersistTaps="handled"
         data={activeActivities}
         keyExtractor={(activity) => activity.id}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.xs }} />}
+        // Teeny tiny gap between list items (requested: 1–2pt).
+        ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
         renderItem={({ item: activity }) => {
           const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
           const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity, goalTitle });
@@ -2227,6 +2228,9 @@ const styles = StyleSheet.create({
     // Re-apply the canonical canvas gutter inside the scroll content after
     // expanding the scroll view bounds.
     paddingHorizontal: spacing.sm,
+  },
+  activityItemSeparator: {
+    height: 2,
   },
   toolbarRow: {
     marginBottom: spacing.sm,

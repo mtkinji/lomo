@@ -86,6 +86,7 @@ const iconMap: Record<string, IconEntry> = {
   send: { library: 'feather', name: 'send' },
   clipboard: { library: 'feather', name: 'clipboard' },
   cart: { library: 'feather', name: 'shopping-cart' },
+  users: { library: 'feather', name: 'users' },
   // Star icons: use Ionicons for both outline and filled variants so the shape stays consistent.
   star: { library: 'ion', name: 'star-outline' },
   starFilled: { library: 'ion', name: 'star' },

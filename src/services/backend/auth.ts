@@ -86,6 +86,33 @@ export async function getAccessToken(): Promise<string | null> {
   return session?.access_token ?? null;
 }
 
+function getSessionExpiresAtMs(session: Session | null): number | null {
+  if (!session) return null;
+  const anyS = session as any;
+  // Supabase session commonly exposes expires_at in seconds since epoch.
+  if (typeof anyS?.expires_at === 'number' && Number.isFinite(anyS.expires_at)) {
+    return anyS.expires_at * 1000;
+  }
+  // Fallback: infer from "expires_in" seconds + current time (approx).
+  if (typeof anyS?.expires_in === 'number' && Number.isFinite(anyS.expires_in)) {
+    return Date.now() + anyS.expires_in * 1000;
+  }
+  return null;
+}
+
+async function maybeRefreshSession(existing: Session): Promise<Session | null> {
+  const expMs = getSessionExpiresAtMs(existing);
+  // If we can't determine expiry, assume it's usable.
+  if (!expMs) return existing;
+  // Refresh if token is expired or about to expire.
+  if (expMs > Date.now() + 60_000) return existing;
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) return null;
+  return data.session ?? null;
+}
+
 export async function signInWithProvider(provider: AuthProvider): Promise<Session> {
   const supabase = getSupabaseClient();
 
@@ -218,7 +245,12 @@ export async function ensureSignedInWithPrompt(
   reason: 'share_goal' | 'share_goal_email' | 'join_goal' | 'upload_attachment' | 'admin' | 'settings',
 ): Promise<Session> {
   const existing = await getSession();
-  if (existing) return existing;
+  if (existing) {
+    // If the access token is expired/expiring, try to refresh silently before we claim
+    // the user is "signed in". If refresh fails, fall through to an explicit sign-in prompt.
+    const refreshed = await maybeRefreshSession(existing).catch(() => null);
+    if (refreshed) return refreshed;
+  }
 
   // Preferred UX: open the standard BottomDrawer-based auth prompt.
   // (Hosted in RootNavigator as `AuthPromptDrawerHost`.)
