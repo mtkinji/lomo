@@ -55,6 +55,13 @@ export type ActivityDetailRouteParams = {
    * Example: `kwilt://activity/<id>?endFocus=1`
    */
   endFocus?: boolean;
+  /**
+   * Optional source tag for ecosystem-driven entrypoints.
+   * Used for adoption measurement + one-time nudge completion (e.g. widgets).
+   *
+   * Example: `kwilt://activity/<id>?source=widget`
+   */
+  source?: string;
 };
 
 export type ActivitiesListRouteParams = {
@@ -74,6 +81,12 @@ export type ActivitiesListRouteParams = {
    * Example: `kwilt://today?contextGoalId=<goalId>`
    */
   contextGoalId?: string;
+  /**
+   * Optional source tag for ecosystem-driven entrypoints.
+   *
+   * Example: `kwilt://today?source=widget`
+   */
+  source?: string;
 };
 
 export type JoinSharedGoalRouteParams = {

@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import type { Session } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { getSupabaseClient } from './supabaseClient';
+import { useAuthPromptStore } from '../../store/useAuthPromptStore';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -214,50 +215,60 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
  * Keeps auth out of the global onboarding path while still allowing flows to continue.
  */
 export async function ensureSignedInWithPrompt(
-  reason: 'share_goal' | 'share_goal_email' | 'join_goal' | 'upload_attachment' | 'admin',
+  reason: 'share_goal' | 'share_goal_email' | 'join_goal' | 'upload_attachment' | 'admin' | 'settings',
 ): Promise<Session> {
   const existing = await getSession();
   if (existing) return existing;
 
-  const title = 'Sign in required';
-  const message =
-    reason === 'share_goal'
-      ? 'To invite someone to a shared goal, you need to sign in so access stays safe.'
-      : reason === 'share_goal_email'
-        ? 'To email an invite link, you need to sign in so access stays safe.'
-      : reason === 'join_goal'
-        ? 'To join this shared goal, you need to sign in so access stays safe.'
-        : reason === 'upload_attachment'
-          ? 'To upload attachments, you need to sign in so access stays safe.'
-        : 'To access Admin tools, you need to sign in.';
+  // Preferred UX: open the standard BottomDrawer-based auth prompt.
+  // (Hosted in RootNavigator as `AuthPromptDrawerHost`.)
+  try {
+    const session = await useAuthPromptStore.getState().open<Session>(reason);
+    return session;
+  } catch (e: any) {
+    // Fallback (should be rare): system alert prompt if drawer host isn't mounted.
+    const title = 'Sign in required';
+    const message =
+      reason === 'share_goal'
+        ? 'To invite someone to a shared goal, you need to sign in so access stays safe.'
+        : reason === 'share_goal_email'
+          ? 'To email an invite link, you need to sign in so access stays safe.'
+        : reason === 'join_goal'
+          ? 'To join this shared goal, you need to sign in so access stays safe.'
+          : reason === 'upload_attachment'
+            ? 'To upload attachments, you need to sign in so access stays safe.'
+          : reason === 'settings'
+            ? 'Sign in to sync your account across devices and access sharing + admin tools.'
+          : 'To access Admin tools, you need to sign in.';
 
-  return await new Promise<Session>((resolve, reject) => {
-    Alert.alert(title, message, [
-      {
-        text: 'Continue with Apple',
-        onPress: async () => {
-          try {
-            const session = await signInWithProvider('apple');
-            resolve(session);
-          } catch (e: any) {
-            reject(e instanceof Error ? e : new Error('Unable to sign in with Apple'));
-          }
+    return await new Promise<Session>((resolve, reject) => {
+      Alert.alert(title, message, [
+        {
+          text: 'Continue with Apple',
+          onPress: async () => {
+            try {
+              const s = await signInWithProvider('apple');
+              resolve(s);
+            } catch (err: any) {
+              reject(err instanceof Error ? err : new Error('Unable to sign in with Apple'));
+            }
+          },
         },
-      },
-      {
-        text: 'Continue with Google',
-        onPress: async () => {
-          try {
-            const session = await signInWithProvider('google');
-            resolve(session);
-          } catch (e: any) {
-            reject(e instanceof Error ? e : new Error('Unable to sign in with Google'));
-          }
+        {
+          text: 'Continue with Google',
+          onPress: async () => {
+            try {
+              const s = await signInWithProvider('google');
+              resolve(s);
+            } catch (err: any) {
+              reject(err instanceof Error ? err : new Error('Unable to sign in with Google'));
+            }
+          },
         },
-      },
-      { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('Sign-in cancelled')) },
-    ]);
-  });
+        { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('Sign-in cancelled')) },
+      ]);
+    });
+  }
 }
 
 

@@ -560,6 +560,11 @@ export const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  sheetRowSubtext: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
   estimateFieldsRow: {
     width: '100%',
   },
@@ -585,6 +590,45 @@ export const styles = StyleSheet.create({
   sheetRowLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  locationFormulaTrigger: {
+    // Match Input variant="filled" (same radius + subtle fill).
+    backgroundColor: colors.fieldFill,
+    borderWidth: 0,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  locationFormulaTriggerText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  unitSliderTrack: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.fieldFill,
+    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  unitSliderThumb: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    borderRadius: 10,
+    backgroundColor: colors.accent,
+  },
+  unitSliderLabel: {
+    ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: colors.textSecondary,
+  },
+  unitSliderLabelActive: {
+    color: colors.primaryForeground,
   },
   customRepeatHeaderRow: {
     width: '100%',

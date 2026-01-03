@@ -61,8 +61,10 @@ const config: ExpoConfig = {
     supportsTablet: true,
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
+    // Required for signing additional targets created at prebuild time (e.g. widgets).
+    appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '20',
+    buildNumber: '22',
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `apple-app-site-association` to be served from those domains.
     associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
@@ -73,7 +75,12 @@ const config: ExpoConfig = {
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
       LSApplicationQueriesSchemes: ['ms-outlook'],
       // Needed for soundscapes to continue playing when the screen locks.
-      UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
+      UIBackgroundModes: ['audio', 'fetch', 'remote-notification', 'location'],
+      // Location offers (geofence enter/exit) permission strings.
+      NSLocationWhenInUseUsageDescription:
+        'Kwilt uses your location to set up activity places and show maps.',
+      NSLocationAlwaysAndWhenInUseUsageDescription:
+        'Kwilt uses your location in the background to nudge you when you arrive or leave a place for an activity.',
       // ExpoCalendar: required usage strings. Without these, iOS can crash at runtime
       // when the Calendar module initializes.
       NSCalendarsUsageDescription:
@@ -86,13 +93,19 @@ const config: ExpoConfig = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 20,
+    versionCode: 22,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    permissions: [
+      'ACCESS_COARSE_LOCATION',
+      'ACCESS_FINE_LOCATION',
+      // Required for geofence triggers to work reliably in the background on Android 10+.
+      'ACCESS_BACKGROUND_LOCATION',
+    ],
     // Android App Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `/.well-known/assetlinks.json` to be served from those domains.
     intentFilters: [
@@ -117,6 +130,7 @@ const config: ExpoConfig = {
     'expo-image-picker',
     'expo-notifications',
     'expo-localization',
+    'expo-location',
     './plugins/withAppleEcosystemIntegrations',
   ],
   extra: {

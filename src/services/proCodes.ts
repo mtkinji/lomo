@@ -1,4 +1,4 @@
-import { getEnvVar } from '../utils/getEnv';
+import { getEnvVar, getSupabaseUrl } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { setProCodeOverrideEnabled } from './entitlements';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
@@ -10,13 +10,26 @@ const AI_PROXY_BASE_URL =
   typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
 
 function getProCodesBaseUrl(): string | null {
-  if (!AI_PROXY_BASE_URL) return null;
-  // aiProxyBaseUrl is expected to end with `/ai-chat` (edge function name).
-  // Derive the sibling pro-codes function URL.
-  if (AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
+  // Prefer aiProxyBaseUrl when available because it already points at Edge Functions.
+  // Expected to end with `/ai-chat` (edge function name). Derive sibling pro-codes URL.
+  if (AI_PROXY_BASE_URL && AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
     return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/pro-codes`;
   }
-  return null;
+  // Fallback: derive from Supabase project URL if aiProxyBaseUrl isn't set in this build.
+  // supabaseUrl format: https://<project-ref>.supabase.co
+  const supabaseUrl = getSupabaseUrl()?.trim();
+  if (!supabaseUrl) return null;
+  try {
+    const u = new URL(supabaseUrl);
+    const host = u.hostname ?? '';
+    const suffix = '.supabase.co';
+    if (!host.endsWith(suffix)) return null;
+    const projectRef = host.slice(0, -suffix.length);
+    if (!projectRef) return null;
+    return `https://${projectRef}.functions.supabase.co/functions/v1/pro-codes`;
+  } catch {
+    return null;
+  }
 }
 
 async function buildEdgeHeaders(): Promise<Headers> {

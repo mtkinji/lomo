@@ -83,6 +83,8 @@ export function DevToolsScreen() {
   const setHasDismissedActivityDetailGuide = useAppStore(
     (state) => state.setHasDismissedActivityDetailGuide,
   );
+  const setActivityDetailPlanExpanded = useAppStore((state) => state.setActivityDetailPlanExpanded);
+  const setActivityDetailDetailsExpanded = useAppStore((state) => state.setActivityDetailDetailsExpanded);
   const setHasDismissedOnboardingActivitiesGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingActivitiesGuide,
   );
@@ -255,6 +257,10 @@ export function DevToolsScreen() {
   const handleShowActivityDetailGuide = () => {
     const activityId = ensureDevActivityId();
     setHasDismissedActivityDetailGuide(false);
+    // Make the guide + e2e seed deterministic: open both collapsible sections so
+    // key fields are visible without extra taps.
+    setActivityDetailPlanExpanded(true);
+    setActivityDetailDetailsExpanded(true);
     navigation.navigate('Activities', { screen: 'ActivityDetail', params: { activityId } });
   };
 

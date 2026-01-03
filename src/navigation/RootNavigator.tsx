@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useWindowDimensions, View, StyleSheet, Platform, Text, Pressable, Linking } from 'react-native';
 import { useAnalytics } from '../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../services/analytics/events';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -26,6 +27,7 @@ import { JoinSharedGoalScreen } from '../features/goals/JoinSharedGoalScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { ActivityDetailScreen } from '../features/activities/ActivityDetailScreen';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
+import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
@@ -40,6 +42,7 @@ import { PaywallDrawerHost } from '../features/paywall/PaywallDrawer';
 import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInterstitialDrawer';
 import { JoinSharedGoalDrawerHost } from '../features/goals/JoinSharedGoalDrawerHost';
 import { ToastHost } from '../ui/ToastHost';
+import { AuthPromptDrawerHost } from '../features/account/AuthPromptDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { handleIncomingInviteUrl } from '../services/invites';
 import { colors, spacing, typography } from '../theme';
@@ -130,6 +133,7 @@ export type SettingsStackParamList = {
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
   SettingsHaptics: undefined;
+  SettingsWidgets: undefined;
   SettingsRedeemProCode: undefined;
   SettingsAdminProCodes: undefined;
   SettingsSuperAdminTools: undefined;
@@ -203,6 +207,10 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const { width } = useWindowDimensions();
   const drawerWidth = width * 0.8;
   const showDevTools = __DEV__;
+  const { capture } = useAnalytics();
+  const completeWidgetNudge = useAppStore((s) => s.completeWidgetNudge);
+  const widgetNudgeStatus = useAppStore((s) => s.widgetNudge?.status);
+  const lastWidgetOpenTrackedAtMsRef = useRef<number>(0);
 
   const [isNavReady, setIsNavReady] = useState(false);
   const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
@@ -336,6 +344,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               parse: {
                 highlightSuggested: (v: string) => v === '1' || v === 'true',
                 contextGoalId: (v: string) => String(v),
+                source: (v: string) => String(v),
               },
             },
             ActivityDetail: {
@@ -348,6 +357,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
                   const parsed = Number(v);
                   return Number.isFinite(parsed) ? parsed : undefined;
                 },
+                source: (v: string) => String(v),
               },
             },
           },
@@ -380,6 +390,28 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         if (routeName && routeName !== lastTrackedRouteNameRef.current) {
           lastTrackedRouteNameRef.current = routeName;
           trackScreen?.(routeName, activeRoute?.params as any);
+        }
+
+        // Widget adoption: detect widget-origin deep links (tagged as source=widget).
+        const source = (activeRoute?.params as any)?.source as string | undefined;
+        if (source === 'widget') {
+          const nowMs = Date.now();
+          // Avoid double-tracking if state updates multiple times for the same open.
+          if (nowMs - lastWidgetOpenTrackedAtMsRef.current > 1500) {
+            lastWidgetOpenTrackedAtMsRef.current = nowMs;
+            capture(AnalyticsEvent.AppOpenedFromWidget, {
+              route_name: routeName ?? 'unknown',
+            });
+          }
+          if (widgetNudgeStatus !== 'completed') {
+            completeWidgetNudge('widget');
+          }
+          // Best-effort: clear the param so we don't repeatedly treat this as a widget open.
+          try {
+            rootNavigationRef.setParams({ source: undefined } as any);
+          } catch {
+            // best-effort
+          }
         }
       }}
     >
@@ -491,6 +523,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       <CreditsInterstitialDrawerHost />
       <PaywallDrawerHost />
       <JoinSharedGoalDrawerHost />
+      <AuthPromptDrawerHost />
       <ToastHost />
     </NavigationContainer>
   );
@@ -614,6 +647,7 @@ function SettingsStackNavigator() {
         name="SettingsHaptics"
         component={HapticsSettingsScreen}
       />
+      <SettingsStack.Screen name="SettingsWidgets" component={WidgetsSettingsScreen} />
       <SettingsStack.Screen
         name="SettingsRedeemProCode"
         component={RedeemProCodeScreen}

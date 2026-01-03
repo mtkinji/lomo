@@ -43,6 +43,8 @@ const iconMap: Record<string, IconEntry> = {
   why: { library: 'feather', name: 'help-circle' },
   daily: { library: 'feather', name: 'clock' },
   bell: { library: 'feather', name: 'bell' },
+  pin: { library: 'feather', name: 'map-pin' },
+  locate: { library: 'feather', name: 'crosshair' },
   panelLeft: { library: 'feather', name: 'sidebar' },
   menu: { library: 'feather', name: 'menu' },
   paperclip: { library: 'feather', name: 'paperclip' },

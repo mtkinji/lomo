@@ -23,6 +23,14 @@ export const AnalyticsEvent = {
   ActivityCompletionToggled: 'activity_completion_toggled',
   ActivityActionInvoked: 'activity_action_invoked',
 
+  // Apple ecosystem adoption (widgets)
+  WidgetPromptExposed: 'widget_prompt_exposed',
+  WidgetPromptDismissed: 'widget_prompt_dismissed',
+  WidgetPromptCtaTapped: 'widget_prompt_cta_tapped',
+  WidgetSetupViewed: 'widget_setup_viewed',
+  WidgetSetupHelpOpened: 'widget_setup_help_opened',
+  AppOpenedFromWidget: 'app_opened_from_widget',
+
   // Monetization / paywall (MVP)
   PaywallViewed: 'paywall_viewed',
   PurchaseStarted: 'purchase_started',

@@ -43,8 +43,11 @@ import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
+import { useFeatureFlagVariant } from '../../services/analytics/useFeatureFlagVariant';
 import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
+import { playActivityDoneSound } from '../../services/uiSounds';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
 import {
@@ -77,6 +80,7 @@ import { fonts } from '../../theme/typography';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
+import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
@@ -206,6 +210,11 @@ export function ActivitiesScreen() {
   const menuOpen = drawerStatus === 'open';
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
+  const widgetNudgesEnabled = useFeatureFlag('widget_nudges_enabled', false);
+  const widgetSurfaceVariant = useFeatureFlagVariant('widget_nudge_surface', 'inline_modal');
+  const widgetTimingVariant = useFeatureFlagVariant('widget_nudge_timing', '3_5');
+  const widgetCopyVariant = useFeatureFlagVariant('widget_nudge_copy', 'today_glance');
+  const ftueActive = useFirstTimeUxStore((state) => state.isFlowActive);
 
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
@@ -230,6 +239,10 @@ export function ActivitiesScreen() {
   );
   const focusContextGoalId = useAppStore((state) => state.focusContextGoalId);
   const setFocusContextGoalId = useAppStore((state) => state.setFocusContextGoalId);
+  const appOpenCount = useAppStore((state) => state.appOpenCount);
+  const widgetNudge = useAppStore((state) => state.widgetNudge);
+  const markWidgetPromptShown = useAppStore((state) => state.markWidgetPromptShown);
+  const dismissWidgetPrompt = useAppStore((state) => state.dismissWidgetPrompt);
 
   const [activityCoachVisible, setActivityCoachVisible] = React.useState(false);
   const [viewEditorVisible, setViewEditorVisible] = React.useState(false);
@@ -256,6 +269,73 @@ export function ActivitiesScreen() {
   );
   const [hasDismissedSuggestedCard, setHasDismissedSuggestedCard] = React.useState(false);
   const [quickAddInfoVisible, setQuickAddInfoVisible] = React.useState(false);
+  const [widgetModalVisible, setWidgetModalVisible] = React.useState(false);
+  const hasTrackedWidgetInlineThisFocusRef = React.useRef(false);
+  const hasOpenedWidgetModalThisFocusRef = React.useRef(false);
+
+  const shouldShowWidgetNudgeInline = React.useMemo(() => {
+    if (!widgetNudgesEnabled) return false;
+    if (ftueActive) return false;
+    if (!isFocused) return false;
+    if (!activities || activities.length === 0) return false;
+    if ((widgetNudge as any)?.status === 'completed') return false;
+    if ((widgetNudge as any)?.cooldownUntilMs && Date.now() < (widgetNudge as any).cooldownUntilMs) return false;
+    // Timing: avoid first-run; show after a few returns.
+    const inlineThreshold =
+      widgetTimingVariant === '4_6' ? 4 : widgetTimingVariant === '5_7' ? 5 : 3;
+    if ((appOpenCount ?? 0) < inlineThreshold) return false;
+    return true;
+  }, [appOpenCount, activities, ftueActive, isFocused, widgetNudgesEnabled, widgetNudge, widgetTimingVariant]);
+
+  const shouldAutoShowWidgetModal = React.useMemo(() => {
+    if (!widgetNudgesEnabled) return false;
+    if (widgetSurfaceVariant === 'inline_only') return false;
+    if (ftueActive) return false;
+    if (!isFocused) return false;
+    if (!activities || activities.length === 0) return false;
+    if ((widgetNudge as any)?.status === 'completed') return false;
+    if ((widgetNudge as any)?.cooldownUntilMs && Date.now() < (widgetNudge as any).cooldownUntilMs) return false;
+    // Escalation: only after at least one inline exposure, and on later opens.
+    if (((widgetNudge as any)?.shownCount ?? 0) < 1) return false;
+    const modalThreshold =
+      widgetTimingVariant === '4_6' ? 6 : widgetTimingVariant === '5_7' ? 7 : 5;
+    if ((appOpenCount ?? 0) < modalThreshold) return false;
+    if (((widgetNudge as any)?.modalShownCount ?? 0) >= 1) return false;
+    return true;
+  }, [appOpenCount, activities, ftueActive, isFocused, widgetNudgesEnabled, widgetNudge, widgetSurfaceVariant, widgetTimingVariant]);
+
+  React.useEffect(() => {
+    if (!shouldShowWidgetNudgeInline) {
+      hasTrackedWidgetInlineThisFocusRef.current = false;
+      return;
+    }
+    if (hasTrackedWidgetInlineThisFocusRef.current) return;
+    hasTrackedWidgetInlineThisFocusRef.current = true;
+    markWidgetPromptShown('inline');
+    capture(AnalyticsEvent.WidgetPromptExposed, {
+      surface: 'inline',
+      app_open_count: appOpenCount ?? 0,
+    });
+  }, [appOpenCount, capture, markWidgetPromptShown, shouldShowWidgetNudgeInline]);
+
+  React.useEffect(() => {
+    if (!shouldAutoShowWidgetModal) {
+      hasOpenedWidgetModalThisFocusRef.current = false;
+      return;
+    }
+    if (hasOpenedWidgetModalThisFocusRef.current) return;
+    hasOpenedWidgetModalThisFocusRef.current = true;
+    // Defer to next tick so we don't stack on top of other startup UI.
+    const t = setTimeout(() => {
+      setWidgetModalVisible(true);
+      markWidgetPromptShown('modal');
+      capture(AnalyticsEvent.WidgetPromptExposed, {
+        surface: 'modal',
+        app_open_count: appOpenCount ?? 0,
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [appOpenCount, capture, markWidgetPromptShown, shouldAutoShowWidgetModal]);
 
   React.useEffect(() => {
     // Enable LayoutAnimation on Android (no-op on newer RN versions where it's enabled).
@@ -1044,6 +1124,9 @@ export function ActivitiesScreen() {
           didFireHaptic = true;
           void HapticsService.trigger(nextIsDone ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
         }
+        if (nextIsDone) {
+          void playActivityDoneSound();
+        }
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activities_list',
           activity_id: activityId,
@@ -1243,6 +1326,31 @@ export function ActivitiesScreen() {
     setViewEditorVisible(false);
   }, [activityViews, handleDeleteView, viewEditorTargetId]);
 
+  const openWidgetSetup = React.useCallback(
+    (surface: 'inline' | 'modal') => {
+      capture(AnalyticsEvent.WidgetPromptCtaTapped, {
+        surface,
+        app_open_count: appOpenCount ?? 0,
+      });
+      setWidgetModalVisible(false);
+      // Navigate into the Settings stack without breaking the shell/canvas structure.
+      (navigation as any).navigate('Settings', { screen: 'SettingsWidgets' });
+    },
+    [appOpenCount, capture, navigation],
+  );
+
+  const handleDismissWidgetPrompt = React.useCallback(
+    (surface: 'inline' | 'modal') => {
+      dismissWidgetPrompt(surface);
+      capture(AnalyticsEvent.WidgetPromptDismissed, {
+        surface,
+        app_open_count: appOpenCount ?? 0,
+      });
+      setWidgetModalVisible(false);
+    },
+    [appOpenCount, capture, dismissWidgetPrompt],
+  );
+
   return (
     <AppShell>
       <PageHeader
@@ -1322,6 +1430,26 @@ export function ActivitiesScreen() {
         onDismiss={dismissActivitiesListGuide}
         placement="below"
       />
+      <Dialog
+        visible={widgetModalVisible}
+        onClose={() => handleDismissWidgetPrompt('modal')}
+        title="Add a Kwilt widget"
+        description="Put Today and your next step on your Home Screen or Lock Screen."
+      >
+        <VStack space="md">
+          <Text style={styles.widgetModalBody}>
+            After you add it, tapping the widget should open Kwilt directly to Today or your next Activity.
+          </Text>
+          <HStack justifyContent="space-between" alignItems="center">
+            <Button variant="secondary" onPress={() => handleDismissWidgetPrompt('modal')}>
+              <ButtonLabel>Not now</ButtonLabel>
+            </Button>
+            <Button onPress={() => openWidgetSetup('modal')}>
+              <ButtonLabel tone="inverse">Set up widget</ButtonLabel>
+            </Button>
+          </HStack>
+        </VStack>
+      </Dialog>
       <CanvasFlatListWithRef
         ref={canvasScrollRef}
         style={styles.scroll}
@@ -1363,6 +1491,36 @@ export function ActivitiesScreen() {
         }}
         ListHeaderComponent={
           <>
+            {shouldShowWidgetNudgeInline && (
+              <Card style={styles.widgetNudgeCard}>
+                <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
+                  <VStack flex={1} space="xs">
+                    <HStack alignItems="center" space="xs">
+                      <Icon name="home" size={16} color={colors.textPrimary} />
+                      <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
+                    </HStack>
+                    <Text style={styles.widgetNudgeBody}>
+                      {widgetCopyVariant === 'start_focus_faster'
+                        ? 'Start Focus with fewer taps.'
+                        : 'See Today at a glance and jump in faster.'}
+                    </Text>
+                  </VStack>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Dismiss widget prompt"
+                    hitSlop={10}
+                    onPress={() => handleDismissWidgetPrompt('inline')}
+                  >
+                    <Icon name="close" size={16} color={colors.textSecondary} />
+                  </Pressable>
+                </HStack>
+                <HStack justifyContent="flex-end" alignItems="center" space="sm" style={{ marginTop: spacing.sm }}>
+                  <Button variant="secondary" size="sm" onPress={() => openWidgetSetup('inline')}>
+                    <ButtonLabel size="sm">Set up widget</ButtonLabel>
+                  </Button>
+                </HStack>
+              </Card>
+            )}
             {shouldShowSuggestedCard && (
               <View
                 onLayout={(e) => {
@@ -2131,6 +2289,25 @@ const styles = StyleSheet.create({
   // to avoid noisy diffs in case we decide to bring back the green opportunity surface.
   suggestedOpportunityCard: { marginBottom: spacing.md },
   suggestedOpportunityCardHighlighted: { borderWidth: 2, borderColor: colors.accent },
+  widgetNudgeCard: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  widgetNudgeTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  widgetNudgeBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  widgetModalBody: {
+    ...typography.body,
+    color: colors.textSecondary,
+  },
   quickAddLabelOnBrand: { ...typography.bodySm, color: colors.parchment, fontFamily: fonts.semibold, letterSpacing: 0.2 },
   suggestedPillOnBrand: { ...typography.bodySm, color: colors.parchment, opacity: 0.9 },
   quickAddMetaOnBrand: { ...typography.bodySm, color: colors.parchment, opacity: 0.9 },

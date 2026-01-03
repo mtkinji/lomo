@@ -57,6 +57,11 @@ export const typography = {
     fontSize: 14,
     lineHeight: 20,
   },
+  bodyXs: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
   label: {
     fontFamily: fonts.medium,
     fontSize: 12,

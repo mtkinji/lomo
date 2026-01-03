@@ -27,6 +27,7 @@ import { openManageSubscription } from '../../services/entitlements';
 import { createReferralCode } from '../../services/referrals';
 import { getAdminProCodesStatus } from '../../services/proCodes';
 import { signOut } from '../../services/backend/auth';
+import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { withHapticPress } from '../../ui/haptics/withHapticPress';
 import { shareUrlWithPreview } from '../../utils/share';
 import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
@@ -61,6 +62,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     title: 'Personalization',
     description: 'Visual identity, tone, and how the app feels.',
     items: [
+      {
+        id: 'widgets',
+        title: 'Widgets',
+        description: 'Add Kwilt to your Home Screen or Lock Screen.',
+        icon: 'home',
+        route: 'SettingsWidgets',
+        tags: ['ios', 'home screen', 'lock screen'],
+      },
       {
         id: 'haptics',
         title: 'Haptics',
@@ -104,6 +113,13 @@ export function SettingsHomeScreen() {
   useEffect(() => {
     // Best-effort: only show Admin entry if the signed-in user is allowlisted server-side.
     // Fail closed (hidden) to avoid confusing non-admin users.
+    if (!authIdentity?.userId) {
+      setShowAdmin(false);
+      setShowSuperAdmin(false);
+      clearAdminEntitlementsOverrideTier().catch(() => undefined);
+      return;
+    }
+
     getAdminProCodesStatus()
       .then((s) => {
         setShowAdmin(Boolean(s.isAdmin));
@@ -119,7 +135,7 @@ export function SettingsHomeScreen() {
         setShowSuperAdmin(false);
         clearAdminEntitlementsOverrideTier().catch(() => undefined);
       });
-  }, []);
+  }, [authIdentity?.userId]);
 
   const handleNavigate = (item: SettingsItem) => {
     if (item.disabled || !item.route) {
@@ -194,6 +210,12 @@ export function SettingsHomeScreen() {
 
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const profileSubtitle = authIdentity?.email?.trim() || userProfile?.email?.trim() || 'Not signed in';
+  const authEmailLower = (authIdentity?.email ?? '').trim().toLowerCase();
+  // UX fallback: if the signed-in user email is one of our known Super Admin emails,
+  // show the Super Admin section even if the server-side status probe fails.
+  // Server still enforces authorization for all actions.
+  const isKnownSuperAdminEmail =
+    authEmailLower === 'mtkinji@gmail.com' || authEmailLower === 'andy@kwilt.app';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
   const avatarSource = avatarUrl ? { uri: avatarUrl } : null;
 
@@ -357,14 +379,23 @@ export function SettingsHomeScreen() {
           },
         ] satisfies RowAction[])
       : []),
-    ...(showSuperAdmin
+    ...(!authIdentity
       ? ([
           {
-            id: 'superAdmin',
-            title: 'Super Admin',
-            icon: 'dev',
-            onPress: () => navigation.navigate('SettingsSuperAdminTools'),
-            showChevron: true,
+            id: 'signIn',
+            title: 'Sign in',
+            icon: 'lock',
+            onPress: async () => {
+              try {
+                await ensureSignedInWithPrompt('settings');
+                const s = await getAdminProCodesStatus();
+                setShowAdmin(Boolean(s.isAdmin));
+                setShowSuperAdmin(Boolean(s.role === 'super_admin'));
+              } catch {
+                // user cancelled
+              }
+            },
+            showChevron: false,
           },
         ] satisfies RowAction[])
       : []),
@@ -402,6 +433,17 @@ export function SettingsHomeScreen() {
   ];
 
   const allRows: RowAction[] = [...accountRows, ...personalizationRows, ...utilityRows];
+  const superAdminRows: RowAction[] = (showSuperAdmin || isKnownSuperAdminEmail)
+    ? ([
+        {
+          id: 'superAdminTools',
+          title: 'Super Admin',
+          icon: 'dev',
+          onPress: () => navigation.navigate('SettingsSuperAdminTools'),
+          showChevron: true,
+        },
+      ] satisfies RowAction[])
+    : [];
 
   return (
     <AppShell>
@@ -493,6 +535,20 @@ export function SettingsHomeScreen() {
           {allRows.length > 0 ? (
             <View>
               {allRows.map((row, idx) => renderRow(row, { isLast: idx === allRows.length - 1 }))}
+            </View>
+          ) : null}
+
+          {superAdminRows.length > 0 ? (
+            <View style={styles.superAdminSection}>
+              <Text style={styles.superAdminTitle}>Super Admin</Text>
+              <Text style={styles.superAdminBody}>
+                Internal tools for entitlement simulation and issuing 1-year Pro codes.
+              </Text>
+              <View style={{ marginTop: spacing.sm }}>
+                {superAdminRows.map((row, idx) =>
+                  renderRow(row, { isLast: idx === superAdminRows.length - 1 }),
+                )}
+              </View>
             </View>
           ) : null}
         </ScrollView>
@@ -665,6 +721,21 @@ const styles = StyleSheet.create({
   },
   listRowTitle: {
     ...typography.body,
+  },
+  superAdminSection: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  superAdminTitle: {
+    ...typography.label,
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  superAdminBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   badge: {
     borderRadius: 999,

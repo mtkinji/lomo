@@ -15,12 +15,17 @@ import {
   Modal,
   Share,
   Linking,
+  useWindowDimensions,
+  Animated,
+  PanResponder,
   findNodeHandle,
   UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { PortalHost } from '@rn-primitives/portal';
+import { FullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -41,7 +46,10 @@ import type {
 } from '../../navigation/RootNavigator';
 import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerNativeGestureView } from '../../ui/BottomDrawer';
+import { StaticMapImage } from '../../ui/maps/StaticMapImage';
+import { LocationPermissionService } from '../../services/LocationPermissionService';
+import { getCurrentLocationBestEffort } from '../../services/location/currentLocation';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { Picker } from '@react-native-picker/picker';
 import { SOUND_SCAPES, preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
@@ -90,12 +98,14 @@ import {
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 import { HapticsService } from '../../services/HapticsService';
+import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSounds';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
 import { ActionDock } from '../../ui/ActionDock';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
+import MapView, { Circle, type Region } from 'react-native-maps';
 
 type FocusSessionState =
   | {
@@ -129,6 +139,7 @@ export function ActivityDetailScreen() {
   const { capture } = useAnalytics();
   const showToast = useToastStore((s) => s.showToast);
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
@@ -405,6 +416,7 @@ export function ActivityDetailScreen() {
   type ActiveSheet =
     | 'reminder'
     | 'due'
+    | 'location'
     | 'repeat'
     | 'customRepeat'
     | 'estimate'
@@ -417,6 +429,7 @@ export function ActivityDetailScreen() {
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
   const reminderSheetVisible = activeSheet === 'reminder';
   const dueDateSheetVisible = activeSheet === 'due';
+  const locationSheetVisible = activeSheet === 'location';
   const repeatSheetVisible = activeSheet === 'repeat';
   const customRepeatSheetVisible = activeSheet === 'customRepeat';
   const [customRepeatInterval, setCustomRepeatInterval] = useState<number>(1);
@@ -497,6 +510,366 @@ export function ActivityDetailScreen() {
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
   const sendToSheetVisible = activeSheet === 'sendTo';
   const recordAudioSheetVisible = activeSheet === 'recordAudio';
+  const LOCATION_SHEET_PORTAL_HOST = 'activity-detail-location-sheet';
+  const DEFAULT_RADIUS_FT = 150;
+  const LOCATION_RADIUS_FT_OPTIONS = [50, 100, 150, 300, 500] as const;
+  const LOCATION_MAP_ZOOM = 15;
+  const MIN_LOCATION_RADIUS_FT = 50;
+  const MAX_LOCATION_RADIUS_FT = 2000;
+
+  // Location picker (Plan → Location)
+  const [locationQuery, setLocationQuery] = useState('');
+  const [locationResults, setLocationResults] = useState<
+    Array<{ id: string; label: string; latitude: number; longitude: number }>
+  >([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [previewLocation, setPreviewLocation] = useState<{ label: string; latitude: number; longitude: number } | null>(
+    null,
+  );
+  const [isLocationSearchOpen, setIsLocationSearchOpen] = useState(false);
+  const [locationSelectedValue, setLocationSelectedValue] = useState('');
+  const [locationTriggerDraft, setLocationTriggerDraft] = useState<'arrive' | 'leave'>('leave');
+  // MVP (US-only): feet-only radius UI. We still store meters canonically.
+  const [locationRadiusMetersDraft, setLocationRadiusMetersDraft] = useState<number>(DEFAULT_RADIUS_FT * 0.3048);
+
+  const formatRadiusLabel = useCallback(
+    (meters: number) => {
+      const metersClamped = Math.max(
+        MIN_LOCATION_RADIUS_FT * 0.3048,
+        Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, meters),
+      );
+      // Convert meters -> feet without rounding meters first (avoids 150 -> 151).
+      const ft = Math.round(metersClamped / 0.3048);
+      return `${ft} feet`;
+    },
+    [MAX_LOCATION_RADIUS_FT, MIN_LOCATION_RADIUS_FT],
+  );
+
+  const [locationStatusHint, setLocationStatusHint] = useState<string | null>(null);
+  const [mapCenterOverride, setMapCenterOverride] = useState<{ latitude: number; longitude: number } | null>(null);
+  const mapCenterOverrideRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const mapDragStartCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
+
+  const locationMapWidthPx = useMemo(() => Math.max(1, windowWidth - spacing.xl * 2), [windowWidth]);
+  const locationMapHeightPx = useMemo(
+    () => Math.round(Math.max(200, Math.min(340, (locationMapWidthPx * 2) / 3))),
+    [locationMapWidthPx],
+  );
+
+  const resolvedLocationMapCenter = useMemo(() => {
+    return (
+      mapCenterOverride ??
+      (previewLocation ? { latitude: previewLocation.latitude, longitude: previewLocation.longitude } : null) ??
+      currentCoords ??
+      (activity?.location &&
+      typeof (activity as any).location?.latitude === 'number' &&
+      typeof (activity as any).location?.longitude === 'number'
+        ? { latitude: (activity as any).location.latitude, longitude: (activity as any).location.longitude }
+        : null)
+    );
+  }, [activity, currentCoords, mapCenterOverride, previewLocation]);
+
+  const mapRef = useRef<MapView | null>(null);
+  const mapCommitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationSearchAbortRef = useRef<AbortController | null>(null);
+  const locationSearchCacheRef = useRef<
+    Map<string, Array<{ id: string; label: string; latitude: number; longitude: number }>>
+  >(new Map());
+
+  const commitLocation = useCallback(
+    (loc: { label: string; latitude: number; longitude: number }) => {
+      if (!activity?.id) return;
+      const safeRadiusM = Math.max(
+        MIN_LOCATION_RADIUS_FT * 0.3048,
+        Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048),
+      );
+      const timestamp = new Date().toISOString();
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        location: {
+          label: loc.label,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          trigger: locationTriggerDraft,
+          radiusM: safeRadiusM,
+        },
+        updatedAt: timestamp,
+      }));
+    },
+    [
+      activity?.id,
+      locationRadiusMetersDraft,
+      locationTriggerDraft,
+      updateActivity,
+      DEFAULT_RADIUS_FT,
+      MAX_LOCATION_RADIUS_FT,
+      MIN_LOCATION_RADIUS_FT,
+    ],
+  );
+
+  const scheduleCommitLocation = useCallback(
+    (loc: { label: string; latitude: number; longitude: number }) => {
+      if (mapCommitTimeoutRef.current) {
+        clearTimeout(mapCommitTimeoutRef.current);
+      }
+      // Avoid spamming the global Activity store during active map gestures (pinch/pan).
+      mapCommitTimeoutRef.current = setTimeout(() => {
+        commitLocation(loc);
+      }, 420);
+    },
+    [commitLocation],
+  );
+  const computeRegionForRadius = useCallback((center: { latitude: number; longitude: number }, radiusM: number): Region => {
+    // Roughly fit ~3 radii to each edge of the viewport.
+    const safeRadius = Math.max(10, Math.min(5000, radiusM));
+    const deltaLat = Math.max(0.005, (safeRadius * 6) / 111_000);
+    const cos = Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180));
+    const deltaLon = Math.max(0.005, deltaLat / cos);
+    return {
+      latitude: center.latitude,
+      longitude: center.longitude,
+      latitudeDelta: deltaLat,
+      longitudeDelta: deltaLon,
+    };
+  }, []);
+
+  const animateMapToCenter = useCallback(
+    (center: { latitude: number; longitude: number }, radiusM: number) => {
+      const region = computeRegionForRadius(center, radiusM);
+      mapRef.current?.animateToRegion(region, 250);
+    },
+    [computeRegionForRadius],
+  );
+
+  const locationMapPanResponder = useMemo(() => {
+    // WebMercator helpers (pixel space at given zoom).
+    const worldSize = 256 * Math.pow(2, LOCATION_MAP_ZOOM);
+    const clampLat = (lat: number) => Math.max(-85.05112878, Math.min(85.05112878, lat));
+    const lonToX = (lon: number) => ((lon + 180) / 360) * worldSize;
+    const latToY = (lat: number) => {
+      const rad = (clampLat(lat) * Math.PI) / 180;
+      const sin = Math.sin(rad);
+      return (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * worldSize;
+    };
+    const xToLon = (x: number) => (x / worldSize) * 360 - 180;
+    const yToLat = (y: number) => {
+      const n = Math.PI - (2 * Math.PI * y) / worldSize;
+      return (180 / Math.PI) * Math.atan(Math.sinh(n));
+    };
+
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => Boolean(resolvedLocationMapCenter),
+      onMoveShouldSetPanResponder: (_evt, gesture) =>
+        Boolean(resolvedLocationMapCenter) && Math.abs(gesture.dx) + Math.abs(gesture.dy) > 2,
+      onPanResponderGrant: () => {
+        if (!resolvedLocationMapCenter) return;
+        mapDragStartCenterRef.current = { ...resolvedLocationMapCenter };
+      },
+      onPanResponderMove: (_evt, gesture) => {
+        const start = mapDragStartCenterRef.current;
+        if (!start) return;
+        // Dragging the map moves the camera opposite the finger direction.
+        const startX = lonToX(start.longitude);
+        const startY = latToY(start.latitude);
+        const nextX = startX - gesture.dx;
+        const nextY = startY - gesture.dy;
+        const nextCenter = { latitude: clampLat(yToLat(nextY)), longitude: xToLon(nextX) };
+        mapCenterOverrideRef.current = nextCenter;
+        setMapCenterOverride(nextCenter);
+      },
+      onPanResponderRelease: () => {
+        const center = mapCenterOverrideRef.current ?? resolvedLocationMapCenter;
+        if (!center) return;
+        const loc = { label: 'Dropped pin', latitude: center.latitude, longitude: center.longitude };
+        setPreviewLocation(loc);
+        commitLocation(loc);
+      },
+      onPanResponderTerminate: () => {
+        // no-op
+      },
+    });
+  }, [LOCATION_MAP_ZOOM, commitLocation, resolvedLocationMapCenter]);
+
+  const clearLocationSelection = useCallback(() => {
+    setLocationQuery('');
+    setLocationResults([]);
+    setIsSearchingLocation(false);
+    setPreviewLocation(null);
+    setMapCenterOverride(null);
+    mapCenterOverrideRef.current = null;
+    setLocationSelectedValue('');
+    setIsLocationSearchOpen(false);
+    if (activity?.location) {
+      const timestamp = new Date().toISOString();
+      updateActivity(activity.id, (prev) => ({
+        ...prev,
+        location: null,
+        updatedAt: timestamp,
+      }));
+    }
+  }, [activity?.id, activity?.location, updateActivity]);
+
+  // If a location is already attached, keep trigger/radius changes in sync immediately (no "Set" CTA).
+  useEffect(() => {
+    if (!locationSheetVisible) return;
+    if (!activity?.id) return;
+    const loc = (activity as any)?.location as any;
+    if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') return;
+    const safeRadiusM = Math.max(
+      MIN_LOCATION_RADIUS_FT * 0.3048,
+      Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048),
+    );
+    if (loc.trigger === locationTriggerDraft && Number(loc.radiusM) === Number(safeRadiusM)) return;
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      location: {
+        ...((prev as any).location ?? loc),
+        trigger: locationTriggerDraft,
+        radiusM: safeRadiusM,
+      },
+      updatedAt: timestamp,
+    }));
+  }, [
+    activity,
+    locationRadiusMetersDraft,
+    locationSheetVisible,
+    locationTriggerDraft,
+    updateActivity,
+    DEFAULT_RADIUS_FT,
+    MAX_LOCATION_RADIUS_FT,
+    MIN_LOCATION_RADIUS_FT,
+  ]);
+
+  useEffect(() => {
+    if (!locationSheetVisible) return;
+    setLocationStatusHint(null);
+    setMapCenterOverride(null);
+    mapCenterOverrideRef.current = null;
+    setLocationSelectedValue('');
+    // Initialize trigger/radius from current activity (or defaults).
+    const loc = (activity as any)?.location as any;
+    const trigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
+    const radiusM =
+      typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
+        ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
+        : DEFAULT_RADIUS_FT * 0.3048;
+    setLocationTriggerDraft(trigger);
+    setLocationRadiusMetersDraft(radiusM);
+    if (loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
+      setPreviewLocation({
+        label: String(loc.label ?? 'Selected location'),
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+      });
+    } else {
+      setPreviewLocation(null);
+    }
+    // Best-effort: if we haven't asked yet, request so we can center on "current location".
+    void (async () => {
+      const prefs = useAppStore.getState().locationOfferPreferences;
+      if (prefs.osPermissionStatus === 'notRequested') {
+        await LocationPermissionService.requestOsPermission();
+      } else {
+        await LocationPermissionService.syncOsPermissionStatus();
+      }
+      const coords = await getCurrentLocationBestEffort();
+      if (coords) {
+        setCurrentCoords(coords);
+      } else {
+        const next = useAppStore.getState().locationOfferPreferences.osPermissionStatus;
+        if (next === 'denied' || next === 'restricted') {
+          setLocationStatusHint('Location is blocked in system settings. Search still works.');
+        } else if (next === 'unavailable') {
+          setLocationStatusHint('Location isn’t available in this build yet. Search still works.');
+        } else {
+          setLocationStatusHint('Couldn’t read current location. Search still works.');
+        }
+      }
+    })();
+  }, [locationSheetVisible]);
+
+  useEffect(() => {
+    if (!locationSheetVisible) return;
+    const q = locationQuery.trim();
+    if (q.length < 2) {
+      setLocationResults([]);
+      setIsSearchingLocation(false);
+      locationSearchAbortRef.current?.abort();
+      return;
+    }
+    // Any new query invalidates the previous in-flight request immediately (even before debounce),
+    // so stale responses can’t overwrite newer results.
+    locationSearchAbortRef.current?.abort();
+    setIsSearchingLocation(false);
+    const timer = setTimeout(() => {
+      const cacheKey = q.toLowerCase();
+      const cached = locationSearchCacheRef.current.get(cacheKey);
+      if (cached) {
+        setIsSearchingLocation(false);
+        setLocationResults(cached);
+        if (cached.length > 0) {
+          setPreviewLocation((prev) => prev ?? cached[0] ?? null);
+        }
+        return;
+      }
+
+      const controller = new AbortController();
+      locationSearchAbortRef.current = controller;
+
+      void (async () => {
+        setIsSearchingLocation(true);
+        try {
+          const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&q=${encodeURIComponent(q)}`;
+          const resp = await fetch(url, {
+            signal: controller.signal,
+            headers: {
+              Accept: 'application/json',
+              // Nominatim usage policy requests a UA identifying the application.
+              // This is best-effort; some platforms may ignore it.
+              'User-Agent': 'Kwilt/1.0 (location search)',
+            },
+          });
+          if (!resp.ok) {
+            throw new Error(`Nominatim error: ${resp.status}`);
+          }
+          const json = (await resp.json()) as Array<any>;
+          const next = (Array.isArray(json) ? json : [])
+            .map((row) => {
+              const lat = Number.parseFloat(String(row?.lat ?? ''));
+              const lon = Number.parseFloat(String(row?.lon ?? ''));
+              const label = String(row?.display_name ?? '').trim();
+              const idRaw = row?.place_id ?? row?.osm_id ?? null;
+              const id = idRaw != null ? String(idRaw) : `${lat}:${lon}:${label}`;
+              if (!Number.isFinite(lat) || !Number.isFinite(lon) || !label) return null;
+              return { id, label, latitude: lat, longitude: lon };
+            })
+            .filter(Boolean)
+            .slice(0, 6) as Array<{ id: string; label: string; latitude: number; longitude: number }>;
+
+          if (controller.signal.aborted) return;
+          setLocationResults(next);
+          locationSearchCacheRef.current.set(cacheKey, next);
+          // If the user hasn't explicitly picked a preview, default the preview to the top result.
+          if (next.length > 0) {
+            setPreviewLocation((prev) => prev ?? next[0] ?? null);
+          }
+        } catch (err) {
+          if ((err as any)?.name === 'AbortError') return;
+          setLocationResults([]);
+        } finally {
+          if (!controller.signal.aborted) {
+            setIsSearchingLocation(false);
+          }
+        }
+      })();
+    }, 280);
+    return () => {
+      clearTimeout(timer);
+      locationSearchAbortRef.current?.abort();
+    };
+  }, [locationQuery, locationSheetVisible]);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isOutlookInstalled, setIsOutlookInstalled] = useState(false);
   const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
@@ -1630,6 +2003,7 @@ export function ActivityDetailScreen() {
 
   const deriveStatusFromSteps = (
     prevStatus: ActivityStatus,
+    prevSteps: ActivityStep[],
     nextSteps: ActivityStep[],
     timestamp: string,
     prevCompletedAt?: string | null
@@ -1638,12 +2012,22 @@ export function ActivityDetailScreen() {
       return { nextStatus: prevStatus, nextCompletedAt: prevCompletedAt ?? null };
     }
 
+    const prevAllStepsComplete = prevSteps.length > 0 && prevSteps.every((s) => !!s.completedAt);
     const allStepsComplete = nextSteps.length > 0 && nextSteps.every((s) => !!s.completedAt);
     const anyStepComplete = nextSteps.some((s) => !!s.completedAt);
 
     let nextStatus: ActivityStatus = prevStatus;
     if (allStepsComplete) {
-      nextStatus = 'done';
+      // Key UX: when a user checks the last step, we auto-mark the activity done once.
+      // But if they later un-mark the activity as not done, we should NOT force it back to done
+      // just because the steps remain checked.
+      if (!prevAllStepsComplete && prevStatus !== 'done') {
+        nextStatus = 'done';
+      } else if (prevStatus === 'done') {
+        nextStatus = 'done';
+      } else {
+        nextStatus = 'in_progress';
+      }
     } else if (anyStepComplete) {
       nextStatus = 'in_progress';
     } else {
@@ -1676,6 +2060,7 @@ export function ActivityDetailScreen() {
         hadSteps = nextSteps.length > 0;
         const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
           prev.status,
+          currentSteps,
           nextSteps,
           timestamp,
           prev.completedAt
@@ -1701,6 +2086,7 @@ export function ActivityDetailScreen() {
         } else {
           void HapticsService.trigger('outcome.bigSuccess');
         }
+        void playActivityDoneSound();
         recordShowUp();
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activity_detail',
@@ -1736,6 +2122,9 @@ export function ActivityDetailScreen() {
       void HapticsService.trigger('outcome.bigSuccess');
     } else {
       void HapticsService.trigger(willComplete ? 'canvas.step.complete' : 'canvas.step.undo');
+    }
+    if (willComplete) {
+      void playStepDoneSound();
     }
     // Marking a step complete is meaningful progress; count it as "showing up".
     if (existing && !existing.completedAt) {
@@ -1966,21 +2355,47 @@ export function ActivityDetailScreen() {
       return;
     }
 
-    // Undo finish: only revert steps that were completed by the most recent Finish action.
+    // All steps complete:
+    // - If the user used Finish, allow tapping again to undo that Finish (revert only the steps that Finish checked).
+    // - Otherwise, treat this as an explicit "done / not-done" toggle that does NOT change step checkmarks.
     const mutation = finishMutationRef.current;
-    if (!mutation || mutation.stepIds.length === 0) {
+    if (mutation && mutation.stepIds.length > 0) {
+      finishMutationRef.current = null;
+      void HapticsService.trigger('canvas.primary.confirm');
+      const idSet = new Set(mutation.stepIds);
+      applyStepUpdate((steps) =>
+        steps.map((step) =>
+          idSet.has(step.id) && step.completedAt === mutation.completedAtStamp
+            ? { ...step, completedAt: null }
+            : step
+        )
+      );
       return;
     }
+
+    // Manual completion toggle (keep steps as-is).
     finishMutationRef.current = null;
-    void HapticsService.trigger('canvas.primary.confirm');
-    const idSet = new Set(mutation.stepIds);
-    applyStepUpdate((steps) =>
-      steps.map((step) =>
-        idSet.has(step.id) && step.completedAt === mutation.completedAtStamp
-          ? { ...step, completedAt: null }
-          : step
-      )
-    );
+    const wasCompleted = isCompleted;
+    void HapticsService.trigger(wasCompleted ? 'canvas.primary.confirm' : 'outcome.bigSuccess');
+    updateActivity(activity.id, (prev) => {
+      const nextIsDone = prev.status !== 'done';
+      return {
+        ...prev,
+        status: nextIsDone ? 'done' : 'in_progress',
+        completedAt: nextIsDone ? timestamp : null,
+        updatedAt: timestamp,
+      };
+    });
+    if (!wasCompleted) {
+      recordShowUp();
+    }
+    capture(AnalyticsEvent.ActivityCompletionToggled, {
+      source: 'activity_detail',
+      activity_id: activity.id,
+      goal_id: activity.goalId ?? null,
+      next_status: wasCompleted ? 'in_progress' : 'done',
+      had_steps: true,
+    });
   };
 
   const handleSelectReminder = (offsetDays: number, hours = 9, minutes = 0) => {
@@ -2473,6 +2888,7 @@ export function ActivityDetailScreen() {
       updateActivity(activity.id, (prev) => {
         const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
           prev.status,
+          prev.steps ?? [],
           nextSteps,
           timestamp,
           prev.completedAt
@@ -2692,12 +3108,12 @@ export function ActivityDetailScreen() {
                       : 'Mark activity as done',
                     onPress: handleToggleComplete,
                     testID: 'e2e.activityDetail.dock.donePrimary',
-                    // Keep the checkmark Sumi until all steps are complete.
-                    color: allStepsComplete ? colors.parchment : colors.sumi,
+                    // Reflect explicit Activity completion (users may keep all steps checked but un-mark the Activity).
+                    color: isCompleted ? colors.parchment : colors.sumi,
                   }}
                   rightItemProgress={actionDockRightProgress}
                   rightItemRingColor={dockCompleteColor}
-                  rightItemBackgroundColor={allStepsComplete ? dockCompleteColor : undefined}
+                  rightItemBackgroundColor={isCompleted ? dockCompleteColor : undefined}
                   rightItemCelebrateKey={rightItemCelebrateKey}
                   onRightItemCelebrateComplete={() => {
                     if (!isFocusedRef.current) return;
@@ -2869,6 +3285,335 @@ export function ActivityDetailScreen() {
             <SheetOption testID="e2e.activityDetail.repeat.yearly" label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
             <SheetOption testID="e2e.activityDetail.repeat.custom" label="Custom…" onPress={openCustomRepeat} />
           </VStack>
+        </View>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={locationSheetVisible}
+        onClose={() => {
+          setActiveSheet(null);
+          setLocationQuery('');
+          setLocationResults([]);
+          setIsSearchingLocation(false);
+          setPreviewLocation(null);
+          setMapCenterOverride(null);
+          mapCenterOverrideRef.current = null;
+          setLocationSelectedValue('');
+          locationSearchAbortRef.current?.abort();
+          if (mapCommitTimeoutRef.current) {
+            clearTimeout(mapCommitTimeoutRef.current);
+            mapCommitTimeoutRef.current = null;
+          }
+        }}
+        snapPoints={Platform.OS === 'ios' ? ['92%'] : ['82%']}
+        scrimToken="pineSubtle"
+      >
+        <View style={styles.sheetContent}>
+          {/* Ensure dropdown menus can render above the BottomDrawer modal layer. */}
+          {Platform.OS === 'ios' ? (
+            <FullWindowOverlay>
+              <PortalHost name={LOCATION_SHEET_PORTAL_HOST} />
+            </FullWindowOverlay>
+          ) : (
+            <PortalHost name={LOCATION_SHEET_PORTAL_HOST} />
+          )}
+          <Text style={styles.sheetTitle}>Location</Text>
+
+          {locationStatusHint ? (
+            <Text style={[styles.sheetRowSubtext, { marginTop: spacing.xs }]}>{locationStatusHint}</Text>
+          ) : null}
+
+          <View style={{ marginTop: spacing.md }}>
+            {(() => {
+              const radiusM = locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048;
+              const center = resolvedLocationMapCenter;
+              const showNativeMap = Platform.OS === 'ios';
+
+              return (
+                <View
+                  style={{ position: 'relative' }}
+                  {...(!showNativeMap ? locationMapPanResponder.panHandlers : undefined)}
+                >
+                  {center ? (
+                    showNativeMap ? (
+                      <BottomDrawerNativeGestureView
+                        style={{
+                          width: '100%',
+                          height: locationMapHeightPx,
+                          borderRadius: 12,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <MapView
+                          ref={(r) => {
+                            mapRef.current = r;
+                          }}
+                          style={{ width: '100%', height: '100%' }}
+                          mapType="standard"
+                          scrollEnabled
+                          zoomEnabled
+                          rotateEnabled={false}
+                          pitchEnabled={false}
+                          showsUserLocation={false}
+                          showsMyLocationButton={false}
+                          initialRegion={computeRegionForRadius(center, radiusM)}
+                          onRegionChangeComplete={(region) => {
+                            const nextCenter = { latitude: region.latitude, longitude: region.longitude };
+                            setMapCenterOverride(nextCenter);
+                            mapCenterOverrideRef.current = nextCenter;
+                            const label =
+                              previewLocation?.label ??
+                              ((activity as any)?.location?.label as string | undefined) ??
+                              'Dropped pin';
+                            scheduleCommitLocation({ label, latitude: nextCenter.latitude, longitude: nextCenter.longitude });
+                          }}
+                        >
+                          <Circle
+                            center={{ latitude: center.latitude, longitude: center.longitude }}
+                            radius={radiusM}
+                            strokeWidth={2}
+                            strokeColor={colors.accent}
+                            fillColor="rgba(49,85,69,0.12)"
+                          />
+                        </MapView>
+                      </BottomDrawerNativeGestureView>
+                    ) : (
+                      <StaticMapImage
+                        latitude={center.latitude}
+                        longitude={center.longitude}
+                        heightPx={locationMapHeightPx}
+                        zoom={LOCATION_MAP_ZOOM}
+                        radiusM={radiusM}
+                      />
+                    )
+                  ) : (
+                    <View
+                      style={{
+                        height: locationMapHeightPx,
+                        borderRadius: 12,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: colors.border,
+                        backgroundColor: colors.shellAlt,
+                      }}
+                    />
+                  )}
+
+                  {center ? (
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Icon name="pin" size={22} color={colors.accent} />
+                    </View>
+                  ) : null}
+
+                  <IconButton
+                    variant="secondary"
+                    accessibilityRole="button"
+                    accessibilityLabel="Center map on current location"
+                    onPress={() => {
+                      void (async () => {
+                        // Best-effort: ensure we can request if needed, then read the current position.
+                        await LocationPermissionService.ensurePermissionWithRationale('attach_place');
+                        const coords = await getCurrentLocationBestEffort();
+                        if (coords) {
+                          setCurrentCoords(coords);
+                          setMapCenterOverride(coords);
+                          mapCenterOverrideRef.current = coords;
+                          setPreviewLocation({
+                            label: 'Dropped pin',
+                            latitude: coords.latitude,
+                            longitude: coords.longitude,
+                          });
+                          animateMapToCenter(coords, radiusM);
+                        } else {
+                          setLocationStatusHint((prev) => prev ?? 'Couldn’t read current location on this device.');
+                        }
+                      })();
+                    }}
+                    style={{
+                      position: 'absolute',
+                      right: spacing.sm,
+                      top: spacing.sm,
+                    }}
+                  >
+                    <Icon name="locate" size={18} color={colors.sumi} />
+                  </IconButton>
+                </View>
+              );
+            })()}
+          </View>
+
+          <View style={{ marginTop: spacing.md }}>
+            {/* Rule builder */}
+            <VStack space="sm">
+              <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
+                <Text style={styles.sheetRowLabel}>Send a notification</Text>
+                <DropdownMenu>
+                  <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select location trigger">
+                    <Pressable
+                      style={({ pressed }) => [styles.locationFormulaTrigger, pressed ? { opacity: 0.85 } : null]}
+                    >
+                      <HStack space="xs" alignItems="center">
+                        <Text style={styles.locationFormulaTriggerText}>
+                          {locationTriggerDraft === 'leave' ? 'When I leave' : 'When I enter'}
+                        </Text>
+                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                      </HStack>
+                    </Pressable>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    portalHost={LOCATION_SHEET_PORTAL_HOST}
+                    side="bottom"
+                    sideOffset={6}
+                    align="start"
+                  >
+                    <DropdownMenuItem onPress={() => setLocationTriggerDraft('leave')}>
+                      <Text style={styles.menuRowText}>When I leave</Text>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onPress={() => setLocationTriggerDraft('arrive')}>
+                      <Text style={styles.menuRowText}>When I enter</Text>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </HStack>
+
+              <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
+                <Text style={styles.sheetRowLabel}>Boundary radius</Text>
+                <DropdownMenu>
+                  <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select boundary radius">
+                    <Pressable
+                      style={({ pressed }) => [styles.locationFormulaTrigger, pressed ? { opacity: 0.85 } : null]}
+                    >
+                      <HStack space="xs" alignItems="center">
+                        <Text style={styles.locationFormulaTriggerText}>
+                          {formatRadiusLabel(locationRadiusMetersDraft)}
+                        </Text>
+                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                      </HStack>
+                    </Pressable>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    portalHost={LOCATION_SHEET_PORTAL_HOST}
+                    side="bottom"
+                    sideOffset={6}
+                    align="start"
+                  >
+                    {LOCATION_RADIUS_FT_OPTIONS.map((ft) => (
+                      <DropdownMenuItem
+                        key={ft}
+                        onPress={() => {
+                          setLocationRadiusMetersDraft(ft * 0.3048);
+                        }}
+                      >
+                        <Text style={styles.menuRowText}>{ft} feet</Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </HStack>
+
+              <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
+                <Text style={styles.sheetRowLabel}>from</Text>
+                <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 220 }}>
+                  <Combobox
+                    open={isLocationSearchOpen}
+                    onOpenChange={setIsLocationSearchOpen}
+                    value={locationSelectedValue}
+                    onValueChange={(next) => {
+                      setLocationSelectedValue(next);
+                      if (!next) return;
+                      const found = locationResults.find((r) => r.id === next);
+                      if (!found) return;
+                      const loc = { label: found.label, latitude: found.latitude, longitude: found.longitude };
+                      setPreviewLocation(loc);
+                      const coords = { latitude: found.latitude, longitude: found.longitude };
+                      setMapCenterOverride(coords);
+                      mapCenterOverrideRef.current = coords;
+                      commitLocation(loc);
+                    }}
+                    options={locationResults.map((r) => ({
+                      value: r.id,
+                      label: r.label,
+                      leftElement: <Icon name="pin" size={16} color={colors.textSecondary} />,
+                    }))}
+                    query={locationQuery}
+                    onQueryChange={setLocationQuery}
+                    autoFilter={false}
+                    searchPlaceholder="Enter a place or address"
+                    emptyText={
+                      isSearchingLocation
+                        ? 'Searching…'
+                        : locationQuery.trim().length >= 2
+                          ? 'No results found.'
+                          : 'Type to search.'
+                    }
+                    presentation="popover"
+                    portalHost={LOCATION_SHEET_PORTAL_HOST}
+                    allowDeselect={false}
+                    trigger={
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Enter a place or address"
+                        onPress={() => setIsLocationSearchOpen(true)}
+                        style={({ pressed }) => [
+                          {
+                            backgroundColor: colors.fieldFill,
+                            borderRadius: 12,
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.sm,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: spacing.sm,
+                            minHeight: 44,
+                          },
+                          pressed ? { opacity: 0.92 } : null,
+                        ]}
+                      >
+                        <Icon name="pin" size={16} color={colors.textSecondary} />
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            typography.bodySm,
+                            {
+                              color: previewLocation || activity?.location ? colors.textPrimary : colors.muted,
+                              flex: 1,
+                            },
+                          ]}
+                        >
+                          {previewLocation?.label ??
+                            ((activity as any)?.location?.label as string | undefined) ??
+                            'Enter a place or address'}
+                        </Text>
+                        {previewLocation || activity?.location ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear location"
+                            hitSlop={10}
+                            onPress={clearLocationSelection}
+                          >
+                            <Icon name="close" size={16} color={colors.textSecondary} />
+                          </Pressable>
+                        ) : (
+                          <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                        )}
+                      </Pressable>
+                    }
+                  />
+                </View>
+              </HStack>
+            </VStack>
+          </View>
+
+          {/* Results now render in the dropdown menu anchored to the "from" field. */}
         </View>
       </BottomDrawer>
 
@@ -3400,7 +4145,7 @@ export function ActivityDetailScreen() {
             cancelAudioRecording().catch(() => undefined);
           }
         }}
-        snapPoints={['40%']}
+        snapPoints={Platform.OS === 'ios' ? ['52%'] : ['48%']}
         scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
@@ -3422,7 +4167,9 @@ export function ActivityDetailScreen() {
                   .catch(() => undefined);
               }}
             >
-              <Text style={styles.sheetRowLabel}>{isRecordingAudio ? 'Recording…' : 'Start recording'}</Text>
+              <Text style={[styles.sheetRowLabel, !isRecordingAudio ? { color: colors.primaryForeground } : null]}>
+                {isRecordingAudio ? 'Recording…' : 'Start recording'}
+              </Text>
             </Button>
 
             <Button
@@ -3440,7 +4187,14 @@ export function ActivityDetailScreen() {
                   });
               }}
             >
-              <Text style={styles.sheetRowLabel}>Stop & attach</Text>
+              <Text
+                style={[
+                  styles.sheetRowLabel,
+                  isRecordingAudio ? { color: colors.primaryForeground } : null,
+                ]}
+              >
+                Stop & save
+              </Text>
             </Button>
 
             <Button

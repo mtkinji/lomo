@@ -3,7 +3,12 @@
 // This repo ignores `/ios` in git; we therefore inject native source files + entitlements
 // at prebuild time instead of committing Xcode project changes.
 
-const { withEntitlementsPlist, withXcodeProject, withAppDelegate } = require('@expo/config-plugins');
+const {
+  withEntitlementsPlist,
+  withXcodeProject,
+  withAppDelegate,
+  withDangerousMod,
+} = require('@expo/config-plugins');
 const { withBuildSourceFile } = require('@expo/config-plugins/build/ios/XcodeProjectFile');
 const { ensureGroupRecursively, addBuildSourceFileToGroup, addResourceFileToGroup, getProjectName } = require('@expo/config-plugins/build/ios/utils/Xcodeproj');
 const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode');
@@ -610,6 +615,76 @@ if userActivity.activityType == CSSearchableItemActionType,
 
     return config;
   });
+
+  // 2.5) Podfile signing fix for EAS / Xcode 14+:
+  // Resource bundle targets may be signed by default, which can fail in CI unless a team is set
+  // (or signing is disabled). Since `/ios` is gitignored, we patch the GENERATED Podfile at prebuild.
+  config = withDangerousMod(config, [
+    'ios',
+    async (config) => {
+      const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+      if (!fs.existsSync(podfilePath)) return config;
+      let contents = fs.readFileSync(podfilePath, 'utf8');
+      if (contents.includes('kwilt_eas_bundle_signing_fix')) return config;
+
+      const postInstallAnchor = 'post_install do |installer|';
+      const startIdx = contents.indexOf(postInstallAnchor);
+      if (startIdx === -1) return config;
+
+      const endMarker = '\n  end\nend';
+      const endIdx = contents.indexOf(endMarker, startIdx);
+      if (endIdx === -1) return config;
+
+      const teamId = config?.ios?.appleTeamId || process.env.APPLE_TEAM_ID || 'BK3N7YXHN7';
+      const rubyPatch = `
+
+    # kwilt_eas_bundle_signing_fix
+    # Starting from Xcode 14, resource bundles may be code signed by default.
+    # Ensure a team is set and disable signing for .bundle targets to avoid CI failures.
+    team_id = ENV['APPLE_TEAM_ID'] || '${teamId}'
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['DEVELOPMENT_TEAM'] = team_id
+        if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'
+          build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+          build_config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+          build_config.build_settings['CODE_SIGNING_IDENTITY'] = ''
+          build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+          build_config.build_settings['CODE_SIGNING_IDENTITY[sdk=iphoneos*]'] = ''
+          build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = ''
+        end
+      end
+    end
+
+    # Also ensure the user Xcode project targets (app + extensions) have a team set.
+    installer.aggregate_targets
+             .map(&:user_project)
+             .compact
+             .uniq
+             .each do |project|
+      project.targets.each do |target|
+        target.build_configurations.each do |build_config|
+          build_config.build_settings['DEVELOPMENT_TEAM'] = team_id
+
+          if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'
+            build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+            build_config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+            build_config.build_settings['CODE_SIGNING_IDENTITY'] = ''
+            build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+            build_config.build_settings['CODE_SIGNING_IDENTITY[sdk=iphoneos*]'] = ''
+            build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = ''
+          end
+        end
+      end
+      project.save
+    end
+`.replace(/^\n/, '');
+
+      contents = contents.slice(0, endIdx) + rubyPatch + contents.slice(endIdx);
+      fs.writeFileSync(podfilePath, contents);
+      return config;
+    },
+  ]);
 
   // 3) WidgetKit extension target (Lock Screen widget + Live Activity UI shell).
   // NOTE: this repo ignores `/ios`, so we create the target and files during prebuild.

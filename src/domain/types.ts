@@ -401,6 +401,24 @@ export interface Activity {
    */
   attachments?: ActivityAttachment[];
   /**
+   * Optional location metadata for place-based activities.
+   * Used for inline map previews and (future) arrive/leave completion offers.
+   */
+  location?: {
+    label?: string;
+    latitude: number;
+    longitude: number;
+    /**
+     * Trigger semantics used by location-based completion offers.
+     * v1: a single trigger per Activity.
+     */
+    trigger?: 'arrive' | 'leave';
+    /**
+     * Radius used for place semantics (geofence / "nearby"). UI can default this.
+     */
+    radiusM?: number;
+  } | null;
+  /**
    * Optional timestamp for a reminder notification associated with this
    * activity (for example, "remind me tomorrow morning"). This is stored as an
    * ISO string in the user's local timezone and can be interpreted by

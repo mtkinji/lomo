@@ -165,10 +165,18 @@ export function ActivityDetailRefresh(props: any) {
     const hasReminder = Boolean(activity?.reminderAt);
     const hasDueDate = Boolean(activity?.scheduledDate);
     const hasRepeat = Boolean(activity?.repeatRule);
-    const hasEstimate = Boolean(hasTimeEstimate);
-    const hasDiff = Boolean(hasDifficulty);
-    return [hasReminder, hasDueDate, hasRepeat, hasEstimate, hasDiff].filter(Boolean).length;
-  }, [activity?.reminderAt, activity?.scheduledDate, activity?.repeatRule, hasDifficulty, hasTimeEstimate]);
+    const hasLocation = Boolean(
+      activity?.location &&
+        typeof (activity as any).location?.latitude === 'number' &&
+        typeof (activity as any).location?.longitude === 'number',
+    );
+    return [hasReminder, hasDueDate, hasLocation, hasRepeat].filter(Boolean).length;
+  }, [
+    activity?.location,
+    activity?.reminderAt,
+    activity?.scheduledDate,
+    activity?.repeatRule,
+  ]);
 
   const detailsConfiguredCount = React.useMemo(() => {
     const hasNotes = Boolean((activity?.notes ?? '').trim().length);
@@ -178,11 +186,15 @@ export function ActivityDetailRefresh(props: any) {
     const hasLinkedGoal = Boolean(activity?.goalId);
     // Avoid showing a "configured" signal just because the default ActivityType exists.
     const hasNonDefaultType = Boolean(activity?.type && activity.type !== 'task');
-    return [hasNotes, hasTags, hasAttachments, hasLinkedGoal, hasNonDefaultType].filter(Boolean).length;
-  }, [activity?.attachments, activity?.goalId, activity?.notes, activity?.tags, activity?.type]);
+    const hasEstimate = Boolean(hasTimeEstimate);
+    const hasDiff = Boolean(hasDifficulty);
+    return [hasNotes, hasTags, hasAttachments, hasLinkedGoal, hasNonDefaultType, hasEstimate, hasDiff].filter(Boolean)
+      .length;
+  }, [activity?.attachments, activity?.goalId, activity?.notes, activity?.tags, activity?.type, hasDifficulty, hasTimeEstimate]);
 
   const showPlanCountBadge = !planExpanded && planConfiguredCount > 0;
   const showDetailsCountBadge = !detailsExpanded && detailsConfiguredCount > 0;
+
 
   const planChevronAnim = React.useRef(new Animated.Value(planExpanded ? 1 : 0)).current;
   const detailsChevronAnim = React.useRef(new Animated.Value(detailsExpanded ? 1 : 0)).current;
@@ -841,11 +853,11 @@ export function ActivityDetailRefresh(props: any) {
 
         <View style={styles.sectionDivider} />
 
-        {/* Plan (collapsible): triggers + planning */}
+        {/* Triggers (collapsible): reminders + scheduling */}
         <View style={styles.section}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Plan${planExpanded ? ', expanded' : ', collapsed'}${
+            accessibilityLabel={`Triggers${planExpanded ? ', expanded' : ', collapsed'}${
               showPlanCountBadge ? `, ${planConfiguredCount} set` : ''
             }`}
             accessibilityState={{ expanded: !!planExpanded }}
@@ -867,7 +879,7 @@ export function ActivityDetailRefresh(props: any) {
                 ]}
                 numberOfLines={1}
               >
-                Plan
+                Triggers
               </Text>
               {showPlanCountBadge ? (
                 <Badge
@@ -942,6 +954,32 @@ export function ActivityDetailRefresh(props: any) {
               </Pressable>
 
               <Pressable
+                testID="e2e.activityDetail.triggers.location.open"
+                accessibilityRole="button"
+                accessibilityLabel="Edit location"
+                onPress={() => setActiveSheet('location')}
+                style={({ pressed }) => [styles.planListRow, pressed ? styles.planListRowPressed : null]}
+              >
+                <ThreeColumnRow
+                  left={<Icon name="pin" size={18} color={colors.sumi} />}
+                  right={null}
+                  style={styles.planListRowInner}
+                >
+                  <Text style={styles.rowLabel} numberOfLines={1}>
+                    {`Location · ${
+                      activity?.location &&
+                      typeof (activity as any).location?.latitude === 'number' &&
+                      typeof (activity as any).location?.longitude === 'number'
+                        ? `${(((activity as any).location?.label as string | undefined)?.trim() || 'On')}${
+                            (activity as any).location?.trigger ? ` · ${(activity as any).location.trigger}` : ''
+                          }`
+                        : 'Off'
+                    }`}
+                  </Text>
+                </ThreeColumnRow>
+              </Pressable>
+
+              <Pressable
                 testID="e2e.activityDetail.triggers.repeat.open"
                 accessibilityRole="button"
                 accessibilityLabel="Edit repeat schedule"
@@ -958,71 +996,6 @@ export function ActivityDetailRefresh(props: any) {
                   </Text>
                 </ThreeColumnRow>
               </Pressable>
-
-              <Pressable
-                testID="e2e.activityDetail.planning.estimate.open"
-                accessibilityRole="button"
-                accessibilityLabel="Edit time estimate"
-                onPress={openEstimateSheet}
-                style={({ pressed }) => [styles.planListRow, pressed ? styles.planListRowPressed : null]}
-              >
-                <ThreeColumnRow
-                  left={<Icon name="estimate" size={18} color={colors.sumi} />}
-                  right={null}
-                  style={styles.planListRowInner}
-                >
-                  <Text
-                    style={[styles.rowLabel, timeEstimateIsAi ? { color: colors.accent } : null]}
-                    numberOfLines={1}
-                  >
-                    {`Time estimate · ${timeEstimateLabel}`}
-                  </Text>
-                </ThreeColumnRow>
-              </Pressable>
-
-              <Combobox
-                open={difficultyComboboxOpen}
-                onOpenChange={setDifficultyComboboxOpen}
-                value={activity.difficulty ?? ''}
-                onValueChange={(nextDifficulty) => {
-                  const timestamp = new Date().toISOString();
-                  updateActivity(activity.id, (prev: any) => ({
-                    ...prev,
-                    difficulty: (nextDifficulty || undefined) as ActivityDifficulty | undefined,
-                    updatedAt: timestamp,
-                  }));
-                }}
-                options={difficultyOptions}
-                searchPlaceholder="Search difficulty…"
-                emptyText="No difficulty options found."
-                allowDeselect
-                trigger={
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit difficulty"
-                    style={({ pressed }) => [
-                      styles.planListRow,
-                      pressed ? styles.planListRowPressed : null,
-                    ]}
-                  >
-                    <ThreeColumnRow
-                      left={<Icon name="difficulty" size={18} color={colors.sumi} />}
-                      right={null}
-                      style={styles.planListRowInner}
-                    >
-                      <Text
-                        style={[
-                          styles.rowLabel,
-                          difficultyIsAi ? { color: colors.accent } : null,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {`Difficulty · ${difficultyLabel}`}
-                      </Text>
-                    </ThreeColumnRow>
-                  </Pressable>
-                }
-              />
             </View>
           ) : null}
         </View>
@@ -1104,6 +1077,76 @@ export function ActivityDetailRefresh(props: any) {
                     }));
                   }}
                 />
+              </View>
+
+              <View style={{ marginTop: spacing.lg }}>
+                <Text style={styles.inputLabel}>EFFORT</Text>
+                <VStack space="xs" style={{ marginTop: spacing.xs }}>
+                  <Pressable
+                    testID="e2e.activityDetail.planning.estimate.open"
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit time estimate"
+                    onPress={openEstimateSheet}
+                    style={({ pressed }) => [styles.planListRow, pressed ? styles.planListRowPressed : null]}
+                  >
+                    <ThreeColumnRow
+                      left={<Icon name="estimate" size={18} color={colors.sumi} />}
+                      right={null}
+                      style={styles.planListRowInner}
+                    >
+                      <Text
+                        style={[styles.rowLabel, timeEstimateIsAi ? { color: colors.accent } : null]}
+                        numberOfLines={1}
+                      >
+                        {`Time estimate · ${timeEstimateLabel}`}
+                      </Text>
+                    </ThreeColumnRow>
+                  </Pressable>
+
+                  <Combobox
+                    open={difficultyComboboxOpen}
+                    onOpenChange={setDifficultyComboboxOpen}
+                    value={activity.difficulty ?? ''}
+                    onValueChange={(nextDifficulty) => {
+                      const timestamp = new Date().toISOString();
+                      updateActivity(activity.id, (prev: any) => ({
+                        ...prev,
+                        difficulty: (nextDifficulty || undefined) as ActivityDifficulty | undefined,
+                        updatedAt: timestamp,
+                      }));
+                    }}
+                    options={difficultyOptions}
+                    searchPlaceholder="Search difficulty…"
+                    emptyText="No difficulty options found."
+                    allowDeselect
+                    trigger={
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit difficulty"
+                        style={({ pressed }) => [
+                          styles.planListRow,
+                          pressed ? styles.planListRowPressed : null,
+                        ]}
+                      >
+                        <ThreeColumnRow
+                          left={<Icon name="difficulty" size={18} color={colors.sumi} />}
+                          right={null}
+                          style={styles.planListRowInner}
+                        >
+                          <Text
+                            style={[
+                              styles.rowLabel,
+                              difficultyIsAi ? { color: colors.accent } : null,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {`Difficulty · ${difficultyLabel}`}
+                          </Text>
+                        </ThreeColumnRow>
+                      </Pressable>
+                    }
+                  />
+                </VStack>
               </View>
 
               <View style={{ marginTop: spacing.lg }}>
