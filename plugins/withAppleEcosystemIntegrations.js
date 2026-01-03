@@ -513,17 +513,21 @@ RCT_EXTERN_METHOD(
 `;
 
 module.exports = function withAppleEcosystemIntegrations(config) {
+  const enableAppGroups = String(process.env.KWILT_ENABLE_APP_GROUPS || '0') === '1';
+  const enableWidgets = String(process.env.KWILT_ENABLE_WIDGETS || '0') === '1';
   const appGroupId = getAppGroupId(config);
   // 1) App Group entitlement (shared state for widgets/live activities later)
-  config = withEntitlementsPlist(config, (config) => {
-    const entitlements = config.modResults;
-    const existing = entitlements['com.apple.security.application-groups'];
-    const next = Array.isArray(existing) ? existing.slice() : [];
-    if (!next.includes(appGroupId)) next.push(appGroupId);
-    entitlements['com.apple.security.application-groups'] = next;
-    config.modResults = entitlements;
-    return config;
-  });
+  if (enableAppGroups) {
+    config = withEntitlementsPlist(config, (config) => {
+      const entitlements = config.modResults;
+      const existing = entitlements['com.apple.security.application-groups'];
+      const next = Array.isArray(existing) ? existing.slice() : [];
+      if (!next.includes(appGroupId)) next.push(appGroupId);
+      entitlements['com.apple.security.application-groups'] = next;
+      config.modResults = entitlements;
+      return config;
+    });
+  }
 
   // 2) Native source files (bridged modules + App Intents)
   config = withBuildSourceFile(config, {
@@ -619,24 +623,25 @@ if userActivity.activityType == CSSearchableItemActionType,
   // 2.5) Podfile signing fix for EAS / Xcode 14+:
   // Resource bundle targets may be signed by default, which can fail in CI unless a team is set
   // (or signing is disabled). Since `/ios` is gitignored, we patch the GENERATED Podfile at prebuild.
-  config = withDangerousMod(config, [
-    'ios',
-    async (config) => {
-      const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
-      if (!fs.existsSync(podfilePath)) return config;
-      let contents = fs.readFileSync(podfilePath, 'utf8');
-      if (contents.includes('kwilt_eas_bundle_signing_fix')) return config;
+  if (enableAppGroups || enableWidgets) {
+    config = withDangerousMod(config, [
+      'ios',
+      async (config) => {
+        const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+        if (!fs.existsSync(podfilePath)) return config;
+        let contents = fs.readFileSync(podfilePath, 'utf8');
+        if (contents.includes('kwilt_eas_bundle_signing_fix')) return config;
 
-      const postInstallAnchor = 'post_install do |installer|';
-      const startIdx = contents.indexOf(postInstallAnchor);
-      if (startIdx === -1) return config;
+        const postInstallAnchor = 'post_install do |installer|';
+        const startIdx = contents.indexOf(postInstallAnchor);
+        if (startIdx === -1) return config;
 
-      const endMarker = '\n  end\nend';
-      const endIdx = contents.indexOf(endMarker, startIdx);
-      if (endIdx === -1) return config;
+        const endMarker = '\n  end\nend';
+        const endIdx = contents.indexOf(endMarker, startIdx);
+        if (endIdx === -1) return config;
 
-      const teamId = config?.ios?.appleTeamId || process.env.APPLE_TEAM_ID || 'BK3N7YXHN7';
-      const rubyPatch = `
+        const teamId = config?.ios?.appleTeamId || process.env.APPLE_TEAM_ID || 'BK3N7YXHN7';
+        const rubyPatch = `
 
     # kwilt_eas_bundle_signing_fix
     # Starting from Xcode 14, resource bundles may be code signed by default.
@@ -680,15 +685,16 @@ if userActivity.activityType == CSSearchableItemActionType,
     end
 `.replace(/^\n/, '');
 
-      contents = contents.slice(0, endIdx) + rubyPatch + contents.slice(endIdx);
-      fs.writeFileSync(podfilePath, contents);
-      return config;
-    },
-  ]);
+        contents = contents.slice(0, endIdx) + rubyPatch + contents.slice(endIdx);
+        fs.writeFileSync(podfilePath, contents);
+        return config;
+      },
+    ]);
+  }
 
   // 3) WidgetKit extension target (Lock Screen widget + Live Activity UI shell).
   // NOTE: this repo ignores `/ios`, so we create the target and files during prebuild.
-  config = withXcodeProject(config, (config) => {
+  if (enableWidgets) config = withXcodeProject(config, (config) => {
     let project = config.modResults;
     const projectName = getProjectName(config.modRequest.projectRoot);
     const bundleId = config?.ios?.bundleIdentifier || 'com.andrewwatanabe.kwilt';

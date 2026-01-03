@@ -8,6 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "KWILT_ENABLE_APP_GROUPS": "0",
+        "KWILT_ENABLE_WIDGETS": "0",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
@@ -15,6 +17,8 @@
     "preview": {
       "distribution": "internal",
       "env": {
+        "KWILT_ENABLE_APP_GROUPS": "0",
+        "KWILT_ENABLE_WIDGETS": "0",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
@@ -22,6 +26,8 @@
     "production": {
       "distribution": "store",
       "env": {
+        "KWILT_ENABLE_APP_GROUPS": "0",
+        "KWILT_ENABLE_WIDGETS": "0",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat",
         "POSTHOG_HOST": "https://us.i.posthog.com",
