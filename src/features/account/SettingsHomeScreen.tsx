@@ -105,7 +105,6 @@ export function SettingsHomeScreen() {
   const isPro = useEntitlementsStore((state) => state.isPro);
   const restore = useEntitlementsStore((state) => state.restore);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
-  const [showAdmin, setShowAdmin] = useState(false);
   const [showSuperAdmin, setShowSuperAdmin] = useState(false);
 
   const settingsItems = useMemo(() => SETTINGS_GROUPS.flatMap((group) => group.items), []);
@@ -114,7 +113,6 @@ export function SettingsHomeScreen() {
     // Best-effort: only show Admin entry if the signed-in user is allowlisted server-side.
     // Fail closed (hidden) to avoid confusing non-admin users.
     if (!authIdentity?.userId) {
-      setShowAdmin(false);
       setShowSuperAdmin(false);
       clearAdminEntitlementsOverrideTier().catch(() => undefined);
       return;
@@ -122,7 +120,6 @@ export function SettingsHomeScreen() {
 
     getAdminProCodesStatus()
       .then((s) => {
-        setShowAdmin(Boolean(s.isAdmin));
         setShowSuperAdmin(Boolean(s.role === 'super_admin'));
         // Safety: if this device is not signed in as super admin, clear any lingering
         // local admin entitlements override so it can't accidentally leak across sessions.
@@ -131,7 +128,6 @@ export function SettingsHomeScreen() {
         }
       })
       .catch(() => {
-        setShowAdmin(false);
         setShowSuperAdmin(false);
         clearAdminEntitlementsOverrideTier().catch(() => undefined);
       });
@@ -368,17 +364,6 @@ export function SettingsHomeScreen() {
           },
         ] satisfies RowAction[])
       : []),
-    ...(showAdmin
-      ? ([
-          {
-            id: 'admin',
-            title: 'Admin',
-            icon: 'dev',
-            onPress: () => navigation.navigate('SettingsAdminProCodes'),
-            showChevron: true,
-          },
-        ] satisfies RowAction[])
-      : []),
     ...(!authIdentity
       ? ([
           {
@@ -389,7 +374,6 @@ export function SettingsHomeScreen() {
               try {
                 await ensureSignedInWithPrompt('settings');
                 const s = await getAdminProCodesStatus();
-                setShowAdmin(Boolean(s.isAdmin));
                 setShowSuperAdmin(Boolean(s.role === 'super_admin'));
               } catch {
                 // user cancelled
@@ -436,8 +420,8 @@ export function SettingsHomeScreen() {
     ? ([
         {
           id: 'superAdminTools',
-          title: 'Super Admin',
-          icon: 'starFilled',
+          title: 'Kwilt Users',
+          icon: 'users',
           iconColor: colors.madder,
           onPress: () => navigation.navigate('SettingsSuperAdminTools'),
           showChevron: true,

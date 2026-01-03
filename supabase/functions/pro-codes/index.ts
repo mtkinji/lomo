@@ -119,6 +119,14 @@ function getBearerToken(req: Request): string | null {
   return m?.[1]?.trim() ? m[1].trim() : null;
 }
 
+type InstallPingBody = {
+  revenuecatAppUserId?: string;
+  platform?: string;
+  appVersion?: string;
+  buildNumber?: string;
+  posthogDistinctId?: string;
+};
+
 async function getUserFromBearer(req: Request): Promise<{ userId: string; email: string | null } | null> {
   const token = getBearerToken(req);
   if (!token) return null;
@@ -157,6 +165,18 @@ async function findUserIdByEmail(admin: any, email: string): Promise<{ userId: s
     if (users.length < perPage) break;
   }
   return null;
+}
+
+function deriveDisplayNameFromUser(user: any): string | null {
+  if (!user) return null;
+  const md = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const name =
+    (typeof md.full_name === 'string' && md.full_name.trim()) ||
+    (typeof md.name === 'string' && md.name.trim()) ||
+    (typeof md.display_name === 'string' && md.display_name.trim()) ||
+    (typeof md.preferred_username === 'string' && md.preferred_username.trim()) ||
+    null;
+  return name;
 }
 
 async function getProForQuotaKeys(
@@ -362,6 +382,131 @@ serve(async (req) => {
 
   const installId = (req.headers.get('x-kwilt-install-id') ?? '').trim();
   const quotaKey = installId ? `install:${installId}` : '';
+
+  if (route === '/webhook/revenuecat') {
+    // RevenueCat webhook receiver (server-to-server).
+    // Configure RevenueCat to POST here and set `REVENUECAT_WEBHOOK_SECRET` in function secrets.
+    const secret = (Deno.env.get('REVENUECAT_WEBHOOK_SECRET') ?? '').trim();
+    if (secret) {
+      const auth = (req.headers.get('authorization') ?? '').trim();
+      const ok = auth.toLowerCase() === `bearer ${secret}`.toLowerCase();
+      if (!ok) {
+        return json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } });
+      }
+    }
+
+    const payload = await req.json().catch(() => null);
+    const event = (payload as any)?.event ?? (payload as any) ?? null;
+    const appUserIdRaw =
+      (typeof event?.app_user_id === 'string' && event.app_user_id.trim()) ||
+      (typeof event?.original_app_user_id === 'string' && event.original_app_user_id.trim()) ||
+      (typeof event?.subscriber?.app_user_id === 'string' && event.subscriber.app_user_id.trim()) ||
+      '';
+    if (!appUserIdRaw) {
+      return json(400, { error: { message: 'Missing app_user_id', code: 'bad_request' } });
+    }
+
+    const type = typeof event?.type === 'string' ? event.type.trim() : '';
+    const productId = typeof event?.product_id === 'string' ? event.product_id.trim() : '';
+
+    // Normalize expiry time if present.
+    let expiresAt: string | null = null;
+    const expMsRaw = (event as any)?.expiration_at_ms;
+    if (typeof expMsRaw === 'number' && Number.isFinite(expMsRaw) && expMsRaw > 0) {
+      expiresAt = new Date(expMsRaw).toISOString();
+    } else {
+      const expStr =
+        (typeof event?.expiration_at === 'string' && event.expiration_at.trim()) ||
+        (typeof event?.expires_at === 'string' && event.expires_at.trim()) ||
+        '';
+      if (expStr && Number.isFinite(Date.parse(expStr))) {
+        expiresAt = new Date(Date.parse(expStr)).toISOString();
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const isExpired = Boolean(expiresAt && Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) < Date.now());
+
+    // Best-effort pro inference based on event type. RevenueCat sources-of-truth are their dashboards;
+    // we keep this conservative and rely on expiry if provided.
+    const positiveTypes = new Set([
+      'INITIAL_PURCHASE',
+      'RENEWAL',
+      'UNCANCELLATION',
+      'NON_RENEWING_PURCHASE',
+      'PRODUCT_CHANGE',
+      'TEST',
+      'SUBSCRIPTION_PAUSED',
+      'SUBSCRIPTION_RESUMED',
+      'BILLING_ISSUE',
+    ]);
+    const negativeTypes = new Set(['CANCELLATION', 'EXPIRATION', 'REFUND', 'TRANSFER']);
+    let isPro = false;
+    if (negativeTypes.has(type)) {
+      isPro = false;
+    } else if (positiveTypes.has(type)) {
+      isPro = true;
+    } else {
+      // Unknown event; keep current state if possible by not forcing false.
+      // We'll upsert with whatever we can infer; default false.
+      isPro = false;
+    }
+
+    if (isExpired) {
+      isPro = false;
+    }
+
+    const { error } = await admin.from('kwilt_revenuecat_subscriptions').upsert(
+      {
+        revenuecat_app_user_id: appUserIdRaw,
+        is_pro: Boolean(isPro),
+        product_id: productId || null,
+        expires_at: expiresAt,
+        last_event_type: type || null,
+        last_event_at: nowIso,
+        updated_at: nowIso,
+        raw: payload as any,
+      },
+      { onConflict: 'revenuecat_app_user_id' },
+    );
+    if (error) {
+      return json(503, { error: { message: 'Unable to persist webhook', code: 'provider_unavailable' } });
+    }
+    return json(200, { ok: true });
+  }
+
+  if (route === '/ping') {
+    if (!installId) {
+      return json(400, { error: { message: 'Missing x-kwilt-install-id', code: 'bad_request' } });
+    }
+    const body = (await req.json().catch(() => ({}))) as InstallPingBody;
+    const maybeUser = await getUserFromBearer(req);
+    const now = new Date().toISOString();
+    const rcId = typeof body?.revenuecatAppUserId === 'string' ? body.revenuecatAppUserId.trim() : '';
+    const platform = typeof body?.platform === 'string' ? body.platform.trim() : '';
+    const appVersion = typeof body?.appVersion === 'string' ? body.appVersion.trim() : '';
+    const buildNumber = typeof body?.buildNumber === 'string' ? body.buildNumber.trim() : '';
+    const posthogDistinctId = typeof body?.posthogDistinctId === 'string' ? body.posthogDistinctId.trim() : '';
+
+    const { error } = await admin.from('kwilt_installs').upsert(
+      {
+        install_id: installId,
+        last_seen_at: now,
+        user_id: maybeUser?.userId ?? null,
+        user_email: maybeUser?.email ?? null,
+        revenuecat_app_user_id: rcId || null,
+        platform: platform || null,
+        app_version: appVersion || null,
+        build_number: buildNumber || null,
+        posthog_distinct_id: posthogDistinctId || null,
+      },
+      { onConflict: 'install_id' },
+    );
+    if (error) {
+      return json(503, { error: { message: 'Unable to record install', code: 'provider_unavailable' } });
+    }
+    return json(200, { ok: true });
+  }
 
   if (route === '/admin/status') {
     const check = await requireAdminUser(req);
@@ -618,6 +763,269 @@ serve(async (req) => {
       userId: resolvedUserId,
       email: resolvedEmail,
     });
+  }
+
+  if (route === '/admin/list-installs') {
+    // Super-admin only: list devices keyed by install_id for directory UI.
+    const check = await requireSuperAdminUser(req);
+    if (!check.ok) return check.response;
+
+    const body = await req.json().catch(() => ({}));
+    const limitRaw = typeof (body as any)?.limit === 'number' ? (body as any).limit : 100;
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(250, Math.floor(limitRaw))) : 100;
+    const { data: installs, error } = await admin
+      .from('kwilt_installs')
+      .select(
+        'install_id, created_at, last_seen_at, user_id, user_email, revenuecat_app_user_id, platform, app_version, build_number, posthog_distinct_id',
+      )
+      .order('last_seen_at', { ascending: false })
+      .limit(limit);
+    if (error || !Array.isArray(installs)) {
+      return json(503, { error: { message: 'Unable to load installs', code: 'provider_unavailable' } });
+    }
+
+    const installKeys = installs.map((i: any) => `install:${i.install_id}`);
+    const userKeys = installs
+      .map((i: any) => (typeof i?.user_id === 'string' ? `user:${i.user_id}` : ''))
+      .filter(Boolean);
+    const quotaKeys = Array.from(new Set([...installKeys, ...userKeys]));
+    const rcIds = Array.from(
+      new Set(
+        installs
+          .map((i: any) => (typeof i?.revenuecat_app_user_id === 'string' ? i.revenuecat_app_user_id : ''))
+          .filter(Boolean),
+      ),
+    );
+
+    const entByKey = new Map<string, { isPro: boolean; expiresAt: string | null; source: string | null }>();
+    if (quotaKeys.length > 0) {
+      const { data: ents } = await admin
+        .from('kwilt_pro_entitlements')
+        .select('quota_key, is_pro, expires_at, source')
+        .in('quota_key', quotaKeys);
+      if (Array.isArray(ents)) {
+        for (const e of ents as any[]) {
+          const k = typeof e?.quota_key === 'string' ? e.quota_key : '';
+          if (!k) continue;
+          entByKey.set(k, {
+            isPro: Boolean(e?.is_pro),
+            expiresAt: typeof e?.expires_at === 'string' ? e.expires_at : null,
+            source: typeof e?.source === 'string' ? e.source : null,
+          });
+        }
+      }
+    }
+
+    const rcById = new Map<string, { isPro: boolean; expiresAt: string | null; productId: string | null }>();
+    if (rcIds.length > 0) {
+      const { data: rcs } = await admin
+        .from('kwilt_revenuecat_subscriptions')
+        .select('revenuecat_app_user_id, is_pro, expires_at, product_id')
+        .in('revenuecat_app_user_id', rcIds);
+      if (Array.isArray(rcs)) {
+        for (const r of rcs as any[]) {
+          const k = typeof r?.revenuecat_app_user_id === 'string' ? r.revenuecat_app_user_id : '';
+          if (!k) continue;
+          rcById.set(k, {
+            isPro: Boolean(r?.is_pro),
+            expiresAt: typeof r?.expires_at === 'string' ? r.expires_at : null,
+            productId: typeof r?.product_id === 'string' ? r.product_id : null,
+          });
+        }
+      }
+    }
+
+    const isExpired = (expiresAt: string | null) =>
+      Boolean(expiresAt && Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) < Date.now());
+    const pickBest = (candidates: Array<{ isPro: boolean; expiresAt: string | null; source: string }>) => {
+      const active = candidates.filter((c) => c.isPro && !isExpired(c.expiresAt));
+      if (active.length === 0) return { isPro: false, expiresAt: null, source: 'none' };
+      // Prefer non-expiring, else latest expiry.
+      const nonExp = active.find((a) => !a.expiresAt);
+      if (nonExp) return nonExp;
+      active.sort((a, b) => (Date.parse(b.expiresAt ?? '0') || 0) - (Date.parse(a.expiresAt ?? '0') || 0));
+      return active[0];
+    };
+
+    const enriched = installs.map((i: any) => {
+      const installKey = `install:${i.install_id}`;
+      const userKey = typeof i?.user_id === 'string' ? `user:${i.user_id}` : '';
+      const entInstall = entByKey.get(installKey) ?? null;
+      const entUser = userKey ? entByKey.get(userKey) ?? null : null;
+      const rc = typeof i?.revenuecat_app_user_id === 'string' ? rcById.get(i.revenuecat_app_user_id) ?? null : null;
+
+      const best = pickBest([
+        ...(rc ? [{ isPro: rc.isPro, expiresAt: rc.expiresAt, source: 'revenuecat' }] : []),
+        ...(entUser ? [{ isPro: entUser.isPro, expiresAt: entUser.expiresAt, source: entUser.source ?? 'entitlement' }] : []),
+        ...(entInstall ? [{ isPro: entInstall.isPro, expiresAt: entInstall.expiresAt, source: entInstall.source ?? 'entitlement' }] : []),
+      ]);
+
+      return {
+        installId: i.install_id,
+        createdAt: i.created_at,
+        lastSeenAt: i.last_seen_at,
+        userId: i.user_id ?? null,
+        userEmail: i.user_email ?? null,
+        revenuecatAppUserId: i.revenuecat_app_user_id ?? null,
+        platform: i.platform ?? null,
+        appVersion: i.app_version ?? null,
+        buildNumber: i.build_number ?? null,
+        posthogDistinctId: i.posthog_distinct_id ?? null,
+        pro: {
+          isPro: best.isPro,
+          source: best.source,
+          expiresAt: best.expiresAt,
+          revenuecat: rc
+            ? { isPro: rc.isPro, expiresAt: rc.expiresAt, productId: rc.productId }
+            : { isPro: false, expiresAt: null, productId: null },
+          entitlements: {
+            install: entInstall ? { isPro: entInstall.isPro, expiresAt: entInstall.expiresAt, source: entInstall.source } : null,
+            user: entUser ? { isPro: entUser.isPro, expiresAt: entUser.expiresAt, source: entUser.source } : null,
+          },
+        },
+      };
+    });
+
+    return json(200, { ok: true, installs: enriched });
+  }
+
+  if (route === '/admin/list-users') {
+    // Super-admin only: list signed-up users from Supabase Auth, merged with known installs + pro status.
+    const check = await requireSuperAdminUser(req);
+    if (!check.ok) return check.response;
+
+    const body = await req.json().catch(() => ({}));
+    const pageRaw = typeof (body as any)?.page === 'number' ? (body as any).page : 1;
+    const perPageRaw = typeof (body as any)?.perPage === 'number' ? (body as any).perPage : 100;
+    const page = Number.isFinite(pageRaw) ? Math.max(1, Math.floor(pageRaw)) : 1;
+    const perPage = Number.isFinite(perPageRaw) ? Math.max(1, Math.min(200, Math.floor(perPageRaw))) : 100;
+
+    const { data, error } = await (admin as any).auth.admin.listUsers({ page, perPage });
+    if (error) {
+      return json(503, { error: { message: 'Unable to load users', code: 'provider_unavailable' } });
+    }
+    const users = Array.isArray((data as any)?.users) ? ((data as any).users as any[]) : [];
+
+    const userIds = users.map((u) => (typeof u?.id === 'string' ? u.id : '')).filter(Boolean);
+    const userKeys = userIds.map((id) => `user:${id}`);
+
+    // Load known installs for these users (best-effort). If you want "all installs", use /admin/list-installs.
+    const installsByUserId = new Map<string, any[]>();
+    if (userIds.length > 0) {
+      const { data: installs } = await admin
+        .from('kwilt_installs')
+        .select('install_id, last_seen_at, revenuecat_app_user_id, user_id')
+        .in('user_id', userIds)
+        .order('last_seen_at', { ascending: false });
+      if (Array.isArray(installs)) {
+        for (const i of installs as any[]) {
+          const uid = typeof i?.user_id === 'string' ? i.user_id : null;
+          // user_id isn't selected above in case it’s large; derive from query result if present.
+          // If absent, skip map.
+          if (!uid) continue;
+          const arr = installsByUserId.get(uid) ?? [];
+          arr.push(i);
+          installsByUserId.set(uid, arr);
+        }
+      }
+    }
+
+    // Entitlements for users.
+    const entByKey = new Map<string, { isPro: boolean; expiresAt: string | null; source: string | null }>();
+    if (userKeys.length > 0) {
+      const { data: ents } = await admin
+        .from('kwilt_pro_entitlements')
+        .select('quota_key, is_pro, expires_at, source')
+        .in('quota_key', userKeys);
+      if (Array.isArray(ents)) {
+        for (const e of ents as any[]) {
+          const k = typeof e?.quota_key === 'string' ? e.quota_key : '';
+          if (!k) continue;
+          entByKey.set(k, {
+            isPro: Boolean(e?.is_pro),
+            expiresAt: typeof e?.expires_at === 'string' ? e.expires_at : null,
+            source: typeof e?.source === 'string' ? e.source : null,
+          });
+        }
+      }
+    }
+
+    const isExpired = (expiresAt: string | null) =>
+      Boolean(expiresAt && Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) < Date.now());
+    const pickBest = (candidates: Array<{ isPro: boolean; expiresAt: string | null; source: string }>) => {
+      const active = candidates.filter((c) => c.isPro && !isExpired(c.expiresAt));
+      if (active.length === 0) return { isPro: false, expiresAt: null, source: 'none' };
+      const nonExp = active.find((a) => !a.expiresAt);
+      if (nonExp) return nonExp;
+      active.sort((a, b) => (Date.parse(b.expiresAt ?? '0') || 0) - (Date.parse(a.expiresAt ?? '0') || 0));
+      return active[0];
+    };
+
+    // RevenueCat status is keyed by revenuecat_app_user_id (which we only know via installs).
+    const rcIds = Array.from(
+      new Set(
+        userIds
+          .flatMap((uid) => (installsByUserId.get(uid) ?? []).map((i: any) => i?.revenuecat_app_user_id))
+          .filter((v) => typeof v === 'string' && v.trim().length > 0)
+          .map((v) => (v as string).trim()),
+      ),
+    );
+    const rcById = new Map<string, { isPro: boolean; expiresAt: string | null; productId: string | null }>();
+    if (rcIds.length > 0) {
+      const { data: rcs } = await admin
+        .from('kwilt_revenuecat_subscriptions')
+        .select('revenuecat_app_user_id, is_pro, expires_at, product_id')
+        .in('revenuecat_app_user_id', rcIds);
+      if (Array.isArray(rcs)) {
+        for (const r of rcs as any[]) {
+          const k = typeof r?.revenuecat_app_user_id === 'string' ? r.revenuecat_app_user_id : '';
+          if (!k) continue;
+          rcById.set(k, {
+            isPro: Boolean(r?.is_pro),
+            expiresAt: typeof r?.expires_at === 'string' ? r.expires_at : null,
+            productId: typeof r?.product_id === 'string' ? r.product_id : null,
+          });
+        }
+      }
+    }
+
+    const enrichedUsers = users.map((u) => {
+      const userId = typeof u?.id === 'string' ? u.id : '';
+      const email = typeof u?.email === 'string' ? u.email : null;
+      const createdAt = typeof u?.created_at === 'string' ? u.created_at : null;
+      const name = deriveDisplayNameFromUser(u);
+      const userKey = userId ? `user:${userId}` : '';
+      const entUser = userKey ? entByKey.get(userKey) ?? null : null;
+      const installs = installsByUserId.get(userId) ?? [];
+      const lastSeenAt =
+        installs.length > 0 && typeof installs[0]?.last_seen_at === 'string' ? installs[0].last_seen_at : null;
+
+      const rcCandidates = installs
+        .map((i: any) => (typeof i?.revenuecat_app_user_id === 'string' ? rcById.get(i.revenuecat_app_user_id) ?? null : null))
+        .filter(Boolean) as Array<{ isPro: boolean; expiresAt: string | null; productId: string | null }>;
+
+      const best = pickBest([
+        ...rcCandidates.map((r) => ({ isPro: r.isPro, expiresAt: r.expiresAt, source: 'revenuecat' })),
+        ...(entUser ? [{ isPro: entUser.isPro, expiresAt: entUser.expiresAt, source: entUser.source ?? 'entitlement' }] : []),
+      ]);
+
+      return {
+        userId,
+        email,
+        name,
+        createdAt,
+        lastSeenAt,
+        installsCount: installs.length,
+        pro: {
+          isPro: best.isPro,
+          source: best.source,
+          expiresAt: best.expiresAt,
+          entitlement: entUser ? { isPro: entUser.isPro, expiresAt: entUser.expiresAt, source: entUser.source } : null,
+        },
+      };
+    });
+
+    return json(200, { ok: true, page, perPage, users: enrichedUsers });
   }
 
   return json(404, { error: { message: 'Not found', code: 'not_found' } });

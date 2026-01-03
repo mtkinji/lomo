@@ -33,7 +33,6 @@ import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { RedeemProCodeScreen } from '../features/account/RedeemProCodeScreen';
-import { AdminProCodesScreen } from '../features/account/AdminProCodesScreen';
 import { SuperAdminToolsScreen } from '../features/account/SuperAdminToolsScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
@@ -45,6 +44,7 @@ import { ToastHost } from '../ui/ToastHost';
 import { AuthPromptDrawerHost } from '../features/account/AuthPromptDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { handleIncomingInviteUrl } from '../services/invites';
+import { pingInstall } from '../services/installPing';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
@@ -135,7 +135,6 @@ export type SettingsStackParamList = {
   SettingsHaptics: undefined;
   SettingsWidgets: undefined;
   SettingsRedeemProCode: undefined;
-  SettingsAdminProCodes: undefined;
   SettingsSuperAdminTools: undefined;
   SettingsManageSubscription:
     | {
@@ -210,9 +209,17 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const { capture } = useAnalytics();
   const completeWidgetNudge = useAppStore((s) => s.completeWidgetNudge);
   const widgetNudgeStatus = useAppStore((s) => s.widgetNudge?.status);
+  const authIdentity = useAppStore((state) => state.authIdentity);
   const lastWidgetOpenTrackedAtMsRef = useRef<number>(0);
 
   const [isNavReady, setIsNavReady] = useState(false);
+  useEffect(() => {
+    if (!isNavReady) return;
+    // Best-effort device heartbeat so Super Admin can see installs + map them to users.
+    // Includes auth user id when signed in, and RevenueCat app user id when available.
+    pingInstall({ userId: authIdentity?.userId ?? null }).catch(() => undefined);
+  }, [authIdentity?.userId, isNavReady]);
+
   const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
   const lastTrackedRouteNameRef = useRef<string | undefined>(undefined);
 
@@ -651,10 +658,6 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsRedeemProCode"
         component={RedeemProCodeScreen}
-      />
-      <SettingsStack.Screen
-        name="SettingsAdminProCodes"
-        component={AdminProCodesScreen}
       />
       <SettingsStack.Screen
         name="SettingsSuperAdminTools"
