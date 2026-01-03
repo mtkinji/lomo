@@ -65,6 +65,16 @@ const config: ExpoConfig = {
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
     buildNumber: '23',
+    // iOS app extensions (WidgetKit) are created at prebuild time via `withAppleEcosystemIntegrations`.
+    // We declare the extension bundle id here so EAS credentials/build can provision/sign it too.
+    // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
+    // @ts-expect-error - `appExtensions` isn't typed in ExpoConfig yet, but is consumed by EAS tooling.
+    appExtensions: [
+      {
+        targetName: 'KwiltWidgets',
+        bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
+      },
+    ],
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `apple-app-site-association` to be served from those domains.
     associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
