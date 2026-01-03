@@ -55,6 +55,9 @@
     },
     "production-widgets": {
       "distribution": "store",
+      "ios": {
+        "credentialsSource": "local"
+      },
       "env": {
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_WIDGETS": "1",

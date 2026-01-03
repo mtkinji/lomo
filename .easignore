@@ -1,0 +1,46 @@
+# EAS upload ignore rules.
+#
+# IMPORTANT: we intentionally DO NOT ignore `*.p12` or `*.mobileprovision` here
+# because `production-widgets` uses `credentialsSource: "local"` and needs those
+# files available during the remote build.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native generated folders (we generate them during EAS prebuild)
+ios/
+android/
+.kotlin/
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# local EAS logs / artifacts
+eas_logs_local/
+
+# macOS
+.DS_Store
+
+# local scripts / notebooks
+JWT Key Generator
+notes.ipynb
+
+# local env files
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+
