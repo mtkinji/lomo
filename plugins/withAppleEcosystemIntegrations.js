@@ -635,20 +635,48 @@ if userActivity.activityType == CSSearchableItemActionType,
       const endIdx = contents.indexOf(endMarker, startIdx);
       if (endIdx === -1) return config;
 
+      const teamId = config?.ios?.appleTeamId || process.env.APPLE_TEAM_ID || 'BK3N7YXHN7';
       const rubyPatch = `
 
     # kwilt_eas_bundle_signing_fix
     # Starting from Xcode 14, resource bundles may be code signed by default.
     # Ensure a team is set and disable signing for .bundle targets to avoid CI failures.
-    team_id = ENV['APPLE_TEAM_ID'] || 'BK3N7YXHN7'
+    team_id = ENV['APPLE_TEAM_ID'] || '${teamId}'
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
         build_config.build_settings['DEVELOPMENT_TEAM'] = team_id
         if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'
           build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
           build_config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+          build_config.build_settings['CODE_SIGNING_IDENTITY'] = ''
+          build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+          build_config.build_settings['CODE_SIGNING_IDENTITY[sdk=iphoneos*]'] = ''
+          build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = ''
         end
       end
+    end
+
+    # Also ensure the user Xcode project targets (app + extensions) have a team set.
+    installer.aggregate_targets
+             .map(&:user_project)
+             .compact
+             .uniq
+             .each do |project|
+      project.targets.each do |target|
+        target.build_configurations.each do |build_config|
+          build_config.build_settings['DEVELOPMENT_TEAM'] = team_id
+
+          if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'
+            build_config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+            build_config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+            build_config.build_settings['CODE_SIGNING_IDENTITY'] = ''
+            build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+            build_config.build_settings['CODE_SIGNING_IDENTITY[sdk=iphoneos*]'] = ''
+            build_config.build_settings['EXPANDED_CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = ''
+          end
+        end
+      end
+      project.save
     end
 `.replace(/^\n/, '');
 
