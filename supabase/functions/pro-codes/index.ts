@@ -32,16 +32,69 @@ function json(status: number, body: JsonValue, headers?: Record<string, string>)
 }
 
 function getSupabaseAdmin() {
-  const url = Deno.env.get('SUPABASE_URL');
+  // Prefer deriving the project URL from the request host so we don't accidentally
+  // validate JWTs against the wrong Supabase project (a common source of 401 Unauthorized
+  // when multiple environments/custom domains exist).
+  //
+  // - https://<project-ref>.functions.supabase.co/... -> https://<project-ref>.supabase.co
+  // - https://auth.custom-domain.tld/...             -> https://auth.custom-domain.tld
+  function deriveUrlFromReq(req: Request): string | null {
+    try {
+      const u = new URL(req.url);
+      const host = (u.hostname ?? '').trim();
+      if (!host) return null;
+      const fnSuffix = '.functions.supabase.co';
+      if (host.endsWith(fnSuffix)) {
+        const projectRef = host.slice(0, -fnSuffix.length);
+        return projectRef ? `https://${projectRef}.supabase.co` : null;
+      }
+      // If the request is coming through a custom domain (or already on *.supabase.co),
+      // use that as the base.
+      return `${u.protocol}//${host}`;
+    } catch {
+      return null;
+    }
+  }
+
+  // NOTE: these helpers are hoisted per invocation, but still safe.
+  const url = null as unknown as string;
+  // (patched below; see getSupabaseAdminFromReq)
   const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!url || !serviceRole) return null;
-  return createClient(url, serviceRole, {
+  if (!serviceRole) return null;
+  return {
+    deriveUrlFromReq,
+    serviceRole,
+  };
+}
+
+function getSupabaseAdminFromReq(req: Request) {
+  const base = getSupabaseAdmin();
+  if (!base) return null;
+  const url = base.deriveUrlFromReq(req) ?? (Deno.env.get('SUPABASE_URL') ?? '').trim();
+  if (!url) return null;
+  return createClient(url, base.serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
-function getSupabaseAnon() {
-  const url = (Deno.env.get('SUPABASE_URL') ?? '').trim();
+function getSupabaseAnonFromReq(req: Request) {
+  let url = '';
+  try {
+    const u = new URL(req.url);
+    const host = (u.hostname ?? '').trim();
+    const fnSuffix = '.functions.supabase.co';
+    if (host && host.endsWith(fnSuffix)) {
+      const projectRef = host.slice(0, -fnSuffix.length);
+      url = projectRef ? `https://${projectRef}.supabase.co` : '';
+    } else if (host) {
+      url = `${u.protocol}//${host}`;
+    }
+  } catch {
+    url = '';
+  }
+  if (!url) {
+    url = (Deno.env.get('SUPABASE_URL') ?? '').trim();
+  }
   const anon =
     (Deno.env.get('SUPABASE_ANON_KEY') ?? '').trim() ||
     (Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '').trim();
@@ -66,6 +119,79 @@ function getBearerToken(req: Request): string | null {
   return m?.[1]?.trim() ? m[1].trim() : null;
 }
 
+async function getUserFromBearer(req: Request): Promise<{ userId: string; email: string | null } | null> {
+  const token = getBearerToken(req);
+  if (!token) return null;
+  const anon = getSupabaseAnonFromReq(req);
+  if (!anon) return null;
+  const { data, error } = await anon.auth.getUser(token);
+  if (error || !data?.user) return null;
+  const userId = String(data.user.id);
+  const email = typeof data.user.email === 'string' ? data.user.email : null;
+  return { userId, email };
+}
+
+function addDaysIso(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + Math.floor(days));
+  return d.toISOString();
+}
+
+async function findUserIdByEmail(admin: any, email: string): Promise<{ userId: string; email: string } | null> {
+  const target = (email ?? '').trim().toLowerCase();
+  if (!target) return null;
+  // Best-effort: page through users using admin API. Keep bounded to avoid runaway costs.
+  const perPage = 200;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await (admin as any).auth.admin.listUsers({ page, perPage });
+    if (error) return null;
+    const users = Array.isArray((data as any)?.users) ? ((data as any).users as any[]) : [];
+    for (const u of users) {
+      const uEmail = typeof u?.email === 'string' ? u.email.trim().toLowerCase() : '';
+      if (uEmail && uEmail === target) {
+        const userId = typeof u?.id === 'string' ? u.id : '';
+        if (userId) return { userId, email: (typeof u?.email === 'string' ? u.email : email).trim() };
+      }
+    }
+    // If we got fewer than a full page, we’ve reached the end.
+    if (users.length < perPage) break;
+  }
+  return null;
+}
+
+async function getProForQuotaKeys(
+  admin: any,
+  quotaKeys: string[],
+): Promise<{ isPro: boolean; expiresAt: string | null }> {
+  const keys = quotaKeys.map((k) => (k ?? '').trim()).filter(Boolean);
+  if (keys.length === 0) return { isPro: false, expiresAt: null };
+  const { data, error } = await admin
+    .from('kwilt_pro_entitlements')
+    .select('quota_key, is_pro, expires_at')
+    .in('quota_key', keys);
+  if (error || !Array.isArray(data)) return { isPro: false, expiresAt: null };
+
+  let bestExpiresAt: string | null = null;
+  for (const row of data as any[]) {
+    const isPro = Boolean(row?.is_pro);
+    if (!isPro) continue;
+    const expiresAt = typeof row?.expires_at === 'string' ? row.expires_at : null;
+    if (expiresAt && Number.isFinite(Date.parse(expiresAt)) && Date.parse(expiresAt) < Date.now()) {
+      continue;
+    }
+    // Active grant. If any grant has no expiry, treat it as best (infinite).
+    if (!expiresAt) return { isPro: true, expiresAt: null };
+    if (!bestExpiresAt) {
+      bestExpiresAt = expiresAt;
+      continue;
+    }
+    if (Number.isFinite(Date.parse(expiresAt)) && Number.isFinite(Date.parse(bestExpiresAt))) {
+      if (Date.parse(expiresAt) > Date.parse(bestExpiresAt)) bestExpiresAt = expiresAt;
+    }
+  }
+  return { isPro: Boolean(bestExpiresAt), expiresAt: bestExpiresAt };
+}
+
 async function requireAdminUser(req: Request): Promise<
   | { ok: true; userId: string; email: string | null }
   | { ok: false; response: Response }
@@ -75,7 +201,7 @@ async function requireAdminUser(req: Request): Promise<
     return { ok: false, response: json(401, { error: { message: 'Missing Authorization', code: 'unauthorized' } }) };
   }
 
-  const anon = getSupabaseAnon();
+  const anon = getSupabaseAnonFromReq(req);
   if (!anon) {
     return {
       ok: false,
@@ -134,7 +260,7 @@ async function requireSuperAdminUser(req: Request): Promise<
     return { ok: false, response: json(401, { error: { message: 'Missing Authorization', code: 'unauthorized' } }) };
   }
 
-  const anon = getSupabaseAnon();
+  const anon = getSupabaseAnonFromReq(req);
   if (!anon) {
     return {
       ok: false,
@@ -229,7 +355,7 @@ serve(async (req) => {
   const idx = fullPath.indexOf(marker);
   const route = idx >= 0 ? fullPath.slice(idx + marker.length) : fullPath;
 
-  const admin = getSupabaseAdmin();
+  const admin = getSupabaseAdminFromReq(req);
   if (!admin) {
     return json(503, { error: { message: 'Pro codes service unavailable', code: 'provider_unavailable' } });
   }
@@ -251,10 +377,15 @@ serve(async (req) => {
   }
 
   if (route === '/status') {
-    if (!installId) {
-      return json(400, { error: { message: 'Missing x-kwilt-install-id', code: 'bad_request' } });
+    // Supports install-based status (pre-account) and optional user-based status (post-auth).
+    const maybeUser = await getUserFromBearer(req);
+    const keys: string[] = [];
+    if (installId) keys.push(`install:${installId}`);
+    if (maybeUser?.userId) keys.push(`user:${maybeUser.userId}`);
+    if (keys.length === 0) {
+      return json(400, { error: { message: 'Missing identity (installId or Authorization)', code: 'bad_request' } });
     }
-    const status = await isProForQuotaKey(admin, quotaKey);
+    const status = await getProForQuotaKeys(admin, keys);
     return json(200, { isPro: status.isPro, expiresAt: status.expiresAt });
   }
 
@@ -426,6 +557,67 @@ serve(async (req) => {
     }
 
     return json(400, { error: { message: 'Invalid channel (use email|sms)', code: 'bad_request' } });
+  }
+
+  if (route === '/admin/grant') {
+    // Super-admin only: grant Pro for 1 year to either a user account or an install/device.
+    const check = await requireSuperAdminUser(req);
+    if (!check.ok) return check.response;
+
+    const body = await req.json().catch(() => null);
+    const targetType = typeof body?.targetType === 'string' ? body.targetType.trim().toLowerCase() : '';
+    const installIdRaw = typeof body?.installId === 'string' ? body.installId.trim() : '';
+    const emailRaw = typeof body?.email === 'string' ? body.email.trim() : '';
+
+    let quotaKeyGrant = '';
+    let resolvedUserId: string | null = null;
+    let resolvedEmail: string | null = null;
+
+    if (targetType === 'install') {
+      if (!installIdRaw) {
+        return json(400, { error: { message: 'Missing installId', code: 'bad_request' } });
+      }
+      quotaKeyGrant = `install:${installIdRaw}`;
+    } else if (targetType === 'user') {
+      if (!emailRaw) {
+        return json(400, { error: { message: 'Missing email', code: 'bad_request' } });
+      }
+      const found = await findUserIdByEmail(admin, emailRaw);
+      if (!found) {
+        return json(404, { error: { message: 'User not found', code: 'not_found' } });
+      }
+      resolvedUserId = found.userId;
+      resolvedEmail = found.email;
+      quotaKeyGrant = `user:${found.userId}`;
+    } else {
+      return json(400, { error: { message: 'Invalid targetType (use user|install)', code: 'bad_request' } });
+    }
+
+    const expiresAt = addDaysIso(365);
+    const now = new Date().toISOString();
+    const { error } = await admin.from('kwilt_pro_entitlements').upsert(
+      {
+        quota_key: quotaKeyGrant,
+        is_pro: true,
+        source: 'admin',
+        granted_at: now,
+        expires_at: expiresAt,
+        updated_at: now,
+      },
+      { onConflict: 'quota_key' },
+    );
+
+    if (error) {
+      return json(503, { error: { message: 'Unable to grant Pro', code: 'provider_unavailable' } });
+    }
+
+    return json(200, {
+      ok: true,
+      quotaKey: quotaKeyGrant,
+      expiresAt,
+      userId: resolvedUserId,
+      email: resolvedEmail,
+    });
   }
 
   return json(404, { error: { message: 'Not found', code: 'not_found' } });

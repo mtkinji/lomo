@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Share, StyleSheet, View } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
@@ -7,10 +7,11 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
-import { Input, KeyboardAwareScrollView, Text, VStack, HStack } from '../../ui/primitives';
+import { KeyboardAwareScrollView, Text, VStack, HStack, Heading } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
-import { createProCodeAdmin, getAdminProCodesStatus, sendProCodeSuperAdmin } from '../../services/proCodes';
+import { createProCodeAdmin, getAdminProCodesStatus } from '../../services/proCodes';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import {
   clearAdminEntitlementsOverrideTier,
   getAdminEntitlementsOverrideTier,
@@ -18,6 +19,7 @@ import {
   type AdminEntitlementsOverrideTier,
 } from '../../services/entitlements';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useAppStore } from '../../store/useAppStore';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsSuperAdminTools'>;
 
@@ -27,12 +29,35 @@ const oneYearFromNowIso = () => {
   return d.toISOString();
 };
 
+const formatExpiresAt = (iso: string): string => {
+  try {
+    const ms = Date.parse(iso);
+    if (!Number.isFinite(ms)) return iso;
+    return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return iso;
+  }
+};
+
+function buildShareMessage(args: { code: string; expiresAt?: string | null }) {
+  const expires =
+    args.expiresAt && args.expiresAt.trim()
+      ? `\nExpires: ${formatExpiresAt(args.expiresAt)}`
+      : '\nExpires: 1 year after generation';
+  return `Kwilt Pro access code (one-time): ${args.code}${expires}\n\nOpen Kwilt → Settings → Redeem Pro code.`;
+}
+
 export function SuperAdminToolsScreen() {
   const navigation = useNavigation<Nav>();
   const [isChecking, setIsChecking] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [statusEmail, setStatusEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusHttp, setStatusHttp] = useState<number | null>(null);
+  const [statusErrorMessage, setStatusErrorMessage] = useState<string | null>(null);
+  const [debugBaseUrl, setDebugBaseUrl] = useState<string | null>(null);
+  const [debugSupabaseUrl, setDebugSupabaseUrl] = useState<string | null>(null);
+  const authIdentity = useAppStore((s) => s.authIdentity);
 
   const [tier, setTier] = useState<AdminEntitlementsOverrideTier>('real');
   const isPro = useEntitlementsStore((s) => s.isPro);
@@ -40,26 +65,33 @@ export function SuperAdminToolsScreen() {
   const lastSource = useEntitlementsStore((s) => s.lastSource);
   const refreshEntitlements = useEntitlementsStore((s) => s.refreshEntitlements);
 
-  const [note, setNote] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState('');
-  const [recipientPhone, setRecipientPhone] = useState('');
   const [lastCode, setLastCode] = useState<string | null>(null);
+  const [lastExpiresAt, setLastExpiresAt] = useState<string | null>(null);
+  const [codeDrawerVisible, setCodeDrawerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     setIsChecking(true);
-    getAdminProCodesStatus()
+    getAdminProCodesStatus({ requireAuth: true })
       .then((s) => {
         if (!mounted) return;
         setIsSuperAdmin(Boolean(s.role === 'super_admin'));
         setStatusEmail(typeof s.email === 'string' ? s.email : null);
+        setStatusHttp(typeof s.httpStatus === 'number' ? s.httpStatus : null);
+        setStatusErrorMessage(typeof s.errorMessage === 'string' ? s.errorMessage : null);
+        setDebugBaseUrl(typeof s.debugProCodesBaseUrl === 'string' ? s.debugProCodesBaseUrl : null);
+        setDebugSupabaseUrl(typeof s.debugSupabaseUrl === 'string' ? s.debugSupabaseUrl : null);
       })
       .catch((e: any) => {
         if (!mounted) return;
         const msg = typeof e?.message === 'string' ? e.message : 'Unable to check admin status';
         setError(msg);
         setIsSuperAdmin(false);
+        setStatusHttp(null);
+        setStatusErrorMessage(null);
+        setDebugBaseUrl(null);
+        setDebugSupabaseUrl(null);
       })
       .finally(() => {
         if (!mounted) return;
@@ -79,6 +111,7 @@ export function SuperAdminToolsScreen() {
   }, []);
 
   const canUseTools = isSuperAdmin && !isChecking;
+  const canGenerate = !isChecking && !isSubmitting;
 
   const tierOptions = useMemo(
     () =>
@@ -107,8 +140,8 @@ export function SuperAdminToolsScreen() {
     }
   };
 
-  const handleCreateOneYear = async (send?: { channel: 'email' | 'sms' }) => {
-    if (!canUseTools || isSubmitting) return;
+  const handleCreateOneYear = async () => {
+    if (isChecking || isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
     try {
@@ -116,37 +149,15 @@ export function SuperAdminToolsScreen() {
       const { code } = await createProCodeAdmin({
         maxUses: 1,
         expiresAt,
-        note: note.trim() ? note.trim() : undefined,
       });
       setLastCode(code);
+      setLastExpiresAt(expiresAt);
       await Clipboard.setStringAsync(code);
-
-      if (send?.channel === 'email') {
-        await sendProCodeSuperAdmin({
-          channel: 'email',
-          code,
-          recipientEmail: recipientEmail.trim() ? recipientEmail.trim() : undefined,
-          note: note.trim() ? note.trim() : undefined,
-        });
-        Alert.alert('Sent', 'Pro code created and emailed (also copied to clipboard).');
-        return;
-      }
-
-      if (send?.channel === 'sms') {
-        await sendProCodeSuperAdmin({
-          channel: 'sms',
-          code,
-          recipientPhone: recipientPhone.trim() ? recipientPhone.trim() : undefined,
-          note: note.trim() ? note.trim() : undefined,
-        });
-        Alert.alert('Sent', 'Pro code created and texted (also copied to clipboard).');
-        return;
-      }
-
-      Alert.alert('Created', '1-year Pro code copied to clipboard.');
+      setCodeDrawerVisible(true);
     } catch (e: any) {
       const msg = typeof e?.message === 'string' ? e.message : 'Unable to create/send code';
       setError(msg);
+      Alert.alert('Unable to create code', msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -165,9 +176,23 @@ export function SuperAdminToolsScreen() {
             <Text style={styles.body}>
               Super Admin tools (production). Requires a signed-in Supabase user allowlisted server-side.
             </Text>
-            {statusEmail ? <Text style={styles.body}>Signed in as: {statusEmail}</Text> : null}
+            {authIdentity?.email ? (
+              <Text style={styles.body}>Signed in as: {authIdentity.email}</Text>
+            ) : statusEmail ? (
+              <Text style={styles.body}>Signed in as: {statusEmail}</Text>
+            ) : null}
             {!isChecking && !isSuperAdmin ? (
-              <Text style={styles.warning}>You are not authorized for Super Admin tools.</Text>
+              <Text style={styles.warning}>
+                You are not authorized for Super Admin tools.
+                {__DEV__ && statusHttp ? ` (status: ${statusHttp})` : ''}
+                {__DEV__ && statusErrorMessage ? ` ${statusErrorMessage}` : ''}
+                {__DEV__ && statusHttp === 403 ? ' Signed in, but not allowlisted in Supabase function secrets.' : ''}
+              </Text>
+            ) : null}
+            {__DEV__ && !isChecking && !isSuperAdmin && (debugSupabaseUrl || debugBaseUrl) ? (
+              <Text style={styles.debugMeta}>
+                Debug: supabaseUrl={debugSupabaseUrl ?? 'unknown'} • proCodesBase={debugBaseUrl ?? 'unknown'}
+              </Text>
             ) : null}
           </View>
 
@@ -190,87 +215,74 @@ export function SuperAdminToolsScreen() {
           <View style={styles.card}>
             <VStack space="sm">
               <Text style={styles.cardTitle}>1-year Pro access code (one-time)</Text>
-              <Input
-                label="Recipient email (optional)"
-                placeholder="someone@example.com"
-                value={recipientEmail}
-                onChangeText={(t) => {
-                  setRecipientEmail(t);
-                  if (error) setError(null);
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                returnKeyType="done"
-                variant="outline"
-              />
-              <Input
-                label="Recipient phone (optional)"
-                placeholder="+14155551234"
-                value={recipientPhone}
-                onChangeText={(t) => {
-                  setRecipientPhone(t);
-                  if (error) setError(null);
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="phone-pad"
-                returnKeyType="done"
-                variant="outline"
-              />
-              <Input
-                label="Note (optional)"
-                placeholder="e.g. partner comp"
-                value={note}
-                onChangeText={(t) => {
-                  setNote(t);
-                  if (error) setError(null);
-                }}
-                autoCapitalize="sentences"
-                autoCorrect={false}
-                keyboardType="default"
-                returnKeyType="done"
-                variant="outline"
-              />
+              <Text style={styles.body}>One-time use. Expires 1 year after generation.</Text>
 
-              <HStack space="sm">
-                <Button disabled={!canUseTools || isSubmitting} onPress={() => handleCreateOneYear()}>
-                  <Text style={styles.buttonLabel}>{isSubmitting ? 'Working…' : 'Generate'}</Text>
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={!canUseTools || isSubmitting}
-                  onPress={() => handleCreateOneYear({ channel: 'email' })}
-                >
-                  <Text style={styles.secondaryButtonLabel}>Generate + Email</Text>
-                </Button>
-              </HStack>
-              <Button
-                variant="secondary"
-                disabled={!canUseTools || isSubmitting}
-                onPress={() => handleCreateOneYear({ channel: 'sms' })}
-              >
-                <Text style={styles.secondaryButtonLabel}>Generate + Text</Text>
+              <Button disabled={!canGenerate} onPress={() => handleCreateOneYear()}>
+                <Text style={styles.buttonLabel}>
+                  {isChecking ? 'Checking access…' : isSubmitting ? 'Working…' : 'Generate one-time code'}
+                </Text>
               </Button>
 
               {lastCode ? (
                 <View style={styles.result}>
-                  <Text style={styles.resultLabel}>Last code</Text>
-                  <Text style={styles.resultCode}>{lastCode}</Text>
-                  <Button
-                    variant="secondary"
-                    onPress={async () => {
-                      await Clipboard.setStringAsync(lastCode);
-                      Alert.alert('Copied', 'Code copied to clipboard.');
-                    }}
-                  >
-                    <Text style={styles.secondaryButtonLabel}>Copy again</Text>
+                  <Text style={styles.resultLabel}>Last generated</Text>
+                  <Text style={styles.body}>Open to view + share the code.</Text>
+                  <Button variant="secondary" onPress={() => setCodeDrawerVisible(true)}>
+                    <Text style={styles.secondaryButtonLabel}>Open</Text>
                   </Button>
                 </View>
               ) : null}
             </VStack>
           </View>
         </KeyboardAwareScrollView>
+
+        <BottomDrawer
+          visible={codeDrawerVisible}
+          onClose={() => setCodeDrawerVisible(false)}
+          snapPoints={['42%']}
+          keyboardAvoidanceEnabled={false}
+        >
+          <VStack space="md">
+            <VStack space="xs">
+              <Heading>Pro code</Heading>
+              {lastExpiresAt ? (
+                <Text style={styles.body}>One-time use • expires {formatExpiresAt(lastExpiresAt)}</Text>
+              ) : (
+                <Text style={styles.body}>One-time use</Text>
+              )}
+            </VStack>
+
+            <View style={styles.drawerCodeBox}>
+              <Text style={styles.drawerCode}>{lastCode ?? ''}</Text>
+            </View>
+
+            <Text style={styles.drawerHint}>Copied to clipboard on generation.</Text>
+
+            <View style={styles.drawerActions}>
+              <Button
+                variant="secondary"
+                disabled={!lastCode}
+                onPress={async () => {
+                  if (!lastCode) return;
+                  await Clipboard.setStringAsync(lastCode);
+                  Alert.alert('Copied', 'Code copied to clipboard.');
+                }}
+              >
+                <Text style={styles.secondaryButtonLabel}>Copy</Text>
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={!lastCode}
+                onPress={async () => {
+                  if (!lastCode) return;
+                  await Share.share({ message: buildShareMessage({ code: lastCode, expiresAt: lastExpiresAt }) });
+                }}
+              >
+                <Text style={styles.secondaryButtonLabel}>Share</Text>
+              </Button>
+            </View>
+          </VStack>
+        </BottomDrawer>
       </View>
     </AppShell>
   );
@@ -303,6 +315,10 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.accentRoseStrong,
   },
+  debugMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   card: {
     ...(cardSurfaceStyle as any),
     padding: spacing.lg,
@@ -331,6 +347,32 @@ const styles = StyleSheet.create({
   resultCode: {
     ...typography.titleSm,
     color: colors.textPrimary,
+  },
+  resultMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  drawerCodeBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.card,
+  },
+  drawerCode: {
+    ...typography.titleMd,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  drawerHint: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  drawerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 });
 

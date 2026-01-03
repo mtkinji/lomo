@@ -14,11 +14,30 @@
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
     },
+    "development-widgets": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "KWILT_ENABLE_APP_GROUPS": "1",
+        "KWILT_ENABLE_WIDGETS": "1",
+        "SUPABASE_URL": "https://auth.kwilt.app",
+        "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "env": {
         "KWILT_ENABLE_APP_GROUPS": "0",
         "KWILT_ENABLE_WIDGETS": "0",
+        "SUPABASE_URL": "https://auth.kwilt.app",
+        "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
+      }
+    },
+    "preview-widgets": {
+      "distribution": "internal",
+      "env": {
+        "KWILT_ENABLE_APP_GROUPS": "1",
+        "KWILT_ENABLE_WIDGETS": "1",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }

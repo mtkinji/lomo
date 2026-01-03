@@ -148,6 +148,7 @@ export function SettingsHomeScreen() {
     id: string;
     title: string;
     icon: IconName;
+    iconColor?: string;
     onPress?: () => void;
     disabled?: boolean;
     status?: 'new' | 'soon';
@@ -159,11 +160,11 @@ export function SettingsHomeScreen() {
     const disabled = Boolean(row.disabled) || !row.onPress;
     const showChevron = row.showChevron ?? (!disabled && row.variant !== 'destructive');
     const iconColor =
-      row.variant === 'destructive'
-        ? colors.accentRoseStrong
-        : disabled
-          ? colors.textSecondary
-          : colors.textPrimary;
+      disabled
+        ? colors.textSecondary
+        : row.variant === 'destructive'
+          ? colors.accentRoseStrong
+          : row.iconColor ?? colors.textPrimary;
     const titleColor =
       row.variant === 'destructive'
         ? colors.accentRoseStrong
@@ -211,11 +212,10 @@ export function SettingsHomeScreen() {
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const profileSubtitle = authIdentity?.email?.trim() || userProfile?.email?.trim() || 'Not signed in';
   const authEmailLower = (authIdentity?.email ?? '').trim().toLowerCase();
-  // UX fallback: if the signed-in user email is one of our known Super Admin emails,
-  // show the Super Admin section even if the server-side status probe fails.
-  // Server still enforces authorization for all actions.
-  const isKnownSuperAdminEmail =
-    authEmailLower === 'mtkinji@gmail.com' || authEmailLower === 'andy@kwilt.app';
+  // Dev-only UX fallback: allow internal dev builds to surface Super Admin tools even if the
+  // server-side status probe fails. Server still enforces authorization for all actions.
+  const isDevKnownSuperAdminEmail =
+    __DEV__ && (authEmailLower === 'mtkinji@gmail.com' || authEmailLower === 'andy@kwilt.app');
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
   const avatarSource = avatarUrl ? { uri: avatarUrl } : null;
 
@@ -432,18 +432,20 @@ export function SettingsHomeScreen() {
       : []),
   ];
 
-  const allRows: RowAction[] = [...accountRows, ...personalizationRows, ...utilityRows];
-  const superAdminRows: RowAction[] = (showSuperAdmin || isKnownSuperAdminEmail)
+  const superAdminRows: RowAction[] = (showSuperAdmin || isDevKnownSuperAdminEmail)
     ? ([
         {
           id: 'superAdminTools',
           title: 'Super Admin',
-          icon: 'dev',
+          icon: 'starFilled',
+          iconColor: colors.madder,
           onPress: () => navigation.navigate('SettingsSuperAdminTools'),
           showChevron: true,
         },
       ] satisfies RowAction[])
     : [];
+
+  const allRows: RowAction[] = [...accountRows, ...personalizationRows, ...utilityRows, ...superAdminRows];
 
   return (
     <AppShell>
@@ -535,20 +537,6 @@ export function SettingsHomeScreen() {
           {allRows.length > 0 ? (
             <View>
               {allRows.map((row, idx) => renderRow(row, { isLast: idx === allRows.length - 1 }))}
-            </View>
-          ) : null}
-
-          {superAdminRows.length > 0 ? (
-            <View style={styles.superAdminSection}>
-              <Text style={styles.superAdminTitle}>Super Admin</Text>
-              <Text style={styles.superAdminBody}>
-                Internal tools for entitlement simulation and issuing 1-year Pro codes.
-              </Text>
-              <View style={{ marginTop: spacing.sm }}>
-                {superAdminRows.map((row, idx) =>
-                  renderRow(row, { isLast: idx === superAdminRows.length - 1 }),
-                )}
-              </View>
             </View>
           ) : null}
         </ScrollView>
@@ -721,21 +709,6 @@ const styles = StyleSheet.create({
   },
   listRowTitle: {
     ...typography.body,
-  },
-  superAdminSection: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  superAdminTitle: {
-    ...typography.label,
-    color: colors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  superAdminBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
   },
   badge: {
     borderRadius: 999,

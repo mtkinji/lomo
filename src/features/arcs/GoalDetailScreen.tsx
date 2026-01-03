@@ -2276,7 +2276,7 @@ export function GoalDetailScreen() {
                   ) : (
                     <>
                       {activeGoalActivities.length > 0 && (
-                        <VStack space="xs">
+                        <VStack space={2}>
                           {activeGoalActivities.map((activity) => {
                             const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity });
                             return (
@@ -2324,7 +2324,7 @@ export function GoalDetailScreen() {
                           </Pressable>
 
                           {completedActivitiesExpanded && (
-                            <VStack space="xs">
+                            <VStack space={2}>
                               {completedGoalActivities.map((activity) => {
                                 const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity });
                                 return (

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking, Platform } from 'react-native';
 import { getEnvVar } from '../utils/getEnv';
+import { getProStatus } from './proCodesStatus';
 
 /**
  * RevenueCat entitlement layer (RevenueCat-ready, safe when SDK/key are missing).
@@ -192,9 +193,33 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
 
   // Fast path: use cached within bounded window if we weren't asked to refresh.
   if (!params?.forceRefresh && cachedIsFresh) {
-    // Even when using cached, ensure we honor a locally redeemed Pro code.
-    if (proCodeOverride && !cached.isPro) {
-      return await applyAdminOverride({ ...cached, isPro: true, isProToolsTrial: false, source: 'cache', isStale: false });
+    // If a local pro-code override is present, validate it against server status so expiry is enforced.
+    if (proCodeOverride) {
+      try {
+        const status = await getProStatus();
+        if (!status.isPro) {
+          await setProCodeOverrideEnabled(false);
+          const next: EntitlementsSnapshot = {
+            ...cached,
+            isPro: false,
+            isProToolsTrial: false,
+            checkedAt: nowIso(),
+            source: 'cache',
+            isStale: false,
+            error: undefined,
+          };
+          await writeCachedEntitlements(next);
+          return await applyAdminOverride(next);
+        }
+        // Server confirms pro: keep pro enabled.
+        return await applyAdminOverride({ ...cached, isPro: true, isProToolsTrial: false, source: 'cache', isStale: false });
+      } catch {
+        // If status check fails, keep the cached fast path (but don't clear the override).
+        if (!cached.isPro) {
+          return await applyAdminOverride({ ...cached, isPro: true, isProToolsTrial: false, source: 'cache', isStale: false });
+        }
+        return await applyAdminOverride({ ...cached, source: 'cache', isStale: false });
+      }
     }
     return await applyAdminOverride({ ...cached, source: 'cache', isStale: false });
   }
@@ -205,19 +230,43 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     // RevenueCat not available yet — fall back to last known (if any).
     if (cachedIsFresh) {
       const base = { ...cached, source: 'cache', isStale: true, error: 'RevenueCat not configured' } as EntitlementsSnapshot;
-      if (proCodeOverride) {
-        return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });
+      // Prefer server status for code/admin grants; this enforces expiry.
+      try {
+        const status = await getProStatus();
+        if (!status.isPro && proCodeOverride) {
+          await setProCodeOverrideEnabled(false);
+        }
+        const isPro = Boolean(status.isPro);
+        return await applyAdminOverride({ ...base, isPro, isProToolsTrial: false, source: isPro ? 'code' : base.source });
+      } catch {
+        if (proCodeOverride) {
+          return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });
+        }
+        return await applyAdminOverride(base);
       }
-      return await applyAdminOverride(base);
     }
-    const snapshot: EntitlementsSnapshot = {
-      isPro: Boolean(proCodeOverride),
+    let snapshot: EntitlementsSnapshot = {
+      isPro: false,
       isProToolsTrial: false,
       checkedAt: nowIso(),
-      source: proCodeOverride ? 'code' : 'none',
+      source: 'none',
       isStale: true,
       error: 'RevenueCat not configured',
     };
+    // Best-effort server status (enforces expiry).
+    try {
+      const status = await getProStatus();
+      if (!status.isPro && proCodeOverride) {
+        await setProCodeOverrideEnabled(false);
+      }
+      if (status.isPro) {
+        snapshot = { ...snapshot, isPro: true, source: 'code' };
+      }
+    } catch {
+      if (proCodeOverride) {
+        snapshot = { ...snapshot, isPro: true, source: 'code' };
+      }
+    }
     await writeCachedEntitlements(snapshot);
     return await applyAdminOverride(snapshot);
   }
@@ -227,7 +276,20 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     const info = await purchases.getCustomerInfo?.();
     const rcIsPro = extractIsPro(info);
     const rcIsTrial = extractIsProToolsTrial(info);
-    const isPro = rcIsPro || Boolean(proCodeOverride);
+    let serverIsPro = false;
+    if (!rcIsPro) {
+      try {
+        const status = await getProStatus();
+        serverIsPro = Boolean(status.isPro);
+        if (!serverIsPro && proCodeOverride) {
+          await setProCodeOverrideEnabled(false);
+        }
+      } catch {
+        // If server status fails, do not clear local override.
+        serverIsPro = false;
+      }
+    }
+    const isPro = rcIsPro || serverIsPro || Boolean(proCodeOverride && !rcIsPro);
     const isProToolsTrial = Boolean(!isPro && rcIsTrial);
     const snapshot: EntitlementsSnapshot = {
       isPro,
@@ -242,19 +304,41 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     const message = typeof e?.message === 'string' ? e.message : 'Failed to refresh entitlements';
     if (cachedIsFresh) {
       const base = { ...cached, source: 'cache', isStale: true, error: message } as EntitlementsSnapshot;
-      if (proCodeOverride) {
-        return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });
+      try {
+        const status = await getProStatus();
+        if (!status.isPro && proCodeOverride) {
+          await setProCodeOverrideEnabled(false);
+        }
+        const isPro = Boolean(status.isPro) || Boolean(proCodeOverride);
+        return await applyAdminOverride({ ...base, isPro, isProToolsTrial: false, source: isPro ? 'code' : base.source });
+      } catch {
+        if (proCodeOverride) {
+          return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });
+        }
+        return await applyAdminOverride(base);
       }
-      return await applyAdminOverride(base);
     }
-    const snapshot: EntitlementsSnapshot = {
-      isPro: Boolean(proCodeOverride),
+    let snapshot: EntitlementsSnapshot = {
+      isPro: false,
       isProToolsTrial: false,
       checkedAt: nowIso(),
-      source: proCodeOverride ? 'code' : 'none',
+      source: 'none',
       isStale: true,
       error: message,
     };
+    try {
+      const status = await getProStatus();
+      if (!status.isPro && proCodeOverride) {
+        await setProCodeOverrideEnabled(false);
+      }
+      if (status.isPro || proCodeOverride) {
+        snapshot = { ...snapshot, isPro: true, source: 'code' };
+      }
+    } catch {
+      if (proCodeOverride) {
+        snapshot = { ...snapshot, isPro: true, source: 'code' };
+      }
+    }
     await writeCachedEntitlements(snapshot);
     return await applyAdminOverride(snapshot);
   }

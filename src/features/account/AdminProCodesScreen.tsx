@@ -34,7 +34,7 @@ export function AdminProCodesScreen() {
 
   useEffect(() => {
     setIsChecking(true);
-    getAdminProCodesStatus()
+    getAdminProCodesStatus({ requireAuth: true })
       .then((s) => {
         setIsAdmin(Boolean(s.isAdmin));
         setStatusEmail(typeof s.email === 'string' ? s.email : null);
