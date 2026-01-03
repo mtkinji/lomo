@@ -749,6 +749,23 @@ if userActivity.activityType == CSSearchableItemActionType,
     };
     ensureSwiftVersionForBundleId(targetBundleId, '5.0');
 
+    // Widgets use lock-screen accessory families which require iOS 16+.
+    // Set the widget extension's deployment target accordingly so Swift can compile those symbols.
+    const ensureDeploymentTargetForBundleId = (bundleIdentifier, deploymentTarget = '16.0') => {
+      const section = project.pbxXCBuildConfigurationSection?.() || {};
+      Object.keys(section).forEach((key) => {
+        const cfg = section[key];
+        if (!cfg || cfg.isa !== 'XCBuildConfiguration') return;
+        const buildSettings = cfg.buildSettings || {};
+        const prodBundle = String(buildSettings.PRODUCT_BUNDLE_IDENTIFIER || '').replace(/^"|"$/g, '');
+        if (prodBundle !== bundleIdentifier) return;
+        buildSettings.IPHONEOS_DEPLOYMENT_TARGET = `"${deploymentTarget}"`;
+        cfg.buildSettings = buildSettings;
+        section[key] = cfg;
+      });
+    };
+    ensureDeploymentTargetForBundleId(targetBundleId, '16.0');
+
     // IMPORTANT:
     // `xcode.addTarget(..., 'app_extension', ...)` creates a target WITHOUT build phases.
     // The xcode library will then "fall back" to the first app target's build phases when
@@ -1016,30 +1033,11 @@ struct ${targetName}Bundle: WidgetBundle {
     }
     ensureSourceInTarget(widgetSwiftRel, targetSubfolder, targetUuid);
 
-    // Ensure the shared ActivityAttributes file is compiled into the extension target too.
+    // Ensure the shared ActivityAttributes file is compiled into the extension target too
+    // (required for `KwiltFocusAttributes` used by the Live Activity widget).
     const sharedRel = `${projectName}/KwiltFocusLiveActivity.swift`;
-    const pbxFileRefs = project.pbxFileReferenceSection?.() || {};
-    const sharedFileRefKey = Object.keys(pbxFileRefs).find((key) => {
-      if (key.endsWith('_comment')) return false;
-      const entry = pbxFileRefs[key];
-      const p = String(entry?.path || '').replace(/^"|"$/g, '');
-      return p === sharedRel;
-    });
-
-    if (sharedFileRefKey) {
-      const PbxFile = require('xcode/lib/pbxFile');
-      const f = new PbxFile(sharedRel);
-      f.fileRef = sharedFileRefKey;
-      // Idempotency: don't add duplicate build entries for the same file into the same target.
-      const sources = project.pbxSourcesBuildPhaseObj?.(targetUuid);
-      const already = Array.isArray(sources?.files) && sources.files.some((e) => String(e?.comment || '').includes(path.basename(sharedRel)));
-      if (!already) {
-        f.uuid = project.generateUuid();
-        f.target = targetUuid;
-        project.addToPbxBuildFileSection(f);
-        project.addToPbxSourcesBuildPhase(f);
-      }
-    }
+    ensureGroupRecursively(project, projectName);
+    ensureSourceInTarget(sharedRel, projectName, targetUuid);
 
     // Link files into the extension target.
     project = addResourceFileToGroup({
