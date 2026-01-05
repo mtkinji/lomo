@@ -46,6 +46,7 @@ import { ObjectPicker, type ObjectPickerOption } from '../../ui/ObjectPicker';
 import {
   CoachChatTurn,
   GeneratedArc,
+  KwiltAiQuotaExceededError,
   sendCoachChat,
   type CoachChatOptions,
 } from '../../services/ai';
@@ -256,6 +257,28 @@ export type ActivitySuggestion = {
   timeEstimateMinutes?: number;
   energyLevel?: 'light' | 'focused';
   kind?: 'setup' | 'progress' | 'maintenance' | 'stretch';
+  /**
+   * Optional suggestion for a location-based completion offer (geofence).
+   * If present, the host app may geocode the query and attach it to the Activity.
+   */
+  locationOffer?: {
+    /**
+     * Free-text place query suitable for geocoding (e.g. "Whole Foods, Berkeley" / "Home").
+     */
+    placeQuery: string;
+    /**
+     * User-facing label override (optional). If absent, the geocoder result label is used.
+     */
+    label?: string;
+    /**
+     * Trigger semantics: notify on arriving or leaving.
+     */
+    trigger?: 'arrive' | 'leave';
+    /**
+     * Optional radius for the place boundary. If absent, a sensible default is used.
+     */
+    radiusM?: number;
+  };
   steps?: {
     title: string;
     isOptional?: boolean;
@@ -366,6 +389,37 @@ function normalizeActivitySuggestion(raw: unknown): ActivitySuggestion | null {
 
     if (steps.length > 0) {
       normalized.steps = steps;
+    }
+  }
+
+  const rawLocationOffer = (maybe as any).locationOffer;
+  if (rawLocationOffer && typeof rawLocationOffer === 'object') {
+    const placeQuery =
+      typeof (rawLocationOffer as any).placeQuery === 'string'
+        ? String((rawLocationOffer as any).placeQuery).trim()
+        : '';
+    if (placeQuery.length > 0) {
+      const label =
+        typeof (rawLocationOffer as any).label === 'string'
+          ? String((rawLocationOffer as any).label).trim()
+          : undefined;
+      const triggerRaw =
+        typeof (rawLocationOffer as any).trigger === 'string'
+          ? String((rawLocationOffer as any).trigger).trim()
+          : '';
+      const trigger =
+        triggerRaw === 'arrive' || triggerRaw === 'leave'
+          ? (triggerRaw as 'arrive' | 'leave')
+          : undefined;
+      const radiusMRaw = (rawLocationOffer as any).radiusM;
+      const radiusM = typeof radiusMRaw === 'number' && Number.isFinite(radiusMRaw) ? radiusMRaw : undefined;
+
+      normalized.locationOffer = {
+        placeQuery,
+        ...(label && label.length > 0 ? { label } : null),
+        ...(trigger ? { trigger } : null),
+        ...(typeof radiusM === 'number' ? { radiusM } : null),
+      };
     }
   }
 
@@ -2658,7 +2712,26 @@ export const AiChatPane = forwardRef(function AiChatPane(
         // Any failure bootstrapping the initial reply should surface a friendly
         // error message so the canvas is never left blank.
         console.error('kwilt Coach initial chat failed', err);
+        const errMessage =
+          (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
+        const lower = errMessage.toLowerCase();
+        const isQuotaLike =
+          err instanceof KwiltAiQuotaExceededError ||
+          lower.includes('generative credits exhausted') ||
+          lower.includes('ai limit') ||
+          lower.includes('upgrade to pro') ||
+          lower.includes('quota_exceeded') ||
+          lower.includes('monthly quota exceeded') ||
+          lower.includes('insufficient_quota') ||
+          lower.includes('exceeded your current quota') ||
+          lower.includes('quota exceeded');
         if (!cancelled) {
+          // If we hit an AI credit/quota gate, the paywall interstitial should be the
+          // primary UI. Avoid showing a scary transport error message in the canvas.
+          if (isQuotaLike) {
+            setHasTransportError(false);
+            return;
+          }
           setHasTransportError(true);
           const errorMessage: ChatMessage = {
             id: `assistant-error-bootstrap-${Date.now()}`,
@@ -2921,6 +2994,23 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
     } catch (err) {
       console.error('kwilt Coach chat failed', err);
+      const errMessage =
+        (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
+      const lower = errMessage.toLowerCase();
+      const isQuotaLike =
+        err instanceof KwiltAiQuotaExceededError ||
+        lower.includes('generative credits exhausted') ||
+        lower.includes('ai limit') ||
+        lower.includes('upgrade to pro') ||
+        lower.includes('quota_exceeded') ||
+        lower.includes('monthly quota exceeded') ||
+        lower.includes('insufficient_quota') ||
+        lower.includes('exceeded your current quota') ||
+        lower.includes('quota exceeded');
+      if (isQuotaLike) {
+        setHasTransportError(false);
+        return;
+      }
       const errorMessage: ChatMessage = {
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
@@ -2990,6 +3080,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
     const lower = message.toLowerCase();
     return (
+      err instanceof KwiltAiQuotaExceededError ||
       lower.includes('generative credits exhausted') ||
       lower.includes('ai limit') ||
       lower.includes('upgrade to pro') ||

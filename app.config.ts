@@ -148,6 +148,10 @@ const config: ExpoConfig = {
       // Linked EAS project for the kwilt app (added manually for dynamic config).
       projectId: '7717f04d-8327-47a9-8bb4-84c21dc8214f',
     },
+    // EAS build profile name (e.g. "development", "preview", "production").
+    // Useful at runtime to hide internal tooling in store builds while still
+    // allowing it in internal distributions.
+    easBuildProfile: process.env.EAS_BUILD_PROFILE,
     // AI proxy base URL (no OpenAI keys in the client).
     // Example (Supabase Edge Functions): https://<project-ref>.functions.supabase.co/functions/v1/ai-chat
     // Local (Supabase CLI): http://localhost:54321/functions/v1/ai-chat

@@ -1,9 +1,19 @@
-import { Audio } from 'expo-av';
+// NOTE: `expo-av` is deprecated (will be removed in a future Expo SDK).
+// Lazy-load it so the deprecation warning does not spam on app launch.
+type ExpoAvAudio = (typeof import('expo-av'))['Audio'];
+let Audio: ExpoAvAudio | null = null;
+
+async function getAudio(): Promise<ExpoAvAudio> {
+  if (Audio) return Audio;
+  const mod = await import('expo-av');
+  Audio = mod.Audio;
+  return Audio;
+}
 
 type SoundscapeStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'stopped' | 'error';
 
 let status: SoundscapeStatus = 'idle';
-let sound: Audio.Sound | null = null;
+let sound: any | null = null;
 // Default soundscape volume (0..1). The device/system volume still applies on top of this.
 let currentVolume = 1.0;
 let lastAppliedVolume = 1.0;
@@ -48,6 +58,7 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
   status = 'loading';
   loadPromise = (async () => {
     try {
+      const Audio = await getAudio();
       await ensureAudioMode();
       const created = await Audio.Sound.createAsync(
         SOUNDSCAPE_SOURCES[currentSoundscapeId],

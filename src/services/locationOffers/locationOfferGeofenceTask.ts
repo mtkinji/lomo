@@ -57,8 +57,9 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
   const loc = (activity as any)?.location as any;
   if (!activity || !loc) return;
   if (activity.status === 'done' || activity.status === 'cancelled') return;
-  if (loc?.trigger !== 'arrive' && loc?.trigger !== 'leave') return;
-  if (!shouldNotifyForTrigger({ configuredTrigger: loc.trigger, event })) return;
+  const configuredTrigger: 'arrive' | 'leave' =
+    loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
+  if (!shouldNotifyForTrigger({ configuredTrigger, event })) return;
 
   const nowIso = new Date().toISOString();
   const shouldFire = await shouldFireLocationOffer({
@@ -73,16 +74,25 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
   const locationLabel = typeof loc?.label === 'string' && loc.label.trim() ? loc.label.trim() : 'your place';
   const whenLabel = event === 'enter' ? 'Arrived at' : 'Left';
 
-  await Notifications.scheduleNotificationAsync({
+  const scheduledId = await Notifications.scheduleNotificationAsync({
     content: {
       title: `Mark “${title}” done?`,
       body: `${whenLabel} ${locationLabel}.`,
       data: { type: 'locationOffer', activityId, event },
     },
     trigger: null,
-  }).catch(() => undefined);
+  }).catch((err) => {
+    if (__DEV__) {
+      console.warn('[locationOffers] failed to schedule notification', err);
+    }
+    return null;
+  });
 
-  await recordLocationOfferFired({ activityId, event, firedAtIso: nowIso }).catch(() => undefined);
+  // Only record as "fired" if we successfully scheduled; otherwise we'd suppress retries
+  // even though the user never saw the offer.
+  if (scheduledId) {
+    await recordLocationOfferFired({ activityId, event, firedAtIso: nowIso }).catch(() => undefined);
+  }
 });
 
 

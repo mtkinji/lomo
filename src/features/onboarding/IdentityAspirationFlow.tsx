@@ -2384,20 +2384,53 @@ export function IdentityAspirationFlow({
       };
     }
 
-    controller.streamAssistantReplyFromWorkflow(
-      current,
-      `assistant-soft-start-${introIndex}`,
-      {
-        onDone: () => {
-          if (cancelled) return;
-          introStreamingIndexRef.current = null;
-          setLastIntroStreamedIndex(introIndex);
-        },
-      }
-    );
+    // Reliability: ensure intro actions are eventually revealed even if the typing
+    // animation's `onDone` callback is delayed or dropped (rare, but can happen in dev).
+    const approxTypingMs = (() => {
+      // AiChatScreen "types" ~2 chars / 40ms (~50 chars/sec), plus paragraph pauses.
+      const base = 900;
+      const perChar = 22;
+      const pauseCount = (current.match(/(?:\r?\n)\s*(?:\r?\n)/g) ?? []).length;
+      const pauseMs = pauseCount * 800;
+      return Math.max(1400, Math.min(9000, base + current.length * perChar + pauseMs));
+    })();
+
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    let revealTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const markStreamDoneAndRevealActions = () => {
+      introStreamingIndexRef.current = null;
+      setLastIntroStreamedIndex(introIndex);
+      // Set `introActionsVisibleIndex` directly (instead of relying solely on the
+      // "post-stream beat" effect above) so the buttons don't get stuck invisible
+      // (opacity=0) in dev client builds where timers/callbacks can be flaky.
+      if (revealTimer) clearTimeout(revealTimer);
+      revealTimer = setTimeout(() => {
+        setIntroActionsVisibleIndex(introIndex);
+      }, 900);
+    };
+
+    fallbackTimer = setTimeout(() => {
+      if (cancelled) return;
+      // Force progress so the UI can proceed even if the typing animation never finishes.
+      markStreamDoneAndRevealActions();
+    }, approxTypingMs);
+
+    controller.streamAssistantReplyFromWorkflow(current, `assistant-soft-start-${introIndex}`, {
+      onDone: () => {
+        if (cancelled) return;
+        if (fallbackTimer) {
+          clearTimeout(fallbackTimer);
+          fallbackTimer = null;
+        }
+        markStreamDoneAndRevealActions();
+      },
+    });
 
     return () => {
       cancelled = true;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      if (revealTimer) clearTimeout(revealTimer);
     };
   }, [workflowRuntime, chatControllerRef, introPlayed, introIndex, lastIntroStreamedIndex]);
 

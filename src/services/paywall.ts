@@ -6,6 +6,7 @@ export type PaywallReason =
   | 'limit_goals_per_arc'
   | 'limit_arcs_total'
   | 'generative_quota_exceeded'
+  | 'ai_quota_exceeded'
   | 'pro_only_unsplash_banners'
   | 'pro_only_calendar_export'
   | 'pro_only_ai_scheduling'

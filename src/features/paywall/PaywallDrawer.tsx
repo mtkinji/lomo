@@ -53,6 +53,12 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
         subtitle:
           'Upgrade to Pro for more monthly AI credits so you can keep shaping goals in Kwilt.',
       };
+    case 'ai_quota_exceeded':
+      return {
+        title: 'AI is temporarily unavailable',
+        subtitle:
+          'Upgrade to Pro to unlock more AI capacity and keep shaping goals with kwilt Coach.',
+      };
     case 'limit_goals_per_arc':
       return {
         title: 'Make room for the goals that matter right now',

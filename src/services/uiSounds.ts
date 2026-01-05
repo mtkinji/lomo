@@ -1,4 +1,15 @@
-import { Audio } from 'expo-av';
+// NOTE: `expo-av` is deprecated (will be removed in a future Expo SDK).
+// For now, we lazy-load it so the deprecation warning does not spam on app launch.
+// We can migrate to `expo-audio` / `expo-video` later.
+type ExpoAvAudio = (typeof import('expo-av'))['Audio'];
+let Audio: ExpoAvAudio | null = null;
+
+async function getAudio(): Promise<ExpoAvAudio> {
+  if (Audio) return Audio;
+  const mod = await import('expo-av');
+  Audio = mod.Audio;
+  return Audio;
+}
 
 /**
  * Lightweight, one-shot UI sound effects.
@@ -9,9 +20,9 @@ import { Audio } from 'expo-av';
  */
 
 let audioModeConfigured = false;
-let stepDoneSound: Audio.Sound | null = null;
+let stepDoneSound: any | null = null;
 let stepDoneLoading: Promise<void> | null = null;
-let activityDoneSound: Audio.Sound | null = null;
+let activityDoneSound: any | null = null;
 let activityDoneLoading: Promise<void> | null = null;
 
 // UI sound effect file (bundled).
@@ -21,6 +32,7 @@ const ACTIVITY_DONE_SOURCE = require('../../assets/audio/sfx/mark-complete.wav')
 
 async function ensureUiAudioMode() {
   if (audioModeConfigured) return;
+  const Audio = await getAudio();
   const interruptionModeIOS =
     (Audio as any)?.InterruptionModeIOS?.DuckOthers ??
     (Audio as any)?.INTERRUPTION_MODE_IOS_DUCK_OTHERS;
@@ -61,6 +73,7 @@ async function preloadStepDoneSound() {
   }
 
   stepDoneLoading = (async () => {
+    const Audio = await getAudio();
     await ensureUiAudioMode();
     const created = await Audio.Sound.createAsync(STEP_DONE_SOURCE, {
       shouldPlay: false,
@@ -100,6 +113,7 @@ async function preloadActivityDoneSound() {
   }
 
   activityDoneLoading = (async () => {
+    const Audio = await getAudio();
     await ensureUiAudioMode();
     const created = await Audio.Sound.createAsync(ACTIVITY_DONE_SOURCE, {
       shouldPlay: false,

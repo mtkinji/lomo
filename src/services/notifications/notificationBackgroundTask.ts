@@ -1,4 +1,3 @@
-import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
 import { posthogClient } from '../analytics/posthogClient';
@@ -277,6 +276,9 @@ export async function reconcileNotificationsFiredEstimated(
 }
 
 TaskManager.defineTask(NOTIFICATION_RECONCILE_TASK, async () => {
+  // NOTE: `expo-background-fetch` is deprecated; we lazy-load it to avoid
+  // deprecation warnings on app launch. (We can migrate to `expo-background-task` later.)
+  const BackgroundFetch = await import('expo-background-fetch');
   try {
     await reconcileNotificationsFiredEstimated('background_fetch');
     return BackgroundFetch.BackgroundFetchResult.NewData;
@@ -290,6 +292,8 @@ TaskManager.defineTask(NOTIFICATION_RECONCILE_TASK, async () => {
 });
 
 export async function registerNotificationReconcileTask(): Promise<void> {
+  // Lazy-load to avoid deprecation warning on app launch.
+  const BackgroundFetch = await import('expo-background-fetch');
   const status = await BackgroundFetch.getStatusAsync();
   if (
     status === BackgroundFetch.BackgroundFetchStatus.Restricted ||

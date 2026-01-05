@@ -35,7 +35,7 @@ import {
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 
-type FtueStep = 'welcome' | 'notifications' | 'locationOffers' | 'path';
+type FtueStep = 'welcome' | 'notifications' | 'path';
 
 export function FirstTimeUxFlow() {
   const isVisible = useFirstTimeUxStore((state) => state.isFlowActive);
@@ -72,20 +72,17 @@ export function FirstTimeUxFlow() {
   const deferredCompletionRef = useRef<{ outcome: unknown } | null>(null);
   const hasPresentedSignupInterstitialRef = useRef(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
-  const [isAutoRequestingNotifications, setIsAutoRequestingNotifications] = useState(false);
+  const [isRequestingNotifications, setIsRequestingNotifications] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const { capture } = useAnalytics();
   const hasTrackedVisible = useRef(false);
 
-  const hasAutoRequestedNotifications = useRef(false);
-  const notificationAutoPromptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const introAnim = useRef(new Animated.Value(1)).current;
   const workflowAnim = useRef(new Animated.Value(0)).current;
   // FTUE is only shown for onboarding runs. Keep the interstitial sequence stable
   // (1/3 → 2/3 → 3/3) even if notifications are already enabled.
-  const flowSteps: FtueStep[] = ['welcome', 'notifications', 'locationOffers', 'path'];
+  const flowSteps: FtueStep[] = ['welcome', 'notifications', 'path'];
 
   useEffect(() => {
     if (!isVisible) {
@@ -130,14 +127,9 @@ export function FirstTimeUxFlow() {
     introAnim.setValue(1);
     workflowAnim.setValue(0);
     setNotificationError(null);
-    setIsAutoRequestingNotifications(false);
+    setIsRequestingNotifications(false);
     setLocationError(null);
     setIsRequestingLocation(false);
-    hasAutoRequestedNotifications.current = false;
-    if (notificationAutoPromptTimer.current) {
-      clearTimeout(notificationAutoPromptTimer.current);
-      notificationAutoPromptTimer.current = null;
-    }
   }, [
     isVisible,
     triggerCount,
@@ -149,88 +141,84 @@ export function FirstTimeUxFlow() {
     setLastOnboardingGoalId,
   ]);
 
+  const requestNotificationsFromFtue = useCallback(async () => {
+    if (isRequestingNotifications) return;
+    setNotificationError(null);
+    setIsRequestingNotifications(true);
+    capture(AnalyticsEvent.NotificationsPermissionPrompted, { source: 'ftue_tap' });
+    try {
+      const granted = await NotificationService.requestOsPermission();
+      const updatedStatus = useAppStore.getState().notificationPreferences.osPermissionStatus;
+      capture(AnalyticsEvent.NotificationsPermissionResult, {
+        source: 'ftue_tap',
+        granted,
+        os_permission_status: updatedStatus,
+      });
+
+      if (granted) {
+        const currentPrefs = useAppStore.getState().notificationPreferences;
+        const next = {
+          ...currentPrefs,
+          notificationsEnabled: true,
+          allowDailyShowUp: true,
+          dailyShowUpTime: currentPrefs.dailyShowUpTime ?? DEFAULT_DAILY_SHOW_UP_TIME,
+          // Daily focus is a high-signal “one thing” nudge. Default it on,
+          // but schedule it later than the morning show-up reminder.
+          allowDailyFocus: true,
+          dailyFocusTime: currentPrefs.dailyFocusTime ?? DEFAULT_DAILY_FOCUS_TIME,
+          dailyFocusTimeMode: currentPrefs.dailyFocusTimeMode ?? 'auto',
+          // Afternoon momentum nudge: default to 4pm local for best engagement.
+          goalNudgeTime: (currentPrefs as any).goalNudgeTime ?? DEFAULT_GOAL_NUDGE_TIME,
+          // Activity reminders are the most directly tied to “next step”.
+          allowActivityReminders: true,
+        };
+        await NotificationService.applySettings(next);
+      } else {
+        if (updatedStatus === 'denied' || updatedStatus === 'restricted') {
+          setNotificationError('Notifications are currently blocked in system settings.');
+        }
+      }
+    } catch (err) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[onboarding] notifications enable failed', err);
+      }
+      setNotificationError('No problem — you can enable notifications later in Settings.');
+    } finally {
+      setIsRequestingNotifications(false);
+    }
+  }, [capture, isRequestingNotifications]);
+
   useEffect(() => {
     if (!isVisible) return;
     if (ftueStep !== 'notifications') return;
-    if (hasAutoRequestedNotifications.current) return;
-    // If notifications are already enabled, do not request again.
-    if (notificationPreferences.osPermissionStatus === 'authorized') return;
-
-    hasAutoRequestedNotifications.current = true;
-    setNotificationError(null);
-    setIsAutoRequestingNotifications(true);
-    capture(AnalyticsEvent.NotificationsPermissionPrompted, {
-      source: 'ftue_auto',
-    });
-
-    notificationAutoPromptTimer.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const granted = await NotificationService.requestOsPermission();
-          const updatedStatus = useAppStore.getState().notificationPreferences.osPermissionStatus;
-          capture(AnalyticsEvent.NotificationsPermissionResult, {
-            source: 'ftue_auto',
-            granted,
-            os_permission_status: updatedStatus,
-          });
-          if (granted) {
-            const currentPrefs = useAppStore.getState().notificationPreferences;
-            const next = {
-              ...currentPrefs,
-              notificationsEnabled: true,
-              allowDailyShowUp: true,
-              dailyShowUpTime: currentPrefs.dailyShowUpTime ?? DEFAULT_DAILY_SHOW_UP_TIME,
-              // Daily focus is a high-signal “one thing” nudge. Default it on,
-              // but schedule it later than the morning show-up reminder.
-              allowDailyFocus: true,
-              dailyFocusTime: currentPrefs.dailyFocusTime ?? DEFAULT_DAILY_FOCUS_TIME,
-              dailyFocusTimeMode: currentPrefs.dailyFocusTimeMode ?? 'auto',
-              // Afternoon momentum nudge: default to 4pm local for best engagement.
-              goalNudgeTime: (currentPrefs as any).goalNudgeTime ?? DEFAULT_GOAL_NUDGE_TIME,
-              // Activity reminders are the most directly tied to “next step”.
-              allowActivityReminders: true,
-            };
-            await NotificationService.applySettings(next);
-          } else {
-            const updated = useAppStore.getState().notificationPreferences.osPermissionStatus;
-            if (updated === 'denied' || updated === 'restricted') {
-              setNotificationError(
-                'Notifications are currently blocked in system settings. You can change this anytime.',
-              );
-            }
-          }
-        } catch (err) {
-          if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.warn('[onboarding] notifications auto-enable failed', err);
-          }
-          setNotificationError('No problem — you can enable notifications later in Settings.');
-        } finally {
-          setIsAutoRequestingNotifications(false);
-          notificationAutoPromptTimer.current = null;
-          // Important: do not auto-advance; let the user read the screen and tap Continue.
-        }
-      })();
-    }, 450);
-
-    return () => {
-      if (notificationAutoPromptTimer.current) {
-        clearTimeout(notificationAutoPromptTimer.current);
-        notificationAutoPromptTimer.current = null;
-      }
-    };
-    // Intentionally not depending on `notificationPreferences` as a whole to avoid
-    // restarting the timer while we update preferences during the request flow.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ftueStep, isVisible, notificationPreferences.osPermissionStatus]);
-
-  useEffect(() => {
-    if (!isVisible) return;
-    if (ftueStep !== 'locationOffers') return;
     // Best-effort: refresh OS permission status so the CTA can switch to "Open settings"
     // when location was previously denied.
     void LocationPermissionService.syncOsPermissionStatus();
   }, [ftueStep, isVisible]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    if (ftueStep !== 'notifications') return;
+    void NotificationService.syncOsPermissionStatus();
+  }, [ftueStep, isVisible]);
+
+  const requestLocationFromFtue = useCallback(async () => {
+    if (isRequestingLocation) return;
+    // User opted in at the product layer regardless of OS permission outcome.
+    setLocationOfferPreferences((current) => ({ ...current, enabled: true }));
+    setLocationError(null);
+    setIsRequestingLocation(true);
+    try {
+      const granted = await LocationPermissionService.ensurePermissionWithRationale('ftue');
+      if (!granted) {
+        // Let them continue; we’ll re-offer permission when they try to attach a place.
+        setLocationError('No problem — we’ll ask again when you attach a place to an Activity.');
+      }
+    } finally {
+      setIsRequestingLocation(false);
+    }
+  }, [isRequestingLocation, setLocationOfferPreferences]);
 
   // Animate each interstitial screen in with a light slide-from-right +
   // fade so the sequence feels premium but not busy.
@@ -370,17 +358,6 @@ export function FirstTimeUxFlow() {
             progressTrack: 'rgba(0,0,0,0.14)',
             progressFill: colors.sumi,
           };
-        case 'locationOffers':
-          return {
-            backgroundColor: 'turmeric200' as const,
-            ink: colors.sumi,
-            inkMutedOpacity: 0.72,
-            primaryButtonBg: colors.sumi,
-            primaryButtonText: colors.canvas,
-            secondaryText: colors.sumi,
-            progressTrack: 'rgba(0,0,0,0.14)',
-            progressFill: colors.sumi,
-          };
         case 'path':
         default:
           return {
@@ -407,8 +384,6 @@ export function FirstTimeUxFlow() {
         ? require('../../../assets/illustrations/welcome.png')
         : ftueStep === 'notifications'
           ? require('../../../assets/illustrations/notifications.png')
-          : ftueStep === 'locationOffers'
-            ? require('../../../assets/illustrations/activity-types/image copy.png')
           : ftueStep === 'path'
             ? require('../../../assets/illustrations/aspirations.png')
           : null;
@@ -436,21 +411,8 @@ export function FirstTimeUxFlow() {
       case 'notifications':
         title = 'Setup regular prompts';
         body =
-          'Kwilt will help you along with gentle reminders so tiny steps don’t slip through the cracks.';
+          "Kwilt will help you along with gentle reminders so tiny steps don't slip through the cracks. If you attach a place to an Activity, Kwilt can also nudge you when you arrive or leave—so it's easy to mark it done.";
         ctaLabel = 'Continue';
-        nextStep = 'locationOffers';
-        break;
-      case 'locationOffers':
-        title = 'Optional: location-based prompts';
-        body =
-          'If you attach a place to an Activity, Kwilt can nudge you when you arrive or leave—so it’s easy to mark it done.';
-        ctaLabel =
-          locationOfferPreferences.osPermissionStatus === 'authorized'
-            ? 'Continue'
-            : locationOfferPreferences.osPermissionStatus === 'denied' ||
-                locationOfferPreferences.osPermissionStatus === 'restricted'
-              ? 'Open settings'
-              : 'Enable';
         nextStep = 'path';
         break;
       case 'path':
@@ -482,6 +444,48 @@ export function FirstTimeUxFlow() {
     });
 
     const opacity = introAnim;
+
+    const notificationStatus = notificationPreferences.osPermissionStatus;
+    const locationStatus = locationOfferPreferences.osPermissionStatus;
+    const notificationsAuthorized = notificationStatus === 'authorized';
+    const notificationsBlocked = notificationStatus === 'denied' || notificationStatus === 'restricted';
+    const locationAuthorized = locationStatus === 'authorized';
+    const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
+    const locationUnavailable = locationStatus === 'unavailable';
+
+    type PrimaryAction = 'openSettings' | 'enableNotifications' | 'enableLocation' | 'continue';
+    const primaryAction: PrimaryAction =
+      ftueStep !== 'notifications'
+        ? 'continue'
+        : notificationsBlocked || locationBlocked
+          ? 'openSettings'
+          : !notificationsAuthorized
+            ? 'enableNotifications'
+            : !locationAuthorized && !locationUnavailable
+              ? 'enableLocation'
+              : 'continue';
+
+    const primaryCtaLabel =
+      ftueStep !== 'notifications'
+        ? ctaLabel
+        : primaryAction === 'openSettings'
+          ? 'Open settings'
+          : primaryAction === 'enableNotifications'
+            ? 'Enable notifications'
+            : primaryAction === 'enableLocation'
+              ? 'Enable location'
+              : ctaLabel;
+
+    const helperText =
+      ftueStep !== 'notifications'
+        ? null
+        : primaryAction === 'enableNotifications'
+          ? 'You’ll see an iOS prompt to allow notifications.'
+          : primaryAction === 'enableLocation'
+            ? 'You’ll see iOS prompts to allow Location “Always”.'
+            : primaryAction === 'openSettings'
+              ? 'One of these permissions is currently blocked in system settings.'
+              : null;
 
     return (
       <FullScreenInterstitial
@@ -551,40 +555,38 @@ export function FirstTimeUxFlow() {
                 {bodyContent}
               </Text>
 
-              {ftueStep === 'notifications' &&
-              notificationPreferences.osPermissionStatus !== 'authorized' ? (
-                <>
-                  <Text style={[styles.ftuePermissionHint, { color: stepTheme.ink }]}>
-                    {notificationPreferences.osPermissionStatus === 'denied' ||
-                    notificationPreferences.osPermissionStatus === 'restricted'
-                      ? 'iOS notifications are currently blocked for kwilt.'
-                      : isAutoRequestingNotifications
-                        ? 'Asking iOS for permission…'
-                        : 'You’ll see an iOS prompt to allow notifications.'}
-                  </Text>
+              {ftueStep === 'notifications' ? (
+                <View style={styles.ftuePermissionPanel}>
+                  <View style={styles.ftuePermissionRow}>
+                    <Text style={[styles.ftuePermissionLabel, { color: stepTheme.ink }]}>Notifications</Text>
+                    <Text style={[styles.ftuePermissionValue, { color: stepTheme.ink }]}>
+                      {notificationsAuthorized ? 'Enabled' : notificationsBlocked ? 'Blocked' : 'Not enabled'}
+                    </Text>
+                  </View>
+                  <View style={styles.ftuePermissionRow}>
+                    <Text style={[styles.ftuePermissionLabel, { color: stepTheme.ink }]}>
+                      Location (Always)
+                    </Text>
+                    <Text style={[styles.ftuePermissionValue, { color: stepTheme.ink }]}>
+                      {locationAuthorized
+                        ? 'Enabled'
+                        : locationUnavailable
+                          ? 'Unavailable'
+                          : locationBlocked
+                            ? 'Blocked'
+                            : 'Not enabled'}
+                    </Text>
+                  </View>
+                  {helperText ? (
+                    <Text style={[styles.ftuePermissionHint, { color: stepTheme.ink }]}>{helperText}</Text>
+                  ) : null}
                   {notificationError ? (
                     <Text style={[styles.ftueError, { color: stepTheme.ink }]}>{notificationError}</Text>
                   ) : null}
-                </>
-              ) : null}
-
-              {ftueStep === 'locationOffers' &&
-              locationOfferPreferences.osPermissionStatus !== 'authorized' ? (
-                <>
-                  <Text style={[styles.ftuePermissionHint, { color: stepTheme.ink }]}>
-                    {locationOfferPreferences.osPermissionStatus === 'denied' ||
-                    locationOfferPreferences.osPermissionStatus === 'restricted'
-                      ? 'Location is currently blocked in system settings.'
-                      : locationOfferPreferences.osPermissionStatus === 'unavailable'
-                        ? 'Location isn’t available in this build yet.'
-                        : isRequestingLocation
-                          ? 'Asking iOS for permission…'
-                          : 'You’ll see an iOS prompt to allow Location.'}
-                  </Text>
                   {locationError ? (
                     <Text style={[styles.ftueError, { color: stepTheme.ink }]}>{locationError}</Text>
                   ) : null}
-                </>
+                </View>
               ) : null}
 
               <View style={styles.ftuePrimarySlot}>
@@ -593,10 +595,8 @@ export function FirstTimeUxFlow() {
                   fullWidth
                   disabled={
                     ftueStep === 'notifications'
-                      ? isAutoRequestingNotifications
-                      : ftueStep === 'locationOffers'
-                        ? isRequestingLocation
-                        : false
+                      ? isRequestingNotifications || isRequestingLocation
+                      : false
                   }
                   style={[
                     styles.ftuePrimaryButton,
@@ -604,63 +604,28 @@ export function FirstTimeUxFlow() {
                   ]}
                   onPress={() => {
                     if (ftueStep === 'notifications') {
-                      if (
-                        notificationPreferences.osPermissionStatus === 'denied' ||
-                        notificationPreferences.osPermissionStatus === 'restricted'
-                      ) {
+                      if (primaryAction === 'openSettings') {
                         void Linking.openSettings();
                         return;
                       }
-                    }
-                    if (ftueStep === 'locationOffers') {
-                      // If permission is already granted, this step becomes a simple "Continue".
-                      if (locationOfferPreferences.osPermissionStatus === 'authorized') {
-                        handleAdvanceStep(nextStep);
+                      if (primaryAction === 'enableNotifications') {
+                        void requestNotificationsFromFtue();
                         return;
                       }
-
-                      // User opted in at the product layer regardless of OS permission outcome.
-                      setLocationOfferPreferences((current) => ({ ...current, enabled: true }));
-
-                      // If OS permission is blocked, take them to Settings.
-                      if (
-                        locationOfferPreferences.osPermissionStatus === 'denied' ||
-                        locationOfferPreferences.osPermissionStatus === 'restricted'
-                      ) {
-                        void Linking.openSettings();
+                      if (primaryAction === 'enableLocation') {
+                        void requestLocationFromFtue();
                         return;
                       }
-
-                      setLocationError(null);
-                      setIsRequestingLocation(true);
-                      void (async () => {
-                        try {
-                          const granted = await LocationPermissionService.ensurePermissionWithRationale('ftue');
-                          if (!granted) {
-                            // Let them continue; we’ll re-offer permission when they try to attach a place.
-                            setLocationError('No problem — we’ll ask again when you attach a place to an Activity.');
-                          }
-                        } finally {
-                          setIsRequestingLocation(false);
-                        }
-                      })();
-
-                      // Important: do not auto-advance; let the user read the screen and tap Continue/Not now.
+                      handleAdvanceStep(nextStep);
                       return;
                     }
                     handleAdvanceStep(nextStep);
                   }}
                 >
                   <Text style={[styles.ftuePrimaryButtonLabel, { color: stepTheme.primaryButtonText }]}>
-                    {ftueStep === 'notifications' &&
-                    (notificationPreferences.osPermissionStatus === 'denied' ||
-                      notificationPreferences.osPermissionStatus === 'restricted')
-                      ? 'Open settings'
-                      : ftueStep === 'notifications' && isAutoRequestingNotifications
-                        ? 'Enabling…'
-                        : ftueStep === 'locationOffers' && isRequestingLocation
-                          ? 'Enabling…'
-                        : ctaLabel}
+                    {ftueStep === 'notifications' && (isRequestingNotifications || isRequestingLocation)
+                      ? 'Enabling…'
+                      : primaryCtaLabel}
                   </Text>
                 </Button>
               </View>
@@ -671,26 +636,8 @@ export function FirstTimeUxFlow() {
                     variant="ghost"
                     fullWidth
                     onPress={() => {
-                      if (notificationAutoPromptTimer.current) {
-                        clearTimeout(notificationAutoPromptTimer.current);
-                        notificationAutoPromptTimer.current = null;
-                      }
-                      setIsAutoRequestingNotifications(false);
-                      handleAdvanceStep(nextStep);
-                    }}
-                  >
-                    <Text style={[styles.ftueSecondaryButtonLabel, { color: stepTheme.secondaryText }]}>
-                      {notificationPreferences.osPermissionStatus === 'denied' ||
-                      notificationPreferences.osPermissionStatus === 'restricted'
-                        ? 'Continue'
-                        : 'Not now'}
-                    </Text>
-                  </Button>
-                ) : ftueStep === 'locationOffers' ? (
-                  <Button
-                    variant="ghost"
-                    fullWidth
-                    onPress={() => {
+                      setIsRequestingNotifications(false);
+                      setIsRequestingLocation(false);
                       handleAdvanceStep(nextStep);
                     }}
                   >
@@ -1003,6 +950,29 @@ const styles = StyleSheet.create({
   ftueError: {
     ...typography.bodySm,
     opacity: 0.85,
+  },
+  ftuePermissionPanel: {
+    marginTop: spacing.sm,
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    rowGap: spacing.xs,
+  },
+  ftuePermissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  ftuePermissionLabel: {
+    ...typography.bodySm,
+    opacity: 0.82,
+  },
+  ftuePermissionValue: {
+    ...typography.bodySm,
+    fontWeight: '700',
   },
   ftueFooter: {
     paddingTop: 0,

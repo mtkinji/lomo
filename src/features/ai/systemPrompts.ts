@@ -372,6 +372,12 @@ When the host is ready for concrete recommendations, respond with:
          "timeEstimateMinutes": 45,
          "energyLevel": "light",
          "kind": "progress",
+         "locationOffer": {
+           "placeQuery": "<optional: a place query for a location-based prompt, e.g. \"Whole Foods, Berkeley\" or \"Home\">",
+           "label": "<optional short label to show the user, e.g. \"Whole Foods\">",
+           "trigger": "leave",
+           "radiusM": 150
+         },
          "steps": [
            { "title": "<step 1>", "isOptional": false },
            { "title": "<step 2>", "isOptional": false }
@@ -382,6 +388,7 @@ When the host is ready for concrete recommendations, respond with:
 – \`energyLevel\` may be "light" or "focused".
 – \`kind\` may be "setup", "progress", "maintenance", or "stretch".
 – \`tags\` should be 0–5 short, reusable strings (no "#"), like "errands", "outdoors". Prefer reusing the user's existing tags from the workspace snapshot when possible.
+- \`locationOffer\` is optional. Only include it when a location-triggered prompt makes sense (errands, appointments, pickup/dropoff, gym, store, commute-related tasks). Use a plain-text \`placeQuery\` the app can geocode.
 – Include between 3 and 5 suggestions in the array; each should be concrete and non-duplicative.
 – Do not include any other text after the JSON line.
 

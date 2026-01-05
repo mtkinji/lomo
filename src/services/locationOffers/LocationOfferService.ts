@@ -16,12 +16,19 @@ function getEligibleActivities() {
     .filter((a) => Boolean((a as any)?.location))
     .filter((a) => {
       const loc = (a as any).location as any;
+      const lat = Number(loc?.latitude);
+      const lon = Number(loc?.longitude);
+      const radiusM = Number(loc?.radiusM);
+      const trigger = loc?.trigger;
       return (
         loc &&
-        typeof loc.latitude === 'number' &&
-        typeof loc.longitude === 'number' &&
-        typeof loc.radiusM === 'number' &&
-        (loc.trigger === 'arrive' || loc.trigger === 'leave')
+        Number.isFinite(lat) &&
+        Number.isFinite(lon) &&
+        // Radius/trigger can be absent (older data / partially configured); we clamp/default later.
+        // If trigger is present, it must be valid.
+        (trigger == null || trigger === 'arrive' || trigger === 'leave') &&
+        // If radius is present, it must be a finite number (otherwise we default).
+        (loc?.radiusM == null || Number.isFinite(radiusM))
       );
     })
     .slice(0, MAX_GEOFENCES);
@@ -69,14 +76,17 @@ async function reconcileGeofencesInternal(): Promise<void> {
 
   const regions: Location.LocationRegion[] = eligible.map((a) => {
     const loc = (a as any).location as any;
-    const radiusM = Math.max(15, Math.min(5000, Number(loc.radiusM) || 150));
+    const configuredTrigger =
+      loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : null;
+    const radiusM = Math.max(15, Math.min(5000, Number(loc?.radiusM) || 150));
     return {
       identifier: a.id,
-      latitude: loc.latitude,
-      longitude: loc.longitude,
+      latitude: Number(loc.latitude),
+      longitude: Number(loc.longitude),
       radius: radiusM,
-      notifyOnEnter: true,
-      notifyOnExit: true,
+      // Reduce event noise: only ask the OS for the event we care about when known.
+      notifyOnEnter: configuredTrigger ? configuredTrigger === 'arrive' : true,
+      notifyOnExit: configuredTrigger ? configuredTrigger === 'leave' : true,
     };
   });
 
