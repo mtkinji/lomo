@@ -1,0 +1,8 @@
+{
+  "name": "@kwilt/arc-survey",
+  "version": "0.0.0",
+  "private": true,
+  "main": "src/index.ts"
+}
+
+

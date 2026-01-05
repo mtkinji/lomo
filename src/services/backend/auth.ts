@@ -275,7 +275,14 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
  * Keeps auth out of the global onboarding path while still allowing flows to continue.
  */
 export async function ensureSignedInWithPrompt(
-  reason: 'share_goal' | 'share_goal_email' | 'join_goal' | 'upload_attachment' | 'admin' | 'settings',
+  reason:
+    | 'share_goal'
+    | 'share_goal_email'
+    | 'join_goal'
+    | 'claim_arc_draft'
+    | 'upload_attachment'
+    | 'admin'
+    | 'settings',
 ): Promise<Session> {
   const existing = await getSession();
   if (existing) {
@@ -300,6 +307,8 @@ export async function ensureSignedInWithPrompt(
           ? 'To email an invite link, you need to sign in so access stays safe.'
         : reason === 'join_goal'
           ? 'To join this shared goal, you need to sign in so access stays safe.'
+          : reason === 'claim_arc_draft'
+            ? 'Sign in to claim your Arc draft and continue in the app.'
           : reason === 'upload_attachment'
             ? 'To upload attachments, you need to sign in so access stays safe.'
           : reason === 'settings'

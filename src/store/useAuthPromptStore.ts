@@ -4,6 +4,7 @@ export type AuthPromptReason =
   | 'share_goal'
   | 'share_goal_email'
   | 'join_goal'
+  | 'claim_arc_draft'
   | 'upload_attachment'
   | 'admin'
   | 'settings';

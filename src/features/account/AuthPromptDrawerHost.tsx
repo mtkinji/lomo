@@ -15,6 +15,11 @@ function copyForReason(reason: AuthPromptReason): { title: string; body: string 
       return { title: 'Sign in to email', body: 'Sign in to email an invite link.' };
     case 'join_goal':
       return { title: 'Sign in to join', body: 'Sign in to join this shared goal.' };
+    case 'claim_arc_draft':
+      return {
+        title: 'Sign in to continue',
+        body: 'Sign in to claim your Arc draft and continue in the app.',
+      };
     case 'upload_attachment':
       return { title: 'Sign in required', body: 'Sign in to upload attachments and keep access safe.' };
     case 'admin':

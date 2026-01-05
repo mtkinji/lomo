@@ -46,6 +46,7 @@ import type { Activity } from '../../domain/types';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import type { LaunchContext } from '../../domain/workflows';
+import { installScreenshotSeedPack, removeScreenshotSeedPack, SCREENSHOT_PACK_ARC_IDS } from './screenshotSeedPack';
 
 type InterstitialVariant = 'launch' | 'auth' | 'streak';
 type DevToolsRoute = RouteProp<RootDrawerParamList, 'DevTools'>;
@@ -158,6 +159,10 @@ export function DevToolsScreen() {
     setDevToastVariant(variant);
     setDevToastMessage(message);
   }, []);
+  const [screenshotSeeding, setScreenshotSeeding] = useState(false);
+  const screenshotPackInstalled = useAppStore((state) =>
+    SCREENSHOT_PACK_ARC_IDS.some((id) => state.arcs.some((a) => a.id === id))
+  );
   const [streakDays, setStreakDays] = useState('21');
   const [streakBody, setStreakBody] = useState(
     'You’ve shown up 21 days in a row. Keep the thread going with one small action.'
@@ -1507,6 +1512,84 @@ export function DevToolsScreen() {
       ) : (
         <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.stack}>
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Screenshot demo pack (dev)</Text>
+              <Text style={styles.cardBody}>
+                Installs a deterministic set of realistic Arcs/Goals/Activities locally (no backend writes) so you can
+                screenshot real screens instantly.
+              </Text>
+              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
+                <Button
+                  variant={screenshotPackInstalled ? 'secondary' : 'accent'}
+                  onPress={() => {
+                    if (screenshotSeeding) return;
+                    void (async () => {
+                      try {
+                        setScreenshotSeeding(true);
+                        const result = await installScreenshotSeedPack(new Date());
+                        if (result.status === 'installed') {
+                          showDevToast(
+                            `Installed screenshot pack (${result.added.arcs} arcs, ${result.added.goals} goals, ${result.added.activities} activities).`,
+                            'success'
+                          );
+                          return;
+                        }
+                        if (result.status === 'already_installed') {
+                          showDevToast('Screenshot pack already installed.', 'warning');
+                          return;
+                        }
+                        if (result.status === 'ai_unavailable') {
+                          showDevToast(
+                            `Installed fallback pack (AI unavailable).`,
+                            'warning'
+                          );
+                          return;
+                        }
+                        showDevToast('Screenshot pack is only available in dev builds.', 'warning');
+                      } finally {
+                        setScreenshotSeeding(false);
+                      }
+                    })();
+                  }}
+                  disabled={screenshotSeeding}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md" tone={screenshotPackInstalled ? undefined : 'inverse'}>
+                    {screenshotSeeding
+                      ? 'Generating…'
+                      : screenshotPackInstalled
+                        ? 'Reinstall (idempotent)'
+                        : 'Install Screenshot Pack'}
+                  </ButtonLabel>
+                </Button>
+                <Button
+                  variant="outline"
+                  onPress={() => {
+                    if (!screenshotPackInstalled) {
+                      showDevToast('Screenshot pack is not installed.', 'warning');
+                      return;
+                    }
+                    const result = removeScreenshotSeedPack();
+                    if (result.status === 'removed') {
+                      showDevToast(`Removed screenshot pack (${result.removed.arcs} arcs).`, 'success');
+                      return;
+                    }
+                    if (result.status === 'not_installed') {
+                      showDevToast('Screenshot pack is not installed.', 'warning');
+                      return;
+                    }
+                    showDevToast('Screenshot pack is only available in dev builds.', 'warning');
+                  }}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Remove Screenshot Pack</ButtonLabel>
+                </Button>
+              </HStack>
+              <Text style={styles.meta}>
+                Status: {screenshotPackInstalled ? 'Installed' : 'Not installed'}
+              </Text>
+            </View>
+
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>First-time UX</Text>
               {/* <Heading style={styles.cardTitle}>Trigger onboarding flow</Heading> */}

@@ -5,6 +5,10 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
+// Monorepo / workspaces support: allow Metro to resolve and watch local packages.
+// This is required so `@kwilt/*` workspace modules can be consumed by the app.
+config.watchFolders = [path.resolve(__dirname, 'packages')];
+
 // Optional: shim `react-native-svg` to a lightweight JS-only implementation.
 // This avoids native crashes like "No component found for view with name
 // \"RNSVGPath\"" in environments where the native SVG module isn't available.

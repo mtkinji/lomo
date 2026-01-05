@@ -35,13 +35,13 @@ import type {
   ArchetypeRoleModelTypeId,
   ArchetypeRoleModelWhyId,
   ArchetypeSpecificRoleModelId,
-} from '../../domain/archetypeTaps';
+} from '@kwilt/arc-survey';
 import {
   ARCHETYPE_ADMIRED_QUALITIES,
   ARCHETYPE_ROLE_MODEL_TYPES,
   ARCHETYPE_ROLE_MODEL_WHY,
   ARCHETYPE_SPECIFIC_ROLE_MODELS,
-} from '../../domain/archetypeTaps';
+} from '@kwilt/arc-survey';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import { pickHeroForArc } from '../arcs/arcHeroSelector';
@@ -54,8 +54,8 @@ import {
   MOTIVATION_OPTIONS,
   PROUD_MOMENT_OPTIONS,
   WHY_NOW_OPTIONS,
-} from '../../domain/arcCreationSurveyOptions';
-import { ARC_CREATION_SURVEY_COPY, ARC_CREATION_SURVEY_STEP_ORDER } from '../arcs/arcCreationSurvey';
+} from '@kwilt/arc-survey';
+import { ARC_CREATION_SURVEY_COPY, ARC_CREATION_SURVEY_STEP_ORDER } from '@kwilt/arc-survey';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 

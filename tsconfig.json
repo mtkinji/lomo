@@ -5,7 +5,9 @@
     "baseUrl": ".",
     "jsx": "react-jsx",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@kwilt/arc-survey": ["./packages/arc-survey/src/index.ts"],
+      "@kwilt/arc-survey/*": ["./packages/arc-survey/src/*"]
     },
     "types": [
       "node"

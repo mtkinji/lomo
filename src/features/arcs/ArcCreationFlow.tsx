@@ -10,11 +10,21 @@ import { HStack, Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
-import type { ArchetypeAdmiredQualityId, ArchetypeRoleModelTypeId } from '../../domain/archetypeTaps';
-import { ARCHETYPE_ADMIRED_QUALITIES, ARCHETYPE_ROLE_MODEL_TYPES } from '../../domain/archetypeTaps';
-import { DOMAIN_OPTIONS, MOTIVATION_OPTIONS, PROUD_MOMENT_OPTIONS, WHY_NOW_OPTIONS } from '../../domain/arcCreationSurveyOptions';
+import type { ArchetypeAdmiredQualityId, ArchetypeRoleModelTypeId } from '@kwilt/arc-survey';
+import {
+  ARCHETYPE_ADMIRED_QUALITIES,
+  ARCHETYPE_ROLE_MODEL_TYPES,
+  DOMAIN_OPTIONS,
+  MOTIVATION_OPTIONS,
+  PROUD_MOMENT_OPTIONS,
+  WHY_NOW_OPTIONS,
+} from '@kwilt/arc-survey';
 import { htmlToPlainText } from '../../ui/richText';
-import { ARC_CREATION_SURVEY_COPY, ARC_CREATION_SURVEY_STEP_ORDER, type ArcCreationSurveyStepId } from './arcCreationSurvey';
+import {
+  ARC_CREATION_SURVEY_COPY,
+  ARC_CREATION_SURVEY_STEP_ORDER,
+  type ArcCreationSurveyStepId,
+} from '@kwilt/arc-survey';
 
 type ArcCreationFlowProps = {
   /**
