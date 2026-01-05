@@ -143,6 +143,29 @@ export const KeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewHandle,
         const topY = keyboardTopYRef.current;
         if (!topY || topY <= 0) return;
 
+        // Important: if the focused TextInput lives in a portal / modal overlay (e.g. dropdown
+        // popovers), it may not be a descendant of this ScrollView. Calling RN's
+        // `scrollResponderScrollNativeHandleToKeyboard` in that case triggers the
+        // "Error measuring text field." warning.
+        //
+        // We preflight with `measureLayout` relative to this ScrollView and bail out if it fails.
+        const scrollHandle = findNodeHandle(scrollRef.current as any);
+        if (typeof scrollHandle === 'number') {
+          const canMeasureRelative = await new Promise<boolean>((resolve) => {
+            try {
+              UIManager.measureLayout(
+                nodeHandle,
+                scrollHandle,
+                () => resolve(false),
+                () => resolve(true),
+              );
+            } catch {
+              resolve(false);
+            }
+          });
+          if (!canMeasureRelative) return;
+        }
+
         const layout = await measureInWindow(nodeHandle);
         if (!layout) return;
         const inputBottom = layout.y + layout.height;

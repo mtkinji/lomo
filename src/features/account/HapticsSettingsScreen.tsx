@@ -11,6 +11,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { HapticsService } from '../../services/HapticsService';
 import { Button } from '../../ui/Button';
 import { ButtonLabel } from '../../ui/Typography';
+import { getEnvVar } from '../../utils/getEnv';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHaptics'>;
 
@@ -18,6 +19,11 @@ export function HapticsSettingsScreen() {
   const navigation = useNavigation<Nav>();
   const enabled = useAppStore((s) => s.hapticsEnabled);
   const setEnabled = useAppStore((s) => s.setHapticsEnabled);
+
+  const appEnvironment = getEnvVar<string>('environment') ?? (__DEV__ ? 'development' : 'production');
+  const easBuildProfile = getEnvVar<string>('easBuildProfile');
+  const isProductionBuild = (easBuildProfile?.startsWith('production') ?? false) || appEnvironment === 'production';
+  const showTestHaptics = !isProductionBuild;
 
   const subtitle = useMemo(
     () =>
@@ -27,9 +33,10 @@ export function HapticsSettingsScreen() {
     [enabled],
   );
 
-  const debugState = useMemo(() => HapticsService.getDebugState(), [enabled]);
+  const debugState = useMemo(() => (showTestHaptics ? HapticsService.getDebugState() : null), [enabled, showTestHaptics]);
   const debugLines = useMemo(() => {
     if (!__DEV__) return null;
+    if (!debugState) return null;
     const lines = [
       `expo-haptics module: ${debugState.expoHapticsModuleAvailable ? 'available' : 'missing'}`,
       `reduce motion: ${
@@ -79,34 +86,36 @@ export function HapticsSettingsScreen() {
             </VStack>
           </View>
 
-          <View style={styles.card}>
-            <VStack space="sm">
-              <Text style={styles.rowTitle}>Test haptics</Text>
-              <Text style={styles.sectionBody}>
-                If you don’t feel these on a physical device, something is suppressing haptics (system settings,
-                Reduce Motion, or a missing native module in your installed build).
-              </Text>
-              <View style={styles.testRow}>
-                <Button
-                  size="small"
-                  variant="ghost"
-                  haptic={false}
-                  onPress={() => void HapticsService.trigger('canvas.selection')}
-                >
-                  <ButtonLabel size="sm">Test selection</ButtonLabel>
-                </Button>
-                <Button
-                  size="small"
-                  variant="ghost"
-                  haptic={false}
-                  onPress={() => void HapticsService.trigger('outcome.success')}
-                >
-                  <ButtonLabel size="sm">Test success</ButtonLabel>
-                </Button>
-              </View>
-              {debugLines ? <Text style={styles.debugText}>{debugLines}</Text> : null}
-            </VStack>
-          </View>
+          {showTestHaptics ? (
+            <View style={styles.card}>
+              <VStack space="sm">
+                <Text style={styles.rowTitle}>Test haptics</Text>
+                <Text style={styles.sectionBody}>
+                  If you don’t feel these on a physical device, something is suppressing haptics (system settings,
+                  Reduce Motion, or a missing native module in your installed build).
+                </Text>
+                <View style={styles.testRow}>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    haptic={false}
+                    onPress={() => void HapticsService.trigger('canvas.selection')}
+                  >
+                    <ButtonLabel size="sm">Test selection</ButtonLabel>
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    haptic={false}
+                    onPress={() => void HapticsService.trigger('outcome.success')}
+                  >
+                    <ButtonLabel size="sm">Test success</ButtonLabel>
+                  </Button>
+                </View>
+                {debugLines ? <Text style={styles.debugText}>{debugLines}</Text> : null}
+              </VStack>
+            </View>
+          ) : null}
 
           <Text style={styles.helperText}>
             If you enable “Reduce Motion” in system settings, Kwilt will automatically suppress decorative haptics

@@ -1,5 +1,15 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { Audio } from 'expo-av';
+// NOTE: `expo-av` is deprecated (will be removed in a future Expo SDK).
+// Lazy-load it so the deprecation warning does not spam on app launch.
+type ExpoAvAudio = (typeof import('expo-av'))['Audio'];
+let Audio: ExpoAvAudio | null = null;
+
+async function getAudio(): Promise<ExpoAvAudio> {
+  if (Audio) return Audio;
+  const mod = await import('expo-av');
+  Audio = mod.Audio;
+  return Audio;
+}
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Linking } from 'react-native';
 import type { Activity, ActivityAttachment, ActivityAttachmentKind } from '../../domain/types';
@@ -328,7 +338,7 @@ export async function addDocumentToActivity(activity: Activity): Promise<void> {
   }
 }
 
-let activeRecording: Audio.Recording | null = null;
+let activeRecording: any | null = null;
 
 export async function startAudioRecording(): Promise<void> {
   const ent = useEntitlementsStore.getState();
@@ -338,6 +348,7 @@ export async function startAudioRecording(): Promise<void> {
     return;
   }
 
+  const Audio = await getAudio();
   const permission = await Audio.requestPermissionsAsync().catch(() => null);
   if (!permission?.granted) {
     Alert.alert('Permission required', 'Please allow microphone access to record audio.');

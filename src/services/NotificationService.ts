@@ -1562,6 +1562,14 @@ export const NotificationService = {
   },
 
   /**
+   * Refresh the OS permission status in the store.
+   * Useful for screens that need to reflect current Settings state (e.g. onboarding).
+   */
+  async syncOsPermissionStatus(): Promise<OsPermissionStatus> {
+    return await syncOsPermissionStatus();
+  },
+
+  /**
    * Request OS notification permission without showing an in-app rationale alert.
    * Use this when the current screen already explains the value (e.g. onboarding).
    */

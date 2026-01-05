@@ -46,6 +46,7 @@ import { ObjectPicker, type ObjectPickerOption } from '../../ui/ObjectPicker';
 import {
   CoachChatTurn,
   GeneratedArc,
+  KwiltAiQuotaExceededError,
   sendCoachChat,
   type CoachChatOptions,
 } from '../../services/ai';
@@ -2711,7 +2712,26 @@ export const AiChatPane = forwardRef(function AiChatPane(
         // Any failure bootstrapping the initial reply should surface a friendly
         // error message so the canvas is never left blank.
         console.error('kwilt Coach initial chat failed', err);
+        const errMessage =
+          (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
+        const lower = errMessage.toLowerCase();
+        const isQuotaLike =
+          err instanceof KwiltAiQuotaExceededError ||
+          lower.includes('generative credits exhausted') ||
+          lower.includes('ai limit') ||
+          lower.includes('upgrade to pro') ||
+          lower.includes('quota_exceeded') ||
+          lower.includes('monthly quota exceeded') ||
+          lower.includes('insufficient_quota') ||
+          lower.includes('exceeded your current quota') ||
+          lower.includes('quota exceeded');
         if (!cancelled) {
+          // If we hit an AI credit/quota gate, the paywall interstitial should be the
+          // primary UI. Avoid showing a scary transport error message in the canvas.
+          if (isQuotaLike) {
+            setHasTransportError(false);
+            return;
+          }
           setHasTransportError(true);
           const errorMessage: ChatMessage = {
             id: `assistant-error-bootstrap-${Date.now()}`,
@@ -2974,6 +2994,23 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
     } catch (err) {
       console.error('kwilt Coach chat failed', err);
+      const errMessage =
+        (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
+      const lower = errMessage.toLowerCase();
+      const isQuotaLike =
+        err instanceof KwiltAiQuotaExceededError ||
+        lower.includes('generative credits exhausted') ||
+        lower.includes('ai limit') ||
+        lower.includes('upgrade to pro') ||
+        lower.includes('quota_exceeded') ||
+        lower.includes('monthly quota exceeded') ||
+        lower.includes('insufficient_quota') ||
+        lower.includes('exceeded your current quota') ||
+        lower.includes('quota exceeded');
+      if (isQuotaLike) {
+        setHasTransportError(false);
+        return;
+      }
       const errorMessage: ChatMessage = {
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
@@ -3043,6 +3080,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
     const lower = message.toLowerCase();
     return (
+      err instanceof KwiltAiQuotaExceededError ||
       lower.includes('generative credits exhausted') ||
       lower.includes('ai limit') ||
       lower.includes('upgrade to pro') ||

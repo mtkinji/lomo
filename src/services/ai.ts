@@ -2404,15 +2404,18 @@ export async function sendCoachChat(
     // If this came from the Kwilt AI proxy (per-day quota), treat it as a user-facing limit,
     // not a billing outage.
     if (KWILT_PROXY_QUOTA_RETRY_AT) {
-      if (!isProductionEnvironment()) {
-        return buildDevMockCoachChatReply(messages, options);
-      }
       const isPro = useEntitlementsStore.getState().isPro;
-      throw new Error(
-        isPro
-          ? 'AI is temporarily unavailable. Please try again later.'
-          : `You've hit your AI limit. Try again later or upgrade to Pro.`
-      );
+      if (isPro) {
+        throw new Error('AI is temporarily unavailable. Please try again later.');
+      }
+      openPaywallInterstitial({
+        reason: 'ai_quota_exceeded',
+        source: options?.paywallSource ?? 'unknown',
+      });
+      throw new KwiltAiQuotaExceededError({
+        message: `You've hit your AI limit. Try again later or upgrade to Pro.`,
+        retryAt: KWILT_PROXY_QUOTA_RETRY_AT ?? undefined,
+      });
     }
     // In production, quota issues should fail loudly
     if (isProductionEnvironment()) {
@@ -2421,7 +2424,20 @@ export async function sendCoachChat(
           'This is a critical production issue that requires immediate attention.'
       );
     }
-    // In dev, fall back to a mock reply so product flows can still be exercised.
+    // In dev, avoid returning mock proposal payloads for goal/arc creation flows.
+    // These can look like "real" drafts and cause confusing UX (e.g. mock goal cards).
+    if (options?.mode === 'goalCreation' || options?.mode === 'arcCreation') {
+      const isPro = useEntitlementsStore.getState().isPro;
+      if (isPro) {
+        throw new Error('AI is temporarily unavailable. Please try again later.');
+      }
+      openPaywallInterstitial({
+        reason: 'ai_quota_exceeded',
+        source: options?.paywallSource ?? 'unknown',
+      });
+      throw new KwiltAiQuotaExceededError({ message: 'AI credits exhausted' });
+    }
+    // For other modes, fall back to a mock reply so product flows can still be exercised.
     return buildDevMockCoachChatReply(messages, options);
   }
   
@@ -2651,7 +2667,21 @@ export async function sendCoachChat(
     if (markOpenAiQuotaExceeded('coachChat', response.status, errorText, apiKey)) {
       // In development, degrade gracefully to mock replies so the app can still be exercised
       // even when the proxy or account quota is exhausted.
+      //
+      // Exception: for goal/arc creation flows, mock replies often include proposal JSON which
+      // renders as actionable cards. Prefer routing into the upgrade interstitial instead.
       if (!isProductionEnvironment()) {
+        if (options?.mode === 'goalCreation' || options?.mode === 'arcCreation') {
+          const isPro = useEntitlementsStore.getState().isPro;
+          if (isPro) {
+            throw new Error('AI is temporarily unavailable. Please try again later.');
+          }
+          openPaywallInterstitial({
+            reason: 'ai_quota_exceeded',
+            source: options?.paywallSource ?? 'unknown',
+          });
+          throw new KwiltAiQuotaExceededError({ message: 'AI credits exhausted' });
+        }
         return buildDevMockCoachChatReply(messages, options);
       }
       throw new Error(`OpenAI quota exceeded: ${error.message}`);

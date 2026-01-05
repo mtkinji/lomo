@@ -51,6 +51,7 @@ import { BottomDrawer, BottomDrawerNativeGestureView, BottomDrawerScrollView } f
 import { StaticMapImage } from '../../ui/maps/StaticMapImage';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
 import { getCurrentLocationBestEffort } from '../../services/location/currentLocation';
+import { applePlaceSearchBestEffort, cancelApplePlaceSearchBestEffort } from '../../services/locationOffers/applePlaceSearch';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { Picker } from '@react-native-picker/picker';
 import { SOUND_SCAPES, preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
@@ -643,6 +644,7 @@ export function ActivityDetailScreen() {
     Array<{ id: string; label: string; latitude: number; longitude: number }>
   >([]);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
   const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [previewLocation, setPreviewLocation] = useState<{ label: string; latitude: number; longitude: number } | null>(
     null,
@@ -916,18 +918,25 @@ export function ActivityDetailScreen() {
     if (q.length < 2) {
       setLocationResults([]);
       setIsSearchingLocation(false);
+      setLocationSearchError(null);
       locationSearchAbortRef.current?.abort();
+      cancelApplePlaceSearchBestEffort();
       return;
     }
     // Any new query invalidates the previous in-flight request immediately (even before debounce),
     // so stale responses can’t overwrite newer results.
     locationSearchAbortRef.current?.abort();
-    setIsSearchingLocation(false);
+    cancelApplePlaceSearchBestEffort();
+    // Show "Searching…" immediately (even during debounce) so the UI doesn't flash
+    // "No results found" while we wait to fire the request.
+    setIsSearchingLocation(true);
+    setLocationSearchError(null);
     const timer = setTimeout(() => {
       const cacheKey = q.toLowerCase();
       const cached = locationSearchCacheRef.current.get(cacheKey);
       if (cached) {
         setIsSearchingLocation(false);
+        setLocationSearchError(null);
         setLocationResults(cached);
         if (cached.length > 0) {
           setPreviewLocation((prev) => prev ?? cached[0] ?? null);
@@ -939,38 +948,134 @@ export function ActivityDetailScreen() {
       locationSearchAbortRef.current = controller;
 
       void (async () => {
+        // Keep searching state on while the request is in-flight.
         setIsSearchingLocation(true);
         try {
-          const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&q=${encodeURIComponent(q)}`;
-          const resp = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-              Accept: 'application/json',
-              // Nominatim usage policy requests a UA identifying the application.
-              // This is best-effort; some platforms may ignore it.
-              'User-Agent': 'Kwilt/1.0 (location search)',
-            },
+          // iOS (dev build): prefer Apple Maps search for high-quality local addresses.
+          // Fallback: Nominatim (cross-platform).
+          const apple = await applePlaceSearchBestEffort({
+            query: q,
+            center: currentCoords,
+            radiusKm: 200,
+            limit: 6,
           });
-          if (!resp.ok) {
-            throw new Error(`Nominatim error: ${resp.status}`);
+          if (controller.signal.aborted) return;
+
+          if (apple && apple.length > 0) {
+            const next = apple.map((r) => ({
+              id: r.id,
+              label: r.label,
+              latitude: r.latitude,
+              longitude: r.longitude,
+            }));
+            setLocationResults(next);
+            locationSearchCacheRef.current.set(cacheKey, next);
+            setLocationSearchError(null);
+            if (next.length > 0) setPreviewLocation((prev) => prev ?? next[0] ?? null);
+            return;
           }
-          const json = (await resp.json()) as Array<any>;
-          const next = (Array.isArray(json) ? json : [])
-            .map((row) => {
-              const lat = Number.parseFloat(String(row?.lat ?? ''));
-              const lon = Number.parseFloat(String(row?.lon ?? ''));
-              const label = String(row?.display_name ?? '').trim();
-              const idRaw = row?.place_id ?? row?.osm_id ?? null;
-              const id = idRaw != null ? String(idRaw) : `${lat}:${lon}:${label}`;
-              if (!Number.isFinite(lat) || !Number.isFinite(lon) || !label) return null;
-              return { id, label, latitude: lat, longitude: lon };
-            })
-            .filter(Boolean)
-            .slice(0, 6) as Array<{ id: string; label: string; latitude: number; longitude: number }>;
+
+          // Nominatim best-effort fallback (used on Android/web, and on iOS when Apple search isn't available).
+          const baseUrl = 'https://nominatim.openstreetmap.org/search';
+          const makeUrl = (opts: { bounded: boolean }) => {
+            const params = new URLSearchParams();
+            params.set('format', 'json');
+            // Pull more than we display so we can distance-sort for local relevance.
+            params.set('limit', currentCoords ? '18' : '6');
+            params.set('q', q);
+            // Prefer English-ish labels; Nominatim accepts multiple languages but this helps US addresses.
+            params.set('accept-language', 'en');
+            // Bias toward US results; still not strictly bounded unless we set viewbox+bounded.
+            params.set('countrycodes', 'us');
+
+            if (currentCoords) {
+              const lat = currentCoords.latitude;
+              const lon = currentCoords.longitude;
+              // ~200km radius bounding box.
+              const radiusKm = 200;
+              const dLat = radiusKm / 111;
+              const cos = Math.max(0.2, Math.cos((lat * Math.PI) / 180));
+              const dLon = radiusKm / (111 * cos);
+              const left = lon - dLon;
+              const right = lon + dLon;
+              const top = lat + dLat;
+              const bottom = lat - dLat;
+              params.set('viewbox', `${left},${top},${right},${bottom}`);
+              if (opts.bounded) {
+                // Strictly constrain to the viewbox (best for "near me" address search).
+                params.set('bounded', '1');
+              }
+            }
+
+            return `${baseUrl}?${params.toString()}`;
+          };
+
+          const fetchNominatim = async (opts: { bounded: boolean }) => {
+            const url = makeUrl(opts);
+            const resp = await fetch(url, {
+              signal: controller.signal,
+              headers: {
+                Accept: 'application/json',
+                // Nominatim usage policy requests a UA identifying the application.
+                // This is best-effort; some platforms may ignore it.
+                'User-Agent': 'Kwilt/1.0 (location search)',
+              },
+            });
+            if (!resp.ok) {
+              const text = await resp.text().catch(() => '');
+              throw new Error(`Nominatim ${resp.status}${text ? `: ${text.slice(0, 160)}` : ''}`);
+            }
+            const json = (await resp.json()) as Array<any>;
+            const raw = (Array.isArray(json) ? json : [])
+              .map((row) => {
+                const lat = Number.parseFloat(String(row?.lat ?? ''));
+                const lon = Number.parseFloat(String(row?.lon ?? ''));
+                const label = String(row?.display_name ?? '').trim();
+                const idRaw = row?.place_id ?? row?.osm_id ?? null;
+                const id = idRaw != null ? String(idRaw) : `${lat}:${lon}:${label}`;
+                if (!Number.isFinite(lat) || !Number.isFinite(lon) || !label) return null;
+                return { id, label, latitude: lat, longitude: lon };
+              })
+              .filter(Boolean) as Array<{ id: string; label: string; latitude: number; longitude: number }>;
+
+            if (!currentCoords) return raw.slice(0, 6);
+
+            // Nearest-first sort when we have a user location.
+            const toRad = (deg: number) => (deg * Math.PI) / 180;
+            const lat1 = toRad(currentCoords.latitude);
+            const lon1 = toRad(currentCoords.longitude);
+            const haversineMeters = (lat2d: number, lon2d: number) => {
+              const R = 6371e3;
+              const lat2 = toRad(lat2d);
+              const lon2 = toRad(lon2d);
+              const dLat = lat2 - lat1;
+              const dLon = lon2 - lon1;
+              const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1) * Math.cos(lat2) * (Math.sin(dLon / 2) * Math.sin(dLon / 2));
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              return R * c;
+            };
+            return raw
+              .map((r) => ({ ...r, _dist: haversineMeters(r.latitude, r.longitude) }))
+              .sort((a, b) => a._dist - b._dist)
+              .slice(0, 6)
+              .map(({ _dist: _ignored, ...r }) => r);
+          };
+
+          // Two-pass strategy:
+          // - Pass 1: bounded to the local viewbox (best for "near me" addresses)
+          // - Pass 2: unbounded (still US-biased) if pass 1 returns nothing
+          let next = await fetchNominatim({ bounded: Boolean(currentCoords) });
+          if (controller.signal.aborted) return;
+          if (next.length === 0 && currentCoords) {
+            next = await fetchNominatim({ bounded: false });
+          }
 
           if (controller.signal.aborted) return;
           setLocationResults(next);
           locationSearchCacheRef.current.set(cacheKey, next);
+          setLocationSearchError(null);
           // If the user hasn't explicitly picked a preview, default the preview to the top result.
           if (next.length > 0) {
             setPreviewLocation((prev) => prev ?? next[0] ?? null);
@@ -978,6 +1083,7 @@ export function ActivityDetailScreen() {
         } catch (err) {
           if ((err as any)?.name === 'AbortError') return;
           setLocationResults([]);
+          setLocationSearchError(err instanceof Error ? err.message : 'Search failed.');
         } finally {
           if (!controller.signal.aborted) {
             setIsSearchingLocation(false);
@@ -988,6 +1094,7 @@ export function ActivityDetailScreen() {
     return () => {
       clearTimeout(timer);
       locationSearchAbortRef.current?.abort();
+      cancelApplePlaceSearchBestEffort();
     };
   }, [locationQuery, locationSheetVisible]);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
@@ -3641,6 +3748,16 @@ export function ActivityDetailScreen() {
                     onValueChange={(next) => {
                       setLocationSelectedValue(next);
                       if (!next) return;
+                      if (next === '__current_location__') {
+                        const coords = currentCoords;
+                        if (!coords) return;
+                        const loc = { label: 'Current location', latitude: coords.latitude, longitude: coords.longitude };
+                        setPreviewLocation(loc);
+                        setMapCenterOverride(coords);
+                        mapCenterOverrideRef.current = coords;
+                        commitLocation(loc);
+                        return;
+                      }
                       const found = locationResults.find((r) => r.id === next);
                       if (!found) return;
                       const loc = { label: found.label, latitude: found.latitude, longitude: found.longitude };
@@ -3650,11 +3767,22 @@ export function ActivityDetailScreen() {
                       mapCenterOverrideRef.current = coords;
                       commitLocation(loc);
                     }}
-                    options={locationResults.map((r) => ({
-                      value: r.id,
-                      label: r.label,
-                      leftElement: <Icon name="pin" size={16} color={colors.textSecondary} />,
-                    }))}
+                    options={[
+                      ...(currentCoords
+                        ? ([
+                            {
+                              value: '__current_location__',
+                              label: 'Use current location',
+                              leftElement: <Icon name="locate" size={16} color={colors.textSecondary} />,
+                            },
+                          ] as const)
+                        : []),
+                      ...locationResults.map((r) => ({
+                        value: r.id,
+                        label: r.label,
+                        leftElement: <Icon name="pin" size={16} color={colors.textSecondary} />,
+                      })),
+                    ]}
                     query={locationQuery}
                     onQueryChange={setLocationQuery}
                     autoFilter={false}
@@ -3662,6 +3790,8 @@ export function ActivityDetailScreen() {
                     emptyText={
                       isSearchingLocation
                         ? 'Searching…'
+                        : locationSearchError
+                          ? locationSearchError
                         : locationQuery.trim().length >= 2
                           ? 'No results found.'
                           : 'Type to search.'

@@ -101,6 +101,19 @@ type Props = {
    */
   drawerSnapPoints?: BottomDrawerSnapPoint[];
   /**
+   * How the drawer should be presented when `presentation="drawer"`.
+   *
+   * - 'modal' (default): uses a native Modal via BottomDrawer (most reliable stand-alone)
+   * - 'inline': renders within the current React tree (useful when already inside a modal/drawer
+   *   to avoid stacking multiple modal layers).
+   */
+  drawerPresentation?: 'modal' | 'inline';
+  /**
+   * When using drawer presentation, optionally hide the backdrop scrim.
+   * Useful for inline drawers embedded inside other modal-like surfaces.
+   */
+  drawerHideBackdrop?: boolean;
+  /**
    * Optional portal host for the dropdown content. Useful when rendering inside
    * other modal-like surfaces (e.g. BottomDrawer) to ensure proper layering.
    */
@@ -137,6 +150,8 @@ export function Combobox({
   trigger,
   presentation = 'auto',
   drawerSnapPoints,
+  drawerPresentation = 'modal',
+  drawerHideBackdrop = false,
   portalHost,
   query: controlledQuery,
   onQueryChange,
@@ -361,6 +376,8 @@ export function Combobox({
         <UnderKeyboardDrawer
           visible={open}
           onClose={() => handleOpenChange(false)}
+          presentation={drawerPresentation}
+          hideBackdrop={drawerHideBackdrop}
           // Match the LongText editor behavior: keep the visible content above the keyboard
           // while extending the sheet background under the keyboard to avoid iOS corner gaps.
           dynamicHeightUnderKeyboard

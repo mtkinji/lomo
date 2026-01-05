@@ -2,6 +2,14 @@
 
 This guide walks through running the app with Expo’s **development build paradigm**—the flow that replaces Expo Go so we can load custom native modules, use the new architecture, and stay close to production.
 
+## Why this matters (native modules)
+
+Some features require native code and will **not** work in Expo Go. For example:
+
+- Apple Maps place search (MapKit) used for Location → “from” address search on iOS
+
+If you’re testing Location search behavior on iOS and want Apple Maps-quality results, you must use a dev build.
+
 ## Prerequisites
 
 - Node 18+ (Node 20 LTS recommended) and npm. Install via `nvm` if you need multiple versions.
