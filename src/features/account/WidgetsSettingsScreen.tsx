@@ -6,7 +6,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { WidgetPreview } from '../../ui/WidgetPreview';
+import { WidgetTilePreview } from '../../ui/widgets/WidgetTilePreview';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Text, VStack, ButtonLabel, Card } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
@@ -50,7 +50,7 @@ export function WidgetsSettingsScreen() {
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.section}>
             <Text style={styles.sectionBody}>
-              Add Kwilt to your Home Screen or Lock Screen so Today and your next step are one tap away.
+              Add Kwilt to your Home Screen so your next step is one tap away.
             </Text>
           </View>
 
@@ -58,12 +58,40 @@ export function WidgetsSettingsScreen() {
             <VStack space="md">
               <HStack alignItems="center" space="sm">
                 <Icon name="today" size={18} color={colors.textPrimary} />
-                <Text style={styles.cardTitle}>What the widget looks like</Text>
+                <Text style={styles.cardTitle}>Widgets you can add</Text>
               </HStack>
-              <WidgetPreview title="Open Kwilt" />
-              <Text style={styles.previewHint}>
-                This is a preview of the widget surfaces you’ll see in the iOS widget gallery.
-              </Text>
+
+              <VStack space="lg">
+                <VStack space="sm">
+                  <Text style={styles.widgetTitle}>Suggested next step</Text>
+                  <Text style={styles.previewHint}>A tiny next move picked from your backlog to keep momentum.</Text>
+                  <HStack space="md" alignItems="center">
+                    <WidgetTilePreview kind="suggested" size="small" />
+                    <WidgetTilePreview kind="suggested" size="medium" />
+                  </HStack>
+                  <WidgetTilePreview kind="suggested" size="large" />
+                </VStack>
+
+                <VStack space="sm">
+                  <Text style={styles.widgetTitle}>Schedule</Text>
+                  <Text style={styles.previewHint}>Time-bound work first, plus “anytime today” items when you have them.</Text>
+                  <HStack space="md" alignItems="center">
+                    <WidgetTilePreview kind="schedule" size="small" />
+                    <WidgetTilePreview kind="schedule" size="medium" />
+                  </HStack>
+                  <WidgetTilePreview kind="schedule" size="large" />
+                </VStack>
+
+                <VStack space="sm">
+                  <Text style={styles.widgetTitle}>Momentum</Text>
+                  <Text style={styles.previewHint}>Done today, this week, and streak signals that reinforce return behavior.</Text>
+                  <HStack space="md" alignItems="center">
+                    <WidgetTilePreview kind="momentum" size="small" />
+                    <WidgetTilePreview kind="momentum" size="medium" />
+                  </HStack>
+                  <WidgetTilePreview kind="momentum" size="large" />
+                </VStack>
+              </VStack>
             </VStack>
           </Card>
 
@@ -138,6 +166,10 @@ const styles = StyleSheet.create({
   previewHint: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  widgetTitle: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
   },
 });
 
