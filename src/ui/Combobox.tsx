@@ -36,6 +36,10 @@ export type ComboboxOption = {
   label: string;
   keywords?: string[];
   /**
+   * When true, the row is non-interactive (useful for "Searching…" or section headers).
+   */
+  disabled?: boolean;
+  /**
    * Optional element shown inline before the label (e.g. an icon).
    */
   leftElement?: ReactNode;
@@ -307,12 +311,14 @@ export function Combobox({
 
   const handleSelect = useCallback(
     (optValue: string) => {
+      const opt = displayOptions.find((o) => o.value === optValue);
+      if (opt?.disabled) return;
       const selected = optValue === value;
       const next = allowDeselect && selected ? '' : optValue;
       onValueChange(next);
       onOpenChange(false);
     },
-    [allowDeselect, onOpenChange, onValueChange, value],
+    [allowDeselect, displayOptions, onOpenChange, onValueChange, value],
   );
 
   const prepareKeyboardReveal = useCallback(() => {
@@ -426,8 +432,13 @@ export function Combobox({
                     return (
                       <Pressable
                         key={opt.value}
+                        disabled={opt.disabled}
                         onPress={() => handleSelect(opt.value)}
-                        style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+                        style={({ pressed }) => [
+                          styles.item,
+                          pressed && !opt.disabled ? styles.itemPressed : null,
+                          opt.disabled ? styles.itemDisabled : null,
+                        ]}
                         accessibilityRole="button"
                         accessibilityLabel={opt.label}
                       >
@@ -553,8 +564,13 @@ export function Combobox({
                     return (
                       <Pressable
                         key={opt.value}
+                        disabled={opt.disabled}
                         onPress={() => handleSelect(opt.value)}
-                        style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+                        style={({ pressed }) => [
+                          styles.item,
+                          pressed && !opt.disabled ? styles.itemPressed : null,
+                          opt.disabled ? styles.itemDisabled : null,
+                        ]}
                         accessibilityRole="button"
                         accessibilityLabel={opt.label}
                       >
@@ -666,6 +682,9 @@ const styles = StyleSheet.create({
   },
   itemPressed: {
     backgroundColor: colors.shellAlt,
+  },
+  itemDisabled: {
+    opacity: 0.7,
   },
   itemRow: {},
   itemLeft: {

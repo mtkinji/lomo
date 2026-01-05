@@ -672,6 +672,7 @@ export function ActivityDetailScreen() {
   const [mapCenterOverride, setMapCenterOverride] = useState<{ latitude: number; longitude: number } | null>(null);
   const mapCenterOverrideRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const mapDragStartCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const didAutoCenterLocationSheetRef = useRef(false);
 
   const locationMapWidthPx = useMemo(() => Math.max(1, windowWidth - spacing.xl * 2), [windowWidth]);
   const locationMapHeightPx = useMemo(
@@ -699,13 +700,94 @@ export function ActivityDetailScreen() {
     Map<string, Array<{ id: string; label: string; latitude: number; longitude: number }>>
   >(new Map());
 
+  const normalizePlaceLabel = useCallback((raw: string) => {
+    const base = String(raw ?? '').trim();
+    if (!base) return '';
+    const parts = base
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return base;
+
+    const isUsCountry = (p: string) => {
+      const t = p.trim().toLowerCase();
+      return (
+        t === 'united states' ||
+        t === 'united states of america' ||
+        t === 'usa' ||
+        t === 'us'
+      );
+    };
+
+    // Drop trailing country.
+    while (parts.length > 0 && isUsCountry(parts[parts.length - 1]!)) parts.pop();
+    // Drop any "* County" segment.
+    const withoutCounty = parts.filter((p) => !/\bcounty\b/i.test(p));
+
+    // Fix Apple-style split street number: "368, East Echo Ledge Drive" -> "368 East Echo Ledge Drive"
+    if (withoutCounty.length >= 2 && /^\d+$/.test(withoutCounty[0]!)) {
+      withoutCounty[0] = `${withoutCounty[0]} ${withoutCounty[1]}`;
+      withoutCounty.splice(1, 1);
+    }
+
+    // If we can detect a US ZIP, rebuild as "street, city, state zip" and drop obvious venue-y fragments.
+    const zipIdx = (() => {
+      for (let i = withoutCounty.length - 1; i >= 0; i--) {
+        if (/^\d{5}(?:-\d{4})?$/.test(withoutCounty[i]!)) return i;
+      }
+      return -1;
+    })();
+
+    if (zipIdx >= 2) {
+      const zip = withoutCounty[zipIdx]!;
+      const state = withoutCounty[zipIdx - 1]!;
+      const city = withoutCounty[zipIdx - 2]!;
+      const streetParts = withoutCounty.slice(0, zipIdx - 2);
+
+      const VENUE_Y_TERMS = [
+        'resort',
+        'hotel',
+        'inn',
+        'plaza',
+        'mall',
+        'shopping center',
+        'shopping centre',
+        'center',
+        'centre',
+      ];
+
+      const streetClean = streetParts.filter((p) => {
+        const t = p.toLowerCase();
+        // Keep apartment/unit identifiers and anything with digits.
+        if (/\d/.test(p)) return true;
+        // Drop common venue fragments when they're standalone comma segments.
+        return !VENUE_Y_TERMS.some((term) => t.includes(term));
+      });
+
+      const street = (streetClean[0] ?? withoutCounty[0] ?? '').trim();
+      const out = [street, city, `${state} ${zip}`].filter(Boolean).join(', ');
+      return out || base;
+    }
+
+    return withoutCounty.join(', ');
+  }, []);
+
+  const getSafeLocationRadiusM = useCallback(() => {
+    return Math.max(
+      MIN_LOCATION_RADIUS_FT * 0.3048,
+      Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048),
+    );
+  }, [
+    DEFAULT_RADIUS_FT,
+    MAX_LOCATION_RADIUS_FT,
+    MIN_LOCATION_RADIUS_FT,
+    locationRadiusMetersDraft,
+  ]);
+
   const commitLocation = useCallback(
     (loc: { label: string; latitude: number; longitude: number }) => {
       if (!activity?.id) return;
-      const safeRadiusM = Math.max(
-        MIN_LOCATION_RADIUS_FT * 0.3048,
-        Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048),
-      );
+      const safeRadiusM = getSafeLocationRadiusM();
       const timestamp = new Date().toISOString();
       updateActivity(activity.id, (prev) => ({
         ...prev,
@@ -721,12 +803,9 @@ export function ActivityDetailScreen() {
     },
     [
       activity?.id,
-      locationRadiusMetersDraft,
       locationTriggerDraft,
       updateActivity,
-      DEFAULT_RADIUS_FT,
-      MAX_LOCATION_RADIUS_FT,
-      MIN_LOCATION_RADIUS_FT,
+      getSafeLocationRadiusM,
     ],
   );
 
@@ -763,6 +842,27 @@ export function ActivityDetailScreen() {
     },
     [computeRegionForRadius],
   );
+
+  useEffect(() => {
+    if (!locationSheetVisible) return;
+    // Reset per-opening so the sheet recenters on saved/preview location even if the MapView
+    // is still mounted from a prior open.
+    didAutoCenterLocationSheetRef.current = false;
+  }, [locationSheetVisible]);
+
+  useEffect(() => {
+    if (!locationSheetVisible) return;
+    if (didAutoCenterLocationSheetRef.current) return;
+    if (!resolvedLocationMapCenter) return;
+    if (!mapRef.current) return;
+    didAutoCenterLocationSheetRef.current = true;
+    animateMapToCenter(resolvedLocationMapCenter, getSafeLocationRadiusM());
+  }, [
+    animateMapToCenter,
+    getSafeLocationRadiusM,
+    locationSheetVisible,
+    resolvedLocationMapCenter,
+  ]);
 
   const locationMapPanResponder = useMemo(() => {
     // WebMercator helpers (pixel space at given zoom).
@@ -964,7 +1064,7 @@ export function ActivityDetailScreen() {
           if (apple && apple.length > 0) {
             const next = apple.map((r) => ({
               id: r.id,
-              label: r.label,
+              label: normalizePlaceLabel(r.label),
               latitude: r.latitude,
               longitude: r.longitude,
             }));
@@ -1030,7 +1130,7 @@ export function ActivityDetailScreen() {
               .map((row) => {
                 const lat = Number.parseFloat(String(row?.lat ?? ''));
                 const lon = Number.parseFloat(String(row?.lon ?? ''));
-                const label = String(row?.display_name ?? '').trim();
+                const label = normalizePlaceLabel(String(row?.display_name ?? '').trim());
                 const idRaw = row?.place_id ?? row?.osm_id ?? null;
                 const id = idRaw != null ? String(idRaw) : `${lat}:${lon}:${label}`;
                 if (!Number.isFinite(lat) || !Number.isFinite(lon) || !label) return null;
@@ -1096,7 +1196,7 @@ export function ActivityDetailScreen() {
       locationSearchAbortRef.current?.abort();
       cancelApplePlaceSearchBestEffort();
     };
-  }, [locationQuery, locationSheetVisible]);
+  }, [locationQuery, locationSheetVisible, normalizePlaceLabel]);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isOutlookInstalled, setIsOutlookInstalled] = useState(false);
   const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
@@ -3756,6 +3856,7 @@ export function ActivityDetailScreen() {
                         setMapCenterOverride(coords);
                         mapCenterOverrideRef.current = coords;
                         commitLocation(loc);
+                        animateMapToCenter(coords, getSafeLocationRadiusM());
                         return;
                       }
                       const found = locationResults.find((r) => r.id === next);
@@ -3766,8 +3867,19 @@ export function ActivityDetailScreen() {
                       setMapCenterOverride(coords);
                       mapCenterOverrideRef.current = coords;
                       commitLocation(loc);
+                      animateMapToCenter(coords, getSafeLocationRadiusM());
                     }}
                     options={[
+                      ...(isSearchingLocation
+                        ? ([
+                            {
+                              value: '__location_searching__',
+                              label: 'Searching…',
+                              disabled: true,
+                              leftElement: <ActivityIndicator size="small" color={colors.textSecondary} />,
+                            },
+                          ] as const)
+                        : []),
                       ...(currentCoords
                         ? ([
                             {
