@@ -705,7 +705,17 @@ if userActivity.activityType == CSSearchableItemActionType,
   if (enableWidgets) config = withXcodeProject(config, (config) => {
     let project = config.modResults;
     const projectName = getProjectName(config.modRequest.projectRoot);
-    const bundleId = config?.ios?.bundleIdentifier || 'com.andrewwatanabe.kwilt';
+    const bundleIdRaw = config?.ios?.bundleIdentifier;
+    const bundleId = typeof bundleIdRaw === 'string' ? bundleIdRaw.trim() : '';
+    if (!bundleId) {
+      throw new Error(
+        [
+          '[withAppleEcosystemIntegrations] KWILT_ENABLE_WIDGETS=1 requires a valid `ios.bundleIdentifier`.',
+          'This is needed to create a WidgetKit extension whose bundle identifier is correctly prefixed by the parent app.',
+          'Fix: ensure `ios.bundleIdentifier` is present in `app.config.ts` (and as a fallback in `app.json` if CI ever fails to evaluate the dynamic config).',
+        ].join(' '),
+      );
+    }
     const appGroupId = getAppGroupId(config);
 
     const targetName = `${projectName}Widgets`;
@@ -803,6 +813,22 @@ if userActivity.activityType == CSSearchableItemActionType,
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>$(DEVELOPMENT_LANGUAGE)</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>$(PRODUCT_NAME)</string>
+  <key>CFBundlePackageType</key>
+  <string>XPC!</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key>
+  <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>CFBundleDisplayName</key>
   <string>${targetName}</string>
   <key>NSExtension</key>
@@ -815,6 +841,33 @@ if userActivity.activityType == CSSearchableItemActionType,
 `,
         'utf8',
       );
+    }
+    // Ensure required Info.plist keys exist for an app extension bundle.
+    // If missing, Apple validation and/or Xcode embedded validation may treat them as (null)
+    // and reject the archive at upload time.
+    try {
+      const raw = fs.readFileSync(infoPlistAbs, 'utf8');
+      const ensureKey = (input, key, value) => {
+        if (input.includes(`<key>${key}</key>`)) return input;
+        return input.replace(
+          /<dict>\\s*/m,
+          `<dict>\\n  <key>${key}</key>\\n  <string>${value}</string>\\n`,
+        );
+      };
+
+      let patched = raw;
+      patched = ensureKey(patched, 'CFBundleDevelopmentRegion', '$(DEVELOPMENT_LANGUAGE)');
+      patched = ensureKey(patched, 'CFBundleExecutable', '$(EXECUTABLE_NAME)');
+      patched = ensureKey(patched, 'CFBundleIdentifier', '$(PRODUCT_BUNDLE_IDENTIFIER)');
+      patched = ensureKey(patched, 'CFBundleInfoDictionaryVersion', '6.0');
+      patched = ensureKey(patched, 'CFBundleName', '$(PRODUCT_NAME)');
+      patched = ensureKey(patched, 'CFBundlePackageType', 'XPC!');
+      patched = ensureKey(patched, 'CFBundleShortVersionString', '$(MARKETING_VERSION)');
+      patched = ensureKey(patched, 'CFBundleVersion', '$(CURRENT_PROJECT_VERSION)');
+
+      if (patched !== raw) fs.writeFileSync(infoPlistAbs, patched, 'utf8');
+    } catch {
+      // Non-fatal; if this fails, Xcode will surface a clear error during archive validation.
     }
 
     const entitlementsRel = `${targetSubfolder}/${targetSubfolder}.entitlements`;
@@ -1011,25 +1064,49 @@ struct ${targetName}Bundle: WidgetBundle {
       project.addToPbxSourcesBuildPhase(f);
     };
 
-    const removeSourceFromTargetByBasename = (target, base) => {
+    const removeSourceFromTargetByRelPath = (target, relPath) => {
       const sources = project.pbxSourcesBuildPhaseObj?.(target);
       if (!sources || !Array.isArray(sources.files)) return;
+
       const buildFiles = project.pbxBuildFileSection?.() || {};
+      const fileRefs = project.pbxFileReferenceSection?.() || {};
+
+      const fileRefUuid = Object.keys(fileRefs).find((key) => {
+        if (key.endsWith('_comment')) return false;
+        const entry = fileRefs[key];
+        const p = String(entry?.path || '').replace(/^"|"$/g, '');
+        return p === relPath;
+      });
+
       sources.files = sources.files.filter((entry) => {
-        const comment = String(entry?.comment || '');
-        if (!comment.includes(base)) return true;
         const buildFileUuid = entry?.value;
-        if (buildFileUuid) {
+        if (!buildFileUuid) return true;
+
+        const bf = buildFiles[buildFileUuid];
+        const bfFileRef = bf?.fileRef;
+        if (fileRefUuid && bfFileRef === fileRefUuid) {
           delete buildFiles[buildFileUuid];
           delete buildFiles[`${buildFileUuid}_comment`];
+          return false;
         }
-        return false;
+
+        // Fallback: remove by matching the comment (covers older generated projects).
+        const comment = String(entry?.comment || '');
+        const base = path.basename(relPath);
+        if (comment.includes(base)) {
+          delete buildFiles[buildFileUuid];
+          delete buildFiles[`${buildFileUuid}_comment`];
+          return false;
+        }
+
+        return true;
       });
     };
 
     const appTargetUuid = project.getTarget?.('com.apple.product-type.application')?.uuid || project.getFirstTarget?.()?.uuid;
     if (appTargetUuid) {
-      removeSourceFromTargetByBasename(appTargetUuid, path.basename(widgetSwiftRel));
+      // Defensive: some historical generated projects accidentally compiled widget sources in the app target.
+      removeSourceFromTargetByRelPath(appTargetUuid, widgetSwiftRel);
     }
     ensureSourceInTarget(widgetSwiftRel, targetSubfolder, targetUuid);
 
@@ -1057,6 +1134,11 @@ struct ${targetName}Bundle: WidgetBundle {
       project,
       targetUuid,
     });
+    // Extra defensive cleanup: certain Xcodeproj mutation paths can still attach the widget
+    // source file to the main app target. Ensure it is NOT compiled there.
+    if (appTargetUuid) {
+      removeSourceFromTargetByRelPath(appTargetUuid, widgetSwiftRel);
+    }
 
     // Point the extension target at its entitlements file.
     const section = project.pbxXCBuildConfigurationSection?.() || {};

@@ -2,6 +2,7 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
+  Image,
   InteractionManager,
   LayoutAnimation,
   View,
@@ -46,7 +47,7 @@ import type {
 } from '../../navigation/RootNavigator';
 import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
-import { BottomDrawer, BottomDrawerNativeGestureView } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerNativeGestureView, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { StaticMapImage } from '../../ui/maps/StaticMapImage';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
 import { getCurrentLocationBestEffort } from '../../services/location/currentLocation';
@@ -81,6 +82,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { parseTags, suggestTagsFromText } from '../../utils/tags';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
 import * as Calendar from 'expo-calendar';
@@ -90,6 +92,7 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
   startAudioRecording,
@@ -102,6 +105,10 @@ import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSound
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
+import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
+import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
+import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
+import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
 import { ActionDock } from '../../ui/ActionDock';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
@@ -164,6 +171,9 @@ export function ActivityDetailScreen() {
 
   const KEYBOARD_CLEARANCE = spacing['2xl'] + spacing.lg;
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+  const [thumbnailSheetVisible, setThumbnailSheetVisible] = useState(false);
+  const [heroImageLoading, setHeroImageLoading] = useState(false);
+  const [heroImageError, setHeroImageError] = useState('');
 
   useEffect(() => {
     isFocusedRef.current = isFocused;
@@ -216,6 +226,115 @@ export function ActivityDetailScreen() {
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
     [activities, activityId],
+  );
+
+  const heroSeed = useMemo(() => activity?.id ?? 'activity', [activity?.id]);
+  const { colors: heroGradientColors, direction: heroGradientDirection } = useMemo(
+    () => getArcGradient(heroSeed),
+    [heroSeed]
+  );
+  const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
+
+  const defaultHeroUrl = useMemo(() => {
+    if (!activity) return undefined;
+    const source = getActivityHeaderArtworkSource(activity.type as any);
+    if (!source) return undefined;
+    try {
+      const resolved = Image.resolveAssetSource(source);
+      return resolved?.uri;
+    } catch {
+      return undefined;
+    }
+  }, [activity]);
+
+  const displayThumbnailUrlForSheet = activity?.thumbnailUrl ?? defaultHeroUrl;
+
+  const handleUploadActivityThumbnail = useCallback(async () => {
+    if (!activity) return;
+    try {
+      setHeroImageLoading(true);
+      setHeroImageError('');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+
+      const nowIso = new Date().toISOString();
+      updateActivity(activity.id, (prev: any) => ({
+        ...prev,
+        thumbnailUrl: asset.uri,
+        heroImageMeta: {
+          source: 'upload',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+        },
+        updatedAt: nowIso,
+      }));
+      setThumbnailSheetVisible(false);
+    } catch {
+      setHeroImageError('Unable to upload image right now.');
+    } finally {
+      setHeroImageLoading(false);
+    }
+  }, [activity, updateActivity]);
+
+  const handleClearActivityHeroImage = useCallback(() => {
+    if (!activity) return;
+    const nowIso = new Date().toISOString();
+    updateActivity(activity.id, (prev: any) => ({
+      ...prev,
+      thumbnailUrl: undefined,
+      heroImageMeta: undefined,
+      updatedAt: nowIso,
+    }));
+  }, [activity, updateActivity]);
+
+  const handleSelectCuratedActivityHero = useCallback(
+    (image: ArcHeroImage) => {
+      if (!activity) return;
+      const nowIso = new Date().toISOString();
+      updateActivity(activity.id, (prev: any) => ({
+        ...prev,
+        thumbnailUrl: image.uri,
+        thumbnailVariant: prev.thumbnailVariant ?? 0,
+        heroImageMeta: {
+          source: 'curated',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          curatedId: image.id,
+        },
+        updatedAt: nowIso,
+      }));
+    },
+    [activity, updateActivity]
+  );
+
+  const handleSelectUnsplashActivityHero = useCallback(
+    (photo: UnsplashPhoto) => {
+      if (!activity) return;
+      const nowIso = new Date().toISOString();
+      updateActivity(activity.id, (prev: any) => ({
+        ...prev,
+        thumbnailUrl: photo.urls.regular,
+        heroImageMeta: {
+          source: 'unsplash',
+          prompt: prev.heroImageMeta?.prompt,
+          createdAt: nowIso,
+          unsplashPhotoId: photo.id,
+          unsplashAuthorName: photo.user.name,
+          unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+          unsplashLink: withUnsplashReferral(photo.links.html),
+        },
+        updatedAt: nowIso,
+      }));
+      trackUnsplashDownload(photo.id).catch(() => undefined);
+    },
+    [activity, updateActivity]
   );
 
   const activitiesById = useMemo(() => {
@@ -511,6 +630,7 @@ export function ActivityDetailScreen() {
   const sendToSheetVisible = activeSheet === 'sendTo';
   const recordAudioSheetVisible = activeSheet === 'recordAudio';
   const LOCATION_SHEET_PORTAL_HOST = 'activity-detail-location-sheet';
+  const FOCUS_SHEET_PORTAL_HOST = 'activity-detail-focus-sheet';
   const DEFAULT_RADIUS_FT = 150;
   const LOCATION_RADIUS_FT_OPTIONS = [50, 100, 150, 300, 500] as const;
   const LOCATION_MAP_ZOOM = 15;
@@ -908,13 +1028,7 @@ export function ActivityDetailScreen() {
     navigation.navigate('ActivitiesList');
   };
 
-  const canSendTo = useMemo(() => {
-    if (!activity) return false;
-    // Keep this high-signal to avoid UI clutter.
-    return activity.type === 'shopping_list' || activity.type === 'instructions';
-  }, [activity]);
-
-  const buildActivityExportText = useCallback(() => {
+  const activityExportText = useMemo(() => {
     if (!activity) return '';
     const lines: string[] = [];
     const title = activity.title?.trim();
@@ -938,7 +1052,7 @@ export function ActivityDetailScreen() {
     return lines.join('\n').trim();
   }, [activity]);
 
-  const buildSendToSearchQuery = useCallback(() => {
+  const sendToSearchQuery = useMemo(() => {
     if (!activity) return '';
     const base = activity.title?.trim() ?? '';
     const stepTitles = (activity.steps ?? [])
@@ -960,49 +1074,49 @@ export function ActivityDetailScreen() {
 
   const handleSendToCopy = useCallback(async () => {
     try {
-      const text = buildActivityExportText();
+      const text = activityExportText;
       if (!text) return;
       await Clipboard.setStringAsync(text);
       Alert.alert('Copied', 'Activity details copied to clipboard.');
     } catch {
       Alert.alert('Copy failed', 'Unable to copy to clipboard on this device right now.');
     }
-  }, [buildActivityExportText]);
+  }, [activityExportText]);
 
   const handleSendToShare = useCallback(async () => {
     try {
-      const text = buildActivityExportText();
+      const text = activityExportText;
       if (!text) return;
       await Share.share({ message: text });
     } catch {
       // No-op: Share sheets can be dismissed or unavailable on some platforms.
     }
-  }, [buildActivityExportText]);
+  }, [activityExportText]);
 
   const handleSendToAmazon = useCallback(async () => {
-    const q = buildSendToSearchQuery();
+    const q = sendToSearchQuery;
     if (!q) return;
     const url = buildAffiliateRetailerSearchUrl('amazon', q);
     if (!url) return;
     await openExternalUrl(url);
-  }, [buildSendToSearchQuery, openExternalUrl]);
+  }, [openExternalUrl, sendToSearchQuery]);
 
   const handleSendToHomeDepot = useCallback(async () => {
-    const q = buildSendToSearchQuery();
+    const q = sendToSearchQuery;
     if (!q) return;
     const url = buildAffiliateRetailerSearchUrl('homeDepot', q);
     if (!url) return;
     await openExternalUrl(url);
-  }, [buildSendToSearchQuery, openExternalUrl]);
+  }, [openExternalUrl, sendToSearchQuery]);
 
   const handleSendToInstacart = useCallback(async () => {
-    const q = buildSendToSearchQuery();
+    const q = sendToSearchQuery;
     if (!q) return;
     // Best-effort web fallback (native deep links can be added later).
     const url = buildAffiliateRetailerSearchUrl('instacart', q);
     if (!url) return;
     await openExternalUrl(url);
-  }, [buildSendToSearchQuery, openExternalUrl]);
+  }, [openExternalUrl, sendToSearchQuery]);
 
   useEffect(() => {
     // iOS interactive dismissal can fail to fire `keyboardDidHide`, leaving stale state.
@@ -2934,6 +3048,7 @@ export function ActivityDetailScreen() {
               goal={goal}
               navigation={navigation}
               headerV2Enabled={headerV2Enabled}
+              onPressEditHeaderImage={() => setThumbnailSheetVisible(true)}
               editingUiActive={editingUiActive}
               handleDoneEditing={handleDoneEditing}
               handleToggleComplete={handleToggleComplete}
@@ -2946,7 +3061,6 @@ export function ActivityDetailScreen() {
               openFocusSheet={openFocusSheet}
               openCalendarSheet={openCalendarSheet}
               openAgentForActivity={openAgentForActivity}
-              canSendTo={canSendTo}
               setActiveSheet={setActiveSheet}
               scrollRef={scrollRef}
               KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
@@ -3069,23 +3183,19 @@ export function ActivityDetailScreen() {
                       // Preserve existing e2e id
                       testID: 'e2e.activityDetail.keyAction.addToCalendar',
                     },
-                    ...(canSendTo
-                      ? ([
-                          {
-                            id: 'sendTo',
-                            icon: 'sendTo',
-                            accessibilityLabel: 'Send to…',
-                            onPress: () => {
-                              capture(AnalyticsEvent.ActivityActionInvoked, {
-                                activityId: activity.id,
-                                action: 'sendTo',
-                              });
-                              setActiveSheet('sendTo');
-                            },
-                            testID: 'e2e.activityDetail.dock.sendTo',
-                          },
-                        ] as const)
-                      : []),
+                    {
+                      id: 'sendTo',
+                      icon: 'sendTo',
+                      accessibilityLabel: 'Send to…',
+                      onPress: () => {
+                        capture(AnalyticsEvent.ActivityActionInvoked, {
+                          activityId: activity.id,
+                          action: 'sendTo',
+                        });
+                        setActiveSheet('sendTo');
+                      },
+                      testID: 'e2e.activityDetail.dock.sendTo',
+                    },
                     {
                       id: 'ai',
                       icon: 'sparkles',
@@ -3815,144 +3925,172 @@ export function ActivityDetailScreen() {
         snapPoints={focusSheetSnapPoints}
         scrimToken="pineSubtle"
       >
-        <View style={[styles.sheetContent, { flex: 1 }]}>
-          <VStack space="md" style={{ flex: 1 }}>
-            <View>
-              <Text style={styles.sheetTitle}>Focus mode</Text>
-              <Text style={styles.sheetDescription}>
-                Start a distraction-free timer for this activity. Pick a duration, then tap Start.
-              </Text>
-            </View>
+        <View style={{ flex: 1 }}>
+          {/* Ensure dropdown menus can render above the BottomDrawer modal layer. */}
+          {Platform.OS === 'ios' ? (
+            <FullWindowOverlay>
+              <PortalHost name={FOCUS_SHEET_PORTAL_HOST} />
+            </FullWindowOverlay>
+          ) : (
+            <PortalHost name={FOCUS_SHEET_PORTAL_HOST} />
+          )}
 
-            <View>
-              <Text style={styles.estimateFieldLabel}>Minutes</Text>
-              <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
-                {(focusPresetValues as number[]).map((m) => {
-                  const selected = !focusCustomExpanded && focusDraftMinutes === m;
-                  return (
-                    <Pressable
-                      key={String(m)}
-                      style={({ pressed }) => [
+          <BottomDrawerScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.sheetContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <VStack space="md">
+              <View>
+                <Text style={styles.sheetTitle}>Focus mode</Text>
+                <Text style={styles.sheetDescription}>
+                  Start a distraction-free timer for this activity. Pick a duration, then tap Start.
+                </Text>
+              </View>
+
+              <View>
+                <Text style={styles.estimateFieldLabel}>Minutes</Text>
+                <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
+                  {(focusPresetValues as number[]).map((m) => {
+                    const selected = !focusCustomExpanded && focusDraftMinutes === m;
+                    return (
+                      <Pressable
+                        key={String(m)}
+                        style={({ pressed }) => [
+                          styles.focusPresetChip,
+                          selected && styles.focusPresetChipSelected,
+                          pressed && styles.focusPresetChipPressed,
+                        ]}
+                        onPress={() => {
+                          setFocusMinutesDraft(String(m));
+                          setFocusCustomExpanded(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.focusPresetChipText,
+                            selected && styles.focusPresetChipTextSelected,
+                          ]}
+                        >
+                          {m}m
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+
+                  <Pressable
+                    style={({ pressed }) => {
+                      const selected = focusCustomExpanded || focusIsCustomValue;
+                      return [
                         styles.focusPresetChip,
                         selected && styles.focusPresetChipSelected,
                         pressed && styles.focusPresetChipPressed,
+                      ];
+                    }}
+                    onPress={() => setFocusCustomExpanded((v) => !v)}
+                  >
+                    <Text
+                      style={[
+                        styles.focusPresetChipText,
+                        (focusCustomExpanded || focusIsCustomValue) &&
+                          styles.focusPresetChipTextSelected,
                       ]}
-                      onPress={() => {
-                        setFocusMinutesDraft(String(m));
-                        setFocusCustomExpanded(false);
-                      }}
                     >
-                      <Text
-                        style={[
-                          styles.focusPresetChipText,
-                          selected && styles.focusPresetChipTextSelected,
-                        ]}
-                      >
-                        {m}m
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-
-                <Pressable
-                  style={({ pressed }) => {
-                    const selected = focusCustomExpanded || focusIsCustomValue;
-                    return [
-                      styles.focusPresetChip,
-                      selected && styles.focusPresetChipSelected,
-                      pressed && styles.focusPresetChipPressed,
-                    ];
-                  }}
-                  onPress={() => setFocusCustomExpanded((v) => !v)}
-                >
-                  <Text
-                    style={[
-                      styles.focusPresetChipText,
-                      (focusCustomExpanded || focusIsCustomValue) && styles.focusPresetChipTextSelected,
-                    ]}
-                  >
-                    {(() => {
-                      if (focusCustomExpanded) return `${focusDraftMinutes}m`;
-                      if (focusIsCustomValue) return `${focusDraftMinutes}m`;
-                      return 'Custom';
-                    })()}
-                  </Text>
-                </Pressable>
-              </HStack>
-
-              {focusCustomExpanded ? (
-                <View style={{ marginTop: spacing.md }}>
-                  <DurationPicker
-                    valueMinutes={focusDraftMinutes}
-                    onChangeMinutes={(next) => setFocusMinutesDraft(String(next))}
-                    optionsMinutes={Array.from({ length: focusMaxMinutes }, (_, idx) => idx + 1)}
-                    accessibilityLabel="Select custom focus duration"
-                    iosWheelHeight={160}
-                    showHelperText={false}
-                    iosUseEdgeFades={false}
-                  />
-                </View>
-              ) : null}
-            </View>
-
-            <View>
-              <Text style={styles.estimateFieldLabel}>Soundscape</Text>
-              <DropdownMenu>
-                <DropdownMenuTrigger accessibilityLabel="Select soundscape">
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.focusSoundscapeTrigger,
-                      pressed && styles.focusPresetChipPressed,
-                    ]}
-                  >
-                    <HStack space="xs" alignItems="center">
-                      <Text style={styles.focusSoundscapeTriggerText}>
-                        {(SOUND_SCAPES.find((s) => s.id === soundscapeTrackId)?.title ?? 'Soundscape')}
-                      </Text>
-                      <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                    </HStack>
+                      {(() => {
+                        if (focusCustomExpanded) return `${focusDraftMinutes}m`;
+                        if (focusIsCustomValue) return `${focusDraftMinutes}m`;
+                        return 'Custom';
+                      })()}
+                    </Text>
                   </Pressable>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="start">
-                  {SOUND_SCAPES.map((s) => (
-                    <DropdownMenuItem
-                      key={s.id}
-                      onPress={() => {
-                        setSoundscapeTrackId(s.id);
-                      }}
+                </HStack>
+
+                {focusCustomExpanded ? (
+                  <View style={{ marginTop: spacing.md }}>
+                    <DurationPicker
+                      valueMinutes={focusDraftMinutes}
+                      onChangeMinutes={(next) => setFocusMinutesDraft(String(next))}
+                      optionsMinutes={Array.from(
+                        { length: Math.max(1, Math.floor(focusMaxMinutes / 5)) },
+                        (_, idx) => (idx + 1) * 5,
+                      )}
+                      accessibilityLabel="Select custom focus duration"
+                      iosWheelHeight={160}
+                      showHelperText={false}
+                      iosUseEdgeFades={false}
+                    />
+                  </View>
+                ) : null}
+              </View>
+
+              <View>
+                <Text style={styles.estimateFieldLabel}>Soundscape</Text>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    {...({ asChild: true } as any)}
+                    accessibilityLabel="Select soundscape"
+                  >
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.focusSoundscapeTrigger,
+                        pressed && styles.focusPresetChipPressed,
+                      ]}
                     >
-                      <Text style={styles.menuRowText}>{s.title}</Text>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </View>
+                      <HStack space="xs" alignItems="center">
+                        <Text style={styles.focusSoundscapeTriggerText}>
+                          {SOUND_SCAPES.find((s) => s.id === soundscapeTrackId)?.title ??
+                            'Soundscape'}
+                        </Text>
+                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                      </HStack>
+                    </Pressable>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    portalHost={FOCUS_SHEET_PORTAL_HOST}
+                    side="bottom"
+                    sideOffset={6}
+                    align="start"
+                  >
+                    {SOUND_SCAPES.map((s) => (
+                      <DropdownMenuItem
+                        key={s.id}
+                        onPress={() => {
+                          setSoundscapeTrackId(s.id);
+                        }}
+                      >
+                        <Text style={styles.menuRowText}>{s.title}</Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </View>
+            </VStack>
+          </BottomDrawerScrollView>
 
-            <View style={{ flex: 1 }} />
-
-          <HStack space="sm">
-            <Button
-              variant="outline"
-              style={{ flex: 1 }}
-              testID="e2e.activityDetail.focus.cancel"
-              onPress={() => setActiveSheet(null)}
-            >
-              <Text style={styles.sheetRowLabel}>Cancel</Text>
-            </Button>
-            <Button
-              variant="primary"
-              style={{ flex: 1 }}
-              testID="e2e.activityDetail.focus.start"
-              onPress={() => {
-                startFocusSession().catch(() => undefined);
-              }}
-            >
-              <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                Start
-              </Text>
-            </Button>
-          </HStack>
-          </VStack>
+          <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+            <HStack space="sm">
+              <Button
+                variant="outline"
+                style={{ flex: 1 }}
+                testID="e2e.activityDetail.focus.cancel"
+                onPress={() => setActiveSheet(null)}
+              >
+                <Text style={styles.sheetRowLabel}>Cancel</Text>
+              </Button>
+              <Button
+                variant="primary"
+                style={{ flex: 1 }}
+                testID="e2e.activityDetail.focus.start"
+                onPress={() => {
+                  startFocusSession().catch(() => undefined);
+                }}
+              >
+                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                  Start
+                </Text>
+              </Button>
+            </HStack>
+          </View>
         </View>
       </BottomDrawer>
 
@@ -4134,6 +4272,39 @@ export function ActivityDetailScreen() {
         </View>
       </Modal>
 
+      <ArcBannerSheet
+        visible={thumbnailSheetVisible}
+        onClose={() => setThumbnailSheetVisible(false)}
+        objectLabel="Activity"
+        arcName={activity?.title ?? 'Activity'}
+        arcNarrative={activity?.notes}
+        canUseUnsplash={isPro}
+        onRequestUpgrade={() => {
+          setThumbnailSheetVisible(false);
+          setTimeout(
+            () => openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'activity_banner_sheet' }),
+            360
+          );
+        }}
+        heroSeed={heroSeed}
+        hasHero={Boolean(activity?.thumbnailUrl)}
+        loading={heroImageLoading}
+        error={heroImageError}
+        thumbnailUrl={displayThumbnailUrlForSheet}
+        heroGradientColors={heroGradientColors}
+        heroGradientDirection={heroGradientDirection}
+        heroTopoSizes={heroTopoSizes}
+        showTopography={false}
+        showGeoMosaic={false}
+        onGenerate={() => undefined}
+        onUpload={() => {
+          void handleUploadActivityThumbnail();
+        }}
+        onRemove={handleClearActivityHeroImage}
+        onSelectCurated={handleSelectCuratedActivityHero}
+        onSelectUnsplash={handleSelectUnsplashActivityHero}
+      />
+
       {AgentWorkspaceSheet}
 
       <BottomDrawer
@@ -4225,6 +4396,8 @@ export function ActivityDetailScreen() {
           <SheetOption
             testID="e2e.activityDetail.sendTo.amazon"
             label="Amazon"
+            disabled={!sendToSearchQuery}
+            subtext={!sendToSearchQuery ? 'Add a title or items to search.' : undefined}
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToAmazon' });
               setActiveSheet(null);
@@ -4234,6 +4407,8 @@ export function ActivityDetailScreen() {
           <SheetOption
             testID="e2e.activityDetail.sendTo.homeDepot"
             label="Home Depot"
+            disabled={!sendToSearchQuery}
+            subtext={!sendToSearchQuery ? 'Add a title or items to search.' : undefined}
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToHomeDepot' });
               setActiveSheet(null);
@@ -4243,6 +4418,8 @@ export function ActivityDetailScreen() {
           <SheetOption
             testID="e2e.activityDetail.sendTo.instacart"
             label="Instacart"
+            disabled={!sendToSearchQuery}
+            subtext={!sendToSearchQuery ? 'Add a title or items to search.' : undefined}
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToInstacart' });
               setActiveSheet(null);
@@ -4253,6 +4430,8 @@ export function ActivityDetailScreen() {
           <SheetOption
             testID="e2e.activityDetail.sendTo.copy"
             label="Copy details"
+            disabled={!activityExportText}
+            subtext={!activityExportText ? 'Add some details to copy.' : undefined}
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToCopy' });
               setActiveSheet(null);
@@ -4262,6 +4441,8 @@ export function ActivityDetailScreen() {
           <SheetOption
             testID="e2e.activityDetail.sendTo.share"
             label="Share…"
+            disabled={!activityExportText}
+            subtext={!activityExportText ? 'Add some details to share.' : undefined}
             onPress={() => {
               capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToShare' });
               setActiveSheet(null);
@@ -4287,19 +4468,26 @@ type SheetOptionProps = {
   label: string;
   onPress: () => void;
   testID?: string;
+  disabled?: boolean;
+  subtext?: string;
 };
 
-function SheetOption({ label, onPress, testID }: SheetOptionProps) {
+function SheetOption({ label, onPress, testID, disabled, subtext }: SheetOptionProps) {
   return (
     <Pressable
       testID={testID}
-      style={styles.sheetRow}
+      accessibilityState={disabled ? { disabled: true } : undefined}
+      style={[styles.sheetRow, disabled ? { opacity: 0.45 } : null]}
       onPress={() => {
+        if (disabled) return;
         void HapticsService.trigger('canvas.selection');
         onPress();
       }}
     >
-      <Text style={styles.sheetRowLabel}>{label}</Text>
+      <Text style={[styles.sheetRowLabel, disabled ? { color: colors.textSecondary } : null]}>
+        {label}
+      </Text>
+      {subtext ? <Text style={styles.sheetRowSubtext}>{subtext}</Text> : null}
     </Pressable>
   );
 }

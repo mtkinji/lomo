@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { getSupabaseClient } from './supabaseClient';
 import { useAuthPromptStore } from '../../store/useAuthPromptStore';
+import { getSupabaseUrl } from '../../utils/getEnv';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -19,6 +20,8 @@ export type AuthIdentity = {
 };
 
 let hasShownExpoGoRedirectDebug = false;
+let hasShownExpoGoSupabaseUrlDebug = false;
+let hasShownExpoGoOAuthUrlDebug = false;
 const shouldShowAuthDebugAlerts = (): boolean =>
   __DEV__ && (process.env.EXPO_PUBLIC_SHOW_AUTH_DEBUG_ALERTS ?? '').trim() === '1';
 
@@ -141,11 +144,22 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     // can optionally show the redirect URL in-app once per session.
     // eslint-disable-next-line no-console
     console.log(`[auth] redirectTo (${isExpoGo ? 'expo-go' : 'native'}):`, redirectTo);
+    // eslint-disable-next-line no-console
+    console.log(`[auth] supabaseUrl (${isExpoGo ? 'expo-go' : 'native'}):`, getSupabaseUrl());
     if (shouldShowAuthDebugAlerts() && isExpoGo && !hasShownExpoGoRedirectDebug) {
       hasShownExpoGoRedirectDebug = true;
       Alert.alert(
         'Supabase redirect URL (Expo Go)',
         `Add this to Supabase Auth → URL Configuration → Redirect URLs:\n\n${redirectTo}`,
+        [{ text: 'OK' }],
+      );
+    }
+    if (shouldShowAuthDebugAlerts() && isExpoGo && !hasShownExpoGoSupabaseUrlDebug) {
+      hasShownExpoGoSupabaseUrlDebug = true;
+      const url = (getSupabaseUrl() ?? '').trim() || '(missing)';
+      Alert.alert(
+        'Supabase base URL (Expo Go)',
+        `This is the base URL the app is using to start OAuth.\n\nsupabaseUrl:\n${url}\n\nIf this is not https://auth.kwilt.app, Expo Go is not picking up your env/config.`,
         [{ text: 'OK' }],
       );
     }
@@ -167,6 +181,25 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
 
   if (error || !data?.url) {
     throw new Error(error?.message ?? 'Unable to start sign-in');
+  }
+
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log(`[auth] oauth start url (${isExpoGo ? 'expo-go' : 'native'}):`, data.url);
+    if (shouldShowAuthDebugAlerts() && isExpoGo && !hasShownExpoGoOAuthUrlDebug) {
+      hasShownExpoGoOAuthUrlDebug = true;
+      let host = '(unknown)';
+      try {
+        host = new URL(data.url).host || '(unknown)';
+      } catch {
+        // ignore
+      }
+      Alert.alert(
+        'OAuth start URL (Expo Go)',
+        `This is the URL opened in the system auth session.\n\nhost: ${host}\n\nurl:\n${data.url}`,
+        [{ text: 'OK' }],
+      );
+    }
   }
 
   // Supabase JS writes the PKCE flow state to storage. AsyncStorage is async,

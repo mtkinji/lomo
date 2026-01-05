@@ -372,6 +372,31 @@ export interface Activity {
   goalId: string | null;
   title: string;
   /**
+   * Optional thumbnail/hero image for this Activity.
+   * Mirrors Arc/Goal behavior: `thumbnailUrl` is the canonical image URL used
+   * for the hero/header image and list thumbnails (where applicable).
+   */
+  thumbnailUrl?: string;
+  /**
+   * Optional counter used to rotate deterministic, system-generated thumbnails.
+   * Included for parity with Arcs/Goals even if Activities don't currently
+   * generate thumbnails.
+   */
+  thumbnailVariant?: number;
+  /**
+   * Optional metadata about the Activity hero / thumbnail image.
+   */
+  heroImageMeta?: {
+    source: 'ai' | 'upload' | 'curated' | 'unsplash';
+    prompt?: string;
+    createdAt: string;
+    curatedId?: string;
+    unsplashPhotoId?: string;
+    unsplashAuthorName?: string;
+    unsplashAuthorLink?: string;
+    unsplashLink?: string;
+  };
+  /**
    * Optional provenance so Activities created from other objects can link back to their origin.
    */
   origin?: {

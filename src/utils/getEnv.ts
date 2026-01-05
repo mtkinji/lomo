@@ -69,27 +69,24 @@ export function getSupabasePublishableKey(): string | undefined {
 }
 
 export function getSupabaseUrl(): string | undefined {
-  // Expo Go: prefer inferring the project URL from the Edge Functions host when possible.
-  // This avoids confusing "401 Unauthorized" cases where a custom domain is configured for auth
-  // but the running dev proxy/functions URL points at a different Supabase project ref.
-  if (Constants.appOwnership === 'expo') {
-    const inferred = inferSupabaseUrlFromAiProxyBaseUrl(
-      getEnvVar<string>('aiProxyBaseUrl') ??
-        getProcessEnvString('EXPO_PUBLIC_AI_PROXY_BASE_URL') ??
-        getProcessEnvString('AI_PROXY_BASE_URL')
-    );
-    if (inferred) return inferred;
-  }
-
-  return (
+  const explicit =
     getEnvVar<string>('supabaseUrl') ??
     getProcessEnvString('EXPO_PUBLIC_SUPABASE_URL') ??
-    getProcessEnvString('SUPABASE_URL') ??
-    inferSupabaseUrlFromAiProxyBaseUrl(
-      getEnvVar<string>('aiProxyBaseUrl') ??
-        getProcessEnvString('EXPO_PUBLIC_AI_PROXY_BASE_URL') ??
-        getProcessEnvString('AI_PROXY_BASE_URL')
-    )
+    getProcessEnvString('SUPABASE_URL');
+
+  // If the app has an explicit Supabase URL configured, always trust it—even in Expo Go.
+  // (This enables using custom domains like https://auth.kwilt.app during Expo Go testing.)
+  if (explicit) return explicit;
+
+  // Only Expo Go should attempt inference; standalone/dev/prod builds should be explicitly configured.
+  // (Silent inference in production can accidentally fall back to https://<project-ref>.supabase.co,
+  // which defeats custom auth domains like https://auth.kwilt.app.)
+  if (Constants.appOwnership !== 'expo') return undefined;
+
+  return inferSupabaseUrlFromAiProxyBaseUrl(
+    getEnvVar<string>('aiProxyBaseUrl') ??
+      getProcessEnvString('EXPO_PUBLIC_AI_PROXY_BASE_URL') ??
+      getProcessEnvString('AI_PROXY_BASE_URL')
   );
 }
 

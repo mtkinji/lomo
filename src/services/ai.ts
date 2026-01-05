@@ -364,6 +364,16 @@ const parseKwiltProxyError = (errorText: string): KwiltProxyErrorDetails | null 
   }
 };
 
+export class KwiltAiQuotaExceededError extends Error {
+  code: 'quota_exceeded' = 'quota_exceeded';
+  retryAt?: string;
+  constructor(params?: { message?: string; retryAt?: string }) {
+    super(params?.message ?? 'AI quota exceeded');
+    this.name = 'KwiltAiQuotaExceededError';
+    this.retryAt = params?.retryAt;
+  }
+}
+
 const parseOpenAiError = (errorText: string): OpenAiErrorDetails => {
   try {
     const parsed = JSON.parse(errorText);
@@ -3355,7 +3365,14 @@ export async function suggestActivityTagsWithAi(
 
     if (!response.ok) {
       const errorText = await response.text();
+      const proxy = parseKwiltProxyError(errorText);
       markOpenAiQuotaExceeded('suggestTags', response.status, errorText, apiKey);
+      if (proxy?.code === 'quota_exceeded') {
+        throw new KwiltAiQuotaExceededError({
+          message: 'AI credits exhausted',
+          retryAt: proxy.retryAt,
+        });
+      }
       return null;
     }
 
@@ -3371,7 +3388,11 @@ export async function suggestActivityTagsWithAi(
     const parsed = JSON.parse(jsonPart) as { tags?: unknown };
     const tags = sanitizeSuggestedTags(parsed?.tags, maxTags);
     return tags;
-  } catch {
+  } catch (err) {
+    // Propagate quota errors so callers can hard-stop and paywall.
+    if (err instanceof KwiltAiQuotaExceededError) {
+      throw err;
+    }
     return null;
   }
 }

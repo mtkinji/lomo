@@ -1100,6 +1100,7 @@ export function GoalDetailScreen() {
   const hasCustomThumbnail = Boolean(goal?.thumbnailUrl);
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
   const displayThumbnailUrl = goal?.thumbnailUrl ?? arc?.thumbnailUrl;
+  const heroAttributionMeta = goal?.thumbnailUrl ? goal?.heroImageMeta : arc?.heroImageMeta;
 
   if (!goal) {
     if (!domainHydrated) {
@@ -2147,6 +2148,41 @@ export function GoalDetailScreen() {
                           />
                         )}
                       </TouchableOpacity>
+                      {heroAttributionMeta?.source === 'unsplash' &&
+                      heroAttributionMeta.unsplashAuthorName &&
+                      heroAttributionMeta.unsplashAuthorLink &&
+                      heroAttributionMeta.unsplashLink ? (
+                        <View pointerEvents="box-none" style={styles.heroAttributionOverlay}>
+                          <View style={styles.heroAttributionPill}>
+                            <Text style={styles.heroAttributionText} numberOfLines={1} ellipsizeMode="tail">
+                              Photo by{' '}
+                              <Text
+                                style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                onPress={() => {
+                                  const url = heroAttributionMeta?.unsplashAuthorLink;
+                                  if (url) {
+                                    Linking.openURL(url).catch(() => {});
+                                  }
+                                }}
+                              >
+                                {heroAttributionMeta.unsplashAuthorName}
+                              </Text>{' '}
+                              on{' '}
+                              <Text
+                                style={[styles.heroAttributionText, styles.heroAttributionLink]}
+                                onPress={() => {
+                                  const url = heroAttributionMeta?.unsplashLink;
+                                  if (url) {
+                                    Linking.openURL(url).catch(() => {});
+                                  }
+                                }}
+                              >
+                                Unsplash
+                              </Text>
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
                     </View>
                   </Animated.View>
                 </View>
@@ -4493,6 +4529,29 @@ const styles = StyleSheet.create({
   heroFullBleedImage: {
     width: '100%',
     height: '100%',
+  },
+  heroAttributionOverlay: {
+    position: 'absolute',
+    // Lift above the sheet overlap (Goal sheet starts at -20px).
+    bottom: spacing.sm + 20,
+    right: spacing.xl,
+    alignItems: 'flex-end',
+  },
+  heroAttributionPill: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  heroAttributionText: {
+    ...typography.bodySm,
+    fontSize: 11,
+    lineHeight: 13,
+    color: colors.textPrimary,
+  },
+  heroAttributionLink: {
+    textDecorationLine: 'underline',
   },
   headerMembersStandalone: {
     height: '100%',

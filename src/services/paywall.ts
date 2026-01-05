@@ -19,6 +19,7 @@ export type PaywallSource =
   | 'goals_draft_adopt'
   | 'ai_chat_goal_adopt'
   | 'arc_banner_sheet'
+  | 'activity_banner_sheet'
   | 'activity_focus_mode'
   | 'activity_detail_ai'
   | 'activity_tags_ai'

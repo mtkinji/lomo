@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Animated, Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, Image, Linking, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
@@ -16,6 +16,7 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { KwiltAiQuotaExceededError } from '../../services/ai';
 import {
   addDocumentToActivity,
   addPhotoOrVideoToActivity,
@@ -70,7 +71,6 @@ export function ActivityDetailRefresh(props: any) {
     openFocusSheet,
     openCalendarSheet,
     openAgentForActivity,
-    canSendTo,
     setActiveSheet,
     scrollRef,
     KEYBOARD_CLEARANCE,
@@ -154,6 +154,7 @@ export function ActivityDetailRefresh(props: any) {
     recommendedGoalOption,
     activityTypeOptions,
     handleDeleteActivity,
+    onPressEditHeaderImage,
     // Fade geometry (provided by ActivityDetailScreen)
     appShellTopInsetPx,
     bottomFadeHeightPx,
@@ -228,13 +229,15 @@ export function ActivityDetailRefresh(props: any) {
   });
 
   const headerArtworkSource = getActivityHeaderArtworkSource(activity.type as ActivityType);
-  const resolvedHeaderArtwork = headerArtworkSource ? Image.resolveAssetSource(headerArtworkSource) : undefined;
-  const headerArtworkAspectRatio =
-    resolvedHeaderArtwork?.width && resolvedHeaderArtwork?.height
-      ? resolvedHeaderArtwork.width / resolvedHeaderArtwork.height
+  const heroImageSource = activity?.thumbnailUrl ? { uri: activity.thumbnailUrl } : headerArtworkSource;
+  const resolvedHeroArtwork =
+    heroImageSource && typeof heroImageSource === 'number' ? Image.resolveAssetSource(heroImageSource) : undefined;
+  const heroImageAspectRatio =
+    resolvedHeroArtwork?.width && resolvedHeroArtwork?.height
+      ? resolvedHeroArtwork.width / resolvedHeroArtwork.height
       : undefined;
-  // Activities always have a mapped hero artwork; keep this boolean explicit for future overrides.
-  const heroEnabled = Boolean(headerArtworkSource);
+  // Activities always have a mapped hero artwork fallback; keep this boolean explicit for future overrides.
+  const heroEnabled = Boolean(heroImageSource);
   const headerPillMaterialVariant = heroEnabled ? 'default' : 'onLight';
 
   // ---------------------------------------------------------------------------
@@ -358,6 +361,18 @@ export function ActivityDetailRefresh(props: any) {
                 <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
                   <DropdownMenuItem
                     onPress={() => {
+                      onPressEditHeaderImage?.();
+                    }}
+                  >
+                    <View style={styles.menuItemRow}>
+                      <Icon name="image" size={16} color={headerInk} />
+                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                        Edit header image
+                      </Text>
+                    </View>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onPress={() => {
                       handleSendToShare().catch(() => undefined);
                     }}
                   >
@@ -475,6 +490,18 @@ export function ActivityDetailRefresh(props: any) {
                   <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
                     <DropdownMenuItem
                       onPress={() => {
+                        onPressEditHeaderImage?.();
+                      }}
+                    >
+                      <View style={styles.menuItemRow}>
+                        <Icon name="image" size={16} color={headerInk} />
+                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          Edit header image
+                        </Text>
+                      </View>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onPress={() => {
                         handleSendToShare().catch(() => undefined);
                       }}
                     >
@@ -537,7 +564,7 @@ export function ActivityDetailRefresh(props: any) {
             ]}
           >
             <Animated.View
-              pointerEvents="none"
+              pointerEvents="box-none"
               style={[
                 StyleSheet.absoluteFillObject,
                 {
@@ -547,17 +574,57 @@ export function ActivityDetailRefresh(props: any) {
               ]}
             >
               <View style={localStyles.activityHeroImageClip}>
-                {headerArtworkAspectRatio ? (
-                  <Image
-                    source={headerArtworkSource}
-                    // Use numeric sizing (not percentages) to guarantee true full-bleed width.
-                    // We size to the device width and let the hero container clip top/bottom.
-                    style={{ width: windowWidth, height: windowWidth / headerArtworkAspectRatio }}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Image source={headerArtworkSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit Activity header image"
+                  onPress={() => {
+                    onPressEditHeaderImage?.();
+                  }}
+                  style={StyleSheet.absoluteFillObject}
+                >
+                  {heroImageAspectRatio ? (
+                    <Image
+                      source={heroImageSource}
+                      // Use numeric sizing (not percentages) to guarantee true full-bleed width.
+                      // We size to the device width and let the hero container clip top/bottom.
+                      style={{ width: windowWidth, height: windowWidth / heroImageAspectRatio }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Image source={heroImageSource} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                  )}
+                </Pressable>
+                {activity?.heroImageMeta?.source === 'unsplash' &&
+                activity.heroImageMeta.unsplashAuthorName &&
+                activity.heroImageMeta.unsplashAuthorLink &&
+                activity.heroImageMeta.unsplashLink ? (
+                  <View pointerEvents="box-none" style={localStyles.heroAttributionOverlay}>
+                    <View style={localStyles.heroAttributionPill}>
+                      <Text style={localStyles.heroAttributionText} numberOfLines={1} ellipsizeMode="tail">
+                        Photo by{' '}
+                        <Text
+                          style={[localStyles.heroAttributionText, localStyles.heroAttributionLink]}
+                          onPress={() => {
+                            const url = activity.heroImageMeta?.unsplashAuthorLink;
+                            if (url) Linking.openURL(url).catch(() => {});
+                          }}
+                        >
+                          {activity.heroImageMeta.unsplashAuthorName}
+                        </Text>{' '}
+                        on{' '}
+                        <Text
+                          style={[localStyles.heroAttributionText, localStyles.heroAttributionLink]}
+                          onPress={() => {
+                            const url = activity.heroImageMeta?.unsplashLink;
+                            if (url) Linking.openURL(url).catch(() => {});
+                          }}
+                        >
+                          Unsplash
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
             </Animated.View>
           </View>
@@ -1262,20 +1329,34 @@ export function ActivityDetailRefresh(props: any) {
                             tagsAutofillInFlightRef.current = true;
                             setIsTagsAutofillThinking(true);
                             (async () => {
-                              const aiTags = await suggestActivityTagsWithAi({
-                                activityTitle: activity.title,
-                                activityNotes: activity.notes,
-                                goalTitle: goalTitle ?? null,
-                                tagHistory: activityTagHistory,
-                                maxTags: 4,
-                              });
-                              const suggested =
-                                aiTags && aiTags.length > 0
-                                  ? aiTags
-                                  : suggestTagsFromText(activity.title, activity.notes, goalTitle);
-                              addTags(suggested);
+                              try {
+                                const aiTags = await suggestActivityTagsWithAi({
+                                  activityTitle: activity.title,
+                                  activityNotes: activity.notes,
+                                  goalTitle: goalTitle ?? null,
+                                  tagHistory: activityTagHistory,
+                                  maxTags: 4,
+                                });
+                                if (aiTags && aiTags.length > 0) {
+                                  addTags(aiTags);
+                                  return;
+                                }
+                                // AI was unavailable for a non-credit reason (network, provider hiccup, etc).
+                                // Best-effort fallback keeps the UX responsive.
+                                addTags(suggestTagsFromText(activity.title, activity.notes, goalTitle));
+                              } catch (err) {
+                                // Hard-stop when the server says we're out of credits (avoid "fallback tags" that
+                                // make it feel like AI is still unlocked without credits).
+                                if (err instanceof KwiltAiQuotaExceededError) {
+                                  openPaywallInterstitial({
+                                    reason: 'generative_quota_exceeded',
+                                    source: 'activity_tags_ai',
+                                  });
+                                  return;
+                                }
+                                addTags(suggestTagsFromText(activity.title, activity.notes, goalTitle));
+                              }
                             })()
-                              .catch(() => undefined)
                               .finally(() => {
                                 tagsAutofillInFlightRef.current = false;
                                 setIsTagsAutofillThinking(false);
@@ -1584,6 +1665,28 @@ const localStyles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroAttributionOverlay: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.xl,
+    alignItems: 'flex-end',
+  },
+  heroAttributionPill: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  heroAttributionText: {
+    ...typography.bodySm,
+    fontSize: 11,
+    lineHeight: 13,
+    color: colors.textPrimary,
+  },
+  heroAttributionLink: {
+    textDecorationLine: 'underline',
   },
   headerRow: {
     paddingHorizontal: spacing.xl,

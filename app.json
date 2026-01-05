@@ -13,7 +13,10 @@
       "backgroundColor": "#8EAF8B"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.andrewwatanabe.kwilt",
+      "appleTeamId": "BK3N7YXHN7",
+      "buildNumber": "23"
     },
     "android": {
       "adaptiveIcon": {

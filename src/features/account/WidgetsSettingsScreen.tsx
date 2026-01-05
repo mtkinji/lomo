@@ -6,6 +6,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { WidgetPreview } from '../../ui/WidgetPreview';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Text, VStack, ButtonLabel, Card } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
@@ -52,6 +53,19 @@ export function WidgetsSettingsScreen() {
               Add Kwilt to your Home Screen or Lock Screen so Today and your next step are one tap away.
             </Text>
           </View>
+
+          <Card style={styles.card}>
+            <VStack space="md">
+              <HStack alignItems="center" space="sm">
+                <Icon name="today" size={18} color={colors.textPrimary} />
+                <Text style={styles.cardTitle}>What the widget looks like</Text>
+              </HStack>
+              <WidgetPreview title="Open Kwilt" />
+              <Text style={styles.previewHint}>
+                This is a preview of the widget surfaces you’ll see in the iOS widget gallery.
+              </Text>
+            </VStack>
+          </Card>
 
           <Card style={styles.card}>
             <VStack space="md">
@@ -120,6 +134,10 @@ const styles = StyleSheet.create({
   step: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  previewHint: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
 });
 
