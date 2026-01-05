@@ -54,6 +54,7 @@ import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI } from '../../services/ai';
+import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { suggestTagsFromText } from '../../utils/tags';
 import { shareUrlWithPreview } from '../../utils/share';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -3861,6 +3862,38 @@ function GoalActivityCoachDrawer({
       // Creating an Activity counts as showing up.
       recordShowUp();
       addActivity(nextActivity);
+      // Best-effort: if the model suggested a location offer, geocode and attach it asynchronously.
+      const locOffer = suggestion.locationOffer;
+      if (locOffer?.placeQuery && typeof locOffer.placeQuery === 'string') {
+        const query = locOffer.placeQuery.trim();
+        if (query.length > 0) {
+          const trigger =
+            locOffer.trigger === 'arrive' || locOffer.trigger === 'leave' ? locOffer.trigger : 'leave';
+          const radiusM =
+            typeof locOffer.radiusM === 'number' && Number.isFinite(locOffer.radiusM)
+              ? locOffer.radiusM
+              : undefined;
+          void (async () => {
+            const place = await geocodePlaceBestEffort({ query });
+            if (!place) return;
+            const nextAt = new Date().toISOString();
+            updateActivity(id, (prev) => ({
+              ...prev,
+              location: {
+                label:
+                  typeof locOffer.label === 'string' && locOffer.label.trim().length > 0
+                    ? locOffer.label.trim()
+                    : place.label,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                trigger,
+                ...(typeof radiusM === 'number' ? { radiusM } : null),
+              },
+              updatedAt: nextAt,
+            }));
+          })();
+        }
+      }
       capture(AnalyticsEvent.ActivityCreated, {
         source: 'goal_detail_ai_suggestion',
         activity_id: nextActivity.id,
@@ -3869,7 +3902,7 @@ function GoalActivityCoachDrawer({
         has_estimate: Boolean(nextActivity.estimateMinutes),
       });
     },
-    [activities.length, addActivity, capture, focusGoal?.title, focusGoalId, recordShowUp]
+    [activities.length, addActivity, capture, focusGoal?.title, focusGoalId, recordShowUp, updateActivity]
   );
 
   return (

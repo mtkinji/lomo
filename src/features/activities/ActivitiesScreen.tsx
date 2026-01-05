@@ -48,6 +48,7 @@ import { useFeatureFlagVariant } from '../../services/analytics/useFeatureFlagVa
 import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound } from '../../services/uiSounds';
+import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors, spacing, typography } from '../../theme';
 import {
@@ -2823,6 +2824,7 @@ function ActivityCoachDrawer({
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const { capture } = useAnalytics();
   const recordShowUp = useAppStore((state) => state.recordShowUp);
+  const updateActivity = useAppStore((state) => state.updateActivity);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = React.useState(false);
@@ -3102,6 +3104,39 @@ function ActivityCoachDrawer({
       };
 
       addActivity(activity);
+      // Best-effort: if the model suggested a location offer, geocode and attach it asynchronously.
+      // This keeps the "create" UX snappy and avoids blocking on network.
+      const locOffer = suggestion.locationOffer;
+      if (locOffer?.placeQuery && typeof locOffer.placeQuery === 'string') {
+        const query = locOffer.placeQuery.trim();
+        if (query.length > 0) {
+          const trigger =
+            locOffer.trigger === 'arrive' || locOffer.trigger === 'leave' ? locOffer.trigger : 'leave';
+          const radiusM =
+            typeof locOffer.radiusM === 'number' && Number.isFinite(locOffer.radiusM)
+              ? locOffer.radiusM
+              : undefined;
+          void (async () => {
+            const place = await geocodePlaceBestEffort({ query });
+            if (!place) return;
+            const nextAt = new Date().toISOString();
+            updateActivity(id, (prev) => ({
+              ...prev,
+              location: {
+                label:
+                  typeof locOffer.label === 'string' && locOffer.label.trim().length > 0
+                    ? locOffer.label.trim()
+                    : place.label,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                trigger,
+                ...(typeof radiusM === 'number' ? { radiusM } : null),
+              },
+              updatedAt: nextAt,
+            }));
+          })();
+        }
+      }
       void HapticsService.trigger('outcome.success');
       capture(AnalyticsEvent.ActivityCreated, {
         source: 'ai_suggestion',
@@ -3111,7 +3146,7 @@ function ActivityCoachDrawer({
         has_estimate: Boolean(activity.estimateMinutes),
       });
     },
-    [activities.length, addActivity, capture],
+    [activities.length, addActivity, capture, updateActivity],
   );
 
   return (

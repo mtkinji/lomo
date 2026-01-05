@@ -191,7 +191,11 @@ export function Combobox({
       const gutter = spacing.sm;
       const sideOffset = 4; // keep in sync with DropdownMenuContent sideOffset
 
-      const keyboardSafeBottom = windowH - keyboardHeight - insets.bottom - gutter;
+      // iOS reports keyboard height including the home-indicator safe area. When the keyboard
+      // is shown, subtracting `insets.bottom` *again* makes the safe viewport too small and
+      // can translate the menu off-screen (leaving a big "dead space" under the trigger).
+      const keyboardSafeBottom =
+        keyboardHeight > 0 ? windowH - keyboardHeight - gutter : windowH - insets.bottom - gutter;
       const keyboardSafeTop = insets.top + gutter;
 
       const triggerBottom = y + h;

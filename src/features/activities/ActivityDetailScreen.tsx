@@ -3666,7 +3666,10 @@ export function ActivityDetailScreen() {
                           ? 'No results found.'
                           : 'Type to search.'
                     }
-                    presentation="popover"
+                    // iOS: popover + keyboard inside a BottomDrawer can land the search input/menu
+                    // under the keyboard (and trigger "Error measuring text field" warnings).
+                    // Use the keyboard-safe drawer presentation instead.
+                    presentation={Platform.OS === 'ios' ? 'drawer' : 'popover'}
                     portalHost={LOCATION_SHEET_PORTAL_HOST}
                     allowDeselect={false}
                     trigger={
