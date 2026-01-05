@@ -57,6 +57,11 @@ export const AnalyticsEvent = {
   JoinGoalSucceeded: 'join_goal_succeeded',
   JoinGoalFailed: 'join_goal_failed',
   JoinGoalAlreadyMember: 'join_goal_already_member',
+
+  // Web → app ArcDraft handoff
+  ArcDraftClaimAttempted: 'arc_draft_claim_attempted',
+  ArcDraftClaimSucceeded: 'arc_draft_claim_succeeded',
+  ArcDraftClaimFailed: 'arc_draft_claim_failed',
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];

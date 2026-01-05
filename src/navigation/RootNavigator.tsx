@@ -44,6 +44,7 @@ import { ToastHost } from '../ui/ToastHost';
 import { AuthPromptDrawerHost } from '../features/account/AuthPromptDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { handleIncomingInviteUrl } from '../services/invites';
+import { handleIncomingArcDraftUrl } from '../services/arcDrafts';
 import { pingInstall } from '../services/installPing';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
@@ -54,6 +55,7 @@ import { useAppStore } from '../store/useAppStore';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Button } from '../ui/Button';
 import { rootNavigationRef } from './rootNavigationRef';
+import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -96,6 +98,7 @@ export type { ActivityDetailRouteParams, GoalDetailRouteParams } from './routePa
 
 export type ArcsStackParamList = {
   ArcsList: undefined;
+  ArcDraftContinue: undefined;
   ArcDetail: {
     arcId: string;
     /**
@@ -281,6 +284,15 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
     const handleUrl = async (url: string) => {
       if (!mounted) return;
+      try {
+        const didHandleArcDraft = await handleIncomingArcDraftUrl(url, capture);
+        if (didHandleArcDraft) return;
+      } catch (e: any) {
+        // Best-effort: don't block other handlers if this fails.
+        capture(AnalyticsEvent.ArcDraftClaimFailed, {
+          error_message: typeof e?.message === 'string' ? e.message.slice(0, 180) : 'unknown',
+        });
+      }
       const didHandleReferral = await handleIncomingReferralUrl(url);
       if (didHandleReferral) return;
       await handleIncomingInviteUrl(url);
@@ -575,6 +587,7 @@ function ArcsStackNavigator() {
   return (
     <ArcsStack.Navigator screenOptions={STACK_SCREEN_OPTIONS}>
       <ArcsStack.Screen name="ArcsList" component={ArcsScreen} />
+      <ArcsStack.Screen name="ArcDraftContinue" component={ArcDraftContinueScreen} />
       <ArcsStack.Screen name="ArcDetail" component={ArcDetailScreen} />
       <ArcsStack.Screen name="GoalDetail" component={GoalDetailScreen} />
       <ArcsStack.Screen

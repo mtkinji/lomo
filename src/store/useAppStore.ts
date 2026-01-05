@@ -2055,6 +2055,58 @@ export const useAppStore = create<AppState>()(
           }
         }
 
+        // Safety cleanup: screenshot seed pack should never persist into non-dev builds.
+        // (DevTools can install this locally for marketing screenshots.)
+        if (!__DEV__) {
+          const ARC_PREFIX = 'arc-screenshot-';
+          const GOAL_PREFIX = 'goal-screenshot-';
+          const ACTIVITY_PREFIX = 'activity-screenshot-';
+
+          const removedArcIds = new Set<string>();
+          state.arcs = (state.arcs ?? []).filter((arc) => {
+            const shouldRemove = typeof arc?.id === 'string' && arc.id.startsWith(ARC_PREFIX);
+            if (shouldRemove) removedArcIds.add(arc.id);
+            return !shouldRemove;
+          });
+
+          const removedGoalIds = new Set<string>();
+          state.goals = (state.goals ?? []).filter((goal) => {
+            const id = typeof goal?.id === 'string' ? goal.id : '';
+            const arcId = typeof (goal as any)?.arcId === 'string' ? (goal as any).arcId : '';
+            const shouldRemove =
+              (id && id.startsWith(GOAL_PREFIX)) || (arcId && removedArcIds.has(arcId));
+            if (shouldRemove && id) removedGoalIds.add(id);
+            return !shouldRemove;
+          });
+
+          state.activities = (state.activities ?? []).filter((activity) => {
+            const id = typeof activity?.id === 'string' ? activity.id : '';
+            const goalId = typeof (activity as any)?.goalId === 'string' ? (activity as any).goalId : '';
+            const shouldRemove =
+              (id && id.startsWith(ACTIVITY_PREFIX)) ||
+              (goalId && removedGoalIds.has(goalId)) ||
+              (goalId && goalId.startsWith(GOAL_PREFIX));
+            return !shouldRemove;
+          });
+
+          // Clear stale pointers.
+          if (state.lastOnboardingArcId && removedArcIds.has(state.lastOnboardingArcId)) {
+            state.lastOnboardingArcId = null;
+          }
+          if (state.lastOnboardingGoalId && removedGoalIds.has(state.lastOnboardingGoalId)) {
+            state.lastOnboardingGoalId = null;
+          }
+
+          // Remove any stored goal recommendations keyed by removed arcs.
+          if (state.goalRecommendations) {
+            for (const arcId of removedArcIds) {
+              if (arcId in state.goalRecommendations) {
+                delete (state.goalRecommendations as any)[arcId];
+              }
+            }
+          }
+        }
+
         // Backward-compatible normalization: older persisted activities may not have `tags`.
         // Ensure the field is always present as a string[].
         // Also ensure `type` exists (added later) so the UI / AI can rely on it.

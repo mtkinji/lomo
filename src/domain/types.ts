@@ -635,7 +635,7 @@ import type {
   ArchetypeRoleModelTypeId,
   ArchetypeRoleModelWhyId,
   ArchetypeSpecificRoleModelId,
-} from './archetypeTaps';
+} from '@kwilt/arc-survey';
 
 export interface IdentityProfile {
   domainIds: string[];

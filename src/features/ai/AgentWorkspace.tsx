@@ -37,6 +37,8 @@ import { BrandLockup } from '../../ui/BrandLockup';
 import { Icon } from '../../ui/Icon';
 import { Dialog, Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
+import { useArcDraftClaimStore } from '../../store/useArcDraftClaimStore';
+import { ArcDraftContinueFlow } from '../arcs/ArcDraftContinueFlow';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -224,6 +226,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
 
   const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
   const [hasAiQuotaExceeded, setHasAiQuotaExceeded] = useState(false);
+  const arcDraftPayload = useArcDraftClaimStore((s) => s.payload);
 
   useEffect(() => {
     // If dev tooling (or time-based proxy retryAt) clears the global quota flag,
@@ -535,6 +538,15 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     // the user sees a clear, structured entry point before continuing in the
     // shared chat surface.
     if (workflowDefinition.chatMode === 'arcCreation') {
+      // If we have a claimed ArcDraft payload (from a web → app handoff),
+      // auto-submit it into the workflow instead of re-running the survey UI.
+      if (arcDraftPayload) {
+        return (
+          <ArcDraftContinueFlow
+            chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
+          />
+        );
+      }
       return (
         <ArcCreationFlow
           chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}

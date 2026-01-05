@@ -250,6 +250,7 @@ function clamp(v: number, min: number, max: number) {
 
 async function ensureAudioMode() {
   if (audioModeConfigured) return;
+  const Audio = await getAudio();
   const interruptionModeIOS =
     (Audio as any)?.InterruptionModeIOS?.DuckOthers ??
     (Audio as any)?.INTERRUPTION_MODE_IOS_DUCK_OTHERS;
@@ -282,8 +283,12 @@ async function ensureAudioMode() {
   audioModeConfigured = true;
 }
 
+type VolumeFadableSound = {
+  setVolumeAsync: (volume: number) => Promise<void>;
+};
+
 async function fadeToVolume(
-  target: Audio.Sound,
+  target: VolumeFadableSound,
   from: number,
   to: number,
   durationMs: number,
