@@ -33,6 +33,10 @@ import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { RedeemProCodeScreen } from '../features/account/RedeemProCodeScreen';
+import { ExecutionTargetsSettingsScreen } from '../features/account/ExecutionTargetsSettingsScreen';
+import { DestinationsLibraryScreen } from '../features/account/DestinationsLibraryScreen';
+import { DestinationDetailScreen } from '../features/account/DestinationDetailScreen';
+import { BuiltInDestinationDetailScreen } from '../features/account/BuiltInDestinationDetailScreen';
 import { SuperAdminToolsScreen } from '../features/account/SuperAdminToolsScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
@@ -138,6 +142,12 @@ export type SettingsStackParamList = {
   SettingsHaptics: undefined;
   SettingsWidgets: undefined;
   SettingsRedeemProCode: undefined;
+  SettingsExecutionTargets: undefined;
+  SettingsDestinationsLibrary: undefined;
+  SettingsDestinationDetail:
+    | { mode: 'create'; definitionId: string }
+    | { mode: 'edit'; targetId: string };
+  SettingsBuiltInDestinationDetail: { kind: 'amazon' | 'home_depot' | 'instacart' | 'doordash' };
   SettingsSuperAdminTools: undefined;
   SettingsManageSubscription:
     | {
@@ -671,6 +681,27 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsRedeemProCode"
         component={RedeemProCodeScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsExecutionTargets"
+        component={ExecutionTargetsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsDestinationsLibrary"
+        component={DestinationsLibraryScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsDestinationDetail"
+        component={DestinationDetailScreen}
+        options={{
+          // Avoid accidental swipe back while editing config.
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
+      <SettingsStack.Screen
+        name="SettingsBuiltInDestinationDetail"
+        component={BuiltInDestinationDetailScreen}
       />
       <SettingsStack.Screen
         name="SettingsSuperAdminTools"

@@ -43,6 +43,11 @@ type Params = {
    */
   enrichActivityWithAI?: (params: { title: string; goalId: string | null }) => Promise<any>;
   markActivityEnrichment?: (activityId: string, enriching: boolean) => void;
+  /**
+   * When true (default), re-focus the input after creating an activity to enable rapid entry.
+   * When false, callers can dismiss/collapse the dock after submit without it re-opening.
+   */
+  focusAfterSubmit?: boolean;
 };
 
 export function useQuickAddDockController(params: Params) {
@@ -58,6 +63,7 @@ export function useQuickAddDockController(params: Params) {
     onCreated,
     enrichActivityWithAI,
     markActivityEnrichment,
+    focusAfterSubmit = true,
   } = params;
 
   const [value, setValue] = React.useState('');
@@ -166,10 +172,12 @@ export function useQuickAddDockController(params: Params) {
     setRepeatRule(undefined);
     setEstimateMinutes(null);
 
-    requestAnimationFrame(() => {
-      // Keep the keyboard up for rapid entry.
-      inputRef.current?.focus?.();
-    });
+    if (focusAfterSubmit) {
+      requestAnimationFrame(() => {
+        // Keep the keyboard up for rapid entry.
+        inputRef.current?.focus?.();
+      });
+    }
 
     if (enrichActivityWithAI && updateActivity && markActivityEnrichment) {
       markActivityEnrichment(activity.id, true);
@@ -231,6 +239,7 @@ export function useQuickAddDockController(params: Params) {
     toastBottomOffset,
     updateActivity,
     value,
+    focusAfterSubmit,
   ]);
 
   return {

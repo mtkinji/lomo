@@ -10,7 +10,7 @@ import { Button } from '../../ui/Button';
 import { KeyboardAwareScrollView, Text, VStack, HStack, Heading, Input } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
-import { createProCodeAdmin, getAdminProCodesStatus, grantProSuperAdmin } from '../../services/proCodes';
+import { createProCodeAdmin, getAdminProCodesStatus, grantProSuperAdmin, sendProCodeSuperAdmin } from '../../services/proCodes';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { getInstallId } from '../../services/installId';
 import { adminListInstalls, adminListUsers, type DirectoryInstall, type DirectoryUser } from '../../services/kwiltUsersDirectory';
@@ -69,6 +69,8 @@ export function SuperAdminToolsScreen() {
 
   const [lastCode, setLastCode] = useState<string | null>(null);
   const [lastExpiresAt, setLastExpiresAt] = useState<string | null>(null);
+  const [sendToEmail, setSendToEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [codeDrawerVisible, setCodeDrawerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -172,6 +174,7 @@ export function SuperAdminToolsScreen() {
       });
       setLastCode(code);
       setLastExpiresAt(expiresAt);
+      setSendToEmail('');
       await Clipboard.setStringAsync(code);
       setCodeDrawerVisible(true);
     } catch (e: any) {
@@ -469,7 +472,7 @@ export function SuperAdminToolsScreen() {
         <BottomDrawer
           visible={codeDrawerVisible}
           onClose={() => setCodeDrawerVisible(false)}
-          snapPoints={['42%']}
+          snapPoints={['52%']}
           keyboardAvoidanceEnabled={false}
         >
           <VStack space="md">
@@ -487,6 +490,46 @@ export function SuperAdminToolsScreen() {
             </View>
 
             <Text style={styles.drawerHint}>Copied to clipboard on generation.</Text>
+
+            <VStack space="xs">
+              <Input
+                label="Send to email (optional)"
+                placeholder="someone@example.com"
+                value={sendToEmail}
+                onChangeText={setSendToEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                returnKeyType="done"
+                variant="outline"
+              />
+              <Button
+                variant="secondary"
+                disabled={!canUseTools || !lastCode || isSendingEmail || !sendToEmail.trim()}
+                onPress={async () => {
+                  if (!lastCode) return;
+                  const email = sendToEmail.trim();
+                  if (!email) return;
+                  setError(null);
+                  try {
+                    setIsSendingEmail(true);
+                    await sendProCodeSuperAdmin({
+                      channel: 'email',
+                      code: lastCode,
+                      recipientEmail: email,
+                    });
+                    Alert.alert('Sent', `Sent code to ${email}.`);
+                  } catch (e: any) {
+                    const msg = typeof e?.message === 'string' ? e.message : 'Unable to send email';
+                    Alert.alert('Unable to send email', msg);
+                  } finally {
+                    setIsSendingEmail(false);
+                  }
+                }}
+              >
+                <Text style={styles.secondaryButtonLabel}>{isSendingEmail ? 'Sending…' : 'Send email'}</Text>
+              </Button>
+            </VStack>
 
             <View style={styles.drawerActions}>
               <Button

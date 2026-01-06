@@ -222,7 +222,13 @@ serve(async (req) => {
 
   if (uploadError || !upload?.signedUrl) {
     await admin.from('activity_attachments').delete().eq('id', attachmentId);
-    return json(500, { error: { message: 'Unable to init upload', code: 'server_error' } });
+    return json(500, {
+      error: {
+        message: 'Unable to init upload',
+        code: 'server_error',
+        details: typeof (uploadError as any)?.message === 'string' ? (uploadError as any).message : null,
+      },
+    });
   }
 
   // Return the full row for convenience.

@@ -31,6 +31,7 @@ import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { withHapticPress } from '../../ui/haptics/withHapticPress';
 import { shareUrlWithPreview } from '../../utils/share';
 import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
+import { persistImageUri } from '../../utils/persistImageUri';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -57,6 +58,21 @@ type SettingsGroup = {
 };
 
 const SETTINGS_GROUPS: SettingsGroup[] = [
+  {
+    id: 'integrations',
+    title: 'Integrations',
+    description: 'Connect destinations that can receive handed-off Activities.',
+    items: [
+      {
+        id: 'execution_targets',
+        title: 'Destinations',
+        description: 'Install and configure destinations like Cursor.',
+        icon: 'share',
+        route: 'SettingsExecutionTargets',
+        tags: ['destinations', 'cursor', 'mcp', 'handoff'],
+      },
+    ],
+  },
   {
     id: 'personalization',
     title: 'Personalization',
@@ -232,13 +248,18 @@ export function SettingsHomeScreen() {
     }));
   };
 
-  const handleImageResult = (result: ImagePicker.ImagePickerResult) => {
+  const handleImageResult = async (result: ImagePicker.ImagePickerResult) => {
     if ('canceled' in result && result.canceled) {
       return;
     }
     const asset = result.assets?.[0];
     if (asset?.uri) {
-      updateAvatar(asset.uri);
+      const stableUri = await persistImageUri({
+        uri: asset.uri,
+        subdir: 'avatars',
+        namePrefix: 'avatar',
+      });
+      updateAvatar(stableUri);
     }
   };
 
@@ -280,7 +301,7 @@ export function SettingsHomeScreen() {
       } else {
         result = await ImagePicker.launchImageLibraryAsync(pickerOptions);
       }
-      handleImageResult(result);
+      await handleImageResult(result);
     } catch (error) {
       console.error('Failed to update avatar', error);
       Alert.alert('Unable to update photo', 'Something went wrong. Please try again.');

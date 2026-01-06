@@ -10,6 +10,49 @@ const AI_PROXY_BASE_URL_RAW = getEnvVar<string>('aiProxyBaseUrl');
 const AI_PROXY_BASE_URL =
   typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
 
+function decodeBase64Url(input: string): string {
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyGlobal = globalThis as any;
+  if (typeof anyGlobal?.atob === 'function') return anyGlobal.atob(padded);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof (anyGlobal?.Buffer as any)?.from === 'function') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (anyGlobal.Buffer as any).from(padded, 'base64').toString('utf8');
+  }
+  throw new Error('No base64 decoder available');
+}
+
+function deriveFunctionsProCodesBaseFromJwt(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payloadJson = decodeBase64Url(parts[1] ?? '');
+    const payload = JSON.parse(payloadJson) as { iss?: unknown };
+    const iss = typeof payload?.iss === 'string' ? payload.iss.trim() : '';
+    if (!iss) return null;
+    const u = new URL(iss);
+    const host = (u.hostname ?? '').trim();
+    const suffix = '.supabase.co';
+    if (!host.endsWith(suffix)) return null;
+    const projectRef = host.slice(0, -suffix.length);
+    if (!projectRef) return null;
+    return `https://${projectRef}.functions.supabase.co/functions/v1/pro-codes`;
+  } catch {
+    return null;
+  }
+}
+
+function getProCodesBaseUrlForHeaders(headers?: Headers | null): string | null {
+  const auth = (headers?.get('Authorization') ?? headers?.get('authorization') ?? '').trim();
+  const m = /^Bearer\s+(.+)$/i.exec(auth);
+  const token = m?.[1]?.trim() ?? '';
+  const derived = token ? deriveFunctionsProCodesBaseFromJwt(token) : null;
+  return derived ?? getProCodesBaseUrl();
+}
+
 function getProCodesBaseUrl(): string | null {
   // Fallback: derive from Supabase project URL if aiProxyBaseUrl isn't set in this build.
   // supabaseUrl format: https://<project-ref>.supabase.co
@@ -115,41 +158,52 @@ export async function getAdminProCodesStatus(params?: { requireAuth?: boolean })
   debugProCodesBaseUrl?: string;
   debugSupabaseUrl?: string;
 }> {
-  const base = getProCodesBaseUrl();
-  if (!base) {
-    throw new Error('Pro codes service not configured');
-  }
-
   const requireAuth = Boolean(params?.requireAuth);
-  const debugProCodesBaseUrl = __DEV__ ? base : undefined;
-  const debugSupabaseUrl = __DEV__ ? (getSupabaseUrl()?.trim() ?? '') : undefined;
   const doFetch = async (headers: Headers) => {
+    const base = getProCodesBaseUrlForHeaders(headers);
+    if (!base) {
+      throw new Error('Pro codes service not configured');
+    }
     const res = await fetch(`${base}/admin/status`, {
       method: 'POST',
       headers,
       body: JSON.stringify({}),
     });
-    const data = await res.json().catch(() => null);
-    return { res, data };
+    const text = await res.text().catch(() => '');
+    const data = (() => {
+      try {
+        return text ? (JSON.parse(text) as any) : null;
+      } catch {
+        return null;
+      }
+    })();
+    return { res, data, text };
   };
 
   // Default behavior (requireAuth=false): do NOT prompt sign-in just to "check" status.
   // If not signed in, treat as not admin and keep the UI quiet.
   // When requireAuth=true: attach a JWT and prompt sign-in if needed (used by Admin/Super Admin screens).
   let headers = requireAuth ? await buildAuthedAdminHeaders() : await buildMaybeAuthedHeaders();
-  let { res, data } = await doFetch(headers);
+  let { res, data, text } = await doFetch(headers);
 
-  // Expo Go/dev sessions can get "stuck" with a stale JWT (or a token minted against a different project).
-  // If the user explicitly navigated into Admin/Super Admin and we still get 401, force a local sign-out
-  // and re-auth once to obtain a fresh token, then retry.
+  const baseForDebug = getProCodesBaseUrlForHeaders(headers);
+  const debugProCodesBaseUrl = __DEV__ ? (baseForDebug ?? undefined) : undefined;
+  const debugSupabaseUrl = __DEV__ ? (getSupabaseUrl()?.trim() ?? '') : undefined;
+
+  // Never force-log-out on 401.
+  // A 401 here can be caused by a backend/config mismatch (issuer/audience/domain), not user intent.
+  // If we blow away the session, we immediately trigger another sign-in prompt which feels broken.
+  //
+  // Best-effort: if we *do* have a session, try refreshing once and retrying the request.
   if (requireAuth && res.status === 401) {
     try {
-      await getSupabaseClient().auth.signOut();
+      const supabase = getSupabaseClient();
+      await supabase.auth.refreshSession().catch(() => null);
+      headers = await buildAuthedAdminHeaders();
+      ({ res, data, text } = await doFetch(headers));
     } catch {
-      // best-effort
+      // best-effort only; fall through to return "not admin" below.
     }
-    headers = await buildAuthedAdminHeaders();
-    ({ res, data } = await doFetch(headers));
   }
 
   if (!res.ok) {
@@ -159,7 +213,9 @@ export async function getAdminProCodesStatus(params?: { requireAuth?: boolean })
         isAdmin: false,
         role: 'none',
         httpStatus: res.status,
-        errorMessage: typeof data?.error?.message === 'string' ? data.error.message : undefined,
+        errorMessage:
+          (typeof data?.error?.message === 'string' && data.error.message) ||
+          (typeof text === 'string' && text.trim() ? text.trim().slice(0, 180) : undefined),
         errorCode: typeof data?.error?.code === 'string' ? data.error.code : undefined,
         debugProCodesBaseUrl,
         debugSupabaseUrl,
@@ -190,14 +246,12 @@ export type CreateProCodeAdminInput = {
 };
 
 export async function createProCodeAdmin(input?: CreateProCodeAdminInput): Promise<{ code: string }> {
-  const base = getProCodesBaseUrl();
-  if (!base) {
-    throw new Error('Pro codes service not configured');
-  }
-
+  const headers = await buildAuthedAdminHeaders();
+  const base = getProCodesBaseUrlForHeaders(headers);
+  if (!base) throw new Error('Pro codes service not configured');
   const res = await fetch(`${base}/create`, {
     method: 'POST',
-    headers: await buildAuthedAdminHeaders(),
+    headers,
     body: JSON.stringify({
       ...(typeof input?.maxUses === 'number' ? { maxUses: input.maxUses } : {}),
       ...(typeof input?.expiresAt === 'string' && input.expiresAt.trim() ? { expiresAt: input.expiresAt.trim() } : {}),
@@ -224,14 +278,12 @@ export async function sendProCodeSuperAdmin(params: {
   recipientPhone?: string;
   note?: string;
 }): Promise<void> {
-  const base = getProCodesBaseUrl();
-  if (!base) {
-    throw new Error('Pro codes service not configured');
-  }
-
+  const headers = await buildAuthedAdminHeaders();
+  const base = getProCodesBaseUrlForHeaders(headers);
+  if (!base) throw new Error('Pro codes service not configured');
   const res = await fetch(`${base}/admin/send`, {
     method: 'POST',
-    headers: await buildAuthedAdminHeaders(),
+    headers,
     body: JSON.stringify({
       channel: params.channel,
       code: params.code,
@@ -252,14 +304,12 @@ export { getProStatus } from './proCodesStatus';
 export type { ProStatus } from './proCodesStatus';
 
 export async function grantProSuperAdmin(params: { targetType: 'user' | 'install'; email?: string; installId?: string }) {
-  const base = getProCodesBaseUrl();
-  if (!base) {
-    throw new Error('Pro codes service not configured');
-  }
-
+  const headers = await buildAuthedAdminHeaders();
+  const base = getProCodesBaseUrlForHeaders(headers);
+  if (!base) throw new Error('Pro codes service not configured');
   const res = await fetch(`${base}/admin/grant`, {
     method: 'POST',
-    headers: await buildAuthedAdminHeaders(),
+    headers,
     body: JSON.stringify({
       targetType: params.targetType,
       email: params.email,

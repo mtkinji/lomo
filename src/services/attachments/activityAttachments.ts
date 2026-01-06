@@ -43,9 +43,14 @@ async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
   headers.set('x-kwilt-client', 'kwilt-mobile');
 
   const supabaseKey = getSupabasePublishableKey()?.trim();
-  if (supabaseKey) {
-    headers.set('apikey', supabaseKey);
+  if (!supabaseKey) {
+    // Without an anon/publishable key, Supabase Edge Functions may reject requests
+    // (often with a non-JSON body), which can surface as confusing generic errors.
+    throw new Error(
+      'Missing Supabase publishable key (set extra.supabasePublishableKey / SUPABASE_ANON_KEY / EXPO_PUBLIC_SUPABASE_ANON_KEY)',
+    );
   }
+  headers.set('apikey', supabaseKey);
 
   try {
     const installId = await getInstallId();
@@ -68,6 +73,31 @@ async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
   }
 
   return headers;
+}
+
+async function readJsonOrText(res: Response): Promise<{ json: any | null; text: string }> {
+  const text = await res.text().catch(() => '');
+  if (!text) return { json: null, text: '' };
+  try {
+    return { json: JSON.parse(text), text };
+  } catch {
+    return { json: null, text };
+  }
+}
+
+function pickErrorMessage(params: { fallback: string; status: number; json: any | null; text: string }): string {
+  const msg = typeof params.json?.error?.message === 'string' ? params.json.error.message : '';
+  const details =
+    typeof params.json?.error?.details === 'string'
+      ? params.json.error.details
+      : typeof params.json?.error?.detail === 'string'
+        ? params.json.error.detail
+        : '';
+
+  if (msg.trim()) return msg.trim();
+  if (details.trim()) return details.trim();
+  if (params.text.trim()) return `${params.fallback} (status ${params.status}): ${params.text.trim().slice(0, 280)}`;
+  return `${params.fallback} (status ${params.status})`;
 }
 
 function parseAttachmentRow(row: any): ActivityAttachment | null {
@@ -126,10 +156,16 @@ async function initUpload(params: {
     }),
   });
 
-  const data = await res.json().catch(() => null);
+  const { json: data, text } = await readJsonOrText(res);
   if (!res.ok) {
-    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to init upload';
-    throw new Error(msg);
+    throw new Error(
+      pickErrorMessage({
+        fallback: 'Unable to init upload',
+        status: res.status,
+        json: data,
+        text,
+      }),
+    );
   }
 
   const attachment = parseAttachmentRow(data?.attachment);
@@ -485,10 +521,16 @@ export async function openAttachment(attachmentId: string): Promise<void> {
     body: JSON.stringify({ attachmentId }),
   });
 
-  const data = await res.json().catch(() => null);
+  const { json: data, text } = await readJsonOrText(res);
   if (!res.ok) {
-    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to open attachment';
-    throw new Error(msg);
+    throw new Error(
+      pickErrorMessage({
+        fallback: 'Unable to open attachment',
+        status: res.status,
+        json: data,
+        text,
+      }),
+    );
   }
 
   const url = typeof data?.url === 'string' ? data.url : '';
@@ -514,10 +556,16 @@ export async function deleteAttachment(params: { activityId: string; attachmentI
     headers: await buildEdgeHeaders(true),
     body: JSON.stringify({ attachmentId: params.attachmentId }),
   });
-  const data = await res.json().catch(() => null);
+  const { json: data, text } = await readJsonOrText(res);
   if (!res.ok) {
-    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to delete attachment';
-    throw new Error(msg);
+    throw new Error(
+      pickErrorMessage({
+        fallback: 'Unable to delete attachment',
+        status: res.status,
+        json: data,
+        text,
+      }),
+    );
   }
 
   const nowIso = new Date().toISOString();
@@ -552,10 +600,16 @@ export async function setAttachmentSharedWithGoalMembers(params: {
       sharedWithGoalMembers: params.sharedWithGoalMembers,
     }),
   });
-  const data = await res.json().catch(() => null);
+  const { json: data, text } = await readJsonOrText(res);
   if (!res.ok) {
-    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to update share state';
-    throw new Error(msg);
+    throw new Error(
+      pickErrorMessage({
+        fallback: 'Unable to update share state',
+        status: res.status,
+        json: data,
+        text,
+      }),
+    );
   }
 
   const next = Boolean(data?.sharedWithGoalMembers);

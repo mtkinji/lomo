@@ -57,6 +57,7 @@ import { enrichActivityWithAI } from '../../services/ai';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { suggestTagsFromText } from '../../utils/tags';
 import { shareUrlWithPreview } from '../../utils/share';
+import { persistImageUri } from '../../utils/persistImageUri';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   ARC_MOSAIC_COLS,
@@ -379,6 +380,7 @@ export function GoalDetailScreen() {
     showToast,
     initialReservedHeightPx: quickAddInitialReservedHeightPx,
     toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
+    focusAfterSubmit: false,
     onCreated: (activity) => {
       capture(AnalyticsEvent.ActivityCreated, {
         source: 'goal_detail_quick_add',
@@ -1415,10 +1417,15 @@ export function GoalDetailScreen() {
       const asset = result.assets[0];
       if (!asset.uri) return;
 
+      const stableUri = await persistImageUri({
+        uri: asset.uri,
+        subdir: 'hero-images',
+        namePrefix: `goal-${goal.id}-hero`,
+      });
       const nowIso = new Date().toISOString();
       updateGoal(goal.id, (prev) => ({
         ...prev,
-        thumbnailUrl: asset.uri,
+        thumbnailUrl: stableUri,
         heroImageMeta: {
           source: 'upload',
           prompt: prev.heroImageMeta?.prompt,

@@ -1,0 +1,39 @@
+name: iOS TestFlight (EAS)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "ios-v*"
+
+jobs:
+  build_and_submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Setup Expo + EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build (production) + auto-submit to TestFlight
+        env:
+          # Expo token for non-interactive EAS auth.
+          # The expo/expo-github-action sets EXPO_TOKEN for the CLI; we keep this for clarity.
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npm run -s ios:testflight
+
+

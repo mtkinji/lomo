@@ -303,7 +303,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                       inputStyle={styles.stepInput}
                       multiline
                       multilineMinHeight={typography.body.lineHeight}
-                      multilineMaxHeight={typography.body.lineHeight * 4 + spacing.sm}
+                      // Steps should always expand to show the full content (no nested scrolling),
+                      // especially when users paste long text.
+                      multilineMaxHeight={Number.POSITIVE_INFINITY}
+                      scrollEnabled={false}
                       blurOnSubmit
                       returnKeyType="done"
                     />
@@ -335,7 +338,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 placeholder="Add step"
                 size="md"
                 variant="inline"
-                inputStyle={styles.stepInput}
+                inputStyle={[styles.stepInput, styles.newStepInput]}
                 multiline={false}
                 blurOnSubmit={false}
                 returnKeyType="done"
@@ -942,6 +945,9 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
+  },
+  newStepInput: {
+    paddingVertical: 0,
   },
   removeStepButton: {
     width: 28,
