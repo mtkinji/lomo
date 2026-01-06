@@ -32,7 +32,15 @@ type ButtonSizeProp = 'xs' | 'sm' | 'md' | 'lg' | 'default' | 'small' | 'icon';
 type Props = {
   variant?: ButtonVariant;
   size?: ButtonSizeProp;
-  children: ReactNode;
+  /**
+   * Primary button content. Prefer passing a string for standard button labels.
+   */
+  children?: ReactNode;
+  /**
+   * Backwards-compatible label prop used by older screens. If `children` is not
+   * provided, `label` will be used as the button content.
+   */
+  label?: ReactNode;
   style?: StyleProp<ViewStyle>;
   /**
    * Optional className carried over from the previous Tailwind/ShadCN
@@ -63,6 +71,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
     iconButtonSize,
     fullWidth,
     children,
+    label,
     className,
     haptic = 'canvas.selection',
     ...rest
@@ -114,7 +123,9 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
   const resolvedBorderColor =
     variantTokens.borderColor ?? (shouldReserveBorderSpace ? 'transparent' : 'transparent');
 
-  const shouldWrapChildrenAsLabel = typeof children === 'string' || typeof children === 'number';
+  const resolvedChildren = children ?? label;
+  const shouldWrapChildrenAsLabel =
+    typeof resolvedChildren === 'string' || typeof resolvedChildren === 'number';
   const labelTone = variantTokens.textTone;
   const { onPress, ...pressableRest } = rest;
   const onPressWithHaptics = React.useMemo(() => withHapticPress(onPress as any, haptic), [onPress, haptic]);
@@ -179,11 +190,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
         </View>
       ) : null}
       <ButtonContext.Provider value={contextValue}>
-        {shouldWrapChildrenAsLabel ? (
-          <ButtonLabel tone={labelTone}>{children}</ButtonLabel>
-        ) : (
-          children
-        )}
+        {shouldWrapChildrenAsLabel ? <ButtonLabel tone={labelTone}>{resolvedChildren}</ButtonLabel> : resolvedChildren}
       </ButtonContext.Provider>
     </Pressable>
   );

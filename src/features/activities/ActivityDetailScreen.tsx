@@ -31,6 +31,7 @@ import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { persistImageUri } from '../../utils/persistImageUri';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { useToastStore } from '../../store/useToastStore';
@@ -101,6 +102,9 @@ import {
 } from '../../services/attachments/activityAttachments';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
+import { listExecutionTargets, type ExecutionTargetRow } from '../../services/executionTargets/executionTargets';
+import { handoffActivityToExecutionTarget } from '../../services/executionTargets/activityHandoffs';
+import { getDestinationSupportedActivityTypes } from '../../domain/destinationCapabilities';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSounds';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
@@ -223,6 +227,7 @@ export function ActivityDetailScreen() {
     (state) => state.setHasDismissedActivityDetailGuide,
   );
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
+  const enabledSendToDestinations = useAppStore((state) => state.enabledSendToDestinations);
 
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
@@ -265,10 +270,15 @@ export function ActivityDetailScreen() {
       const asset = result.assets[0];
       if (!asset.uri) return;
 
+      const stableUri = await persistImageUri({
+        uri: asset.uri,
+        subdir: 'hero-images',
+        namePrefix: `activity-${activity.id}-hero`,
+      });
       const nowIso = new Date().toISOString();
       updateActivity(activity.id, (prev: any) => ({
         ...prev,
-        thumbnailUrl: asset.uri,
+        thumbnailUrl: stableUri,
         heroImageMeta: {
           source: 'upload',
           prompt: prev.heroImageMeta?.prompt,
@@ -602,7 +612,17 @@ export function ActivityDetailScreen() {
   const focusEndNotificationIdRef = useRef<string | null>(null);
   const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const focusPresetValues = [10, 25, 45, 60];
+  const focusPresetValues = useMemo<number[]>(() => [10, 25, 45, 60], []);
+  const focusCustomOptionsMinutes = useMemo<number[]>(() => {
+    // Keep the list reference stable so the custom picker doesn't churn/rebuild items on every tap.
+    return Array.from(
+      { length: Math.max(1, Math.floor(focusMaxMinutes / 5)) },
+      (_, idx) => (idx + 1) * 5,
+    );
+  }, [focusMaxMinutes]);
+  const handleChangeFocusMinutes = useCallback((next: number) => {
+    setFocusMinutesDraft(String(next));
+  }, []);
   const focusDraftMinutes = Math.min(
     focusMaxMinutes,
     Math.max(1, Math.floor(Number(focusMinutesDraft) || 1)),
@@ -629,6 +649,8 @@ export function ActivityDetailScreen() {
   const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
   const [isLoadingCalendars, setIsLoadingCalendars] = useState(false);
   const sendToSheetVisible = activeSheet === 'sendTo';
+  const [installedDestinations, setInstalledDestinations] = useState<ExecutionTargetRow[]>([]);
+  const [isLoadingDestinations, setIsLoadingDestinations] = useState(false);
   const recordAudioSheetVisible = activeSheet === 'recordAudio';
   const LOCATION_SHEET_PORTAL_HOST = 'activity-detail-location-sheet';
   const FOCUS_SHEET_PORTAL_HOST = 'activity-detail-focus-sheet';
@@ -1324,6 +1346,23 @@ export function ActivityDetailScreen() {
     if (!url) return;
     await openExternalUrl(url);
   }, [openExternalUrl, sendToSearchQuery]);
+
+  const handleSendToDoorDash = useCallback(async () => {
+    const q = sendToSearchQuery;
+    if (!q) return;
+    const url = buildAffiliateRetailerSearchUrl('doorDash', q);
+    if (!url) return;
+    await openExternalUrl(url);
+  }, [openExternalUrl, sendToSearchQuery]);
+
+  useEffect(() => {
+    if (!sendToSheetVisible) return;
+    setIsLoadingDestinations(true);
+    listExecutionTargets()
+      .then((tgs) => setInstalledDestinations(Array.isArray(tgs) ? tgs : []))
+      .catch(() => setInstalledDestinations([]))
+      .finally(() => setIsLoadingDestinations(false));
+  }, [sendToSheetVisible]);
 
   useEffect(() => {
     // iOS interactive dismissal can fail to fire `keyboardDidHide`, leaving stale state.
@@ -4196,7 +4235,7 @@ export function ActivityDetailScreen() {
               <View>
                 <Text style={styles.estimateFieldLabel}>Minutes</Text>
                 <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
-                  {(focusPresetValues as number[]).map((m) => {
+                  {focusPresetValues.map((m) => {
                     const selected = !focusCustomExpanded && focusDraftMinutes === m;
                     return (
                       <Pressable
@@ -4254,11 +4293,8 @@ export function ActivityDetailScreen() {
                   <View style={{ marginTop: spacing.md }}>
                     <DurationPicker
                       valueMinutes={focusDraftMinutes}
-                      onChangeMinutes={(next) => setFocusMinutesDraft(String(next))}
-                      optionsMinutes={Array.from(
-                        { length: Math.max(1, Math.floor(focusMaxMinutes / 5)) },
-                        (_, idx) => (idx + 1) * 5,
-                      )}
+                      onChangeMinutes={handleChangeFocusMinutes}
+                      optionsMinutes={focusCustomOptionsMinutes}
                       accessibilityLabel="Select custom focus duration"
                       iosWheelHeight={160}
                       showHelperText={false}
@@ -4638,7 +4674,47 @@ export function ActivityDetailScreen() {
       >
         <View style={styles.sheetContent}>
           <Text style={styles.sheetTitle}>Send to…</Text>
-          <SheetOption
+          {(() => {
+            const type = (activity?.type ?? 'task') as any;
+            const supported = installedDestinations
+              .filter((t) => Boolean(t.is_enabled))
+              .filter((t) => getDestinationSupportedActivityTypes(t.kind as any).includes(type));
+            if (supported.length === 0) return null;
+            return (
+              <>
+                {supported.map((t) => (
+                  <SheetOption
+                    key={t.id}
+                    testID={`e2e.activityDetail.sendTo.destination.${t.id}`}
+                    label={t.display_name || t.kind}
+                    subtext="Destination"
+                    onPress={() => {
+                      capture(AnalyticsEvent.ActivityActionInvoked, {
+                        activityId: activity.id,
+                        action: 'sendToDestination',
+                        destinationKind: t.kind,
+                      } as any);
+                      setActiveSheet(null);
+                      handoffActivityToExecutionTarget({ activityId: activity.id, executionTargetId: t.id })
+                        .then((res) => {
+                          if (res.ok) {
+                            showToast({ message: `Sent to ${t.display_name || 'destination'}.` });
+                          } else {
+                            Alert.alert('Unable to send', res.message);
+                          }
+                        })
+                        .catch(() => {
+                          Alert.alert('Unable to send', 'Something went wrong. Please try again.');
+                        });
+                    }}
+                  />
+                ))}
+                <View style={styles.cardSectionDivider} />
+              </>
+            );
+          })()}
+          {activity.type === 'shopping_list' && (enabledSendToDestinations?.amazon ?? false) ? (
+            <SheetOption
             testID="e2e.activityDetail.sendTo.amazon"
             label="Amazon"
             disabled={!sendToSearchQuery}
@@ -4649,7 +4725,9 @@ export function ActivityDetailScreen() {
               handleSendToAmazon().catch(() => undefined);
             }}
           />
-          <SheetOption
+          ) : null}
+          {activity.type === 'shopping_list' && (enabledSendToDestinations?.home_depot ?? false) ? (
+            <SheetOption
             testID="e2e.activityDetail.sendTo.homeDepot"
             label="Home Depot"
             disabled={!sendToSearchQuery}
@@ -4660,7 +4738,9 @@ export function ActivityDetailScreen() {
               handleSendToHomeDepot().catch(() => undefined);
             }}
           />
-          <SheetOption
+          ) : null}
+          {activity.type === 'shopping_list' && (enabledSendToDestinations?.instacart ?? false) ? (
+            <SheetOption
             testID="e2e.activityDetail.sendTo.instacart"
             label="Instacart"
             disabled={!sendToSearchQuery}
@@ -4671,6 +4751,20 @@ export function ActivityDetailScreen() {
               handleSendToInstacart().catch(() => undefined);
             }}
           />
+          ) : null}
+          {activity.type === 'shopping_list' && (enabledSendToDestinations?.doordash ?? false) ? (
+            <SheetOption
+            testID="e2e.activityDetail.sendTo.doorDash"
+            label="DoorDash"
+            disabled={!sendToSearchQuery}
+            subtext={!sendToSearchQuery ? 'Add a title or items to search.' : undefined}
+            onPress={() => {
+              capture(AnalyticsEvent.ActivityActionInvoked, { activityId: activity.id, action: 'sendToDoorDash' });
+              setActiveSheet(null);
+              handleSendToDoorDash().catch(() => undefined);
+            }}
+          />
+          ) : null}
           <View style={styles.cardSectionDivider} />
           <SheetOption
             testID="e2e.activityDetail.sendTo.copy"

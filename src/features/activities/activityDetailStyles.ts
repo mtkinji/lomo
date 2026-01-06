@@ -188,14 +188,12 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   originLinkRow: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: spacing.xs,
     borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.linked,
     backgroundColor: colors.shellAlt,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
@@ -205,7 +203,7 @@ export const styles = StyleSheet.create({
   originLinkText: {
     // Match "label" sizing without the uppercase/letterspacing so this reads as subtle provenance.
     ...typography.label,
-    color: colors.linked,
+    color: colors.textSecondary,
     textTransform: 'none',
     letterSpacing: 0,
     flexShrink: 1,
@@ -481,6 +479,11 @@ export const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
+  },
+  newStepInput: {
+    // Avoid extra inner padding on the single-line inline "Add step" input;
+    // it can make descenders clip in tight list rows on iOS.
+    paddingVertical: 0,
   },
   linkedStepTextBlock: {
     width: '100%',

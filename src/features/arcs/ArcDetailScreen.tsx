@@ -32,6 +32,7 @@ import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../them
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
+import { persistImageUri } from '../../utils/persistImageUri';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
@@ -574,10 +575,15 @@ export function ArcDetailScreen() {
       const asset = result.assets[0];
       if (!asset.uri) return;
 
+      const stableUri = await persistImageUri({
+        uri: asset.uri,
+        subdir: 'hero-images',
+        namePrefix: `arc-${arc.id}-hero`,
+      });
       const nowIso = new Date().toISOString();
       updateArc(arc.id, (current) => ({
         ...current,
-        thumbnailUrl: asset.uri,
+        thumbnailUrl: stableUri,
         heroImageMeta: {
           source: 'upload',
           prompt: current.heroImageMeta?.prompt,

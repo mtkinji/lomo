@@ -631,19 +631,31 @@ serve(async (req) => {
 
     if (channel === 'email') {
       const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
-      const fromEmail = (Deno.env.get('PRO_CODE_EMAIL_FROM') ?? 'no-reply@mail.kwilt.app').trim();
+      // Prefer a pro-code specific from, but fall back to the invite sender so one verified domain
+      // can cover both systems without extra configuration.
+      const fromEmail = (
+        (Deno.env.get('PRO_CODE_EMAIL_FROM') ?? '').trim() ||
+        (Deno.env.get('INVITE_EMAIL_FROM') ?? '').trim() ||
+        'no-reply@kwilt.app'
+      ).trim();
       if (!resendKey) {
         return json(503, { error: { message: 'Email service unavailable', code: 'provider_unavailable' } });
+      }
+      if (!fromEmail) {
+        return json(503, {
+          error: { message: 'Email sender not configured', code: 'provider_unavailable' },
+        });
       }
       if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
         return json(400, { error: { message: 'Invalid recipientEmail', code: 'bad_request' } });
       }
 
+      const from = fromEmail.includes('<') ? fromEmail : `${fromName} <${fromEmail}>`;
       const resendRes = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: `${fromName} <${fromEmail}>`,
+          from,
           to: recipientEmail,
           subject,
           text: message,

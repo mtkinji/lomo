@@ -650,26 +650,54 @@ export function ActivityDetailRefresh(props: any) {
               inputStyle={styles.narrativeTitleInput}
               containerStyle={styles.narrativeTitleContainer}
             />
-            {activity?.origin?.kind === 'activity_step' ? (() => {
-              const parentId = activity.origin.parentActivityId;
-              const parent = parentId ? activitiesById?.[parentId] ?? null : null;
-              if (!parentId || !parent) return null;
-              const label = parent.title ?? 'Parent activity';
+            {(() => {
+              const parentId =
+                activity?.origin?.kind === 'activity_step' ? activity.origin.parentActivityId : null;
+              const parentActivity = parentId ? activitiesById?.[parentId] ?? null : null;
+              const hasParentActivityLink = Boolean(parentId && parentActivity);
+
+              return (
+                <>
+                  {hasParentActivityLink ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open parent activity: ${parentActivity?.title ?? 'Parent activity'}`}
+                      onPress={() => openActivityDetail?.(parentId)}
+                      style={({ pressed }) => [styles.originLinkRow, pressed ? { opacity: 0.7 } : null]}
+                      hitSlop={8}
+                    >
+                      <Icon name="link" size={12} color={colors.textSecondary} />
+                      <Text style={styles.originLinkText} numberOfLines={1} ellipsizeMode="tail">
+                        {parentActivity?.title ?? 'Parent activity'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {!hasParentActivityLink && activity?.goalId && goal?.id === activity.goalId ? (() => {
+              const label = goal.title ?? 'Goal';
               return (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Open parent activity: ${parent.title}`}
-                  onPress={() => openActivityDetail?.(parentId)}
+                  accessibilityLabel={`Open goal: ${label}`}
+                  onPress={() => {
+                    rootNavigationRef.navigate('Goals', {
+                      screen: 'GoalDetail',
+                      params: { goalId: goal.id, entryPoint: 'goalsTab' },
+                    });
+                  }}
                   style={({ pressed }) => [styles.originLinkRow, pressed ? { opacity: 0.7 } : null]}
                   hitSlop={8}
                 >
-                  <Icon name="link" size={12} color={colors.linked} />
+                  <Icon name="link" size={12} color={colors.textSecondary} />
                   <Text style={styles.originLinkText} numberOfLines={1} ellipsizeMode="tail">
                     {label}
                   </Text>
                 </Pressable>
               );
-            })() : null}
+                  })() : null}
+                </>
+              );
+            })()}
           </View>
         </View>
 
@@ -864,7 +892,10 @@ export function ActivityDetailRefresh(props: any) {
                             inputStyle={styles.stepInput}
                             multiline
                             multilineMinHeight={typography.body.lineHeight}
-                            multilineMaxHeight={typography.body.lineHeight * 4 + spacing.sm}
+                            // Steps should always expand to show the full content (no nested scrolling),
+                            // especially when users paste long text.
+                            multilineMaxHeight={Number.POSITIVE_INFINITY}
+                            scrollEnabled={false}
                             blurOnSubmit
                             returnKeyType="done"
                           />
@@ -899,7 +930,7 @@ export function ActivityDetailRefresh(props: any) {
                   placeholder="Add step"
                   size="md"
                   variant="inline"
-                  inputStyle={styles.stepInput}
+                  inputStyle={[styles.stepInput, styles.newStepInput]}
                   multiline={false}
                   blurOnSubmit={false}
                   returnKeyType="done"

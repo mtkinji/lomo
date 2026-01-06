@@ -106,3 +106,17 @@ directory against PostHog for correctness/performance and privacy reasons.
 The `pro-codes` edge function still contains an `/admin/send` endpoint for email/SMS, but the current in-app “Kwilt Users”
 surface uses the native share sheet instead. If we want to fully retire email/SMS, we should remove those providers and
 routes in a follow-up.
+
+### Pro-code email sending (Resend)
+
+If you want to email a Pro code (instead of sharing it manually), use:
+
+- Route: `POST /pro-codes/admin/send` with `{ channel: "email", code, recipientEmail }`
+- Requires: Super Admin allowlist (see above)
+
+Required Supabase Edge Function secrets:
+
+- `RESEND_API_KEY`: Resend API key
+- `PRO_CODE_EMAIL_FROM`: sender address (must be a verified sender/domain in Resend)
+  - Fallback: if not set, the function will use `INVITE_EMAIL_FROM` (used by goal invites)
+- (Optional) `KWILT_PRO_CODE_FROM_NAME`: display name for the sender (default: `Kwilt`)

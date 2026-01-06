@@ -50,6 +50,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { openPaywallPurchaseEntry } from '../../services/paywall';
+import { persistImageUri } from '../../utils/persistImageUri';
 import { PaywallContent } from '../paywall/PaywallDrawer';
 import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
@@ -903,10 +904,15 @@ export function GoalCoachDrawer({
       const asset = result.assets[0];
       if (!asset.uri) return;
 
+      const stableUri = await persistImageUri({
+        uri: asset.uri,
+        subdir: 'hero-images',
+        namePrefix: 'goal-draft-hero',
+      });
       const nowIso = new Date().toISOString();
       setDraft((current) => ({
         ...current,
-        thumbnailUrl: asset.uri,
+        thumbnailUrl: stableUri,
         heroImageMeta: {
           source: 'upload',
           prompt: undefined,

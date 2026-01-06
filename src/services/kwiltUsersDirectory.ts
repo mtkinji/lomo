@@ -1,4 +1,4 @@
-import { buildAuthedHeaders, getProCodesBaseUrl } from './proCodesClient';
+import { buildAuthedHeaders, getProCodesBaseUrlForHeaders } from './proCodesClient';
 
 export type DirectoryInstall = {
   installId: string;
@@ -33,11 +33,12 @@ export type DirectoryUser = {
 };
 
 export async function adminListInstalls(params?: { limit?: number }): Promise<DirectoryInstall[]> {
-  const base = getProCodesBaseUrl();
+  const headers = await buildAuthedHeaders({ promptReason: 'admin' });
+  const base = getProCodesBaseUrlForHeaders(headers);
   if (!base) throw new Error('Pro codes service not configured');
   const res = await fetch(`${base}/admin/list-installs`, {
     method: 'POST',
-    headers: await buildAuthedHeaders({ promptReason: 'admin' }),
+    headers,
     body: JSON.stringify({ limit: params?.limit ?? 150 }),
   });
   const data = await res.json().catch(() => null);
@@ -54,11 +55,12 @@ export async function adminListUsers(params?: { page?: number; perPage?: number 
   perPage: number;
   users: DirectoryUser[];
 }> {
-  const base = getProCodesBaseUrl();
+  const headers = await buildAuthedHeaders({ promptReason: 'admin' });
+  const base = getProCodesBaseUrlForHeaders(headers);
   if (!base) throw new Error('Pro codes service not configured');
   const res = await fetch(`${base}/admin/list-users`, {
     method: 'POST',
-    headers: await buildAuthedHeaders({ promptReason: 'admin' }),
+    headers,
     body: JSON.stringify({ page: params?.page ?? 1, perPage: params?.perPage ?? 100 }),
   });
   const data = await res.json().catch(() => null);

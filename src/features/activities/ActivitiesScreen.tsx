@@ -523,6 +523,7 @@ export function ActivitiesScreen() {
     recordShowUp,
     showToast,
     initialReservedHeightPx: quickAddInitialReservedHeight,
+    focusAfterSubmit: false,
     onCreated: (activity) => {
       pendingScrollToActivityIdRef.current = activity.id;
       // If the user didn't add any scheduling/reminder info during quick-add,

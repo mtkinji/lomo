@@ -50,6 +50,10 @@ type QuickAddDockProps = {
   onPressGenerateActivityTitle?: () => void;
   isGeneratingActivityTitle?: boolean;
   hasGeneratedActivityTitle?: boolean;
+  /**
+   * When true (default), the focused drawer collapses after a successful submit.
+   */
+  dismissAfterSubmit?: boolean;
 
   /**
    * Reserve enough space so the last list rows can scroll above the dock.
@@ -78,6 +82,7 @@ export function QuickAddDock({
   onPressGenerateActivityTitle,
   isGeneratingActivityTitle,
   hasGeneratedActivityTitle,
+  dismissAfterSubmit = true,
   onReservedHeightChange,
 }: QuickAddDockProps) {
   const insets = useSafeAreaInsets();
@@ -224,8 +229,10 @@ export function QuickAddDock({
         // Use modal presentation so the drawer is full-width and reliably anchored
         // to the bottom of the viewport (inline presentation can be constrained by parent layout).
         presentation="modal"
-        hideBackdrop
-        dismissable={false}
+        hideBackdrop={false}
+        backdropMaxOpacity={0}
+        dismissable
+        dismissOnBackdropPress
         dynamicHeightUnderKeyboard
         visibleContentHeightFallbackPx={composerHeight}
         defaultKeyboardHeightGuessPx={KEYBOARD_DEFAULT_GUESS_HEIGHT}
@@ -266,6 +273,7 @@ export function QuickAddDock({
                   onPress={() => {
                     if (!canSubmit) return;
                     onSubmit();
+                    if (dismissAfterSubmit) onCollapse();
                   }}
                   style={[
                     styles.affordance,
@@ -314,6 +322,7 @@ export function QuickAddDock({
                           return;
                         }
                         onSubmit();
+                        if (dismissAfterSubmit) onCollapse();
                       }}
                       onFocus={() => {
                         lastFocusTimeRef.current = Date.now();

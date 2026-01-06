@@ -74,6 +74,7 @@ const iconMap: Record<string, IconEntry> = {
   archive: { library: 'feather', name: 'archive' },
   refresh: { library: 'feather', name: 'refresh-cw' },
   check: { library: 'feather', name: 'check' },
+  checkCircle: { library: 'feather', name: 'check-circle' },
   dev: { library: 'feather', name: 'code' },
   sparkles: { library: 'feather', name: 'zap' },
   // Calm focus affordance (used for Focus mode / execution).

@@ -71,6 +71,7 @@ type UnderKeyboardDrawerProps = {
   snapPoints?: BottomDrawerSnapPoint[];
   presentation?: 'modal' | 'inline';
   hideBackdrop?: boolean;
+  backdropMaxOpacity?: number;
   dismissable?: boolean;
   dismissOnBackdropPress?: boolean;
   keyboardAvoidanceEnabled?: boolean;
@@ -135,6 +136,7 @@ export function UnderKeyboardDrawer({
   snapPoints,
   presentation = 'modal',
   hideBackdrop,
+  backdropMaxOpacity,
   dismissable,
   dismissOnBackdropPress,
   // For under-keyboard drawers, default to disabling BottomDrawer's KAV so the
@@ -235,6 +237,7 @@ export function UnderKeyboardDrawer({
       onClose={onClose}
       presentation={presentation}
       hideBackdrop={hideBackdrop}
+      backdropMaxOpacity={backdropMaxOpacity}
       dismissable={dismissable}
       dismissOnBackdropPress={dismissOnBackdropPress}
       keyboardAvoidanceEnabled={keyboardAvoidanceEnabled}

@@ -292,6 +292,20 @@ export async function ensureSignedInWithPrompt(
     if (refreshed) return refreshed;
   }
 
+  // Hydration grace period: on some devices/builds, a just-completed OAuth flow can briefly
+  // race with session persistence/rehydration. Avoid immediately re-prompting the user.
+  for (let i = 0; i < 3; i += 1) {
+    // Small backoff: 150ms, 300ms, 450ms (total <= 900ms).
+    // Keep this short so "actually signed out" flows still feel responsive.
+    await new Promise((r) => setTimeout(r, 150 * (i + 1)));
+    const s = await getSession().catch(() => null);
+    if (s) {
+      const refreshed = await maybeRefreshSession(s).catch(() => null);
+      if (refreshed) return refreshed;
+      return s;
+    }
+  }
+
   // Preferred UX: open the standard BottomDrawer-based auth prompt.
   // (Hosted in RootNavigator as `AuthPromptDrawerHost`.)
   try {

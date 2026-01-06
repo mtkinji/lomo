@@ -21,6 +21,7 @@ import {
   GoalDraft,
   UserProfile,
 } from '../domain/types';
+import { getArcHeroUriById } from '../domain/curatedHeroLibrary';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
   PRO_GENERATIVE_CREDITS_PER_MONTH,
@@ -374,6 +375,15 @@ interface AppState {
     globalMinSpacingMs: number;
     defaultCooldownMs: number;
   };
+  /**
+   * Which "Send to…" destinations are enabled for the user.
+   *
+   * - Built-in retailers (Amazon/Home Depot/Instacart/DoorDash) can be toggled here.
+   * - Installed destinations (e.g. Cursor) are controlled by their own `is_enabled` flag.
+   */
+  enabledSendToDestinations: Record<string, boolean>;
+  setSendToDestinationEnabled: (kind: string, enabled: boolean) => void;
+  toggleSendToDestinationEnabled: (kind: string) => void;
   /**
    * Last used Focus mode duration (in minutes). Used as the default suggestion
    * across sessions so Focus feels sticky/personal.
@@ -1430,6 +1440,21 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           devArcDetailDebugLoggingEnabled: enabled,
         })),
+      setSendToDestinationEnabled: (kind, enabled) =>
+        set((state) => {
+          const k = String(kind ?? '').trim().toLowerCase();
+          if (!k) return state;
+          const next = { ...(state.enabledSendToDestinations ?? {}), [k]: Boolean(enabled) };
+          return { enabledSendToDestinations: next };
+        }),
+      toggleSendToDestinationEnabled: (kind) =>
+        set((state) => {
+          const k = String(kind ?? '').trim().toLowerCase();
+          if (!k) return state;
+          const current = Boolean((state.enabledSendToDestinations ?? {})[k]);
+          const next = { ...(state.enabledSendToDestinations ?? {}), [k]: !current };
+          return { enabledSendToDestinations: next };
+        }),
       setUserProfile: (profile) =>
         set(() => ({
           userProfile: {
@@ -1795,6 +1820,12 @@ export const useAppStore = create<AppState>()(
             globalMinSpacingMs: 6 * 60 * 60 * 1000,
             defaultCooldownMs: 2 * 60 * 60 * 1000,
           },
+          enabledSendToDestinations: {
+            amazon: false,
+            home_depot: false,
+            instacart: false,
+            doordash: false,
+          },
         }),
     }),
     {
@@ -1879,6 +1910,20 @@ export const useAppStore = create<AppState>()(
           typeof anyState.activityDetailDetailsExpanded !== 'boolean'
         ) {
           (state as any).activityDetailDetailsExpanded = false;
+        }
+
+        // Backward-compatible: older persisted stores won't have destination toggles.
+        if (
+          !('enabledSendToDestinations' in anyState) ||
+          !anyState.enabledSendToDestinations ||
+          typeof anyState.enabledSendToDestinations !== 'object'
+        ) {
+          (state as any).enabledSendToDestinations = {
+            amazon: false,
+            home_depot: false,
+            instacart: false,
+            doordash: false,
+          };
         }
         // Backward-compatible: older persisted stores won't have goal nudge time.
         // Default to a high-engagement "afternoon momentum" time.
@@ -2191,6 +2236,58 @@ export const useAppStore = create<AppState>()(
               if (parsed.activityTagHistory && typeof parsed.activityTagHistory === 'object') {
                 next.activityTagHistory = parsed.activityTagHistory as any;
               }
+              // Resiliency: hero image URIs can go stale across updates.
+              // - Curated heroes: bundled asset URIs can change across builds → re-resolve from curatedId.
+              // - Unsplash heroes: older builds may have stored a transient local file URI → reconstruct from photo id.
+              // - Generic: if a URL uses http://, prefer https:// (ATS blocks insecure loads by default).
+              const normalizeHero = <T extends { thumbnailUrl?: any; heroImageMeta?: any }>(obj: T): T => {
+                const meta = obj?.heroImageMeta;
+                const source = typeof meta?.source === 'string' ? meta.source : '';
+                const rawUrl = typeof obj?.thumbnailUrl === 'string' ? obj.thumbnailUrl.trim() : '';
+
+                const normalizeHttp = (url: string) => (url.startsWith('http://') ? `https://${url.slice('http://'.length)}` : url);
+
+                // Curated: always derive from curatedId (stable across builds).
+                if (source === 'curated') {
+                  const curatedId = typeof meta?.curatedId === 'string' ? meta.curatedId.trim() : '';
+                  const resolved = curatedId ? getArcHeroUriById(curatedId) : null;
+                  if (resolved && rawUrl !== resolved) {
+                    return { ...(obj as any), thumbnailUrl: resolved } as T;
+                  }
+                  if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
+                    return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
+                  }
+                  return obj;
+                }
+
+                // Unsplash: if we have a photo id but the stored URL doesn't look like an Unsplash image URL,
+                // reconstruct to a stable, CDN-served endpoint.
+                if (source === 'unsplash') {
+                  const photoId = typeof meta?.unsplashPhotoId === 'string' ? meta.unsplashPhotoId.trim() : '';
+                  const isUnsplashImageUrl =
+                    rawUrl.includes('images.unsplash.com') || rawUrl.includes('source.unsplash.com') || rawUrl.includes('plus.unsplash.com');
+                  const isTransientFile = rawUrl.startsWith('file://') || rawUrl.startsWith('content://');
+                  if (photoId && (!rawUrl || isTransientFile || !isUnsplashImageUrl)) {
+                    // Aspect-biased default for hero banners.
+                    const reconstructed = `https://source.unsplash.com/${encodeURIComponent(photoId)}/1200x500`;
+                    return { ...(obj as any), thumbnailUrl: reconstructed } as T;
+                  }
+                  if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
+                    return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
+                  }
+                  return obj;
+                }
+
+                // Generic normalization for any other remote URL.
+                if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
+                  return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
+                }
+                return obj;
+              };
+
+              if (Array.isArray(next.arcs)) next.arcs = (next.arcs as any[]).map(normalizeHero) as any;
+              if (Array.isArray(next.goals)) next.goals = (next.goals as any[]).map(normalizeHero) as any;
+              if (Array.isArray(next.activities)) next.activities = (next.activities as any[]).map(normalizeHero) as any;
               if (Object.keys(next).length > 0) {
                 useAppStore.setState({ ...(next as any), domainHydrated: true } as any);
                 return;

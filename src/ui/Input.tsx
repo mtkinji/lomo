@@ -189,15 +189,16 @@ const InputBase = forwardRef<TextInput, Props>(
               styles.input,
               multiline && styles.multilineInput,
               size === 'sm' && styles.inputSm,
-              variant === 'inline' && !multiline ? styles.inlineSingleLineInput : null,
               multiline && multilineHeight != null
                 ? { height: multilineHeight }
                 : null,
               multiline && multilineMinHeight != null ? { minHeight: multilineMinHeight } : null,
               inputStyle,
-              !multiline && variant !== 'inline'
-                ? getSingleLinePlatformMetrics(metricsFontSize, metricsLineHeight)
-                : null,
+              // Apply single-line platform metrics AFTER `inputStyle` so callers can specify
+              // fontSize/lineHeight, but we still clamp lineHeight for proper vertical centering.
+              !multiline ? getSingleLinePlatformMetrics(metricsFontSize, metricsLineHeight) : null,
+              // Keep the subtle list-row baseline nudge for inline variant.
+              variant === 'inline' ? styles.inlineInputNudge : null,
             ]}
           />
           {trailingIcon ? (
@@ -268,11 +269,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingVertical: 0,
   },
-  inlineSingleLineInput: {
+  inlineInputNudge: {
     // Visual centering: iOS text baselines tend to sit slightly low next to circular
-    // checkboxes. Tighten lineHeight and nudge upward a hair for list-row usage.
-    lineHeight: 18,
-    marginTop: -1,
+    // checkboxes. Nudge upward a hair for list-row usage (single + multi-line).
+    ...(Platform.OS === 'ios' ? { marginTop: -1 } : null),
   },
   inputSm: {
     fontFamily: typography.bodySm.fontFamily,

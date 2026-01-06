@@ -1,6 +1,6 @@
 import { getAmazonAssociatesTag } from '../utils/getEnv';
 
-export type SendToRetailer = 'amazon' | 'homeDepot' | 'instacart';
+export type SendToRetailer = 'amazon' | 'homeDepot' | 'instacart' | 'doorDash';
 
 function normalizeQuery(input: string): string {
   const q = String(input ?? '').trim();
@@ -21,6 +21,9 @@ export function buildRetailerSearchUrl(retailer: SendToRetailer, query: string):
   }
   if (retailer === 'instacart') {
     return `https://www.instacart.com/store/s?k=${encoded}`;
+  }
+  if (retailer === 'doorDash') {
+    return `https://www.doordash.com/search/store/${encoded}/`;
   }
   return '';
 }
