@@ -1,5 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Share, StyleSheet, View, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Alert,
+  Pressable,
+  Share,
+  StyleSheet,
+  View,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
@@ -7,13 +17,23 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
-import { KeyboardAwareScrollView, Text, VStack, HStack, Heading, Input } from '../../ui/primitives';
+import { KeyboardAwareScrollView, Text, VStack, HStack, Heading, Input, Badge } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
-import { createProCodeAdmin, getAdminProCodesStatus, grantProSuperAdmin, sendProCodeSuperAdmin } from '../../services/proCodes';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { ProfileAvatar } from '../../ui/ProfileAvatar';
+import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
+import { createProCodeAdmin, getAdminProCodesStatus, grantProSuperAdmin, revokeProSuperAdmin, sendProCodeSuperAdmin } from '../../services/proCodes';
+import { grantBonusCreditsSuperAdmin } from '../../services/referrals';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { getInstallId } from '../../services/installId';
-import { adminListInstalls, adminListUsers, type DirectoryInstall, type DirectoryUser } from '../../services/kwiltUsersDirectory';
+import {
+  adminGetUseSummary,
+  adminListInstalls,
+  adminListUsers,
+  type DirectoryInstall,
+  type DirectoryUseSummary,
+  type DirectoryUser,
+} from '../../services/kwiltUsersDirectory';
 import {
   clearAdminEntitlementsOverrideTier,
   getAdminEntitlementsOverrideTier,
@@ -38,6 +58,27 @@ const formatExpiresAt = (iso: string): string => {
     return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   } catch {
     return iso;
+  }
+};
+
+const formatProSourceLabel = (source?: string | null): string => {
+  const s = (source ?? '').trim().toLowerCase();
+  if (!s) return '—';
+  switch (s) {
+    case 'revenuecat':
+      return 'Apple subscription (RevenueCat)';
+    case 'code':
+      return 'Redeemed Pro code';
+    case 'admin':
+      return 'Admin grant';
+    case 'dev':
+      return 'Dev override';
+    case 'cache':
+      return 'Cached';
+    case 'none':
+      return 'None';
+    default:
+      return source ?? '—';
   }
 };
 
@@ -256,10 +297,14 @@ export function SuperAdminToolsScreen() {
 
   type DirectoryRow = {
     key: string;
+    kind: 'user' | 'email' | 'install';
     title: string;
-    subtitle: string;
+    secondary: string;
     lastSeenAt: string | null;
     installsCount?: number | null;
+    creditsUsed?: number;
+    user?: DirectoryUser;
+    install?: DirectoryInstall;
     pro: {
       isPro: boolean;
       source: string;
@@ -291,18 +336,20 @@ export function SuperAdminToolsScreen() {
         : install?.installId
           ? install.installId
           : u.userId;
-      const subtitle = u.email?.trim()
-        ? `${u.name ? `${u.name} • ` : ''}installs: ${u.installsCount} • last seen: ${u.lastSeenAt ? formatExpiresAt(u.lastSeenAt) : 'unknown'}${
-            installIds.length > 0 ? ` • device: ${installIds[0]}` : ''
-          }`
+      const secondary = u.email?.trim()
+        ? `last seen: ${u.lastSeenAt ? formatExpiresAt(u.lastSeenAt) : 'unknown'}`
         : `anonymous • last seen: ${u.lastSeenAt ? formatExpiresAt(u.lastSeenAt) : 'unknown'}`;
 
       byUserId.set(u.userId, {
         key: `user:${u.userId}`,
+        kind: 'user',
         title,
-        subtitle,
+        secondary,
         lastSeenAt: u.lastSeenAt ?? install?.lastSeenAt ?? null,
         installsCount: u.installsCount,
+        creditsUsed: u.creditsUsed,
+        user: u,
+        install: install ?? undefined,
         pro: u.pro,
       });
     }
@@ -313,13 +360,16 @@ export function SuperAdminToolsScreen() {
         // If the user isn't loaded yet, create a "shadow" row keyed by userId.
         if (!byUserId.has(i.userId)) {
           const title = i.userEmail?.trim() ? i.userEmail : i.installId;
-          const subtitle = `${i.userEmail?.trim() ? 'email known' : 'anonymous'} • last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}`;
+          const secondary = `last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}`;
           byUserId.set(i.userId, {
             key: `user:${i.userId}`,
+            kind: 'user',
             title,
-            subtitle,
+            secondary,
             lastSeenAt: i.lastSeenAt ?? null,
             installsCount: null,
+            creditsUsed: i.creditsUsed,
+            install: i,
             pro: i.pro,
           });
         }
@@ -333,34 +383,28 @@ export function SuperAdminToolsScreen() {
         const prevMs = prev?.lastSeenAt ? Date.parse(prev.lastSeenAt) : -1;
         const nextMs = i.lastSeenAt ? Date.parse(i.lastSeenAt) : -1;
         if (!prev || nextMs > prevMs) {
-          const alsoSeenAs = Array.from(
-            new Set((i.identities ?? []).map((x) => (x.userEmail ?? '').trim()).filter(Boolean)),
-          )
-            .filter((e) => e.toLowerCase() !== emailKey)
-            .slice(0, 2);
           byEmail.set(emailKey, {
             key: `email:${emailKey}`,
+            kind: 'email',
             title: i.userEmail,
-            subtitle: `email-only • last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'} • device: ${i.installId}${
-              alsoSeenAs.length > 0 ? ` • also seen as: ${alsoSeenAs.join(', ')}` : ''
-            }`,
+            secondary: `last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}`,
             lastSeenAt: i.lastSeenAt ?? null,
             installsCount: null,
+            creditsUsed: i.creditsUsed,
+            install: i,
             pro: i.pro,
           });
         }
       } else {
-        const alsoSeenAs = Array.from(
-          new Set((i.identities ?? []).map((x) => (x.userEmail ?? '').trim()).filter(Boolean)),
-        ).slice(0, 3);
         anonByInstallId.set(i.installId, {
           key: `install:${i.installId}`,
+          kind: 'install',
           title: i.installId,
-          subtitle: `anonymous • last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}${
-            alsoSeenAs.length > 0 ? ` • also seen as: ${alsoSeenAs.join(', ')}` : ''
-          }`,
+          secondary: `anonymous • last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}`,
           lastSeenAt: i.lastSeenAt ?? null,
           installsCount: null,
+          creditsUsed: i.creditsUsed,
+          install: i,
           pro: i.pro,
         });
       }
@@ -371,7 +415,7 @@ export function SuperAdminToolsScreen() {
     const filtered = !q
       ? all
       : all.filter((r) => {
-          const hay = `${r.title} ${r.subtitle}`.toLowerCase();
+          const hay = `${r.title} ${r.secondary}`.toLowerCase();
           return hay.includes(q);
         });
 
@@ -401,6 +445,13 @@ export function SuperAdminToolsScreen() {
         });
       }
     }
+  };
+
+  const refreshDirectory = async () => {
+    // Users: reload page 1 (replaces list) and reset "hasMore" to whatever server says.
+    await loadUsersPage(1);
+    // Installs: reload base page size.
+    await loadInstalls(INSTALLS_PAGE_SIZE);
   };
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -462,6 +513,126 @@ export function SuperAdminToolsScreen() {
     }
   };
 
+  const [directoryDetailRow, setDirectoryDetailRow] = useState<DirectoryRow | null>(null);
+  const directoryDetailVisible = Boolean(directoryDetailRow);
+  const [detailTab, setDetailTab] = useState<'details' | 'subscription' | 'use'>('details');
+  const [useSummary, setUseSummary] = useState<DirectoryUseSummary | null>(null);
+  const [useSummaryLoading, setUseSummaryLoading] = useState(false);
+  const [useSummaryError, setUseSummaryError] = useState<string | null>(null);
+  const useSummaryLoadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const useSummaryCacheRef = useRef<Map<string, DirectoryUseSummary>>(new Map());
+  const useSummaryAttemptedRef = useRef<Set<string>>(new Set());
+
+  const openDirectoryDetail = (row: DirectoryRow) => {
+    setDirectoryDetailRow(row);
+    setDetailTab('details'); // Reset to details tab when opening
+    const nextUserId = (row.user?.userId ?? row.install?.userId ?? '').trim();
+    setUseSummary(nextUserId ? useSummaryCacheRef.current.get(nextUserId) ?? null : null);
+    setUseSummaryError(null);
+    setUseSummaryLoading(false);
+    if (useSummaryLoadingTimerRef.current) {
+      clearTimeout(useSummaryLoadingTimerRef.current);
+      useSummaryLoadingTimerRef.current = null;
+    }
+    if (nextUserId) {
+      // Allow exactly one attempt per drawer open (prevents retry flicker).
+      useSummaryAttemptedRef.current.delete(nextUserId);
+    }
+    // Prefetch so the Use tab is usually instant (and avoids loading-label flicker).
+    startLoadUseSummary(row);
+  };
+  const closeDirectoryDetail = () => setDirectoryDetailRow(null);
+
+  const formatUseActionType = (t: string | null | undefined): string => {
+    const key = (t ?? '').trim().toLowerCase();
+    if (!key || key === 'none') return '—';
+    if (key === 'ai') return 'AI';
+    if (key === 'checkin') return 'Check-in';
+    if (key === 'activity') return 'Activity';
+    if (key === 'goal') return 'Goal';
+    if (key === 'arc') return 'Arc';
+    return key;
+  };
+
+  const startLoadUseSummary = (row: DirectoryRow) => {
+    if (!canUseTools) return;
+    if (useSummaryLoading) return;
+
+    const userId = (row.user?.userId ?? row.install?.userId ?? '').trim();
+    if (!userId) return;
+    if (useSummaryCacheRef.current.has(userId)) {
+      // Keep UI stable: reuse cached summary immediately.
+      setUseSummary(useSummaryCacheRef.current.get(userId) ?? null);
+      return;
+    }
+    if (useSummaryAttemptedRef.current.has(userId)) {
+      // Avoid infinite retry loops (e.g. when the backend route isn't deployed yet).
+      return;
+    }
+    useSummaryAttemptedRef.current.add(userId);
+
+    const installIdsRaw: string[] = Array.isArray(row.user?.installIds)
+      ? row.user!.installIds!
+      : row.install?.installId
+        ? [row.install.installId]
+        : [];
+    const installIds = installIdsRaw.map((x) => (x ?? '').trim()).filter(Boolean).slice(0, 25);
+
+    setUseSummaryLoading(true);
+    setUseSummaryError(null);
+    if (useSummaryLoadingTimerRef.current) clearTimeout(useSummaryLoadingTimerRef.current);
+    useSummaryLoadingTimerRef.current = null;
+
+    void adminGetUseSummary({ userId, installIds, windowDays: 7 })
+      .then((s) => {
+        if (s) useSummaryCacheRef.current.set(userId, s);
+        setUseSummary(s);
+      })
+      .catch((e: any) => {
+        setUseSummary(null);
+        setUseSummaryError(typeof e?.message === 'string' ? e.message : 'Unable to load usage');
+      })
+      .finally(() => {
+        setUseSummaryLoading(false);
+        if (useSummaryLoadingTimerRef.current) {
+          clearTimeout(useSummaryLoadingTimerRef.current);
+          useSummaryLoadingTimerRef.current = null;
+        }
+      });
+  };
+
+  useEffect(() => {
+    if (!canUseTools) return;
+    if (!directoryDetailVisible) return;
+    if (detailTab !== 'use') return;
+    if (!directoryDetailRow) return;
+    startLoadUseSummary(directoryDetailRow);
+  }, [canUseTools, detailTab, directoryDetailRow, directoryDetailVisible]);
+
+  const renderDetailField = (args: {
+    label: string;
+    value: string;
+    multiline?: boolean;
+    helperText?: string;
+    trailingElement?: ReactNode;
+    inputStyle?: StyleProp<TextStyle>;
+  }) => {
+    return (
+      <Input
+        label={args.label}
+        value={args.value}
+        variant="filled"
+        editable={false}
+        multiline={args.multiline}
+        helperText={args.helperText}
+        trailingElement={args.trailingElement}
+        inputStyle={args.inputStyle}
+        // Make long IDs / lists readable without horizontal scrolling.
+        {...(args.multiline ? { multilineMinHeight: 44, multilineMaxHeight: 140 } : null)}
+      />
+    );
+  };
+
   return (
     <AppShell>
       <View style={styles.screen}>
@@ -474,11 +645,6 @@ export function SuperAdminToolsScreen() {
           scrollEventThrottle={250}
         >
           <View style={styles.section}>
-            {authIdentity?.email ? (
-              <Text style={styles.body}>Signed in as: {authIdentity.email}</Text>
-            ) : statusEmail ? (
-              <Text style={styles.body}>Signed in as: {statusEmail}</Text>
-            ) : null}
             {!isChecking && !isSuperAdmin ? (
               <Text style={styles.warning}>
                 You are not authorized for Super Admin tools.
@@ -505,109 +671,106 @@ export function SuperAdminToolsScreen() {
             }
           />
 
-          <View style={styles.card}>
-            <VStack space="sm">
-              {!canUseTools ? (
-                <Text style={styles.body}>Sign in as a Super Admin to view the directory.</Text>
-              ) : (
-                <>
-                  {tab === 'utilities' ? (
-                    <VStack space="lg">
-                      <Text style={styles.cardTitle}>Utilities</Text>
+          {!canUseTools ? (
+            <Text style={styles.body}>Sign in as a Super Admin to view the directory.</Text>
+          ) : tab === 'utilities' ? (
+            <VStack space="md">
+              <View style={styles.card}>
+                <VStack space="sm">
+                  <Text style={styles.cardTitle}>Simulate plan (device)</Text>
+                  <Text style={styles.body}>
+                    Current: {isPro ? 'Pro' : isProToolsTrial ? 'Trial' : 'Free'} • source: {lastSource ?? 'unknown'}
+                  </Text>
+                  <SegmentedControl
+                    value={tier}
+                    onChange={(next) => handleSetTier(next as AdminEntitlementsOverrideTier)}
+                    options={tierOptions as any}
+                  />
+                  {error ? <Text style={styles.error}>{error}</Text> : null}
+                </VStack>
+              </View>
 
-                      <VStack space="sm">
-                        <Text style={styles.subSectionTitle}>Simulate plan (device)</Text>
-                        <Text style={styles.body}>
-                          Current: {isPro ? 'Pro' : isProToolsTrial ? 'Trial' : 'Free'} • source: {lastSource ?? 'unknown'}
-                        </Text>
-                        <SegmentedControl
-                          value={tier}
-                          onChange={(next) => handleSetTier(next as AdminEntitlementsOverrideTier)}
-                          options={tierOptions as any}
-                        />
-                        {error ? <Text style={styles.error}>{error}</Text> : null}
-                      </VStack>
+              <View style={styles.card}>
+                <VStack space="sm">
+                  <Text style={styles.cardTitle}>1-year Pro access code (one-time)</Text>
+                  <Text style={styles.body}>One-time use. Expires 1 year after generation.</Text>
+                  <Button disabled={!canGenerate} onPress={() => handleCreateOneYear()}>
+                    <Text style={styles.buttonLabel}>
+                      {isChecking ? 'Checking access…' : isSubmitting ? 'Working…' : 'Generate one-time code'}
+                    </Text>
+                  </Button>
 
-                      <View style={styles.divider} />
+                  {lastCode ? (
+                    <View style={styles.result}>
+                      <Text style={styles.resultLabel}>Last generated</Text>
+                      <Text style={styles.body}>Open to view + share the code.</Text>
+                      <Button variant="secondary" onPress={() => setCodeDrawerVisible(true)}>
+                        <Text style={styles.secondaryButtonLabel}>Open</Text>
+                      </Button>
+                    </View>
+                  ) : null}
+                </VStack>
+              </View>
 
-                      <VStack space="sm">
-                        <Text style={styles.subSectionTitle}>1-year Pro access code (one-time)</Text>
-                        <Text style={styles.body}>One-time use. Expires 1 year after generation.</Text>
-                        <Button disabled={!canGenerate} onPress={() => handleCreateOneYear()}>
-                          <Text style={styles.buttonLabel}>
-                            {isChecking ? 'Checking access…' : isSubmitting ? 'Working…' : 'Generate one-time code'}
-                          </Text>
-                        </Button>
-
-                        {lastCode ? (
-                          <View style={styles.result}>
-                            <Text style={styles.resultLabel}>Last generated</Text>
-                            <Text style={styles.body}>Open to view + share the code.</Text>
-                            <Button variant="secondary" onPress={() => setCodeDrawerVisible(true)}>
-                              <Text style={styles.secondaryButtonLabel}>Open</Text>
-                            </Button>
-                          </View>
-                        ) : null}
-                      </VStack>
-
-                      <View style={styles.divider} />
-
-                      <VStack space="sm">
-                        <Text style={styles.subSectionTitle}>Grant Pro (1 year)</Text>
-                        <Text style={styles.body}>Manually grant Pro to a user or device. This takes effect immediately.</Text>
-                        <Button disabled={!canUseTools} onPress={() => void openGrantDrawer()}>
-                          <Text style={styles.buttonLabel}>Open grant tool</Text>
-                        </Button>
-                      </VStack>
-                    </VStack>
-                  ) : (
-                    <VStack space="sm">
-                      <Text style={styles.cardTitle}>Directory</Text>
-
-                      <Input
-                        label="Search"
-                        placeholder="email, name, or device id"
-                        value={search}
-                        onChangeText={setSearch}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        keyboardType="default"
-                        returnKeyType="done"
-                        variant="outline"
-                      />
-
-                      {directoryError ? <Text style={styles.error}>{directoryError}</Text> : null}
-
-                      <Text style={styles.body}>
-                        Loaded {users.length} users + {installs.length} devices • {directoryRows.length} shown
-                        {usersHasMore || installsHasMore ? ' • scroll to load more' : ''}
-                        {usersLoading || installsLoading ? ' • loading…' : ''}
-                      </Text>
-
-                      <VStack space="xs">
-                        {directoryRows.map((r) => (
-                          <View key={r.key} style={styles.row}>
-                            <VStack space={0} flex={1}>
-                              <Text style={styles.rowTitle}>{r.title}</Text>
-                              <Text style={styles.rowMeta}>{r.subtitle}</Text>
-                            </VStack>
-                            <VStack space={0} style={styles.rowRight}>
-                              <Text style={styles.rowTitle}>{r.pro.isPro ? 'Pro' : 'Free'}</Text>
-                              <Text style={styles.rowMeta}>
-                                {r.pro.isPro
-                                  ? `${r.pro.source}${r.pro.expiresAt ? ` • exp ${formatExpiresAt(r.pro.expiresAt)}` : ''}`
-                                  : ''}
-                              </Text>
-                            </VStack>
-                          </View>
-                        ))}
-                      </VStack>
-                    </VStack>
-                  )}
-                </>
-              )}
+              <View style={styles.card}>
+                <VStack space="sm">
+                  <Text style={styles.cardTitle}>Grant Pro (1 year)</Text>
+                  <Text style={styles.body}>Manually grant Pro to a user or device. This takes effect immediately.</Text>
+                  <Button disabled={!canUseTools} onPress={() => void openGrantDrawer()}>
+                    <Text style={styles.buttonLabel}>Open grant tool</Text>
+                  </Button>
+                </VStack>
+              </View>
             </VStack>
-          </View>
+          ) : (
+            <VStack space="sm">
+              <Input
+                placeholder="email, name, or device id"
+                leadingIcon="search"
+                value={search}
+                onChangeText={setSearch}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="default"
+                returnKeyType="done"
+                variant="outline"
+              />
+
+              {directoryError ? <Text style={styles.error}>{directoryError}</Text> : null}
+
+              <Text style={styles.body}>
+                Loaded {users.length} users + {installs.length} devices • {directoryRows.length} shown
+                {usersHasMore || installsHasMore ? ' • scroll to load more' : ''}
+                {usersLoading || installsLoading ? ' • loading…' : ''}
+              </Text>
+
+              <VStack space="xs">
+                {directoryRows.map((r) => (
+                  <Pressable
+                    key={r.key}
+                    style={styles.row}
+                    onPress={() => openDirectoryDetail(r)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open details for ${r.title}`}
+                  >
+                    <VStack space={0} flex={1}>
+                      <Text style={styles.rowTitle}>{r.title}</Text>
+                      <Text style={styles.rowMeta}>{r.secondary}</Text>
+                    </VStack>
+                    <View style={styles.rowBadgeWrap} pointerEvents="none">
+                      <Badge
+                        variant={r.pro.isPro ? 'default' : 'outline'}
+                        style={r.pro.isPro ? styles.proBadge : styles.freeBadge}
+                        textStyle={r.pro.isPro ? styles.proBadgeText : styles.freeBadgeText}
+                      >
+                        {r.pro.isPro ? 'Pro' : 'Free'}
+                      </Badge>
+                    </View>
+                  </Pressable>
+                ))}
+              </VStack>
+            </VStack>
+          )}
         </KeyboardAwareScrollView>
 
         <BottomDrawer
@@ -780,6 +943,372 @@ export function SuperAdminToolsScreen() {
             ) : null}
           </VStack>
         </BottomDrawer>
+
+        <BottomDrawer
+          visible={directoryDetailVisible}
+          onClose={closeDirectoryDetail}
+          snapPoints={['92%']}
+          keyboardAvoidanceEnabled={false}
+          enableContentPanningGesture
+        >
+          <BottomDrawerScrollView
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: spacing['2xl'] }}
+          >
+            {directoryDetailRow ? (
+              <VStack space="md">
+                {/* Header with avatar */}
+                <HStack space="md" alignItems="center">
+                  <ProfileAvatar
+                    name={directoryDetailRow.user?.name ?? directoryDetailRow.title}
+                    avatarUrl={null}
+                    size={56}
+                  />
+                  <VStack space="xs" flex={1}>
+                    <Heading>{directoryDetailRow.title}</Heading>
+                    <HStack space="xs" alignItems="center" style={{ flexWrap: 'wrap' }}>
+                      <Badge
+                        variant={directoryDetailRow.pro.isPro ? 'default' : 'outline'}
+                        style={directoryDetailRow.pro.isPro ? styles.proBadge : styles.freeBadge}
+                        textStyle={directoryDetailRow.pro.isPro ? styles.proBadgeText : styles.freeBadgeText}
+                      >
+                        {directoryDetailRow.pro.isPro ? 'Pro' : 'Free'}
+                      </Badge>
+                      {directoryDetailRow.pro.isPro ? (
+                        <Text style={styles.body}>
+                          {formatProSourceLabel(directoryDetailRow.pro.source)}
+                          {directoryDetailRow.pro.expiresAt ? ` • exp ${formatExpiresAt(directoryDetailRow.pro.expiresAt)}` : ''}
+                        </Text>
+                      ) : null}
+                    </HStack>
+                  </VStack>
+                </HStack>
+
+                {/* Segmented control for tabs */}
+                <SegmentedControl
+                  value={detailTab}
+                  onChange={(next) => setDetailTab(next as 'details' | 'subscription' | 'use')}
+                  options={
+                    [
+                      { value: 'details', label: 'Details' },
+                      { value: 'subscription', label: 'Subscription' },
+                      { value: 'use', label: 'Use' },
+                    ] as const
+                  }
+                />
+
+                {/* Details tab */}
+                {detailTab === 'details' ? (
+                  <VStack space="md">
+                    <VStack space="xs">
+                      {directoryDetailRow.user?.name
+                        ? renderDetailField({ label: 'Name', value: directoryDetailRow.user.name })
+                        : null}
+                      {directoryDetailRow.user?.email
+                        ? renderDetailField({ label: 'Email', value: directoryDetailRow.user.email })
+                        : null}
+                      {directoryDetailRow.user?.userId
+                        ? renderDetailField({ label: 'User ID', value: directoryDetailRow.user.userId })
+                        : null}
+                      {typeof directoryDetailRow.user?.installsCount === 'number'
+                        ? renderDetailField({ label: 'Installs', value: String(directoryDetailRow.user.installsCount) })
+                        : null}
+                      {Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user?.installIds?.length
+                        ? renderDetailField({
+                            label: 'Install IDs',
+                            value: directoryDetailRow.user.installIds.join('\n'),
+                            multiline: true,
+                          })
+                        : directoryDetailRow.install?.installId
+                          ? renderDetailField({
+                              label: 'Install ID',
+                              value: directoryDetailRow.install.installId,
+                              multiline: true,
+                            })
+                          : null}
+                    </VStack>
+
+                    {directoryDetailRow.install?.identities?.length ? (
+                      <VStack space="xs">
+                        {renderDetailField({
+                          label: 'Also seen as',
+                          value: Array.from(
+                            new Set(
+                              directoryDetailRow.install.identities
+                                .map((x) => (x.userEmail ?? '').trim())
+                                .filter(Boolean),
+                            ),
+                          )
+                            .slice(0, 8)
+                            .join('\n'),
+                          multiline: true,
+                        })}
+                      </VStack>
+                    ) : null}
+
+                    <HStack space="sm" alignItems="center">
+                      <Button
+                        variant="secondary"
+                        onPress={async () => {
+                          await Clipboard.setStringAsync(directoryDetailRow.title);
+                          Alert.alert('Copied', 'Copied to clipboard.');
+                        }}
+                      >
+                        <Text style={styles.secondaryButtonLabel}>Copy</Text>
+                      </Button>
+                    </HStack>
+                  </VStack>
+                ) : null}
+
+                {/* Subscription tab */}
+                {detailTab === 'subscription' ? (
+                  <VStack space="md">
+                    <VStack space="xs">
+                      {renderDetailField({
+                        label: 'Status',
+                        value: '',
+                        // Hide the TextInput "value" and render the tier as a badge so
+                        // it matches the rest of the admin directory UI.
+                        inputStyle: { flex: 0, width: 0, paddingHorizontal: 0, paddingVertical: 0 },
+                        trailingElement: (
+                          <Badge
+                            variant={directoryDetailRow.pro.isPro ? 'default' : 'outline'}
+                            style={directoryDetailRow.pro.isPro ? styles.proBadge : styles.freeBadge}
+                            textStyle={directoryDetailRow.pro.isPro ? styles.proBadgeText : styles.freeBadgeText}
+                          >
+                            {directoryDetailRow.pro.isPro ? 'Pro' : 'Free'}
+                          </Badge>
+                        ),
+                      })}
+                      {renderDetailField({
+                        label: 'Source',
+                        value: formatProSourceLabel(directoryDetailRow.pro.source),
+                        helperText: "Where Kwilt got this user's Pro status (subscription vs redeemed code vs admin grant).",
+                      })}
+                      {directoryDetailRow.pro.expiresAt
+                        ? renderDetailField({
+                            label: 'Expires',
+                            value: formatExpiresAt(directoryDetailRow.pro.expiresAt),
+                          })
+                        : renderDetailField({
+                            label: 'Expires',
+                            value: 'Never',
+                          })}
+
+                      {renderDetailField({
+                        label: 'Base monthly limit',
+                        value: String(
+                          directoryDetailRow.pro.isPro
+                            ? PRO_GENERATIVE_CREDITS_PER_MONTH
+                            : FREE_GENERATIVE_CREDITS_PER_MONTH,
+                        ),
+                      })}
+                      {renderDetailField({
+                        label: 'Credits used this month',
+                        value: typeof directoryDetailRow.creditsUsed === 'number' ? String(directoryDetailRow.creditsUsed) : '0',
+                      })}
+                      {renderDetailField({
+                        label: 'Current month',
+                        value: getMonthKey(new Date()),
+                      })}
+                    </VStack>
+
+                    <VStack space="sm">
+                      <Text style={styles.body}>
+                        {directoryDetailRow.pro.isPro
+                          ? 'This user has an active Pro subscription. Granting Pro temporarily will create a separate entitlement that bypasses Apple subscription management.'
+                          : 'Grant Pro temporarily (1 year). This creates a quota-based entitlement that bypasses Apple subscription management.'}
+                      </Text>
+                      <Text style={styles.body}>
+                        Note: Temporary grants do not affect Apple subscription status. Users with active Apple subscriptions will continue to be billed through Apple.
+                      </Text>
+                      <Button
+                        disabled={!canUseTools}
+                        onPress={async () => {
+                          if (!canUseTools) return;
+                          try {
+                            const email = (directoryDetailRow.user?.email ?? '').trim();
+                            const installId =
+                              (Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user!.installIds!.length
+                                ? directoryDetailRow.user!.installIds![0]
+                                : directoryDetailRow.install?.installId) ?? '';
+                            if (email) {
+                              await grantProSuperAdmin({ targetType: 'user', email });
+                              Alert.alert('Upgraded', 'Granted Pro for 1 year.');
+                              await refreshDirectory();
+                              return;
+                            }
+                            if (installId) {
+                              await grantProSuperAdmin({ targetType: 'install', installId });
+                              Alert.alert('Upgraded', 'Granted Pro for 1 year.');
+                              await refreshDirectory();
+                              return;
+                            }
+                            Alert.alert('Missing target', 'No email or install ID available to grant Pro.');
+                          } catch (e: any) {
+                            Alert.alert('Unable to upgrade', typeof e?.message === 'string' ? e.message : 'Please try again.');
+                          }
+                        }}
+                      >
+                        <Text style={styles.buttonLabel}>
+                          {directoryDetailRow.pro.isPro ? 'Grant Pro again (1 year)' : 'Upgrade to Pro'}
+                        </Text>
+                      </Button>
+
+                      <Button
+                        variant="secondary"
+                        disabled={!canUseTools || !directoryDetailRow.pro.isPro}
+                        onPress={async () => {
+                          if (!canUseTools) return;
+                          if (!directoryDetailRow.pro.isPro) return;
+
+                          Alert.alert(
+                            'Downgrade to Free?',
+                            'This revokes Kwilt’s admin-granted Pro entitlement. If the user has a real paid subscription (RevenueCat/Apple), they will remain Pro.',
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              {
+                                text: 'Downgrade',
+                                style: 'destructive',
+                                onPress: async () => {
+                                  try {
+                                    const email = (directoryDetailRow.user?.email ?? '').trim();
+                                    const installId =
+                                      (Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user!.installIds!.length
+                                        ? directoryDetailRow.user!.installIds![0]
+                                        : directoryDetailRow.install?.installId) ?? '';
+                                    if (email) {
+                                      await revokeProSuperAdmin({ targetType: 'user', email });
+                                      Alert.alert('Downgraded', 'Revoked admin Pro entitlement.');
+                                      await refreshDirectory();
+                                      return;
+                                    }
+                                    if (installId) {
+                                      await revokeProSuperAdmin({ targetType: 'install', installId });
+                                      Alert.alert('Downgraded', 'Revoked admin Pro entitlement.');
+                                      await refreshDirectory();
+                                      return;
+                                    }
+                                    Alert.alert('Missing target', 'No email or install ID available to revoke Pro.');
+                                  } catch (e: any) {
+                                    Alert.alert('Unable to downgrade', typeof e?.message === 'string' ? e.message : 'Please try again.');
+                                  }
+                                },
+                              },
+                            ],
+                          );
+                        }}
+                      >
+                        <Text style={styles.secondaryButtonLabel}>Downgrade to Free</Text>
+                      </Button>
+                    </VStack>
+
+                    <VStack space="sm">
+                      <Text style={styles.body}>Add AI credits</Text>
+                      <Text style={styles.body}>
+                        Grant bonus credits that add to the user's monthly limit. These are tracked separately from base monthly credits.
+                      </Text>
+                      <HStack space="sm" alignItems="center">
+                        {[25, 100].map((delta) => (
+                          <Button
+                            key={delta}
+                            variant="secondary"
+                            disabled={!canUseTools}
+                            onPress={async () => {
+                              if (!canUseTools) return;
+                              try {
+                                const installId =
+                                  (Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user!.installIds!.length
+                                    ? directoryDetailRow.user!.installIds![0]
+                                    : directoryDetailRow.install?.installId) ?? '';
+                                if (!installId) {
+                                  Alert.alert('Missing install ID', 'We need a device install ID to grant AI credits.');
+                                  return;
+                                }
+                                const res = await grantBonusCreditsSuperAdmin({ installId, bonusActions: delta });
+                                Alert.alert(
+                                  'Credits granted',
+                                  res.bonusThisMonth != null
+                                    ? `Granted +${delta}. Bonus credits this month: ${res.bonusThisMonth}.`
+                                    : `Granted +${delta}.`,
+                                );
+                                await refreshDirectory();
+                              } catch (e: any) {
+                                Alert.alert('Unable to grant credits', typeof e?.message === 'string' ? e.message : 'Please try again.');
+                              }
+                            }}
+                          >
+                            <Text style={styles.secondaryButtonLabel}>+{delta}</Text>
+                          </Button>
+                        ))}
+                      </HStack>
+                    </VStack>
+                  </VStack>
+                ) : null}
+
+                {/* Use tab */}
+                {detailTab === 'use' ? (
+                  <VStack space="md">
+                    <VStack space="xs">
+                      {(() => {
+                        const userId = (directoryDetailRow.user?.userId ?? directoryDetailRow.install?.userId ?? '').trim();
+                        if (!userId) {
+                          return <Text style={styles.body}>No account usage available for this entry.</Text>;
+                        }
+                        if (useSummaryError) {
+                          return <Text style={styles.error}>{useSummaryError}</Text>;
+                        }
+                        // Keep layout stable: always render the same fields, fill as data arrives.
+                        const s = useSummary;
+                        return (
+                          <VStack space="xs">
+                            {renderDetailField({
+                              label: 'Activated?',
+                              value: s ? (s.is_activated ? 'Yes' : 'No') : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Activated at',
+                              value: s?.activated_at ? formatExpiresAt(s.activated_at) : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Active days (7d)',
+                              value: s ? String(s.active_days ?? 0) : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Activities created (7d)',
+                              value: s ? String(s.activities_created ?? 0) : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Check-ins (7d)',
+                              value: s ? String(s.checkins_count ?? 0) : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'AI actions (7d)',
+                              value: s ? String(s.ai_actions_count ?? 0) : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Last meaningful action',
+                              value: s?.last_meaningful_action_at
+                                ? `${formatUseActionType(s.last_meaningful_action_type)} • ${formatExpiresAt(s.last_meaningful_action_at)}`
+                                : '—',
+                            })}
+                          </VStack>
+                        );
+                      })()}
+                      {directoryDetailRow.lastSeenAt
+                        ? renderDetailField({
+                            label: 'Last seen',
+                            value: formatExpiresAt(directoryDetailRow.lastSeenAt),
+                          })
+                        : null}
+                    </VStack>
+                  </VStack>
+                ) : null}
+              </VStack>
+            ) : null}
+          </BottomDrawerScrollView>
+        </BottomDrawer>
       </View>
     </AppShell>
   );
@@ -793,7 +1322,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing['2xl'],
     gap: spacing.lg,
   },
@@ -824,14 +1353,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
-  },
-  subSectionTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
   },
   buttonLabel: {
     ...typography.body,
@@ -881,7 +1402,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: colors.border,
@@ -889,6 +1410,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.card,
+    position: 'relative',
+    // Reserve space so the top-right badge never overlaps the row title/meta.
+    paddingRight: spacing.md + 72,
   },
   rowTitle: {
     ...typography.body,
@@ -899,9 +1423,24 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  rowRight: {
-    alignItems: 'flex-end',
-    marginLeft: spacing.md,
+  rowBadgeWrap: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.md,
+  },
+  proBadge: {
+    backgroundColor: colors.accentMuted,
+    borderWidth: 0,
+  },
+  proBadgeText: {
+    color: colors.canvas,
+  },
+  freeBadge: {
+    backgroundColor: colors.fieldFill,
+    borderColor: colors.border,
+  },
+  freeBadgeText: {
+    color: colors.textSecondary,
   },
 });
 

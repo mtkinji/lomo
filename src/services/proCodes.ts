@@ -232,6 +232,32 @@ export async function grantProSuperAdmin(params: { targetType: 'user' | 'install
   };
 }
 
+export async function revokeProSuperAdmin(params: { targetType: 'user' | 'install'; email?: string; installId?: string }) {
+  const headers = await buildAuthedAdminHeaders();
+  const base = getProCodesBaseUrlForHeaders(headers);
+  if (!base) throw new Error('Pro codes service not configured');
+  const res = await fetch(`${base}/admin/revoke`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      targetType: params.targetType,
+      email: params.email,
+      installId: params.installId,
+    }),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to revoke Pro';
+    throw new Error(msg);
+  }
+  return {
+    quotaKey: typeof data?.quotaKey === 'string' ? data.quotaKey : null,
+    userId: typeof data?.userId === 'string' ? data.userId : null,
+    email: typeof data?.email === 'string' ? data.email : null,
+  };
+}
+
 
 
 
