@@ -11,6 +11,11 @@ export type DirectoryInstall = {
   appVersion: string | null;
   buildNumber: string | null;
   posthogDistinctId: string | null;
+  identities?: Array<{
+    userId: string | null;
+    userEmail: string | null;
+    lastSeenAt: string | null;
+  }>;
   pro: {
     isPro: boolean;
     source: string;
@@ -25,6 +30,7 @@ export type DirectoryUser = {
   createdAt: string | null;
   lastSeenAt: string | null;
   installsCount: number;
+  installIds?: string[];
   pro: {
     isPro: boolean;
     source: string;

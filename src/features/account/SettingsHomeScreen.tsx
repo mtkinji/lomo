@@ -441,7 +441,7 @@ export function SettingsHomeScreen() {
     ? ([
         {
           id: 'superAdminTools',
-          title: 'Kwilt Users',
+          title: 'Admin Tools',
           icon: 'users',
           iconColor: colors.madder,
           onPress: () => navigation.navigate('SettingsSuperAdminTools'),

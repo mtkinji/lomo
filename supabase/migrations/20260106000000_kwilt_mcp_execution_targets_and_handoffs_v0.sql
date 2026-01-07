@@ -14,7 +14,8 @@ create extension if not exists "pgcrypto";
 create table if not exists public.kwilt_execution_targets (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
-  definition_id text null references public.kwilt_execution_target_definitions(id) on delete set null,
+  -- NOTE: FK added later in this migration after definitions table exists (for schema-order safety).
+  definition_id text null,
   kind text not null,
   display_name text not null,
   -- Definition-specific config (e.g. for Cursor: repo_url/repo_name + verification commands).
@@ -132,6 +133,16 @@ values (
   '{"style_notes":"Follow repo conventions. Keep artifacts small.","test_instructions":"Run the Work Packet verification steps."}'::jsonb
 )
 on conflict (id) do nothing;
+
+-- Add FK now that the referenced table exists.
+do $$
+begin
+  alter table public.kwilt_execution_targets
+    add constraint kwilt_execution_targets_definition_id_fkey
+    foreign key (definition_id) references public.kwilt_execution_target_definitions(id) on delete set null;
+exception when duplicate_object then
+  null;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Activity handoffs (explicit “handed off to executor” queue state)

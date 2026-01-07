@@ -534,6 +534,37 @@ serve(async (req) => {
     if (error) {
       return json(503, { error: { message: 'Unable to record install', code: 'provider_unavailable' } });
     }
+
+    // Best-effort: persist install ↔ identity history (so Admin Tools can show shared devices / multiple accounts).
+    if (maybeUser?.userId) {
+      await admin
+        .from('kwilt_install_identities')
+        .upsert(
+          {
+            install_id: installId,
+            identity_key: `user:${maybeUser.userId}`,
+            user_id: maybeUser.userId,
+            user_email: maybeUser.email ?? null,
+            last_seen_at: now,
+          },
+          { onConflict: 'install_id,identity_key' },
+        )
+        .catch(() => undefined);
+    } else if (maybeUser?.email) {
+      await admin
+        .from('kwilt_install_identities')
+        .upsert(
+          {
+            install_id: installId,
+            identity_key: `email:${maybeUser.email.toLowerCase()}`,
+            user_id: null,
+            user_email: maybeUser.email,
+            last_seen_at: now,
+          },
+          { onConflict: 'install_id,identity_key' },
+        )
+        .catch(() => undefined);
+    }
     return json(200, { ok: true });
   }
 
@@ -814,15 +845,29 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const limitRaw = typeof (body as any)?.limit === 'number' ? (body as any).limit : 100;
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(250, Math.floor(limitRaw))) : 100;
-    const { data: installs, error } = await admin
-      .from('kwilt_installs')
-      .select(
-        'install_id, created_at, last_seen_at, user_id, user_email, revenuecat_app_user_id, platform, app_version, build_number, posthog_distinct_id',
-      )
-      .order('last_seen_at', { ascending: false })
-      .limit(limit);
-    if (error || !Array.isArray(installs)) {
-      return json(503, { error: { message: 'Unable to load installs', code: 'provider_unavailable' } });
+    // Be resilient to schema drift (older deployments may not have all optional columns).
+    let installs: any[] = [];
+    {
+      const r1 = await admin
+        .from('kwilt_installs')
+        .select(
+          'install_id, created_at, last_seen_at, user_id, user_email, revenuecat_app_user_id, platform, app_version, build_number, posthog_distinct_id',
+        )
+        .order('last_seen_at', { ascending: false })
+        .limit(limit);
+      if (!r1.error && Array.isArray(r1.data)) {
+        installs = r1.data as any[];
+      } else {
+        const r2 = await admin
+          .from('kwilt_installs')
+          .select('install_id, created_at, last_seen_at, user_id, user_email, revenuecat_app_user_id')
+          .order('last_seen_at', { ascending: false })
+          .limit(limit);
+        if (r2.error || !Array.isArray(r2.data)) {
+          return json(503, { error: { message: 'Unable to load installs', code: 'provider_unavailable' } });
+        }
+        installs = r2.data as any[];
+      }
     }
 
     const installKeys = installs.map((i: any) => `install:${i.install_id}`);
@@ -888,6 +933,36 @@ serve(async (req) => {
       return active[0];
     };
 
+    // Best-effort: include all identities ever seen on each install.
+    const identitiesByInstallId = new Map<string, Array<{ userId: string | null; userEmail: string | null; lastSeenAt: string | null }>>();
+    try {
+      const installIds = installs
+        .map((i: any) => (typeof i?.install_id === 'string' ? i.install_id : ''))
+        .filter(Boolean);
+      if (installIds.length > 0) {
+        const { data: ids } = await admin
+          .from('kwilt_install_identities')
+          .select('install_id, user_id, user_email, last_seen_at')
+          .in('install_id', installIds)
+          .order('last_seen_at', { ascending: false });
+        if (Array.isArray(ids)) {
+          for (const row of ids as any[]) {
+            const id = typeof row?.install_id === 'string' ? row.install_id : '';
+            if (!id) continue;
+            const arr = identitiesByInstallId.get(id) ?? [];
+            arr.push({
+              userId: typeof row?.user_id === 'string' ? row.user_id : null,
+              userEmail: typeof row?.user_email === 'string' ? row.user_email : null,
+              lastSeenAt: typeof row?.last_seen_at === 'string' ? row.last_seen_at : null,
+            });
+            identitiesByInstallId.set(id, arr);
+          }
+        }
+      }
+    } catch {
+      // ignore (table may not exist yet)
+    }
+
     const enriched = installs.map((i: any) => {
       const installKey = `install:${i.install_id}`;
       const userKey = typeof i?.user_id === 'string' ? `user:${i.user_id}` : '';
@@ -912,6 +987,7 @@ serve(async (req) => {
         appVersion: i.app_version ?? null,
         buildNumber: i.build_number ?? null,
         posthogDistinctId: i.posthog_distinct_id ?? null,
+        identities: identitiesByInstallId.get(i.install_id) ?? [],
         pro: {
           isPro: best.isPro,
           source: best.source,
@@ -950,8 +1026,11 @@ serve(async (req) => {
     const userIds = users.map((u) => (typeof u?.id === 'string' ? u.id : '')).filter(Boolean);
     const userKeys = userIds.map((id) => `user:${id}`);
 
-    // Load known installs for these users (best-effort). If you want "all installs", use /admin/list-installs.
-    const installsByUserId = new Map<string, any[]>();
+    // Load known installs for these users.
+    // - `kwilt_installs` reflects the *latest* association (used for RevenueCat lookup).
+    // - `kwilt_install_identities` (if present) captures history, so installsCount + lastSeenAt remain accurate
+    //   even if a device has been used across multiple accounts.
+    const installsByUserIdCurrent = new Map<string, any[]>();
     if (userIds.length > 0) {
       const { data: installs } = await admin
         .from('kwilt_installs')
@@ -961,13 +1040,39 @@ serve(async (req) => {
       if (Array.isArray(installs)) {
         for (const i of installs as any[]) {
           const uid = typeof i?.user_id === 'string' ? i.user_id : null;
-          // user_id isn't selected above in case it’s large; derive from query result if present.
-          // If absent, skip map.
           if (!uid) continue;
-          const arr = installsByUserId.get(uid) ?? [];
+          const arr = installsByUserIdCurrent.get(uid) ?? [];
           arr.push(i);
-          installsByUserId.set(uid, arr);
+          installsByUserIdCurrent.set(uid, arr);
         }
+      }
+    }
+
+    const installsByUserIdHistory = new Map<string, any[]>();
+    if (userIds.length > 0) {
+      try {
+        const { data: ids } = await admin
+          .from('kwilt_install_identities')
+          .select('install_id, user_id, last_seen_at')
+          .in('user_id', userIds)
+          .order('last_seen_at', { ascending: false });
+        if (Array.isArray(ids)) {
+          for (const row of ids as any[]) {
+            const uid = typeof row?.user_id === 'string' ? row.user_id : null;
+            const installId = typeof row?.install_id === 'string' ? row.install_id : null;
+            if (!uid || !installId) continue;
+            const arr = installsByUserIdHistory.get(uid) ?? [];
+            arr.push({
+              install_id: installId,
+              last_seen_at: row.last_seen_at,
+              revenuecat_app_user_id: null,
+              user_id: uid,
+            });
+            installsByUserIdHistory.set(uid, arr);
+          }
+        }
+      } catch {
+        // ignore (table may not exist yet)
       }
     }
 
@@ -1006,7 +1111,7 @@ serve(async (req) => {
     const rcIds = Array.from(
       new Set(
         userIds
-          .flatMap((uid) => (installsByUserId.get(uid) ?? []).map((i: any) => i?.revenuecat_app_user_id))
+          .flatMap((uid) => (installsByUserIdCurrent.get(uid) ?? []).map((i: any) => i?.revenuecat_app_user_id))
           .filter((v) => typeof v === 'string' && v.trim().length > 0)
           .map((v) => (v as string).trim()),
       ),
@@ -1037,11 +1142,13 @@ serve(async (req) => {
       const name = deriveDisplayNameFromUser(u);
       const userKey = userId ? `user:${userId}` : '';
       const entUser = userKey ? entByKey.get(userKey) ?? null : null;
-      const installs = installsByUserId.get(userId) ?? [];
+      const installsCurrent = installsByUserIdCurrent.get(userId) ?? [];
+      const installsHistory = installsByUserIdHistory.get(userId) ?? installsCurrent;
+      const installs = installsHistory;
       const lastSeenAt =
         installs.length > 0 && typeof installs[0]?.last_seen_at === 'string' ? installs[0].last_seen_at : null;
 
-      const rcCandidates = installs
+      const rcCandidates = installsCurrent
         .map((i: any) => (typeof i?.revenuecat_app_user_id === 'string' ? rcById.get(i.revenuecat_app_user_id) ?? null : null))
         .filter(Boolean) as Array<{ isPro: boolean; expiresAt: string | null; productId: string | null }>;
 
@@ -1057,6 +1164,13 @@ serve(async (req) => {
         createdAt,
         lastSeenAt,
         installsCount: installs.length,
+        installIds: Array.from(
+          new Set(
+            installs
+              .map((i: any) => (typeof i?.install_id === 'string' ? i.install_id : ''))
+              .filter(Boolean),
+          ),
+        ).slice(0, 5),
         pro: {
           isPro: best.isPro,
           source: best.source,

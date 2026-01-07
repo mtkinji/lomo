@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Share, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Share, StyleSheet, View, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
@@ -74,12 +74,15 @@ export function SuperAdminToolsScreen() {
   const [codeDrawerVisible, setCodeDrawerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [tab, setTab] = useState<'users' | 'devices' | 'utilities'>('users');
+  const [tab, setTab] = useState<'directory' | 'utilities'>('directory');
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [usersPage, setUsersPage] = useState(1);
+  const [usersHasMore, setUsersHasMore] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
   const [installs, setInstalls] = useState<DirectoryInstall[]>([]);
+  const [installsLimit, setInstallsLimit] = useState(50);
+  const [installsHasMore, setInstallsHasMore] = useState(true);
   const [installsLoading, setInstallsLoading] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -135,6 +138,12 @@ export function SuperAdminToolsScreen() {
   const canUseTools = isSuperAdmin && !isChecking;
   const canGenerate = !isChecking && !isSubmitting;
 
+  const USERS_PER_PAGE = 50;
+  const INSTALLS_PAGE_SIZE = 50;
+  const LOAD_MORE_THRESHOLD_PX = 220;
+
+  const isFetchingMoreRef = useRef(false);
+
   const tierOptions = useMemo(
     () =>
       [
@@ -186,35 +195,219 @@ export function SuperAdminToolsScreen() {
     }
   };
 
-  useEffect(() => {
+  const loadUsersPage = async (page: number) => {
     if (!canUseTools) return;
-    if (tab !== 'users') return;
     if (usersLoading) return;
+    if (!usersHasMore && page !== 1) return;
     setDirectoryError(null);
     setUsersLoading(true);
-    adminListUsers({ page: usersPage, perPage: 100 })
-      .then((res) => {
-        setUsers(res.users);
-      })
-      .catch((e: any) => {
-        setDirectoryError(typeof e?.message === 'string' ? e.message : 'Unable to load users');
-      })
-      .finally(() => setUsersLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canUseTools, tab, usersPage]);
+    try {
+      const res = await adminListUsers({ page, perPage: USERS_PER_PAGE });
+      const nextUsers = Array.isArray(res.users) ? res.users : [];
+      setUsers((prev) => {
+        if (page === 1) return nextUsers;
+        const map = new Map(prev.map((u) => [u.userId, u] as const));
+        for (const u of nextUsers) map.set(u.userId, u);
+        return Array.from(map.values());
+      });
+      setUsersPage(page);
+      setUsersHasMore(nextUsers.length >= USERS_PER_PAGE);
+    } catch (e: any) {
+      setDirectoryError(typeof e?.message === 'string' ? e.message : 'Unable to load users');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const loadInstalls = async (limit: number) => {
+    if (!canUseTools) return;
+    if (installsLoading) return;
+    if (!installsHasMore && limit !== INSTALLS_PAGE_SIZE) return;
+    setDirectoryError(null);
+    setInstallsLoading(true);
+    try {
+      const rows = await adminListInstalls({ limit });
+      setInstalls(rows);
+      setInstallsLimit(limit);
+      // Best-effort: if the server returned fewer than requested, we likely reached the end.
+      setInstallsHasMore(rows.length >= limit);
+    } catch (e: any) {
+      setDirectoryError(typeof e?.message === 'string' ? e.message : 'Unable to load devices');
+    } finally {
+      setInstallsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!canUseTools) return;
-    if (tab !== 'devices') return;
-    if (installsLoading) return;
-    setDirectoryError(null);
-    setInstallsLoading(true);
-    adminListInstalls({ limit: 150 })
-      .then((rows) => setInstalls(rows))
-      .catch((e: any) => setDirectoryError(typeof e?.message === 'string' ? e.message : 'Unable to load devices'))
-      .finally(() => setInstallsLoading(false));
+    if (tab !== 'directory') return;
+    if (users.length > 0) return;
+    void loadUsersPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canUseTools, tab]);
+
+  useEffect(() => {
+    if (!canUseTools) return;
+    if (tab !== 'directory') return;
+    if (installs.length > 0) return;
+    void loadInstalls(INSTALLS_PAGE_SIZE);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUseTools, tab]);
+
+  type DirectoryRow = {
+    key: string;
+    title: string;
+    subtitle: string;
+    lastSeenAt: string | null;
+    installsCount?: number | null;
+    pro: {
+      isPro: boolean;
+      source: string;
+      expiresAt: string | null;
+    };
+  };
+
+  const directoryRows = useMemo<DirectoryRow[]>(() => {
+    const byUserId = new Map<string, DirectoryRow>();
+    const byEmail = new Map<string, DirectoryRow>();
+    const anonByInstallId = new Map<string, DirectoryRow>();
+
+    // Index installs by userId so we can "reveal" an install id if a user has no email.
+    const mostRecentInstallByUserId = new Map<string, DirectoryInstall>();
+    for (const i of installs) {
+      if (!i.userId) continue;
+      const prev = mostRecentInstallByUserId.get(i.userId);
+      const prevMs = prev?.lastSeenAt ? Date.parse(prev.lastSeenAt) : -1;
+      const nextMs = i.lastSeenAt ? Date.parse(i.lastSeenAt) : -1;
+      if (!prev || nextMs > prevMs) mostRecentInstallByUserId.set(i.userId, i);
+    }
+
+    // Users (canonical identities when present).
+    for (const u of users) {
+      const install = mostRecentInstallByUserId.get(u.userId);
+      const installIds = Array.isArray(u.installIds) && u.installIds.length > 0 ? u.installIds : install?.installId ? [install.installId] : [];
+      const title = u.email?.trim()
+        ? u.email
+        : install?.installId
+          ? install.installId
+          : u.userId;
+      const subtitle = u.email?.trim()
+        ? `${u.name ? `${u.name} • ` : ''}installs: ${u.installsCount} • last seen: ${u.lastSeenAt ? formatExpiresAt(u.lastSeenAt) : 'unknown'}${
+            installIds.length > 0 ? ` • device: ${installIds[0]}` : ''
+          }`
+        : `anonymous • last seen: ${u.lastSeenAt ? formatExpiresAt(u.lastSeenAt) : 'unknown'}`;
+
+      byUserId.set(u.userId, {
+        key: `user:${u.userId}`,
+        title,
+        subtitle,
+        lastSeenAt: u.lastSeenAt ?? install?.lastSeenAt ?? null,
+        installsCount: u.installsCount,
+        pro: u.pro,
+      });
+    }
+
+    // Installs: fill gaps for users not yet loaded (and anonymous devices).
+    for (const i of installs) {
+      if (i.userId) {
+        // If the user isn't loaded yet, create a "shadow" row keyed by userId.
+        if (!byUserId.has(i.userId)) {
+          const title = i.userEmail?.trim() ? i.userEmail : i.installId;
+          const subtitle = `${i.userEmail?.trim() ? 'email known' : 'anonymous'} • last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}`;
+          byUserId.set(i.userId, {
+            key: `user:${i.userId}`,
+            title,
+            subtitle,
+            lastSeenAt: i.lastSeenAt ?? null,
+            installsCount: null,
+            pro: i.pro,
+          });
+        }
+        continue;
+      }
+
+      // No userId: either anonymous or "email-only" identity.
+      if (i.userEmail?.trim()) {
+        const emailKey = i.userEmail.trim().toLowerCase();
+        const prev = byEmail.get(emailKey);
+        const prevMs = prev?.lastSeenAt ? Date.parse(prev.lastSeenAt) : -1;
+        const nextMs = i.lastSeenAt ? Date.parse(i.lastSeenAt) : -1;
+        if (!prev || nextMs > prevMs) {
+          const alsoSeenAs = Array.from(
+            new Set((i.identities ?? []).map((x) => (x.userEmail ?? '').trim()).filter(Boolean)),
+          )
+            .filter((e) => e.toLowerCase() !== emailKey)
+            .slice(0, 2);
+          byEmail.set(emailKey, {
+            key: `email:${emailKey}`,
+            title: i.userEmail,
+            subtitle: `email-only • last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'} • device: ${i.installId}${
+              alsoSeenAs.length > 0 ? ` • also seen as: ${alsoSeenAs.join(', ')}` : ''
+            }`,
+            lastSeenAt: i.lastSeenAt ?? null,
+            installsCount: null,
+            pro: i.pro,
+          });
+        }
+      } else {
+        const alsoSeenAs = Array.from(
+          new Set((i.identities ?? []).map((x) => (x.userEmail ?? '').trim()).filter(Boolean)),
+        ).slice(0, 3);
+        anonByInstallId.set(i.installId, {
+          key: `install:${i.installId}`,
+          title: i.installId,
+          subtitle: `anonymous • last seen: ${i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}${
+            alsoSeenAs.length > 0 ? ` • also seen as: ${alsoSeenAs.join(', ')}` : ''
+          }`,
+          lastSeenAt: i.lastSeenAt ?? null,
+          installsCount: null,
+          pro: i.pro,
+        });
+      }
+    }
+
+    const all = [...byUserId.values(), ...byEmail.values(), ...anonByInstallId.values()];
+    const q = search.trim().toLowerCase();
+    const filtered = !q
+      ? all
+      : all.filter((r) => {
+          const hay = `${r.title} ${r.subtitle}`.toLowerCase();
+          return hay.includes(q);
+        });
+
+    return filtered.sort((a, b) => {
+      const ams = a.lastSeenAt ? Date.parse(a.lastSeenAt) : -1;
+      const bms = b.lastSeenAt ? Date.parse(b.lastSeenAt) : -1;
+      return bms - ams;
+    });
+  }, [installs, search, users]);
+
+  const maybeLoadMore = () => {
+    if (!canUseTools) return;
+    if (isFetchingMoreRef.current) return;
+    if (tab === 'directory') {
+      // Prefer paging users first; once exhausted, pull more installs to surface anonymous devices.
+      if (!usersLoading && usersHasMore) {
+        isFetchingMoreRef.current = true;
+        void loadUsersPage(usersPage + 1).finally(() => {
+          isFetchingMoreRef.current = false;
+        });
+        return;
+      }
+      if (!installsLoading && installsHasMore) {
+        isFetchingMoreRef.current = true;
+        void loadInstalls(installsLimit + INSTALLS_PAGE_SIZE).finally(() => {
+          isFetchingMoreRef.current = false;
+        });
+      }
+    }
+  };
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+    if (distanceFromBottom <= LOAD_MORE_THRESHOLD_PX) maybeLoadMore();
+  };
 
   const openGrantDrawer = async () => {
     setGrantResult(null);
@@ -272,16 +465,15 @@ export function SuperAdminToolsScreen() {
   return (
     <AppShell>
       <View style={styles.screen}>
-        <PageHeader title="Kwilt Users" onPressBack={() => navigation.goBack()} />
+        <PageHeader title="Admin Tools" onPressBack={() => navigation.goBack()} />
         <KeyboardAwareScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={250}
         >
           <View style={styles.section}>
-            <Text style={styles.body}>
-              Internal directory (production). Requires a signed-in Supabase user allowlisted server-side.
-            </Text>
             {authIdentity?.email ? (
               <Text style={styles.body}>Signed in as: {authIdentity.email}</Text>
             ) : statusEmail ? (
@@ -302,171 +494,120 @@ export function SuperAdminToolsScreen() {
             ) : null}
           </View>
 
+          <SegmentedControl
+            value={tab}
+            onChange={(next) => setTab(next as any)}
+            options={
+              [
+                { value: 'directory', label: 'Directory' },
+                { value: 'utilities', label: 'Utilities' },
+              ] as const
+            }
+          />
+
           <View style={styles.card}>
             <VStack space="sm">
-              <Text style={styles.cardTitle}>Directory</Text>
-              <SegmentedControl
-                value={tab}
-                onChange={(next) => setTab(next as any)}
-                options={
-                  [
-                    { value: 'users', label: 'Users' },
-                    { value: 'devices', label: 'Devices' },
-                    { value: 'utilities', label: 'Utilities' },
-                  ] as const
-                }
-              />
               {!canUseTools ? (
                 <Text style={styles.body}>Sign in as a Super Admin to view the directory.</Text>
               ) : (
                 <>
-                  <Input
-                    label="Search"
-                    placeholder={tab === 'users' ? 'email or name' : 'install id or email'}
-                    value={search}
-                    onChangeText={setSearch}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="default"
-                    returnKeyType="done"
-                    variant="outline"
-                  />
-                  {directoryError ? <Text style={styles.error}>{directoryError}</Text> : null}
+                  {tab === 'utilities' ? (
+                    <VStack space="lg">
+                      <Text style={styles.cardTitle}>Utilities</Text>
 
-                  {tab === 'users' ? (
+                      <VStack space="sm">
+                        <Text style={styles.subSectionTitle}>Simulate plan (device)</Text>
+                        <Text style={styles.body}>
+                          Current: {isPro ? 'Pro' : isProToolsTrial ? 'Trial' : 'Free'} • source: {lastSource ?? 'unknown'}
+                        </Text>
+                        <SegmentedControl
+                          value={tier}
+                          onChange={(next) => handleSetTier(next as AdminEntitlementsOverrideTier)}
+                          options={tierOptions as any}
+                        />
+                        {error ? <Text style={styles.error}>{error}</Text> : null}
+                      </VStack>
+
+                      <View style={styles.divider} />
+
+                      <VStack space="sm">
+                        <Text style={styles.subSectionTitle}>1-year Pro access code (one-time)</Text>
+                        <Text style={styles.body}>One-time use. Expires 1 year after generation.</Text>
+                        <Button disabled={!canGenerate} onPress={() => handleCreateOneYear()}>
+                          <Text style={styles.buttonLabel}>
+                            {isChecking ? 'Checking access…' : isSubmitting ? 'Working…' : 'Generate one-time code'}
+                          </Text>
+                        </Button>
+
+                        {lastCode ? (
+                          <View style={styles.result}>
+                            <Text style={styles.resultLabel}>Last generated</Text>
+                            <Text style={styles.body}>Open to view + share the code.</Text>
+                            <Button variant="secondary" onPress={() => setCodeDrawerVisible(true)}>
+                              <Text style={styles.secondaryButtonLabel}>Open</Text>
+                            </Button>
+                          </View>
+                        ) : null}
+                      </VStack>
+
+                      <View style={styles.divider} />
+
+                      <VStack space="sm">
+                        <Text style={styles.subSectionTitle}>Grant Pro (1 year)</Text>
+                        <Text style={styles.body}>Manually grant Pro to a user or device. This takes effect immediately.</Text>
+                        <Button disabled={!canUseTools} onPress={() => void openGrantDrawer()}>
+                          <Text style={styles.buttonLabel}>Open grant tool</Text>
+                        </Button>
+                      </VStack>
+                    </VStack>
+                  ) : (
                     <VStack space="sm">
-                      <HStack alignItems="center" space="sm">
-                        <Button
-                          variant="secondary"
-                          disabled={usersLoading}
-                          onPress={() => setUsersPage((p) => Math.max(1, p - 1))}
-                        >
-                          <Text style={styles.secondaryButtonLabel}>Prev</Text>
-                        </Button>
-                        <Text style={styles.body}>Page {usersPage}</Text>
-                        <Button variant="secondary" disabled={usersLoading} onPress={() => setUsersPage((p) => p + 1)}>
-                          <Text style={styles.secondaryButtonLabel}>Next</Text>
-                        </Button>
-                      </HStack>
+                      <Text style={styles.cardTitle}>Directory</Text>
+
+                      <Input
+                        label="Search"
+                        placeholder="email, name, or device id"
+                        value={search}
+                        onChangeText={setSearch}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="default"
+                        returnKeyType="done"
+                        variant="outline"
+                      />
+
+                      {directoryError ? <Text style={styles.error}>{directoryError}</Text> : null}
+
                       <Text style={styles.body}>
-                        Showing {users.length} users (page {usersPage}). RevenueCat status appears when we’ve seen an install and received webhook updates.
+                        Loaded {users.length} users + {installs.length} devices • {directoryRows.length} shown
+                        {usersHasMore || installsHasMore ? ' • scroll to load more' : ''}
+                        {usersLoading || installsLoading ? ' • loading…' : ''}
                       </Text>
+
                       <VStack space="xs">
-                        {users
-                          .filter((u) => {
-                            const q = search.trim().toLowerCase();
-                            if (!q) return true;
-                            const email = (u.email ?? '').toLowerCase();
-                            const name = (u.name ?? '').toLowerCase();
-                            return email.includes(q) || name.includes(q) || (u.userId ?? '').toLowerCase().includes(q);
-                          })
-                          .map((u) => (
-                            <View key={u.userId} style={styles.row}>
-                              <VStack space={0} flex={1}>
-                                <Text style={styles.rowTitle}>{u.name || u.email || u.userId}</Text>
-                                <Text style={styles.rowMeta}>
-                                  installs: {u.installsCount} • last seen: {u.lastSeenAt ? formatExpiresAt(u.lastSeenAt) : 'unknown'}
-                                </Text>
-                              </VStack>
-                              <VStack space={0} style={styles.rowRight}>
-                                <Text style={styles.rowTitle}>{u.pro.isPro ? 'Pro' : 'Free'}</Text>
-                                <Text style={styles.rowMeta}>
-                                  {u.pro.isPro ? `${u.pro.source}${u.pro.expiresAt ? ` • exp ${formatExpiresAt(u.pro.expiresAt)}` : ''}` : ''}
-                                </Text>
-                              </VStack>
-                            </View>
-                          ))}
+                        {directoryRows.map((r) => (
+                          <View key={r.key} style={styles.row}>
+                            <VStack space={0} flex={1}>
+                              <Text style={styles.rowTitle}>{r.title}</Text>
+                              <Text style={styles.rowMeta}>{r.subtitle}</Text>
+                            </VStack>
+                            <VStack space={0} style={styles.rowRight}>
+                              <Text style={styles.rowTitle}>{r.pro.isPro ? 'Pro' : 'Free'}</Text>
+                              <Text style={styles.rowMeta}>
+                                {r.pro.isPro
+                                  ? `${r.pro.source}${r.pro.expiresAt ? ` • exp ${formatExpiresAt(r.pro.expiresAt)}` : ''}`
+                                  : ''}
+                              </Text>
+                            </VStack>
+                          </View>
+                        ))}
                       </VStack>
                     </VStack>
-                  ) : tab === 'devices' ? (
-                    <VStack space="sm">
-                      <Text style={styles.body}>Showing {installs.length} devices (most recent).</Text>
-                      <VStack space="xs">
-                        {installs
-                          .filter((i) => {
-                            const q = search.trim().toLowerCase();
-                            if (!q) return true;
-                            const id = (i.installId ?? '').toLowerCase();
-                            const email = (i.userEmail ?? '').toLowerCase();
-                            return id.includes(q) || email.includes(q);
-                          })
-                          .map((i) => (
-                            <View key={i.installId} style={styles.row}>
-                              <VStack space={0} flex={1}>
-                                <Text style={styles.rowTitle}>{i.installId}</Text>
-                                <Text style={styles.rowMeta}>
-                                  {i.userEmail ? i.userEmail : 'anonymous'} • last seen:{' '}
-                                  {i.lastSeenAt ? formatExpiresAt(i.lastSeenAt) : 'unknown'}
-                                </Text>
-                              </VStack>
-                              <VStack space={0} style={styles.rowRight}>
-                                <Text style={styles.rowTitle}>{i.pro.isPro ? 'Pro' : 'Free'}</Text>
-                                <Text style={styles.rowMeta}>
-                                  {i.pro.isPro ? `${i.pro.source}${i.pro.expiresAt ? ` • exp ${formatExpiresAt(i.pro.expiresAt)}` : ''}` : ''}
-                                </Text>
-                              </VStack>
-                            </View>
-                          ))}
-                      </VStack>
-                    </VStack>
-                  ) : null}
+                  )}
                 </>
               )}
             </VStack>
           </View>
-
-          {tab === 'utilities' ? (
-            <>
-              <View style={styles.card}>
-                <VStack space="sm">
-                  <Text style={styles.cardTitle}>Simulate plan (device)</Text>
-                  <Text style={styles.body}>
-                    Current: {isPro ? 'Pro' : isProToolsTrial ? 'Trial' : 'Free'} • source:{' '}
-                    {lastSource ?? 'unknown'}
-                  </Text>
-                  <SegmentedControl
-                    value={tier}
-                    onChange={(next) => handleSetTier(next as AdminEntitlementsOverrideTier)}
-                    options={tierOptions as any}
-                  />
-                  {error ? <Text style={styles.error}>{error}</Text> : null}
-                </VStack>
-              </View>
-
-              <View style={styles.card}>
-                <VStack space="sm">
-                  <Text style={styles.cardTitle}>1-year Pro access code (one-time)</Text>
-                  <Text style={styles.body}>One-time use. Expires 1 year after generation.</Text>
-
-                  <Button disabled={!canGenerate} onPress={() => handleCreateOneYear()}>
-                    <Text style={styles.buttonLabel}>
-                      {isChecking ? 'Checking access…' : isSubmitting ? 'Working…' : 'Generate one-time code'}
-                    </Text>
-                  </Button>
-
-                  {lastCode ? (
-                    <View style={styles.result}>
-                      <Text style={styles.resultLabel}>Last generated</Text>
-                      <Text style={styles.body}>Open to view + share the code.</Text>
-                      <Button variant="secondary" onPress={() => setCodeDrawerVisible(true)}>
-                        <Text style={styles.secondaryButtonLabel}>Open</Text>
-                      </Button>
-                    </View>
-                  ) : null}
-                </VStack>
-              </View>
-
-              <View style={styles.card}>
-                <VStack space="sm">
-                  <Text style={styles.cardTitle}>Grant Pro (1 year)</Text>
-                  <Text style={styles.body}>Manually grant Pro to a user or device. This takes effect immediately.</Text>
-                  <Button disabled={!canUseTools} onPress={() => void openGrantDrawer()}>
-                    <Text style={styles.buttonLabel}>Open grant tool</Text>
-                  </Button>
-                </VStack>
-              </View>
-            </>
-          ) : null}
         </KeyboardAwareScrollView>
 
         <BottomDrawer
@@ -683,6 +824,14 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
+  },
+  subSectionTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   buttonLabel: {
     ...typography.body,

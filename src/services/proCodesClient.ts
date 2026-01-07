@@ -71,8 +71,15 @@ export function getProCodesBaseUrlForHeaders(headers?: Headers | null): string |
   // correct project functions host by deriving the project ref from the JWT issuer.
   const auth = (headers?.get('Authorization') ?? headers?.get('authorization') ?? '').trim();
   const m = /^Bearer\s+(.+)$/i.exec(auth);
-  const token = m?.[1]?.trim() ?? '';
-  const derived = token ? deriveFunctionsProCodesBaseFromJwt(token) : null;
+  const bearerToken = m?.[1]?.trim() ?? '';
+
+  // For non-authed requests (like device pings before login), the Supabase publishable/anon key
+  // is itself a JWT and contains a valid issuer we can parse to derive the project ref.
+  const apikey = (headers?.get('apikey') ?? '').trim();
+
+  const derived =
+    (bearerToken ? deriveFunctionsProCodesBaseFromJwt(bearerToken) : null) ??
+    (apikey ? deriveFunctionsProCodesBaseFromJwt(apikey) : null);
   return derived ?? getProCodesBaseUrl();
 }
 
