@@ -3,6 +3,7 @@ import { getInstallId } from './installId';
 import { useAppStore } from '../store/useAppStore';
 import { useCreditsInterstitialStore } from '../store/useCreditsInterstitialStore';
 import { useToastStore } from '../store/useToastStore';
+import { buildAuthedHeaders } from './proCodesClient';
 
 const AI_PROXY_BASE_URL_RAW = getEnvVar<string>('aiProxyBaseUrl');
 const AI_PROXY_BASE_URL =
@@ -29,6 +30,31 @@ async function buildEdgeHeaders(): Promise<Headers> {
   const installId = await getInstallId();
   headers.set('x-kwilt-install-id', installId);
   return headers;
+}
+
+export async function grantBonusCreditsSuperAdmin(params: { installId: string; bonusActions: number }): Promise<{
+  bonusThisMonth: number | null;
+}> {
+  const base = getReferralsBaseUrl();
+  if (!base) throw new Error('Referrals service not configured');
+
+  const headers = await buildAuthedHeaders({ promptReason: 'admin' });
+  const res = await fetch(`${base}/admin/grant-bonus`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      installId: params.installId,
+      bonusActions: params.bonusActions,
+    }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to grant bonus credits';
+    throw new Error(msg);
+  }
+  return {
+    bonusThisMonth: typeof data?.bonusThisMonth === 'number' ? data.bonusThisMonth : null,
+  };
 }
 
 export async function createReferralCode(): Promise<string> {

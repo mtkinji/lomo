@@ -37,7 +37,8 @@ function getSupabaseAdmin() {
   // when multiple environments/custom domains exist).
   //
   // - https://<project-ref>.functions.supabase.co/... -> https://<project-ref>.supabase.co
-  // - https://auth.custom-domain.tld/...             -> https://auth.custom-domain.tld
+  // NOTE: For custom domains, some setups only front Auth/Functions, not PostgREST (RPC).
+  // For service-role DB access we prefer `SUPABASE_URL` so RPCs always work.
   function deriveUrlFromReq(req: Request): string | null {
     try {
       const u = new URL(req.url);
@@ -48,9 +49,8 @@ function getSupabaseAdmin() {
         const projectRef = host.slice(0, -fnSuffix.length);
         return projectRef ? `https://${projectRef}.supabase.co` : null;
       }
-      // If the request is coming through a custom domain (or already on *.supabase.co),
-      // use that as the base.
-      return `${u.protocol}//${host}`;
+      // For non-functions hosts (custom domains), fall back to SUPABASE_URL.
+      return null;
     } catch {
       return null;
     }
@@ -77,20 +77,49 @@ function getSupabaseAdminFromReq(req: Request) {
   });
 }
 
+function decodeBase64Url(input: string): string {
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+  return atob(padded);
+}
+
+function deriveSupabaseUrlFromJwtIssuer(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payloadJson = decodeBase64Url(parts[1] ?? '');
+    const payload = JSON.parse(payloadJson) as { iss?: unknown };
+    const iss = typeof payload?.iss === 'string' ? payload.iss.trim() : '';
+    if (!iss) return null;
+    const u = new URL(iss);
+    const host = (u.hostname ?? '').trim();
+    if (!host) return null;
+    return `${u.protocol}//${host}`;
+  } catch {
+    return null;
+  }
+}
+
 function getSupabaseAnonFromReq(req: Request) {
-  let url = '';
+  // Prefer JWT issuer origin (supports Supabase custom domain setups).
+  const token = getBearerToken(req);
+  let url = token ? deriveSupabaseUrlFromJwtIssuer(token) ?? '' : '';
   try {
     const u = new URL(req.url);
     const host = (u.hostname ?? '').trim();
     const fnSuffix = '.functions.supabase.co';
-    if (host && host.endsWith(fnSuffix)) {
-      const projectRef = host.slice(0, -fnSuffix.length);
-      url = projectRef ? `https://${projectRef}.supabase.co` : '';
-    } else if (host) {
-      url = `${u.protocol}//${host}`;
+    // Only fall back to request-host derivation if we couldn't infer from token.
+    if (!url) {
+      if (host && host.endsWith(fnSuffix)) {
+        const projectRef = host.slice(0, -fnSuffix.length);
+        url = projectRef ? `https://${projectRef}.supabase.co` : '';
+      } else if (host) {
+        url = `${u.protocol}//${host}`;
+      }
     }
   } catch {
-    url = '';
+    // keep url as-is
   }
   if (!url) {
     url = (Deno.env.get('SUPABASE_URL') ?? '').trim();
@@ -143,6 +172,16 @@ function addDaysIso(days: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + Math.floor(days));
   return d.toISOString();
+}
+
+function formatExpiresAt(iso: string): string {
+  try {
+    const ms = Date.parse(iso);
+    if (!Number.isFinite(ms)) return iso;
+    return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return iso;
+  }
 }
 
 async function findUserIdByEmail(admin: any, email: string): Promise<{ userId: string; email: string } | null> {
@@ -505,6 +544,37 @@ serve(async (req) => {
     if (error) {
       return json(503, { error: { message: 'Unable to record install', code: 'provider_unavailable' } });
     }
+
+    // Best-effort: persist install ↔ identity history (so Admin Tools can show shared devices / multiple accounts).
+    if (maybeUser?.userId) {
+      await admin
+        .from('kwilt_install_identities')
+        .upsert(
+          {
+            install_id: installId,
+            identity_key: `user:${maybeUser.userId}`,
+            user_id: maybeUser.userId,
+            user_email: maybeUser.email ?? null,
+            last_seen_at: now,
+          },
+          { onConflict: 'install_id,identity_key' },
+        )
+        .catch(() => undefined);
+    } else if (maybeUser?.email) {
+      await admin
+        .from('kwilt_install_identities')
+        .upsert(
+          {
+            install_id: installId,
+            identity_key: `email:${maybeUser.email.toLowerCase()}`,
+            user_id: null,
+            user_email: maybeUser.email,
+            last_seen_at: now,
+          },
+          { onConflict: 'install_id,identity_key' },
+        )
+        .catch(() => undefined);
+    }
     return json(200, { ok: true });
   }
 
@@ -768,10 +838,105 @@ serve(async (req) => {
       return json(503, { error: { message: 'Unable to grant Pro', code: 'provider_unavailable' } });
     }
 
+    // Send email notification if we have an email address (user grants only)
+    if (resolvedEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(resolvedEmail)) {
+      const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
+      const fromEmail = (
+        (Deno.env.get('PRO_CODE_EMAIL_FROM') ?? '').trim() ||
+        (Deno.env.get('INVITE_EMAIL_FROM') ?? '').trim() ||
+        'no-reply@kwilt.app'
+      ).trim();
+      const fromName = (Deno.env.get('KWILT_PRO_CODE_FROM_NAME') ?? 'Kwilt').trim();
+
+      if (resendKey && fromEmail) {
+        const subject = 'Your Kwilt Pro access has been granted';
+        const expiresDate = formatExpiresAt(expiresAt);
+        const message =
+          `Your Kwilt Pro access has been granted!\n\n` +
+          `You now have access to all Pro features.\n` +
+          `Your Pro subscription expires: ${expiresDate}\n\n` +
+          `Thank you for using Kwilt!`;
+
+        const from = fromEmail.includes('<') ? fromEmail : `${fromName} <${fromEmail}>`;
+        // Best-effort: don't fail the grant if email send fails
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from,
+            to: resolvedEmail,
+            subject,
+            text: message,
+          }),
+        }).catch(() => {
+          // Silently fail - email is best-effort notification
+        });
+      }
+    }
+
     return json(200, {
       ok: true,
       quotaKey: quotaKeyGrant,
       expiresAt,
+      userId: resolvedUserId,
+      email: resolvedEmail,
+    });
+  }
+
+  if (route === '/admin/revoke') {
+    // Super-admin only: revoke a previously granted Pro entitlement (does NOT cancel RevenueCat/Apple subscriptions).
+    const check = await requireSuperAdminUser(req);
+    if (!check.ok) return check.response;
+
+    const body = await req.json().catch(() => null);
+    const targetType = typeof body?.targetType === 'string' ? body.targetType.trim().toLowerCase() : '';
+    const installIdRaw = typeof body?.installId === 'string' ? body.installId.trim() : '';
+    const emailRaw = typeof body?.email === 'string' ? body.email.trim() : '';
+
+    let quotaKeyRevoke = '';
+    let resolvedUserId: string | null = null;
+    let resolvedEmail: string | null = null;
+
+    if (targetType === 'install') {
+      if (!installIdRaw) {
+        return json(400, { error: { message: 'Missing installId', code: 'bad_request' } });
+      }
+      quotaKeyRevoke = `install:${installIdRaw}`;
+    } else if (targetType === 'user') {
+      if (!emailRaw) {
+        return json(400, { error: { message: 'Missing email', code: 'bad_request' } });
+      }
+      const found = await findUserIdByEmail(admin, emailRaw);
+      if (!found) {
+        return json(404, { error: { message: 'User not found', code: 'not_found' } });
+      }
+      resolvedUserId = found.userId;
+      resolvedEmail = found.email;
+      quotaKeyRevoke = `user:${found.userId}`;
+    } else {
+      return json(400, { error: { message: 'Invalid targetType (use user|install)', code: 'bad_request' } });
+    }
+
+    // We don't delete the row so the action is auditable; instead, we set is_pro=false and expire immediately.
+    const now = new Date().toISOString();
+    const { error } = await admin.from('kwilt_pro_entitlements').upsert(
+      {
+        quota_key: quotaKeyRevoke,
+        is_pro: false,
+        source: 'admin_revoke',
+        granted_at: now,
+        expires_at: now,
+        updated_at: now,
+      },
+      { onConflict: 'quota_key' },
+    );
+    if (error) {
+      return json(503, { error: { message: 'Unable to revoke Pro', code: 'provider_unavailable' } });
+    }
+
+    return json(200, {
+      ok: true,
+      quotaKey: quotaKeyRevoke,
       userId: resolvedUserId,
       email: resolvedEmail,
     });
@@ -785,15 +950,29 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const limitRaw = typeof (body as any)?.limit === 'number' ? (body as any).limit : 100;
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(250, Math.floor(limitRaw))) : 100;
-    const { data: installs, error } = await admin
-      .from('kwilt_installs')
-      .select(
-        'install_id, created_at, last_seen_at, user_id, user_email, revenuecat_app_user_id, platform, app_version, build_number, posthog_distinct_id',
-      )
-      .order('last_seen_at', { ascending: false })
-      .limit(limit);
-    if (error || !Array.isArray(installs)) {
-      return json(503, { error: { message: 'Unable to load installs', code: 'provider_unavailable' } });
+    // Be resilient to schema drift (older deployments may not have all optional columns).
+    let installs: any[] = [];
+    {
+      const r1 = await admin
+        .from('kwilt_installs')
+        .select(
+          'install_id, created_at, last_seen_at, user_id, user_email, revenuecat_app_user_id, platform, app_version, build_number, posthog_distinct_id',
+        )
+        .order('last_seen_at', { ascending: false })
+        .limit(limit);
+      if (!r1.error && Array.isArray(r1.data)) {
+        installs = r1.data as any[];
+      } else {
+        const r2 = await admin
+          .from('kwilt_installs')
+          .select('install_id, created_at, last_seen_at, user_id, user_email, revenuecat_app_user_id')
+          .order('last_seen_at', { ascending: false })
+          .limit(limit);
+        if (r2.error || !Array.isArray(r2.data)) {
+          return json(503, { error: { message: 'Unable to load installs', code: 'provider_unavailable' } });
+        }
+        installs = r2.data as any[];
+      }
     }
 
     const installKeys = installs.map((i: any) => `install:${i.install_id}`);
@@ -859,6 +1038,59 @@ serve(async (req) => {
       return active[0];
     };
 
+    // Best-effort: include all identities ever seen on each install.
+    const identitiesByInstallId = new Map<string, Array<{ userId: string | null; userEmail: string | null; lastSeenAt: string | null }>>();
+    try {
+      const installIds = installs
+        .map((i: any) => (typeof i?.install_id === 'string' ? i.install_id : ''))
+        .filter(Boolean);
+      if (installIds.length > 0) {
+        const { data: ids } = await admin
+          .from('kwilt_install_identities')
+          .select('install_id, user_id, user_email, last_seen_at')
+          .in('install_id', installIds)
+          .order('last_seen_at', { ascending: false });
+        if (Array.isArray(ids)) {
+          for (const row of ids as any[]) {
+            const id = typeof row?.install_id === 'string' ? row.install_id : '';
+            if (!id) continue;
+            const arr = identitiesByInstallId.get(id) ?? [];
+            arr.push({
+              userId: typeof row?.user_id === 'string' ? row.user_id : null,
+              userEmail: typeof row?.user_email === 'string' ? row.user_email : null,
+              lastSeenAt: typeof row?.last_seen_at === 'string' ? row.last_seen_at : null,
+            });
+            identitiesByInstallId.set(id, arr);
+          }
+        }
+      }
+    } catch {
+      // ignore (table may not exist yet)
+    }
+
+    // Query credit usage for current month
+    const usageByQuotaKey = new Map<string, number>();
+    try {
+      const now = new Date();
+      const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (quotaKeys.length > 0) {
+        const { data: usage } = await admin
+          .from('kwilt_ai_usage_monthly')
+          .select('quota_key, actions_count')
+          .eq('month', month)
+          .in('quota_key', quotaKeys);
+        if (Array.isArray(usage)) {
+          for (const u of usage as any[]) {
+            const k = typeof u?.quota_key === 'string' ? u.quota_key : '';
+            const count = typeof u?.actions_count === 'number' ? u.actions_count : 0;
+            if (k) usageByQuotaKey.set(k, count);
+          }
+        }
+      }
+    } catch {
+      // ignore (table may not exist yet)
+    }
+
     const enriched = installs.map((i: any) => {
       const installKey = `install:${i.install_id}`;
       const userKey = typeof i?.user_id === 'string' ? `user:${i.user_id}` : '';
@@ -872,6 +1104,11 @@ serve(async (req) => {
         ...(entInstall ? [{ isPro: entInstall.isPro, expiresAt: entInstall.expiresAt, source: entInstall.source ?? 'entitlement' }] : []),
       ]);
 
+      // Sum credit usage from both install and user quota keys
+      const installUsage = usageByQuotaKey.get(installKey) ?? 0;
+      const userUsage = userKey ? usageByQuotaKey.get(userKey) ?? 0 : 0;
+      const creditsUsed = installUsage + userUsage;
+
       return {
         installId: i.install_id,
         createdAt: i.created_at,
@@ -883,6 +1120,8 @@ serve(async (req) => {
         appVersion: i.app_version ?? null,
         buildNumber: i.build_number ?? null,
         posthogDistinctId: i.posthog_distinct_id ?? null,
+        identities: identitiesByInstallId.get(i.install_id) ?? [],
+        creditsUsed,
         pro: {
           isPro: best.isPro,
           source: best.source,
@@ -921,8 +1160,11 @@ serve(async (req) => {
     const userIds = users.map((u) => (typeof u?.id === 'string' ? u.id : '')).filter(Boolean);
     const userKeys = userIds.map((id) => `user:${id}`);
 
-    // Load known installs for these users (best-effort). If you want "all installs", use /admin/list-installs.
-    const installsByUserId = new Map<string, any[]>();
+    // Load known installs for these users.
+    // - `kwilt_installs` reflects the *latest* association (used for RevenueCat lookup).
+    // - `kwilt_install_identities` (if present) captures history, so installsCount + lastSeenAt remain accurate
+    //   even if a device has been used across multiple accounts.
+    const installsByUserIdCurrent = new Map<string, any[]>();
     if (userIds.length > 0) {
       const { data: installs } = await admin
         .from('kwilt_installs')
@@ -932,23 +1174,60 @@ serve(async (req) => {
       if (Array.isArray(installs)) {
         for (const i of installs as any[]) {
           const uid = typeof i?.user_id === 'string' ? i.user_id : null;
-          // user_id isn't selected above in case it’s large; derive from query result if present.
-          // If absent, skip map.
           if (!uid) continue;
-          const arr = installsByUserId.get(uid) ?? [];
+          const arr = installsByUserIdCurrent.get(uid) ?? [];
           arr.push(i);
-          installsByUserId.set(uid, arr);
+          installsByUserIdCurrent.set(uid, arr);
         }
       }
     }
 
-    // Entitlements for users.
+    const installsByUserIdHistory = new Map<string, any[]>();
+    if (userIds.length > 0) {
+      try {
+        const { data: ids } = await admin
+          .from('kwilt_install_identities')
+          .select('install_id, user_id, last_seen_at')
+          .in('user_id', userIds)
+          .order('last_seen_at', { ascending: false });
+        if (Array.isArray(ids)) {
+          for (const row of ids as any[]) {
+            const uid = typeof row?.user_id === 'string' ? row.user_id : null;
+            const installId = typeof row?.install_id === 'string' ? row.install_id : null;
+            if (!uid || !installId) continue;
+            const arr = installsByUserIdHistory.get(uid) ?? [];
+            arr.push({
+              install_id: installId,
+              last_seen_at: row.last_seen_at,
+              revenuecat_app_user_id: null,
+              user_id: uid,
+            });
+            installsByUserIdHistory.set(uid, arr);
+          }
+        }
+      } catch {
+        // ignore (table may not exist yet)
+      }
+    }
+
+    // Entitlements for users + installs (so Pro granted to a device still shows up on the user row).
     const entByKey = new Map<string, { isPro: boolean; expiresAt: string | null; source: string | null }>();
-    if (userKeys.length > 0) {
+    const installIdsAll = Array.from(
+      new Set(
+        userIds
+          .flatMap((uid) => (installsByUserIdCurrent.get(uid) ?? []).map((i: any) => i?.install_id))
+          .filter((v) => typeof v === 'string' && v.trim().length > 0)
+          .map((v) => (v as string).trim()),
+      ),
+    );
+    const installKeys = installIdsAll.map((id) => `install:${id}`);
+    const entitlementKeys = Array.from(new Set([...userKeys, ...installKeys]));
+
+    if (entitlementKeys.length > 0) {
       const { data: ents } = await admin
         .from('kwilt_pro_entitlements')
         .select('quota_key, is_pro, expires_at, source')
-        .in('quota_key', userKeys);
+        .in('quota_key', entitlementKeys);
       if (Array.isArray(ents)) {
         for (const e of ents as any[]) {
           const k = typeof e?.quota_key === 'string' ? e.quota_key : '';
@@ -977,7 +1256,7 @@ serve(async (req) => {
     const rcIds = Array.from(
       new Set(
         userIds
-          .flatMap((uid) => (installsByUserId.get(uid) ?? []).map((i: any) => i?.revenuecat_app_user_id))
+          .flatMap((uid) => (installsByUserIdCurrent.get(uid) ?? []).map((i: any) => i?.revenuecat_app_user_id))
           .filter((v) => typeof v === 'string' && v.trim().length > 0)
           .map((v) => (v as string).trim()),
       ),
@@ -1001,6 +1280,30 @@ serve(async (req) => {
       }
     }
 
+    // Query credit usage for current month
+    const usageByQuotaKey = new Map<string, number>();
+    try {
+      const now = new Date();
+      const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      const allQuotaKeys = Array.from(new Set([...userKeys, ...installKeys]));
+      if (allQuotaKeys.length > 0) {
+        const { data: usage } = await admin
+          .from('kwilt_ai_usage_monthly')
+          .select('quota_key, actions_count')
+          .eq('month', month)
+          .in('quota_key', allQuotaKeys);
+        if (Array.isArray(usage)) {
+          for (const u of usage as any[]) {
+            const k = typeof u?.quota_key === 'string' ? u.quota_key : '';
+            const count = typeof u?.actions_count === 'number' ? u.actions_count : 0;
+            if (k) usageByQuotaKey.set(k, count);
+          }
+        }
+      }
+    } catch {
+      // ignore (table may not exist yet)
+    }
+
     const enrichedUsers = users.map((u) => {
       const userId = typeof u?.id === 'string' ? u.id : '';
       const email = typeof u?.email === 'string' ? u.email : null;
@@ -1008,18 +1311,34 @@ serve(async (req) => {
       const name = deriveDisplayNameFromUser(u);
       const userKey = userId ? `user:${userId}` : '';
       const entUser = userKey ? entByKey.get(userKey) ?? null : null;
-      const installs = installsByUserId.get(userId) ?? [];
+      const installsCurrent = installsByUserIdCurrent.get(userId) ?? [];
+      const installsHistory = installsByUserIdHistory.get(userId) ?? installsCurrent;
+      const installs = installsHistory;
       const lastSeenAt =
         installs.length > 0 && typeof installs[0]?.last_seen_at === 'string' ? installs[0].last_seen_at : null;
 
-      const rcCandidates = installs
+      const rcCandidates = installsCurrent
         .map((i: any) => (typeof i?.revenuecat_app_user_id === 'string' ? rcById.get(i.revenuecat_app_user_id) ?? null : null))
         .filter(Boolean) as Array<{ isPro: boolean; expiresAt: string | null; productId: string | null }>;
+
+      const entInstallCandidates = installs
+        .map((i: any) => (typeof i?.install_id === 'string' ? entByKey.get(`install:${i.install_id}`) ?? null : null))
+        .filter(Boolean) as Array<{ isPro: boolean; expiresAt: string | null; source: string | null }>;
 
       const best = pickBest([
         ...rcCandidates.map((r) => ({ isPro: r.isPro, expiresAt: r.expiresAt, source: 'revenuecat' })),
         ...(entUser ? [{ isPro: entUser.isPro, expiresAt: entUser.expiresAt, source: entUser.source ?? 'entitlement' }] : []),
+        ...entInstallCandidates.map((e) => ({ isPro: e.isPro, expiresAt: e.expiresAt, source: e.source ?? 'entitlement' })),
       ]);
+
+      // Sum credit usage from user quota key and all install quota keys
+      const userUsage = userKey ? usageByQuotaKey.get(userKey) ?? 0 : 0;
+      const installUsage = installs.reduce((sum, i: any) => {
+        const installId = typeof i?.install_id === 'string' ? i.install_id : '';
+        if (!installId) return sum;
+        return sum + (usageByQuotaKey.get(`install:${installId}`) ?? 0);
+      }, 0);
+      const creditsUsed = userUsage + installUsage;
 
       return {
         userId,
@@ -1028,6 +1347,14 @@ serve(async (req) => {
         createdAt,
         lastSeenAt,
         installsCount: installs.length,
+        installIds: Array.from(
+          new Set(
+            installs
+              .map((i: any) => (typeof i?.install_id === 'string' ? i.install_id : ''))
+              .filter(Boolean),
+          ),
+        ).slice(0, 5),
+        creditsUsed,
         pro: {
           isPro: best.isPro,
           source: best.source,
@@ -1038,6 +1365,49 @@ serve(async (req) => {
     });
 
     return json(200, { ok: true, page, perPage, users: enrichedUsers });
+  }
+
+  if (route === '/admin/use-summary') {
+    // Super-admin only: fetch a small user-level usage summary (e.g. last 7 days) for Admin Tools.
+    const check = await requireSuperAdminUser(req);
+    if (!check.ok) return check.response;
+
+    const body = await req.json().catch(() => null);
+    const userIdRaw = typeof body?.userId === 'string' ? body.userId.trim() : '';
+    const installIdsRaw = Array.isArray(body?.installIds) ? body.installIds : [];
+    const windowDaysRaw = typeof body?.windowDays === 'number' ? body.windowDays : 7;
+
+    if (!userIdRaw) {
+      return json(400, { error: { message: 'Missing userId', code: 'bad_request' } });
+    }
+
+    const windowDays = Number.isFinite(windowDaysRaw) ? Math.max(1, Math.min(90, Math.floor(windowDaysRaw))) : 7;
+    const installIds = installIdsRaw
+      .filter((x: any) => typeof x === 'string')
+      .map((x: string) => x.trim())
+      .filter(Boolean)
+      .slice(0, 25);
+
+    const { data, error } = await admin.rpc('kwilt_admin_use_summary', {
+      p_user_id: userIdRaw,
+      p_install_ids: installIds,
+      p_window_days: windowDays,
+    });
+    if (error) {
+      const details =
+        (typeof (error as any)?.details === 'string' && (error as any).details) ||
+        (typeof (error as any)?.hint === 'string' && (error as any).hint) ||
+        '';
+      const msg = (typeof (error as any)?.message === 'string' && (error as any).message.trim()) || 'RPC failed';
+      return json(503, {
+        error: {
+          message: `Unable to load use summary: ${msg}${details ? ` (${details})` : ''}`,
+          code: 'provider_unavailable',
+        },
+      });
+    }
+    const summary = Array.isArray(data) ? (data[0] ?? null) : data ?? null;
+    return json(200, { ok: true, summary });
   }
 
   return json(404, { error: { message: 'Not found', code: 'not_found' } });

@@ -4,8 +4,7 @@
 -- - App ids are currently string ids (e.g. `goal-...`, `activity-...`). We store them as TEXT.
 -- - Attachments binaries live in Supabase Storage bucket `activity_attachments` (private).
 -- - Direct client access to Storage is intended to be blocked; Edge Functions will broker signed URLs.
--- - Shared-goals membership tables use UUID ids; we provide a safe cast helper so share gating
---   can work when goal ids are UUID-formatted (and safely no-op otherwise).
+-- - Shared-goals membership tables use TEXT ids; attachments store goal_id as TEXT.
 
 create extension if not exists "pgcrypto";
 
@@ -76,7 +75,7 @@ create policy "activity_attachments_read_owner_or_goal_members"
     owner_id = auth.uid()
     or (
       shared_with_goal_members = true
-      and public.kwilt_is_member('goal', public.kwilt_try_uuid(goal_id), auth.uid())
+      and public.kwilt_is_member('goal', goal_id, auth.uid())
     )
   );
 

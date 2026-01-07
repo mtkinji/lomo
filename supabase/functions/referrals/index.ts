@@ -4,6 +4,7 @@
 // - POST /create  -> { referralCode }
 // - POST /redeem  -> { ok, bonusDelta, inviterBonusThisMonth }
 // - POST /bonus   -> { bonusThisMonth }
+// - POST /admin/grant-bonus -> { ok, installId, bonusDelta, bonusThisMonth }
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -50,6 +51,68 @@ function getSupabaseAdmin() {
   });
 }
 
+function parseCsvList(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function getBearerToken(req: Request): string | null {
+  const h = (req.headers.get('authorization') ?? '').trim();
+  if (!h) return null;
+  const m = /^Bearer\s+(.+)$/i.exec(h);
+  return m?.[1]?.trim() ? m[1].trim() : null;
+}
+
+function getSupabaseAnon() {
+  const url = (Deno.env.get('SUPABASE_URL') ?? '').trim();
+  const anon =
+    (Deno.env.get('SUPABASE_ANON_KEY') ?? '').trim() ||
+    (Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '').trim();
+  if (!url || !anon) return null;
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function requireSuperAdminUser(req: Request): Promise<
+  | { ok: true; userId: string; email: string | null }
+  | { ok: false; response: Response }
+> {
+  const token = getBearerToken(req);
+  if (!token) {
+    return { ok: false, response: json(401, { error: { message: 'Missing Authorization', code: 'unauthorized' } }) };
+  }
+  const anon = getSupabaseAnon();
+  if (!anon) {
+    return { ok: false, response: json(503, { error: { message: 'Auth unavailable', code: 'provider_unavailable' } }) };
+  }
+
+  const { data, error } = await anon.auth.getUser(token);
+  if (error || !data?.user) {
+    return { ok: false, response: json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } }) };
+  }
+
+  const userId = String(data.user.id);
+  const email = typeof data.user.email === 'string' ? data.user.email : null;
+  const emailLower = email?.toLowerCase() ?? null;
+
+  const superAdminEmails = parseCsvList(Deno.env.get('KWILT_SUPER_ADMIN_EMAILS')).map((e) => e.toLowerCase());
+  const superAdminUserIds = parseCsvList(Deno.env.get('KWILT_SUPER_ADMIN_USER_IDS'));
+  if (superAdminEmails.length === 0 && superAdminUserIds.length === 0) {
+    return { ok: false, response: json(403, { error: { message: 'Super admin not configured', code: 'forbidden' } }) };
+  }
+  const isSuper =
+    superAdminUserIds.includes(userId) || (emailLower ? superAdminEmails.includes(emailLower) : false);
+  if (!isSuper) {
+    return { ok: false, response: json(403, { error: { message: 'Forbidden', code: 'forbidden' } }) };
+  }
+
+  return { ok: true, userId, email };
+}
+
 function randomReferralCode(): string {
   // Short-ish code, URL friendly.
   // Not a secret; uniqueness is enforced by DB PK.
@@ -77,13 +140,47 @@ serve(async (req) => {
     return json(503, { error: { message: 'Referral service unavailable', code: 'provider_unavailable' } });
   }
 
+  const now = new Date();
+
+  if (route === '/admin/grant-bonus') {
+    const check = await requireSuperAdminUser(req);
+    if (!check.ok) return check.response;
+
+    const body = await req.json().catch(() => ({}));
+    const installId = typeof (body as any)?.installId === 'string' ? (body as any).installId.trim() : '';
+    const bonusRaw = typeof (body as any)?.bonusActions === 'number' ? (body as any).bonusActions : NaN;
+    const bonusDelta = Number.isFinite(bonusRaw) ? Math.max(1, Math.floor(bonusRaw)) : 0;
+    if (!installId) {
+      return json(400, { error: { message: 'Missing installId', code: 'bad_request' } });
+    }
+    if (!bonusDelta) {
+      return json(400, { error: { message: 'Missing bonusActions', code: 'bad_request' } });
+    }
+
+    const month = getUtcMonthKey(now);
+    const quotaKey = `install:${installId}`;
+    const { data: next, error } = await admin.rpc('kwilt_increment_ai_bonus_monthly', {
+      p_quota_key: quotaKey,
+      p_month: month,
+      p_bonus_actions: bonusDelta,
+    });
+    if (error) {
+      return json(503, { error: { message: 'Unable to grant bonus credits', code: 'provider_unavailable' } });
+    }
+    return json(200, {
+      ok: true,
+      installId,
+      bonusDelta,
+      bonusThisMonth: typeof next === 'number' ? next : null,
+    });
+  }
+
   const installId = (req.headers.get('x-kwilt-install-id') ?? '').trim();
   if (!installId) {
     return json(400, { error: { message: 'Missing x-kwilt-install-id', code: 'bad_request' } });
   }
 
   const quotaKey = `install:${installId}`;
-  const now = new Date();
 
   if (route === '/create') {
     // Create or reuse an existing code for this inviter.

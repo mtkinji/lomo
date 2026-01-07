@@ -134,7 +134,7 @@ export function SettingsHomeScreen() {
       return;
     }
 
-    getAdminProCodesStatus()
+    getAdminProCodesStatus({ requireAuth: true })
       .then((s) => {
         setShowSuperAdmin(Boolean(s.role === 'super_admin'));
         // Safety: if this device is not signed in as super admin, clear any lingering
@@ -441,7 +441,7 @@ export function SettingsHomeScreen() {
     ? ([
         {
           id: 'superAdminTools',
-          title: 'Kwilt Users',
+          title: 'Admin Tools',
           icon: 'users',
           iconColor: colors.madder,
           onPress: () => navigation.navigate('SettingsSuperAdminTools'),

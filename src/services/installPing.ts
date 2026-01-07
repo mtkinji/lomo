@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { buildMaybeAuthedHeaders, getProCodesBaseUrl } from './proCodesClient';
+import { buildMaybeAuthedHeaders, getProCodesBaseUrlForHeaders } from './proCodesClient';
 
 const PING_CACHE_KEY = 'kwilt-install-ping-v1';
 
@@ -56,9 +56,6 @@ async function getRevenuecatAppUserIdBestEffort(): Promise<string | null> {
 }
 
 export async function pingInstall(args?: { userId?: string | null; revenuecatAppUserId?: string | null }): Promise<void> {
-  const base = getProCodesBaseUrl();
-  if (!base) return;
-
   const revenuecatAppUserId = args?.revenuecatAppUserId ?? (await getRevenuecatAppUserIdBestEffort());
 
   const cache = await readCache();
@@ -67,6 +64,8 @@ export async function pingInstall(args?: { userId?: string | null; revenuecatApp
   }
 
   const headers = await buildMaybeAuthedHeaders();
+  const base = getProCodesBaseUrlForHeaders(headers);
+  if (!base) return;
   const appVersion = (Constants.expoConfig as any)?.version ?? (Constants.manifest2 as any)?.extra?.version ?? null;
   const buildNumber =
     (Constants.expoConfig as any)?.ios?.buildNumber ??

@@ -121,7 +121,9 @@ export default function App() {
           await clearAdminEntitlementsOverrideTier().catch(() => undefined);
           return;
         }
-        const status = await getAdminProCodesStatus();
+        // We *do* want a valid JWT for this check; ensureSignedInWithPrompt won't re-prompt
+        // if a session exists, and it will refresh silently if the token is expiring.
+        const status = await getAdminProCodesStatus({ requireAuth: true });
         if (cancelled) return;
         if (status.role !== 'super_admin') {
           await clearAdminEntitlementsOverrideTier().catch(() => undefined);
@@ -136,6 +138,14 @@ export default function App() {
       cancelled = true;
     };
   }, [authIdentity?.userId]);
+
+  useEffect(() => {
+    // When the signed-in identity changes, force-refresh entitlements so:
+    // - server-side grants keyed by `user:<id>` become visible immediately
+    // - stale cached "Free" doesn't linger after sign-in
+    if (!authIdentity?.userId) return;
+    refreshEntitlements({ force: true }).catch(() => undefined);
+  }, [authIdentity?.userId, refreshEntitlements]);
 
   useEffect(() => {
     // Ensure remote feature flags / experiments are available as early as possible.

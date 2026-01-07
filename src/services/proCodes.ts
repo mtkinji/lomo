@@ -1,116 +1,18 @@
-import { getEnvVar, getSupabaseUrl } from '../utils/getEnv';
-import { getInstallId } from './installId';
+import { getSupabaseUrl } from '../utils/getEnv';
 import { setProCodeOverrideEnabled } from './entitlements';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { useToastStore } from '../store/useToastStore';
-import { getAccessToken, ensureSignedInWithPrompt } from './backend/auth';
 import { getSupabaseClient } from './backend/supabaseClient';
-
-const AI_PROXY_BASE_URL_RAW = getEnvVar<string>('aiProxyBaseUrl');
-const AI_PROXY_BASE_URL =
-  typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
-
-function decodeBase64Url(input: string): string {
-  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
-  const pad = base64.length % 4;
-  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const anyGlobal = globalThis as any;
-  if (typeof anyGlobal?.atob === 'function') return anyGlobal.atob(padded);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (typeof (anyGlobal?.Buffer as any)?.from === 'function') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (anyGlobal.Buffer as any).from(padded, 'base64').toString('utf8');
-  }
-  throw new Error('No base64 decoder available');
-}
-
-function deriveFunctionsProCodesBaseFromJwt(token: string): string | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length < 2) return null;
-    const payloadJson = decodeBase64Url(parts[1] ?? '');
-    const payload = JSON.parse(payloadJson) as { iss?: unknown };
-    const iss = typeof payload?.iss === 'string' ? payload.iss.trim() : '';
-    if (!iss) return null;
-    const u = new URL(iss);
-    const host = (u.hostname ?? '').trim();
-    const suffix = '.supabase.co';
-    if (!host.endsWith(suffix)) return null;
-    const projectRef = host.slice(0, -suffix.length);
-    if (!projectRef) return null;
-    return `https://${projectRef}.functions.supabase.co/functions/v1/pro-codes`;
-  } catch {
-    return null;
-  }
-}
-
-function getProCodesBaseUrlForHeaders(headers?: Headers | null): string | null {
-  const auth = (headers?.get('Authorization') ?? headers?.get('authorization') ?? '').trim();
-  const m = /^Bearer\s+(.+)$/i.exec(auth);
-  const token = m?.[1]?.trim() ?? '';
-  const derived = token ? deriveFunctionsProCodesBaseFromJwt(token) : null;
-  return derived ?? getProCodesBaseUrl();
-}
-
-function getProCodesBaseUrl(): string | null {
-  // Fallback: derive from Supabase project URL if aiProxyBaseUrl isn't set in this build.
-  // supabaseUrl format: https://<project-ref>.supabase.co
-  const supabaseUrl = getSupabaseUrl()?.trim();
-  if (!supabaseUrl) return null;
-  try {
-    const u = new URL(supabaseUrl);
-    const host = u.hostname ?? '';
-    const suffix = '.supabase.co';
-    // If we're using a custom domain (e.g. https://auth.kwilt.app), prefer hitting Edge
-    // Functions through the same base URL so the JWT issuer/validation matches.
-    // (Expo Go/dev builds can otherwise see 401 Unauthorized from auth.getUser.)
-    if (!host.endsWith(suffix)) {
-      const normalized = supabaseUrl.replace(/\/+$/, '');
-      return `${normalized}/functions/v1/pro-codes`;
-    }
-
-    // Standard Supabase URL (project-ref).supabase.co -> (project-ref).functions.supabase.co
-    const projectRef = host.slice(0, -suffix.length);
-    if (!projectRef) return null;
-    return `https://${projectRef}.functions.supabase.co/functions/v1/pro-codes`;
-  } catch {
-    return null;
-  }
-}
-
-async function buildEdgeHeaders(): Promise<Headers> {
-  const headers = new Headers();
-  headers.set('Content-Type', 'application/json');
-  headers.set('x-kwilt-client', 'kwilt-mobile');
-  const supabaseKey = getEnvVar<string>('supabasePublishableKey')?.trim();
-  if (supabaseKey) {
-    headers.set('apikey', supabaseKey);
-  }
-  const installId = await getInstallId();
-  headers.set('x-kwilt-install-id', installId);
-  return headers;
-}
+import {
+  buildAuthedHeaders,
+  buildEdgeHeaders,
+  buildMaybeAuthedHeaders,
+  getProCodesBaseUrl,
+  getProCodesBaseUrlForHeaders,
+} from './proCodesClient';
 
 async function buildAuthedAdminHeaders(): Promise<Headers> {
-  // Ensure the user is signed in so we can attach a JWT for admin authorization.
-  const session = await ensureSignedInWithPrompt('admin');
-  const token = (session as any)?.access_token ?? (await getAccessToken());
-  if (!token) {
-    throw new Error('Missing session token');
-  }
-  const headers = await buildEdgeHeaders();
-  headers.set('Authorization', `Bearer ${token}`);
-  return headers;
-}
-
-async function buildMaybeAuthedHeaders(): Promise<Headers> {
-  const token = await getAccessToken().catch(() => null);
-  const headers = await buildEdgeHeaders();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  return headers;
+  return await buildAuthedHeaders({ promptReason: 'admin' });
 }
 
 export async function redeemProCode(code: string): Promise<{ alreadyRedeemed: boolean }> {
@@ -325,6 +227,32 @@ export async function grantProSuperAdmin(params: { targetType: 'user' | 'install
   return {
     quotaKey: typeof data?.quotaKey === 'string' ? data.quotaKey : null,
     expiresAt: typeof data?.expiresAt === 'string' ? data.expiresAt : null,
+    userId: typeof data?.userId === 'string' ? data.userId : null,
+    email: typeof data?.email === 'string' ? data.email : null,
+  };
+}
+
+export async function revokeProSuperAdmin(params: { targetType: 'user' | 'install'; email?: string; installId?: string }) {
+  const headers = await buildAuthedAdminHeaders();
+  const base = getProCodesBaseUrlForHeaders(headers);
+  if (!base) throw new Error('Pro codes service not configured');
+  const res = await fetch(`${base}/admin/revoke`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      targetType: params.targetType,
+      email: params.email,
+      installId: params.installId,
+    }),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to revoke Pro';
+    throw new Error(msg);
+  }
+  return {
+    quotaKey: typeof data?.quotaKey === 'string' ? data.quotaKey : null,
     userId: typeof data?.userId === 'string' ? data.userId : null,
     email: typeof data?.email === 'string' ? data.email : null,
   };
