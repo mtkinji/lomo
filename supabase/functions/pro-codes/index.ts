@@ -77,20 +77,49 @@ function getSupabaseAdminFromReq(req: Request) {
   });
 }
 
+function decodeBase64Url(input: string): string {
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+  return atob(padded);
+}
+
+function deriveSupabaseUrlFromJwtIssuer(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payloadJson = decodeBase64Url(parts[1] ?? '');
+    const payload = JSON.parse(payloadJson) as { iss?: unknown };
+    const iss = typeof payload?.iss === 'string' ? payload.iss.trim() : '';
+    if (!iss) return null;
+    const u = new URL(iss);
+    const host = (u.hostname ?? '').trim();
+    if (!host) return null;
+    return `${u.protocol}//${host}`;
+  } catch {
+    return null;
+  }
+}
+
 function getSupabaseAnonFromReq(req: Request) {
-  let url = '';
+  // Prefer JWT issuer origin (supports Supabase custom domain setups).
+  const token = getBearerToken(req);
+  let url = token ? deriveSupabaseUrlFromJwtIssuer(token) ?? '' : '';
   try {
     const u = new URL(req.url);
     const host = (u.hostname ?? '').trim();
     const fnSuffix = '.functions.supabase.co';
-    if (host && host.endsWith(fnSuffix)) {
-      const projectRef = host.slice(0, -fnSuffix.length);
-      url = projectRef ? `https://${projectRef}.supabase.co` : '';
-    } else if (host) {
-      url = `${u.protocol}//${host}`;
+    // Only fall back to request-host derivation if we couldn't infer from token.
+    if (!url) {
+      if (host && host.endsWith(fnSuffix)) {
+        const projectRef = host.slice(0, -fnSuffix.length);
+        url = projectRef ? `https://${projectRef}.supabase.co` : '';
+      } else if (host) {
+        url = `${u.protocol}//${host}`;
+      }
     }
   } catch {
-    url = '';
+    // keep url as-is
   }
   if (!url) {
     url = (Deno.env.get('SUPABASE_URL') ?? '').trim();
