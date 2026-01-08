@@ -813,15 +813,15 @@ export function GoalCoachDrawer({
 
   const handleChangeMode = React.useCallback(
     (next: 'ai' | 'manual') => {
-      if (next === 'ai' && aiCreditsRemaining <= 0) {
+      if (next === 'ai' && !isPro && aiCreditsRemaining <= 0) {
         // Let the user "enter" Goal AI, but show an inline upgrade message instead of
-        // launching the agent workspace.
+        // launching the agent workspace. Pro users should not be blocked.
         setActiveTab('ai');
         return;
       }
       setActiveTab(next);
     },
-    [aiCreditsRemaining, openCreditsPaywall],
+    [aiCreditsRemaining, isPro, openCreditsPaywall],
   );
 
   // If the coach was launched from an Arc detail screen, default the manual draft
@@ -1137,7 +1137,7 @@ export function GoalCoachDrawer({
             activeTab !== 'ai' && { display: 'none' },
           ]}
         >
-          {aiCreditsRemaining <= 0 ? (
+          {!isPro && aiCreditsRemaining <= 0 ? (
             <View style={styles.goalAiCreditsEmpty}>
               <PaywallContent
                 reason="generative_quota_exceeded"

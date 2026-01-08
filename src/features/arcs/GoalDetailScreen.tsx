@@ -16,6 +16,7 @@ import {
   Linking,
   UIManager,
   findNodeHandle,
+  useWindowDimensions,
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -143,6 +144,7 @@ export function GoalDetailScreen() {
   const isFocused = useIsFocused();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
+  const { height: windowHeight } = useWindowDimensions();
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -453,6 +455,7 @@ export function GoalDetailScreen() {
     setQuickAddIsDueDatePickerVisible(false);
   }, [closeQuickAddToolDrawer, setQuickAddScheduledDate]);
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+  const pageContentRef = useRef<View | null>(null);
   const addActivitiesButtonRef = useRef<View>(null);
   const [isAddActivitiesButtonReady, setIsAddActivitiesButtonReady] = useState(false);
   const [addActivitiesButtonOffset, setAddActivitiesButtonOffset] = useState<number | null>(null);
@@ -875,11 +878,60 @@ export function GoalDetailScreen() {
     !isAnyBottomGuideVisible &&
     addActivitiesButtonOffset != null;
 
+  const measureAddActivitiesButtonOffset = useCallback(() => {
+    const node = addActivitiesButtonRef.current;
+    const container = pageContentRef.current;
+    if (!node || !container) return;
+    const nodeHandle = findNodeHandle(node);
+    const containerHandle = findNodeHandle(container);
+    if (!nodeHandle || !containerHandle) return;
+    // Compute Y relative to the scroll content root (not the local parent layout),
+    // so we can scroll to the correct content-space offset.
+    UIManager.measureLayout(
+      nodeHandle,
+      containerHandle,
+      () => {},
+      (_x, y) => {
+        if (typeof y === 'number' && Number.isFinite(y)) {
+          setAddActivitiesButtonOffset(y);
+        }
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    // If the target is ready and we intend to show a coachmark, re-measure once
+    // to get a stable content-relative Y.
+    if (!isAddActivitiesButtonReady) return;
+    if (!shouldShowOnboardingActivitiesCoachmark && !shouldShowPostGoalPlanCoachmark) return;
+    requestAnimationFrame(() => {
+      measureAddActivitiesButtonOffset();
+    });
+  }, [
+    isAddActivitiesButtonReady,
+    measureAddActivitiesButtonOffset,
+    shouldShowOnboardingActivitiesCoachmark,
+    shouldShowPostGoalPlanCoachmark,
+  ]);
+
+  const targetScrollY = useMemo(() => {
+    if (addActivitiesButtonOffset == null) return null;
+    // Place the target high enough that the coachmark bubble (placement="below")
+    // has room to render without pushing the CTA out of view—especially on short devices.
+    // Tuned to avoid over-scrolling on tall devices while still being safe on small screens.
+    // - Lower on screen => less scroll
+    // - Always keep it below the header region
+    const desiredTargetTopPx = Math.max(
+      220,
+      Math.min(360, Math.max(HEADER_BOTTOM_Y + 120, windowHeight * 0.32)),
+    );
+    return Math.max(0, addActivitiesButtonOffset - desiredTargetTopPx);
+  }, [addActivitiesButtonOffset, windowHeight, HEADER_BOTTOM_Y]);
+
   const addActivitiesCoachmarkHost = useCoachmarkHost({
     active: shouldShowAddActivitiesCoachmark,
     stepKey: shouldShowOnboardingActivitiesCoachmark ? 'onboardingActivities' : 'postGoalPlanActivities',
-    targetScrollY:
-      addActivitiesButtonOffset != null ? Math.max(0, addActivitiesButtonOffset - 120) : null,
+    targetScrollY,
     scrollTo: (args) => scrollRef.current?.scrollTo(args),
   });
 
@@ -2124,7 +2176,7 @@ export function GoalDetailScreen() {
               })}
               scrollEventThrottle={16}
             >
-              <View style={styles.pageContent}>
+              <View ref={pageContentRef} collapsable={false} style={styles.pageContent}>
                 <View style={styles.goalHeroSection}>
                   <Animated.View
                     style={{
@@ -2299,10 +2351,10 @@ export function GoalDetailScreen() {
                       collapsable={false}
                       onLayout={(event) => {
                         setIsAddActivitiesButtonReady(true);
-                        const y = event.nativeEvent.layout.y;
-                        if (typeof y === 'number' && Number.isFinite(y)) {
-                          setAddActivitiesButtonOffset(y);
-                        }
+                        // Measure relative to the scroll content root; `layout.y` is only local to the parent.
+                        requestAnimationFrame(() => {
+                          measureAddActivitiesButtonOffset();
+                        });
                       }}
                     >
                       <OpportunityCard
@@ -3943,7 +3995,7 @@ function GoalActivityCoachDrawer({
         </Dialog>
         {activeTab === 'ai' ? (
           <View style={styles.activityCoachBody}>
-            {aiCreditsRemaining <= 0 ? (
+            {!isPro && aiCreditsRemaining <= 0 ? (
               <View style={styles.activityAiCreditsEmpty}>
                 <PaywallContent
                   reason="generative_quota_exceeded"

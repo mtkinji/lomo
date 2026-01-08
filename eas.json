@@ -47,7 +47,11 @@
       }
     },
     "production": {
+      "credentialsSource": "local",
       "distribution": "store",
+      "ios": {
+        "credentialsSource": "local"
+      },
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
         "KWILT_ENABLE_APP_GROUPS": "1",
@@ -58,7 +62,11 @@
       }
     },
     "production-widgets": {
+      "credentialsSource": "local",
       "distribution": "store",
+      "ios": {
+        "credentialsSource": "local"
+      },
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
         "KWILT_ENABLE_APP_GROUPS": "1",

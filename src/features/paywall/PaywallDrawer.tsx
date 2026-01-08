@@ -185,54 +185,69 @@ export function PaywallContent(props: {
             {reason === 'generative_quota_exceeded' ? (
               <>
                 <Text style={styles.subtitle}>{quotaSubtitle}</Text>
-                <Text style={styles.subtitle}>{copy.subtitle}</Text>
+                {!isPro ? <Text style={styles.subtitle}>{copy.subtitle}</Text> : null}
               </>
             ) : (
               <Text style={styles.subtitle}>{copy.subtitle}</Text>
             )}
           </VStack>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Upgrade to Pro"
-            onPress={() => {
-              if (onUpgrade) {
-                onUpgrade();
-                return;
-              }
-              onClose();
-              // Avoid stacking two Modal-based BottomDrawers (paywall closing + pricing opening)
-              // which can leave an invisible backdrop intercepting touches on iOS.
-              setTimeout(() => openPaywallPurchaseEntry(), 340);
-            }}
-            style={styles.primaryCta}
-          >
-            <Text style={styles.primaryCtaLabel}>Upgrade</Text>
-          </Pressable>
+          {!isPro ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Upgrade to Pro"
+                onPress={() => {
+                  if (onUpgrade) {
+                    onUpgrade();
+                    return;
+                  }
+                  onClose();
+                  // Avoid stacking two Modal-based BottomDrawers (paywall closing + pricing opening)
+                  // which can leave an invisible backdrop intercepting touches on iOS.
+                  setTimeout(() => openPaywallPurchaseEntry(), 340);
+                }}
+                style={styles.primaryCta}
+              >
+                <Text style={styles.primaryCtaLabel}>Upgrade</Text>
+              </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Not now"
-            onPress={onClose}
-            style={styles.secondaryCta}
-          >
-            <Text style={styles.secondaryCtaLabel}>Not now</Text>
-          </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Not now"
+                onPress={onClose}
+                style={styles.secondaryCta}
+              >
+                <Text style={styles.secondaryCtaLabel}>Not now</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              onPress={onClose}
+              style={styles.primaryCta}
+            >
+              <Text style={styles.primaryCtaLabel}>Close</Text>
+            </Pressable>
+          )}
         </View>
       </LinearGradient>
 
-      {/* Pro value units (consistent across paywall reasons) */}
-      <View style={styles.valueSection}>
-        <Text style={styles.sectionLabel}>What you unlock</Text>
-        <VStack space="sm">
-          {PRO_VALUE_ATTAINMENTS.map((benefit) => (
-            <View key={benefit.title} style={styles.valueRow}>
-              <Icon name="check" size={18} color={colors.accent} />
-              <Text style={styles.valueText}>{benefit.title}</Text>
-            </View>
-          ))}
-        </VStack>
-      </View>
+      {/* Pro value units (consistent across paywall reasons) - only show for non-pro users */}
+      {!isPro ? (
+        <View style={styles.valueSection}>
+          <Text style={styles.sectionLabel}>What you unlock</Text>
+          <VStack space="sm">
+            {PRO_VALUE_ATTAINMENTS.map((benefit) => (
+              <View key={benefit.title} style={styles.valueRow}>
+                <Icon name="check" size={18} color={colors.accent} />
+                <Text style={styles.valueText}>{benefit.title}</Text>
+              </View>
+            ))}
+          </VStack>
+        </View>
+      ) : null}
     </View>
   );
 }

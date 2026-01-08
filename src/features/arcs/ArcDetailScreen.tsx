@@ -317,12 +317,15 @@ export function ArcDetailScreen() {
   // When navigated to with `openGoalCreation: true` (for example, from the Goals
   // canvas "new goal" affordance), immediately surface the Goal creation
   // wizard so the user can adopt a draft without hunting for the inline "+".
+  // HOWEVER: if the onboarding Arc handoff celebration is showing, defer opening
+  // the goal coach until after the user dismisses the celebration to avoid
+  // double bottom drawers during FTUE.
   useEffect(() => {
-    if (openGoalCreation && !hasOpenedGoalCreationFromParam) {
+    if (openGoalCreation && !hasOpenedGoalCreationFromParam && !showOnboardingArcHandoff) {
       setIsGoalCoachVisible(true);
       setHasOpenedGoalCreationFromParam(true);
     }
-  }, [openGoalCreation, hasOpenedGoalCreationFromParam]);
+  }, [openGoalCreation, hasOpenedGoalCreationFromParam, showOnboardingArcHandoff]);
 
   const handleBackToArcs = useCallback(() => {
     // In some persisted navigation states ArcDetail can be the first (and only)
@@ -810,22 +813,30 @@ export function ArcDetailScreen() {
           <Button
             variant="turmeric"
             onPress={() => {
-              // Step 1: navigate to the Goals tab. The in-context callout there
-              // will guide the user to the "Create goals for this Arc" button.
+              // Dismiss the celebration guide
               setShowOnboardingArcHandoff(false);
               setHasSeenFirstArcCelebration(true);
               if (showCelebrationFromRoute && !hasConsumedRouteCelebrationRef.current) {
                 hasConsumedRouteCelebrationRef.current = true;
                 navigation.setParams({ showFirstArcCelebration: false });
               }
-              // Jump to Goals section (Airbnb-style: no tabs).
-              requestAnimationFrame(() => {
-                if (goalsSectionOffset == null) {
-                  return;
-                }
-                const targetY = Math.max(0, goalsSectionOffset - HEADER_BOTTOM_Y - spacing.md);
-                scrollRef.current?.scrollTo({ y: targetY, animated: true });
-              });
+              
+              // If we navigated here with `openGoalCreation: true`, open the goal
+              // creation drawer now that the celebration is dismissed.
+              if (openGoalCreation && !hasOpenedGoalCreationFromParam) {
+                setIsGoalCoachVisible(true);
+                setHasOpenedGoalCreationFromParam(true);
+              } else {
+                // Otherwise, just scroll to the Goals section so the user can see
+                // the "Create goal" button with the coachmark.
+                requestAnimationFrame(() => {
+                  if (goalsSectionOffset == null) {
+                    return;
+                  }
+                  const targetY = Math.max(0, goalsSectionOffset - HEADER_BOTTOM_Y - spacing.md);
+                  scrollRef.current?.scrollTo({ y: targetY, animated: true });
+                });
+              }
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Go to Goals</Text>

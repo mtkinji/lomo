@@ -3185,7 +3185,7 @@ function ActivityCoachDrawer({
             activeTab !== 'ai' && { display: 'none' },
           ]}
         >
-          {aiCreditsRemaining <= 0 ? (
+          {!isPro && aiCreditsRemaining <= 0 ? (
             <View style={styles.activityAiCreditsEmpty}>
               <PaywallContent
                 reason="generative_quota_exceeded"

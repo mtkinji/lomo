@@ -1288,6 +1288,34 @@ export function SuperAdminToolsScreen() {
                               value: s ? String(s.ai_actions_count ?? 0) : '—',
                             })}
                             {renderDetailField({
+                              label: 'Credits/active day (7d)',
+                              value: s?.credits_per_active_day_7d != null 
+                                ? s.credits_per_active_day_7d.toFixed(1) 
+                                : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Credits/calendar day (7d)',
+                              value: s?.credits_per_calendar_day_7d != null 
+                                ? s.credits_per_calendar_day_7d.toFixed(1) 
+                                : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Credits this month',
+                              value: s ? String(s.credits_this_month ?? 0) : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Days since first credit',
+                              value: s?.days_since_first_credit_this_month != null 
+                                ? `${s.days_since_first_credit_this_month}d ago` 
+                                : '—',
+                            })}
+                            {renderDetailField({
+                              label: 'Days since last credit',
+                              value: s?.days_since_last_credit != null 
+                                ? `${s.days_since_last_credit}d ago` 
+                                : '—',
+                            })}
+                            {renderDetailField({
                               label: 'Last meaningful action',
                               value: s?.last_meaningful_action_at
                                 ? `${formatUseActionType(s.last_meaningful_action_type)} • ${formatExpiresAt(s.last_meaningful_action_at)}`

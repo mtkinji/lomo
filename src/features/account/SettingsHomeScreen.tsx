@@ -23,7 +23,6 @@ import { getMonthKey } from '../../domain/generativeCredits';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH } from '../../domain/generativeCredits';
 import { LinearGradient } from 'expo-linear-gradient';
 import { paywallTheme } from '../paywall/paywallTheme';
-import { openManageSubscription } from '../../services/entitlements';
 import { createReferralCode } from '../../services/referrals';
 import { getAdminProCodesStatus } from '../../services/proCodes';
 import { signOut } from '../../services/backend/auth';
@@ -329,10 +328,6 @@ export function SettingsHomeScreen() {
       title: 'Subscriptions',
       icon: 'cart',
       onPress: () => {
-        if (isPro) {
-          openManageSubscription().catch(() => navigation.navigate('SettingsManageSubscription'));
-          return;
-        }
         navigation.navigate('SettingsManageSubscription');
       },
       showChevron: true,

@@ -1319,6 +1319,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const modeSystemPrompt = modeConfig?.systemPrompt;
   const shouldBootstrapAssistant = Boolean(modeConfig?.autoBootstrapFirstMessage);
   const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
+  const isPro = useEntitlementsStore((s) => s.isPro);
   // Clearance between the focused input and the keyboard.
   //
   // For inline step-card forms (Arc creation / onboarding), we want enough room for
@@ -3954,6 +3955,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
                 {mode === 'activityCreation' &&
                   bootstrapped &&
+                  !isPro &&
                   hasGenerativeQuotaExceeded &&
                   !isGeneratingActivitySuggestions &&
                   !showActivitySummary && (

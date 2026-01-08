@@ -55,6 +55,11 @@ export type DirectoryUseSummary = {
   activated_at: string | null;
   last_meaningful_action_at: string | null;
   last_meaningful_action_type: 'none' | 'ai' | 'checkin' | 'activity' | 'goal' | 'arc' | 'unknown' | string;
+  credits_per_active_day_7d: number | null;
+  credits_per_calendar_day_7d: number | null;
+  credits_this_month: number;
+  days_since_first_credit_this_month: number | null;
+  days_since_last_credit: number | null;
 };
 
 export async function adminListInstalls(params?: { limit?: number }): Promise<DirectoryInstall[]> {

@@ -56,6 +56,7 @@ import { Input } from '../ui/Input';
 import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 import { ArcTestingResultsPage } from '../features/dev/ArcTestingResultsPage';
 import { useAppStore } from '../store/useAppStore';
+import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Button } from '../ui/Button';
 import { rootNavigationRef } from './rootNavigationRef';
@@ -746,6 +747,7 @@ function KwiltDrawerContent(props: any) {
   const insets = useSafeAreaInsets();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const subtitle = authIdentity?.email?.trim() || '';
   const DRAWER_ICON_SIZE = 24;
@@ -902,25 +904,27 @@ function KwiltDrawerContent(props: any) {
             </View>
           </Pressable>
 
-          <View style={styles.upgradeButtonContainer}>
-            <Button
-              fullWidth
-              variant="primary"
-              accessibilityLabel="Upgrade to Kwilt Pro"
-              onPress={() => {
-                props.navigation.navigate('Settings', {
-                  screen: 'SettingsManageSubscription',
-                  params: {
-                    openPricingDrawer: true,
-                    openPricingDrawerNonce: Date.now(),
-                  },
-                });
-                props.navigation.dispatch(DrawerActions.closeDrawer());
-              }}
-            >
-              Upgrade to Kwilt Pro
-            </Button>
-          </View>
+          {!isPro ? (
+            <View style={styles.upgradeButtonContainer}>
+              <Button
+                fullWidth
+                variant="primary"
+                accessibilityLabel="Upgrade to Kwilt Pro"
+                onPress={() => {
+                  props.navigation.navigate('Settings', {
+                    screen: 'SettingsManageSubscription',
+                    params: {
+                      openPricingDrawer: true,
+                      openPricingDrawerNonce: Date.now(),
+                    },
+                  });
+                  props.navigation.dispatch(DrawerActions.closeDrawer());
+                }}
+              >
+                Upgrade to Kwilt Pro
+              </Button>
+            </View>
+          ) : null}
         </View>
       </View>
     </DrawerContentScrollView>
