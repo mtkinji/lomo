@@ -8,7 +8,7 @@ import { Icon } from '../../ui/Icon';
 import { LongTextField } from '../../ui/LongTextField';
 import { Combobox, HStack, Input, ObjectPicker, ThreeColumnRow, VStack } from '../../ui/primitives';
 import { parseTags } from '../../utils/tags';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { DurationPicker } from './DurationPicker';
 import {
@@ -633,11 +633,17 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           setReminderSheetVisible(false);
           setIsReminderDateTimePickerVisible(false);
         }}
-        snapPoints={['40%']}
+        // iOS inline date picker is tall; use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['40%', '92%'] : ['40%']}
+        snapIndex={Platform.OS === 'ios' ? (isReminderDateTimePickerVisible ? 1 : 0) : 0}
         presentation="inline"
         hideBackdrop
       >
-        <View style={styles.sheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.sheetTitle}>Remind me</Text>
           <VStack space="sm">
             <SheetOption
@@ -698,7 +704,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
 
       <BottomDrawer
@@ -707,11 +713,17 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           setDueDateSheetVisible(false);
           setIsDueDatePickerVisible(false);
         }}
-        snapPoints={['45%']}
+        // iOS inline date picker is tall; use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['45%', '92%'] : ['45%']}
+        snapIndex={Platform.OS === 'ios' ? (isDueDatePickerVisible ? 1 : 0) : 0}
         presentation="inline"
         hideBackdrop
       >
-        <View style={styles.sheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.sheetTitle}>Due</Text>
           <VStack space="sm">
             <SheetOption
@@ -770,7 +782,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
 
       <BottomDrawer

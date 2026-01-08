@@ -55,10 +55,23 @@ export const styles = StyleSheet.create({
   breadcrumbsRight: {
     flex: 0,
   },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    columnGap: spacing.sm,
+    width: '100%',
+    flexShrink: 1,
+  },
   menuRowText: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
-    fontFamily: fonts.semibold,
+    flexShrink: 1,
+    flex: 1,
+  },
+  menuItemText: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   tagsFieldContainer: {
     width: '100%',
@@ -85,17 +98,20 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   tagsTextInput: {
-    flexGrow: 1,
     flexShrink: 1,
     // Important: keep this small so the presence of an (empty) TextInput does NOT
     // force a second wrapped row when chips still fit on the current row.
     flexBasis: 40,
     minWidth: 40,
+    width: 150,
     fontFamily: typography.bodySm.fontFamily,
     fontSize: typography.bodySm.fontSize,
-    lineHeight: typography.bodySm.lineHeight + 2,
+    // Match `Input` single-line metrics for visual centering.
+    lineHeight: Platform.OS === 'ios' ? typography.bodySm.fontSize + 2 : typography.bodySm.lineHeight,
     color: colors.textPrimary,
     paddingVertical: 0,
+    paddingHorizontal: 0,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'center' } : {}),
   },
   tagsAutofillBadge: {
     position: 'absolute',
@@ -411,6 +427,71 @@ export const styles = StyleSheet.create({
   },
   planListRowPressed: {
     backgroundColor: colors.shellAlt,
+  },
+  // Attachments (single-line row; details in drawer)
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 12,
+    minHeight: 40,
+  },
+  attachmentRowPressed: {
+    backgroundColor: colors.shellAlt,
+  },
+  attachmentIconBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: colors.fieldFillPressed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  attachmentRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    flexShrink: 0,
+  },
+  attachmentStatusText: {
+    ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: colors.textSecondary,
+  },
+  attachmentStatusTextFailed: {
+    color: colors.destructive,
+  },
+  attachmentPreviewFrame: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: colors.fieldFill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    width: '100%',
+  },
+  attachmentPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  attachmentPreviewPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+  },
+  attachmentPreviewPlaceholderText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   inputLabel: {
     ...typography.label,
@@ -798,6 +879,8 @@ export const styles = StyleSheet.create({
   destructiveMenuRowText: {
     ...typography.body,
     color: colors.destructive,
+    flexShrink: 1,
+    flex: 1,
   },
   doneButton: {
     paddingHorizontal: spacing.sm,

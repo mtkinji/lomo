@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
 import Constants from 'expo-constants';
 import * as AuthSession from 'expo-auth-session';
-import { getAiProxyBaseUrl, getSupabasePublishableKey } from '../utils/getEnv';
+import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getEnvVar } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { ensureSignedInWithPrompt, getAccessToken } from './backend/auth';
@@ -10,24 +10,13 @@ import { useToastStore } from '../store/useToastStore';
 import { useAppStore } from '../store/useAppStore';
 import { useJoinSharedGoalDrawerStore } from '../store/useJoinSharedGoalDrawerStore';
 import { handleIncomingReferralUrl } from './referrals';
-
-const AI_PROXY_BASE_URL_RAW = getAiProxyBaseUrl();
-const AI_PROXY_BASE_URL =
-  typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
+import { getEdgeFunctionUrl } from './edgeFunctions';
 
 function getInviteLandingBaseUrl(): string | null {
   const raw = getEnvVar<string>('inviteLandingBaseUrl');
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim().replace(/\/+$/, '');
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function getFunctionBaseUrl(functionName: string): string | null {
-  if (!AI_PROXY_BASE_URL) return null;
-  if (AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
-    return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/${functionName}`;
-  }
-  return null;
 }
 
 async function buildEdgeHeaders(requireAuth: boolean, accessToken?: string | null): Promise<Headers> {
@@ -65,7 +54,7 @@ export async function sendGoalInviteEmail(params: {
   inviteCode?: string | null;
   referralCode?: string | null;
 }): Promise<{ ok: true }> {
-  const base = getFunctionBaseUrl('invite-email-send');
+  const base = getEdgeFunctionUrl('invite-email-send');
   if (!base) throw new Error('Invites service not configured');
 
   const session = await ensureSignedInWithPrompt('share_goal_email');
@@ -129,7 +118,7 @@ export async function createGoalInvite(params: {
   inviteRedirectUrl: string | null;
   inviteLandingUrl: string | null;
 }> {
-  const base = getFunctionBaseUrl('invite-create');
+  const base = getEdgeFunctionUrl('invite-create');
   if (!base) throw new Error('Invites service not configured');
 
   // Auth-gated flow: ensure we have an account session before creating invites.
@@ -182,7 +171,7 @@ export async function createGoalInvite(params: {
     throw new Error(`[invite-create] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`);
   }
 
-  const redirectBase = getFunctionBaseUrl('invite-redirect');
+  const redirectBase = getEdgeFunctionUrl('invite-redirect');
   const inviteRedirectUrl = redirectBase ? `${redirectBase}/i/${encodeURIComponent(inviteCode)}` : null;
 
   const landingBase = getInviteLandingBaseUrl();
@@ -224,7 +213,7 @@ export function extractInviteCode(inviteUrlOrCode: string): string {
 }
 
 export async function acceptGoalInvite(inviteCode: string): Promise<{ goalId: string; goalTitle?: string | null }> {
-  const base = getFunctionBaseUrl('invite-accept');
+  const base = getEdgeFunctionUrl('invite-accept');
   if (!base) throw new Error('Invites service not configured');
 
   const session = await ensureSignedInWithPrompt('join_goal');
@@ -294,7 +283,7 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
   inviteState?: 'active' | 'expired' | 'consumed';
   canJoin?: boolean;
 }> {
-  const base = getFunctionBaseUrl('invite-preview');
+  const base = getEdgeFunctionUrl('invite-preview');
   if (!base) throw new Error('Invites service not configured');
 
   let res: Response;

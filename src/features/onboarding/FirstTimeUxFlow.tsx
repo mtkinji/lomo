@@ -71,9 +71,7 @@ export function FirstTimeUxFlow() {
   const [signupBusy, setSignupBusy] = useState(false);
   const deferredCompletionRef = useRef<{ outcome: unknown } | null>(null);
   const hasPresentedSignupInterstitialRef = useRef(false);
-  const [notificationError, setNotificationError] = useState<string | null>(null);
   const [isRequestingNotifications, setIsRequestingNotifications] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const { capture } = useAnalytics();
   const hasTrackedVisible = useRef(false);
@@ -126,9 +124,7 @@ export function FirstTimeUxFlow() {
     hasPresentedSignupInterstitialRef.current = false;
     introAnim.setValue(1);
     workflowAnim.setValue(0);
-    setNotificationError(null);
     setIsRequestingNotifications(false);
-    setLocationError(null);
     setIsRequestingLocation(false);
   }, [
     isVisible,
@@ -143,7 +139,6 @@ export function FirstTimeUxFlow() {
 
   const requestNotificationsFromFtue = useCallback(async () => {
     if (isRequestingNotifications) return;
-    setNotificationError(null);
     setIsRequestingNotifications(true);
     capture(AnalyticsEvent.NotificationsPermissionPrompted, { source: 'ftue_tap' });
     try {
@@ -173,17 +168,12 @@ export function FirstTimeUxFlow() {
           allowActivityReminders: true,
         };
         await NotificationService.applySettings(next);
-      } else {
-        if (updatedStatus === 'denied' || updatedStatus === 'restricted') {
-          setNotificationError('Notifications are currently blocked in system settings.');
-        }
       }
     } catch (err) {
       if (__DEV__) {
         // eslint-disable-next-line no-console
         console.warn('[onboarding] notifications enable failed', err);
       }
-      setNotificationError('No problem — you can enable notifications later in Settings.');
     } finally {
       setIsRequestingNotifications(false);
     }
@@ -207,14 +197,9 @@ export function FirstTimeUxFlow() {
     if (isRequestingLocation) return;
     // User opted in at the product layer regardless of OS permission outcome.
     setLocationOfferPreferences((current) => ({ ...current, enabled: true }));
-    setLocationError(null);
     setIsRequestingLocation(true);
     try {
-      const granted = await LocationPermissionService.ensurePermissionWithRationale('ftue');
-      if (!granted) {
-        // Let them continue; we’ll re-offer permission when they try to attach a place.
-        setLocationError('No problem — we’ll ask again when you attach a place to an Activity.');
-      }
+      await LocationPermissionService.ensurePermissionWithRationale('ftue');
     } finally {
       setIsRequestingLocation(false);
     }
@@ -476,17 +461,6 @@ export function FirstTimeUxFlow() {
               ? 'Enable location'
               : ctaLabel;
 
-    const helperText =
-      ftueStep !== 'notifications'
-        ? null
-        : primaryAction === 'enableNotifications'
-          ? 'You’ll see an iOS prompt to allow notifications.'
-          : primaryAction === 'enableLocation'
-            ? 'You’ll see iOS prompts to allow Location “Always”.'
-            : primaryAction === 'openSettings'
-              ? 'One of these permissions is currently blocked in system settings.'
-              : null;
-
     return (
       <FullScreenInterstitial
         visible
@@ -577,15 +551,6 @@ export function FirstTimeUxFlow() {
                             : 'Not enabled'}
                     </Text>
                   </View>
-                  {helperText ? (
-                    <Text style={[styles.ftuePermissionHint, { color: stepTheme.ink }]}>{helperText}</Text>
-                  ) : null}
-                  {notificationError ? (
-                    <Text style={[styles.ftueError, { color: stepTheme.ink }]}>{notificationError}</Text>
-                  ) : null}
-                  {locationError ? (
-                    <Text style={[styles.ftueError, { color: stepTheme.ink }]}>{locationError}</Text>
-                  ) : null}
                 </View>
               ) : null}
 

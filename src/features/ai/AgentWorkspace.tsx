@@ -625,7 +625,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
   // introduce real workflow instances and richer card rendering, this
   // component remains the primary host for all AI workflows and their single
   // shared chat surface.
-  if (aiCreditsRemaining <= 0 || hasAiQuotaExceeded || (!__DEV__ && getOpenAiQuotaExceededStatus())) {
+  // Pro users should not be blocked by quota checks.
+  if (!isPro && (aiCreditsRemaining <= 0 || hasAiQuotaExceeded || (!__DEV__ && getOpenAiQuotaExceededStatus()))) {
     const modeLabel = effectiveMode
       ? (WORKFLOW_REGISTRY as Record<string, WorkflowDefinition | undefined>)[effectiveMode]?.label
       : undefined;

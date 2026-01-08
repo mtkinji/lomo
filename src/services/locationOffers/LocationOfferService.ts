@@ -50,22 +50,43 @@ async function reconcileGeofencesInternal(): Promise<void> {
   const prefs = state.notificationPreferences;
   const locPrefs = state.locationOfferPreferences;
 
-  // Feature gate + notification permission gate.
-  if (!locPrefs.enabled || locPrefs.osPermissionStatus !== 'authorized') {
+  // Feature gate: user must opt in at the product layer.
+  if (!locPrefs.enabled) {
     await stopGeofencingIfRunning();
     return;
   }
+
+  // Notifications must be enabled and OS-authorized; otherwise a geofence-triggered
+  // offer would be invisible, so stop to avoid background work.
   if (!prefs.notificationsEnabled || prefs.osPermissionStatus !== 'authorized') {
     await stopGeofencingIfRunning();
     return;
   }
 
-  // Ensure permissions (foreground + always). This may show a prompt if needed.
-  // If the user declines, we can't run geofences.
+  // Ensure location permissions (foreground + background/always).
+  // Important: don't rely on potentially stale store state; this call syncs and
+  // can show a prompt if needed.
   const ok = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
   if (!ok) {
     await stopGeofencingIfRunning();
     return;
+  }
+
+  // Android can report geofencing unavailable depending on device/services state.
+  // `expo-location` exposes this helper in newer SDKs; guard to keep compatibility.
+  try {
+    const isGeofencingAvailableAsync = (Location as any)?.isGeofencingAvailableAsync as
+      | (() => Promise<boolean>)
+      | undefined;
+    if (isGeofencingAvailableAsync) {
+      const available = await isGeofencingAvailableAsync();
+      if (!available) {
+        await stopGeofencingIfRunning();
+        return;
+      }
+    }
+  } catch {
+    // best-effort
   }
 
   const eligible = getEligibleActivities();
@@ -93,6 +114,19 @@ async function reconcileGeofencesInternal(): Promise<void> {
   // Restart with the latest region set (simple + reliable).
   await stopGeofencingIfRunning();
   await Location.startGeofencingAsync(LOCATION_OFFER_GEOFENCE_TASK, regions);
+
+  if (__DEV__) {
+    try {
+      const started = await Location.hasStartedGeofencingAsync(LOCATION_OFFER_GEOFENCE_TASK);
+      // eslint-disable-next-line no-console
+      console.log('[locationOffers] geofencing started', {
+        started,
+        regions: regions.length,
+      });
+    } catch {
+      // best-effort
+    }
+  }
 }
 
 function scheduleReconcile(): void {

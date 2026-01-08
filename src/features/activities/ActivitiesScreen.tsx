@@ -57,7 +57,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
@@ -1969,11 +1969,17 @@ export function ActivitiesScreen() {
           setTriggerPickerActivityId(null);
           setIsTriggerDateTimePickerVisible(false);
         }}
-        snapPoints={['45%']}
+        // iOS inline date/time picker is tall; use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['45%', '92%'] : ['45%']}
+        snapIndex={Platform.OS === 'ios' ? (isTriggerDateTimePickerVisible ? 1 : 0) : 0}
         presentation="inline"
         hideBackdrop
       >
-        <View style={styles.sheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.sheetTitle}>Trigger (reminder)</Text>
           <VStack space="sm">
             <SheetOption
@@ -2001,7 +2007,7 @@ export function ActivitiesScreen() {
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
       <BottomDrawer
         visible={quickAddReminderSheetVisible}
@@ -2030,11 +2036,17 @@ export function ActivitiesScreen() {
           })
         }
         // iOS inline date picker needs more vertical space; otherwise it renders below the fold.
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        // Use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['45%', '92%'] : ['45%']}
+        snapIndex={Platform.OS === 'ios' ? (quickAddIsDueDatePickerVisible ? 1 : 0) : 0}
         presentation="inline"
         hideBackdrop
       >
-        <View style={styles.sheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.sheetTitle}>Due</Text>
           <VStack space="sm">
             <SheetOption label="Today" onPress={() => setQuickAddDueDateByOffsetDays(0)} />
@@ -2053,7 +2065,7 @@ export function ActivitiesScreen() {
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
 
       <BottomDrawer
@@ -3185,7 +3197,7 @@ function ActivityCoachDrawer({
             activeTab !== 'ai' && { display: 'none' },
           ]}
         >
-          {aiCreditsRemaining <= 0 ? (
+          {!isPro && aiCreditsRemaining <= 0 ? (
             <View style={styles.activityAiCreditsEmpty}>
               <PaywallContent
                 reason="generative_quota_exceeded"

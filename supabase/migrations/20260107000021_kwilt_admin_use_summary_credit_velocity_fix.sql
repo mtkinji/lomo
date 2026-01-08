@@ -1,5 +1,8 @@
--- Kwilt: Admin directory "Use" summary RPC (7-day user usage snapshot).
--- Computes a minimal set of user-level usage metrics for Super Admin tools.
+-- Kwilt: Fix ambiguous column references in admin use summary RPC.
+-- This fixes the "active_days is ambiguous" error by using unique CTE column aliases.
+
+-- Drop and recreate with fixed column aliases
+drop function if exists public.kwilt_admin_use_summary(uuid, text[], int);
 
 create or replace function public.kwilt_admin_use_summary(
   p_user_id uuid,
@@ -55,6 +58,7 @@ begin
   -- Current month for credit calculations (YYYY-MM format matching kwilt_ai_usage_monthly)
   v_current_month := to_char(now() at time zone 'UTC', 'YYYY-MM');
   v_month_start := date_trunc('month', now() at time zone 'UTC')::date;
+
   -- Activation prerequisites: at least one arc + goal + activity ever.
   select min(created_at), max(updated_at)
     into v_arcs_min, v_arcs_last
@@ -143,48 +147,48 @@ begin
     ),
     counts as (
       select
-        (select count(*) from all_days) as active_days,
-        (select count(*) from public.kwilt_arcs where user_id = p_user_id and updated_at >= v_start and updated_at <= v_end) as arcs_touched,
-        (select count(*) from public.kwilt_goals where user_id = p_user_id and updated_at >= v_start and updated_at <= v_end) as goals_touched,
-        (select count(*) from public.kwilt_activities where user_id = p_user_id and updated_at >= v_start and updated_at <= v_end) as activities_touched,
-        (select count(*) from public.kwilt_activities where user_id = p_user_id and created_at >= v_start and created_at <= v_end) as activities_created,
-        (select count(*) from public.goal_checkins where user_id = p_user_id and created_at >= v_start and created_at <= v_end) as checkins_count,
-        (select coalesce(sum("count"), 0) from public.kwilt_ai_usage_daily where quota_key = any(v_install_quota_keys) and day >= (v_start at time zone 'UTC')::date and day <= (v_end at time zone 'UTC')::date) as ai_actions_count
+        (select count(*) from all_days) as cnt_active_days,
+        (select count(*) from public.kwilt_arcs where user_id = p_user_id and updated_at >= v_start and updated_at <= v_end) as cnt_arcs_touched,
+        (select count(*) from public.kwilt_goals where user_id = p_user_id and updated_at >= v_start and updated_at <= v_end) as cnt_goals_touched,
+        (select count(*) from public.kwilt_activities where user_id = p_user_id and updated_at >= v_start and updated_at <= v_end) as cnt_activities_touched,
+        (select count(*) from public.kwilt_activities where user_id = p_user_id and created_at >= v_start and created_at <= v_end) as cnt_activities_created,
+        (select count(*) from public.goal_checkins where user_id = p_user_id and created_at >= v_start and created_at <= v_end) as cnt_checkins_count,
+        (select coalesce(sum("count"), 0) from public.kwilt_ai_usage_daily where quota_key = any(v_install_quota_keys) and day >= (v_start at time zone 'UTC')::date and day <= (v_end at time zone 'UTC')::date) as cnt_ai_actions_count
     ),
     credit_metrics as (
       select
         -- Total credits in 7-day window
-        (select coalesce(sum("count"), 0) from ai_days_with_counts) as total_credits_7d,
+        (select coalesce(sum("count"), 0) from ai_days_with_counts) as cm_total_credits_7d,
         -- Number of days with at least 1 credit spent in 7-day window
-        (select count(*) from ai_days_with_counts) as active_credit_days_7d,
+        (select count(*) from ai_days_with_counts) as cm_active_credit_days_7d,
         -- Credits this month from monthly rollup table
         (select coalesce(sum(actions_count), 0)::int 
          from public.kwilt_ai_usage_monthly 
          where quota_key = any(v_install_quota_keys) 
-           and month = v_current_month) as credits_this_month,
+           and month = v_current_month) as cm_credits_this_month,
         -- First credit day this month
         (select min(day) 
          from public.kwilt_ai_usage_daily 
          where quota_key = any(v_install_quota_keys) 
            and day >= v_month_start
-           and "count" > 0) as first_credit_day,
+           and "count" > 0) as cm_first_credit_day,
         -- Last credit day (all time)
         (select max(day) 
          from public.kwilt_ai_usage_daily 
          where quota_key = any(v_install_quota_keys) 
-           and "count" > 0) as last_credit_day
+           and "count" > 0) as cm_last_credit_day
     )
   select
     v_days as window_days,
     v_start as start_at,
     v_end as end_at,
-    (select active_days from counts)::int,
-    (select arcs_touched from counts)::int,
-    (select goals_touched from counts)::int,
-    (select activities_touched from counts)::int,
-    (select activities_created from counts)::int,
-    (select checkins_count from counts)::int,
-    (select ai_actions_count from counts)::int,
+    (select cnt_active_days from counts)::int,
+    (select cnt_arcs_touched from counts)::int,
+    (select cnt_goals_touched from counts)::int,
+    (select cnt_activities_touched from counts)::int,
+    (select cnt_activities_created from counts)::int,
+    (select cnt_checkins_count from counts)::int,
+    (select cnt_ai_actions_count from counts)::int,
     (v_arcs_min is not null and v_goals_min is not null and v_acts_min is not null) as is_activated,
     case
       when (v_arcs_min is not null and v_goals_min is not null and v_acts_min is not null)
@@ -203,23 +207,22 @@ begin
     end as last_meaningful_action_type,
     -- Credit velocity metrics
     case
-      when (select active_credit_days_7d from credit_metrics) > 0
-        then ((select total_credits_7d from credit_metrics)::numeric / (select active_credit_days_7d from credit_metrics)::numeric)
+      when (select cm_active_credit_days_7d from credit_metrics) > 0
+        then ((select cm_total_credits_7d from credit_metrics)::numeric / (select cm_active_credit_days_7d from credit_metrics)::numeric)
       else null
     end as credits_per_active_day_7d,
-    ((select total_credits_7d from credit_metrics)::numeric / v_days::numeric) as credits_per_calendar_day_7d,
-    (select credits_this_month from credit_metrics)::int,
+    ((select cm_total_credits_7d from credit_metrics)::numeric / v_days::numeric) as credits_per_calendar_day_7d,
+    (select cm_credits_this_month from credit_metrics)::int,
     case
-      when (select first_credit_day from credit_metrics) is not null
-        then (current_date - (select first_credit_day from credit_metrics))::int
+      when (select cm_first_credit_day from credit_metrics) is not null
+        then (current_date - (select cm_first_credit_day from credit_metrics))::int
       else null
     end as days_since_first_credit_this_month,
     case
-      when (select last_credit_day from credit_metrics) is not null
-        then (current_date - (select last_credit_day from credit_metrics))::int
+      when (select cm_last_credit_day from credit_metrics) is not null
+        then (current_date - (select cm_last_credit_day from credit_metrics))::int
       else null
     end as days_since_last_credit;
 end;
 $$;
-
 

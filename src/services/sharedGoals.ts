@@ -1,18 +1,7 @@
-import { getSupabasePublishableKey, getAiProxyBaseUrl } from '../utils/getEnv';
+import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { getAccessToken } from './backend/auth';
-
-const AI_PROXY_BASE_URL_RAW = getAiProxyBaseUrl();
-const AI_PROXY_BASE_URL =
-  typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
-
-function getFunctionBaseUrl(functionName: string): string | null {
-  if (!AI_PROXY_BASE_URL) return null;
-  if (AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
-    return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/${functionName}`;
-  }
-  return null;
-}
+import { getEdgeFunctionUrl } from './edgeFunctions';
 
 async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
   const headers = new Headers();
@@ -46,7 +35,7 @@ export type SharedMember = {
 };
 
 export async function listGoalMembers(goalId: string): Promise<SharedMember[] | null> {
-  const base = getFunctionBaseUrl('memberships-list');
+  const base = getEdgeFunctionUrl('memberships-list');
   if (!base) return null;
 
   // Do not prompt sign-in from passive UI surfaces (goal canvas). If not signed in, return null.
@@ -104,7 +93,7 @@ export async function listGoalMembers(goalId: string): Promise<SharedMember[] | 
 }
 
 export async function leaveSharedGoal(goalId: string): Promise<{ ok: true }> {
-  const base = getFunctionBaseUrl('memberships-leave');
+  const base = getEdgeFunctionUrl('memberships-leave');
   if (!base) {
     throw new Error('Membership service not configured');
   }

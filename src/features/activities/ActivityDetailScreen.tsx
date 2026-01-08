@@ -85,6 +85,7 @@ import { parseTags, suggestTagsFromText } from '../../utils/tags';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
 import * as Calendar from 'expo-calendar';
@@ -97,7 +98,11 @@ import { openPaywallInterstitial } from '../../services/paywall';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
+  deleteAttachment,
+  getAttachmentDownloadUrl,
+  openAttachment,
   startAudioRecording,
+  setAttachmentSharedWithGoalMembers,
   stopAudioRecordingAndAttachToActivity,
 } from '../../services/attachments/activityAttachments';
 import { Toast } from '../../ui/Toast';
@@ -261,7 +266,7 @@ export function ActivityDetailScreen() {
       setHeroImageLoading(true);
       setHeroImageError('');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: getImagePickerMediaTypesImages(),
         quality: 0.9,
       });
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -554,6 +559,7 @@ export function ActivityDetailScreen() {
     | 'calendar'
     | 'sendTo'
     | 'recordAudio'
+    | 'attachmentDetails'
     | null;
 
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>(null);
@@ -652,6 +658,64 @@ export function ActivityDetailScreen() {
   const [installedDestinations, setInstalledDestinations] = useState<ExecutionTargetRow[]>([]);
   const [isLoadingDestinations, setIsLoadingDestinations] = useState(false);
   const recordAudioSheetVisible = activeSheet === 'recordAudio';
+  const attachmentDetailsSheetVisible = activeSheet === 'attachmentDetails';
+  const [selectedAttachment, setSelectedAttachment] = useState<any | null>(null);
+  const [attachmentDownloadUrl, setAttachmentDownloadUrl] = useState<string | null>(null);
+  const [isLoadingAttachmentDownloadUrl, setIsLoadingAttachmentDownloadUrl] = useState(false);
+  const [attachmentPhotoAspectRatio, setAttachmentPhotoAspectRatio] = useState<number>(4 / 3);
+  const openAttachmentDetails = useCallback((att: any) => {
+    setSelectedAttachment(att ?? null);
+    setActiveSheet('attachmentDetails');
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const att = selectedAttachment;
+    const visible = attachmentDetailsSheetVisible;
+    const kind = (att?.kind ?? '').toString();
+
+    setAttachmentDownloadUrl(null);
+    setIsLoadingAttachmentDownloadUrl(false);
+    setAttachmentPhotoAspectRatio(4 / 3);
+
+    // Fetch a signed URL for downloading (and photo preview rendering).
+    if (!visible || !att?.id) return;
+
+    setIsLoadingAttachmentDownloadUrl(true);
+    getAttachmentDownloadUrl(String(att.id))
+      .then((url) => {
+        if (cancelled) return;
+        setAttachmentDownloadUrl(url);
+        if (kind === 'photo') {
+          try {
+            Image.getSize(
+              url,
+              (w, h) => {
+                if (cancelled) return;
+                if (typeof w === 'number' && typeof h === 'number' && w > 0 && h > 0) {
+                  setAttachmentPhotoAspectRatio(w / h);
+                }
+              },
+              () => undefined,
+            );
+          } catch {
+            // ignore
+          }
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAttachmentDownloadUrl(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsLoadingAttachmentDownloadUrl(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachmentDetailsSheetVisible, selectedAttachment]);
   const LOCATION_SHEET_PORTAL_HOST = 'activity-detail-location-sheet';
   const FOCUS_SHEET_PORTAL_HOST = 'activity-detail-focus-sheet';
   const DEFAULT_RADIUS_FT = 150;
@@ -3308,6 +3372,7 @@ export function ActivityDetailScreen() {
               openCalendarSheet={openCalendarSheet}
               openAgentForActivity={openAgentForActivity}
               setActiveSheet={setActiveSheet}
+              openAttachmentDetails={openAttachmentDetails}
               scrollRef={scrollRef}
               KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
               detailGuideHost={detailGuideHost}
@@ -3543,10 +3608,16 @@ export function ActivityDetailScreen() {
           setActiveSheet(null);
           setIsReminderDateTimePickerVisible(false);
         }}
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        // iOS inline date picker is tall; use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['45%', '92%'] : ['45%']}
+        snapIndex={Platform.OS === 'ios' ? (isReminderDateTimePickerVisible ? 1 : 0) : 0}
         scrimToken="pineSubtle"
       >
-        <View style={styles.sheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.sheetTitle}>Remind me</Text>
           <VStack space="sm">
             <SheetOption
@@ -3585,7 +3656,7 @@ export function ActivityDetailScreen() {
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
 
       <BottomDrawer
@@ -3596,10 +3667,16 @@ export function ActivityDetailScreen() {
         }}
         // iOS inline date picker needs more vertical space; otherwise "Pick a date…"
         // appears to do nothing because the picker renders below the fold.
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        // Use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['45%', '92%'] : ['45%']}
+        snapIndex={Platform.OS === 'ios' ? (isDueDatePickerVisible ? 1 : 0) : 0}
         scrimToken="pineSubtle"
       >
-        <View style={styles.sheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.sheetTitle}>Due</Text>
           <VStack space="sm">
             <SheetOption testID="e2e.activityDetail.dueDate.today" label="Today" onPress={() => handleSelectDueDate(0)} />
@@ -3622,7 +3699,7 @@ export function ActivityDetailScreen() {
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
 
       <BottomDrawer
@@ -4587,6 +4664,201 @@ export function ActivityDetailScreen() {
       />
 
       {AgentWorkspaceSheet}
+
+      <BottomDrawer
+        visible={attachmentDetailsSheetVisible}
+        onClose={() => {
+          setActiveSheet(null);
+          setSelectedAttachment(null);
+          setAttachmentDownloadUrl(null);
+          setIsLoadingAttachmentDownloadUrl(false);
+          setAttachmentPhotoAspectRatio(4 / 3);
+        }}
+        // Allow the sheet to grow near full-height when the preview is tall,
+        // while still supporting a more compact resting state.
+        snapPoints={Platform.OS === 'ios' ? (['70%', '96%'] as const) : (['66%', '94%'] as const)}
+        scrimToken="pineSubtle"
+        enableContentPanningGesture
+        // Let the sheet surface extend all the way to the bottom of the screen.
+        // We'll handle safe-area padding inside the scroll content so buttons never clip.
+        sheetStyle={{ paddingBottom: 0, paddingTop: 0, paddingHorizontal: 0 }}
+      >
+        <BottomDrawerScrollView
+          // Important: keep the scroll view itself flexed to fill the sheet height.
+          style={{ flex: 1 }}
+          // Avoid `flex: 1` on the content container; it can prevent scroll when content is taller.
+          contentContainerStyle={{
+            paddingTop: spacing.lg,
+            paddingHorizontal: spacing.lg,
+            paddingBottom: spacing['2xl'] + insets.bottom,
+          }}
+        >
+          {(() => {
+            const att = selectedAttachment;
+            if (!att) {
+              return (
+                <>
+                  <Text style={styles.sheetTitle}>Attachment</Text>
+                  <Text style={styles.sheetBody}>No attachment selected.</Text>
+                </>
+              );
+            }
+
+            const kind = (att?.kind ?? '').toString();
+            const kindLabel =
+              kind === 'photo'
+                ? 'Photo'
+                : kind === 'video'
+                  ? 'Video'
+                  : kind === 'audio'
+                    ? 'Audio'
+                    : kind === 'document'
+                      ? 'Document'
+                      : 'Attachment';
+            const rawName = typeof att?.fileName === 'string' ? att.fileName : '';
+            const name = rawName.trim() ? rawName.trim() : 'Attachment';
+            const status = (att?.uploadStatus ?? 'uploaded').toString();
+            const isOpenable = status === 'uploaded';
+            const isFailed = status === 'failed';
+
+            const formatBytes = (bytes: number) => {
+              if (!Number.isFinite(bytes) || bytes <= 0) return '';
+              const kb = bytes / 1024;
+              if (kb < 1024) return `${Math.round(kb)} KB`;
+              const mb = kb / 1024;
+              if (mb < 1024) return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
+              const gb = mb / 1024;
+              return `${gb.toFixed(gb < 10 ? 1 : 0)} GB`;
+            };
+
+            const formatDuration = (secs: number) => {
+              if (!Number.isFinite(secs) || secs <= 0) return '';
+              const s = Math.round(secs);
+              const m = Math.floor(s / 60);
+              const r = s % 60;
+              return m > 0 ? `${m}:${String(r).padStart(2, '0')}` : `${r}s`;
+            };
+
+            const sizeBytes = typeof att?.sizeBytes === 'number' ? att.sizeBytes : null;
+            const durationSeconds = typeof att?.durationSeconds === 'number' ? att.durationSeconds : null;
+            const createdAt = typeof att?.createdAt === 'string' ? att.createdAt : null;
+            const uploadError = typeof att?.uploadError === 'string' ? att.uploadError.trim() : '';
+
+            return (
+              <>
+                <View
+                  style={[
+                    styles.attachmentPreviewFrame,
+                    // Photos should render at natural aspect ratio (can push content and enable scroll).
+                    kind === 'photo' ? { aspectRatio: attachmentPhotoAspectRatio } : { height: 164 },
+                  ]}
+                >
+                  {isLoadingAttachmentDownloadUrl ? (
+                    <View style={styles.attachmentPreviewPlaceholder}>
+                      <ActivityIndicator size="small" color={colors.textSecondary} />
+                      <Text style={styles.attachmentPreviewPlaceholderText}>Loading…</Text>
+                    </View>
+                  ) : kind === 'photo' && attachmentDownloadUrl ? (
+                    <Image source={{ uri: attachmentDownloadUrl }} style={styles.attachmentPreviewImage} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.attachmentPreviewPlaceholder}>
+                      <Icon
+                        name={kind === 'video' ? 'image' : kind === 'audio' ? 'mic' : 'paperclip'}
+                        size={22}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={styles.attachmentPreviewPlaceholderText}>
+                        {kind === 'photo' ? 'Preview unavailable' : 'Preview available for photos'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.sheetTitle}>{name}</Text>
+                <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
+                  {kindLabel}
+                  {sizeBytes ? ` · ${formatBytes(sizeBytes)}` : ''}
+                  {durationSeconds ? ` · ${formatDuration(durationSeconds)}` : ''}
+                </Text>
+
+                <View style={styles.rowsCard}>
+                  <View style={[styles.row, styles.rowContent]}>
+                    <Text style={styles.rowLabel}>Status</Text>
+                    <Text style={[styles.rowValue, isFailed ? { color: colors.destructive } : null]}>
+                      {status === 'uploading' ? 'Uploading' : status === 'failed' ? 'Failed' : 'Uploaded'}
+                    </Text>
+                  </View>
+                  {createdAt ? (
+                    <>
+                      <View style={styles.cardSectionDivider} />
+                      <View style={[styles.row, styles.rowContent]}>
+                        <Text style={styles.rowLabel}>Added</Text>
+                        <Text style={styles.rowValue}>{new Date(createdAt).toLocaleString()}</Text>
+                      </View>
+                    </>
+                  ) : null}
+                  {uploadError ? (
+                    <>
+                      <View style={styles.cardSectionDivider} />
+                      <View style={[styles.row, styles.rowContent]}>
+                        <Text style={styles.rowLabel}>Error</Text>
+                        <Text style={[styles.rowValue, { color: colors.destructive }]} numberOfLines={2}>
+                          {uploadError}
+                        </Text>
+                      </View>
+                    </>
+                  ) : null}
+                </View>
+
+                <View style={{ marginTop: spacing.md }}>
+                  <VStack space="sm">
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      disabled={!isOpenable || !attachmentDownloadUrl}
+                      accessibilityLabel="Download attachment"
+                      onPress={() => {
+                        if (!isOpenable || !attachmentDownloadUrl) return;
+                        // iOS: share sheet includes "Save Image" for photos.
+                        Share.share({ url: attachmentDownloadUrl, message: attachmentDownloadUrl }).catch(() => {
+                          Linking.openURL(attachmentDownloadUrl).catch(() => undefined);
+                        });
+                      }}
+                    >
+                      <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Download</Text>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      fullWidth
+                      accessibilityLabel="Delete attachment"
+                      onPress={() => {
+                        Alert.alert('Delete attachment?', 'This will remove it from this activity.', [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: () => {
+                              void deleteAttachment({
+                                activityId: activity.id,
+                                attachmentId: String(att.id),
+                              }).catch(() => undefined);
+                              setActiveSheet(null);
+                              setSelectedAttachment(null);
+                            },
+                          },
+                        ]);
+                      }}
+                    >
+                      <Text style={[styles.sheetRowLabel, { color: colors.destructive }]}>Delete</Text>
+                    </Button>
+                  </VStack>
+                </View>
+              </>
+            );
+          })()}
+        </BottomDrawerScrollView>
+      </BottomDrawer>
 
       <BottomDrawer
         visible={recordAudioSheetVisible}

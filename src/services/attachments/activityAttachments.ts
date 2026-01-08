@@ -13,28 +13,23 @@ async function getAudio(): Promise<ExpoAvAudio> {
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Linking } from 'react-native';
 import type { Activity, ActivityAttachment, ActivityAttachmentKind } from '../../domain/types';
-import { getSupabasePublishableKey, getAiProxyBaseUrl } from '../../utils/getEnv';
+import { getAiProxyBaseUrl, getSupabasePublishableKey, getSupabaseUrl } from '../../utils/getEnv';
+import { getImagePickerMediaTypesAll } from '../../utils/imagePickerMediaTypes';
 import { getInstallId } from '../installId';
 import { ensureSignedInWithPrompt, getAccessToken } from '../backend/auth';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
 import { openPaywallInterstitial } from '../paywall';
+import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../edgeFunctions';
 
 const BUCKET = 'activity_attachments';
 
-const AI_PROXY_BASE_URL_RAW = getAiProxyBaseUrl();
-const AI_PROXY_BASE_URL =
-  typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
-
-function getFunctionBaseUrl(functionName: string): string | null {
-  if (!AI_PROXY_BASE_URL) return null;
-  // aiProxyBaseUrl is expected to end with `/ai-chat` (edge function name).
-  // Derive sibling function URL.
-  if (AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
-    return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/${functionName}`;
-  }
-  return null;
+function logAttachmentsDebug(message: string, extra?: Record<string, unknown>) {
+  // Keep logs dev-focused; the toast message will still surface the key debug fields.
+  if (!__DEV__) return;
+  // eslint-disable-next-line no-console
+  console.warn(`[attachments] ${message}`, extra ?? {});
 }
 
 async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
@@ -136,45 +131,74 @@ async function initUpload(params: {
   sizeBytes?: number | null;
   durationSeconds?: number | null;
 }): Promise<{ attachment: ActivityAttachment; uploadSignedUrl: string }> {
-  const base = getFunctionBaseUrl('attachments-init-upload');
+  const candidates = getEdgeFunctionUrlCandidates('attachments-init-upload');
+  const base = candidates[0] ?? getEdgeFunctionUrl('attachments-init-upload');
   if (!base) throw new Error('Attachments service not configured');
 
   await ensureSignedIn();
 
-  const res = await fetch(base, {
-    method: 'POST',
-    headers: await buildEdgeHeaders(true),
-    body: JSON.stringify({
-      activityId: params.activityId,
-      goalId: params.goalId,
-      kind: params.kind,
-      fileName: params.fileName,
-      mimeType: params.mimeType ?? null,
-      sizeBytes: params.sizeBytes ?? null,
-      durationSeconds: params.durationSeconds ?? null,
-      sharedWithGoalMembers: false,
-    }),
+  const payload = JSON.stringify({
+    activityId: params.activityId,
+    goalId: params.goalId,
+    kind: params.kind,
+    fileName: params.fileName,
+    mimeType: params.mimeType ?? null,
+    sizeBytes: params.sizeBytes ?? null,
+    durationSeconds: params.durationSeconds ?? null,
+    sharedWithGoalMembers: false,
   });
 
-  const { json: data, text } = await readJsonOrText(res);
-  if (!res.ok) {
-    throw new Error(
-      pickErrorMessage({
-        fallback: 'Unable to init upload',
-        status: res.status,
-        json: data,
-        text,
-      }),
-    );
+  let lastError: Error | null = null;
+  for (const url of candidates.length > 0 ? candidates : [base]) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: await buildEdgeHeaders(true),
+      body: payload,
+    });
+
+    const { json: data, text } = await readJsonOrText(res);
+    if (res.ok) {
+      const attachment = parseAttachmentRow(data?.attachment);
+      const signedUrl = typeof data?.upload?.signedUrl === 'string' ? data.upload.signedUrl : '';
+      if (!attachment || !signedUrl) {
+        throw new Error('Invalid upload response');
+      }
+      return { attachment, uploadSignedUrl: signedUrl };
+    }
+
+    logAttachmentsDebug('initUpload failed', {
+      url,
+      status: res.status,
+      supabaseUrl: getSupabaseUrl() ?? null,
+      aiProxyBaseUrl: getAiProxyBaseUrl() ?? null,
+      bodyPreview: text ? text.slice(0, 500) : '',
+    });
+
+    const msg = pickErrorMessage({
+      fallback: 'Unable to init upload',
+      status: res.status,
+      json: data,
+      text,
+    });
+
+    // If the function simply doesn't exist on this host/project, try the next candidate.
+    const code = typeof data?.code === 'string' ? data.code : typeof data?.error?.code === 'string' ? data.error.code : '';
+    const isNotFound = res.status === 404 && (code === 'NOT_FOUND' || /not found/i.test(msg));
+    if (isNotFound) {
+      lastError = new Error(`${msg}\nfnUrl=${url}`);
+      continue;
+    }
+
+    throw new Error(`${msg}\nfnUrl=${url}`);
   }
 
-  const attachment = parseAttachmentRow(data?.attachment);
-  const signedUrl = typeof data?.upload?.signedUrl === 'string' ? data.upload.signedUrl : '';
-  if (!attachment || !signedUrl) {
-    throw new Error('Invalid upload response');
-  }
+  // If we exhausted candidates, surface the most actionable info (all attempted URLs).
+  const attempted = (candidates.length > 0 ? candidates : [base]).join(', ');
+  throw new Error(
+    `${lastError?.message ?? 'Unable to init upload (function not found)'}\ntried=${attempted}`,
+  );
 
-  return { attachment, uploadSignedUrl: signedUrl };
+  // unreachable
 }
 
 async function uploadFileToSignedUrl(params: { signedUrl: string; fileUri: string; mimeType?: string | null }) {
@@ -191,28 +215,29 @@ async function uploadFileToSignedUrl(params: { signedUrl: string; fileUri: strin
 }
 
 export async function addPhotoOrVideoToActivity(activity: Activity): Promise<void> {
-  const ent = useEntitlementsStore.getState();
-  const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
-  if (!canUseAttachments) {
-    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-    return;
-  }
+  try {
+    const ent = useEntitlementsStore.getState();
+    const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
+    if (!canUseAttachments) {
+      openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
+      return;
+    }
 
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => null);
-  if (!permission?.granted) {
-    Alert.alert('Permission required', 'Please allow photo library access to add attachments.');
-    return;
-  }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => null);
+    if (!permission?.granted) {
+      Alert.alert('Permission required', 'Please allow photo library access to add attachments.');
+      return;
+    }
 
-  const pick = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.All,
-    quality: 1,
-  });
-  if (pick.canceled) return;
+    const pick = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: getImagePickerMediaTypesAll(),
+      quality: 1,
+    });
+    if (pick.canceled) return;
 
-  const asset = pick.assets?.[0];
-  const uri = typeof asset?.uri === 'string' ? asset.uri : '';
-  if (!uri) return;
+    const asset = pick.assets?.[0];
+    const uri = typeof asset?.uri === 'string' ? asset.uri : '';
+    if (!uri) return;
 
   const mimeType = typeof asset?.mimeType === 'string' ? asset.mimeType : null;
   const fileName =
@@ -222,27 +247,27 @@ export async function addPhotoOrVideoToActivity(activity: Activity): Promise<voi
   const sizeBytes = typeof asset?.fileSize === 'number' ? asset.fileSize : null;
   const kind: ActivityAttachmentKind = asset?.type === 'video' ? 'video' : 'photo';
 
-  const toast = useToastStore.getState().showToast;
+    const toast = useToastStore.getState().showToast;
 
-  // Create server row + get signed upload URL.
-  let serverAttachment: ActivityAttachment;
-  let uploadSignedUrl: string;
-  try {
-    const init = await initUpload({
-      activityId: activity.id,
-      goalId: activity.goalId ?? null,
-      kind,
-      fileName,
-      mimeType,
-      sizeBytes,
-      durationSeconds: null,
-    });
-    serverAttachment = init.attachment;
-    uploadSignedUrl = init.uploadSignedUrl;
-  } catch (e: any) {
-    toast({ message: e?.message ?? 'Unable to add attachment', variant: 'danger' });
-    return;
-  }
+    // Create server row + get signed upload URL.
+    let serverAttachment: ActivityAttachment;
+    let uploadSignedUrl: string;
+    try {
+      const init = await initUpload({
+        activityId: activity.id,
+        goalId: activity.goalId ?? null,
+        kind,
+        fileName,
+        mimeType,
+        sizeBytes,
+        durationSeconds: null,
+      });
+      serverAttachment = init.attachment;
+      uploadSignedUrl = init.uploadSignedUrl;
+    } catch (e: any) {
+      toast({ message: e?.message ?? 'Unable to add attachment', variant: 'danger' });
+      return;
+    }
 
   // Optimistically add to local store in uploading state.
   const nowIso = new Date().toISOString();
@@ -255,28 +280,38 @@ export async function addPhotoOrVideoToActivity(activity: Activity): Promise<voi
     updatedAt: nowIso,
   }));
 
-  try {
-    await uploadFileToSignedUrl({ signedUrl: uploadSignedUrl, fileUri: uri, mimeType });
-    const finishedIso = new Date().toISOString();
-    useAppStore.getState().updateActivity(activity.id, (prev) => ({
-      ...prev,
-      attachments: (prev.attachments ?? []).map((a) =>
-        a.id === serverAttachment.id ? { ...a, uploadStatus: 'uploaded', uploadError: null, updatedAt: finishedIso } : a,
-      ),
-      updatedAt: finishedIso,
-    }));
-    toast({ message: 'Attachment added', variant: 'success', durationMs: 1800 });
+    try {
+      await uploadFileToSignedUrl({ signedUrl: uploadSignedUrl, fileUri: uri, mimeType });
+      const finishedIso = new Date().toISOString();
+      useAppStore.getState().updateActivity(activity.id, (prev) => ({
+        ...prev,
+        attachments: (prev.attachments ?? []).map((a) =>
+          a.id === serverAttachment.id ? { ...a, uploadStatus: 'uploaded', uploadError: null, updatedAt: finishedIso } : a,
+        ),
+        updatedAt: finishedIso,
+      }));
+      toast({ message: 'Attachment added', variant: 'success', durationMs: 1800 });
+    } catch (e: any) {
+      const msg = typeof e?.message === 'string' ? e.message : 'Upload failed';
+      const failedIso = new Date().toISOString();
+      useAppStore.getState().updateActivity(activity.id, (prev) => ({
+        ...prev,
+        attachments: (prev.attachments ?? []).map((a) =>
+          a.id === serverAttachment.id ? { ...a, uploadStatus: 'failed', uploadError: msg, updatedAt: failedIso } : a,
+        ),
+        updatedAt: failedIso,
+      }));
+      toast({ message: msg, variant: 'danger' });
+    }
   } catch (e: any) {
-    const msg = typeof e?.message === 'string' ? e.message : 'Upload failed';
-    const failedIso = new Date().toISOString();
-    useAppStore.getState().updateActivity(activity.id, (prev) => ({
-      ...prev,
-      attachments: (prev.attachments ?? []).map((a) =>
-        a.id === serverAttachment.id ? { ...a, uploadStatus: 'failed', uploadError: msg, updatedAt: failedIso } : a,
-      ),
-      updatedAt: failedIso,
-    }));
-    toast({ message: msg, variant: 'danger' });
+    const msg = typeof e?.message === 'string' ? e.message : 'Photo picker failed';
+    useToastStore.getState().showToast({
+      message: `Photo picker failed: ${msg}`,
+      variant: 'danger',
+      durationMs: 3500,
+      behaviorDuringSuppression: 'show',
+    });
+    logAttachmentsDebug('addPhotoOrVideoToActivity crashed', { message: msg });
   }
 }
 
@@ -510,7 +545,7 @@ export async function openAttachment(attachmentId: string): Promise<void> {
     openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
     return;
   }
-  const base = getFunctionBaseUrl('attachments-get-download-url');
+  const base = getEdgeFunctionUrl('attachments-get-download-url');
   if (!base) throw new Error('Attachments service not configured');
 
   await ensureSignedIn();
@@ -539,6 +574,41 @@ export async function openAttachment(attachmentId: string): Promise<void> {
   await Linking.openURL(url);
 }
 
+export async function getAttachmentDownloadUrl(attachmentId: string): Promise<string> {
+  const ent = useEntitlementsStore.getState();
+  const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
+  if (!canUseAttachments) {
+    openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
+    throw new Error('Attachments are Pro');
+  }
+  const base = getEdgeFunctionUrl('attachments-get-download-url');
+  if (!base) throw new Error('Attachments service not configured');
+
+  await ensureSignedIn();
+
+  const res = await fetch(base, {
+    method: 'POST',
+    headers: await buildEdgeHeaders(true),
+    body: JSON.stringify({ attachmentId }),
+  });
+
+  const { json: data, text } = await readJsonOrText(res);
+  if (!res.ok) {
+    throw new Error(
+      pickErrorMessage({
+        fallback: 'Unable to load attachment',
+        status: res.status,
+        json: data,
+        text,
+      }),
+    );
+  }
+
+  const url = typeof data?.url === 'string' ? data.url : '';
+  if (!url) throw new Error('Missing download URL');
+  return url;
+}
+
 export async function deleteAttachment(params: { activityId: string; attachmentId: string }): Promise<void> {
   const ent = useEntitlementsStore.getState();
   const canUseAttachments = Boolean(ent.isPro || ent.isProToolsTrial);
@@ -546,7 +616,7 @@ export async function deleteAttachment(params: { activityId: string; attachmentI
     openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
     return;
   }
-  const base = getFunctionBaseUrl('attachments-delete');
+  const base = getEdgeFunctionUrl('attachments-delete');
   if (!base) throw new Error('Attachments service not configured');
 
   await ensureSignedIn();
@@ -587,7 +657,7 @@ export async function setAttachmentSharedWithGoalMembers(params: {
     openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
     return;
   }
-  const base = getFunctionBaseUrl('attachments-set-share');
+  const base = getEdgeFunctionUrl('attachments-set-share');
   if (!base) throw new Error('Attachments service not configured');
 
   await ensureSignedIn();

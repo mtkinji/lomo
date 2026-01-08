@@ -1,4 +1,4 @@
-import { getAiProxyBaseUrl, getSupabasePublishableKey } from '../utils/getEnv';
+import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { ensureSignedInWithPrompt } from './backend/auth';
 import { rootNavigationRef } from '../navigation/rootNavigationRef';
@@ -6,18 +6,7 @@ import { useArcDraftClaimStore } from '../store/useArcDraftClaimStore';
 import type { ArcDraftPayload } from '@kwilt/arc-survey';
 import { AnalyticsEvent, type AnalyticsEventName } from './analytics/events';
 import type { AnalyticsProps } from './analytics/analytics';
-
-const AI_PROXY_BASE_URL_RAW = getAiProxyBaseUrl();
-const AI_PROXY_BASE_URL =
-  typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
-
-function getFunctionBaseUrl(functionName: string): string | null {
-  if (!AI_PROXY_BASE_URL) return null;
-  if (AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
-    return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/${functionName}`;
-  }
-  return null;
-}
+import { getEdgeFunctionUrl } from './edgeFunctions';
 
 async function buildEdgeHeaders(accessToken: string): Promise<Headers> {
   const headers = new Headers();
@@ -102,7 +91,7 @@ function parseArcDraftUrl(url: string): { looksLikeArcDraft: boolean; draftId: s
 }
 
 export async function claimArcDraft(params: { draftId: string; token: string }): Promise<ArcDraftPayload> {
-  const base = getFunctionBaseUrl('arc-drafts-claim');
+  const base = getEdgeFunctionUrl('arc-drafts-claim');
   if (!base) throw new Error('ArcDraft claim service not configured');
 
   const session = await ensureSignedInWithPrompt('claim_arc_draft');
