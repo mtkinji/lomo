@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kwilt",
     "slug": "kwilt",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.andrewwatanabe.kwilt",
       "appleTeamId": "BK3N7YXHN7",
-      "buildNumber": "26"
+      "buildNumber": "27"
     },
     "android": {
       "adaptiveIcon": {
