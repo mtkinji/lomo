@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Animated, Image, Linking, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Image, Linking, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
@@ -16,13 +16,11 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useToastStore } from '../../store/useToastStore';
 import { KwiltAiQuotaExceededError } from '../../services/ai';
 import {
-  addDocumentToActivity,
   addPhotoOrVideoToActivity,
-  deleteAttachment,
   openAttachment,
-  setAttachmentSharedWithGoalMembers,
 } from '../../services/attachments/activityAttachments';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 
@@ -46,6 +44,9 @@ export function ActivityDetailRefresh(props: any) {
   // NOTE: ActivityDetailScreen is wrapped by AppShell, which already applies safe-area top padding
   // to the canvas. Do NOT double-count insets here, or the header will be pushed down.
   const scrollY = React.useRef(new Animated.Value(0)).current;
+  // IMPORTANT: hooks must be called unconditionally at the top level.
+  // Do not call Zustand hooks inside conditional render branches / IIFEs.
+  const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
   // Match the effective page gutter used by Arc/Goal pages:
   // Arcs/Goals often run `AppShell fullBleedCanvas` and then apply `spacing.xl` internally.
   // ActivityDetail uses AppShell default gutter (`spacing.sm`), so we add the delta.
@@ -72,6 +73,7 @@ export function ActivityDetailRefresh(props: any) {
     openCalendarSheet,
     openAgentForActivity,
     setActiveSheet,
+    openAttachmentDetails,
     scrollRef,
     KEYBOARD_CLEARANCE,
     styles,
@@ -1403,21 +1405,41 @@ export function ActivityDetailRefresh(props: any) {
               <View style={{ marginTop: spacing.lg }}>
                 <Text style={styles.inputLabel}>ATTACHMENTS</Text>
                 {(() => {
-                  const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
                   const canUseAttachments = Boolean(isPro || isProToolsTrial);
-                  const attachments = ((activity as any).attachments ?? []) as any[];
+                  const attachments = (((activity as any)?.attachments ?? []) as any[]).filter(Boolean);
                   const count = attachments.length;
                   const label = count > 0 ? `Attachments · ${count}` : 'Add attachments';
 
-                  const Field = (
+                  // NOTE: When attachments are unlocked, this field is wrapped in a DropdownMenuTrigger.
+                  // Avoid defining an `onPress` on the child Pressable or it can hijack taps and the menu
+                  // won't open (feels like a no-op).
+                  const Field = canUseAttachments ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={canUseAttachments ? 'Add attachment' : 'Unlock attachments'}
+                      accessibilityLabel="Add attachment"
+                      testID="e2e.activityDetail.attachments.add"
+                      style={({ pressed }) => [
+                        styles.attachmentsFieldContainer,
+                        pressed ? { opacity: 0.92 } : null,
+                      ]}
+                    >
+                      <HStack space="sm" alignItems="center" style={styles.attachmentsFieldLeft}>
+                        <Icon name="paperclip" size={16} color={colors.textSecondary} />
+                        <Text numberOfLines={1} style={styles.attachmentsFieldLabel}>
+                          {label}
+                        </Text>
+                      </HStack>
+                      <View style={styles.attachmentsFieldAction}>
+                        <Icon name="plus" size={16} color={colors.textSecondary} />
+                      </View>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Unlock attachments"
                       testID="e2e.activityDetail.attachments.add"
                       onPress={() => {
-                        if (!canUseAttachments) {
-                          openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
-                        }
+                        openPaywallInterstitial({ reason: 'pro_only_attachments', source: 'activity_attachments' });
                       }}
                       style={({ pressed }) => [
                         styles.attachmentsFieldContainer,
@@ -1431,11 +1453,7 @@ export function ActivityDetailRefresh(props: any) {
                         </Text>
                       </HStack>
                       <View style={styles.attachmentsFieldAction}>
-                        <Icon
-                          name={canUseAttachments ? 'plus' : 'lock'}
-                          size={16}
-                          color={colors.textSecondary}
-                        />
+                        <Icon name="lock" size={16} color={colors.textSecondary} />
                       </View>
                     </Pressable>
                   );
@@ -1443,153 +1461,124 @@ export function ActivityDetailRefresh(props: any) {
                   if (!canUseAttachments) return Field;
 
                   return (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>{Field}</DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          onPress={() => {
-                            void addPhotoOrVideoToActivity(activity).catch(() => undefined);
-                          }}
-                        >
-                          <HStack space="sm" alignItems="center">
-                            <Icon name="image" size={16} color={colors.textSecondary} />
-                            <Text style={styles.menuItemText}>Photo / Video</Text>
-                          </HStack>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onPress={() => {
-                            void addDocumentToActivity(activity).catch(() => undefined);
-                          }}
-                        >
-                          <HStack space="sm" alignItems="center">
-                            <Icon name="fileText" size={16} color={colors.textSecondary} />
-                            <Text style={styles.menuItemText}>Document</Text>
-                          </HStack>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onPress={() => {
-                            setActiveSheet?.('recordAudio');
-                          }}
-                        >
-                          <HStack space="sm" alignItems="center">
-                            <Icon name="mic" size={16} color={colors.textSecondary} />
-                            <Text style={styles.menuItemText}>Record audio</Text>
-                          </HStack>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  );
-                })()}
+                    <>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>{Field}</DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onPress={() => {
+                              void addPhotoOrVideoToActivity(activity).catch((e: any) => {
+                                const msg = typeof e?.message === 'string' ? e.message : 'Unknown error';
+                                useToastStore.getState().showToast({
+                                  message: `Photo picker failed: ${msg}`,
+                                  variant: 'danger',
+                                  durationMs: 3500,
+                                  behaviorDuringSuppression: 'show',
+                                });
+                              });
+                            }}
+                          >
+                            <HStack space="sm" alignItems="center">
+                              <Icon name="image" size={16} color={colors.textSecondary} />
+                              <Text style={styles.menuItemText}>Photo / Video</Text>
+                            </HStack>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onPress={() => {
+                              setActiveSheet?.('recordAudio');
+                            }}
+                          >
+                            <HStack space="sm" alignItems="center">
+                              <Icon name="mic" size={16} color={colors.textSecondary} />
+                              <Text style={styles.menuItemText}>Record audio</Text>
+                            </HStack>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
 
-                {(() => {
-                  const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
-                  const canUseAttachments = Boolean(isPro || isProToolsTrial);
-                  if (!canUseAttachments) return null;
-                  return (
-                    <View style={{ marginTop: spacing.xs }}>
-                    {(((activity as any).attachments ?? []) as any[]).length === 0 ? null : (
-                      <VStack space="xs">
-                        {(((activity as any).attachments ?? []) as any[]).map((att: any) => {
-                          const kind = (att?.kind ?? '').toString();
-                          const leadingIcon =
-                            kind === 'photo' || kind === 'video'
-                              ? 'image'
-                              : kind === 'document'
-                                ? 'fileText'
-                                : kind === 'audio'
-                                  ? 'mic'
-                                  : 'paperclip';
-                          const status = (att?.uploadStatus ?? 'uploaded').toString();
-                          const statusLabel =
-                            status === 'uploading'
-                              ? 'Uploading…'
-                              : status === 'failed'
-                                ? 'Upload failed'
-                                : '';
+                      {attachments.length === 0 ? null : (
+                        <View style={{ marginTop: spacing.xs }}>
+                          <View style={styles.rowsCard}>
+                            {attachments.map((att: any, idx: number) => {
+                              const kind = (att?.kind ?? '').toString();
+                              const leadingIcon =
+                                kind === 'photo' || kind === 'video'
+                                  ? 'image'
+                                  : kind === 'document'
+                                    ? 'fileText'
+                                    : kind === 'audio'
+                                      ? 'mic'
+                                      : 'paperclip';
+                              const status = (att?.uploadStatus ?? 'uploaded').toString();
+                              const isOpenable = status === 'uploaded';
 
-                          return (
-                            <Pressable
-                              key={String(att.id)}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Open attachment ${att.fileName ?? ''}`}
-                              onPress={() => {
-                                void openAttachment(String(att.id)).catch(() => undefined);
-                              }}
-                              style={({ pressed }) => [
-                                styles.planListRow,
-                                pressed ? styles.planListRowPressed : null,
-                              ]}
-                            >
-                              <ThreeColumnRow
-                                left={<Icon name={leadingIcon} size={18} color={colors.sumi} />}
-                                right={
-                                  <HStack space="sm" alignItems="center">
-                                    {activity.goalId ? (
-                                      <IconButton
-                                        accessibilityLabel={
-                                          att.sharedWithGoalMembers
-                                            ? 'Stop sharing with goal members'
-                                            : 'Share with goal members'
-                                        }
-                                        variant="ghost"
-                                        onPress={() => {
-                                          const next = !Boolean(att.sharedWithGoalMembers);
-                                          void setAttachmentSharedWithGoalMembers({
-                                            activityId: activity.id,
-                                            attachmentId: String(att.id),
-                                            sharedWithGoalMembers: next,
-                                          }).catch(() => undefined);
-                                        }}
-                                      >
-                                        <Icon
-                                          name={att.sharedWithGoalMembers ? 'share' : 'lock'}
-                                          size={18}
-                                          color={colors.textSecondary}
-                                        />
-                                      </IconButton>
-                                    ) : null}
-                                    <IconButton
-                                      accessibilityLabel="Delete attachment"
-                                      variant="ghost"
-                                      onPress={() => {
-                                        Alert.alert('Delete attachment?', 'This will remove it from this activity.', [
-                                          { text: 'Cancel', style: 'cancel' },
-                                          {
-                                            text: 'Delete',
-                                            style: 'destructive',
-                                            onPress: () => {
-                                              void deleteAttachment({
-                                                activityId: activity.id,
-                                                attachmentId: String(att.id),
-                                              }).catch(() => undefined);
-                                            },
-                                          },
-                                        ]);
-                                      }}
-                                    >
-                                      <Icon name="trash" size={18} color={colors.textSecondary} />
-                                    </IconButton>
-                                  </HStack>
-                                }
-                                style={styles.planListRowInner}
-                              >
-                                <VStack space="xs" style={{ flex: 1 }}>
-                                  <Text style={styles.rowLabel} numberOfLines={1}>
-                                    {att.fileName ?? 'Attachment'}
-                                  </Text>
-                                  {statusLabel ? (
-                                    <Text style={[styles.meta, status === 'failed' ? { color: colors.destructive } : null]}>
-                                      {statusLabel}
+                              const rawName = typeof att?.fileName === 'string' ? att.fileName : '';
+                              const name = rawName.trim() ? rawName.trim() : 'Attachment';
+
+                              const kindLabel =
+                                kind === 'photo'
+                                  ? 'Photo'
+                                  : kind === 'video'
+                                    ? 'Video'
+                                    : kind === 'audio'
+                                      ? 'Audio'
+                                      : kind === 'document'
+                                        ? 'Document'
+                                        : 'Attachment';
+                              // kindLabel intentionally not shown in the 1-line row (shown in drawer)
+
+                              return (
+                                <React.Fragment key={String(att.id)}>
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Attachment details ${name}`}
+                                    onPress={() => {
+                                      if (typeof openAttachmentDetails === 'function') {
+                                        openAttachmentDetails(att);
+                                        return;
+                                      }
+                                      // Fallback: open directly if the details sheet isn't wired (older screens).
+                                      if (isOpenable) {
+                                        void openAttachment(String(att.id)).catch(() => undefined);
+                                      }
+                                    }}
+                                    style={({ pressed }) => [
+                                      styles.attachmentRow,
+                                      pressed && isOpenable ? styles.attachmentRowPressed : null,
+                                    ]}
+                                  >
+                                    <View style={styles.attachmentIconBubble}>
+                                      <Icon name={leadingIcon} size={18} color={colors.textPrimary} />
+                                    </View>
+
+                                    <Text style={styles.attachmentTitle} numberOfLines={1}>
+                                      {name}
                                     </Text>
-                                  ) : null}
-                                </VStack>
-                              </ThreeColumnRow>
-                            </Pressable>
-                          );
-                        })}
-                      </VStack>
-                    )}
-                  </View>
+
+                                    <View style={styles.attachmentRight}>
+                                      {status === 'uploading' ? (
+                                        <ActivityIndicator size="small" color={colors.textSecondary} />
+                                      ) : status === 'failed' ? (
+                                        <Text style={[styles.attachmentStatusText, styles.attachmentStatusTextFailed]}>
+                                          Failed
+                                        </Text>
+                                      ) : null}
+
+                                      {activity.goalId && att.sharedWithGoalMembers ? (
+                                        <Icon name="share" size={16} color={colors.accent} />
+                                      ) : null}
+
+                                      <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                                    </View>
+                                  </Pressable>
+                                  {idx === attachments.length - 1 ? null : <View style={styles.cardSectionDivider} />}
+                                </React.Fragment>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+                    </>
                   );
                 })()}
               </View>

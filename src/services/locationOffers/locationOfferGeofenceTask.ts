@@ -1,12 +1,15 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore } from '../../store/useAppStore';
 import { shouldFireLocationOffer, recordLocationOfferFired } from './LocationOfferLedger';
 
 export const LOCATION_OFFER_GEOFENCE_TASK = 'kwilt-location-offers-geofence-v1';
 
 const MIN_SPACING_MS_PER_ACTIVITY = 30 * 60 * 1000;
+const STORE_STORAGE_KEY = 'kwilt-store';
+const DOMAIN_STORAGE_KEY = 'kwilt-domain-v1';
 
 function eventFromGeofenceEventType(
   type: Location.GeofencingEventType | undefined,
@@ -14,6 +17,48 @@ function eventFromGeofenceEventType(
   if (type === Location.GeofencingEventType.Enter) return 'enter';
   if (type === Location.GeofencingEventType.Exit) return 'exit';
   return null;
+}
+
+type PersistedNotificationPreferences = {
+  notificationsEnabled?: boolean;
+  osPermissionStatus?: 'notRequested' | 'authorized' | 'denied' | 'restricted';
+};
+
+type PersistedLocationOfferPreferences = {
+  enabled?: boolean;
+  osPermissionStatus?: 'notRequested' | 'authorized' | 'denied' | 'restricted' | 'unavailable';
+};
+
+async function loadPersistedPreferences(): Promise<{
+  notificationPreferences: PersistedNotificationPreferences | null;
+  locationOfferPreferences: PersistedLocationOfferPreferences | null;
+}> {
+  try {
+    const raw = await AsyncStorage.getItem(STORE_STORAGE_KEY);
+    if (!raw) return { notificationPreferences: null, locationOfferPreferences: null };
+    const parsed = JSON.parse(raw) as any;
+    const state = parsed && typeof parsed === 'object' && 'state' in parsed ? (parsed as any).state : parsed;
+    const notificationPreferences =
+      state && typeof state.notificationPreferences === 'object' ? (state.notificationPreferences as any) : null;
+    const locationOfferPreferences =
+      state && typeof state.locationOfferPreferences === 'object' ? (state.locationOfferPreferences as any) : null;
+    return { notificationPreferences, locationOfferPreferences };
+  } catch {
+    return { notificationPreferences: null, locationOfferPreferences: null };
+  }
+}
+
+async function loadPersistedActivity(params: { activityId: string }): Promise<any | null> {
+  try {
+    const raw = await AsyncStorage.getItem(DOMAIN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as any;
+    const activities = parsed && typeof parsed === 'object' ? (parsed.activities as any) : null;
+    if (!Array.isArray(activities)) return null;
+    return activities.find((a) => a && typeof a === 'object' && a.id === params.activityId) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function shouldNotifyForTrigger(params: {
@@ -36,24 +81,38 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
 
   // expo-location's geofencing payload type has changed across SDKs; keep a small structural type
   // so we don't pin this file to a specific Expo type export name.
-  const payload = data as
+  const payload = (data ?? undefined) as
     | {
         eventType?: Location.GeofencingEventType;
+        type?: Location.GeofencingEventType;
         region?: { identifier?: string };
+        regionIdentifier?: string;
+        identifier?: string;
       }
     | undefined;
-  const event = eventFromGeofenceEventType(payload?.eventType);
-  const region = payload?.region;
-  const activityId = region?.identifier;
+  const rawEventType = payload?.eventType ?? payload?.type;
+  const event = eventFromGeofenceEventType(rawEventType);
+  const activityId =
+    (typeof payload?.region?.identifier === 'string' && payload.region.identifier) ||
+    (typeof (payload as any)?.regionIdentifier === 'string' && (payload as any).regionIdentifier) ||
+    (typeof (payload as any)?.identifier === 'string' && (payload as any).identifier) ||
+    null;
   if (!event || !activityId) return;
 
-  const state = useAppStore.getState();
-  const prefs = state.notificationPreferences;
-  const locPrefs = state.locationOfferPreferences;
-  if (!prefs.notificationsEnabled || prefs.osPermissionStatus !== 'authorized') return;
-  if (!locPrefs.enabled || locPrefs.osPermissionStatus !== 'authorized') return;
+  // In headless/background task contexts, the zustand store may not have hydrated yet.
+  // Prefer reading persisted snapshots to decide gating + find the Activity payload.
+  const persisted = await loadPersistedPreferences();
+  const inMemory = useAppStore.getState();
+  const prefs = (persisted.notificationPreferences ?? inMemory.notificationPreferences) as any;
+  const locPrefs = (persisted.locationOfferPreferences ?? inMemory.locationOfferPreferences) as any;
 
-  const activity = state.activities.find((a) => a.id === activityId);
+  if (!prefs?.notificationsEnabled || prefs?.osPermissionStatus !== 'authorized') return;
+  if (!locPrefs?.enabled || locPrefs?.osPermissionStatus !== 'authorized') return;
+
+  const activity =
+    inMemory.activities.find((a) => a.id === activityId) ??
+    (await loadPersistedActivity({ activityId })) ??
+    null;
   const loc = (activity as any)?.location as any;
   if (!activity || !loc) return;
   if (activity.status === 'done' || activity.status === 'cancelled') return;

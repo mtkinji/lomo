@@ -47,7 +47,7 @@ import { richTextToPlainText } from '../../ui/richText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal, Activity, ActivityType, ActivityStep } from '../../domain/types';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
@@ -82,6 +82,7 @@ import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
+import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -204,7 +205,6 @@ export function GoalDetailScreen() {
     () => thumbnailStyles.filter((style) => style !== 'topographyDots'),
     [thumbnailStyles]
   );
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingForces, setEditingForces] = useState(false);
   const [heroImageLoading, setHeroImageLoading] = useState(false);
   const [heroImageError, setHeroImageError] = useState('');
@@ -1460,7 +1460,7 @@ export function GoalDetailScreen() {
       setHeroImageLoading(true);
       setHeroImageError('');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: getImagePickerMediaTypesImages(),
         quality: 0.9,
       });
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -1619,22 +1619,6 @@ export function GoalDetailScreen() {
       arcId: nextArcId ?? '',
       updatedAt: timestamp,
     }));
-  };
-
-  const handleSaveGoal = (values: {
-    title: string;
-    description?: string;
-    forceIntent: Record<string, ForceLevel>;
-  }) => {
-    const timestamp = new Date().toISOString();
-    updateGoal(goal.id, (prev) => ({
-      ...prev,
-      title: values.title.trim(),
-      description: values.description?.trim() || undefined,
-      forceIntent: values.forceIntent,
-      updatedAt: timestamp,
-    }));
-    setEditModalVisible(false);
   };
 
   const commitForceEdit = () => {
@@ -2108,13 +2092,15 @@ export function GoalDetailScreen() {
                   </HeaderActionPill>
                   <DropdownMenu>
                     <DropdownMenuTrigger accessibilityLabel="Goal actions">
-                      <HeaderActionPill
-                        accessibilityLabel="Goal actions"
-                        materialOpacity={headerActionPillOpacity}
-                        size={HEADER_ACTION_PILL_SIZE}
-                      >
-                        <Icon name="more" size={22} color={colors.textPrimary} />
-                      </HeaderActionPill>
+                      <View pointerEvents="none">
+                        <HeaderActionPill
+                          accessibilityLabel="Goal actions"
+                          materialOpacity={headerActionPillOpacity}
+                          size={HEADER_ACTION_PILL_SIZE}
+                        >
+                          <Icon name="more" size={22} color={colors.textPrimary} />
+                        </HeaderActionPill>
+                      </View>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                       <DropdownMenuItem onPress={() => setThumbnailSheetVisible(true)}>
@@ -2127,12 +2113,6 @@ export function GoalDetailScreen() {
                         <View style={styles.menuItemRow}>
                           <Icon name="sparkles" size={16} color={colors.textSecondary} />
                           <Text style={styles.menuItemLabel}>Refine goal with AI</Text>
-                        </View>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => setEditModalVisible(true)}>
-                        <View style={styles.menuItemRow}>
-                          <Icon name="edit" size={16} color={colors.textSecondary} />
-                          <Text style={styles.menuItemLabel}>Edit details</Text>
                         </View>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={handleToggleArchiveGoal}>
@@ -2690,15 +2670,6 @@ export function GoalDetailScreen() {
             </KeyboardAwareScrollView>
           </View>
         </View>
-      <EditGoalModal
-        visible={editModalVisible}
-        onClose={() => setEditModalVisible(false)}
-        initialTitle={goal.title}
-        initialDescription={goal.description}
-        initialForceIntent={forceIntent}
-        onSubmit={handleSaveGoal}
-        insetTop={insets.top}
-      />
       <BottomDrawer
         visible={membersSheetVisible}
         onClose={() => setMembersSheetVisible(false)}
@@ -2999,10 +2970,16 @@ export function GoalDetailScreen() {
             setQuickAddIsReminderDateTimePickerVisible(false);
           })
         }
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        // iOS inline date/time picker is tall; use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['45%', '92%'] : ['45%']}
+        snapIndex={Platform.OS === 'ios' ? (quickAddIsReminderDateTimePickerVisible ? 1 : 0) : 0}
         scrimToken="pineSubtle"
       >
-        <View style={styles.quickAddSheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.quickAddSheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.quickAddSheetTitle}>Reminder</Text>
           <VStack space="sm">
             <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(0, 18, 0)}>
@@ -3037,7 +3014,7 @@ export function GoalDetailScreen() {
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
 
       <BottomDrawer
@@ -3048,10 +3025,16 @@ export function GoalDetailScreen() {
             setQuickAddIsDueDatePickerVisible(false);
           })
         }
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['45%']}
+        // iOS inline date picker is tall; use a two-stage sheet and auto-expand when picker opens.
+        snapPoints={Platform.OS === 'ios' ? ['45%', '92%'] : ['45%']}
+        snapIndex={Platform.OS === 'ios' ? (quickAddIsDueDatePickerVisible ? 1 : 0) : 0}
         scrimToken="pineSubtle"
       >
-        <View style={styles.quickAddSheetContent}>
+        <BottomDrawerScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.quickAddSheetContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.quickAddSheetTitle}>Due</Text>
           <VStack space="sm">
             <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(0)}>
@@ -3088,7 +3071,7 @@ export function GoalDetailScreen() {
               />
             </View>
           )}
-        </View>
+        </BottomDrawerScrollView>
       </BottomDrawer>
 
       <BottomDrawer
@@ -3236,137 +3219,6 @@ export function GoalDetailScreen() {
         insetTop={insets.top}
       />
     </AppShell>
-  );
-}
-
-function EditGoalModal(props: any) {
-  const {
-    visible,
-    onClose,
-    initialTitle,
-    initialDescription,
-    initialForceIntent,
-    onSubmit,
-    insetTop,
-  } = props;
-  const [title, setTitle] = useState(initialTitle);
-  const [description, setDescription] = useState(initialDescription ?? '');
-  const [forceIntent, setForceIntent] =
-    useState<Record<string, ForceLevel>>(initialForceIntent);
-
-  useEffect(() => {
-    if (visible) {
-      setTitle(initialTitle);
-      setDescription(initialDescription ?? '');
-      setForceIntent(initialForceIntent);
-    }
-  }, [visible, initialTitle, initialDescription, initialForceIntent]);
-
-  const disabled = title.trim().length === 0;
-
-  const handleSetForceLevel = (forceId: string, level: ForceLevel) => {
-    setForceIntent((prev) => ({
-      ...prev,
-      [forceId]: level,
-    }));
-  };
-
-  return (
-    <BottomDrawer
-      visible={visible}
-      onClose={onClose}
-      snapPoints={['70%']}
-      // This modal renders its own dimmed overlay + centered card; avoid double scrims.
-      hideBackdrop
-      // Hide handle so it reads as a focused modal card rather than a sheet.
-      handleContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
-      handleStyle={{ width: 0, height: 0, opacity: 0 }}
-      sheetStyle={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0 }}
-    >
-      <View style={styles.modalOverlay}>
-        <KeyboardAwareScrollView
-          style={{ flex: 1, width: '100%' }}
-          contentContainerStyle={[styles.modalContent, { paddingTop: spacing.lg }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <Heading style={styles.modalTitle}>Edit Goal</Heading>
-          <Text style={styles.modalBody}>
-            Update the goal details and rebalance the forces to better match where you are right now.
-          </Text>
-
-          <Text style={styles.modalLabel}>Title</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Goal title"
-            placeholderTextColor="#6B7280"
-          />
-
-          <Text style={styles.modalLabel}>Description</Text>
-          <TextInput
-            style={[styles.input, styles.descriptionInput]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Short description of this goal"
-            placeholderTextColor="#6B7280"
-            multiline
-          />
-
-          <Text style={[styles.modalLabel, { marginTop: spacing.lg }]}>Forces</Text>
-          <VStack space="md" style={{ marginTop: spacing.sm }}>
-            {FORCE_ORDER.map((forceId) => {
-              const force = getCanonicalForce(forceId);
-              if (!force) return null;
-              const currentLevel = forceIntent[forceId] ?? 0;
-              return (
-                <VStack key={forceId} space="xs">
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <Text style={styles.forceLabel}>{force.name}</Text>
-                    <Text style={styles.forceValue}>{currentLevel}/3</Text>
-                  </HStack>
-                  <HStack space="xs" style={styles.forceSliderRow}>
-                    {[0, 1, 2, 3].map((value) => (
-                      <TouchableOpacity
-                        key={value}
-                        activeOpacity={0.8}
-                        style={[
-                          styles.forceLevelChip,
-                          currentLevel === value && styles.forceLevelChipActive,
-                        ]}
-                        onPress={() => handleSetForceLevel(forceId, value as ForceLevel)}
-                      >
-                        <Text
-                          style={[
-                            styles.forceLevelChipText,
-                            currentLevel === value && styles.forceLevelChipTextActive,
-                          ]}
-                        >
-                          {value}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </HStack>
-                </VStack>
-              );
-            })}
-          </VStack>
-
-          <HStack space="sm" marginTop={spacing.lg}>
-            <Button variant="outline" style={{ flex: 1 }} onPress={onClose}>
-              <Text style={styles.secondaryCtaText}>Cancel</Text>
-            </Button>
-            <Button
-              style={{ flex: 1 }}
-              disabled={disabled}
-              onPress={() => onSubmit({ title, description, forceIntent })}
-            >
-              <Text style={styles.primaryCtaText}>Save</Text>
-            </Button>
-          </HStack>
-        </KeyboardAwareScrollView>
-      </View>
-    </BottomDrawer>
   );
 }
 
@@ -4241,7 +4093,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   menuItemLabel: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
   },
   destructiveMenuRowText: {

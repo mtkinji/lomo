@@ -76,6 +76,7 @@ import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import * as ImagePicker from 'expo-image-picker';
+import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
 import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
 import { FloatingActionButton } from '../../ui/FloatingActionButton';
@@ -366,13 +367,15 @@ export function GoalsScreen() {
         rightElement={
           <DropdownMenu>
             <DropdownMenuTrigger accessibilityLabel="Goal list options">
-              <IconButton
-                accessibilityRole="button"
-                accessibilityLabel="Goal list options"
-                variant="outline"
-              >
-                <Icon name="more" size={18} color={colors.textPrimary} />
-              </IconButton>
+              <View pointerEvents="none">
+                <IconButton
+                  accessibilityRole="button"
+                  accessibilityLabel="Goal list options"
+                  variant="outline"
+                >
+                  <Icon name="more" size={18} color={colors.textPrimary} />
+                </IconButton>
+              </View>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="bottom" sideOffset={6} align="end">
               <DropdownMenuCheckboxItem
@@ -895,7 +898,7 @@ export function GoalCoachDrawer({
       setHeroImageLoading(true);
       setHeroImageError('');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: getImagePickerMediaTypesImages(),
         quality: 0.9,
       });
       if (result.canceled || !result.assets || result.assets.length === 0) {

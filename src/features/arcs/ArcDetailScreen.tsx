@@ -26,6 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
@@ -569,7 +570,7 @@ export function ArcDetailScreen() {
       setHeroImageLoading(true);
       setHeroImageError('');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: getImagePickerMediaTypesImages(),
         quality: 0.9,
       });
       if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -870,12 +871,14 @@ export function ArcDetailScreen() {
                 </HeaderActionPill>
                 <DropdownMenu>
                   <DropdownMenuTrigger accessibilityLabel="Arc actions">
-                    <HeaderActionPill
-                      accessibilityLabel="Arc actions"
-                      materialOpacity={headerActionPillOpacity}
-                    >
-                      <Icon name="more" size={18} color={colors.textPrimary} />
-                    </HeaderActionPill>
+                    <View pointerEvents="none">
+                      <HeaderActionPill
+                        accessibilityLabel="Arc actions"
+                        materialOpacity={headerActionPillOpacity}
+                      >
+                        <Icon name="more" size={18} color={colors.textPrimary} />
+                      </HeaderActionPill>
+                    </View>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                       <DropdownMenuItem
@@ -888,7 +891,6 @@ export function ArcDetailScreen() {
                           <Text style={styles.menuItemLabel}>Cover image</Text>
                       </View>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem onPress={handleToggleArchiveArc}>
                       <View style={styles.menuItemRow}>
                         <Icon
@@ -2330,7 +2332,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   menuItemLabel: {
-    ...typography.bodySm,
+    ...typography.body,
     color: colors.textPrimary,
   },
   destructiveMenuRowText: {

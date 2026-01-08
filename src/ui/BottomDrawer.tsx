@@ -240,6 +240,22 @@ export function BottomDrawer({
   const translateY = useSharedValue(0);
   const isAnimating = useSharedValue(false);
 
+  const requestCloseAnimated = () => {
+    if (!dismissable) return;
+    // Prevent double-dismiss (e.g. rapid backdrop taps while an animation is in flight).
+    if (isAnimating.value) return;
+    // If we're not actually visible, there's nothing meaningful to animate.
+    if (!mounted || !visible) return;
+
+    isAnimating.value = true;
+    translateY.value = withTiming(closedOffset, { duration: 260 }, (finished) => {
+      isAnimating.value = false;
+      if (finished) {
+        runOnJS(onClose)();
+      }
+    });
+  };
+
   // Safety: if the modal ever remains mounted after `visible` becomes false (e.g. an interrupted
   // animation completion callback), ensure it cannot block taps on the underlying canvas.
   const overlayPointerEvents = useMemo<'auto' | 'none' | 'box-none'>(() => {
@@ -500,7 +516,7 @@ export function BottomDrawer({
               />
             )}
             {!hideBackdrop && dismissable && dismissOnBackdropPress && (
-              <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+              <Pressable style={StyleSheet.absoluteFill} onPress={requestCloseAnimated} />
             )}
           </Animated.View>
           <GestureDetector gesture={contentPanGesture}>
@@ -554,7 +570,7 @@ export function BottomDrawer({
               />
             )}
             {!hideBackdrop && dismissable && dismissOnBackdropPress && (
-              <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+              <Pressable style={StyleSheet.absoluteFill} onPress={requestCloseAnimated} />
             )}
           </Animated.View>
           <GestureDetector gesture={contentPanGesture}>
@@ -603,7 +619,7 @@ export function BottomDrawer({
       visible={mounted}
       transparent
       animationType="none"
-      onRequestClose={dismissable ? onClose : undefined}
+      onRequestClose={dismissable ? requestCloseAnimated : undefined}
       statusBarTranslucent={Platform.OS === 'android'}
     >
       {body}

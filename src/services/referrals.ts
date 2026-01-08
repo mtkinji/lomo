@@ -4,19 +4,10 @@ import { useAppStore } from '../store/useAppStore';
 import { useCreditsInterstitialStore } from '../store/useCreditsInterstitialStore';
 import { useToastStore } from '../store/useToastStore';
 import { buildAuthedHeaders } from './proCodesClient';
-
-const AI_PROXY_BASE_URL_RAW = getEnvVar<string>('aiProxyBaseUrl');
-const AI_PROXY_BASE_URL =
-  typeof AI_PROXY_BASE_URL_RAW === 'string' ? AI_PROXY_BASE_URL_RAW.trim().replace(/\/+$/, '') : undefined;
+import { getEdgeFunctionUrl } from './edgeFunctions';
 
 function getReferralsBaseUrl(): string | null {
-  if (!AI_PROXY_BASE_URL) return null;
-  // aiProxyBaseUrl is expected to end with `/ai-chat` (edge function name).
-  // Derive the sibling referrals function URL.
-  if (AI_PROXY_BASE_URL.endsWith('/ai-chat')) {
-    return `${AI_PROXY_BASE_URL.slice(0, -'/ai-chat'.length)}/referrals`;
-  }
-  return null;
+  return getEdgeFunctionUrl('referrals');
 }
 
 async function buildEdgeHeaders(): Promise<Headers> {

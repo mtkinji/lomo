@@ -126,13 +126,15 @@ export function ArcsScreen() {
             rightElement={
               <DropdownMenu>
                 <DropdownMenuTrigger accessibilityLabel="Arc list options">
-                  <IconButton
-                    accessibilityRole="button"
-                    accessibilityLabel="Arc list options"
-                    variant="outline"
-                  >
-                    <Icon name="more" size={18} color={colors.textPrimary} />
-                  </IconButton>
+                  <View pointerEvents="none">
+                    <IconButton
+                      accessibilityRole="button"
+                      accessibilityLabel="Arc list options"
+                      variant="outline"
+                    >
+                      <Icon name="more" size={18} color={colors.textPrimary} />
+                    </IconButton>
+                  </View>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                   <DropdownMenuCheckboxItem
