@@ -182,10 +182,12 @@ export function FirstTimeUxFlow() {
   useEffect(() => {
     if (!isVisible) return;
     if (ftueStep !== 'notifications') return;
+    // Don't sync while actively requesting permissions to avoid flickering
+    if (isRequestingLocation || isRequestingNotifications) return;
     // Best-effort: refresh OS permission status so the CTA can switch to "Open settings"
     // when location was previously denied.
     void LocationPermissionService.syncOsPermissionStatus();
-  }, [ftueStep, isVisible]);
+  }, [ftueStep, isVisible, isRequestingLocation, isRequestingNotifications]);
 
   useEffect(() => {
     if (!isVisible) return;

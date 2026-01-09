@@ -9,7 +9,7 @@ export async function getCurrentLocationBestEffort(): Promise<{ latitude: number
   if (!mod?.getCurrentPositionAsync) return null;
   try {
     const pos = await mod.getCurrentPositionAsync({
-      // Best-effort; actual accuracy settings depend on expo-location being installed.
+      // Best-effort; actual accuracy settings depend on the ExpoLocation native module being available.
       accuracy: 3,
     });
     const lat = pos?.coords?.latitude;
