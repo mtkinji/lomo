@@ -17,11 +17,55 @@ type ExpoLocationNativeModule = {
   requestBackgroundPermissionsAsync?: () => Promise<ExpoLocationPermissionsResponse>;
 };
 
+let locationBlockedAlertActive = false;
+
 function setOsPermissionStatus(status: OsPermissionStatus) {
   useAppStore.getState().setLocationOfferPreferences((current) => ({
     ...current,
     osPermissionStatus: status,
   }));
+}
+
+function showLocationBlockedAlert(reason: 'ftue' | 'attach_place' | 'location_offers') {
+  // Prevent repeated/strobing alerts (can happen when permission checks rerun quickly).
+  if (locationBlockedAlertActive) return;
+  locationBlockedAlertActive = true;
+
+  const message =
+    reason === 'attach_place'
+      ? 'To use place search and map centering, allow Location in system settings.'
+      : 'To use location-based prompts, allow “Always” Location in system settings.';
+
+  Alert.alert(
+    'Location is blocked',
+    message,
+    [
+      {
+        text: 'Not now',
+        style: 'cancel',
+        onPress: () => {
+          locationBlockedAlertActive = false;
+        },
+      },
+      {
+        text: 'Open settings',
+        onPress: () => {
+          locationBlockedAlertActive = false;
+          void Linking.openSettings();
+        },
+      },
+    ],
+    {
+      onDismiss: () => {
+        locationBlockedAlertActive = false;
+      },
+    },
+  );
+
+  // Best-effort backstop in case a platform doesn't call onDismiss.
+  setTimeout(() => {
+    locationBlockedAlertActive = false;
+  }, 1500);
 }
 
 function mapExpoPermissionToOsStatus(resp: ExpoLocationPermissionsResponse | null | undefined): OsPermissionStatus {
@@ -33,9 +77,8 @@ function mapExpoPermissionToOsStatus(resp: ExpoLocationPermissionsResponse | nul
 }
 
 function getNativeModule(): ExpoLocationNativeModule | null {
-  // Note: `expo-location` isn't currently in this repo's dependencies. We use the
-  // optional native-module require so this file is safe to bundle even when the
-  // module is absent (e.g. standalone builds without expo-location installed).
+  // We use the optional native-module require so this file is safe to bundle even if
+  // the ExpoLocation native module isn't present at runtime (e.g. misconfigured builds).
   return requireOptionalNativeModule<ExpoLocationNativeModule>('ExpoLocation');
 }
 
@@ -68,16 +111,34 @@ async function requestOsPermissionInternal(): Promise<boolean> {
   }
   try {
     const fg = await mod.requestForegroundPermissionsAsync();
-    // iOS geofencing requires background permission ("Always"). Request it immediately
-    // after foreground permission succeeds when available.
-    let bg: ExpoLocationPermissionsResponse | null = null;
     const fgStatus = mapExpoPermissionToOsStatus(fg);
+    
+    // If foreground permission was granted, try to request background permission.
+    // iOS geofencing requires background permission ("Always").
     if (fgStatus === 'authorized' && mod.requestBackgroundPermissionsAsync) {
-      bg = await mod.requestBackgroundPermissionsAsync();
+      try {
+        const bg = await mod.requestBackgroundPermissionsAsync();
+        const bgStatus = mapExpoPermissionToOsStatus(bg);
+        // If background permission is granted, we're fully authorized
+        if (bgStatus === 'authorized') {
+          setOsPermissionStatus('authorized');
+          return true;
+        }
+        // If background permission was denied but foreground is granted,
+        // sync the actual status from the system to get the accurate state.
+        // This handles the "Allow Once" case where foreground is granted but background is not.
+        const syncedStatus = await syncOsPermissionStatusInternal();
+        return syncedStatus === 'authorized';
+      } catch {
+        // If background permission request fails, fall back to foreground status
+        setOsPermissionStatus(fgStatus);
+        return fgStatus === 'authorized';
+      }
     }
-    const status = mapExpoPermissionToOsStatus(bg ?? fg);
-    setOsPermissionStatus(status);
-    return status === 'authorized';
+    
+    // No background permission request available, use foreground status
+    setOsPermissionStatus(fgStatus);
+    return fgStatus === 'authorized';
   } catch {
     setOsPermissionStatus('unavailable');
     return false;
@@ -95,7 +156,7 @@ async function ensurePermissionWithRationaleInternal(
     if (reason === 'attach_place') {
       Alert.alert(
         'Location not available',
-        'This build doesn’t include location support yet. Update the app and try again.',
+        'Location services aren’t available right now. Please try again, or update/reinstall the app if this persists.',
       );
     }
     return false;
@@ -103,25 +164,25 @@ async function ensurePermissionWithRationaleInternal(
 
   // If not requested yet, we can prompt the system dialog.
   if (current === 'notRequested') {
-    return await requestOsPermissionInternal();
+    await requestOsPermissionInternal();
+    const finalStatus = await syncOsPermissionStatusInternal();
+    if (finalStatus === 'authorized') {
+      return true;
+    }
+
+    // Important: in FTUE, don't immediately show a "blocked" alert after the OS prompt,
+    // since iOS can return a mixed state (e.g. foreground-only) and the UI can safely
+    // reflect that without popping additional alerts.
+    if (reason === 'ftue') return false;
+
+    if (finalStatus === 'denied' || finalStatus === 'restricted') {
+      showLocationBlockedAlert(reason);
+    }
+    return false;
   }
 
   // Denied/restricted: only Settings can fix it.
-  Alert.alert(
-    'Location is blocked',
-    reason === 'attach_place'
-      ? 'To use place search and map centering, allow Location in system settings.'
-      : 'To use location-based prompts, allow “Always” Location in system settings.',
-    [
-      { text: 'Not now', style: 'cancel' },
-      {
-        text: 'Open settings',
-        onPress: () => {
-          void Linking.openSettings();
-        },
-      },
-    ],
-  );
+  showLocationBlockedAlert(reason);
   return false;
 }
 
