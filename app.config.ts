@@ -52,10 +52,9 @@ const config: ExpoConfig = {
   // (see `metro.config.js`).
   newArchEnabled: true,
   splash: {
-    image: './assets/icon.png',
-    resizeMode: 'contain',
-    // Pine 300 (matches in-app LaunchScreen background).
-    backgroundColor: '#8EAF8B',
+    // No image - just a solid color that matches the in-app LaunchScreen.
+    // This avoids a brief "flash" of a different logo before the JS LaunchScreen loads.
+    backgroundColor: '#315545', // Pine 700 (official Kwilt green)
   },
   ios: {
     supportsTablet: true,

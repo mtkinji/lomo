@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking, Platform } from 'react-native';
 import { getEnvVar } from '../utils/getEnv';
-import { getProStatus } from './proCodesStatus';
+import { getProStatus, type ProStatus } from './proCodesStatus';
 
 /**
  * RevenueCat entitlement layer (RevenueCat-ready, safe when SDK/key are missing).
@@ -70,6 +70,12 @@ type RevenueCatPurchasesLike = {
 };
 
 const nowIso = () => new Date().toISOString();
+
+function isAuthoritativeProStatus(status: ProStatus | null | undefined): boolean {
+  // `getProStatus()` returns { isPro: false } for many non-200 cases (401/500/etc).
+  // Treat only HTTP 200 as definitive to avoid downgrading due to transient auth/token issues.
+  return Boolean(status && status.httpStatus === 200);
+}
 
 function safeParseJson<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -197,7 +203,8 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     if (proCodeOverride) {
       try {
         const status = await getProStatus();
-        if (!status.isPro) {
+        const authoritative = isAuthoritativeProStatus(status);
+        if (authoritative && !status.isPro) {
           await setProCodeOverrideEnabled(false);
           const next: EntitlementsSnapshot = {
             ...cached,
@@ -211,14 +218,36 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
           await writeCachedEntitlements(next);
           return await applyAdminOverride(next);
         }
-        // Server confirms pro: keep pro enabled.
-        return await applyAdminOverride({ ...cached, isPro: true, isProToolsTrial: false, source: 'cache', isStale: false });
-      } catch {
-        // If status check fails, keep the cached fast path (but don't clear the override).
-        if (!cached.isPro) {
-          return await applyAdminOverride({ ...cached, isPro: true, isProToolsTrial: false, source: 'cache', isStale: false });
+        if (authoritative && status.isPro) {
+          // Server confirms pro: keep pro enabled.
+          return await applyAdminOverride({
+            ...cached,
+            isPro: true,
+            isProToolsTrial: false,
+            source: 'cache',
+            isStale: false,
+            error: undefined,
+          });
         }
-        return await applyAdminOverride({ ...cached, source: 'cache', isStale: false });
+        // Non-authoritative (e.g. 401/500): do NOT clear local override and do not downgrade.
+        return await applyAdminOverride({
+          ...cached,
+          isPro: true,
+          isProToolsTrial: false,
+          source: 'cache',
+          isStale: true,
+          error: status?.errorMessage ?? 'Unable to verify Pro status',
+        });
+      } catch (e: any) {
+        // If status check throws (network/base url issues), keep the cached fast path (but don't clear the override).
+        return await applyAdminOverride({
+          ...cached,
+          isPro: true,
+          isProToolsTrial: false,
+          source: 'cache',
+          isStale: true,
+          error: typeof e?.message === 'string' ? e.message : 'Unable to verify Pro status',
+        });
       }
     }
     return await applyAdminOverride({ ...cached, source: 'cache', isStale: false });
@@ -233,10 +262,10 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
       // Prefer server status for code/admin grants; this enforces expiry.
       try {
         const status = await getProStatus();
-        if (!status.isPro && proCodeOverride) {
+        if (isAuthoritativeProStatus(status) && !status.isPro && proCodeOverride) {
           await setProCodeOverrideEnabled(false);
         }
-        const isPro = Boolean(status.isPro);
+        const isPro = Boolean(isAuthoritativeProStatus(status) && status.isPro) || Boolean(proCodeOverride);
         return await applyAdminOverride({ ...base, isPro, isProToolsTrial: false, source: isPro ? 'code' : base.source });
       } catch {
         if (proCodeOverride) {
@@ -256,11 +285,13 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     // Best-effort server status (enforces expiry).
     try {
       const status = await getProStatus();
-      if (!status.isPro && proCodeOverride) {
+      if (isAuthoritativeProStatus(status) && !status.isPro && proCodeOverride) {
         await setProCodeOverrideEnabled(false);
       }
-      if (status.isPro) {
+      if (isAuthoritativeProStatus(status) && status.isPro) {
         snapshot = { ...snapshot, isPro: true, source: 'code' };
+      } else if (proCodeOverride) {
+        snapshot = { ...snapshot, isPro: true, source: 'code', isStale: true, error: status.errorMessage ?? snapshot.error };
       }
     } catch {
       if (proCodeOverride) {
@@ -276,27 +307,42 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     const info = await purchases.getCustomerInfo?.();
     const rcIsPro = extractIsPro(info);
     const rcIsTrial = extractIsProToolsTrial(info);
-    let serverIsPro = false;
+    let serverIsPro: boolean | null = false;
+    let serverError: string | undefined;
     if (!rcIsPro) {
       try {
         const status = await getProStatus();
-        serverIsPro = Boolean(status.isPro);
-        if (!serverIsPro && proCodeOverride) {
-          await setProCodeOverrideEnabled(false);
+        if (isAuthoritativeProStatus(status)) {
+          serverIsPro = Boolean(status.isPro);
+          if (!serverIsPro && proCodeOverride) {
+            await setProCodeOverrideEnabled(false);
+          }
+        } else {
+          serverIsPro = null;
+          serverError = status.errorMessage ?? 'Unable to verify Pro status';
         }
       } catch {
         // If server status fails, do not clear local override.
-        serverIsPro = false;
+        serverIsPro = null;
       }
     }
-    const isPro = rcIsPro || serverIsPro || Boolean(proCodeOverride && !rcIsPro);
+    const shouldStickyKeepPro =
+      serverIsPro == null && Boolean(cachedIsFresh && cached?.isPro) && !rcIsPro && !proCodeOverride;
+    const isPro =
+      rcIsPro ||
+      serverIsPro === true ||
+      Boolean(proCodeOverride && !rcIsPro) ||
+      Boolean(shouldStickyKeepPro);
     const isProToolsTrial = Boolean(!isPro && rcIsTrial);
     const snapshot: EntitlementsSnapshot = {
       isPro,
       isProToolsTrial,
       checkedAt: nowIso(),
       source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
-      isStale: false,
+      isStale: Boolean(serverIsPro == null || shouldStickyKeepPro),
+      ...(serverIsPro == null || shouldStickyKeepPro
+        ? { error: serverError ?? 'Pro status check unavailable; using last-known tier' }
+        : {}),
     };
     await writeCachedEntitlements(snapshot);
     return await applyAdminOverride(snapshot);
@@ -306,10 +352,10 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
       const base = { ...cached, source: 'cache', isStale: true, error: message } as EntitlementsSnapshot;
       try {
         const status = await getProStatus();
-        if (!status.isPro && proCodeOverride) {
+        if (isAuthoritativeProStatus(status) && !status.isPro && proCodeOverride) {
           await setProCodeOverrideEnabled(false);
         }
-        const isPro = Boolean(status.isPro) || Boolean(proCodeOverride);
+        const isPro = Boolean(isAuthoritativeProStatus(status) && status.isPro) || Boolean(proCodeOverride) || Boolean(cached.isPro);
         return await applyAdminOverride({ ...base, isPro, isProToolsTrial: false, source: isPro ? 'code' : base.source });
       } catch {
         if (proCodeOverride) {
@@ -328,10 +374,10 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     };
     try {
       const status = await getProStatus();
-      if (!status.isPro && proCodeOverride) {
+      if (isAuthoritativeProStatus(status) && !status.isPro && proCodeOverride) {
         await setProCodeOverrideEnabled(false);
       }
-      if (status.isPro || proCodeOverride) {
+      if ((isAuthoritativeProStatus(status) && status.isPro) || proCodeOverride) {
         snapshot = { ...snapshot, isPro: true, source: 'code' };
       }
     } catch {

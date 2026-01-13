@@ -10,6 +10,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { buildGoalInviteEmail } from '../_shared/emailTemplates.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -72,36 +73,7 @@ function deriveFunctionBase(args: { reqUrl: string; functionName: string }): str
   }
 }
 
-function renderEmailHtml(params: { goalTitle: string; inviteLink: string; kind: 'people' | 'buddy' | 'squad' }) {
-  const title = params.goalTitle.trim() || 'Shared goal';
-  const link = params.inviteLink;
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Join ${title}</title>
-  </head>
-  <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
-    <div style="max-width:560px;margin:0 auto;padding:24px;">
-      <h1 style="margin:0 0 12px;font-size:22px;line-height:28px;">Join my shared goal in Kwilt</h1>
-      <p style="margin:0 0 18px;font-size:16px;line-height:22px;color:#374151;">
-        <strong style="color:#111827;">“${title.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}”</strong>
-      </p>
-      <p style="margin:0 0 18px;font-size:14px;line-height:20px;color:#6b7280;">
-        By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.
-      </p>
-      <a href="${link}" style="display:inline-block;background:#1F5226;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:700;">
-        Open invite
-      </a>
-      <p style="margin:18px 0 0;font-size:13px;line-height:18px;color:#6b7280;">
-        If the button doesn’t work, copy and paste this link into your browser:<br/>
-        <a href="${link}" style="color:#1F5226;">${link}</a>
-      </p>
-    </div>
-  </body>
-</html>`;
-}
+// Email templates are centralized in ../_shared/emailTemplates.ts
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -245,12 +217,7 @@ serve(async (req) => {
   const fallbackSchemeUrl = `kwilt://invite?code=${encodeURIComponent(inviteCode)}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`;
   const inviteLink = landingUrl || inviteRedirectUrl || fallbackSchemeUrl;
 
-  const subject = `Join my shared goal in Kwilt`;
-  const html = renderEmailHtml({ goalTitle, inviteLink, kind });
-  const text =
-    `${subject}: "${goalTitle || 'Shared goal'}"\n\n` +
-    `Open invite: ${inviteLink}\n\n` +
-    `By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.`;
+  const emailContent = buildGoalInviteEmail({ goalTitle, inviteLink });
 
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -261,9 +228,9 @@ serve(async (req) => {
     body: JSON.stringify({
       from: fromEmail,
       to: recipientEmail,
-      subject,
-      html,
-      text,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text,
     }),
   }).catch(() => null);
 

@@ -120,3 +120,10 @@ Required Supabase Edge Function secrets:
 - `PRO_CODE_EMAIL_FROM`: sender address (must be a verified sender/domain in Resend)
   - Fallback: if not set, the function will use `INVITE_EMAIL_FROM` (used by goal invites)
 - (Optional) `KWILT_PRO_CODE_FROM_NAME`: display name for the sender (default: `Kwilt`)
+
+Optional email branding (code-based templates):
+
+- `KWILT_EMAIL_APP_NAME`: brand/app name shown in the email header (default: `Kwilt`)
+- `KWILT_EMAIL_LOGO_URL`: HTTPS image URL for a logo (if omitted, the app name is used as text)
+- `KWILT_EMAIL_PRIMARY_COLOR`: hex color for buttons/links (default: `#1F5226`)
+- `KWILT_EMAIL_CTA_URL`: URL for “Enjoy Pro” button in the Pro grant email (default: `https://www.kwilt.app`)

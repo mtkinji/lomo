@@ -413,16 +413,19 @@ serve(async (req) => {
     }
   }
 
-  // Daily rail (optional) uses the existing daily counter RPC.
+  // Daily usage tracking (always increment for analytics; enforce limit only if dailyRail is set).
   // Preview calls count against the preview-specific bucket (quotaKey already swapped).
-  if (!isOnboarding && dailyRail) {
+  if (!isOnboarding) {
     const dailyCount = await incrementDailyUsage({ quotaKey, day });
     if (dailyCount == null) {
-      return json(503, {
-        error: { message: 'AI proxy misconfigured (quota store)', code: 'provider_unavailable' },
-      });
-    }
-    if (dailyCount > dailyRail) {
+      // Don't fail hard if daily tracking fails when there's no daily limit
+      if (dailyRail) {
+        return json(503, {
+          error: { message: 'AI proxy misconfigured (quota store)', code: 'provider_unavailable' },
+        });
+      }
+      // else: best-effort tracking, continue without failing
+    } else if (dailyRail && dailyCount > dailyRail) {
       const retryAt = nextUtcMidnightIso(now);
       await recordRequest({
         quotaKey,

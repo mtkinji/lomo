@@ -23,6 +23,7 @@ import {
   openAttachment,
 } from '../../services/attachments/activityAttachments';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
+import { isDateToday } from '../../utils/activityListMeta';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -163,6 +164,9 @@ export function ActivityDetailRefresh(props: any) {
     safeAreaTopInsetPx,
     pageGutterX,
   } = props;
+
+  // Check if the activity's due date is today (for visual emphasis)
+  const isDueToday = isDateToday(activity?.scheduledDate);
 
   const planConfiguredCount = React.useMemo(() => {
     const hasReminder = Boolean(activity?.reminderAt);
@@ -1043,11 +1047,11 @@ export function ActivityDetailRefresh(props: any) {
                 style={({ pressed }) => [styles.planListRow, pressed ? styles.planListRowPressed : null]}
               >
                 <ThreeColumnRow
-                  left={<Icon name="today" size={18} color={colors.sumi} />}
+                  left={<Icon name="today" size={18} color={isDueToday ? colors.destructive : colors.sumi} />}
                   right={null}
                   style={styles.planListRowInner}
                 >
-                  <Text style={styles.rowLabel} numberOfLines={1}>
+                  <Text style={[styles.rowLabel, isDueToday && { color: colors.destructive }]} numberOfLines={1}>
                     {`Due date · ${activity.scheduledDate ? dueDateLabel : 'Off'}`}
                   </Text>
                 </ThreeColumnRow>

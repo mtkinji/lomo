@@ -672,6 +672,12 @@ interface AppState {
   removeGoal: (goalId: string) => void;
   addActivity: (activity: Activity) => void;
   updateActivity: (activityId: string, updater: Updater<Activity>) => void;
+  /**
+   * Bulk-update orderIndex for a list of activities in a single state update.
+   * Accepts an array of activity IDs in the desired order; each activity's
+   * orderIndex is set to its position in the array.
+   */
+  reorderActivities: (orderedIds: string[]) => void;
   removeActivity: (activityId: string) => void;
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
@@ -1217,6 +1223,19 @@ export const useAppStore = create<AppState>()(
             activityTagHistory: shouldRecordUsage && next
               ? recordTagUsageForActivity(state.activityTagHistory, next, atIso)
               : state.activityTagHistory,
+          };
+        }),
+      reorderActivities: (orderedIds) =>
+        set((state) => {
+          const atIso = now();
+          const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+          return {
+            activities: state.activities.map((activity) => {
+              const newIndex = orderMap.get(activity.id);
+              if (newIndex === undefined) return activity;
+              if (activity.orderIndex === newIndex) return activity;
+              return { ...activity, orderIndex: newIndex, updatedAt: atIso };
+            }),
           };
         }),
       removeActivity: (activityId) =>
