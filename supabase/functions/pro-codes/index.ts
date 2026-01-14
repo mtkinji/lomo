@@ -10,6 +10,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { buildProCodeEmail, buildProGrantEmail } from '../_shared/emailTemplates.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -133,9 +134,10 @@ function getSupabaseAnonFromReq(req: Request) {
   });
 }
 
-function parseCsvList(raw: string | null): string[] {
-  if (!raw) return [];
-  return raw
+function parseCsvList(raw: string | null | undefined): string[] {
+  const v = typeof raw === 'string' ? raw : '';
+  if (!v) return [];
+  return v
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -547,9 +549,8 @@ serve(async (req) => {
 
     // Best-effort: persist install ↔ identity history (so Admin Tools can show shared devices / multiple accounts).
     if (maybeUser?.userId) {
-      await admin
-        .from('kwilt_install_identities')
-        .upsert(
+      try {
+        await admin.from('kwilt_install_identities').upsert(
           {
             install_id: installId,
             identity_key: `user:${maybeUser.userId}`,
@@ -558,12 +559,13 @@ serve(async (req) => {
             last_seen_at: now,
           },
           { onConflict: 'install_id,identity_key' },
-        )
-        .catch(() => undefined);
+        );
+      } catch {
+        // best-effort only
+      }
     } else if (maybeUser?.email) {
-      await admin
-        .from('kwilt_install_identities')
-        .upsert(
+      try {
+        await admin.from('kwilt_install_identities').upsert(
           {
             install_id: installId,
             identity_key: `email:${maybeUser.email.toLowerCase()}`,
@@ -572,8 +574,10 @@ serve(async (req) => {
             last_seen_at: now,
           },
           { onConflict: 'install_id,identity_key' },
-        )
-        .catch(() => undefined);
+        );
+      } catch {
+        // best-effort only
+      }
     }
     return json(200, { ok: true });
   }
@@ -693,11 +697,9 @@ serve(async (req) => {
       return json(400, { error: { message: 'Missing code', code: 'bad_request' } });
     }
 
-    const subject = 'Your Kwilt Pro access code';
-    const message =
-      `Here’s your Kwilt Pro access code:\n\n${code}\n\n` +
-      `Open Kwilt → Settings → Redeem Pro code.\n` +
-      (note ? `\nNote: ${note}\n` : '');
+    const emailContent = buildProCodeEmail({ code, note });
+    // Reuse the same message body for SMS/text sending.
+    const message = emailContent.text;
 
     if (channel === 'email') {
       const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
@@ -727,8 +729,9 @@ serve(async (req) => {
         body: JSON.stringify({
           from,
           to: recipientEmail,
-          subject,
-          text: message,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
         }),
       }).catch(() => null);
 
@@ -849,13 +852,7 @@ serve(async (req) => {
       const fromName = (Deno.env.get('KWILT_PRO_CODE_FROM_NAME') ?? 'Kwilt').trim();
 
       if (resendKey && fromEmail) {
-        const subject = 'Your Kwilt Pro access has been granted';
-        const expiresDate = formatExpiresAt(expiresAt);
-        const message =
-          `Your Kwilt Pro access has been granted!\n\n` +
-          `You now have access to all Pro features.\n` +
-          `Your Pro subscription expires: ${expiresDate}\n\n` +
-          `Thank you for using Kwilt!`;
+        const emailContent = buildProGrantEmail({ expiresAtIso: expiresAt });
 
         const from = fromEmail.includes('<') ? fromEmail : `${fromName} <${fromEmail}>`;
         // Best-effort: don't fail the grant if email send fails
@@ -865,8 +862,9 @@ serve(async (req) => {
           body: JSON.stringify({
             from,
             to: resolvedEmail,
-            subject,
-            text: message,
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
           }),
         }).catch(() => {
           // Silently fail - email is best-effort notification
@@ -1408,6 +1406,264 @@ serve(async (req) => {
     }
     const summary = Array.isArray(data) ? (data[0] ?? null) : data ?? null;
     return json(200, { ok: true, summary });
+  }
+
+  if (route === '/admin/adoption-metrics') {
+    // Super-admin only: fetch aggregate platform metrics for the admin dashboard.
+    const check = await requireSuperAdminUser(req);
+    if (!check.ok) return check.response;
+
+    const body = await req.json().catch(() => null);
+    const timePeriodRaw = typeof body?.timePeriod === 'string' ? body.timePeriod.trim() : 'all_time';
+    
+    type TimePeriod = 'all_time' | 'this_year' | 'this_quarter' | 'this_month' | 'this_week';
+    const validPeriods: TimePeriod[] = ['all_time', 'this_year', 'this_quarter', 'this_month', 'this_week'];
+    const timePeriod: TimePeriod = validPeriods.includes(timePeriodRaw as TimePeriod) 
+      ? (timePeriodRaw as TimePeriod) 
+      : 'all_time';
+
+    // Calculate date boundaries based on time period
+    const now = new Date();
+    let periodStart: Date;
+    let periodEnd: Date = now;
+
+    switch (timePeriod) {
+      case 'this_week': {
+        // Start of current week (Sunday)
+        const dayOfWeek = now.getUTCDay();
+        periodStart = new Date(now);
+        periodStart.setUTCDate(now.getUTCDate() - dayOfWeek);
+        periodStart.setUTCHours(0, 0, 0, 0);
+        break;
+      }
+      case 'this_month': {
+        periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        break;
+      }
+      case 'this_quarter': {
+        const quarter = Math.floor(now.getUTCMonth() / 3);
+        periodStart = new Date(Date.UTC(now.getUTCFullYear(), quarter * 3, 1));
+        break;
+      }
+      case 'this_year': {
+        periodStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+        break;
+      }
+      case 'all_time':
+      default: {
+        periodStart = new Date(Date.UTC(2020, 0, 1)); // A date before the app existed
+        break;
+      }
+    }
+
+    const periodStartIso = periodStart.toISOString();
+    const periodEndIso = periodEnd.toISOString();
+
+    // Collect metrics from various tables
+    try {
+      // User metrics - count unique users from kwilt_installs (auth.users can't be queried via PostgREST)
+      // Get all distinct user_ids from installs to count total users
+      const { data: allUserInstalls } = await admin
+        .from('kwilt_installs')
+        .select('user_id, created_at')
+        .not('user_id', 'is', null);
+      
+      const allUserIds = new Set((allUserInstalls ?? []).map((i: any) => i.user_id).filter(Boolean));
+      const totalUsers = allUserIds.size;
+
+      // Users in period - count users whose first install was created in the period
+      const userFirstSeen = new Map<string, string>();
+      for (const install of allUserInstalls ?? []) {
+        const userId = (install as any)?.user_id;
+        const createdAt = (install as any)?.created_at;
+        if (!userId || !createdAt) continue;
+        const existing = userFirstSeen.get(userId);
+        if (!existing || createdAt < existing) {
+          userFirstSeen.set(userId, createdAt);
+        }
+      }
+      let usersInPeriod = 0;
+      for (const [_userId, firstSeen] of userFirstSeen) {
+        if (firstSeen >= periodStartIso && firstSeen <= periodEndIso) {
+          usersInPeriod++;
+        }
+      }
+
+      // Active users in the last 7 days of the period
+      const wauStart = new Date(periodEnd);
+      wauStart.setUTCDate(wauStart.getUTCDate() - 7);
+      const { data: activeInstalls } = await admin
+        .from('kwilt_installs')
+        .select('user_id')
+        .gte('last_seen_at', wauStart.toISOString())
+        .lte('last_seen_at', periodEndIso)
+        .not('user_id', 'is', null);
+      const weeklyActiveUsers = new Set((activeInstalls ?? []).map((i: any) => i.user_id).filter(Boolean)).size;
+
+      // Pro users
+      const { count: proUsers } = await admin
+        .from('kwilt_pro_entitlements')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_pro', true)
+        .or(`expires_at.is.null,expires_at.gt.${now.toISOString()}`);
+
+      // Arcs created in period
+      const { count: arcsCreated } = await admin
+        .from('arcs')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso);
+
+      // Goals created in period
+      const { count: goalsCreated } = await admin
+        .from('goals')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso);
+
+      // Activities created in period
+      const { count: activitiesCreated } = await admin
+        .from('activities')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso);
+
+      // Check-ins in period
+      const { count: checkinsCompleted } = await admin
+        .from('checkins')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso);
+
+      // Focus sessions in period
+      const { count: focusSessionsCompleted } = await admin
+        .from('focus_sessions')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso)
+        .not('completed_at', 'is', null);
+
+      // AI usage metrics
+      // Sum credits from daily usage table for period
+      let aiActionsTotal = 0;
+      let aiSpendCents = 0;
+      
+      // Query daily usage within period
+      const periodStartDate = periodStartIso.split('T')[0];
+      const periodEndDate = periodEndIso.split('T')[0];
+      const { data: dailyUsage } = await admin
+        .from('kwilt_ai_usage_daily')
+        .select('actions_count')
+        .gte('date', periodStartDate)
+        .lte('date', periodEndDate);
+      
+      if (Array.isArray(dailyUsage)) {
+        aiActionsTotal = dailyUsage.reduce((sum, row: any) => {
+          return sum + (typeof row?.actions_count === 'number' ? row.actions_count : 0);
+        }, 0);
+      }
+      
+      // Rough cost estimate: ~$0.01 per AI action (adjust as needed)
+      aiSpendCents = Math.round(aiActionsTotal * 1);
+
+      // Activated users (users who have created at least one arc, goal, or activity)
+      // This is an approximation - real activation may require joining multiple tables
+      const { data: usersWithArcs } = await admin
+        .from('arcs')
+        .select('user_id');
+      const { data: usersWithGoals } = await admin
+        .from('goals')
+        .select('user_id');
+      const { data: usersWithActivities } = await admin
+        .from('activities')
+        .select('user_id');
+      
+      const activatedUserIds = new Set<string>();
+      for (const row of usersWithArcs ?? []) {
+        if (typeof (row as any)?.user_id === 'string') activatedUserIds.add((row as any).user_id);
+      }
+      for (const row of usersWithGoals ?? []) {
+        if (typeof (row as any)?.user_id === 'string') activatedUserIds.add((row as any).user_id);
+      }
+      for (const row of usersWithActivities ?? []) {
+        if (typeof (row as any)?.user_id === 'string') activatedUserIds.add((row as any).user_id);
+      }
+      const activatedUsers = activatedUserIds.size;
+
+      const aiActionsPerActiveUser = weeklyActiveUsers > 0 ? aiActionsTotal / weeklyActiveUsers : 0;
+
+      // User locations from activities with location data
+      // Extract distinct locations and cluster by approximate area
+      const { data: activitiesWithLocation } = await admin
+        .from('kwilt_activities')
+        .select('user_id, data')
+        .not('data->location', 'is', null);
+
+      type LocationPoint = {
+        lat: number;
+        lon: number;
+        count: number;
+        city?: string;
+        region?: string;
+        country?: string;
+      };
+
+      // Cluster locations by rounding to ~10km grid for privacy
+      const locationClusters = new Map<string, LocationPoint>();
+      for (const row of activitiesWithLocation ?? []) {
+        const data = (row as any)?.data;
+        const loc = data?.location;
+        if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') continue;
+
+        // Round to 1 decimal place (~11km grid)
+        const roundedLat = Math.round(loc.latitude * 10) / 10;
+        const roundedLon = Math.round(loc.longitude * 10) / 10;
+        const key = `${roundedLat},${roundedLon}`;
+
+        const existing = locationClusters.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          locationClusters.set(key, {
+            lat: roundedLat,
+            lon: roundedLon,
+            count: 1,
+            city: typeof loc.label === 'string' ? loc.label : undefined,
+          });
+        }
+      }
+
+      // Convert to array and sort by count (hotspots first)
+      const userLocations = Array.from(locationClusters.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 50); // Limit to top 50 locations
+
+      const metrics = {
+        timePeriod,
+        periodStartIso,
+        periodEndIso,
+        aiSpend: aiSpendCents,
+        userAcquisition: timePeriod === 'all_time' ? totalUsers : usersInPeriod,
+        weeklyActiveUsers,
+        totalUsers,
+        activatedUsers,
+        proUsers: proUsers ?? 0,
+        arcsCreated: arcsCreated ?? 0,
+        goalsCreated: goalsCreated ?? 0,
+        activitiesCreated: activitiesCreated ?? 0,
+        checkinsCompleted: checkinsCompleted ?? 0,
+        focusSessionsCompleted: focusSessionsCompleted ?? 0,
+        aiActionsTotal,
+        aiActionsPerActiveUser,
+        userLocations,
+        computedAtIso: now.toISOString(),
+      };
+
+      return json(200, { ok: true, metrics });
+    } catch (e: any) {
+      const msg = typeof e?.message === 'string' ? e.message : 'Unable to compute metrics';
+      return json(503, { error: { message: msg, code: 'provider_unavailable' } });
+    }
   }
 
   return json(404, { error: { message: 'Not found', code: 'not_found' } });

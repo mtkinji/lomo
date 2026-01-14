@@ -17,6 +17,19 @@ import {
   TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  runOnJS,
+  scrollTo,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useAnimatedProps,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
@@ -172,30 +185,489 @@ function CompletedActivitySection({
 
       {expanded && (
         <VStack space="xs">
-          {activities.map((activity) => {
+          {activities.map((activity, idx) => {
             const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity, goalTitle });
+            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
             const metaLoading = Boolean(isMetaLoading?.(activity.id)) && !meta;
 
             return (
-              <ActivityListItem
+              <View
                 key={activity.id}
-                title={activity.title}
-                meta={meta}
-                metaLeadingIconName={metaLeadingIconName}
-                metaLeadingIconNames={metaLeadingIconNames}
-                metaLoading={metaLoading}
-                isCompleted={activity.status === 'done'}
-                onToggleComplete={() => onToggleComplete(activity.id)}
-                isPriorityOne={activity.priority === 1}
-                onTogglePriority={() => onTogglePriority(activity.id)}
-                onPress={() => onPressActivity(activity.id)}
-              />
+                style={idx === activities.length - 1 ? undefined : { marginBottom: spacing.xs / 2 }}
+              >
+                <ActivityListItem
+                  title={activity.title}
+                  meta={meta}
+                  metaLeadingIconName={metaLeadingIconName}
+                  metaLeadingIconNames={metaLeadingIconNames}
+                  metaLoading={metaLoading}
+                  isCompleted={activity.status === 'done'}
+                  onToggleComplete={() => onToggleComplete(activity.id)}
+                  isPriorityOne={activity.priority === 1}
+                  onTogglePriority={() => onTogglePriority(activity.id)}
+                  onPress={() => onPressActivity(activity.id)}
+                  isDueToday={isDueToday}
+                />
+              </View>
             );
           })}
         </VStack>
       )}
     </VStack>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DRAGGABLE LIST - Natural Flow Layout with Transform-Based Drag
+// ─────────────────────────────────────────────────────────────────────────────
+// Items render in natural flow layout (like FlatList), eliminating the height
+// measurement race condition that plagued absolute positioning. During drag:
+// - The dragged item uses translateY to move visually
+// - Other items animate their translateY to make room
+// - On drag end, we commit the new order to data and reset transforms
+// ─────────────────────────────────────────────────────────────────────────────
+
+type DraggableRowProps<T extends { id: string }> = {
+  item: T;
+  itemId: string;
+  index: number;
+  activeId: SharedValue<string | null>;
+  activeIndex: SharedValue<number>;
+  currentIndex: SharedValue<number>;
+  dragTranslateY: SharedValue<number>;
+  itemHeights: SharedValue<Record<string, number>>;
+  orderedIds: SharedValue<string[]>;
+  pendingReset: SharedValue<boolean>;
+  onReorderWithPendingReset: (fromIndex: number, toIndex: number) => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  triggerDragHaptic: () => void;
+  scrollRef: ReturnType<typeof useAnimatedRef<Animated.ScrollView>>;
+  scrollY: SharedValue<number>;
+  containerHeight: SharedValue<number>;
+  containerTop: SharedValue<number>;
+  renderContent: (item: T, isDragging: boolean) => React.ReactNode;
+};
+
+function DraggableRow<T extends { id: string }>({
+  item,
+  itemId,
+  index,
+  activeId,
+  activeIndex,
+  currentIndex,
+  dragTranslateY,
+  itemHeights,
+  orderedIds,
+  pendingReset,
+  onReorderWithPendingReset,
+  onDragStart,
+  onDragEnd,
+  triggerDragHaptic,
+  scrollRef,
+  scrollY,
+  containerHeight,
+  containerTop,
+  renderContent,
+}: DraggableRowProps<T>) {
+  const clamp = (v: number, min: number, max: number) => {
+    'worklet';
+    return Math.max(min, Math.min(max, v));
+  };
+
+  // Track if this row is currently being dragged (for rendering purposes)
+  const [isDragging, setIsDragging] = React.useState(false);
+  const setDraggingTrue = React.useCallback(() => setIsDragging(true), []);
+  const setDraggingFalse = React.useCallback(() => setIsDragging(false), []);
+
+  // Track start scroll position for scroll compensation
+  const startScrollY = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const isActive = activeId.value === itemId;
+
+    if (isActive) {
+      // The dragged item moves by dragTranslateY
+      return {
+        transform: [{ translateY: dragTranslateY.value }, { scale: 1.02 }],
+        zIndex: 100,
+        elevation: 10,
+      };
+    }
+
+    // Non-dragged items: animate to make room for the dragged item
+    const draggedFromIndex = activeIndex.value;
+    const draggedCurrentIndex = currentIndex.value;
+
+    if (activeId.value === null || draggedFromIndex < 0) {
+      // No active drag - no offset
+      return {
+        transform: [{ translateY: withTiming(0, { duration: 150 }) }, { scale: 1 }],
+        zIndex: 0,
+        elevation: 0,
+      };
+    }
+
+    // Calculate offset: if dragged item moved past us, we need to shift
+    let offset = 0;
+    const myIndex = index;
+    const draggedId = activeId.value;
+    const draggedHeight = itemHeights.value[draggedId] ?? 72;
+
+    if (draggedFromIndex < myIndex && draggedCurrentIndex >= myIndex) {
+      // Dragged item was above us and moved past/to us - shift up
+      offset = -draggedHeight;
+    } else if (draggedFromIndex > myIndex && draggedCurrentIndex <= myIndex) {
+      // Dragged item was below us and moved past/to us - shift down
+      offset = draggedHeight;
+    }
+
+    return {
+      transform: [{ translateY: withTiming(offset, { duration: 150 }) }, { scale: 1 }],
+      zIndex: 0,
+      elevation: 0,
+    };
+  }, [index, itemId]);
+
+  const gesture = React.useMemo(() => {
+    const maybeAutoScroll = (absoluteY: number) => {
+      'worklet';
+      // Convert absolute screen Y to position relative to container
+      const yInContainer = absoluteY - containerTop.value;
+      
+      const edgeZone = 100; // Size of the auto-scroll trigger zone at top/bottom
+      const minSpeed = 4; // Minimum scroll speed (at edge of zone)
+      const maxSpeed = 24; // Maximum scroll speed (at screen edge)
+      const maxScrollPos = 100000; // Large number, will be clamped by actual content
+
+      // Check if near top edge of container
+      if (yInContainer < edgeZone && yInContainer >= 0) {
+        // Calculate velocity: closer to edge = faster scroll
+        // At yInContainer = 0, velocity = maxSpeed
+        // At yInContainer = edgeZone, velocity = minSpeed
+        const distanceFromEdge = yInContainer;
+        const velocity = maxSpeed - (distanceFromEdge / edgeZone) * (maxSpeed - minSpeed);
+        const next = clamp(scrollY.value - velocity, 0, maxScrollPos);
+        scrollTo(scrollRef, 0, next, false);
+        // Update scrollY to track the programmatic scroll
+        scrollY.value = next;
+      } 
+      // Check if near bottom edge of container
+      else if (yInContainer > containerHeight.value - edgeZone && yInContainer <= containerHeight.value) {
+        // Calculate velocity: closer to edge = faster scroll
+        const distanceFromEdge = containerHeight.value - yInContainer;
+        const velocity = maxSpeed - (distanceFromEdge / edgeZone) * (maxSpeed - minSpeed);
+        const next = clamp(scrollY.value + velocity, 0, maxScrollPos);
+        scrollTo(scrollRef, 0, next, false);
+        // Update scrollY to track the programmatic scroll
+        scrollY.value = next;
+      }
+    };
+
+    const longPress = Gesture.LongPress()
+      .minDuration(300)
+      .maxDistance(24)
+      .onStart(() => {
+        activeId.value = itemId;
+        activeIndex.value = index;
+        currentIndex.value = index;
+        dragTranslateY.value = 0;
+        startScrollY.value = scrollY.value;
+        runOnJS(triggerDragHaptic)();
+        runOnJS(setDraggingTrue)();
+        runOnJS(onDragStart)();
+      });
+
+    const pan = Gesture.Pan()
+      .manualActivation(true)
+      .onTouchesMove((e, stateManager) => {
+        // Only activate the pan gesture when we're in drag mode
+        // This allows scroll to work normally when not dragging
+        if (activeId.value === itemId) {
+          stateManager.activate();
+        } else {
+          stateManager.fail();
+        }
+      })
+      .onUpdate((e) => {
+        if (activeId.value !== itemId) return;
+
+        // Update drag position with scroll compensation
+        const scrollDelta = scrollY.value - startScrollY.value;
+        dragTranslateY.value = e.translationY + scrollDelta;
+
+        maybeAutoScroll(e.absoluteY);
+
+        // Calculate which index we're hovering over based on cumulative heights
+        const fromIdx = activeIndex.value;
+        const ids = orderedIds.value;
+        const dragOffset = dragTranslateY.value;
+
+        let newIndex = fromIdx;
+
+        if (dragOffset > 0) {
+          // Dragging down
+          let accumulatedHeight = 0;
+          for (let i = fromIdx + 1; i < ids.length; i++) {
+            const itemH = itemHeights.value[ids[i]] ?? 72;
+            accumulatedHeight += itemH;
+            if (dragOffset > accumulatedHeight - itemH / 2) {
+              newIndex = i;
+            } else {
+              break;
+            }
+          }
+        } else if (dragOffset < 0) {
+          // Dragging up
+          let accumulatedHeight = 0;
+          for (let i = fromIdx - 1; i >= 0; i--) {
+            const itemH = itemHeights.value[ids[i]] ?? 72;
+            accumulatedHeight -= itemH;
+            if (dragOffset < accumulatedHeight + itemH / 2) {
+              newIndex = i;
+            } else {
+              break;
+            }
+          }
+        }
+
+        if (newIndex !== currentIndex.value) {
+          currentIndex.value = newIndex;
+        }
+      })
+      .onEnd(() => {
+        if (activeId.value !== itemId) return;
+
+        const fromIdx = activeIndex.value;
+        const toIdx = currentIndex.value;
+
+        runOnJS(setDraggingFalse)();
+        runOnJS(onDragEnd)();
+
+        if (fromIdx !== toIdx) {
+          // DON'T reset state yet - keep transforms in place while data reorders
+          // Signal that we're waiting for the data to update
+          pendingReset.value = true;
+          runOnJS(onReorderWithPendingReset)(fromIdx, toIdx);
+        } else {
+          // No reorder - safe to reset immediately
+          dragTranslateY.value = withTiming(0, { duration: 150 });
+          activeId.value = null;
+          activeIndex.value = -1;
+          currentIndex.value = -1;
+        }
+      })
+      .onFinalize(() => {
+        // Only reset if not pending (i.e., drag was cancelled, not completed with reorder)
+        if (activeId.value === itemId && !pendingReset.value) {
+          dragTranslateY.value = withTiming(0, { duration: 150 });
+          activeId.value = null;
+          activeIndex.value = -1;
+          currentIndex.value = -1;
+          runOnJS(setDraggingFalse)();
+          runOnJS(onDragEnd)();
+        }
+      });
+
+    return Gesture.Simultaneous(longPress, pan);
+  }, [
+    activeId,
+    activeIndex,
+    currentIndex,
+    containerHeight,
+    containerTop,
+    dragTranslateY,
+    index,
+    itemHeights,
+    itemId,
+    onDragEnd,
+    onDragStart,
+    onReorderWithPendingReset,
+    orderedIds,
+    pendingReset,
+    scrollRef,
+    scrollY,
+    setDraggingFalse,
+    setDraggingTrue,
+    startScrollY,
+    triggerDragHaptic,
+  ]);
+
+  const handleLayout = React.useCallback(
+    (e: { nativeEvent: { layout: { height: number } } }) => {
+      const h = e.nativeEvent.layout.height;
+      // Store in shared heights map for other items to reference
+      itemHeights.value = { ...itemHeights.value, [itemId]: h };
+    },
+    [itemId, itemHeights],
+  );
+
+  return (
+    <Animated.View style={animatedStyle} onLayout={handleLayout}>
+      <GestureDetector gesture={gesture}>
+        <View>{renderContent(item, isDragging)}</View>
+      </GestureDetector>
+    </Animated.View>
+  );
+}
+
+type DraggableListProps<T extends { id: string }> = {
+  items: T[];
+  onOrderChange: (orderedIds: string[]) => void;
+  renderItem: (item: T, isDragging: boolean) => React.ReactNode;
+  contentContainerStyle?: import('react-native').StyleProp<import('react-native').ViewStyle>;
+  extraBottomPadding?: number;
+  ListHeaderComponent?: React.ReactNode;
+  ListFooterComponent?: React.ReactNode;
+  ListEmptyComponent?: React.ReactNode;
+  style?: import('react-native').StyleProp<import('react-native').ViewStyle>;
+};
+
+function DraggableList<T extends { id: string }>({
+  items,
+  onOrderChange,
+  renderItem,
+  contentContainerStyle,
+  extraBottomPadding = 0,
+  ListHeaderComponent,
+  ListFooterComponent,
+  ListEmptyComponent,
+  style,
+}: DraggableListProps<T>) {
+  const triggerDragHaptic = React.useCallback(() => {
+    void HapticsService.trigger('canvas.selection');
+  }, []);
+
+  // Shared values for drag state
+  const activeId = useSharedValue<string | null>(null);
+  const activeIndex = useSharedValue(-1);
+  const currentIndex = useSharedValue(-1);
+  const dragTranslateY = useSharedValue(0);
+  const itemHeights = useSharedValue<Record<string, number>>({});
+  // Keep ordered IDs in sync for worklet access
+  const orderedIds = useSharedValue<string[]>(items.map((item) => item.id));
+  // Track when we're waiting for data to reorder before resetting animation state
+  const pendingReset = useSharedValue(false);
+  // Track previous item IDs to detect when reorder completes
+  const prevItemIdsRef = React.useRef<string[]>(items.map((item) => item.id));
+
+  // Update orderedIds when items change
+  React.useEffect(() => {
+    orderedIds.value = items.map((item) => item.id);
+  }, [items, orderedIds]);
+
+  // Detect when items array changes (reorder completed) and trigger animation reset
+  React.useLayoutEffect(() => {
+    const currentIds = items.map((item) => item.id);
+    const prevIds = prevItemIdsRef.current;
+    
+    // Check if order actually changed
+    const orderChanged = currentIds.some((id, idx) => prevIds[idx] !== id);
+    
+    if (orderChanged && pendingReset.value) {
+      // Data has reordered - now animate the reset
+      // Use requestAnimationFrame to ensure this happens after the layout update
+      requestAnimationFrame(() => {
+        dragTranslateY.value = withTiming(0, { duration: 150 });
+        activeId.value = null;
+        activeIndex.value = -1;
+        currentIndex.value = -1;
+        pendingReset.value = false;
+      });
+    }
+    
+    prevItemIdsRef.current = currentIds;
+  }, [items, activeId, activeIndex, currentIndex, dragTranslateY, pendingReset]);
+
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollY = useSharedValue(0);
+  const containerHeight = useSharedValue(0);
+  const containerTop = useSharedValue(0);
+
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
+
+  // Handle reorder - called when drag ends with position change
+  // This triggers the data update; animation reset happens after re-render
+  const handleReorderWithPendingReset = React.useCallback(
+    (fromIndex: number, toIndex: number) => {
+      const newOrder = [...items];
+      const [moved] = newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, moved);
+      onOrderChange(newOrder.map((item) => item.id));
+    },
+    [items, onOrderChange],
+  );
+
+  // Callbacks for drag start/end (no-ops now that Pan manualActivation handles scroll blocking)
+  const handleDragStart = React.useCallback(() => {
+    // Pan gesture's manualActivation handles blocking scroll during drag
+  }, []);
+  const handleDragEnd = React.useCallback(() => {
+    // No action needed
+  }, []);
+
+  return (
+    <Animated.ScrollView
+      ref={scrollRef}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+      style={[{ flex: 1 }, style]}
+      contentContainerStyle={contentContainerStyle}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      onLayout={(e) => {
+        containerHeight.value = e.nativeEvent.layout.height;
+        // Measure absolute position on screen using the native ref
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const node = (scrollRef.current as any)?.getNode?.() ?? scrollRef.current;
+        if (node?.measure) {
+          (node as any).measure((_x: number, _y: number, _w: number, _h: number, _pageX: number, pageY: number) => {
+            containerTop.value = pageY;
+          });
+        }
+      }}
+    >
+      {ListHeaderComponent}
+
+      {items.length > 0 ? (
+        <View>
+          {items.map((item, index) => (
+            <DraggableRow
+              key={item.id}
+              item={item}
+              itemId={item.id}
+              index={index}
+              activeId={activeId}
+              activeIndex={activeIndex}
+              currentIndex={currentIndex}
+              dragTranslateY={dragTranslateY}
+              itemHeights={itemHeights}
+              orderedIds={orderedIds}
+              pendingReset={pendingReset}
+              onReorderWithPendingReset={handleReorderWithPendingReset}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              triggerDragHaptic={triggerDragHaptic}
+              scrollRef={scrollRef}
+              scrollY={scrollY}
+              containerHeight={containerHeight}
+              containerTop={containerTop}
+              renderContent={renderItem}
+            />
+          ))}
+        </View>
+      ) : ListEmptyComponent ? (
+        ListEmptyComponent
+      ) : null}
+
+      {ListFooterComponent}
+
+      {extraBottomPadding > 0 ? <View style={{ height: extraBottomPadding }} /> : null}
+    </Animated.ScrollView>
   );
 }
 
@@ -223,6 +695,9 @@ export function ActivitiesScreen() {
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const reorderActivities = useAppStore((state) => state.reorderActivities);
+  // NOTE: Drag-and-drop reorder is temporarily disabled on this screen.
+  // Manual order remains supported via Activity.orderIndex and the existing sorting logic.
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const isPro = useEntitlementsStore((state) => state.isPro);
@@ -257,6 +732,7 @@ export function ActivitiesScreen() {
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
   const quickAddFocusedRef = React.useRef(false);
   const quickAddLastFocusAtRef = React.useRef<number>(0);
+  const activityDetailNavLockRef = React.useRef<{ atMs: number; activityId: string } | null>(null);
   const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
   const [hasQuickAddAiGenerated, setHasQuickAddAiGenerated] = React.useState(false);
   const lastQuickAddAiTitleRef = React.useRef<string | null>(null);
@@ -773,6 +1249,38 @@ export function ActivitiesScreen() {
 
   const hasAnyActivities = visibleActivities.length > 0;
 
+  const activityById = React.useMemo(() => {
+    const map = new Map<string, Activity>();
+    activities.forEach((a) => map.set(a.id, a));
+    return map;
+  }, [activities]);
+
+  const navigateToActivityDetail = React.useCallback(
+    (activityId: string) => {
+      // Prevent rapid taps from stacking duplicate ActivityDetail screens.
+      const nowMs = Date.now();
+      const last = activityDetailNavLockRef.current;
+      if (last && nowMs - last.atMs < 800 && last.activityId === activityId) {
+        return;
+      }
+      if (last && nowMs - last.atMs < 350) {
+        return;
+      }
+      activityDetailNavLockRef.current = { atMs: nowMs, activityId };
+      navigation.push('ActivityDetail', { activityId });
+      // Release the lock shortly after; this is a best-effort guard.
+      setTimeout(() => {
+        const cur = activityDetailNavLockRef.current;
+        if (cur && cur.activityId === activityId) {
+          activityDetailNavLockRef.current = null;
+        }
+      }, 1200);
+    },
+    [navigation],
+  );
+
+  // (moved) reorder mode handlers are declared below `handleUpdateSortMode`
+
   const buildQuickAddHeuristicPlan = React.useCallback(
     (id: string, title: string, timestamp: string) => {
       const lower = title.toLowerCase();
@@ -1218,6 +1726,14 @@ export function ActivitiesScreen() {
     [activeView, isPro, updateActivityView],
   );
 
+  // Handle reorder - called immediately when user drops an item
+  const handleReorderActivities = React.useCallback(
+    (orderedIds: string[]) => {
+      reorderActivities(orderedIds);
+    },
+    [reorderActivities],
+  );
+
   const handleUpdateShowCompleted = React.useCallback(
     (next: boolean) => {
       if (!activeView) return;
@@ -1353,6 +1869,8 @@ export function ActivitiesScreen() {
     [appOpenCount, capture, dismissWidgetPrompt],
   );
 
+  // (temporary) handleResetView removed
+
   return (
     <AppShell>
       <PageHeader
@@ -1452,473 +1970,648 @@ export function ActivitiesScreen() {
           </HStack>
         </VStack>
       </Dialog>
-      <CanvasFlatListWithRef
-        ref={canvasScrollRef}
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        extraBottomPadding={scrollExtraBottomPadding}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={activitiesGuideHost.scrollEnabled}
-        // The Activities screen owns keyboard avoidance for the docked quick-add.
-        // Letting the scroll view also auto-adjust can cause iOS to "fight" the
-        // keyboard transition and immediately dismiss it.
-        automaticallyAdjustKeyboardInsets={false}
-        keyboardShouldPersistTaps="handled"
-        data={activeActivities}
-        keyExtractor={(activity) => activity.id}
-        // Teeny tiny gap between list items (requested: 1–2pt).
-        ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
-        renderItem={({ item: activity }) => {
-          const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-          const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity, goalTitle });
-          const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
-
-          return (
-            <ActivityListItem
-              title={activity.title}
-              meta={meta}
-              metaLeadingIconName={metaLeadingIconName}
-              metaLeadingIconNames={metaLeadingIconNames}
-              metaLoading={metaLoading}
-              isCompleted={activity.status === 'done'}
-              onToggleComplete={() => handleToggleComplete(activity.id)}
-              isPriorityOne={activity.priority === 1}
-              onTogglePriority={() => handleTogglePriorityOne(activity.id)}
-              onPress={() =>
-                navigation.push('ActivityDetail', {
-                  activityId: activity.id,
-                })
-              }
-            />
-          );
-        }}
-        ListHeaderComponent={
-          <>
-            {shouldShowWidgetNudgeInline && (
-              <Card style={styles.widgetNudgeCard}>
-                <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
-                  <VStack flex={1} space="xs">
-                    <HStack alignItems="center" space="xs">
-                      <Icon name="home" size={16} color={colors.textPrimary} />
-                      <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
-                    </HStack>
-                    <Text style={styles.widgetNudgeBody}>
-                      {widgetCopyVariant === 'start_focus_faster'
-                        ? 'Start Focus with fewer taps.'
-                        : 'See Today at a glance and jump in faster.'}
-                    </Text>
-                  </VStack>
-                  <Pressable
+      {/* Toolbar rendered outside scroll views so it stays fixed when scrolling */}
+      {activities.length > 0 && (
+        <View style={styles.fixedToolbarContainer}>
+          <HStack
+            style={styles.toolbarRow}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <View style={styles.toolbarButtonWrapper}>
+              {isPro ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    testID="e2e.activities.toolbar.views"
                     accessibilityRole="button"
-                    accessibilityLabel="Dismiss widget prompt"
-                    hitSlop={10}
-                    onPress={() => handleDismissWidgetPrompt('inline')}
+                    accessibilityLabel="Views menu"
                   >
-                    <Icon name="close" size={16} color={colors.textSecondary} />
-                  </Pressable>
-                </HStack>
-                <HStack justifyContent="flex-end" alignItems="center" space="sm" style={{ marginTop: spacing.sm }}>
-                  <Button variant="secondary" size="sm" onPress={() => openWidgetSetup('inline')}>
-                    <ButtonLabel size="sm">Set up widget</ButtonLabel>
-                  </Button>
-                </HStack>
-              </Card>
-            )}
-            {shouldShowSuggestedCard && (
-              <View
-                onLayout={(e) => {
-                  suggestedCardYRef.current = e.nativeEvent.layout.y;
-                }}
-              >
-                <OpportunityCard
-                  tone="brand"
-                  shadow="layered"
-                  // Match canonical opportunity card interior rhythm used across Arc/Goal empty states.
-                  padding="xs"
-                  ctaAlign="right"
-                  header={
-                    <HStack justifyContent="space-between" alignItems="center">
+                    <Button
+                      ref={viewsButtonRef}
+                      collapsable={false}
+                      variant="outline"
+                      size="small"
+                      pointerEvents="none"
+                      accessible={false}
+                    >
                       <HStack alignItems="center" space="xs">
-                        <Icon name="sparkles" size={14} color={colors.parchment} />
-                        <Text style={styles.aiPickOnBrandLabel}>Quick add</Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="About Quick add"
-                          hitSlop={10}
-                          onPress={() => setQuickAddInfoVisible(true)}
-                        >
-                          <Icon name="info" size={16} color={colors.parchment} />
-                        </Pressable>
+                        <Icon name="panelLeft" size={14} color={colors.textPrimary} />
+                        <Text style={styles.toolbarButtonLabel}>
+                          {activeView?.name ?? 'Default view'}
+                        </Text>
                       </HStack>
-                      <HStack alignItems="center" space="xs">
-                        {suggested?.kind === 'setup' ? (
-                          <Text style={styles.aiPickOnBrandPill}>Setup</Text>
-                        ) : null}
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Dismiss Quick add"
-                          hitSlop={10}
-                          onPress={dismissSuggestedCard}
-                        >
-                          <Icon name="close" size={16} color={colors.parchment} />
-                        </Pressable>
-                      </HStack>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  {!viewEditorVisible && (
+                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                      {activityViews.map((view) => (
+                        <ViewMenuItem
+                          key={view.id}
+                          view={view}
+                          onApplyView={applyView}
+                          onOpenViewSettings={handleOpenViewSettings}
+                        />
+                      ))}
+                      <DropdownMenuItem
+                        onPress={handleOpenCreateView}
+                        style={styles.newViewMenuItem}
+                      >
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="plus" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>New view</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  )}
+                </DropdownMenu>
+              ) : (
+                <Pressable
+                  testID="e2e.activities.toolbar.views"
+                  accessibilityRole="button"
+                  accessibilityLabel="Views (Pro)"
+                  onPress={() =>
+                    openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' })
+                  }
+                >
+                  <Button
+                    ref={viewsButtonRef}
+                    collapsable={false}
+                    variant="outline"
+                    size="small"
+                    pointerEvents="none"
+                    accessible={false}
+                  >
+                    <HStack alignItems="center" space="xs">
+                      <Icon name="panelLeft" size={14} color={colors.textPrimary} />
+                      <Text style={styles.toolbarButtonLabel}>Default view</Text>
+                      <Icon name="lock" size={12} color={colors.textSecondary} />
                     </HStack>
-                  }
-                  title={null}
-                  body={
-                    suggested?.kind === 'activity' && suggestedActivity ? (
-                      <ActivityListItem
-                        title={suggestedActivity.title}
-                        meta={suggestedActivityMeta.meta}
-                        metaLeadingIconName={suggestedActivityMeta.metaLeadingIconName}
-                        onPress={() =>
-                          navigation.push('ActivityDetail', { activityId: suggestedActivity.id })
-                        }
-                        showPriorityControl={false}
-                      />
-                    ) : (
-                      suggestedCardBody
-                    )
-                  }
-                  ctaLabel={
-                    suggested?.kind === 'setup'
-                      ? suggested.reason === 'no_goals'
-                        ? 'Create goal'
-                        : 'Add activity'
-                      : 'Add to Today'
-                  }
-                  ctaVariant={suggested?.kind === 'activity' ? 'inverse' : 'inverse'}
-                  // Icon lives in the header; keep the CTA clean.
-                  ctaLeadingIconName={suggested?.kind === 'activity' ? undefined : 'sparkles'}
-                  ctaSize="xs"
-                  ctaAccessibilityLabel={
-                    suggested?.kind === 'activity'
-                      ? 'Add suggested activity to Today'
-                      : 'Add activity'
-                  }
-                  onPressCta={handleAcceptSuggested}
-                  secondaryCtaLabel="Not now"
-                  secondaryCtaVariant="ghost"
-                  secondaryCtaSize="xs"
-                  secondaryCtaAccessibilityLabel="Dismiss Quick add"
-                  onPressSecondaryCta={dismissSuggestedCard}
-                  style={[
-                    styles.suggestedOpportunityCard,
-                    highlightSuggested && styles.suggestedOpportunityCardHighlighted,
-                  ]}
+                  </Button>
+                </Pressable>
+              )}
+            </View>
+
+            <HStack space="sm" alignItems="center">
+              <View style={styles.toolbarButtonWrapper}>
+                {isPro ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      testID="e2e.activities.toolbar.filter"
+                      accessibilityRole="button"
+                      accessibilityLabel="Filter activities"
+                    >
+                      <Button
+                        ref={filterButtonRef}
+                        collapsable={false}
+                        variant="outline"
+                        size="small"
+                        pointerEvents="none"
+                        accessible={false}
+                      >
+                        <Icon name="funnel" size={14} color={colors.textPrimary} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('all')}>
+                        <Text style={styles.menuItemText}>All activities</Text>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('priority1')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="star" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Starred</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('active')}>
+                        <Text style={styles.menuItemText}>Active</Text>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateFilterMode('completed')}>
+                        <Text style={styles.menuItemText}>Completed</Text>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Pressable
+                    testID="e2e.activities.toolbar.filter"
+                    accessibilityRole="button"
+                    accessibilityLabel="Filter activities (Pro)"
+                    onPress={() =>
+                      openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
+                    }
+                  >
+                    <View style={styles.proLockedButton}>
+                      <Button
+                        ref={filterButtonRef}
+                        collapsable={false}
+                        variant="outline"
+                        size="small"
+                        pointerEvents="none"
+                        accessible={false}
+                      >
+                        <Icon name="funnel" size={14} color={colors.textPrimary} />
+                      </Button>
+                      <View style={styles.proLockedBadge}>
+                        <Icon name="lock" size={10} color={colors.textSecondary} />
+                      </View>
+                    </View>
+                  </Pressable>
+                )}
+              </View>
+
+              <View style={styles.toolbarButtonWrapper}>
+                {isPro ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      testID="e2e.activities.toolbar.sort"
+                      accessibilityRole="button"
+                      accessibilityLabel="Sort activities"
+                    >
+                      <Button
+                        ref={sortButtonRef}
+                        collapsable={false}
+                        variant="outline"
+                        size="small"
+                        pointerEvents="none"
+                        accessible={false}
+                      >
+                        <Icon name="sort" size={14} color={colors.textPrimary} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('manual')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="menu" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Manual order</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('titleAsc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="arrowUp" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Title A–Z</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('titleDesc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="arrowDown" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Title Z–A</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateAsc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="today" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Due date (soonest first)</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateDesc')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="today" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Due date (latest first)</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => handleUpdateSortMode('priority')}>
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="star" size={14} color={colors.textSecondary} />
+                          <Text style={styles.menuItemText}>Starred first</Text>
+                        </HStack>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Pressable
+                    testID="e2e.activities.toolbar.sort"
+                    accessibilityRole="button"
+                    accessibilityLabel="Sort activities (Pro)"
+                    onPress={() =>
+                      openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
+                    }
+                  >
+                    <View style={styles.proLockedButton}>
+                      <Button
+                        ref={sortButtonRef}
+                        collapsable={false}
+                        variant="outline"
+                        size="small"
+                        pointerEvents="none"
+                        accessible={false}
+                      >
+                        <Icon name="sort" size={14} color={colors.textPrimary} />
+                      </Button>
+                      <View style={styles.proLockedBadge}>
+                        <Icon name="lock" size={10} color={colors.textSecondary} />
+                      </View>
+                    </View>
+                  </Pressable>
+                )}
+              </View>
+            </HStack>
+          </HStack>
+          {/* Show chips when filter or sort is not default */}
+          {(filterMode !== 'all' || sortMode !== 'manual') && (
+            <HStack style={styles.appliedChipsRow} space="xs" alignItems="center">
+              {filterMode !== 'all' && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear activity filters"
+                  onPress={() => handleUpdateFilterMode('all')}
+                  style={styles.appliedChip}
+                >
+                  <HStack space="xs" alignItems="center">
+                    <Text style={styles.appliedChipLabel}>
+                      Filter: {getFilterLabel(filterMode)}
+                    </Text>
+                    <Icon name="close" size={12} color={colors.textSecondary} />
+                  </HStack>
+                </Pressable>
+              )}
+              {sortMode !== 'manual' && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset sort to manual order"
+                  onPress={() => handleUpdateSortMode('manual')}
+                  style={styles.appliedChip}
+                >
+                  <HStack space="xs" alignItems="center">
+                    <Text style={styles.appliedChipLabel}>
+                      Sort: {getSortLabel(sortMode)}
+                    </Text>
+                    <Icon name="close" size={12} color={colors.textSecondary} />
+                  </HStack>
+                </Pressable>
+              )}
+            </HStack>
+          )}
+        </View>
+      )}
+      {sortMode === 'manual' ? (
+        <DraggableList
+          items={activeActivities}
+          onOrderChange={handleReorderActivities}
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            activeActivities.length === 0 ? { flexGrow: 1 } : null,
+          ]}
+          extraBottomPadding={scrollExtraBottomPadding}
+          renderItem={(activity, isDragging) => {
+            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
+            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
+            const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
+
+            return (
+              <View style={[
+                // Match list density: XS/2 gap between items.
+                { paddingBottom: spacing.xs / 2 },
+                isDragging && { opacity: 0.9, shadowColor: colors.textPrimary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
+              ]}>
+                <ActivityListItem
+                  title={activity.title}
+                  meta={meta}
+                  metaLeadingIconName={metaLeadingIconName}
+                  metaLeadingIconNames={metaLeadingIconNames}
+                  metaLoading={metaLoading}
+                  isCompleted={activity.status === 'done'}
+                  onToggleComplete={isDragging ? undefined : () => handleToggleComplete(activity.id)}
+                  isPriorityOne={activity.priority === 1}
+                  onTogglePriority={isDragging ? undefined : () => handleTogglePriorityOne(activity.id)}
+                  onPress={isDragging ? undefined : () => navigateToActivityDetail(activity.id)}
+                  isDueToday={isDueToday}
                 />
               </View>
-            )}
-
-            {activities.length > 0 && (
-              <>
-                <HStack
-                  style={styles.toolbarRow}
-                  alignItems="center"
-                  justifyContent="space-between"
+            );
+          }}
+          ListHeaderComponent={
+            <>
+              {shouldShowWidgetNudgeInline && (
+                <Card style={styles.widgetNudgeCard}>
+                  <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
+                    <VStack flex={1} space="xs">
+                      <HStack alignItems="center" space="xs">
+                        <Icon name="home" size={16} color={colors.textPrimary} />
+                        <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
+                      </HStack>
+                      <Text style={styles.widgetNudgeBody}>
+                        {widgetCopyVariant === 'start_focus_faster'
+                          ? 'Start Focus with fewer taps.'
+                          : 'See Today at a glance and jump in faster.'}
+                      </Text>
+                    </VStack>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss widget prompt"
+                      hitSlop={10}
+                      onPress={() => handleDismissWidgetPrompt('inline')}
+                    >
+                      <Icon name="close" size={16} color={colors.textSecondary} />
+                    </Pressable>
+                  </HStack>
+                  <HStack justifyContent="flex-end" alignItems="center" space="sm" style={{ marginTop: spacing.sm }}>
+                    <Button variant="secondary" size="sm" onPress={() => openWidgetSetup('inline')}>
+                      <ButtonLabel size="sm">Set up widget</ButtonLabel>
+                    </Button>
+                  </HStack>
+                </Card>
+              )}
+              {shouldShowSuggestedCard && (
+                <View
+                  onLayout={(e) => {
+                    suggestedCardYRef.current = e.nativeEvent.layout.y;
+                  }}
                 >
-                  <View style={styles.toolbarButtonWrapper}>
-                    {isPro ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          testID="e2e.activities.toolbar.views"
-                          accessibilityRole="button"
-                          accessibilityLabel="Views menu"
-                        >
-                          <Button
-                            ref={viewsButtonRef}
-                            collapsable={false}
-                            variant="outline"
-                            size="small"
-                            pointerEvents="none"
-                            accessible={false}
-                          >
-                            <HStack alignItems="center" space="xs">
-                              <Icon name="panelLeft" size={14} color={colors.textPrimary} />
-                              <Text style={styles.toolbarButtonLabel}>
-                                {activeView?.name ?? 'Default view'}
-                              </Text>
-                            </HStack>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        {!viewEditorVisible && (
-                          <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                            {activityViews.map((view) => (
-                              <ViewMenuItem
-                                key={view.id}
-                                view={view}
-                                onApplyView={applyView}
-                                onOpenViewSettings={handleOpenViewSettings}
-                              />
-                            ))}
-                            <DropdownMenuItem
-                              onPress={handleOpenCreateView}
-                              style={styles.newViewMenuItem}
-                            >
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="plus" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>New view</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        )}
-                      </DropdownMenu>
-                    ) : (
-                      <Pressable
-                        testID="e2e.activities.toolbar.views"
-                        accessibilityRole="button"
-                        accessibilityLabel="Views (Pro)"
-                        onPress={() =>
-                          openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' })
-                        }
-                      >
-                        <Button
-                          ref={viewsButtonRef}
-                          collapsable={false}
-                          variant="outline"
-                          size="small"
-                          pointerEvents="none"
-                          accessible={false}
-                        >
-                          <HStack alignItems="center" space="xs">
-                            <Icon name="panelLeft" size={14} color={colors.textPrimary} />
-                            <Text style={styles.toolbarButtonLabel}>Default view</Text>
-                            <Icon name="lock" size={12} color={colors.textSecondary} />
-                          </HStack>
-                        </Button>
-                      </Pressable>
-                    )}
-                  </View>
-
-                  <HStack space="sm" alignItems="center">
-                    <View style={styles.toolbarButtonWrapper}>
-                      {isPro ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            testID="e2e.activities.toolbar.filter"
+                  <OpportunityCard
+                    tone="brand"
+                    shadow="layered"
+                    padding="xs"
+                    ctaAlign="right"
+                    header={
+                      <HStack justifyContent="space-between" alignItems="center">
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="sparkles" size={14} color={colors.parchment} />
+                          <Text style={styles.aiPickOnBrandLabel}>Quick add</Text>
+                          <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel="Filter activities"
+                            accessibilityLabel="About Quick add"
+                            hitSlop={10}
+                            onPress={() => setQuickAddInfoVisible(true)}
                           >
-                            <Button
-                              ref={filterButtonRef}
-                              collapsable={false}
-                              variant="outline"
-                              size="small"
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="funnel" size={14} color={colors.textPrimary} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('all')}>
-                              <Text style={styles.menuItemText}>All activities</Text>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('priority1')}>
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="star" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>Starred</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('active')}>
-                              <Text style={styles.menuItemText}>Active</Text>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateFilterMode('completed')}>
-                              <Text style={styles.menuItemText}>Completed</Text>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : (
-                        <Pressable
-                          testID="e2e.activities.toolbar.filter"
-                          accessibilityRole="button"
-                          accessibilityLabel="Filter activities (Pro)"
-                          onPress={() =>
-                            openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
-                          }
-                        >
-                          <View style={styles.proLockedButton}>
-                            <Button
-                              ref={filterButtonRef}
-                              collapsable={false}
-                              variant="outline"
-                              size="small"
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="funnel" size={14} color={colors.textPrimary} />
-                            </Button>
-                            <View style={styles.proLockedBadge}>
-                              <Icon name="lock" size={10} color={colors.textSecondary} />
-                            </View>
-                          </View>
-                        </Pressable>
-                      )}
-                    </View>
-
-                    <View style={styles.toolbarButtonWrapper}>
-                      {isPro ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            testID="e2e.activities.toolbar.sort"
+                            <Icon name="info" size={16} color={colors.parchment} />
+                          </Pressable>
+                        </HStack>
+                        <HStack alignItems="center" space="xs">
+                          {suggested?.kind === 'setup' ? (
+                            <Text style={styles.aiPickOnBrandPill}>Setup</Text>
+                          ) : null}
+                          <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel="Sort activities"
+                            accessibilityLabel="Dismiss Quick add"
+                            hitSlop={10}
+                            onPress={dismissSuggestedCard}
                           >
-                            <Button
-                              ref={sortButtonRef}
-                              collapsable={false}
-                              variant="outline"
-                              size="small"
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="sort" size={14} color={colors.textPrimary} />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                            <DropdownMenuItem onPress={() => handleUpdateSortMode('manual')}>
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="menu" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>Manual order</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateSortMode('titleAsc')}>
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="arrowUp" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>Title A–Z</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateSortMode('titleDesc')}>
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="arrowDown" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>Title Z–A</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateAsc')}>
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="today" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>Due date (soonest first)</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateSortMode('dueDateDesc')}>
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="today" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>Due date (latest first)</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => handleUpdateSortMode('priority')}>
-                              <HStack alignItems="center" space="xs">
-                                <Icon name="star" size={14} color={colors.textSecondary} />
-                                <Text style={styles.menuItemText}>Starred first</Text>
-                              </HStack>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                            <Icon name="close" size={16} color={colors.parchment} />
+                          </Pressable>
+                        </HStack>
+                      </HStack>
+                    }
+                    title={null}
+                    body={
+                      suggested?.kind === 'activity' && suggestedActivity ? (
+                        <ActivityListItem
+                          title={suggestedActivity.title}
+                          meta={suggestedActivityMeta.meta}
+                          metaLeadingIconName={suggestedActivityMeta.metaLeadingIconName}
+                          onPress={() => navigateToActivityDetail(suggestedActivity.id)}
+                          showPriorityControl={false}
+                        />
                       ) : (
-                        <Pressable
-                          testID="e2e.activities.toolbar.sort"
-                          accessibilityRole="button"
-                          accessibilityLabel="Sort activities (Pro)"
-                          onPress={() =>
-                            openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
-                          }
-                        >
-                          <View style={styles.proLockedButton}>
-                            <Button
-                              ref={sortButtonRef}
-                              collapsable={false}
-                              variant="outline"
-                              size="small"
-                              pointerEvents="none"
-                              accessible={false}
-                            >
-                              <Icon name="sort" size={14} color={colors.textPrimary} />
-                            </Button>
-                            <View style={styles.proLockedBadge}>
-                              <Icon name="lock" size={10} color={colors.textSecondary} />
-                            </View>
-                          </View>
-                        </Pressable>
-                      )}
-                    </View>
-                  </HStack>
-                </HStack>
-
-                {(filterMode !== 'all' || sortMode !== 'manual') && (
-                  <HStack style={styles.appliedChipsRow} space="xs" alignItems="center">
-                    {filterMode !== 'all' && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear activity filters"
-                        onPress={() => handleUpdateFilterMode('all')}
-                        style={styles.appliedChip}
-                      >
-                        <HStack space="xs" alignItems="center">
-                          <Text style={styles.appliedChipLabel}>
-                            Filter: {getFilterLabel(filterMode)}
-                          </Text>
-                          <Icon name="close" size={12} color={colors.textSecondary} />
-                        </HStack>
-                      </Pressable>
-                    )}
-                    {sortMode !== 'manual' && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Reset sort to manual order"
-                        onPress={() => handleUpdateSortMode('manual')}
-                        style={styles.appliedChip}
-                      >
-                        <HStack space="xs" alignItems="center">
-                          <Text style={styles.appliedChipLabel}>
-                            Sort: {getSortLabel(sortMode)}
-                          </Text>
-                          <Icon name="close" size={12} color={colors.textSecondary} />
-                        </HStack>
-                      </Pressable>
-                    )}
-                  </HStack>
-                )}
-              </>
-            )}
-          </>
-        }
-        ListEmptyComponent={
-          !hasAnyActivities ? (
-            <EmptyState
-              title="No activities yet"
-              instructions="Add your first activity to start building momentum."
-              primaryAction={{
-                label: 'Add activity',
-                variant: 'accent',
-                onPress: () => setActivityCoachVisible(true),
-                accessibilityLabel: 'Add a new activity',
-              }}
-              style={styles.emptyState}
-            />
-          ) : null
-        }
-        ListFooterComponent={
-          completedActivities.length > 0 ? (
-            <View style={{ marginTop: activeActivities.length > 0 ? spacing.sm : 0 }}>
-              <CompletedActivitySection
-                activities={completedActivities}
-                goalTitleById={goalTitleById}
-                onToggleComplete={handleToggleComplete}
-                onTogglePriority={handleTogglePriorityOne}
-                onPressActivity={(activityId) =>
-                  navigation.push('ActivityDetail', {
-                    activityId,
-                  })
-                }
-                isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+                        suggestedCardBody
+                      )
+                    }
+                    ctaLabel={
+                      suggested?.kind === 'setup'
+                        ? suggested.reason === 'no_goals'
+                          ? 'Create goal'
+                          : 'Add activity'
+                        : 'Add to Today'
+                    }
+                    ctaVariant={suggested?.kind === 'activity' ? 'inverse' : 'inverse'}
+                    ctaLeadingIconName={suggested?.kind === 'activity' ? undefined : 'sparkles'}
+                    ctaSize="xs"
+                    ctaAccessibilityLabel={
+                      suggested?.kind === 'activity'
+                        ? 'Add suggested activity to Today'
+                        : 'Add activity'
+                    }
+                    onPressCta={handleAcceptSuggested}
+                    secondaryCtaLabel="Not now"
+                    secondaryCtaVariant="ghost"
+                    secondaryCtaSize="xs"
+                    secondaryCtaAccessibilityLabel="Dismiss Quick add"
+                    onPressSecondaryCta={dismissSuggestedCard}
+                    style={[
+                      styles.suggestedOpportunityCard,
+                      highlightSuggested && styles.suggestedOpportunityCardHighlighted,
+                    ]}
+                  />
+                </View>
+              )}
+            </>
+          }
+          ListEmptyComponent={
+            !hasAnyActivities ? (
+              <EmptyState
+                title="No activities yet"
+                instructions="Add your first activity to start building momentum."
+                primaryAction={{
+                  label: 'Add activity',
+                  variant: 'accent',
+                  onPress: () => setActivityCoachVisible(true),
+                  accessibilityLabel: 'Add a new activity',
+                }}
+                style={styles.emptyState}
               />
-            </View>
-          ) : (
-            <View />
-          )
-        }
-      />
+            ) : null
+          }
+          ListFooterComponent={
+            completedActivities.length > 0 ? (
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.sm : 0 }}>
+                <CompletedActivitySection
+                  activities={completedActivities}
+                  goalTitleById={goalTitleById}
+                  onToggleComplete={handleToggleComplete}
+                  onTogglePriority={handleTogglePriorityOne}
+                  onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
+                  isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+                />
+              </View>
+            ) : undefined
+          }
+        />
+      ) : (
+        <CanvasFlatListWithRef
+          ref={canvasScrollRef}
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            activeActivities.length === 0 ? { flexGrow: 1 } : null,
+          ]}
+          extraBottomPadding={scrollExtraBottomPadding}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={activitiesGuideHost.scrollEnabled}
+          automaticallyAdjustKeyboardInsets={false}
+          keyboardShouldPersistTaps="handled"
+          data={activeActivities}
+          keyExtractor={(activity) => activity.id}
+          ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
+          renderItem={({ item: activity }) => {
+            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
+            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
+            const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
+
+            return (
+              <ActivityListItem
+                title={activity.title}
+                meta={meta}
+                metaLeadingIconName={metaLeadingIconName}
+                metaLeadingIconNames={metaLeadingIconNames}
+                metaLoading={metaLoading}
+                isCompleted={activity.status === 'done'}
+                onToggleComplete={() => handleToggleComplete(activity.id)}
+                isPriorityOne={activity.priority === 1}
+                onTogglePriority={() => handleTogglePriorityOne(activity.id)}
+                onPress={() => navigateToActivityDetail(activity.id)}
+                isDueToday={isDueToday}
+              />
+            );
+          }}
+          ListHeaderComponent={
+            <>
+              {shouldShowWidgetNudgeInline && (
+                <Card style={styles.widgetNudgeCard}>
+                  <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
+                    <VStack flex={1} space="xs">
+                      <HStack alignItems="center" space="xs">
+                        <Icon name="home" size={16} color={colors.textPrimary} />
+                        <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
+                      </HStack>
+                      <Text style={styles.widgetNudgeBody}>
+                        {widgetCopyVariant === 'start_focus_faster'
+                          ? 'Start Focus with fewer taps.'
+                          : 'See Today at a glance and jump in faster.'}
+                      </Text>
+                    </VStack>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Dismiss widget prompt"
+                      hitSlop={10}
+                      onPress={() => handleDismissWidgetPrompt('inline')}
+                    >
+                      <Icon name="close" size={16} color={colors.textSecondary} />
+                    </Pressable>
+                  </HStack>
+                  <HStack justifyContent="flex-end" alignItems="center" space="sm" style={{ marginTop: spacing.sm }}>
+                    <Button variant="secondary" size="sm" onPress={() => openWidgetSetup('inline')}>
+                      <ButtonLabel size="sm">Set up widget</ButtonLabel>
+                    </Button>
+                  </HStack>
+                </Card>
+              )}
+              {shouldShowSuggestedCard && (
+                <View
+                  onLayout={(e) => {
+                    suggestedCardYRef.current = e.nativeEvent.layout.y;
+                  }}
+                >
+                  <OpportunityCard
+                    tone="brand"
+                    shadow="layered"
+                    padding="xs"
+                    ctaAlign="right"
+                    header={
+                      <HStack justifyContent="space-between" alignItems="center">
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="sparkles" size={14} color={colors.parchment} />
+                          <Text style={styles.aiPickOnBrandLabel}>Quick add</Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="About Quick add"
+                            hitSlop={10}
+                            onPress={() => setQuickAddInfoVisible(true)}
+                          >
+                            <Icon name="info" size={16} color={colors.parchment} />
+                          </Pressable>
+                        </HStack>
+                        <HStack alignItems="center" space="xs">
+                          {suggested?.kind === 'setup' ? (
+                            <Text style={styles.aiPickOnBrandPill}>Setup</Text>
+                          ) : null}
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Dismiss Quick add"
+                            hitSlop={10}
+                            onPress={dismissSuggestedCard}
+                          >
+                            <Icon name="close" size={16} color={colors.parchment} />
+                          </Pressable>
+                        </HStack>
+                      </HStack>
+                    }
+                    title={null}
+                    body={
+                      suggested?.kind === 'activity' && suggestedActivity ? (
+                        <ActivityListItem
+                          title={suggestedActivity.title}
+                          meta={suggestedActivityMeta.meta}
+                          metaLeadingIconName={suggestedActivityMeta.metaLeadingIconName}
+                          onPress={() => navigateToActivityDetail(suggestedActivity.id)}
+                          showPriorityControl={false}
+                        />
+                      ) : (
+                        suggestedCardBody
+                      )
+                    }
+                    ctaLabel={
+                      suggested?.kind === 'setup'
+                        ? suggested.reason === 'no_goals'
+                          ? 'Create goal'
+                          : 'Add activity'
+                        : 'Add to Today'
+                    }
+                    ctaVariant={suggested?.kind === 'activity' ? 'inverse' : 'inverse'}
+                    ctaLeadingIconName={suggested?.kind === 'activity' ? undefined : 'sparkles'}
+                    ctaSize="xs"
+                    ctaAccessibilityLabel={
+                      suggested?.kind === 'activity'
+                        ? 'Add suggested activity to Today'
+                        : 'Add activity'
+                    }
+                    onPressCta={handleAcceptSuggested}
+                    secondaryCtaLabel="Not now"
+                    secondaryCtaVariant="ghost"
+                    secondaryCtaSize="xs"
+                    secondaryCtaAccessibilityLabel="Dismiss Quick add"
+                    onPressSecondaryCta={dismissSuggestedCard}
+                    style={[
+                      styles.suggestedOpportunityCard,
+                      highlightSuggested && styles.suggestedOpportunityCardHighlighted,
+                    ]}
+                  />
+                </View>
+              )}
+
+            </>
+          }
+          ListEmptyComponent={
+            !hasAnyActivities ? (
+              <EmptyState
+                title="No activities yet"
+                instructions="Add your first activity to start building momentum."
+                primaryAction={{
+                  label: 'Add activity',
+                  variant: 'accent',
+                  onPress: () => setActivityCoachVisible(true),
+                  accessibilityLabel: 'Add a new activity',
+                }}
+                style={styles.emptyState}
+              />
+            ) : null
+          }
+          ListFooterComponent={
+            completedActivities.length > 0 ? (
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.sm : 0 }}>
+                <CompletedActivitySection
+                  activities={completedActivities}
+                  goalTitleById={goalTitleById}
+                  onToggleComplete={handleToggleComplete}
+                  onTogglePriority={handleTogglePriorityOne}
+                onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
+                  isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+                />
+              </View>
+            ) : (
+              <View />
+            )
+          }
+        />
+      )}
+
       <QuickAddDock
         value={quickAddTitle}
         onChangeText={handleQuickAddChangeText}
@@ -2231,6 +2924,11 @@ export function ActivitiesScreen() {
 const QUICK_ADD_BAR_HEIGHT = 64;
 
 const styles = StyleSheet.create({
+  fixedToolbarContainer: {
+    // Toolbar stays fixed above the scroll view
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
   scroll: {
     flex: 1,
     // Let the scroll view extend into the AppShell horizontal padding so shadows
@@ -2244,7 +2942,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   activityItemSeparator: {
-    height: 2,
+    // XS/2 vertical gap between list items
+    height: spacing.xs / 2,
   },
   toolbarRow: {
     marginBottom: spacing.sm,

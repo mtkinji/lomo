@@ -26,7 +26,6 @@ import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { NotificationService } from '../../services/NotificationService';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
-import { signInWithProvider } from '../../services/backend/auth';
 import {
   DEFAULT_DAILY_FOCUS_TIME,
   DEFAULT_DAILY_SHOW_UP_TIME,
@@ -58,7 +57,6 @@ export function FirstTimeUxFlow() {
   const setHasCompletedFirstTimeOnboarding = useAppStore(
     (state) => state.setHasCompletedFirstTimeOnboarding
   );
-  const authIdentity = useAppStore((state) => state.authIdentity);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
@@ -67,10 +65,6 @@ export function FirstTimeUxFlow() {
   const [showDevMenu, setShowDevMenu] = useState(false);
   const [ftueStep, setFtueStep] = useState<FtueStep>('welcome');
   const [showWorkflow, setShowWorkflow] = useState(false);
-  const [showSignupInterstitial, setShowSignupInterstitial] = useState(false);
-  const [signupBusy, setSignupBusy] = useState(false);
-  const deferredCompletionRef = useRef<{ outcome: unknown } | null>(null);
-  const hasPresentedSignupInterstitialRef = useRef(false);
   const [isRequestingNotifications, setIsRequestingNotifications] = useState(false);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const { capture } = useAnalytics();
@@ -118,10 +112,6 @@ export function FirstTimeUxFlow() {
     setLastOnboardingGoalId(null);
     setFtueStep('welcome');
     setShowWorkflow(false);
-    setShowSignupInterstitial(false);
-    setSignupBusy(false);
-    deferredCompletionRef.current = null;
-    hasPresentedSignupInterstitialRef.current = false;
     introAnim.setValue(1);
     workflowAnim.setValue(0);
     setIsRequestingNotifications(false);
@@ -296,26 +286,12 @@ export function FirstTimeUxFlow() {
 
   const handleWorkflowComplete = useCallback(
     (outcome: unknown) => {
-      // Mid-FTUE signup interstitial: after the user confirms their first Arc, invite them
-      // to sign up before we dismiss onboarding and land them in the app.
-      if (!authIdentity && !hasPresentedSignupInterstitialRef.current) {
-        hasPresentedSignupInterstitialRef.current = true;
-        deferredCompletionRef.current = { outcome };
-        setShowSignupInterstitial(true);
-        return;
-      }
+      // Users are already authenticated via the sign-in gate before FTUE,
+      // so we can directly finalize onboarding.
       finalizeOnboarding(outcome);
     },
-    [authIdentity, finalizeOnboarding],
+    [finalizeOnboarding],
   );
-
-  const resumeDeferredCompletion = useCallback(() => {
-    const deferred = deferredCompletionRef.current;
-    deferredCompletionRef.current = null;
-    setShowSignupInterstitial(false);
-    setSignupBusy(false);
-    finalizeOnboarding(deferred?.outcome ?? {});
-  }, [finalizeOnboarding]);
 
   const renderFtueInterstitial = () => {
     const currentIndex = Math.max(0, flowSteps.indexOf(ftueStep));
@@ -629,7 +605,6 @@ export function FirstTimeUxFlow() {
 
   const workspaceKey = `v2:${triggerCount}`;
   const onboardingWorkflow = getWorkflowLaunchConfig('firstTimeOnboarding');
-  const signupIllustration = require('../../../assets/illustrations/goal-set.png');
 
   return (
     <Modal
@@ -756,90 +731,6 @@ export function FirstTimeUxFlow() {
             </AppShell>
           </Animated.View>
         )}
-        {showWorkflow && showSignupInterstitial ? (
-          <FullScreenInterstitial
-            visible
-            withinModal
-            backgroundColor="quiltBlue200"
-            progression="button"
-            contentStyle={styles.signupInterstitialHost}
-          >
-            <View style={styles.signupLayout}>
-              <View style={[styles.signupHeaderBlock, { paddingTop: insets.top + spacing.xl }]}>
-                <Text style={styles.signupEyebrow}>Keep your progress</Text>
-                <Text style={styles.signupTitle}>Sign up to continue</Text>
-                <Text style={styles.signupBody}>
-                  Save your first Arc and sync your goals across devices. It only takes a moment.
-                </Text>
-              </View>
-
-              <View style={styles.signupIllustrationCenter}>
-                <Image
-                  source={signupIllustration as number}
-                  style={{
-                    width: Math.min(360, windowWidth - spacing.xl * 2),
-                    height: Math.min(280, Math.round(windowHeight * 0.32)),
-                  }}
-                  resizeMode="contain"
-                  accessibilityLabel="Sign up illustration"
-                />
-              </View>
-
-              <View style={[styles.signupFooter, { paddingBottom: insets.bottom + spacing.sm }]}>
-                <Button
-                  fullWidth
-                  disabled={signupBusy}
-                  style={styles.signupPrimaryButton}
-                  onPress={async () => {
-                    if (signupBusy) return;
-                    setSignupBusy(true);
-                    try {
-                      await signInWithProvider('apple');
-                      resumeDeferredCompletion();
-                    } catch (err) {
-                      setSignupBusy(false);
-                    }
-                  }}
-                  accessibilityLabel="Continue with Apple"
-                >
-                  <Text style={styles.signupPrimaryLabel}>
-                    {signupBusy ? 'Connecting…' : 'Continue with Apple'}
-                  </Text>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  fullWidth
-                  disabled={signupBusy}
-                  style={styles.signupSecondaryButton}
-                  onPress={async () => {
-                    if (signupBusy) return;
-                    setSignupBusy(true);
-                    try {
-                      await signInWithProvider('google');
-                      resumeDeferredCompletion();
-                    } catch (err) {
-                      setSignupBusy(false);
-                    }
-                  }}
-                  accessibilityLabel="Continue with Google"
-                >
-                  <Text style={styles.signupSecondaryLabel}>Continue with Google</Text>
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  fullWidth
-                  disabled={signupBusy}
-                  onPress={() => resumeDeferredCompletion()}
-                  accessibilityLabel="Not now"
-                >
-                  <Text style={styles.signupGhostLabel}>Not now</Text>
-                </Button>
-              </View>
-            </View>
-          </FullScreenInterstitial>
-        ) : null}
       </View>
     </Modal>
   );
@@ -1034,63 +925,6 @@ const styles = StyleSheet.create({
   devMenuDestructiveLabel: {
     ...typography.body,
     color: colors.destructive,
-  },
-  signupInterstitialHost: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  signupLayout: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-  },
-  signupHeaderBlock: {
-    rowGap: spacing.sm,
-  },
-  signupEyebrow: {
-    ...typography.label,
-    color: colors.quiltBlue900,
-    opacity: 0.8,
-  },
-  signupTitle: {
-    ...typography.titleSm,
-    color: colors.quiltBlue900,
-  },
-  signupBody: {
-    ...typography.body,
-    color: colors.quiltBlue900,
-    opacity: 0.85,
-  },
-  signupIllustrationCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-  },
-  signupFooter: {
-    rowGap: spacing.sm,
-  },
-  signupPrimaryButton: {
-    backgroundColor: colors.quiltBlue700,
-    borderColor: colors.quiltBlue700,
-  },
-  signupPrimaryLabel: {
-    ...typography.body,
-    color: colors.canvas,
-    fontWeight: '600',
-  },
-  signupSecondaryButton: {
-    borderColor: colors.quiltBlue700,
-  },
-  signupSecondaryLabel: {
-    ...typography.body,
-    color: colors.quiltBlue900,
-    fontWeight: '600',
-  },
-  signupGhostLabel: {
-    ...typography.body,
-    color: colors.quiltBlue900,
-    fontWeight: '600',
   },
 });
 

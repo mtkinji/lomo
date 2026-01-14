@@ -1569,8 +1569,17 @@ export function GoalDetailScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            removeGoal(goal.id);
-            handleBack();
+            Alert.alert('Are you sure?', 'This can’t be undone.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete goal',
+                style: 'destructive',
+                onPress: () => {
+                  removeGoal(goal.id);
+                  handleBack();
+                },
+              },
+            ]);
           },
         },
       ],
@@ -2326,35 +2335,57 @@ export function GoalDetailScreen() {
                   </HStack>
 
                   {isPlanEmpty ? (
-                    <View
-                      ref={addActivitiesButtonRef}
-                      collapsable={false}
-                      onLayout={(event) => {
-                        setIsAddActivitiesButtonReady(true);
-                        // Measure relative to the scroll content root; `layout.y` is only local to the parent.
-                        requestAnimationFrame(() => {
-                          measureAddActivitiesButtonOffset();
-                        });
-                      }}
-                    >
-                      <OpportunityCard
-                        title="Turn this goal into a plan"
-                        body="Activities are the concrete steps that move this goal forward. Add a few now so you always know what to do next."
-                        tone="brand"
-                        ctaLabel="Add activities"
-                        ctaVariant="inverse"
-                        shadow="layered"
-                        onPressCta={handleOpenActivityCoach}
-                        ctaAccessibilityLabel="Add activities"
-                        style={styles.planValueCard}
-                      />
-                    </View>
+                    <>
+                      <View
+                        ref={addActivitiesButtonRef}
+                        collapsable={false}
+                        onLayout={(event) => {
+                          setIsAddActivitiesButtonReady(true);
+                          // Measure relative to the scroll content root; `layout.y` is only local to the parent.
+                          requestAnimationFrame(() => {
+                            measureAddActivitiesButtonOffset();
+                          });
+                        }}
+                      >
+                        <OpportunityCard
+                          title="Turn this goal into a plan"
+                          body="Activities are the concrete steps that move this goal forward. Add a few now so you always know what to do next."
+                          tone="brand"
+                          ctaLabel="Add activities"
+                          ctaVariant="inverse"
+                          shadow="layered"
+                          onPressCta={handleOpenActivityCoach}
+                          ctaAccessibilityLabel="Add activities"
+                          style={styles.planValueCard}
+                        />
+                      </View>
+                      <View style={{ marginTop: spacing.md }}>
+                        <QuickAddDock
+                          placement="inline"
+                          value={quickAddTitle}
+                          onChangeText={setQuickAddTitle}
+                          inputRef={quickAddInputRef}
+                          isFocused={isQuickAddFocused}
+                          setIsFocused={setQuickAddFocused}
+                          onSubmit={handleQuickAddActivity}
+                          onCollapse={collapseQuickAdd}
+                          reminderAt={quickAddReminderAt}
+                          scheduledDate={quickAddScheduledDate}
+                          repeatRule={quickAddRepeatRule}
+                          estimateMinutes={quickAddEstimateMinutes}
+                          onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
+                          onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
+                          onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
+                          onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
+                        />
+                      </View>
+                    </>
                   ) : (
                     <>
                       {activeGoalActivities.length > 0 && (
                         <VStack space={2}>
                           {activeGoalActivities.map((activity) => {
-                            const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity });
+                            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity });
                             return (
                               <ActivityListItem
                                 key={activity.id}
@@ -2367,11 +2398,33 @@ export function GoalDetailScreen() {
                                 isPriorityOne={activity.priority === 1}
                                 onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
                                 onPress={() => handleOpenActivityDetail(activity.id)}
+                                isDueToday={isDueToday}
                               />
                             );
                           })}
                         </VStack>
                       )}
+
+                      <View style={{ marginTop: spacing.md }}>
+                        <QuickAddDock
+                          placement="inline"
+                          value={quickAddTitle}
+                          onChangeText={setQuickAddTitle}
+                          inputRef={quickAddInputRef}
+                          isFocused={isQuickAddFocused}
+                          setIsFocused={setQuickAddFocused}
+                          onSubmit={handleQuickAddActivity}
+                          onCollapse={collapseQuickAdd}
+                          reminderAt={quickAddReminderAt}
+                          scheduledDate={quickAddScheduledDate}
+                          repeatRule={quickAddRepeatRule}
+                          estimateMinutes={quickAddEstimateMinutes}
+                          onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
+                          onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
+                          onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
+                          onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
+                        />
+                      </View>
 
                       {completedGoalActivities.length > 0 && (
                         <VStack space="xs" style={styles.completedSection}>
@@ -2402,7 +2455,7 @@ export function GoalDetailScreen() {
                           {completedActivitiesExpanded && (
                             <VStack space={2}>
                               {completedGoalActivities.map((activity) => {
-                                const { meta, metaLeadingIconName, metaLeadingIconNames } = buildActivityListMeta({ activity });
+                                const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity });
                                 return (
                                   <ActivityListItem
                                     key={activity.id}
@@ -2415,6 +2468,7 @@ export function GoalDetailScreen() {
                                     isPriorityOne={activity.priority === 1}
                                     onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
                                     onPress={() => handleOpenActivityDetail(activity.id)}
+                                    isDueToday={isDueToday}
                                   />
                                 );
                               })}
@@ -2424,29 +2478,6 @@ export function GoalDetailScreen() {
                       )}
                     </>
                   )}
-
-                  {!isPlanEmpty ? (
-                    <View style={{ marginTop: spacing.md }}>
-                      <QuickAddDock
-                        placement="inline"
-                        value={quickAddTitle}
-                        onChangeText={setQuickAddTitle}
-                        inputRef={quickAddInputRef}
-                        isFocused={isQuickAddFocused}
-                        setIsFocused={setQuickAddFocused}
-                        onSubmit={handleQuickAddActivity}
-                        onCollapse={collapseQuickAdd}
-                        reminderAt={quickAddReminderAt}
-                        scheduledDate={quickAddScheduledDate}
-                        repeatRule={quickAddRepeatRule}
-                        estimateMinutes={quickAddEstimateMinutes}
-                        onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
-                        onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
-                        onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
-                        onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
-                      />
-                    </View>
-                  ) : null}
                 </VStack>
 
                 {/* Details section */}
@@ -4216,7 +4247,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   completedSection: {
-    marginTop: spacing['2xl'],
+    marginTop: spacing.md,
   },
   completedToggle: {
     paddingVertical: spacing.xs,

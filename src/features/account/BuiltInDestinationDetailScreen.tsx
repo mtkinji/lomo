@@ -32,7 +32,7 @@ export function BuiltInDestinationDetailScreen() {
           <View style={styles.content}>
             <Card>
               <VStack space="xs">
-                <Heading size="sm">Destination not found</Heading>
+                <Heading variant="sm">Destination not found</Heading>
                 <Text>That destination may be unavailable in this build.</Text>
               </VStack>
             </Card>
@@ -50,7 +50,7 @@ export function BuiltInDestinationDetailScreen() {
           <Card>
             <VStack space="sm">
               <VStack space="xs">
-                <Heading size="sm">{destination.displayName}</Heading>
+                <Heading variant="sm">{destination.displayName}</Heading>
                 <Text>{destination.description}</Text>
               </VStack>
 

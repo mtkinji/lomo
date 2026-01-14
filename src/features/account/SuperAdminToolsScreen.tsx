@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Alert,
+  Modal,
+  Platform,
   Pressable,
+  SafeAreaView,
   Share,
   StyleSheet,
   View,
@@ -24,15 +27,18 @@ import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { createProCodeAdmin, getAdminProCodesStatus, grantProSuperAdmin, revokeProSuperAdmin, sendProCodeSuperAdmin } from '../../services/proCodes';
 import { grantBonusCreditsSuperAdmin } from '../../services/referrals';
-import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView, BottomDrawerNativeGestureView } from '../../ui/BottomDrawer';
 import { getInstallId } from '../../services/installId';
 import {
   adminGetUseSummary,
   adminListInstalls,
   adminListUsers,
+  adminGetAdoptionMetrics,
   type DirectoryInstall,
   type DirectoryUseSummary,
   type DirectoryUser,
+  type AdoptionMetrics,
+  type MetricsTimePeriod,
 } from '../../services/kwiltUsersDirectory';
 import {
   clearAdminEntitlementsOverrideTier,
@@ -42,6 +48,16 @@ import {
 } from '../../services/entitlements';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAppStore } from '../../store/useAppStore';
+import { StaticMapImage } from '../../ui/maps/StaticMapImage';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
+import { Icon } from '../../ui/Icon';
+import MapView, { Circle } from 'react-native-maps';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsSuperAdminTools'>;
 
@@ -115,7 +131,7 @@ export function SuperAdminToolsScreen() {
   const [codeDrawerVisible, setCodeDrawerVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [tab, setTab] = useState<'directory' | 'utilities'>('directory');
+  const [tab, setTab] = useState<'directory' | 'metrics' | 'utilities'>('directory');
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [usersPage, setUsersPage] = useState(1);
@@ -126,6 +142,17 @@ export function SuperAdminToolsScreen() {
   const [installsHasMore, setInstallsHasMore] = useState(true);
   const [installsLoading, setInstallsLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [adoptionMetrics, setAdoptionMetrics] = useState<AdoptionMetrics | null>(null);
+  const [adoptionMetricsLoading, setAdoptionMetricsLoading] = useState(false);
+  
+  // Metrics tab state
+  const [metricsTimePeriod, setMetricsTimePeriod] = useState<MetricsTimePeriod>('this_month');
+  const [metricsData, setMetricsData] = useState<AdoptionMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  
+  // Full-screen modal for User Hotspots map
+  const [hotspotsMapModalVisible, setHotspotsMapModalVisible] = useState(false);
 
   const [grantDrawerVisible, setGrantDrawerVisible] = useState(false);
   const [grantTarget, setGrantTarget] = useState<'user' | 'install'>('user');
@@ -236,6 +263,34 @@ export function SuperAdminToolsScreen() {
     }
   };
 
+  const loadAdoptionMetrics = async () => {
+    if (!canUseTools) return;
+    if (adoptionMetricsLoading) return;
+    setAdoptionMetricsLoading(true);
+    try {
+      const metrics = await adminGetAdoptionMetrics({ timePeriod: 'all_time' });
+      setAdoptionMetrics(metrics);
+    } catch {
+      // Fail silently - metrics are non-critical
+    } finally {
+      setAdoptionMetricsLoading(false);
+    }
+  };
+
+  const loadMetricsForPeriod = async (period: MetricsTimePeriod) => {
+    if (!canUseTools) return;
+    setMetricsLoading(true);
+    setMetricsError(null);
+    try {
+      const metrics = await adminGetAdoptionMetrics({ timePeriod: period });
+      setMetricsData(metrics);
+    } catch (e: any) {
+      setMetricsError(typeof e?.message === 'string' ? e.message : 'Unable to load metrics');
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+
   const loadUsersPage = async (page: number) => {
     if (!canUseTools) return;
     if (usersLoading) return;
@@ -286,6 +341,22 @@ export function SuperAdminToolsScreen() {
     void loadUsersPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canUseTools, tab]);
+
+  useEffect(() => {
+    if (!canUseTools) return;
+    if (tab !== 'directory') return;
+    if (adoptionMetrics) return;
+    void loadAdoptionMetrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUseTools, tab]);
+
+  // Load metrics for dedicated Metrics tab
+  useEffect(() => {
+    if (!canUseTools) return;
+    if (tab !== 'metrics') return;
+    void loadMetricsForPeriod(metricsTimePeriod);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUseTools, tab, metricsTimePeriod]);
 
   useEffect(() => {
     if (!canUseTools) return;
@@ -666,6 +737,7 @@ export function SuperAdminToolsScreen() {
             options={
               [
                 { value: 'directory', label: 'Directory' },
+                { value: 'metrics', label: 'Metrics' },
                 { value: 'utilities', label: 'Utilities' },
               ] as const
             }
@@ -673,6 +745,289 @@ export function SuperAdminToolsScreen() {
 
           {!canUseTools ? (
             <Text style={styles.body}>Sign in as a Super Admin to view the directory.</Text>
+          ) : tab === 'metrics' ? (
+            <VStack space="md">
+              {/* Time period selector */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Pressable style={styles.metricsTimePeriodDropdown}>
+                    <Text style={styles.metricsTimePeriodDropdownLabel}>
+                      {(() => {
+                        const options = [
+                          { value: 'all_time', label: 'All-time' },
+                          { value: 'this_year', label: 'This Year' },
+                          { value: 'this_quarter', label: 'This Quarter' },
+                          { value: 'this_month', label: 'This Month' },
+                          { value: 'this_week', label: 'This Week' },
+                        ] as const;
+                        return options.find((opt) => opt.value === metricsTimePeriod)?.label ?? 'Select period';
+                      })()}
+                    </Text>
+                    <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                  </Pressable>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuRadioGroup
+                    value={metricsTimePeriod}
+                    onValueChange={(value) => {
+                      if (value) setMetricsTimePeriod(value as MetricsTimePeriod);
+                    }}
+                  >
+                    <DropdownMenuRadioItem value="all_time">
+                      <Text style={styles.metricsTimePeriodMenuItem}>All-time</Text>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="this_year">
+                      <Text style={styles.metricsTimePeriodMenuItem}>This Year</Text>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="this_quarter">
+                      <Text style={styles.metricsTimePeriodMenuItem}>This Quarter</Text>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="this_month">
+                      <Text style={styles.metricsTimePeriodMenuItem}>This Month</Text>
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="this_week">
+                      <Text style={styles.metricsTimePeriodMenuItem}>This Week</Text>
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {metricsError ? (
+                <Text style={styles.error}>{metricsError}</Text>
+              ) : null}
+
+              {/* Period indicator */}
+              {metricsData?.periodStartIso && metricsData?.periodEndIso ? (
+                <Text style={styles.metricsPeriodIndicator}>
+                  {formatExpiresAt(metricsData.periodStartIso)} — {formatExpiresAt(metricsData.periodEndIso)}
+                </Text>
+              ) : null}
+
+              {/* Hero metrics - Key Business Metrics */}
+              <View style={styles.metricsHeroCard}>
+                <HStack style={styles.metricsHeroRow} alignItems="stretch" justifyContent="space-between">
+                  <View style={styles.metricsHeroCell}>
+                    <Text style={styles.metricsHeroValue}>
+                      {metricsLoading ? '…' : metricsData?.aiSpend != null ? `$${(metricsData.aiSpend / 100).toFixed(2)}` : '—'}
+                    </Text>
+                    <Text style={styles.metricsHeroLabel}>AI Spend</Text>
+                  </View>
+                  <View style={styles.metricsHeroDivider} />
+                  <View style={styles.metricsHeroCell}>
+                    <Text style={styles.metricsHeroValue}>
+                      {metricsLoading ? '…' : metricsData?.userAcquisition ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsHeroLabel}>
+                      {metricsTimePeriod === 'all_time' ? 'Total Users' : 'New Users'}
+                    </Text>
+                  </View>
+                  <View style={styles.metricsHeroDivider} />
+                  <View style={styles.metricsHeroCell}>
+                    <Text style={styles.metricsHeroValue}>
+                      {metricsLoading ? '…' : metricsData?.weeklyActiveUsers ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsHeroLabel}>WAU</Text>
+                  </View>
+                </HStack>
+              </View>
+
+              {/* User Metrics Card */}
+              <View style={styles.metricsCard}>
+                <Text style={styles.metricsCardTitle}>Users</Text>
+                <View style={styles.metricsGrid}>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.totalUsers ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Total</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.activatedUsers ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Activated</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.proUsers ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Pro</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : 
+                        metricsData?.totalUsers && metricsData?.activatedUsers
+                          ? `${Math.round((metricsData.activatedUsers / metricsData.totalUsers) * 100)}%`
+                          : '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Activation %</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Engagement Metrics Card */}
+              <View style={styles.metricsCard}>
+                <Text style={styles.metricsCardTitle}>Engagement</Text>
+                <View style={styles.metricsGrid}>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.arcsCreated ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Arcs</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.goalsCreated ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Goals</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.activitiesCreated ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Activities</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.checkinsCompleted ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Check-ins</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.focusSessionsCompleted ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Focus</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* AI Usage Card */}
+              <View style={styles.metricsCard}>
+                <Text style={styles.metricsCardTitle}>AI Usage</Text>
+                <View style={styles.metricsGrid}>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.aiActionsTotal ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Total Actions</Text>
+                  </View>
+                  <View style={styles.metricsGridItem}>
+                    <Text style={styles.metricsGridValue}>
+                      {metricsLoading ? '…' : metricsData?.aiActionsPerActiveUser?.toFixed(1) ?? '—'}
+                    </Text>
+                    <Text style={styles.metricsGridLabel}>Per Active User</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* User Locations Map */}
+              <View style={styles.metricsCard}>
+                <Text style={styles.metricsCardTitle}>User Hotspots</Text>
+                {(() => {
+                  const locations = metricsData?.userLocations ?? [];
+                  if (metricsLoading) {
+                    return (
+                      <View style={styles.metricsMapPlaceholder}>
+                        <Text style={styles.metricsMapPlaceholderText}>Loading locations…</Text>
+                      </View>
+                    );
+                  }
+                  if (locations.length === 0) {
+                    return (
+                      <View style={styles.metricsMapPlaceholder}>
+                        <Text style={styles.metricsMapPlaceholderText}>
+                          No location data available yet
+                        </Text>
+                        <Text style={styles.metricsMapHint}>
+                          Locations are collected from activities with place data
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  // Calculate map region to fit all markers
+                  const lats = locations.map((l) => l.lat);
+                  const lons = locations.map((l) => l.lon);
+                  const minLat = Math.min(...lats);
+                  const maxLat = Math.max(...lats);
+                  const minLon = Math.min(...lons);
+                  const maxLon = Math.max(...lons);
+                  const centerLat = (minLat + maxLat) / 2;
+                  const centerLon = (minLon + maxLon) / 2;
+                  const latDelta = Math.max(0.1, (maxLat - minLat) * 1.5);
+                  const lonDelta = Math.max(0.1, (maxLon - minLon) * 1.5);
+
+                  // Get max count for scaling markers
+                  const maxCount = Math.max(...locations.map((l) => l.count));
+
+                  return (
+                    <Pressable
+                      style={styles.metricsMapContainer}
+                      onPress={() => setHotspotsMapModalVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Open full-screen map"
+                    >
+                      {Platform.OS === 'ios' ? (
+                        <MapView
+                          style={styles.metricsMap}
+                          mapType="standard"
+                          initialRegion={{
+                            latitude: centerLat,
+                            longitude: centerLon,
+                            latitudeDelta: latDelta,
+                            longitudeDelta: lonDelta,
+                          }}
+                          scrollEnabled={false}
+                          zoomEnabled={false}
+                          rotateEnabled={false}
+                          pitchEnabled={false}
+                          pointerEvents="none"
+                        >
+                          {locations.map((loc, idx) => {
+                            const radiusM = 5000 + (loc.count / maxCount) * 20000;
+                            return (
+                              <Circle
+                                key={`${loc.lat}-${loc.lon}-${idx}`}
+                                center={{ latitude: loc.lat, longitude: loc.lon }}
+                                radius={radiusM}
+                                strokeWidth={2}
+                                strokeColor={colors.accent}
+                                fillColor="rgba(49,85,69,0.25)"
+                              />
+                            );
+                          })}
+                        </MapView>
+                      ) : (
+                        // Fallback for Android - show summary
+                        <View style={styles.metricsMapPlaceholder}>
+                          <Text style={styles.metricsMapPlaceholderText}>
+                            {locations.length} location{locations.length !== 1 ? 's' : ''} with activity
+                          </Text>
+                          {locations.slice(0, 5).map((loc, idx) => (
+                            <Text key={idx} style={styles.metricsMapHint}>
+                              {loc.city || `${loc.lat.toFixed(2)}, ${loc.lon.toFixed(2)}`} ({loc.count})
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                      <Text style={styles.metricsMapLegend}>
+                        {locations.length} location{locations.length !== 1 ? 's' : ''} • {locations.reduce((sum, l) => sum + l.count, 0)} activities
+                      </Text>
+                      <View style={styles.metricsMapTapHint}>
+                        <Text style={styles.metricsMapTapHintText}>Tap to explore</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })()}
+              </View>
+
+              {metricsData?.computedAtIso ? (
+                <Text style={styles.metricsComputedAt}>
+                  Data computed {formatExpiresAt(metricsData.computedAtIso)}
+                </Text>
+              ) : null}
+            </VStack>
           ) : tab === 'utilities' ? (
             <VStack space="md">
               <View style={styles.card}>
@@ -772,6 +1127,79 @@ export function SuperAdminToolsScreen() {
             </VStack>
           )}
         </KeyboardAwareScrollView>
+
+        {/* Full-screen modal for User Hotspots map */}
+        <Modal
+          visible={hotspotsMapModalVisible}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setHotspotsMapModalVisible(false)}
+        >
+          <SafeAreaView style={styles.hotspotsModalContainer}>
+            <PageHeader
+              title="User Hotspots"
+              onPressBack={() => setHotspotsMapModalVisible(false)}
+            />
+            {(() => {
+              const locations = metricsData?.userLocations ?? [];
+              if (locations.length === 0) {
+                return (
+                  <View style={styles.hotspotsModalPlaceholder}>
+                    <Text style={styles.metricsMapPlaceholderText}>No location data available</Text>
+                  </View>
+                );
+              }
+
+              const lats = locations.map((l) => l.lat);
+              const lons = locations.map((l) => l.lon);
+              const minLat = Math.min(...lats);
+              const maxLat = Math.max(...lats);
+              const minLon = Math.min(...lons);
+              const maxLon = Math.max(...lons);
+              const centerLat = (minLat + maxLat) / 2;
+              const centerLon = (minLon + maxLon) / 2;
+              const latDelta = Math.max(0.1, (maxLat - minLat) * 1.5);
+              const lonDelta = Math.max(0.1, (maxLon - minLon) * 1.5);
+              const maxCount = Math.max(...locations.map((l) => l.count));
+
+              return (
+                <MapView
+                  style={styles.hotspotsModalMap}
+                  mapType="standard"
+                  initialRegion={{
+                    latitude: centerLat,
+                    longitude: centerLon,
+                    latitudeDelta: latDelta,
+                    longitudeDelta: lonDelta,
+                  }}
+                  scrollEnabled={true}
+                  zoomEnabled={true}
+                  rotateEnabled={false}
+                  pitchEnabled={false}
+                >
+                  {locations.map((loc, idx) => {
+                    const radiusM = 5000 + (loc.count / maxCount) * 20000;
+                    return (
+                      <Circle
+                        key={`${loc.lat}-${loc.lon}-${idx}`}
+                        center={{ latitude: loc.lat, longitude: loc.lon }}
+                        radius={radiusM}
+                        strokeWidth={2}
+                        strokeColor={colors.accent}
+                        fillColor="rgba(49,85,69,0.25)"
+                      />
+                    );
+                  })}
+                </MapView>
+              );
+            })()}
+            <View style={styles.hotspotsModalLegend}>
+              <Text style={styles.metricsMapLegend}>
+                {(metricsData?.userLocations ?? []).length} location{(metricsData?.userLocations ?? []).length !== 1 ? 's' : ''} • {(metricsData?.userLocations ?? []).reduce((sum, l) => sum + l.count, 0)} activities
+              </Text>
+            </View>
+          </SafeAreaView>
+        </Modal>
 
         <BottomDrawer
           visible={codeDrawerVisible}
@@ -1047,6 +1475,41 @@ export function SuperAdminToolsScreen() {
                       </VStack>
                     ) : null}
 
+                    {/* Geolocation (city-level when available, otherwise country/region) */}
+                    {(() => {
+                      const loc = directoryDetailRow.user?.roughLocation ?? directoryDetailRow.install?.roughLocation;
+                      if (!loc) return null;
+                      
+                      // Build location string with available precision
+                      const parts: string[] = [];
+                      if (loc.city) parts.push(loc.city);
+                      if (loc.region) parts.push(loc.region);
+                      if (loc.country) parts.push(loc.country);
+                      if (parts.length === 0 && loc.countryCode) parts.push(loc.countryCode);
+                      if (parts.length === 0) return null;
+                      
+                      // Determine precision label based on source and available data
+                      const hasCityLevel = Boolean(loc.city);
+                      const sourceLabel = loc.source === 'gps' 
+                        ? 'GPS (~5mi)' 
+                        : loc.source === 'activity_place' 
+                        ? 'Activity place' 
+                        : 'IP-based';
+                      const precisionNote = hasCityLevel 
+                        ? `City-level precision • ${sourceLabel}` 
+                        : `Country/region level • ${sourceLabel}`;
+                      
+                      return (
+                        <VStack space="xs">
+                          {renderDetailField({
+                            label: 'Location',
+                            value: parts.join(', '),
+                            helperText: precisionNote + (loc.updatedAtIso ? ` • ${formatExpiresAt(loc.updatedAtIso)}` : ''),
+                          })}
+                        </VStack>
+                      );
+                    })()}
+
                     <HStack space="sm" alignItems="center">
                       <Button
                         variant="secondary"
@@ -1128,7 +1591,14 @@ export function SuperAdminToolsScreen() {
                         onPress={async () => {
                           if (!canUseTools) return;
                           try {
-                            const email = (directoryDetailRow.user?.email ?? '').trim();
+                            const email = (
+                              directoryDetailRow.user?.email ??
+                              directoryDetailRow.install?.userEmail ??
+                              (Array.isArray(directoryDetailRow.install?.identities) && directoryDetailRow.install?.identities?.length
+                                ? directoryDetailRow.install.identities[0]?.userEmail
+                                : null) ??
+                              ''
+                            ).trim();
                             const installId =
                               (Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user!.installIds!.length
                                 ? directoryDetailRow.user!.installIds![0]
@@ -1173,7 +1643,14 @@ export function SuperAdminToolsScreen() {
                                 style: 'destructive',
                                 onPress: async () => {
                                   try {
-                                    const email = (directoryDetailRow.user?.email ?? '').trim();
+                                    const email = (
+                                      directoryDetailRow.user?.email ??
+                                      directoryDetailRow.install?.userEmail ??
+                                      (Array.isArray(directoryDetailRow.install?.identities) && directoryDetailRow.install?.identities?.length
+                                        ? directoryDetailRow.install.identities[0]?.userEmail
+                                        : null) ??
+                                      ''
+                                    ).trim();
                                     const installId =
                                       (Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user!.installIds!.length
                                         ? directoryDetailRow.user!.installIds![0]
@@ -1247,90 +1724,231 @@ export function SuperAdminToolsScreen() {
                   </VStack>
                 ) : null}
 
-                {/* Use tab */}
+                {/* Use tab - Dashboard layout */}
                 {detailTab === 'use' ? (
                   <VStack space="md">
-                    <VStack space="xs">
-                      {(() => {
-                        const userId = (directoryDetailRow.user?.userId ?? directoryDetailRow.install?.userId ?? '').trim();
-                        if (!userId) {
-                          return <Text style={styles.body}>No account usage available for this entry.</Text>;
-                        }
-                        if (useSummaryError) {
-                          return <Text style={styles.error}>{useSummaryError}</Text>;
-                        }
-                        // Keep layout stable: always render the same fields, fill as data arrives.
-                        const s = useSummary;
-                        return (
-                          <VStack space="xs">
-                            {renderDetailField({
-                              label: 'Activated?',
-                              value: s ? (s.is_activated ? 'Yes' : 'No') : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Activated at',
-                              value: s?.activated_at ? formatExpiresAt(s.activated_at) : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Active days (7d)',
-                              value: s ? String(s.active_days ?? 0) : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Activities created (7d)',
-                              value: s ? String(s.activities_created ?? 0) : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Check-ins (7d)',
-                              value: s ? String(s.checkins_count ?? 0) : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'AI actions (7d)',
-                              value: s ? String(s.ai_actions_count ?? 0) : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Credits/active day (7d)',
-                              value: s?.credits_per_active_day_7d != null 
-                                ? s.credits_per_active_day_7d.toFixed(1) 
-                                : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Credits/calendar day (7d)',
-                              value: s?.credits_per_calendar_day_7d != null 
-                                ? s.credits_per_calendar_day_7d.toFixed(1) 
-                                : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Credits this month',
-                              value: s ? String(s.credits_this_month ?? 0) : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Days since first credit',
-                              value: s?.days_since_first_credit_this_month != null 
-                                ? `${s.days_since_first_credit_this_month}d ago` 
-                                : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Days since last credit',
-                              value: s?.days_since_last_credit != null 
-                                ? `${s.days_since_last_credit}d ago` 
-                                : '—',
-                            })}
-                            {renderDetailField({
-                              label: 'Last meaningful action',
-                              value: s?.last_meaningful_action_at
-                                ? `${formatUseActionType(s.last_meaningful_action_type)} • ${formatExpiresAt(s.last_meaningful_action_at)}`
-                                : '—',
-                            })}
-                          </VStack>
-                        );
-                      })()}
-                      {directoryDetailRow.lastSeenAt
-                        ? renderDetailField({
-                            label: 'Last seen',
-                            value: formatExpiresAt(directoryDetailRow.lastSeenAt),
-                          })
-                        : null}
-                    </VStack>
+                    {(() => {
+                      const userId = (directoryDetailRow.user?.userId ?? directoryDetailRow.install?.userId ?? '').trim();
+                      if (!userId) {
+                        return <Text style={styles.body}>No account usage available for this entry.</Text>;
+                      }
+                      if (useSummaryError) {
+                        return <Text style={styles.error}>{useSummaryError}</Text>;
+                      }
+                      const s = useSummary;
+                      const loading = useSummaryLoading && !s;
+                      
+                      return (
+                        <VStack space="md">
+                          {/* Hero metrics - key adoption signals */}
+                          <View style={styles.useDashboardCard}>
+                            <HStack style={styles.useDashboardRow} alignItems="stretch" justifyContent="space-between">
+                              <View style={styles.useDashboardCell}>
+                                <Text style={styles.useDashboardValue}>
+                                  {loading ? '…' : s?.arcs_touched ?? '—'}
+                                </Text>
+                                <Text style={styles.useDashboardLabel}>Arcs</Text>
+                              </View>
+                              <View style={styles.useDashboardDivider} />
+                              <View style={styles.useDashboardCell}>
+                                <Text style={styles.useDashboardValue}>
+                                  {loading ? '…' : s?.goals_touched ?? '—'}
+                                </Text>
+                                <Text style={styles.useDashboardLabel}>Goals</Text>
+                              </View>
+                              <View style={styles.useDashboardDivider} />
+                              <View style={styles.useDashboardCell}>
+                                <Text style={styles.useDashboardValue}>
+                                  {loading ? '…' : s?.activities_created ?? '—'}
+                                </Text>
+                                <Text style={styles.useDashboardLabel}>Activities</Text>
+                              </View>
+                            </HStack>
+                          </View>
+
+                          {/* Secondary metrics grid - 2 columns */}
+                          <View style={styles.useDashboardCard}>
+                            <View style={styles.useMetricsGrid}>
+                              <View style={styles.useMetricItem}>
+                                <Text style={styles.useMetricValue}>
+                                  {loading ? '…' : s?.active_days ?? '—'}
+                                </Text>
+                                <Text style={styles.useMetricLabel}>Active days (7d)</Text>
+                              </View>
+                              <View style={styles.useMetricItem}>
+                                <Text style={styles.useMetricValue}>
+                                  {loading ? '…' : s?.checkins_count ?? '—'}
+                                </Text>
+                                <Text style={styles.useMetricLabel}>Check-ins (7d)</Text>
+                              </View>
+                              <View style={styles.useMetricItem}>
+                                <Text style={styles.useMetricValue}>
+                                  {loading ? '…' : s?.ai_actions_count ?? '—'}
+                                </Text>
+                                <Text style={styles.useMetricLabel}>AI actions (7d)</Text>
+                              </View>
+                              <View style={styles.useMetricItem}>
+                                <Text style={styles.useMetricValue}>
+                                  {loading ? '…' : s?.credits_this_month ?? '—'}
+                                </Text>
+                                <Text style={styles.useMetricLabel}>Credits (month)</Text>
+                              </View>
+                              <View style={styles.useMetricItem}>
+                                <Text style={styles.useMetricValue}>
+                                  {loading ? '…' : s?.credits_per_active_day_7d?.toFixed(1) ?? '—'}
+                                </Text>
+                                <Text style={styles.useMetricLabel}>Credits/active day</Text>
+                              </View>
+                              <View style={styles.useMetricItem}>
+                                <Text style={styles.useMetricValue}>
+                                  {loading ? '…' : s?.days_since_last_credit != null ? `${s.days_since_last_credit}d` : '—'}
+                                </Text>
+                                <Text style={styles.useMetricLabel}>Since last credit</Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          {/* Status row - activation and recency */}
+                          <View style={styles.useDashboardCard}>
+                            <HStack space="md" alignItems="center" justifyContent="space-between">
+                              <VStack space="xs" style={{ flex: 1 }}>
+                                <Text style={styles.useStatusLabel}>Status</Text>
+                                <HStack space="xs" alignItems="center">
+                                  <View style={[
+                                    styles.useStatusDot,
+                                    { backgroundColor: s?.is_activated ? colors.indigo600 : colors.gray400 }
+                                  ]} />
+                                  <Text style={styles.useStatusValue}>
+                                    {loading ? '…' : s?.is_activated ? 'Activated' : 'Not activated'}
+                                  </Text>
+                                </HStack>
+                                {s?.activated_at ? (
+                                  <Text style={styles.useStatusMeta}>{formatExpiresAt(s.activated_at)}</Text>
+                                ) : null}
+                              </VStack>
+                              <VStack space="xs" style={{ flex: 1 }}>
+                                <Text style={styles.useStatusLabel}>Last seen</Text>
+                                <Text style={styles.useStatusValue}>
+                                  {directoryDetailRow.lastSeenAt 
+                                    ? formatExpiresAt(directoryDetailRow.lastSeenAt) 
+                                    : '—'}
+                                </Text>
+                              </VStack>
+                            </HStack>
+                            {s?.last_meaningful_action_at ? (
+                              <View style={styles.useLastActionRow}>
+                                <Text style={styles.useStatusMeta}>
+                                  Last action: {formatUseActionType(s.last_meaningful_action_type)} • {formatExpiresAt(s.last_meaningful_action_at)}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+
+                          {/* Location map card - always show */}
+                          {(() => {
+                            const loc = directoryDetailRow.user?.roughLocation ?? directoryDetailRow.install?.roughLocation;
+                            
+                            // Build location label if we have data
+                            const labelParts: string[] = [];
+                            if (loc?.city) labelParts.push(loc.city);
+                            if (loc?.region) labelParts.push(loc.region);
+                            if (loc?.country) labelParts.push(loc.country);
+                            if (labelParts.length === 0 && loc?.countryCode) labelParts.push(loc.countryCode);
+                            const locationLabel = labelParts.length > 0 ? labelParts.join(', ') : null;
+                            
+                            // Determine precision info
+                            const hasCityLevel = Boolean(loc?.city);
+                            const sourceLabel = loc?.source === 'gps' 
+                              ? 'GPS' 
+                              : loc?.source === 'activity_place' 
+                              ? 'Activity' 
+                              : loc?.source === 'ip'
+                              ? 'IP'
+                              : null;
+                            
+                            // Calculate zoom based on precision
+                            const hasCoords = typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number';
+                            const zoom = loc?.source === 'gps' ? 13 
+                              : loc?.source === 'activity_place' ? 14 
+                              : hasCityLevel ? 11 
+                              : 6; // Country-level zoom
+                            
+                            return (
+                              <View style={styles.useDashboardCard}>
+                                <VStack space="sm">
+                                  <HStack space="xs" alignItems="center" justifyContent="space-between">
+                                    <Text style={styles.useStatusLabel}>Location</Text>
+                                    {sourceLabel ? (
+                                      <Text style={styles.useLocationBadge}>
+                                        {sourceLabel} {hasCityLevel ? '~5mi' : ''}
+                                      </Text>
+                                    ) : null}
+                                  </HStack>
+                                  
+                                  <View style={styles.useLocationMapContainer}>
+                                    {hasCoords ? (
+                                      Platform.OS === 'ios' ? (
+                                        <BottomDrawerNativeGestureView style={styles.useLocationMapGestureWrapper}>
+                                          <MapView
+                                            style={styles.useLocationMap}
+                                            mapType="standard"
+                                            initialRegion={{
+                                              latitude: loc!.latitude!,
+                                              longitude: loc!.longitude!,
+                                              latitudeDelta: 180 / Math.pow(2, zoom),
+                                              longitudeDelta: 180 / Math.pow(2, zoom),
+                                            }}
+                                            scrollEnabled={true}
+                                            zoomEnabled={true}
+                                            rotateEnabled={false}
+                                            pitchEnabled={false}
+                                          >
+                                            <Circle
+                                              center={{ latitude: loc!.latitude!, longitude: loc!.longitude! }}
+                                              radius={loc!.accuracyM || 8000}
+                                              strokeWidth={2}
+                                              strokeColor={colors.accent}
+                                              fillColor="rgba(49,85,69,0.12)"
+                                            />
+                                          </MapView>
+                                        </BottomDrawerNativeGestureView>
+                                      ) : (
+                                        <StaticMapImage
+                                          latitude={loc!.latitude!}
+                                          longitude={loc!.longitude!}
+                                          heightPx={280}
+                                          zoom={zoom}
+                                          radiusM={loc!.accuracyM}
+                                        />
+                                      )
+                                    ) : (
+                                      <View style={styles.useLocationPlaceholder}>
+                                        <Text style={styles.useLocationPlaceholderText}>
+                                          {loc ? 'Coordinates not available' : 'No location data'}
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </View>
+                                  
+                                  {locationLabel ? (
+                                    <Text style={styles.useLocationLabel}>{locationLabel}</Text>
+                                  ) : (
+                                    <Text style={styles.useStatusMeta}>
+                                      Location will appear when backend provides roughLocation data
+                                    </Text>
+                                  )}
+                                  {loc?.updatedAtIso ? (
+                                    <Text style={styles.useStatusMeta}>
+                                      Updated {formatExpiresAt(loc.updatedAtIso)}
+                                    </Text>
+                                  ) : null}
+                                </VStack>
+                              </View>
+                            );
+                          })()}
+                        </VStack>
+                      );
+                    })()}
                   </VStack>
                 ) : null}
               </VStack>
@@ -1469,6 +2087,338 @@ const styles = StyleSheet.create({
   },
   freeBadgeText: {
     color: colors.textSecondary,
+  },
+  heroMetricsCard: {
+    ...(cardSurfaceStyle as any),
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  heroMetricsRow: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  heroMetricCell: {
+    minWidth: 72,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroMetricValue: {
+    ...typography.bodySm,
+    fontFamily: typography.titleSm.fontFamily,
+    color: colors.textPrimary,
+  },
+  heroMetricLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  heroMetricDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 28,
+    backgroundColor: colors.border,
+    opacity: 0.6,
+    alignSelf: 'center',
+    marginHorizontal: spacing.sm,
+  },
+  // User detail dashboard styles
+  useDashboardCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  useDashboardRow: {
+    paddingVertical: spacing.xs,
+  },
+  useDashboardCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+  },
+  useDashboardValue: {
+    ...typography.titleMd,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  useDashboardLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  useDashboardDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 36,
+    backgroundColor: colors.border,
+    opacity: 0.6,
+    alignSelf: 'center',
+  },
+  useMetricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  useMetricItem: {
+    width: '50%',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  useMetricValue: {
+    ...typography.body,
+    fontFamily: typography.titleSm.fontFamily,
+    color: colors.textPrimary,
+  },
+  useMetricLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  useStatusLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  useStatusValue: {
+    ...typography.bodySm,
+    fontFamily: typography.titleSm.fontFamily,
+    color: colors.textPrimary,
+  },
+  useStatusMeta: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+  },
+  useStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  useLastActionRow: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  useLocationBadge: {
+    fontSize: 10,
+    lineHeight: 12,
+    color: colors.textSecondary,
+    backgroundColor: colors.shellAlt,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  useLocationLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  useLocationMapContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  useLocationMapGestureWrapper: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  useLocationMap: {
+    flex: 1,
+  },
+  useLocationPlaceholder: {
+    flex: 1,
+    backgroundColor: colors.shellAlt,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  useLocationPlaceholderText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  // Metrics tab styles
+  metricsTimePeriodDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.fieldFill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: 44,
+  },
+  metricsTimePeriodDropdownLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  metricsTimePeriodMenuItem: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  metricsPeriodIndicator: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  metricsHeroCard: {
+    backgroundColor: colors.accentMuted,
+    borderRadius: 16,
+    padding: spacing.lg,
+  },
+  metricsHeroRow: {
+    paddingVertical: spacing.xs,
+  },
+  metricsHeroCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+  },
+  metricsHeroValue: {
+    ...typography.titleLg,
+    color: colors.canvas,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  metricsHeroLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.canvas,
+    opacity: 0.8,
+    marginTop: 4,
+  },
+  metricsHeroDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 40,
+    backgroundColor: colors.canvas,
+    opacity: 0.3,
+    alignSelf: 'center',
+  },
+  metricsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  metricsCardTitle: {
+    ...typography.bodySm,
+    fontFamily: typography.titleSm.fontFamily,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.sm,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -spacing.xs,
+  },
+  metricsGridItem: {
+    width: '33.33%',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  metricsGridValue: {
+    ...typography.titleMd,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  metricsGridLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  metricsComputedAt: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  metricsMapContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  metricsMap: {
+    flex: 1,
+    borderRadius: 12,
+  },
+  metricsMapPlaceholder: {
+    width: '100%',
+    height: 160,
+    backgroundColor: colors.shellAlt,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  metricsMapPlaceholderText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  metricsMapHint: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  metricsMapLegend: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  metricsMapTapHint: {
+    position: 'absolute',
+    bottom: spacing.md,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  metricsMapTapHintText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.canvas,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  hotspotsModalContainer: {
+    flex: 1,
+    backgroundColor: colors.shell,
+  },
+  hotspotsModalMap: {
+    flex: 1,
+  },
+  hotspotsModalPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hotspotsModalLegend: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.shell,
   },
 });
 

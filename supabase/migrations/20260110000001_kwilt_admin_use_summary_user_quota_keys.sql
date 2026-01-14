@@ -1,7 +1,7 @@
--- Kwilt: Fix ambiguous column references in admin use summary RPC.
--- This fixes the "active_days is ambiguous" error by using unique CTE column aliases.
+-- Kwilt: Fix use summary to include user:userId quota keys in addition to install:installId.
+-- Previously the function only searched install: quota keys, but credits may be stored
+-- under user: quota keys as well.
 
--- Drop and recreate with fixed column aliases
 drop function if exists public.kwilt_admin_use_summary(uuid, text[], int);
 
 create or replace function public.kwilt_admin_use_summary(
@@ -38,11 +38,14 @@ declare
   v_end timestamptz := now();
   v_start timestamptz := now() - (greatest(1, least(coalesce(p_window_days, 7), 90))::text || ' days')::interval;
   v_install_ids text[] := coalesce(p_install_ids, array[]::text[]);
+  -- Include BOTH install: and user: quota keys so we catch all credit usage
   v_install_quota_keys text[] := (
     select coalesce(array_agg('install:' || i), array[]::text[])
     from unnest(v_install_ids) as i
     where i is not null and length(trim(i)) > 0
   );
+  v_user_quota_key text := 'user:' || p_user_id::text;
+  v_all_quota_keys text[] := v_install_quota_keys || array[v_user_quota_key];
   v_arcs_min timestamptz;
   v_goals_min timestamptz;
   v_acts_min timestamptz;
@@ -86,7 +89,7 @@ begin
     select max(created_at)
       into v_ai_last
     from public.kwilt_ai_requests
-    where quota_key = any(v_install_quota_keys);
+    where quota_key = any(v_all_quota_keys);
   exception when undefined_table then
     v_ai_last := null;
   end;
@@ -122,17 +125,18 @@ begin
     ai_days as (
       select distinct day as d
       from public.kwilt_ai_usage_daily
-      where quota_key = any(v_install_quota_keys)
+      where quota_key = any(v_all_quota_keys)
         and day >= (v_start at time zone 'UTC')::date
         and day <= (v_end at time zone 'UTC')::date
     ),
     ai_days_with_counts as (
-      select day as d, "count"
+      select day as d, sum("count") as total_count
       from public.kwilt_ai_usage_daily
-      where quota_key = any(v_install_quota_keys)
+      where quota_key = any(v_all_quota_keys)
         and day >= (v_start at time zone 'UTC')::date
         and day <= (v_end at time zone 'UTC')::date
         and "count" > 0
+      group by day
     ),
     all_days as (
       select d from arc_days
@@ -153,29 +157,29 @@ begin
         (select count(*) from public.kwilt_activities where user_id = p_user_id and updated_at >= v_start and updated_at <= v_end) as cnt_activities_touched,
         (select count(*) from public.kwilt_activities where user_id = p_user_id and created_at >= v_start and created_at <= v_end) as cnt_activities_created,
         (select count(*) from public.goal_checkins where user_id = p_user_id and created_at >= v_start and created_at <= v_end) as cnt_checkins_count,
-        (select coalesce(sum("count"), 0) from public.kwilt_ai_usage_daily where quota_key = any(v_install_quota_keys) and day >= (v_start at time zone 'UTC')::date and day <= (v_end at time zone 'UTC')::date) as cnt_ai_actions_count
+        (select coalesce(sum("count"), 0) from public.kwilt_ai_usage_daily where quota_key = any(v_all_quota_keys) and day >= (v_start at time zone 'UTC')::date and day <= (v_end at time zone 'UTC')::date) as cnt_ai_actions_count
     ),
     credit_metrics as (
       select
         -- Total credits in 7-day window
-        (select coalesce(sum("count"), 0) from ai_days_with_counts) as cm_total_credits_7d,
+        (select coalesce(sum(total_count), 0) from ai_days_with_counts) as cm_total_credits_7d,
         -- Number of days with at least 1 credit spent in 7-day window
         (select count(*) from ai_days_with_counts) as cm_active_credit_days_7d,
         -- Credits this month from monthly rollup table
         (select coalesce(sum(actions_count), 0)::int 
          from public.kwilt_ai_usage_monthly 
-         where quota_key = any(v_install_quota_keys) 
+         where quota_key = any(v_all_quota_keys) 
            and month = v_current_month) as cm_credits_this_month,
         -- First credit day this month
         (select min(day) 
          from public.kwilt_ai_usage_daily 
-         where quota_key = any(v_install_quota_keys) 
+         where quota_key = any(v_all_quota_keys) 
            and day >= v_month_start
            and "count" > 0) as cm_first_credit_day,
         -- Last credit day (all time)
         (select max(day) 
          from public.kwilt_ai_usage_daily 
-         where quota_key = any(v_install_quota_keys) 
+         where quota_key = any(v_all_quota_keys) 
            and "count" > 0) as cm_last_credit_day
     )
   select
@@ -225,6 +229,4 @@ begin
     end as days_since_last_credit;
 end;
 $$;
-
-
 

@@ -15,6 +15,20 @@ function formatActivityRepeatRule(rule: Activity['repeatRule'] | undefined): str
   return rule === 'weekdays' ? 'Weekdays' : rule.charAt(0).toUpperCase() + rule.slice(1);
 }
 
+/**
+ * Checks if the given ISO date string is today (local timezone).
+ */
+export function isDateToday(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const date = new Date(iso);
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
 function formatActivityDueDateLabel(iso: string): string {
   const date = new Date(iso);
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -51,6 +65,11 @@ export function buildActivityListMeta(args: {
    * Preferred: multiple leading icons (e.g. calendar/bell + paperclip).
    */
   metaLeadingIconNames?: ActivityMetaLeadingIconName[];
+  /**
+   * True when the activity's due date is today (local timezone).
+   * Use this to apply visual emphasis (e.g. red color) to the due date.
+   */
+  isDueToday?: boolean;
 } {
   const { activity, goalTitle } = args;
 
@@ -95,10 +114,14 @@ export function buildActivityListMeta(args: {
   const metaLeadingIconName: ActivityMetaLeadingIconName | undefined =
     metaLeadingIconNames.length > 0 ? metaLeadingIconNames[0] : undefined;
 
+  // Check if the scheduled due date is today
+  const isDueToday = isDateToday(activity.scheduledDate);
+
   return {
     meta,
     metaLeadingIconName,
     metaLeadingIconNames: metaLeadingIconNames.length > 0 ? metaLeadingIconNames : undefined,
+    isDueToday: isDueToday || undefined,
   };
 }
 

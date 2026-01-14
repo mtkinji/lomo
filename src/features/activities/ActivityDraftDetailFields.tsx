@@ -17,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
+import { isDateToday } from '../../utils/activityListMeta';
 
 export type ActivityDraft = {
   title: string;
@@ -196,6 +197,9 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
     const date = new Date(draft.scheduledDate);
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   }, [draft.scheduledDate]);
+
+  // Check if the draft's due date is today (for visual emphasis)
+  const isDueToday = isDateToday(draft.scheduledDate);
 
   const repeatLabel = React.useMemo(() => {
     if (!draft.repeatRule) return 'Repeat trigger';
@@ -397,7 +401,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 accessibilityLabel="Edit due date"
               >
                 <ThreeColumnRow
-                  left={<Icon name="today" size={16} color={colors.textSecondary} />}
+                  left={<Icon name="today" size={16} color={isDueToday ? colors.destructive : colors.textSecondary} />}
                   right={
                     draft.scheduledDate ? (
                       <Pressable
@@ -414,7 +418,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                     ) : null
                   }
                 >
-                  <Text style={[styles.rowValue, draft.scheduledDate && styles.rowValueSet]} numberOfLines={1}>
+                  <Text style={[styles.rowValue, draft.scheduledDate && styles.rowValueSet, isDueToday && { color: colors.destructive }]} numberOfLines={1}>
                     {dueDateLabel}
                   </Text>
                 </ThreeColumnRow>

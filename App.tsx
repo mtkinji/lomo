@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -39,6 +39,8 @@ import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
 import { ConfigErrorScreen } from './src/features/onboarding/ConfigErrorScreen';
+import { SignInInterstitial, type SignInResult } from './src/features/onboarding/SignInInterstitial';
+import { ReturningUserPermissionsFlow } from './src/features/onboarding/ReturningUserPermissionsFlow';
 import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { startDomainSync } from './src/services/sync/domainSync';
@@ -67,11 +69,17 @@ export default function App() {
   const setAuthIdentity = useAppStore((state) => state.setAuthIdentity);
   const clearAuthIdentity = useAppStore((state) => state.clearAuthIdentity);
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const didRunAppInitRef = useRef(false);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
   const [isBootstrapped, setIsBootstrapped] = useState(false);
   const [bootError, setBootError] = useState<Error | null>(null);
+  
+  // Track if user is returning (has existing synced data) vs new after sign-in.
+  // null = not yet determined, true = returning user, false = new user
+  const [isReturningUser, setIsReturningUser] = useState<boolean | null>(null);
+  const [showReturningUserFlow, setShowReturningUserFlow] = useState(false);
 
   useEffect(() => {
     let supabase: ReturnType<typeof getSupabaseClient> | null = null;
@@ -148,6 +156,11 @@ export default function App() {
   }, [authIdentity?.userId, refreshEntitlements]);
 
   useEffect(() => {
+    // One-time app init. Guarded because some deps (like store selectors) can
+    // legitimately change identity and we do NOT want to re-run side-effectful init.
+    if (didRunAppInitRef.current) return;
+    didRunAppInitRef.current = true;
+
     // Ensure remote feature flags / experiments are available as early as possible.
     // Safe no-op when PostHog is disabled or the client isn't initialized.
     if (isPosthogEnabled && posthogClient) {
@@ -194,6 +207,7 @@ export default function App() {
     });
 
     // Refresh subscription entitlements early so gating surfaces don’t feel stale.
+    // (Do not re-run this on unrelated state changes; it can cause tier flicker.)
     refreshEntitlements({ force: false }).catch((error) => {
       if (__DEV__) {
         console.warn('[entitlements] refresh failed', error);
@@ -207,23 +221,14 @@ export default function App() {
     startSpotlightIndexSync();
     // Best-effort domain sync (Arcs/Goals/Activities) when authenticated.
     startDomainSync();
+  }, [refreshEntitlements]);
 
-    const shouldRunFtue =
-      !hasCompletedFirstTimeOnboarding && !isFirstTimeFlowActive;
-
+  useEffect(() => {
+    const shouldRunFtue = !hasCompletedFirstTimeOnboarding && !isFirstTimeFlowActive;
     if (shouldRunFtue) {
       startFirstTimeFlow();
     }
-  }, [
-    arcsCount,
-    goalsCount,
-    activitiesCount,
-    hasCompletedFirstTimeOnboarding,
-    isFirstTimeFlowActive,
-    startFirstTimeFlow,
-    refreshEntitlements,
-    hapticsEnabled,
-  ]);
+  }, [hasCompletedFirstTimeOnboarding, isFirstTimeFlowActive, startFirstTimeFlow]);
 
   useEffect(() => {
     HapticsService.setEnabled(Boolean(hapticsEnabled));
@@ -231,6 +236,20 @@ export default function App() {
 
   const handleLaunchScreenComplete = () => {
     setIsBootstrapped(true);
+  };
+
+  const handleSignInComplete = (result: SignInResult) => {
+    setIsReturningUser(result.isReturningUser);
+    if (result.isReturningUser) {
+      // Show permissions-only flow for returning users
+      setShowReturningUserFlow(true);
+    }
+    // For new users, normal FTUE will start automatically via the effect
+  };
+
+  const handleReturningUserFlowComplete = () => {
+    setShowReturningUserFlow(false);
+    // hasCompletedFirstTimeOnboarding is already set by ReturningUserPermissionsFlow
   };
 
   if (!fontsLoaded) {
@@ -265,6 +284,22 @@ export default function App() {
           </BottomSheetModalProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
+    );
+  }
+
+  // First-time sign-in gate: require auth before onboarding for new users.
+  // Users who have already completed onboarding can still use the app if signed out.
+  if (!authIdentity && !hasCompletedFirstTimeOnboarding) {
+    return <SignInInterstitial onSignInComplete={handleSignInComplete} />;
+  }
+
+  // Returning user permissions flow (for users who reinstall with existing data)
+  if (showReturningUserFlow) {
+    return (
+      <ReturningUserPermissionsFlow
+        visible={showReturningUserFlow}
+        onComplete={handleReturningUserFlowComplete}
+      />
     );
   }
 

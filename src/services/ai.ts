@@ -2033,7 +2033,9 @@ export async function generateArcBannerVibeQuery(
     'You generate short search queries for a photo library. ' +
     'Return a single line containing ONLY a compact search phrase (2–5 words). ' +
     'No quotes. No hashtags. No punctuation. No emojis. ' +
-    'Prefer concrete visual nouns + adjectives (e.g., "misty alpine sunrise", "cozy reading nook").';
+    'Favor high-energy visuals: dramatic landscapes, bold architecture, vibrant city life, aerial views, dynamic textures. ' +
+    'AVOID generic office scenes, people at desks, corporate imagery, or stock-photo workplace settings. ' +
+    'Think epic and aspirational, not literal interpretation.';
 
   const userPrompt = `
 Arc name: ${arcName || '(missing)'}

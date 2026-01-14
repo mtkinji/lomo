@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { buildMaybeAuthedHeaders, getProCodesBaseUrlForHeaders } from './proCodesClient';
+import { getRevenueCatAppUserIdSafe } from './entitlements';
 
 const PING_CACHE_KEY = 'kwilt-install-ping-v1';
 
@@ -39,20 +40,10 @@ async function writeCache(next: PingCache): Promise<void> {
 }
 
 async function getRevenuecatAppUserIdBestEffort(): Promise<string | null> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const purchases = require('react-native-purchases') as any;
-    if (!purchases || typeof purchases.getCustomerInfo !== 'function') return null;
-    const info = await purchases.getCustomerInfo?.();
-    const v =
-      (typeof info?.originalAppUserId === 'string' && info.originalAppUserId.trim()) ||
-      (typeof info?.original_app_user_id === 'string' && info.original_app_user_id.trim()) ||
-      (typeof info?.appUserID === 'string' && info.appUserID.trim()) ||
-      null;
-    return v;
-  } catch {
-    return null;
-  }
+  // Use the safe helper from entitlements.ts which ensures RevenueCat is configured
+  // before calling getCustomerInfo. This prevents native crashes on fresh installs
+  // where RevenueCat hasn't been configured yet.
+  return getRevenueCatAppUserIdSafe();
 }
 
 export async function pingInstall(args?: { userId?: string | null; revenuecatAppUserId?: string | null }): Promise<void> {

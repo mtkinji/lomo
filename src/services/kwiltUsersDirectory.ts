@@ -1,5 +1,110 @@
 import { buildAuthedHeaders, getProCodesBaseUrlForHeaders } from './proCodesClient';
 
+/**
+ * Geolocation data with varying precision levels.
+ * 
+ * When users have location enabled, we can show city-level precision (~5mi radius).
+ * Otherwise, we fall back to country/region from IP geolocation.
+ */
+export type RoughGeolocation = {
+  /** City name (e.g., "San Francisco") - ~5mi radius precision */
+  city?: string;
+  /** State/province/region (e.g., "California", "Ontario") */
+  region?: string;
+  /** Country name (e.g., "United States") */
+  country?: string;
+  /** ISO country code (e.g., "US", "CA") */
+  countryCode?: string;
+  /** Postal/ZIP code area (optional, for higher precision) */
+  postalCode?: string;
+  /** Latitude for map display (city center or actual coords depending on source) */
+  latitude?: number;
+  /** Longitude for map display */
+  longitude?: number;
+  /** Approximate radius in meters representing location precision */
+  accuracyM?: number;
+  /** Source of the location data */
+  source?: 'gps' | 'ip' | 'activity_place';
+  /** When the location was last updated */
+  updatedAtIso?: string;
+};
+
+/**
+ * Time period options for metrics queries.
+ */
+export type MetricsTimePeriod = 'all_time' | 'this_year' | 'this_quarter' | 'this_month' | 'this_week';
+
+/**
+ * A user location point for the map hotspots view.
+ */
+export type UserLocationPoint = {
+  /** Latitude */
+  lat: number;
+  /** Longitude */
+  lon: number;
+  /** Number of users at this location (for clustering) */
+  count: number;
+  /** City name if available */
+  city?: string;
+  /** Region/state if available */
+  region?: string;
+  /** Country if available */
+  country?: string;
+};
+
+/**
+ * Top-level platform metrics for admin dashboard.
+ */
+export type AdoptionMetrics = {
+  /** Time period these metrics cover */
+  timePeriod: MetricsTimePeriod;
+  /** Start date for the time period (ISO string) */
+  periodStartIso: string;
+  /** End date for the time period (ISO string) */
+  periodEndIso: string;
+  
+  // Key Metrics (hero section)
+  /** Total AI credits spent in the period */
+  aiSpend: number;
+  /** New users acquired in the period (or total if all-time) */
+  userAcquisition: number;
+  /** Users active in the last 7 days of the period */
+  weeklyActiveUsers: number;
+  
+  // User Metrics
+  /** Total registered users at end of period */
+  totalUsers: number;
+  /** Users who have completed at least one meaningful action */
+  activatedUsers: number;
+  /** Pro subscribers at end of period */
+  proUsers: number;
+  
+  // Engagement Metrics
+  /** Total arcs created in period */
+  arcsCreated: number;
+  /** Total goals created in period */
+  goalsCreated: number;
+  /** Total activities created in period */
+  activitiesCreated: number;
+  /** Total check-ins completed in period */
+  checkinsCompleted: number;
+  /** Total focus sessions completed in period */
+  focusSessionsCompleted: number;
+  
+  // AI Usage Metrics
+  /** Total AI actions in period */
+  aiActionsTotal: number;
+  /** Average AI actions per active user */
+  aiActionsPerActiveUser: number;
+  
+  // Location data for map view
+  /** User location hotspots for map visualization */
+  userLocations?: UserLocationPoint[];
+  
+  /** When the metrics were computed */
+  computedAtIso: string;
+};
+
 export type DirectoryInstall = {
   installId: string;
   createdAt: string | null;
@@ -22,6 +127,8 @@ export type DirectoryInstall = {
     source: string;
     expiresAt: string | null;
   };
+  /** Privacy-appropriate rough geolocation (country/region level only). */
+  roughLocation?: RoughGeolocation;
 };
 
 export type DirectoryUser = {
@@ -38,6 +145,8 @@ export type DirectoryUser = {
     source: string;
     expiresAt: string | null;
   };
+  /** Privacy-appropriate rough geolocation (country/region level only). */
+  roughLocation?: RoughGeolocation;
 };
 
 export type DirectoryUseSummary = {
@@ -135,4 +244,33 @@ export async function adminGetUseSummary(params: {
   return (data?.summary ?? null) as DirectoryUseSummary | null;
 }
 
-
+/**
+ * Fetch aggregate adoption metrics across all users.
+ * These are platform-wide metrics useful for understanding overall adoption.
+ * 
+ * @param timePeriod - The time period to query (default: 'all_time')
+ */
+export async function adminGetAdoptionMetrics(params?: {
+  timePeriod?: MetricsTimePeriod;
+}): Promise<AdoptionMetrics | null> {
+  const headers = await buildAuthedHeaders({ promptReason: 'admin' });
+  const base = getProCodesBaseUrlForHeaders(headers);
+  if (!base) throw new Error('Pro codes service not configured');
+  const res = await fetch(`${base}/admin/adoption-metrics`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      timePeriod: params?.timePeriod ?? 'all_time',
+    }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    if (res.status === 404) {
+      // Endpoint not deployed yet - throw so user knows to deploy
+      throw new Error('Metrics endpoint not deployed. Run: supabase functions deploy pro-codes');
+    }
+    const msg = typeof data?.error?.message === 'string' ? data.error.message : 'Unable to load adoption metrics';
+    throw new Error(msg);
+  }
+  return (data?.metrics ?? null) as AdoptionMetrics | null;
+}

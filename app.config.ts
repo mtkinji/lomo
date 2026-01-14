@@ -35,7 +35,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.13',
+  version: '1.0.14',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -52,10 +52,9 @@ const config: ExpoConfig = {
   // (see `metro.config.js`).
   newArchEnabled: true,
   splash: {
-    image: './assets/icon.png',
-    resizeMode: 'contain',
-    // Pine 300 (matches in-app LaunchScreen background).
-    backgroundColor: '#8EAF8B',
+    // No image - just a solid color that matches the in-app LaunchScreen.
+    // This avoids a brief "flash" of a different logo before the JS LaunchScreen loads.
+    backgroundColor: '#315545', // Pine 700 (official Kwilt green)
   },
   ios: {
     supportsTablet: true,
@@ -64,7 +63,7 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '30',
+    buildNumber: '31',
     // iOS app extensions (WidgetKit) are created at prebuild time via `withAppleEcosystemIntegrations`.
     // We declare the extension bundle id here so EAS credentials/build can provision/sign it too.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -103,7 +102,7 @@ const config: ExpoConfig = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 30,
+    versionCode: 31,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',

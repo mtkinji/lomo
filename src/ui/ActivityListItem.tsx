@@ -64,6 +64,16 @@ type ActivityListItemProps = {
    * Optional handler for tapping anywhere on the row (excluding the checkbox).
    */
   onPress?: () => void;
+  /**
+   * Optional handler for long-pressing the row. Used by DraggableActivityListItem
+   * to initiate drag-and-drop.
+   */
+  onLongPress?: () => void;
+  /**
+   * When true, highlights the meta row (text + leading icons) in a warning/red color
+   * to indicate the activity is due today (Microsoft Outlook–style).
+   */
+  isDueToday?: boolean;
 };
 
 export function ActivityListItem({
@@ -80,6 +90,8 @@ export function ActivityListItem({
   onTogglePriority,
   showPriorityControl = true,
   onPress,
+  onLongPress,
+  isDueToday = false,
 }: ActivityListItemProps) {
   const completionAnim = React.useRef(new Animated.Value(0)).current;
   const [isAnimatingComplete, setIsAnimatingComplete] = React.useState(false);
@@ -164,6 +176,13 @@ export function ActivityListItem({
         ? [metaLeadingIconName]
         : [];
 
+  // Determine the meta color: due today shows in red (destructive), completed is muted, otherwise secondary
+  const metaColor = isCompleted
+    ? colors.muted
+    : isDueToday
+      ? colors.destructive
+      : colors.textSecondary;
+
   const content = (
     <Card style={[styles.card, variant === 'full' && styles.cardFull]}>
       <HStack
@@ -226,7 +245,11 @@ export function ActivityListItem({
           </View>
 
           <VStack style={styles.textBlock} space="xs">
-            <Text style={[styles.title, isCompleted && styles.titleCompleted]}>
+            <Text
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              style={[styles.title, isCompleted && styles.titleCompleted]}
+            >
               {title}
             </Text>
             {meta ? (
@@ -237,11 +260,11 @@ export function ActivityListItem({
                         key={iconName}
                         name={iconName}
                         size={10}
-                        color={isCompleted ? colors.muted : colors.textSecondary}
+                        color={metaColor}
                       />
                     ))
                   : null}
-                <Text numberOfLines={1} style={[styles.meta, isCompleted && styles.metaCompleted]}>
+                <Text numberOfLines={1} style={[styles.meta, { color: metaColor }]}>
                   {meta}
                 </Text>
               </HStack>
@@ -253,7 +276,7 @@ export function ActivityListItem({
                         key={iconName}
                         name={iconName}
                         size={10}
-                        color={isCompleted ? colors.muted : colors.textSecondary}
+                        color={metaColor}
                       />
                     ))
                   : null}
@@ -297,13 +320,15 @@ export function ActivityListItem({
     </Card>
   );
 
-  if (!onPress) {
+  if (!onPress && !onLongPress) {
     return content;
   }
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       accessibilityRole="button"
       accessibilityLabel={title}
       style={styles.pressable}

@@ -46,7 +46,7 @@ export function DestinationsLibraryScreen() {
         >
           <Card style={styles.card}>
             <VStack space="xs">
-              <Heading size="sm">Available destinations</Heading>
+              <Heading variant="sm">Available destinations</Heading>
               <Text style={styles.subtle}>
                 Destinations are Kwilt-curated executors that can call Kwilt MCP and consume Work Packets.
               </Text>
@@ -115,6 +115,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
+
 
 
 

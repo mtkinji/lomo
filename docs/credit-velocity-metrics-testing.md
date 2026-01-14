@@ -151,3 +151,5 @@ If issues occur, you can rollback by:
 2. Reverting the type changes in `kwiltUsersDirectory.ts`
 3. Restoring the previous version of the RPC function (or leaving the new one - it's backward compatible since it only adds columns)
 
+
+

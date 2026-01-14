@@ -482,14 +482,27 @@ export function ArcDetailScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            removeArc(arc.id);
-            showToast({
-              message: 'Arc deleted',
-              variant: 'danger',
-              durationMs: 2200,
-              behaviorDuringSuppression: 'queue',
-            });
-            handleBackToArcs();
+            Alert.alert(
+              'Are you sure?',
+              'This can’t be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete arc',
+                  style: 'destructive',
+                  onPress: () => {
+                    removeArc(arc.id);
+                    showToast({
+                      message: 'Arc deleted',
+                      variant: 'default',
+                      durationMs: 2200,
+                      behaviorDuringSuppression: 'queue',
+                    });
+                    handleBackToArcs();
+                  },
+                },
+              ],
+            );
           },
         },
       ],

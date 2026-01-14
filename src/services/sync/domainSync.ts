@@ -328,4 +328,59 @@ export function stopDomainSync(): void {
   started = false;
 }
 
+/**
+ * Check if a user has any existing synced data (Arcs, Goals, or Activities).
+ * Used to determine if this is a returning user on a fresh install.
+ */
+export async function checkUserHasSyncedData(userId: string): Promise<boolean> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    // Check for any non-deleted arcs first (most likely to exist)
+    const { data: arcs, error: arcsError } = await supabase
+      .from('kwilt_arcs')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_deleted', false)
+      .limit(1);
+    
+    if (!arcsError && arcs && arcs.length > 0) {
+      return true;
+    }
+
+    // Check for goals
+    const { data: goals, error: goalsError } = await supabase
+      .from('kwilt_goals')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_deleted', false)
+      .limit(1);
+    
+    if (!goalsError && goals && goals.length > 0) {
+      return true;
+    }
+
+    // Check for activities
+    const { data: activities, error: activitiesError } = await supabase
+      .from('kwilt_activities')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_deleted', false)
+      .limit(1);
+    
+    if (!activitiesError && activities && activities.length > 0) {
+      return true;
+    }
+
+    return false;
+  } catch (e) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn('[domainSync] checkUserHasSyncedData failed', e);
+    }
+    // On error, assume new user to avoid blocking onboarding
+    return false;
+  }
+}
+
 
