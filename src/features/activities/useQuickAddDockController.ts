@@ -12,6 +12,8 @@ type ToastPayload = {
   durationMs?: number;
   bottomOffset?: number;
   behaviorDuringSuppression?: 'show' | 'queue' | 'drop';
+  actionLabel?: string;
+  onPressAction?: () => void;
 };
 
 type Params = {
@@ -156,6 +158,9 @@ export function useQuickAddDockController(params: Params) {
 
     recordShowUp();
     addActivity(activity);
+    
+    onCreated?.(activity);
+
     showToast({
       message: 'Activity created',
       variant: 'success',
@@ -163,8 +168,6 @@ export function useQuickAddDockController(params: Params) {
       bottomOffset: toastBottomOffset,
     });
     void HapticsService.trigger('outcome.success');
-
-    onCreated?.(activity);
 
     setValue('');
     setReminderAt(null);

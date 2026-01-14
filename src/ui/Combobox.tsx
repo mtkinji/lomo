@@ -132,6 +132,11 @@ type Props = {
    * set this to false and just pass the already-filtered `options`.
    */
   autoFilter?: boolean;
+  /**
+   * Whether to show the search input. Defaults to true.
+   * Set to false for short option lists where search adds unnecessary friction.
+   */
+  showSearch?: boolean;
 };
 
 /**
@@ -160,6 +165,7 @@ export function Combobox({
   query: controlledQuery,
   onQueryChange,
   autoFilter = true,
+  showSearch = true,
 }: Props) {
   const resolvedPresentation: ComboboxPresentation =
     presentation === 'auto' ? (Platform.OS === 'web' ? 'popover' : 'drawer') : presentation;
@@ -270,6 +276,18 @@ export function Combobox({
     return () => cancelAnimationFrame(id);
   }, [keyboardHeight, open, recomputePlacement]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (resolvedPresentation !== 'popover') return;
+    if (keyboardHeight <= 0) return;
+    // The keyboard-aware scroll view may animate after the keyboard shows.
+    // Re-measure shortly after to capture the final trigger position.
+    const timeoutId = setTimeout(() => {
+      recomputePlacement();
+    }, 120);
+    return () => clearTimeout(timeoutId);
+  }, [keyboardHeight, open, recomputePlacement, resolvedPresentation]);
+
   const filtered = useMemo(() => {
     if (!autoFilter) return options;
     const q = query.trim().toLowerCase();
@@ -308,6 +326,9 @@ export function Combobox({
   // Keep the list scrollable while respecting the overall maxHeight.
   // (Search row + divider consume some vertical space.)
   const listMaxHeight = Math.max(120, placement.maxHeight - 56);
+  const shouldAutoFocusSearch = resolvedPresentation === 'drawer';
+  const minPopoverWidth = 240;
+  const maxPopoverWidth = 320;
 
   const handleSelect = useCallback(
     (optValue: string) => {
@@ -337,10 +358,23 @@ export function Combobox({
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
-      if (nextOpen) prepareKeyboardReveal();
+      if (nextOpen && keyboardHeight > 0) {
+        // Keyboard is visible - dismiss it and wait for it to hide before opening
+        // This prevents the popover from briefly rendering above, then jumping below
+        Keyboard.dismiss();
+        const subscription = Keyboard.addListener('keyboardDidHide', () => {
+          subscription.remove();
+          prepareKeyboardReveal();
+          onOpenChange(true);
+        });
+        return;
+      }
+      if (nextOpen) {
+        prepareKeyboardReveal();
+      }
       onOpenChange(nextOpen);
     },
-    [onOpenChange, prepareKeyboardReveal],
+    [keyboardHeight, onOpenChange, prepareKeyboardReveal],
   );
 
   const triggerWithDrawerOpen = useMemo(() => {
@@ -396,21 +430,25 @@ export function Combobox({
           enableContentPanningGesture
         >
           <View style={styles.drawerCommand}>
-            <View style={styles.searchRow}>
-              <Input
-                value={query}
-                onChangeText={setQuery}
-                placeholder={searchPlaceholder}
-                leadingIcon="search"
-                variant="inline"
-                size="sm"
-                elevation="flat"
-                autoFocus
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-            <View style={styles.divider} />
+            {showSearch ? (
+              <>
+                <View style={styles.searchRow}>
+                  <Input
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder={searchPlaceholder}
+                    leadingIcon="search"
+                    variant="inline"
+                    size="sm"
+                    elevation="flat"
+                    autoFocus={shouldAutoFocusSearch}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <View style={styles.divider} />
+              </>
+            ) : null}
             <BottomDrawerScrollView
               style={styles.drawerList}
               contentContainerStyle={styles.listContent}
@@ -448,9 +486,9 @@ export function Combobox({
                           style={styles.itemRow}
                         >
                           <HStack alignItems="center" space="sm" style={styles.itemLeft}>
-                            <View style={styles.leftSlot}>
-                              {opt.leftElement ? opt.leftElement : null}
-                            </View>
+                            {opt.leftElement ? (
+                              <View style={styles.leftSlot}>{opt.leftElement}</View>
+                            ) : null}
                             <Text style={styles.itemLabel}>{opt.label}</Text>
                           </HStack>
                           {opt.rightElement ? (
@@ -521,28 +559,38 @@ export function Combobox({
           sideOffset={4}
           style={StyleSheet.flatten([
             styles.popover,
-            triggerWidth != null ? { width: triggerWidth, minWidth: triggerWidth } : null,
+            triggerWidth != null
+              ? {
+                  width: Math.min(Math.max(triggerWidth, minPopoverWidth), maxPopoverWidth),
+                  minWidth: Math.max(triggerWidth, minPopoverWidth),
+                  maxWidth: maxPopoverWidth,
+                }
+              : { minWidth: minPopoverWidth, maxWidth: maxPopoverWidth },
             placement.maxHeight ? { maxHeight: placement.maxHeight } : null,
             placement.translateY ? { transform: [{ translateY: placement.translateY }] } : null,
           ])}
         >
           <View style={styles.command}>
-            <View style={styles.searchRow}>
-              <Input
-                value={query}
-                onChangeText={setQuery}
-                placeholder={searchPlaceholder}
-                leadingIcon="search"
-                // ShadCN "CommandInput" feel: input sits flush; the row provides padding.
-                variant="inline"
-                size="sm"
-                elevation="flat"
-                autoFocus
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-            <View style={styles.divider} />
+            {showSearch ? (
+              <>
+                <View style={styles.searchRow}>
+                  <Input
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder={searchPlaceholder}
+                    leadingIcon="search"
+                    // ShadCN "CommandInput" feel: input sits flush; the row provides padding.
+                    variant="inline"
+                    size="sm"
+                    elevation="flat"
+                    autoFocus={shouldAutoFocusSearch}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <View style={styles.divider} />
+              </>
+            ) : null}
             <ScrollView
               style={[styles.list, { maxHeight: listMaxHeight }]}
               contentContainerStyle={styles.listContent}
@@ -580,9 +628,9 @@ export function Combobox({
                           style={styles.itemRow}
                         >
                           <HStack alignItems="center" space="sm" style={styles.itemLeft}>
-                            <View style={styles.leftSlot}>
-                              {opt.leftElement ? opt.leftElement : null}
-                            </View>
+                            {opt.leftElement ? (
+                              <View style={styles.leftSlot}>{opt.leftElement}</View>
+                            ) : null}
                             <Text style={styles.itemLabel}>{opt.label}</Text>
                           </HStack>
                           {opt.rightElement ? (
@@ -633,7 +681,7 @@ const styles = StyleSheet.create({
   popover: {
     padding: 0,
     maxHeight: MAX_MENU_HEIGHT,
-    overflow: 'hidden',
+    // Note: avoid overflow:'hidden' here as it can clip the menu shadow on some platforms
   },
   drawerCommand: {
     // BottomDrawer already provides its own rounded shell + padding.

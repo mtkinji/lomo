@@ -103,6 +103,7 @@ const iconMap: Record<string, IconEntry> = {
   pause: { library: 'feather', name: 'pause' },
   play: { library: 'feather', name: 'play' },
   stop: { library: 'feather', name: 'square' },
+  box: { library: 'feather', name: 'box' },
   // Editor toolbar icons
   // Use Ionicons here because it has more "toolbar-ish" glyphs than Feather for lists.
   listBulleted: { library: 'ion', name: 'list' },

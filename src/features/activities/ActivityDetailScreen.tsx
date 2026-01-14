@@ -115,6 +115,7 @@ import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSound
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
+import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
@@ -589,7 +590,7 @@ export function ActivityDetailScreen() {
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(activity?.title ?? '');
-  const titleInputRef = useRef<TextInput | null>(null);
+  const titleInputRef = useRef<NarrativeEditableTitleRef>(null);
 
   const [tagsInputDraft, setTagsInputDraft] = useState('');
   const tagsInputRef = useRef<TextInput | null>(null);
@@ -3382,6 +3383,9 @@ export function ActivityDetailScreen() {
               detailsExpanded={detailsExpanded}
               onToggleDetailsExpanded={toggleDetailsExpanded}
               updateActivity={updateActivity}
+              titleRef={titleInputRef}
+              isTitleEditing={isEditingTitle}
+              setIsTitleEditing={setIsEditingTitle}
               titleStepsBundleRef={titleStepsBundleRef}
               setIsTitleStepsBundleReady={setIsTitleStepsBundleReady}
               setTitleStepsBundleOffset={setTitleStepsBundleOffset}
@@ -3401,6 +3405,7 @@ export function ActivityDetailScreen() {
               commitInlineStep={commitInlineStep}
               handleAnyInputFocus={handleAnyInputFocus}
               handleAnyInputBlur={handleAnyInputBlur}
+              isAnyInputFocused={isAnyInputFocused}
               scheduleAndPlanningCardRef={scheduleAndPlanningCardRef}
               setIsScheduleCardReady={setIsScheduleCardReady}
               setScheduleCardOffset={setScheduleCardOffset}
