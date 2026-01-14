@@ -188,6 +188,33 @@ async function configureRevenueCatIfNeeded(purchases: RevenueCatPurchasesLike): 
   hasConfiguredRevenueCat = true;
 }
 
+/**
+ * Safely get the RevenueCat app user ID, ensuring the SDK is configured first.
+ * Returns null if RevenueCat is unavailable, not configured, or if the call fails.
+ * This is safe to call from anywhere without risking a native crash.
+ */
+export async function getRevenueCatAppUserIdSafe(): Promise<string | null> {
+  const purchases = getPurchasesModule();
+  const apiKey = getEnvVar<string>('revenueCatApiKey');
+  if (!purchases || !apiKey) return null;
+
+  try {
+    await configureRevenueCatIfNeeded(purchases);
+    if (!hasConfiguredRevenueCat) return null;
+    if (typeof purchases.getCustomerInfo !== 'function') return null;
+
+    const info = await purchases.getCustomerInfo();
+    const v =
+      (typeof (info as any)?.originalAppUserId === 'string' && (info as any).originalAppUserId.trim()) ||
+      (typeof (info as any)?.original_app_user_id === 'string' && (info as any).original_app_user_id.trim()) ||
+      (typeof (info as any)?.appUserID === 'string' && (info as any).appUserID.trim()) ||
+      null;
+    return v || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getEntitlements(params?: { forceRefresh?: boolean }): Promise<EntitlementsSnapshot> {
   const cached = await readCachedEntitlements();
   const proCodeOverride = await getProCodeOverrideEnabled().catch(() => false);

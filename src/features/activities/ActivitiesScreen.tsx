@@ -245,6 +245,7 @@ type DraggableRowProps<T extends { id: string }> = {
   scrollRef: ReturnType<typeof useAnimatedRef<Animated.ScrollView>>;
   scrollY: SharedValue<number>;
   containerHeight: SharedValue<number>;
+  containerTop: SharedValue<number>;
   renderContent: (item: T, isDragging: boolean) => React.ReactNode;
 };
 
@@ -266,6 +267,7 @@ function DraggableRow<T extends { id: string }>({
   scrollRef,
   scrollY,
   containerHeight,
+  containerTop,
   renderContent,
 }: DraggableRowProps<T>) {
   const clamp = (v: number, min: number, max: number) => {
@@ -328,17 +330,37 @@ function DraggableRow<T extends { id: string }>({
   }, [index, itemId]);
 
   const gesture = React.useMemo(() => {
-    const maybeAutoScroll = (yInViewport: number) => {
+    const maybeAutoScroll = (absoluteY: number) => {
       'worklet';
-      const edge = 72;
-      const maxScroll = 10000; // Will be clamped by actual content
+      // Convert absolute screen Y to position relative to container
+      const yInContainer = absoluteY - containerTop.value;
+      
+      const edgeZone = 100; // Size of the auto-scroll trigger zone at top/bottom
+      const minSpeed = 4; // Minimum scroll speed (at edge of zone)
+      const maxSpeed = 24; // Maximum scroll speed (at screen edge)
+      const maxScrollPos = 100000; // Large number, will be clamped by actual content
 
-      if (yInViewport < edge) {
-        const next = clamp(scrollY.value - 14, 0, maxScroll);
+      // Check if near top edge of container
+      if (yInContainer < edgeZone && yInContainer >= 0) {
+        // Calculate velocity: closer to edge = faster scroll
+        // At yInContainer = 0, velocity = maxSpeed
+        // At yInContainer = edgeZone, velocity = minSpeed
+        const distanceFromEdge = yInContainer;
+        const velocity = maxSpeed - (distanceFromEdge / edgeZone) * (maxSpeed - minSpeed);
+        const next = clamp(scrollY.value - velocity, 0, maxScrollPos);
         scrollTo(scrollRef, 0, next, false);
-      } else if (yInViewport > containerHeight.value - edge) {
-        const next = clamp(scrollY.value + 14, 0, maxScroll);
+        // Update scrollY to track the programmatic scroll
+        scrollY.value = next;
+      } 
+      // Check if near bottom edge of container
+      else if (yInContainer > containerHeight.value - edgeZone && yInContainer <= containerHeight.value) {
+        // Calculate velocity: closer to edge = faster scroll
+        const distanceFromEdge = containerHeight.value - yInContainer;
+        const velocity = maxSpeed - (distanceFromEdge / edgeZone) * (maxSpeed - minSpeed);
+        const next = clamp(scrollY.value + velocity, 0, maxScrollPos);
         scrollTo(scrollRef, 0, next, false);
+        // Update scrollY to track the programmatic scroll
+        scrollY.value = next;
       }
     };
 
@@ -374,7 +396,7 @@ function DraggableRow<T extends { id: string }>({
         const scrollDelta = scrollY.value - startScrollY.value;
         dragTranslateY.value = e.translationY + scrollDelta;
 
-        maybeAutoScroll(e.y);
+        maybeAutoScroll(e.absoluteY);
 
         // Calculate which index we're hovering over based on cumulative heights
         const fromIdx = activeIndex.value;
@@ -453,6 +475,7 @@ function DraggableRow<T extends { id: string }>({
     activeIndex,
     currentIndex,
     containerHeight,
+    containerTop,
     dragTranslateY,
     index,
     itemHeights,
@@ -511,9 +534,6 @@ function DraggableList<T extends { id: string }>({
   ListEmptyComponent,
   style,
 }: DraggableListProps<T>) {
-  // Use React state for scroll enabled
-  const [scrollEnabled, setScrollEnabled] = React.useState(true);
-
   const triggerDragHaptic = React.useCallback(() => {
     void HapticsService.trigger('canvas.selection');
   }, []);
@@ -562,6 +582,7 @@ function DraggableList<T extends { id: string }>({
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollY = useSharedValue(0);
   const containerHeight = useSharedValue(0);
+  const containerTop = useSharedValue(0);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
@@ -581,12 +602,12 @@ function DraggableList<T extends { id: string }>({
     [items, onOrderChange],
   );
 
-  // Callbacks for drag start/end to control scroll
+  // Callbacks for drag start/end (no-ops now that Pan manualActivation handles scroll blocking)
   const handleDragStart = React.useCallback(() => {
-    setScrollEnabled(false);
+    // Pan gesture's manualActivation handles blocking scroll during drag
   }, []);
   const handleDragEnd = React.useCallback(() => {
-    setScrollEnabled(true);
+    // No action needed
   }, []);
 
   return (
@@ -596,11 +617,18 @@ function DraggableList<T extends { id: string }>({
       scrollEventThrottle={16}
       style={[{ flex: 1 }, style]}
       contentContainerStyle={contentContainerStyle}
-      scrollEnabled={scrollEnabled}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       onLayout={(e) => {
         containerHeight.value = e.nativeEvent.layout.height;
+        // Measure absolute position on screen using the native ref
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const node = (scrollRef.current as any)?.getNode?.() ?? scrollRef.current;
+        if (node?.measure) {
+          (node as any).measure((_x: number, _y: number, _w: number, _h: number, _pageX: number, pageY: number) => {
+            containerTop.value = pageY;
+          });
+        }
       }}
     >
       {ListHeaderComponent}
@@ -627,6 +655,7 @@ function DraggableList<T extends { id: string }>({
               scrollRef={scrollRef}
               scrollY={scrollY}
               containerHeight={containerHeight}
+              containerTop={containerTop}
               renderContent={renderItem}
             />
           ))}

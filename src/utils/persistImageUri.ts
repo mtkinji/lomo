@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 function guessImageExtension(uri: string): string {
   const withoutQuery = uri.split('?')[0] ?? uri;

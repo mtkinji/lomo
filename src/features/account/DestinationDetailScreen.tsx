@@ -248,7 +248,7 @@ export function DestinationDetailScreen() {
             <>
               <Card style={styles.card}>
                 <VStack space="sm">
-                  <Heading size="sm">Cursor setup</Heading>
+                  <Heading variant="sm">Cursor setup</Heading>
                   <Text style={styles.subtle}>Copy the MCP endpoint + auth header into Cursor.</Text>
                   <HStack justifyContent="space-between" alignItems="center">
                     <Button
@@ -265,7 +265,7 @@ export function DestinationDetailScreen() {
 
               <Card style={styles.card}>
                 <VStack space="sm">
-                  <Heading size="sm">Destination details</Heading>
+                  <Heading variant="sm">Destination details</Heading>
                   <Input
                     label="Display name"
                     value={cursorDraft.displayName}

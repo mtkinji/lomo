@@ -80,4 +80,9 @@ export const typography = {
     fontSize: 12,
     lineHeight: 16,
   },
+  caption: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    lineHeight: 14,
+  },
 };

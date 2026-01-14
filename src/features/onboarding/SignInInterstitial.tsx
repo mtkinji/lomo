@@ -87,7 +87,7 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
               {/* Header */}
               <View style={styles.headerBlock}>
                 <View style={styles.logoRow}>
-                  <Logo size={32} variant="pine" />
+                  <Logo size={32} variant="default" />
                 </View>
                 <Text style={styles.title}>Welcome to Kwilt</Text>
                 <Text style={styles.body}>

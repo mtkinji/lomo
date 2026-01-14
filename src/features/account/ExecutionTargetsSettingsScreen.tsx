@@ -177,7 +177,7 @@ export function ExecutionTargetsSettingsScreen() {
         enableContentPanningGesture
       >
         <View style={styles.libraryHeader}>
-          <Heading size="sm">Destination library</Heading>
+          <Heading variant="sm">Destination library</Heading>
           <Text style={styles.subtle}>Install a destination to enable “Send to…” handoff.</Text>
           <Input
             value={libraryQuery}

@@ -152,7 +152,8 @@ export function SettingsHomeScreen() {
     if (item.disabled || !item.route) {
       return;
     }
-    navigation.navigate(item.route);
+    // Use cast to bypass strict type-narrowing issues with union route types.
+    (navigation.navigate as (screen: string) => void)(item.route);
   };
 
   type RowAction = {

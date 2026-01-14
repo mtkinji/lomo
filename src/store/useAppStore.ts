@@ -901,6 +901,7 @@ export const useAppStore = create<AppState>()(
       soundscapeEnabled: false,
       hapticsEnabled: true,
       soundscapeTrackId: 'default',
+      enabledSendToDestinations: {},
       lastShowUpDate: null,
       currentShowUpStreak: 0,
       lastActiveDate: null,
