@@ -122,6 +122,7 @@ import { createReferralCode } from '../../services/referrals';
 import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
 import { CheckinComposer } from '../goals/CheckinComposer';
 import { GoalFeedSection } from '../goals/GoalFeedSection';
+import { CheckinNudgePrompt } from '../../ui/CheckinNudgePrompt';
 import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
@@ -142,7 +143,7 @@ const FIRST_GOAL_ILLUSTRATION = require('../../../assets/illustrations/goal-set.
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
   const navigation = useNavigation();
-  const { goalId, entryPoint, initialTab } = route.params;
+  const { goalId, entryPoint, initialTab, openActivitySheet } = route.params;
   const showToast = useToastStore((state) => state.showToast);
   const setToastsSuppressed = useToastStore((state) => state.setToastsSuppressed);
   const { capture } = useAnalytics();
@@ -524,7 +525,42 @@ export function GoalDetailScreen() {
   const [isCheckinComposerVisible, setIsCheckinComposerVisible] = useState(false);
   const [feedRefreshKey, setFeedRefreshKey] = useState(0);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
+  const [inlineNudgeDismissed, setInlineNudgeDismissed] = useState(false);
   const recordCheckin = useCheckinNudgeStore((s) => s.recordCheckin);
+  const recordVisit = useCheckinNudgeStore((s) => s.recordVisit);
+  const shouldShowNudge = useCheckinNudgeStore((s) => s.shouldShowNudge);
+  const dismissNudge = useCheckinNudgeStore((s) => s.dismissNudge);
+
+  // Determine if this is a shared goal (has members beyond just the current user)
+  const isSharedGoal = useMemo(() => {
+    return Array.isArray(sharedMembers) && sharedMembers.length > 1;
+  }, [sharedMembers]);
+
+  // Show inline nudge for shared goals when appropriate
+  const showInlineCheckinNudge = useMemo(() => {
+    if (!isSharedGoal) return false;
+    if (inlineNudgeDismissed) return false;
+    return shouldShowNudge(goalId, 'goal_load');
+  }, [isSharedGoal, inlineNudgeDismissed, shouldShowNudge, goalId]);
+
+  // Record visit when goal detail is focused
+  useEffect(() => {
+    if (isFocused && goalId) {
+      recordVisit(goalId);
+    }
+  }, [isFocused, goalId, recordVisit]);
+
+  // Open the activity sheet if requested via route param (e.g., from activity completion nudge)
+  useEffect(() => {
+    if (openActivitySheet && isFocused) {
+      // Small delay to let the screen settle before showing the sheet
+      const timer = setTimeout(() => {
+        setMembersSheetVisible(true);
+        setMembersSheetTab('activity');
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [openActivitySheet, isFocused]);
 
   const canLeaveSharedGoal = useMemo(() => {
     const uid = authIdentity?.userId ?? '';
@@ -2326,6 +2362,26 @@ export function GoalDetailScreen() {
                   </View>
                 </View>
 
+                {/* Inline check-in nudge for shared goals */}
+                {showInlineCheckinNudge ? (
+                  <View style={styles.inlineNudgeSection}>
+                    <CheckinNudgePrompt
+                      goalId={goalId}
+                      headline="How's it going?"
+                      subheadline="Let your team know"
+                      source="goal_detail_inline"
+                      onCheckinSubmitted={() => {
+                        setInlineNudgeDismissed(true);
+                        setFeedRefreshKey((k) => k + 1);
+                      }}
+                      onDismiss={() => {
+                        setInlineNudgeDismissed(true);
+                        dismissNudge(goalId);
+                      }}
+                    />
+                  </View>
+                ) : null}
+
                 {/* Activities-first section */}
                 <View style={styles.sectionDivider} />
                 <VStack space="md">
@@ -2785,95 +2841,95 @@ export function GoalDetailScreen() {
           {/* Members Tab */}
           {membersSheetTab === 'members' ? (
             <View style={styles.membersTabContent}>
-              {authIdentity ? (
-                <>
-                  {sharedMembersBusy ? (
-                    <Text style={styles.membersSheetBody}>Loading members…</Text>
-                  ) : Array.isArray(sharedMembers) && sharedMembers.length > 0 ? (
-                    <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                      {sharedMembers.map((m) => (
-                        <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
-                          <ProfileAvatar
-                            name={m.name ?? undefined}
-                            avatarUrl={m.avatarUrl ?? undefined}
-                            size={36}
-                            borderRadius={18}
-                          />
-                          <VStack flex={1} space="xs">
-                            <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
-                            {m.role ? <Text style={styles.memberMeta}>{m.role}</Text> : null}
-                          </VStack>
-                        </HStack>
-                      ))}
-                    </VStack>
-                  ) : (
-                    <Text style={styles.membersSheetBody}>
-                      No members found yet. If you just joined, try again in a moment.
-                    </Text>
-                  )}
-                </>
+          {authIdentity ? (
+            <>
+              {sharedMembersBusy ? (
+                <Text style={styles.membersSheetBody}>Loading members…</Text>
+              ) : Array.isArray(sharedMembers) && sharedMembers.length > 0 ? (
+                <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                  {sharedMembers.map((m) => (
+                    <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
+                      <ProfileAvatar
+                        name={m.name ?? undefined}
+                        avatarUrl={m.avatarUrl ?? undefined}
+                        size={36}
+                        borderRadius={18}
+                      />
+                      <VStack flex={1} space="xs">
+                        <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
+                        {m.role ? <Text style={styles.memberMeta}>{m.role}</Text> : null}
+                      </VStack>
+                    </HStack>
+                  ))}
+                </VStack>
               ) : (
                 <Text style={styles.membersSheetBody}>
-                  Sign in to see who's here and invite others.
+                  No members found yet. If you just joined, try again in a moment.
                 </Text>
               )}
+            </>
+          ) : (
+            <Text style={styles.membersSheetBody}>
+              Sign in to see who's here and invite others.
+            </Text>
+          )}
 
-              <View style={styles.membersSheetActions}>
-                {authIdentity && canLeaveSharedGoal ? (
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    disabled={leaveSharedGoalBusy}
-                    onPress={() => {
-                      if (leaveSharedGoalBusy) return;
-                      Alert.alert(
-                        'Leave shared goal?',
-                        "You'll lose access to this shared goal on this account. You can rejoin later with a new invite link.",
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Leave',
-                            style: 'destructive',
-                            onPress: async () => {
-                              try {
-                                setLeaveSharedGoalBusy(true);
-                                await leaveSharedGoal(goalId);
-                                // Local-first: remove the goal from this device so the canvas stays consistent.
-                                removeGoal(goalId);
-                                setMembersSheetVisible(false);
-                                handleBack();
-                                useToastStore.getState().showToast({
-                                  message: 'Left shared goal',
-                                  variant: 'success',
-                                  durationMs: 2200,
-                                });
-                              } catch {
-                                Alert.alert('Unable to leave', 'Please try again.');
-                              } finally {
-                                setLeaveSharedGoalBusy(false);
-                              }
-                            },
-                          },
-                        ],
-                      );
-                    }}
-                    accessibilityLabel="Leave shared goal"
-                  >
-                    <Text style={styles.membersSheetButtonLabel}>Leave goal</Text>
-                  </Button>
-                ) : null}
-                <Button
-                  variant="ai"
-                  fullWidth
-                  onPress={() => {
-                    setMembersSheetVisible(false);
-                    void handleShareGoal();
-                  }}
-                  accessibilityLabel="Invite"
-                >
-                  <Text style={styles.membersSheetButtonLabel}>Invite</Text>
-                </Button>
-              </View>
+          <View style={styles.membersSheetActions}>
+            {authIdentity && canLeaveSharedGoal ? (
+              <Button
+                variant="secondary"
+                fullWidth
+                disabled={leaveSharedGoalBusy}
+                onPress={() => {
+                  if (leaveSharedGoalBusy) return;
+                  Alert.alert(
+                    'Leave shared goal?',
+                    "You'll lose access to this shared goal on this account. You can rejoin later with a new invite link.",
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Leave',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            setLeaveSharedGoalBusy(true);
+                            await leaveSharedGoal(goalId);
+                            // Local-first: remove the goal from this device so the canvas stays consistent.
+                            removeGoal(goalId);
+                            setMembersSheetVisible(false);
+                            handleBack();
+                            useToastStore.getState().showToast({
+                              message: 'Left shared goal',
+                              variant: 'success',
+                              durationMs: 2200,
+                            });
+                          } catch {
+                            Alert.alert('Unable to leave', 'Please try again.');
+                          } finally {
+                            setLeaveSharedGoalBusy(false);
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+                accessibilityLabel="Leave shared goal"
+              >
+                <Text style={styles.membersSheetButtonLabel}>Leave goal</Text>
+              </Button>
+            ) : null}
+            <Button
+              variant="ai"
+              fullWidth
+              onPress={() => {
+                setMembersSheetVisible(false);
+                void handleShareGoal();
+              }}
+              accessibilityLabel="Invite"
+            >
+              <Text style={styles.membersSheetButtonLabel}>Invite</Text>
+            </Button>
+          </View>
             </View>
           ) : null}
         </View>
@@ -4686,6 +4742,38 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.primaryForeground,
     fontFamily: fonts.medium,
+  },
+  membersSheetHeader: {
+    marginBottom: spacing.md,
+  },
+  activityTabContent: {
+    flex: 1,
+  },
+  membersTabContent: {
+    flex: 1,
+  },
+  checkinComposerSection: {
+    marginBottom: spacing.md,
+  },
+  checkinPromptRow: {
+    marginBottom: spacing.md,
+  },
+  checkinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  checkinButtonText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.medium,
+  },
+  feedSection: {
+    flex: 1,
+  },
+  inlineNudgeSection: {
+    marginTop: spacing.lg,
   },
   editableField: {
     borderWidth: 1,

@@ -99,6 +99,9 @@ import {
   recordShowUpWithCelebration,
   recordCompletedFocusSessionWithMilestone,
 } from '../../store/useCelebrationStore';
+import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
+import { useToastStore } from '../../store/useToastStore';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
@@ -1883,6 +1886,32 @@ export function ActivityDetailScreen() {
     recordShowUpWithCelebration();
     recordCompletedFocusSessionWithMilestone({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
+
+    // Check-in nudge for activities under shared goals
+    const activityGoalId = activity?.goalId;
+    if (activityGoalId) {
+      const { shouldShowNudge } = useCheckinNudgeStore.getState();
+      if (shouldShowNudge(activityGoalId, 'focus_complete')) {
+        setTimeout(() => {
+          useToastStore.getState().showToast({
+            message: 'Great focus session! Share with your team?',
+            variant: 'default',
+            durationMs: 4000,
+            actionLabel: 'Check in',
+            actionOnPress: () => {
+              rootNavigationRef.navigate('ArcsStack', {
+                screen: 'GoalDetail',
+                params: {
+                  goalId: activityGoalId,
+                  entryPoint: 'activitiesStack',
+                  openActivitySheet: true,
+                },
+              });
+            },
+          });
+        }, 1500); // Slightly longer delay to not compete with completion celebration
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingFocusMs, focusSession?.mode]);
 
@@ -2523,6 +2552,32 @@ export function ActivityDetailScreen() {
           next_status: 'done',
           had_steps: hadSteps,
         });
+
+        // Check-in nudge for activities under shared goals
+        const activityGoalId = activity.goalId;
+        if (activityGoalId) {
+          const { shouldShowNudge } = useCheckinNudgeStore.getState();
+          if (shouldShowNudge(activityGoalId, 'activity_complete')) {
+            setTimeout(() => {
+              useToastStore.getState().showToast({
+                message: 'Share your progress with your team?',
+                variant: 'default',
+                durationMs: 4000,
+                actionLabel: 'Check in',
+                actionOnPress: () => {
+                  rootNavigationRef.navigate('ArcsStack', {
+                    screen: 'GoalDetail',
+                    params: {
+                      goalId: activityGoalId,
+                      entryPoint: 'activitiesStack',
+                      openActivitySheet: true,
+                    },
+                  });
+                },
+              });
+            }, 1200);
+          }
+        }
       }
     });
   };

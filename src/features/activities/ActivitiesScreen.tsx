@@ -67,6 +67,8 @@ import {
   useCelebrationStore,
   recordShowUpWithCelebration,
 } from '../../store/useCelebrationStore';
+import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors } from '../../theme/colors';
@@ -1800,6 +1802,35 @@ export function ActivitiesScreen() {
           const celebrationId = `all-done-${todayStart.toISOString().slice(0, 10)}`;
           if (!hasBeenShown(celebrationId)) {
             setTimeout(() => celebrateAllActivitiesDone(), 800);
+          }
+        }
+
+        // Check-in nudge for activities under shared goals
+        const completedActivity = activities.find((a) => a.id === activityId);
+        const activityGoalId = completedActivity?.goalId;
+        if (activityGoalId) {
+          const { shouldShowNudge } = useCheckinNudgeStore.getState();
+          if (shouldShowNudge(activityGoalId, 'activity_complete')) {
+            // Show a toast with an action to check in
+            setTimeout(() => {
+              useToastStore.getState().showToast({
+                message: 'Share your progress with your team?',
+                variant: 'default',
+                durationMs: 4000,
+                actionLabel: 'Check in',
+                actionOnPress: () => {
+                  // Navigate to goal detail with activity sheet open
+                  rootNavigationRef.navigate('ArcsStack', {
+                    screen: 'GoalDetail',
+                    params: {
+                      goalId: activityGoalId,
+                      entryPoint: 'activitiesStack',
+                      openActivitySheet: true,
+                    },
+                  });
+                },
+              });
+            }, 1200); // Delay to not compete with celebration
           }
         }
       }

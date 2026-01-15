@@ -73,6 +73,14 @@ export const AnalyticsEvent = {
   // Server-side milestones
   MilestoneRecorded: 'milestone_recorded',
   MilestoneRecordFailed: 'milestone_record_failed',
+
+  // Friends
+  FriendInviteCreated: 'friend_invite_created',
+  FriendInviteShared: 'friend_invite_shared',
+  FriendInviteAccepted: 'friend_invite_accepted',
+  FriendRequestAccepted: 'friend_request_accepted',
+  FriendRequestDeclined: 'friend_request_declined',
+  FriendsListViewed: 'friends_list_viewed',
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
