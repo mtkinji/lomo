@@ -120,7 +120,9 @@ import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScroll
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
 import { createReferralCode } from '../../services/referrals';
 import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
-import { SharedGoalActivityDrawer } from '../goals/SharedGoalActivityDrawer';
+import { CheckinComposer } from '../goals/CheckinComposer';
+import { GoalFeedSection } from '../goals/GoalFeedSection';
+import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
@@ -518,8 +520,11 @@ export function GoalDetailScreen() {
   const [sharedMembers, setSharedMembers] = useState<SharedMember[] | null>(null);
   const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
-  const [activityDrawerVisible, setActivityDrawerVisible] = useState(false);
+  const [membersSheetTab, setMembersSheetTab] = useState<'activity' | 'members'>('activity');
+  const [isCheckinComposerVisible, setIsCheckinComposerVisible] = useState(false);
+  const [feedRefreshKey, setFeedRefreshKey] = useState(0);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
+  const recordCheckin = useCheckinNudgeStore((s) => s.recordCheckin);
 
   const canLeaveSharedGoal = useMemo(() => {
     const uid = authIdentity?.userId ?? '';
@@ -2712,122 +2717,167 @@ export function GoalDetailScreen() {
         </View>
       <BottomDrawer
         visible={membersSheetVisible}
-        onClose={() => setMembersSheetVisible(false)}
-        snapPoints={['55%']}
+        onClose={() => {
+          setMembersSheetVisible(false);
+          // Reset to Activity tab for next open
+          setMembersSheetTab('activity');
+          setIsCheckinComposerVisible(false);
+        }}
+        snapPoints={['75%']}
         scrimToken="pineSubtle"
       >
         <View style={styles.membersSheetContent}>
-          <Text style={styles.membersSheetTitle}>Shared with</Text>
-          {authIdentity ? (
-            <>
-              {sharedMembersBusy ? (
-                <Text style={styles.membersSheetBody}>Loading members…</Text>
-              ) : Array.isArray(sharedMembers) && sharedMembers.length > 0 ? (
-                <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                  {sharedMembers.map((m) => (
-                    <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
-                      <ProfileAvatar
-                        name={m.name ?? undefined}
-                        avatarUrl={m.avatarUrl ?? undefined}
-                        size={36}
-                        borderRadius={18}
-                      />
-                      <VStack flex={1} space="xs">
-                        <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
-                        {m.role ? <Text style={styles.memberMeta}>{m.role}</Text> : null}
-                      </VStack>
-                    </HStack>
-                  ))}
-                </VStack>
+          {/* Tabbed header */}
+          <View style={styles.membersSheetHeader}>
+            <SegmentedControl
+              value={membersSheetTab}
+              onChange={setMembersSheetTab}
+              options={[
+                { value: 'activity', label: 'Activity' },
+                { value: 'members', label: 'Members' },
+              ]}
+              size="compact"
+            />
+          </View>
+
+          {/* Activity Tab */}
+          {membersSheetTab === 'activity' ? (
+            <View style={styles.activityTabContent}>
+              {/* Check-in composer (collapsible) */}
+              {isCheckinComposerVisible ? (
+                <View style={styles.checkinComposerSection}>
+                  <CheckinComposer
+                    goalId={goalId}
+                    onCheckinSubmitted={() => {
+                      setIsCheckinComposerVisible(false);
+                      setFeedRefreshKey((k) => k + 1);
+                      recordCheckin(goalId);
+                    }}
+                    onDismiss={() => setIsCheckinComposerVisible(false)}
+                    compact
+                  />
+                </View>
+              ) : (
+                <View style={styles.checkinPromptRow}>
+                  <Button
+                    variant="secondary"
+                    size="compact"
+                    onPress={() => setIsCheckinComposerVisible(true)}
+                    style={styles.checkinButton}
+                  >
+                    <Icon name="MessageCircle" size={16} color={colors.accent} />
+                    <Text style={styles.checkinButtonText}>Check in</Text>
+                  </Button>
+                </View>
+              )}
+
+              {/* Feed */}
+              <View style={styles.feedSection}>
+                <GoalFeedSection
+                  goalId={goalId}
+                  refreshKey={feedRefreshKey}
+                  showCheckinPrompt={false}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {/* Members Tab */}
+          {membersSheetTab === 'members' ? (
+            <View style={styles.membersTabContent}>
+              {authIdentity ? (
+                <>
+                  {sharedMembersBusy ? (
+                    <Text style={styles.membersSheetBody}>Loading members…</Text>
+                  ) : Array.isArray(sharedMembers) && sharedMembers.length > 0 ? (
+                    <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                      {sharedMembers.map((m) => (
+                        <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
+                          <ProfileAvatar
+                            name={m.name ?? undefined}
+                            avatarUrl={m.avatarUrl ?? undefined}
+                            size={36}
+                            borderRadius={18}
+                          />
+                          <VStack flex={1} space="xs">
+                            <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
+                            {m.role ? <Text style={styles.memberMeta}>{m.role}</Text> : null}
+                          </VStack>
+                        </HStack>
+                      ))}
+                    </VStack>
+                  ) : (
+                    <Text style={styles.membersSheetBody}>
+                      No members found yet. If you just joined, try again in a moment.
+                    </Text>
+                  )}
+                </>
               ) : (
                 <Text style={styles.membersSheetBody}>
-                  No members found yet. If you just joined, try again in a moment.
+                  Sign in to see who's here and invite others.
                 </Text>
               )}
-            </>
-          ) : (
-            <Text style={styles.membersSheetBody}>
-              Sign in to see who's here and invite others.
-            </Text>
-          )}
 
-          <View style={styles.membersSheetActions}>
-            {/* Activity button - opens the feed drawer */}
-            <Button
-              variant="primary"
-              fullWidth
-              onPress={() => {
-                setMembersSheetVisible(false);
-                setActivityDrawerVisible(true);
-              }}
-              accessibilityLabel="View activity"
-            >
-              <Text style={styles.membersSheetButtonLabel}>Activity</Text>
-            </Button>
-            {authIdentity && canLeaveSharedGoal ? (
-              <Button
-                variant="secondary"
-                fullWidth
-                disabled={leaveSharedGoalBusy}
-                onPress={() => {
-                  if (leaveSharedGoalBusy) return;
-                  Alert.alert(
-                    'Leave shared goal?',
-                    "You'll lose access to this shared goal on this account. You can rejoin later with a new invite link.",
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Leave',
-                        style: 'destructive',
-                        onPress: async () => {
-                          try {
-                            setLeaveSharedGoalBusy(true);
-                            await leaveSharedGoal(goalId);
-                            // Local-first: remove the goal from this device so the canvas stays consistent.
-                            removeGoal(goalId);
-                            setMembersSheetVisible(false);
-                            handleBack();
-                            useToastStore.getState().showToast({
-                              message: 'Left shared goal',
-                              variant: 'success',
-                              durationMs: 2200,
-                            });
-                          } catch {
-                            Alert.alert('Unable to leave', 'Please try again.');
-                          } finally {
-                            setLeaveSharedGoalBusy(false);
-                          }
-                        },
-                      },
-                    ],
-                  );
-                }}
-                accessibilityLabel="Leave shared goal"
-              >
-                <Text style={styles.membersSheetButtonLabel}>Leave goal</Text>
-              </Button>
-            ) : null}
-            <Button
-              variant="ai"
-              fullWidth
-              onPress={() => {
-                setMembersSheetVisible(false);
-                void handleShareGoal();
-              }}
-              accessibilityLabel="Invite"
-            >
-              <Text style={styles.membersSheetButtonLabel}>Invite</Text>
-            </Button>
-          </View>
+              <View style={styles.membersSheetActions}>
+                {authIdentity && canLeaveSharedGoal ? (
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    disabled={leaveSharedGoalBusy}
+                    onPress={() => {
+                      if (leaveSharedGoalBusy) return;
+                      Alert.alert(
+                        'Leave shared goal?',
+                        "You'll lose access to this shared goal on this account. You can rejoin later with a new invite link.",
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Leave',
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                setLeaveSharedGoalBusy(true);
+                                await leaveSharedGoal(goalId);
+                                // Local-first: remove the goal from this device so the canvas stays consistent.
+                                removeGoal(goalId);
+                                setMembersSheetVisible(false);
+                                handleBack();
+                                useToastStore.getState().showToast({
+                                  message: 'Left shared goal',
+                                  variant: 'success',
+                                  durationMs: 2200,
+                                });
+                              } catch {
+                                Alert.alert('Unable to leave', 'Please try again.');
+                              } finally {
+                                setLeaveSharedGoalBusy(false);
+                              }
+                            },
+                          },
+                        ],
+                      );
+                    }}
+                    accessibilityLabel="Leave shared goal"
+                  >
+                    <Text style={styles.membersSheetButtonLabel}>Leave goal</Text>
+                  </Button>
+                ) : null}
+                <Button
+                  variant="ai"
+                  fullWidth
+                  onPress={() => {
+                    setMembersSheetVisible(false);
+                    void handleShareGoal();
+                  }}
+                  accessibilityLabel="Invite"
+                >
+                  <Text style={styles.membersSheetButtonLabel}>Invite</Text>
+                </Button>
+              </View>
+            </View>
+          ) : null}
         </View>
       </BottomDrawer>
-      {/* Shared goal activity drawer (check-ins + feed) */}
-      <SharedGoalActivityDrawer
-        visible={activityDrawerVisible}
-        onClose={() => setActivityDrawerVisible(false)}
-        goalId={goalId}
-        goalTitle={goal?.name}
-      />
       <BottomDrawer
         visible={refineGoalSheetVisible}
         onClose={() => setRefineGoalSheetVisible(false)}

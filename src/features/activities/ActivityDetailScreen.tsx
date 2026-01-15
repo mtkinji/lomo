@@ -95,7 +95,10 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
-import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
+import {
+  recordShowUpWithCelebration,
+  recordCompletedFocusSessionWithMilestone,
+} from '../../store/useCelebrationStore';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
@@ -215,7 +218,6 @@ export function ActivityDetailScreen() {
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
-  const recordCompletedFocusSession = useAppStore((state) => state.recordCompletedFocusSession);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const lastFocusMinutes = useAppStore((state) => state.lastFocusMinutes);
   const setLastFocusMinutes = useAppStore((state) => state.setLastFocusMinutes);
@@ -1879,7 +1881,7 @@ export function ActivityDetailScreen() {
     // Session completed
     void HapticsService.trigger('outcome.success');
     recordShowUpWithCelebration();
-    recordCompletedFocusSession({ completedAtMs: Date.now() });
+    recordCompletedFocusSessionWithMilestone({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingFocusMs, focusSession?.mode]);

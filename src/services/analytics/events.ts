@@ -69,6 +69,10 @@ export const AnalyticsEvent = {
   SharedGoalReactionAdded: 'shared_goal_reaction_added',
   SharedGoalReactionRemoved: 'shared_goal_reaction_removed',
   SharedGoalFeedViewed: 'shared_goal_feed_viewed',
+
+  // Server-side milestones
+  MilestoneRecorded: 'milestone_recorded',
+  MilestoneRecordFailed: 'milestone_record_failed',
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
