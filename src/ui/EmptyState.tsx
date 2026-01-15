@@ -12,6 +12,7 @@ import { colors, spacing, typography } from '../theme';
 import { Button } from './Button';
 import { HStack, VStack } from './Stack';
 import { ButtonLabel, Heading, Text } from './Typography';
+import { Icon, type IconName } from './Icon';
 
 type EmptyStateVariant = 'screen' | 'list' | 'compact';
 
@@ -32,6 +33,10 @@ export type EmptyStateProps = {
    * Optional override for the illustration. Set to `null` to suppress the image.
    */
   illustration?: ImageSourcePropType | null;
+  /**
+   * Optional icon to show instead of an illustration.
+   */
+  iconName?: IconName;
   /**
    * Optional action slot (buttons/links). This stays flexible for cases that need
    * refs/wrappers (e.g. onboarding rings) without the EmptyState owning button logic.
@@ -58,12 +63,14 @@ export function EmptyState({
   secondaryAction,
   variant = 'list',
   illustration = DEFAULT_ILLUSTRATION,
+  iconName,
   style,
   contentStyle,
   imageStyle,
 }: EmptyStateProps) {
-  const showIllustration = illustration != null;
+  const showIllustration = illustration != null && !iconName;
   const imageSize = variant === 'screen' ? 220 : variant === 'compact' ? 120 : 170;
+  const iconSize = variant === 'screen' ? 120 : variant === 'compact' ? 64 : 80;
 
   const renderAction = (
     action: (Omit<React.ComponentProps<typeof Button>, 'children'> & { label: ReactNode }) | undefined,
@@ -88,7 +95,16 @@ export function EmptyState({
   return (
     <View style={[styles.container, variant === 'screen' ? styles.containerScreen : styles.containerList, style]}>
       <VStack space="sm" style={[styles.content, contentStyle]}>
-        {showIllustration ? (
+        {iconName ? (
+          <View style={styles.iconWrapper} accessibilityElementsHidden accessibilityRole="none">
+            <Icon
+              name={iconName}
+              size={iconSize}
+              color={colors.border}
+              strokeWidth={1}
+            />
+          </View>
+        ) : showIllustration ? (
           <View style={styles.imageWrapper} accessibilityElementsHidden accessibilityRole="none">
             <Image
               source={illustration as ImageSourcePropType}
@@ -128,6 +144,12 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     alignItems: 'center',
+  },
+  iconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    opacity: 0.5,
   },
   imageWrapper: {
     alignItems: 'center',

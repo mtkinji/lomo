@@ -7,7 +7,7 @@ import { Icon } from '../../ui/Icon';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
-import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
+import { NarrativeEditableTitle, type NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { LongTextField } from '../../ui/LongTextField';
 import { Badge } from '../../ui/Badge';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
@@ -84,6 +84,9 @@ export function ActivityDetailRefresh(props: any) {
     onToggleDetailsExpanded,
 
     updateActivity,
+    titleRef,
+    isTitleEditing,
+    setIsTitleEditing,
     // Steps
     titleStepsBundleRef,
     setIsTitleStepsBundleReady,
@@ -104,6 +107,8 @@ export function ActivityDetailRefresh(props: any) {
     commitInlineStep,
     handleAnyInputFocus,
     handleAnyInputBlur,
+    handleDoneEditing,
+    isAnyInputFocused,
 
     // Plan section
     scheduleAndPlanningCardRef,
@@ -337,7 +342,7 @@ export function ActivityDetailRefresh(props: any) {
           safeAreaTopInset={resolvedSafeAreaTopInsetPx}
           horizontalPadding={PAGE_GUTTER_X}
           blurBackground={false}
-          sideSlotWidth={56}
+          sideSlotWidth={isTitleEditing || isAnyInputFocused ? 72 : 56}
           left={
             <HeaderActionPill
               onPress={handleBackToActivities}
@@ -352,53 +357,64 @@ export function ActivityDetailRefresh(props: any) {
           center={null}
           right={
             <HStack alignItems="center" space="sm">
-              <DropdownMenu>
-                <DropdownMenuTrigger accessibilityLabel="Activity actions">
-                  <View pointerEvents="none">
-                    <HeaderActionPill
-                      accessibilityLabel="Activity actions"
-                      materialOpacity={headerActionPillOpacity}
-                      materialVariant={headerPillMaterialVariant}
+              {isTitleEditing || isAnyInputFocused ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onPress={handleDoneEditing}
+                  accessibilityLabel="Done editing"
+                >
+                  Done
+                </Button>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                    <View pointerEvents="none">
+                      <HeaderActionPill
+                        accessibilityLabel="Activity actions"
+                        materialOpacity={headerActionPillOpacity}
+                        materialVariant={headerPillMaterialVariant}
+                      >
+                        <Icon name="more" size={18} color={headerInk} />
+                      </HeaderActionPill>
+                    </View>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
+                    <DropdownMenuItem
+                      onPress={() => {
+                        onPressEditHeaderImage?.();
+                      }}
                     >
-                      <Icon name="more" size={18} color={headerInk} />
-                    </HeaderActionPill>
-                  </View>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
-                  <DropdownMenuItem
-                    onPress={() => {
-                      onPressEditHeaderImage?.();
-                    }}
-                  >
-                    <View style={styles.menuItemRow}>
-                      <Icon name="image" size={16} color={headerInk} />
-                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        Edit header image
-                      </Text>
-                    </View>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onPress={() => {
-                      handleSendToShare().catch(() => undefined);
-                    }}
-                  >
-                    <View style={styles.menuItemRow}>
-                      <Icon name="share" size={16} color={headerInk} />
-                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        Share
-                      </Text>
-                    </View>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                    <View style={styles.menuItemRow}>
-                      <Icon name="trash" size={16} color={colors.destructive} />
-                      <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        Delete activity
-                      </Text>
-                    </View>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      <View style={styles.menuItemRow}>
+                        <Icon name="image" size={16} color={headerInk} />
+                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          Edit header image
+                        </Text>
+                      </View>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onPress={() => {
+                        handleSendToShare().catch(() => undefined);
+                      }}
+                    >
+                      <View style={styles.menuItemRow}>
+                        <Icon name="share" size={16} color={headerInk} />
+                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          Share
+                        </Text>
+                      </View>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                      <View style={styles.menuItemRow}>
+                        <Icon name="trash" size={16} color={colors.destructive} />
+                        <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          Delete activity
+                        </Text>
+                      </View>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </HStack>
           }
         />
@@ -640,6 +656,7 @@ export function ActivityDetailRefresh(props: any) {
         <View style={styles.section}>
           <View style={styles.narrativeTitleBlock}>
             <NarrativeEditableTitle
+              ref={titleRef}
               value={activity.title ?? ''}
               placeholder="Name this activity"
               accessibilityLabel="Edit activity title"
@@ -652,6 +669,7 @@ export function ActivityDetailRefresh(props: any) {
                   updatedAt: timestamp,
                 }));
               }}
+              onEditingChange={setIsTitleEditing}
               textStyle={styles.narrativeTitle}
               inputStyle={styles.narrativeTitleInput}
               containerStyle={styles.narrativeTitleContainer}
@@ -937,8 +955,11 @@ export function ActivityDetailRefresh(props: any) {
                   size="md"
                   variant="inline"
                   inputStyle={[styles.stepInput, styles.newStepInput]}
-                  multiline={false}
-                  blurOnSubmit={false}
+                  multiline
+                  multilineMinHeight={typography.body.lineHeight}
+                  multilineMaxHeight={Number.POSITIVE_INFINITY}
+                  scrollEnabled={false}
+                  blurOnSubmit
                   returnKeyType="done"
                   onSubmitEditing={() => commitInlineStep('continue')}
                   onBlur={() => {

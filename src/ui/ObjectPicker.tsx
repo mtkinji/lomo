@@ -46,6 +46,12 @@ type Props = {
   size?: ObjectPickerSize;
   leadingIcon?: IconName;
   fieldVariant?: ObjectPickerFieldVariant;
+
+  /**
+   * Whether to show the search input in the picker menu.
+   * Defaults to true. Set to false for short option lists.
+   */
+  showSearch?: boolean;
 };
 
 /**
@@ -70,6 +76,7 @@ export function ObjectPicker({
   size = 'default',
   leadingIcon,
   fieldVariant = 'outline',
+  showSearch = true,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -105,6 +112,7 @@ export function ObjectPicker({
       presentation={presentation}
       drawerSnapPoints={drawerSnapPoints}
       recommendedOption={recommendedOption}
+      showSearch={showSearch}
       trigger={
         <Pressable
           accessibilityRole="button"

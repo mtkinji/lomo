@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { Card } from './Card';
 import { HStack, VStack, Text } from './primitives';
 import { Icon } from './Icon';
+import { Badge } from './Badge';
 import { colors, spacing, typography } from '../theme';
 import { fonts } from '../theme/typography';
 
@@ -74,6 +75,11 @@ type ActivityListItemProps = {
    * to indicate the activity is due today (Microsoft Outlook–style).
    */
   isDueToday?: boolean;
+  /**
+   * When true, renders a subtle background and border to indicate the item
+   * is a "ghost" (temporarily visible despite filters).
+   */
+  isGhost?: boolean;
 };
 
 export function ActivityListItem({
@@ -92,6 +98,7 @@ export function ActivityListItem({
   onPress,
   onLongPress,
   isDueToday = false,
+  isGhost = false,
 }: ActivityListItemProps) {
   const completionAnim = React.useRef(new Animated.Value(0)).current;
   const [isAnimatingComplete, setIsAnimatingComplete] = React.useState(false);
@@ -184,7 +191,13 @@ export function ActivityListItem({
       : colors.textSecondary;
 
   const content = (
-    <Card style={[styles.card, variant === 'full' && styles.cardFull]}>
+    <Card
+      style={[
+        styles.card,
+        variant === 'full' && styles.cardFull,
+        isGhost && styles.ghostCard,
+      ]}
+    >
       <HStack
         space="md"
         alignItems={variant === 'full' ? 'flex-start' : 'center'}
@@ -207,6 +220,7 @@ export function ActivityListItem({
                   style={[
                     styles.checkboxBase,
                     isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
+                    isGhost && styles.ghostCheckbox,
                   ]}
                 >
                   {isCompleted ? (
@@ -219,6 +233,7 @@ export function ActivityListItem({
                 style={[
                   styles.checkboxBase,
                   isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
+                  isGhost && styles.ghostCheckbox,
                 ]}
               >
                 {isCompleted ? (
@@ -431,6 +446,14 @@ const styles = StyleSheet.create({
   },
   notesCompleted: {
     color: colors.muted,
+  },
+  ghostCard: {
+    backgroundColor: colors.turmeric50,
+    borderColor: colors.turmeric200,
+    borderWidth: 1,
+  },
+  ghostCheckbox: {
+    borderColor: colors.turmeric300,
   },
 });
 

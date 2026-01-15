@@ -7,7 +7,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Text } from '@/src/ui/Typography';
-import { colors, spacing, typography } from '../theme';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'info';
 

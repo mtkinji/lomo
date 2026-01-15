@@ -289,6 +289,41 @@ export type ActivitySortMode =
   | 'dueDateDesc'
   | 'priority';
 
+export type FilterOperator =
+  | 'eq' | 'neq'           // equals / not equals
+  | 'contains'             // string contains
+  | 'gt' | 'lt' | 'gte' | 'lte'  // numeric/date comparisons
+  | 'exists' | 'nexists'   // field has value / is empty
+  | 'in';                  // value in array (for tags)
+
+export interface FilterCondition {
+  id: string;              // unique id for UI key
+  field: ActivityFilterableField;
+  operator: FilterOperator;
+  value?: string | number | boolean | string[];
+}
+
+export type FilterGroupLogic = 'and' | 'or';
+
+export interface FilterGroup {
+  logic: FilterGroupLogic;
+  conditions: FilterCondition[];
+}
+
+export interface SortCondition {
+  field: ActivitySortableField;
+  direction: 'asc' | 'desc';
+}
+
+// Whitelisted fields
+export type ActivityFilterableField =
+  | 'title' | 'status' | 'priority' | 'scheduledDate' | 'reminderAt'
+  | 'tags' | 'difficulty' | 'estimateMinutes' | 'goalId' | 'type';
+
+export type ActivitySortableField =
+  | 'title' | 'status' | 'priority' | 'scheduledDate' | 'reminderAt'
+  | 'difficulty' | 'estimateMinutes' | 'createdAt' | 'orderIndex';
+
 export type ActivityRepeatRule =
   | 'daily'
   | 'weekly'
@@ -517,8 +552,28 @@ export type ActivityViewId = string;
 export interface ActivityView {
   id: ActivityViewId;
   name: string;
+  /**
+   * Legacy filter mode (keep for backward compatibility).
+   * New structured queries in `filters` take precedence when present.
+   */
   filterMode: ActivityFilterMode;
+  /**
+   * Legacy sort mode (keep for backward compatibility).
+   * New structured queries in `sorts` take precedence when present.
+   */
   sortMode: ActivitySortMode;
+  /**
+   * New structured queries: multiple groups combined according to filterGroupLogic.
+   */
+  filters?: FilterGroup[];
+  /**
+   * Logic for combining filter groups. Defaults to 'or' (match any group).
+   */
+  filterGroupLogic?: FilterGroupLogic;
+  /**
+   * New multi-level sort: ordered list, primary first.
+   */
+  sorts?: SortCondition[];
   /**
    * Whether this view includes the "Completed" section in the Activities list.
    * When false, completed activities are still stored but hidden in the UI.

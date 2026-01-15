@@ -1,7 +1,9 @@
 import React from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
-import { colors, typography, fonts } from '../theme';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+import { fonts } from '../theme/typography';
 import { BUTTON_SIZE_TOKENS, type ButtonSizeToken } from './buttonTokens';
 import { ButtonContext } from './ButtonContext';
 

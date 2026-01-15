@@ -1,6 +1,11 @@
 import * as React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle, Platform } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle, Platform } from 'react-native';
 import { colors, spacing, typography } from '../theme';
+
+export type NarrativeEditableTitleRef = {
+  /** Programmatically dismiss keyboard and commit changes */
+  blur: () => void;
+};
 
 type Props = {
   value: string;
@@ -20,29 +25,39 @@ type Props = {
    */
   validate?: (nextTrimmed: string) => string | null;
   /**
+   * Called when editing state changes (user taps to edit, or editing is dismissed).
+   */
+  onEditingChange?: (isEditing: boolean) => void;
+  /**
    * Style overrides for the text and input.
-   * Keep these very similar so view/edit feel like the same “surface”.
+   * Keep these very similar so view/edit feel like the same "surface".
    */
   textStyle?: StyleProp<TextStyle>;
   inputStyle?: StyleProp<TextStyle>;
   containerStyle?: StyleProp<ViewStyle>;
 };
 
-export function NarrativeEditableTitle({
+export const NarrativeEditableTitle = React.forwardRef<NarrativeEditableTitleRef, Props>(function NarrativeEditableTitle({
   value,
   placeholder,
   accessibilityLabel,
   onCommit,
   editable = true,
   validate,
+  onEditingChange,
   textStyle,
   inputStyle,
   containerStyle,
-}: Props) {
+}, ref) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(value);
   const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<TextInput | null>(null);
+
+  // Notify parent when editing state changes
+  React.useEffect(() => {
+    onEditingChange?.(isEditing);
+  }, [isEditing, onEditingChange]);
 
   React.useEffect(() => {
     if (!isEditing) {
@@ -68,6 +83,13 @@ export function NarrativeEditableTitle({
     setIsEditing(false);
     setError(null);
   }, [draft, onCommit, validate, value]);
+
+  // Expose blur method to parent via ref
+  React.useImperativeHandle(ref, () => ({
+    blur: () => {
+      Keyboard.dismiss();
+    },
+  }), []);
 
   if (!editable) {
     return (
@@ -97,7 +119,6 @@ export function NarrativeEditableTitle({
           returnKeyType={Platform.OS === 'android' ? 'done' : 'default'}
           blurOnSubmit={Platform.OS === 'android'}
           onSubmitEditing={() => {
-            // Android only (multiline submit); iOS uses blur-to-commit.
             commit();
           }}
           onBlur={() => {
@@ -121,7 +142,7 @@ export function NarrativeEditableTitle({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   textBase: {
@@ -131,7 +152,7 @@ const styles = StyleSheet.create({
   inputBase: {
     padding: 0,
     color: colors.textPrimary,
-    // Keep input aligned with the “text” baseline as much as possible.
+    // Keep input aligned with the "text" baseline as much as possible.
     ...(Platform.OS === 'android'
       ? ({
           includeFontPadding: false,
