@@ -509,11 +509,11 @@ export function ActivityDetailScreen() {
 
   const difficultyOptions = useMemo(
     () => [
-      { value: 'very_easy', label: 'Very easy' },
-      { value: 'easy', label: 'Easy' },
-      { value: 'medium', label: 'Medium' },
-      { value: 'hard', label: 'Hard' },
-      { value: 'very_hard', label: 'Very hard' },
+      { value: 'very_easy', label: '1 · Very easy' },
+      { value: 'easy', label: '2 · Easy' },
+      { value: 'medium', label: '3 · Medium' },
+      { value: 'hard', label: '5 · Hard' },
+      { value: 'very_hard', label: '8 · Very hard' },
     ],
     [],
   );
@@ -3234,15 +3234,15 @@ export function ActivityDetailScreen() {
     const formatDifficulty = (value: string) => {
       switch (value) {
         case 'very_easy':
-          return 'Very easy';
+          return '1 · Very easy';
         case 'easy':
-          return 'Easy';
+          return '2 · Easy';
         case 'medium':
-          return 'Medium';
+          return '3 · Medium';
         case 'hard':
-          return 'Hard';
+          return '5 · Hard';
         case 'very_hard':
-          return 'Very hard';
+          return '8 · Very hard';
         default:
           return value;
       }
