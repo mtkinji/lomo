@@ -95,6 +95,7 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
@@ -1877,7 +1878,7 @@ export function ActivityDetailScreen() {
 
     // Session completed
     void HapticsService.trigger('outcome.success');
-    recordShowUp();
+    recordShowUpWithCelebration();
     recordCompletedFocusSession({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1967,7 +1968,7 @@ export function ActivityDetailScreen() {
                 const timestamp = new Date().toISOString();
                 if (desired && !step.completedAt) {
                   // Completing a step counts as "showing up".
-                  recordShowUp();
+                  recordShowUpWithCelebration();
                 }
                 updateActivity(activity.id, (prev) => {
                   const prevSteps = prev.steps ?? [];
@@ -2512,7 +2513,7 @@ export function ActivityDetailScreen() {
           void HapticsService.trigger('outcome.bigSuccess');
         }
         void playActivityDoneSound();
-        recordShowUp();
+        recordShowUpWithCelebration();
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activity_detail',
           activity_id: activity.id,
@@ -2553,7 +2554,7 @@ export function ActivityDetailScreen() {
     }
     // Marking a step complete is meaningful progress; count it as "showing up".
     if (existing && !existing.completedAt) {
-      recordShowUp();
+      recordShowUpWithCelebration();
     }
     const completedAt = new Date().toISOString();
     applyStepUpdate((steps) =>
@@ -2626,7 +2627,7 @@ export function ActivityDetailScreen() {
         },
       };
 
-      recordShowUp();
+      // Note: Creating activities no longer counts as "showing up" for streaks.
       addActivity(nextActivity);
       // Replace the step with a linked redirect row (completion becomes derived).
       updateActivity(activity.id, (prev) => ({
@@ -2757,7 +2758,7 @@ export function ActivityDetailScreen() {
       });
       if (!wasCompleted) {
         // Toggling from not-done to done counts as "showing up" for the day.
-        recordShowUp();
+        recordShowUpWithCelebration();
       }
       return;
     }
@@ -2812,7 +2813,7 @@ export function ActivityDetailScreen() {
       };
     });
     if (!wasCompleted) {
-      recordShowUp();
+      recordShowUpWithCelebration();
     }
     capture(AnalyticsEvent.ActivityCompletionToggled, {
       source: 'activity_detail',
@@ -2828,8 +2829,7 @@ export function ActivityDetailScreen() {
     date.setDate(date.getDate() + offsetDays);
     date.setHours(hours, minutes, 0, 0);
     const timestamp = new Date().toISOString();
-    // Planning counts as showing up (reminders are a commitment device).
-    recordShowUp();
+    // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
       ...prev,
       reminderAt: date.toISOString(),
@@ -2846,7 +2846,7 @@ export function ActivityDetailScreen() {
     if (!date || event.type === 'dismissed') return;
     const next = new Date(date);
     const timestamp = new Date().toISOString();
-    recordShowUp();
+    // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
       ...prev,
       reminderAt: next.toISOString(),
@@ -2869,8 +2869,7 @@ export function ActivityDetailScreen() {
     date.setDate(date.getDate() + offsetDays);
     date.setHours(23, 0, 0, 0);
     const timestamp = new Date().toISOString();
-    // Planning counts as showing up.
-    recordShowUp();
+    // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
       ...prev,
       scheduledDate: date.toISOString(),
@@ -2914,8 +2913,7 @@ export function ActivityDetailScreen() {
     next.setHours(23, 0, 0, 0);
 
     const timestamp = new Date().toISOString();
-    // Planning counts as showing up.
-    recordShowUp();
+    // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
       ...prev,
       scheduledDate: next.toISOString(),
@@ -2928,8 +2926,7 @@ export function ActivityDetailScreen() {
 
   const handleSelectRepeat = (rule: NonNullable<typeof activity.repeatRule>) => {
     const timestamp = new Date().toISOString();
-    // Planning counts as showing up.
-    recordShowUp();
+    // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
       ...prev,
       repeatRule: rule,

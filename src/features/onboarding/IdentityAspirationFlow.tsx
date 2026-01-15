@@ -2145,8 +2145,8 @@ export function IdentityAspirationFlow({
       return;
     }
 
-    // Creating an Arc counts as showing up (planning is still engagement).
-    useAppStore.getState().recordShowUp();
+    // Note: Creating arcs during onboarding doesn't count as "showing up" for streaks.
+    // Streaks require completing activities/focus sessions.
     const nowIso = new Date().toISOString();
     const arc: Arc = {
       id: draftArcId,

@@ -949,8 +949,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
       updatedAt: timestamp,
     };
 
-    // Creating an Arc counts as showing up (planning is still engagement).
-    recordShowUp();
+    // Note: Creating arcs no longer counts as "showing up" for streaks.
     addArc(arc);
     showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
     void HapticsService.trigger('outcome.success');
@@ -1031,8 +1030,7 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
                 updatedAt: timestamp,
               };
 
-              // Creating an Arc counts as showing up.
-              recordShowUp();
+              // Note: Creating arcs no longer counts as "showing up" for streaks.
               addArc(arc);
               showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
               void HapticsService.trigger('outcome.success');

@@ -56,11 +56,12 @@ export function TodayScreen() {
     [today]
   );
 
-  // Visiting the Today canvas counts as "showing up".
+  // Track visits but don't count as "showing up" for streak.
+  // Streaks require actual completed activities/focus sessions.
   useEffect(() => {
     if (!isFocused) return;
-    recordShowUp();
-  }, [isFocused, recordShowUp]);
+    // Passive viewing doesn't maintain streak anymore
+  }, [isFocused]);
 
   useEffect(() => {
     let cancelled = false;

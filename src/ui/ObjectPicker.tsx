@@ -37,6 +37,18 @@ type Props = {
   allowDeselect?: boolean;
   presentation?: 'popover' | 'drawer' | 'auto';
   drawerSnapPoints?: BottomDrawerSnapPoint[];
+  /**
+   * When using drawer presentation, this controls how the drawer is rendered.
+   * - 'modal' (default): uses a native Modal via BottomDrawer
+   * - 'inline': renders within the current React tree (use this when already
+   *   inside a modal/drawer to avoid stacking multiple modal layers)
+   */
+  drawerPresentation?: 'modal' | 'inline';
+  /**
+   * When using drawer presentation, optionally hide the backdrop scrim.
+   * Useful for inline drawers embedded inside other modal-like surfaces.
+   */
+  drawerHideBackdrop?: boolean;
   disabled?: boolean;
   recommendedOption?: ComboboxRecommendedOption;
 
@@ -71,6 +83,8 @@ export function ObjectPicker({
   allowDeselect = true,
   presentation = 'auto',
   drawerSnapPoints,
+  drawerPresentation,
+  drawerHideBackdrop,
   disabled,
   recommendedOption,
   size = 'default',
@@ -111,6 +125,8 @@ export function ObjectPicker({
       allowDeselect={allowDeselect}
       presentation={presentation}
       drawerSnapPoints={drawerSnapPoints}
+      drawerPresentation={drawerPresentation}
+      drawerHideBackdrop={drawerHideBackdrop}
       recommendedOption={recommendedOption}
       showSearch={showSearch}
       trigger={

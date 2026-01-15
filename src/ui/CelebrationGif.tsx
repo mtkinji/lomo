@@ -29,6 +29,11 @@ type CelebrationGifProps = {
    * Useful for full-screen celebration moments where controls would be distracting.
    */
   showControls?: boolean;
+  /**
+   * Color variant for the controls and attribution. Use 'dark' when rendering
+   * on dark backgrounds (e.g. celebration interstitials).
+   */
+  variant?: 'light' | 'dark';
 };
 
 /**
@@ -46,7 +51,11 @@ export function CelebrationGif({
   stylePreference,
   maxHeight,
   showControls = true,
+  variant = 'light',
 }: CelebrationGifProps) {
+  // Color scheme based on variant
+  const controlColor = variant === 'dark' ? colors.pine200 : colors.muted;
+  const controlActiveColor = variant === 'dark' ? colors.turmeric400 : colors.accent;
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -185,7 +194,7 @@ export function CelebrationGif({
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.iconButton}
               >
-                <Icon name="refresh" size={12} color={colors.muted} />
+                <Icon name="refresh" size={12} color={controlColor} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleLike}
@@ -197,7 +206,7 @@ export function CelebrationGif({
                 <Icon
                   name="thumbsUp"
                   size={12}
-                  color={isLiked ? colors.accent : colors.muted}
+                  color={isLiked ? controlActiveColor : controlColor}
                 />
               </TouchableOpacity>
               <TouchableOpacity
@@ -207,13 +216,13 @@ export function CelebrationGif({
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.iconButton}
               >
-                <Icon name="thumbsDown" size={12} color={colors.muted} />
+                <Icon name="thumbsDown" size={12} color={controlColor} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.attributionText}>GIFS BY GIPHY</Text>
+            <Text style={[styles.attributionText, { color: controlColor }]}>GIFS BY GIPHY</Text>
           </View>
           {feedbackMessage ? (
-            <Text style={styles.feedbackMessage}>{feedbackMessage}</Text>
+            <Text style={[styles.feedbackMessage, { color: controlColor }]}>{feedbackMessage}</Text>
           ) : null}
         </View>
       ) : null}

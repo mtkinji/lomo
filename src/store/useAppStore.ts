@@ -409,6 +409,22 @@ interface AppState {
   currentShowUpStreak: number;
   lastActiveDate: string | null;
   /**
+   * Streak grace system (like Duolingo's streak freeze).
+   * - Everyone gets 1 free grace day per week (auto-applied on miss)
+   * - Pro users can earn "Streak Shields" for additional protection
+   * - Grace is consumed automatically when you return after missing a day
+   */
+  streakGrace: {
+    /** How many grace days available this week (resets every Monday, max 1 for free users) */
+    freeDaysRemaining: number;
+    /** ISO week key (YYYY-Www) when free days last reset */
+    lastFreeResetWeek: string | null;
+    /** Streak Shields: Pro users can earn these, stackable up to 3 */
+    shieldsAvailable: number;
+    /** Days "covered" by grace since last show-up (for UI messaging) */
+    graceDaysUsed: number;
+  };
+  /**
    * Lightweight lifecycle counters used for post-activation nudges (e.g. widgets).
    * Best-effort only; do not use for billing/security.
    */
@@ -525,6 +541,11 @@ interface AppState {
    * shows once per newly-created goal.
    */
   dismissedPostGoalPlanGuideGoalIds: Record<string, true>;
+  /**
+   * Global flag indicating the user has seen the post-goal "create a plan" coachmark (tooltip) at least once.
+   * Once true, the coachmark will not show again, though the bottom guide still will for new goals.
+   */
+  hasSeenPostGoalPlanCoachmark: boolean;
   /**
    * Dismissal flag for the first-time Goal detail "Vectors for this goal" coachmark.
    * Explains how balancing vectors leads to more sustainable goals.
@@ -664,6 +685,11 @@ interface AppState {
    */
   resetShowUpStreak: () => void;
   resetFocusStreak: () => void;
+  /**
+   * Award streak shields to the user (Pro feature, max 3 shields at a time).
+   * Shields protect the streak when you miss a day (consumed after free grace).
+   */
+  addStreakShields: (count: number) => void;
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
@@ -905,6 +931,12 @@ export const useAppStore = create<AppState>()(
       lastShowUpDate: null,
       currentShowUpStreak: 0,
       lastActiveDate: null,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: null,
+        shieldsAvailable: 0,
+        graceDaysUsed: 0,
+      },
       appOpenCount: 0,
       firstOpenedAtMs: null,
       lastOpenedAtMs: null,
@@ -1063,6 +1095,7 @@ export const useAppStore = create<AppState>()(
       hasDismissedOnboardingPlanReadyGuide: false,
       pendingPostGoalPlanGuideGoalId: null,
       dismissedPostGoalPlanGuideGoalIds: {},
+      hasSeenPostGoalPlanCoachmark: false,
       hasDismissedGoalVectorsGuide: false,
       hasDismissedActivitiesListGuide: false,
       hasDismissedActivityDetailGuide: false,
@@ -1373,6 +1406,10 @@ export const useAppStore = create<AppState>()(
               state.pendingPostGoalPlanGuideGoalId === goalId ? null : state.pendingPostGoalPlanGuideGoalId,
           };
         }),
+      setHasSeenPostGoalPlanCoachmark: (hasSeen) =>
+        set(() => ({
+          hasSeenPostGoalPlanCoachmark: hasSeen,
+        })),
       setHasDismissedGoalVectorsGuide: (dismissed) =>
         set(() => ({
           hasDismissedGoalVectorsGuide: dismissed,
@@ -1636,15 +1673,51 @@ export const useAppStore = create<AppState>()(
           const prevKey = state.lastShowUpDate;
           const prevStreak = state.currentShowUpStreak ?? 0;
 
+          // Get ISO week key (YYYY-Www) for grace reset tracking
+          const getIsoWeekKey = (date: Date): string => {
+            const d = new Date(date.getTime());
+            d.setHours(0, 0, 0, 0);
+            // Thursday in current week decides the year
+            d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+            const week1 = new Date(d.getFullYear(), 0, 4);
+            const weekNum =
+              1 +
+              Math.round(
+                ((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
+              );
+            return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+          };
+
+          const currentWeekKey = getIsoWeekKey(nowDate);
+          const grace = state.streakGrace ?? {
+            freeDaysRemaining: 1,
+            lastFreeResetWeek: null,
+            shieldsAvailable: 0,
+            graceDaysUsed: 0,
+          };
+
+          // Reset free grace days if new week started
+          let nextGrace = { ...grace };
+          if (grace.lastFreeResetWeek !== currentWeekKey) {
+            nextGrace = {
+              ...nextGrace,
+              freeDaysRemaining: 1, // Everyone gets 1 free grace day per week
+              lastFreeResetWeek: currentWeekKey,
+            };
+          }
+
           if (prevKey === todayKey) {
             // Already counted today.
             return {
               ...state,
+              streakGrace: nextGrace,
               lastActiveDate: state.lastActiveDate ?? nowDate.toISOString(),
             };
           }
 
           let nextStreak = 1;
+          let graceDaysUsed = 0;
+
           if (prevKey) {
             const prevDate = parseLocalDateKey(prevKey);
             const startOfPrev = prevDate
@@ -1655,11 +1728,44 @@ export const useAppStore = create<AppState>()(
               nowDate.getMonth(),
               nowDate.getDate(),
             );
+
             if (startOfPrev) {
               const diffMs = startOfToday.getTime() - startOfPrev.getTime();
               const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+
               if (diffDays === 1) {
+                // Consecutive day - streak continues normally
                 nextStreak = prevStreak + 1;
+              } else if (diffDays > 1) {
+                // Missed days - try to use grace
+                const missedDays = diffDays - 1; // Days between last show-up and today
+                let graceAvailable = nextGrace.freeDaysRemaining + nextGrace.shieldsAvailable;
+
+                if (graceAvailable >= missedDays) {
+                  // Can cover all missed days with grace!
+                  graceDaysUsed = missedDays;
+                  nextStreak = prevStreak + 1; // Streak continues
+
+                  // Consume grace: free days first, then shields
+                  let remaining = missedDays;
+                  const freeUsed = Math.min(remaining, nextGrace.freeDaysRemaining);
+                  remaining -= freeUsed;
+                  const shieldsUsed = remaining; // Whatever's left comes from shields
+
+                  nextGrace = {
+                    ...nextGrace,
+                    freeDaysRemaining: nextGrace.freeDaysRemaining - freeUsed,
+                    shieldsAvailable: nextGrace.shieldsAvailable - shieldsUsed,
+                    graceDaysUsed: graceDaysUsed,
+                  };
+                } else {
+                  // Not enough grace - streak resets
+                  nextStreak = 1;
+                  nextGrace = {
+                    ...nextGrace,
+                    graceDaysUsed: 0, // Reset since streak reset
+                  };
+                }
               }
             }
           }
@@ -1668,6 +1774,7 @@ export const useAppStore = create<AppState>()(
             ...state,
             lastShowUpDate: todayKey,
             currentShowUpStreak: nextStreak,
+            streakGrace: nextGrace,
             lastActiveDate: nowDate.toISOString(),
           };
         }),
@@ -1747,6 +1854,10 @@ export const useAppStore = create<AppState>()(
           ...state,
           lastShowUpDate: null,
           currentShowUpStreak: 0,
+          streakGrace: {
+            ...state.streakGrace,
+            graceDaysUsed: 0,
+          },
         })),
       resetFocusStreak: () =>
         set((state) => ({
@@ -1756,6 +1867,23 @@ export const useAppStore = create<AppState>()(
           currentFocusStreak: 0,
           bestFocusStreak: 0,
         })),
+      addStreakShields: (count) =>
+        set((state) => {
+          const grace = state.streakGrace ?? {
+            freeDaysRemaining: 1,
+            lastFreeResetWeek: null,
+            shieldsAvailable: 0,
+            graceDaysUsed: 0,
+          };
+          const MAX_SHIELDS = 3;
+          return {
+            ...state,
+            streakGrace: {
+              ...grace,
+              shieldsAvailable: Math.min(MAX_SHIELDS, grace.shieldsAvailable + count),
+            },
+          };
+        }),
       resetOnboardingAnswers: () =>
         set((state) => {
           const base: UserProfile = state.userProfile ?? buildDefaultUserProfile();
@@ -1829,6 +1957,12 @@ export const useAppStore = create<AppState>()(
           lastShowUpDate: null,
           currentShowUpStreak: 0,
           lastActiveDate: null,
+          streakGrace: {
+            freeDaysRemaining: 1,
+            lastFreeResetWeek: null,
+            shieldsAvailable: 0,
+            graceDaysUsed: 0,
+          },
           lastCompletedFocusSessionDate: null,
           lastCompletedFocusSessionAtIso: null,
           currentFocusStreak: 0,
@@ -1944,6 +2078,12 @@ export const useAppStore = create<AppState>()(
             instacart: false,
             doordash: false,
           };
+        }
+        // Backward-compatible: set hasSeenPostGoalPlanCoachmark to true for existing users
+        // who have already dismissed the guide for any goal (they understand the flow).
+        if (!('hasSeenPostGoalPlanCoachmark' in anyState) || typeof anyState.hasSeenPostGoalPlanCoachmark !== 'boolean') {
+          const hasDismissedAnyGoal = Object.keys(anyState.dismissedPostGoalPlanGuideGoalIds ?? {}).length > 0;
+          (state as any).hasSeenPostGoalPlanCoachmark = hasDismissedAnyGoal;
         }
         // Backward-compatible: older persisted stores won't have goal nudge time.
         // Default to a high-engagement "afternoon momentum" time.

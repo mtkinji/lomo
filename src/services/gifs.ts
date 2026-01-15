@@ -14,7 +14,15 @@ export type CelebrationKind =
    * Legacy kind kept for backwards-compatibility with any persisted data.
    * New call sites should prefer the more specific variants above.
    */
-  | 'firstArc';
+  | 'firstArc'
+  // Progress celebrations (Asana-style moments)
+  | 'goalCompleted'
+  | 'activityCompleted'
+  | 'firstActivity'
+  | 'weeklyStreak'
+  | 'dailyStreak'
+  | 'allActivitiesDone'
+  | 'streakSaved'; // Grace was used to save the streak
 
 export type CelebrationStylePreference = 'cute' | 'minimal' | 'surprise';
 
@@ -43,7 +51,31 @@ export type FetchCelebrationGifParams = {
   skipLikedCache?: boolean;
 };
 
-const EXCLUDED_KEYWORDS = ['pride', 'gay', 'lgbt', 'nsfw', 'sexy'];
+const EXCLUDED_KEYWORDS = [
+  // Identity/adult themes
+  'pride', 'gay', 'lgbt', 'nsfw', 'sexy',
+  // Holidays and festivals - these are irrelevant to productivity celebrations
+  'christmas', 'xmas', 'new year', 'newyear', 'happy new', '2024', '2025', '2026', '2027',
+  'halloween', 'thanksgiving', 'easter', 'valentine', 'st patrick',
+  'hanukkah', 'chanukah', 'kwanzaa', 'diwali', 'eid', 'ramadan',
+  'lohri', 'holi', 'pongal', 'onam', 'navratri', 'durga',
+  'lunar new', 'chinese new', 'spring festival',
+  'independence day', '4th of july', 'fourth of july', 'memorial day', 'labor day',
+  'birthday', 'anniversary', 'wedding', 'baby shower', 'gender reveal',
+  // Political figures and campaigns
+  'trump', 'biden', 'obama', 'clinton', 'bush', 'kennedy', 'desantis', 'pence', 'harris',
+  'pelosi', 'mcconnell', 'aoc', 'bernie', 'sanders', 'warren', 'cruz', 'rubio',
+  'maga', 'democrat', 'republican', 'gop', 'liberal', 'conservative',
+  'election', 'vote', 'voting', 'ballot', 'campaign', 'president', 'congress', 'senate',
+  'political', 'politician', 'politics',
+  // News shows and political media (often source of political GIFs)
+  'tucker', 'carlson', 'hannity', 'maddow', 'fox news', 'cnn', 'msnbc',
+  'breitbart', 'infowars', 'newsmax', 'oan',
+  'joe rogan', 'ben shapiro', 'daily wire', 'podcast',
+  // Religious
+  'jesus', 'christ', 'church', 'mosque', 'temple', 'bible', 'quran', 'prayer', 'god bless',
+  'christian', 'muslim', 'jewish', 'hindu', 'buddhist',
+];
 
 function isUnder18(ageRange: AgeRange | undefined): boolean {
   return ageRange === 'under-18';
@@ -74,6 +106,29 @@ function buildGiphyQuery(params: FetchCelebrationGifParams): string {
   }
   if (kind === 'streak') {
     return 'you did it keep going celebration';
+  }
+  // Progress celebration moments (Asana-style)
+  // Be specific to avoid holiday/festival GIFs - use work/productivity context
+  if (role === 'celebration' && kind === 'goalCompleted') {
+    return 'mission accomplished nailed it success proud';
+  }
+  if (role === 'celebration' && kind === 'activityCompleted') {
+    return 'thumbs up nice work high five approval';
+  }
+  if (role === 'celebration' && kind === 'firstActivity') {
+    return 'first one down proud start beginning';
+  }
+  if (role === 'celebration' && kind === 'weeklyStreak') {
+    return 'crushing it unstoppable momentum winning';
+  }
+  if (role === 'celebration' && kind === 'dailyStreak') {
+    return 'consistent dedicated showing up daily routine';
+  }
+  if (role === 'celebration' && kind === 'allActivitiesDone') {
+    return 'finished done mic drop completed checklist';
+  }
+  if (role === 'celebration' && kind === 'streakSaved') {
+    return 'close call phew saved relief narrow escape';
   }
 
   let base = 'celebration';

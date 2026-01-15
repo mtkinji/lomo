@@ -118,7 +118,9 @@ export function ProfileAvatar({
           styles.initials,
           {
             fontSize: initialsFontSize,
-            lineHeight: initialsFontSize,
+            // Use a slightly taller lineHeight so flex centering works properly
+            // (matching fontSize causes font metrics to push text off-center)
+            lineHeight: Math.round(initialsFontSize * 1.2),
           },
         ]}
         numberOfLines={1}

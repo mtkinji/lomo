@@ -61,6 +61,12 @@ import { useFeatureFlagVariant } from '../../services/analytics/useFeatureFlagVa
 import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound } from '../../services/uiSounds';
+import {
+  celebrateFirstActivity,
+  celebrateAllActivitiesDone,
+  useCelebrationStore,
+  recordShowUpWithCelebration,
+} from '../../store/useCelebrationStore';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { colors } from '../../theme/colors';
@@ -770,32 +776,6 @@ export function ActivitiesScreen() {
   const [sessionCreatedIds, setSessionCreatedIds] = React.useState<Set<string>>(() => new Set());
   const lastCreatedActivityRef = React.useRef<Activity | null>(null);
 
-  const wrappedShowToast = React.useCallback(
-    (payload: any) => {
-      if (payload.message === 'Activity created' && lastCreatedActivityRef.current) {
-        const activity = lastCreatedActivityRef.current;
-        const matches =
-          QueryService.applyActivityFilters(
-            [activity],
-            filterGroups,
-            activeView?.filterGroupLogic ?? 'or',
-          ).length > 0;
-
-        if (!matches && filterGroups.length > 0) {
-          showToast({
-            ...payload,
-            actionLabel: 'Clear filters',
-            onPressAction: () => {
-              handleUpdateFilters([]);
-            },
-          });
-          return;
-        }
-      }
-      showToast(payload);
-    },
-    [showToast, filterGroups, activeView?.filterGroupLogic, handleUpdateFilters],
-  );
 
   const suggestedCardYRef = React.useRef<number | null>(null);
   const [highlightSuggested, setHighlightSuggested] = React.useState<boolean>(
@@ -1009,6 +989,104 @@ export function ActivitiesScreen() {
 
     return [...filtered, ...ghosts];
   }, [activities, filterGroups, focusContextGoalId, activeView?.filterGroupLogic, sessionCreatedIds]);
+
+  const handleUpdateFilters = React.useCallback(
+    (next: FilterGroup[], groupLogic: 'and' | 'or') => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' });
+        return;
+      }
+      if (!activeView) return;
+      void HapticsService.trigger('canvas.selection');
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        filters: next,
+        filterGroupLogic: groupLogic,
+      }));
+    },
+    [activeView, isPro, updateActivityView],
+  );
+
+  const wrappedShowToast = React.useCallback(
+    (payload: any) => {
+      if (payload.message === 'Activity created' && lastCreatedActivityRef.current) {
+        const activity = lastCreatedActivityRef.current;
+        const matches =
+          QueryService.applyActivityFilters(
+            [activity],
+            filterGroups,
+            activeView?.filterGroupLogic ?? 'or',
+          ).length > 0;
+
+        if (!matches && filterGroups.length > 0) {
+          showToast({
+            ...payload,
+            actionLabel: 'Clear filters',
+            onPressAction: () => {
+              handleUpdateFilters([], 'or');
+            },
+          });
+          return;
+        }
+      }
+      showToast(payload);
+    },
+    [showToast, filterGroups, activeView?.filterGroupLogic, handleUpdateFilters],
+  );
+
+  const handleUpdateSorts = React.useCallback(
+    (next: SortCondition[]) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' });
+        return;
+      }
+      if (!activeView) return;
+      void HapticsService.trigger('canvas.selection');
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        sorts: next,
+      }));
+    },
+    [activeView, isPro, updateActivityView],
+  );
+
+  const handleUpdateFilterMode = React.useCallback(
+    (next: ActivityFilterMode) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' });
+        return;
+      }
+      if (!activeView) return;
+      if (next !== activeView.filterMode) {
+        void HapticsService.trigger('canvas.selection');
+      }
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        filterMode: next,
+        filters: undefined, // Clear structured filters when switching to legacy mode
+      }));
+    },
+    [activeView, isPro, updateActivityView],
+  );
+
+  const handleUpdateSortMode = React.useCallback(
+    (next: ActivitySortMode) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' });
+        return;
+      }
+      if (!activeView) return;
+      if (next !== activeView.sortMode) {
+        void HapticsService.trigger('canvas.selection');
+      }
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        sortMode: next,
+        sorts: undefined, // Clear structured sorts when switching to legacy mode
+      }));
+    },
+    [activeView, isPro, updateActivityView],
+  );
 
   const visibleActivities = React.useMemo(() => {
     return QueryService.applyActivitySorts(filteredActivities, sortConditions);
@@ -1553,7 +1631,7 @@ export function ActivitiesScreen() {
     if (ghostedIds.length > 0) {
       showToast({
         message: `${ghostedIds.length} ${ghostedIds.length === 1 ? 'activity' : 'activities'} hidden by filters`,
-        variant: 'info',
+        variant: 'default',
       });
     }
   }, [activities, filterGroups, activeView?.filterGroupLogic, sessionCreatedIds, showToast]);
@@ -1651,6 +1729,7 @@ export function ActivitiesScreen() {
     (activityId: string) => {
       const timestamp = new Date().toISOString();
       let didFireHaptic = false;
+      let wasFirstCompletion = false;
       LayoutAnimation.configureNext(
         LayoutAnimation.create(
           220,
@@ -1666,6 +1745,7 @@ export function ActivitiesScreen() {
         }
         if (nextIsDone) {
           void playActivityDoneSound();
+          wasFirstCompletion = true;
         }
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activities_list',
@@ -1681,8 +1761,50 @@ export function ActivitiesScreen() {
           updatedAt: timestamp,
         };
       });
+
+      // Celebration checks (run after state update settles)
+      if (wasFirstCompletion) {
+        // Record the show-up (this also triggers daily streak celebration if milestone)
+        recordShowUpWithCelebration();
+
+        // Check if this is the user's very first completed activity
+        const { hasBeenShown } = useCelebrationStore.getState();
+        if (!hasBeenShown('first-activity-ever')) {
+          // Check if there were any previously completed activities
+          const completedActivities = activities.filter((a) => a.status === 'done');
+          if (completedActivities.length === 0) {
+            // This is their first activity completion ever!
+            setTimeout(() => celebrateFirstActivity(), 600);
+          }
+        }
+
+        // Check if all scheduled activities for today are now done
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(todayStart);
+        todayEnd.setDate(todayEnd.getDate() + 1);
+
+        const todayActivities = activities.filter((a) => {
+          if (!a.scheduledDate) return false;
+          const scheduled = new Date(a.scheduledDate);
+          return scheduled >= todayStart && scheduled < todayEnd;
+        });
+
+        // After this completion, all today's activities are done
+        const remainingIncomplete = todayActivities.filter(
+          (a) => a.id !== activityId && a.status !== 'done' && a.status !== 'skipped' && a.status !== 'cancelled'
+        );
+
+        if (todayActivities.length >= 3 && remainingIncomplete.length === 0) {
+          // All done for today! (only if they had 3+ activities planned)
+          const celebrationId = `all-done-${todayStart.toISOString().slice(0, 10)}`;
+          if (!hasBeenShown(celebrationId)) {
+            setTimeout(() => celebrateAllActivitiesDone(), 800);
+          }
+        }
+      }
     },
-    [capture, updateActivity],
+    [activities, capture, updateActivity],
   );
 
   const handleTogglePriorityOne = React.useCallback(
@@ -1718,77 +1840,6 @@ export function ActivitiesScreen() {
       setActiveActivityViewId(viewId);
     },
     [activeActivityViewId, isPro, setActiveActivityViewId],
-  );
-
-  const handleUpdateFilters = React.useCallback(
-    (next: FilterGroup[], groupLogic: 'and' | 'or') => {
-      if (!isPro) {
-        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' });
-        return;
-      }
-      if (!activeView) return;
-      void HapticsService.trigger('canvas.selection');
-      updateActivityView(activeView.id, (view) => ({
-        ...view,
-        filters: next,
-        filterGroupLogic: groupLogic,
-      }));
-    },
-    [activeView, isPro, updateActivityView],
-  );
-
-  const handleUpdateSorts = React.useCallback(
-    (next: SortCondition[]) => {
-      if (!isPro) {
-        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' });
-        return;
-      }
-      if (!activeView) return;
-      void HapticsService.trigger('canvas.selection');
-      updateActivityView(activeView.id, (view) => ({
-        ...view,
-        sorts: next,
-      }));
-    },
-    [activeView, isPro, updateActivityView],
-  );
-
-  const handleUpdateFilterMode = React.useCallback(
-    (next: ActivityFilterMode) => {
-      if (!isPro) {
-        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' });
-        return;
-      }
-      if (!activeView) return;
-      if (next !== activeView.filterMode) {
-        void HapticsService.trigger('canvas.selection');
-      }
-      updateActivityView(activeView.id, (view) => ({
-        ...view,
-        filterMode: next,
-        filters: undefined, // Clear structured filters when switching to legacy mode
-      }));
-    },
-    [activeView, isPro, updateActivityView],
-  );
-
-  const handleUpdateSortMode = React.useCallback(
-    (next: ActivitySortMode) => {
-      if (!isPro) {
-        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' });
-        return;
-      }
-      if (!activeView) return;
-      if (next !== activeView.sortMode) {
-        void HapticsService.trigger('canvas.selection');
-      }
-      updateActivityView(activeView.id, (view) => ({
-        ...view,
-        sortMode: next,
-        sorts: undefined, // Clear structured sorts when switching to legacy mode
-      }));
-    },
-    [activeView, isPro, updateActivityView],
   );
 
   // Handle reorder - called immediately when user drops an item
@@ -3578,7 +3629,8 @@ function ActivityCoachDrawer({
       updatedAt: timestamp,
     };
 
-    recordShowUp();
+    // Note: Creating activities no longer counts as "showing up" for streaks.
+    // Streaks require completing activities/focus sessions.
     addActivity(activity);
     capture(AnalyticsEvent.ActivityCreated, {
       source: 'manual_drawer',

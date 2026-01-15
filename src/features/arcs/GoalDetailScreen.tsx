@@ -114,6 +114,7 @@ import type { GoalProposalDraft } from '../ai/AiChatScreen';
 import { useScrollLinkedStatusBarStyle } from '../../ui/hooks/useScrollLinkedStatusBarStyle';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { HapticsService } from '../../services/HapticsService';
+import { celebrateGoalCompleted } from '../../store/useCelebrationStore';
 import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatusAppearance';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
@@ -158,6 +159,8 @@ export function GoalDetailScreen() {
     (state) => state.dismissedPostGoalPlanGuideGoalIds
   );
   const dismissPostGoalPlanGuideForGoal = useAppStore((state) => state.dismissPostGoalPlanGuideForGoal);
+  const hasSeenPostGoalPlanCoachmark = useAppStore((state) => state.hasSeenPostGoalPlanCoachmark);
+  const setHasSeenPostGoalPlanCoachmark = useAppStore((state) => state.setHasSeenPostGoalPlanCoachmark);
   const hasSeenOnboardingSharePrompt = useAppStore((state) => state.hasSeenOnboardingSharePrompt);
   const setHasSeenOnboardingSharePrompt = useAppStore(
     (state) => state.setHasSeenOnboardingSharePrompt
@@ -853,6 +856,7 @@ export function GoalDetailScreen() {
     if (goal?.id && goal.id === pendingPostGoalPlanGuideGoalId) {
       dismissPostGoalPlanGuideForGoal(goal.id);
     }
+    setHasSeenPostGoalPlanCoachmark(true);
     setShouldPromptAddActivity(false);
     setHasTransitionedFromPostGoalPlanGuide(false);
     setActivityCoachVisible(true);
@@ -862,10 +866,12 @@ export function GoalDetailScreen() {
     isOnboardingActivitiesHandoffEligible,
     pendingPostGoalPlanGuideGoalId,
     setHasDismissedOnboardingActivitiesGuide,
+    setHasSeenPostGoalPlanCoachmark,
   ]);
 
   const shouldShowPostGoalPlanCoachmark =
     hasTransitionedFromPostGoalPlanGuide &&
+    !hasSeenPostGoalPlanCoachmark &&
     hasCompletedFirstTimeOnboarding &&
     isPlanEmpty &&
     isAddActivitiesButtonReady &&
@@ -963,9 +969,9 @@ export function GoalDetailScreen() {
     const weekAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
     const targetDateLabelLocal = goal?.targetDate
       ? new Date(goal.targetDate).toLocaleDateString(undefined, {
-          month: 'short',
+          month: 'numeric',
           day: 'numeric',
-          year: 'numeric',
+          year: '2-digit',
         })
       : undefined;
 
@@ -998,7 +1004,7 @@ export function GoalDetailScreen() {
           const diffDays = Math.round((d.getTime() - todayStartMs) / (24 * 60 * 60 * 1000));
           if (diffDays === 0) return 'Today';
           if (diffDays === 1) return 'Tomorrow';
-          return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+          return d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
         })()
       : null;
 
@@ -1016,7 +1022,7 @@ export function GoalDetailScreen() {
       }
       return (
         targetDateLabelLocal ??
-        new Date(goal.targetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        new Date(goal.targetDate).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })
       );
     })();
     const targetValueColor =
@@ -1694,8 +1700,8 @@ export function GoalDetailScreen() {
       updatedAt: timestamp,
     };
 
-    // Creating an Activity counts as showing up (planning is still engagement).
-    recordShowUp();
+    // Note: Creating activities no longer counts as "showing up" for streaks.
+    // Streaks require completing activities/focus sessions.
     addActivity(nextActivity);
     showToast({ message: 'Activity created', variant: 'success', durationMs: 2200 });
     setActivityComposerVisible(false);
@@ -2047,6 +2053,7 @@ export function GoalDetailScreen() {
           if (isOnboardingActivitiesHandoffEligible) {
             setHasDismissedOnboardingActivitiesGuide(true);
           }
+          setHasSeenPostGoalPlanCoachmark(true);
           setHasTransitionedFromPostGoalPlanGuide(false);
           setShouldPromptAddActivity(false);
         }}
@@ -2738,33 +2745,11 @@ export function GoalDetailScreen() {
             </>
           ) : (
             <Text style={styles.membersSheetBody}>
-              Sign in to see members and invite others.
+              Sign in to see who's here and invite others.
             </Text>
           )}
 
           <View style={styles.membersSheetActions}>
-            {!authIdentity ? (
-              <Button
-                variant="secondary"
-                fullWidth
-                onPress={async () => {
-                  try {
-                    await ensureSignedInWithPrompt('share_goal');
-                    // Refresh roster after sign-in.
-                    setSharedMembersBusy(true);
-                    const members = await listGoalMembers(goalId);
-                    setSharedMembers(members);
-                  } catch {
-                    // user cancelled
-                  } finally {
-                    setSharedMembersBusy(false);
-                  }
-                }}
-                accessibilityLabel="Sign in"
-              >
-                <Text style={styles.membersSheetButtonLabel}>Sign in</Text>
-              </Button>
-            ) : null}
             {authIdentity && canLeaveSharedGoal ? (
               <Button
                 variant="secondary"
@@ -2774,7 +2759,7 @@ export function GoalDetailScreen() {
                   if (leaveSharedGoalBusy) return;
                   Alert.alert(
                     'Leave shared goal?',
-                    'You’ll lose access to this shared goal on this account. You can rejoin later with a new invite link.',
+                    "You'll lose access to this shared goal on this account. You can rejoin later with a new invite link.",
                     [
                       { text: 'Cancel', style: 'cancel' },
                       {
@@ -2957,12 +2942,17 @@ export function GoalDetailScreen() {
                   onPress={() => {
                     if (!goal?.id) return;
                     const timestamp = new Date().toISOString();
+                    const wasNotCompleted = goal.status !== 'completed';
                     updateGoal(goal.id, (prev) => ({
                       ...prev,
                       status: nextStatus,
                       updatedAt: timestamp,
                     }));
                     setGoalStatusSheetVisible(false);
+                    // Trigger celebration when marking a goal as completed
+                    if (nextStatus === 'completed' && wasNotCompleted) {
+                      celebrateGoalCompleted(goal.title);
+                    }
                   }}
                 >
                   <HStack alignItems="center" justifyContent="space-between">
@@ -3661,7 +3651,7 @@ function GoalActivityCoachDrawer({
       updatedAt: timestamp,
     };
 
-    recordShowUp();
+    // Note: Creating activities no longer counts as "showing up" for streaks.
     addActivity(activity);
     capture(AnalyticsEvent.ActivityCreated, {
       source: 'goal_detail_manual',
@@ -3669,7 +3659,7 @@ function GoalActivityCoachDrawer({
       goal_id: focusGoalId,
     });
     onClose();
-  }, [activities.length, addActivity, capture, focusGoalId, manualDraft, onClose, recordShowUp]);
+  }, [activities.length, addActivity, capture, focusGoalId, manualDraft, onClose]);
 
   const handleSwitchToManual = useCallback(() => {
     setActiveTab('manual');
@@ -3731,8 +3721,7 @@ function GoalActivityCoachDrawer({
           updatedAt: timestamp,
         };
 
-        // Creating an Activity counts as showing up.
-        recordShowUp();
+        // Note: Creating activities no longer counts as "showing up" for streaks.
         addActivity(nextActivity);
         capture(AnalyticsEvent.ActivityCreated, {
           source: 'goal_detail_ai_workflow',
@@ -3801,8 +3790,7 @@ function GoalActivityCoachDrawer({
         updatedAt: timestamp,
       };
 
-      // Creating an Activity counts as showing up.
-      recordShowUp();
+      // Note: Creating activities no longer counts as "showing up" for streaks.
       addActivity(nextActivity);
       // Best-effort: if the model suggested a location offer, geocode and attach it asynchronously.
       const locOffer = suggestion.locationOffer;

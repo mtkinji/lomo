@@ -222,6 +222,8 @@ type ProposedGoalDraft = {
   timeHorizon?: string;
   targetDate?: string;
   metrics?: Metric[];
+  thumbnailUrl?: string;
+  heroImageMeta?: Goal['heroImageMeta'];
 };
 
 export type GoalProposalDraft = ProposedGoalDraft;
@@ -2096,10 +2098,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
             : undefined;
         const arc = arcFromId ?? arcFromSuggestedName;
         if (arc) {
+          if (arc.thumbnailUrl) return arc.thumbnailUrl;
           const selection = pickHeroForArc(arc);
           if (selection.image?.uri) return selection.image.uri;
         }
-        const seed = `${proposal.title ?? ''}:${proposal.description ?? ''}`;
+        const seed = `${titleValue}:${descriptionValue}`;
         const index = hashStringToIndex(seed, ARC_HERO_LIBRARY.length);
         return ARC_HERO_LIBRARY[index]?.uri ?? ARC_HERO_LIBRARY[0]?.uri;
       })();
@@ -2317,7 +2320,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       emptyText="No matching Arcs."
                       accessibilityLabel="Choose an Arc for this goal"
                       allowDeselect
-                      presentation="drawer"
+                      presentation="popover"
                     />
                   </View>
                 </View>
@@ -2344,19 +2347,71 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         ? normalizeGoalTargetDate(goalDraftTargetDate)
                         : undefined;
 
+                    const arcId = focusedArcIdForGoal ?? selectedGoalArcId ?? null;
+                    const timestamp = new Date().toISOString();
+
+                    const resolvedImage = (() => {
+                      if (proposal.thumbnailUrl) {
+                        return { uri: proposal.thumbnailUrl, meta: proposal.heroImageMeta };
+                      }
+                      const arcFromId = arcId ? arcs.find((a) => a.id === arcId) : undefined;
+                      const arcFromSuggestedName =
+                        !arcFromId && typeof (proposal as any)?.suggestedArcName === 'string'
+                          ? arcs.find((a) => a.name === (proposal as any).suggestedArcName)
+                          : undefined;
+                      const arc = arcFromId ?? arcFromSuggestedName;
+                      if (arc) {
+                        if (arc.thumbnailUrl) {
+                          return { uri: arc.thumbnailUrl, meta: arc.heroImageMeta };
+                        }
+                        const selection = pickHeroForArc(arc);
+                        if (selection.image) {
+                          return {
+                            uri: selection.image.uri,
+                            meta: {
+                              source: 'curated',
+                              curatedId: selection.image.id,
+                              createdAt: timestamp,
+                            } as Goal['heroImageMeta'],
+                          };
+                        }
+                      }
+
+                      if (workflowRuntime?.definition?.chatMode === 'goalCreation') {
+                        const selection = useFirstTimeUxStore.getState().prefetchedArcHero;
+                        if (selection.image?.uri) {
+                          return { uri: selection.image.uri, meta: selection.heroImageMeta };
+                        }
+                      }
+
+                      const seed = `${trimmedTitle}:${trimmedDescription}`;
+                      const index = hashStringToIndex(seed, ARC_HERO_LIBRARY.length);
+                      const hero = ARC_HERO_LIBRARY[index] ?? ARC_HERO_LIBRARY[0];
+                      return {
+                        uri: hero.uri,
+                        meta: {
+                          source: 'curated',
+                          curatedId: hero.id,
+                          createdAt: timestamp,
+                        } as Goal['heroImageMeta'],
+                      };
+                    })();
+
                     if (onAdoptGoalProposal) {
                       onAdoptGoalProposal({
                         ...proposal,
                         title: trimmedTitle,
                         description: trimmedDescription.length ? trimmedDescription : undefined,
                         ...(resolvedTargetDate ? { targetDate: resolvedTargetDate } : null),
+                        thumbnailUrl: resolvedImage.uri,
+                        heroImageMeta: resolvedImage.meta,
+                        arcId,
                       });
                       dismissActiveGoalProposal(item.id);
                       onDismiss?.();
                       return;
                     }
 
-                    const arcId = focusedArcIdForGoal ?? selectedGoalArcId ?? null;
                     if (arcId) {
                       const isPro = useEntitlementsStore.getState().isPro;
                       const canCreate = canCreateGoalInArc({ isPro, goals, arcId });
@@ -2379,7 +2434,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         return;
                       }
                     }
-                    const timestamp = new Date().toISOString();
                     const mergedForceIntent = {
                       ...defaultForceLevels(0),
                       ...(proposal.forceIntent ?? {}),
@@ -2402,10 +2456,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       metrics,
                       createdAt: timestamp,
                       updatedAt: timestamp,
+                      thumbnailUrl: resolvedImage.uri,
+                      heroImageMeta: resolvedImage.meta,
                     };
 
-                    // Creating a Goal counts as showing up.
-                    useAppStore.getState().recordShowUp();
+                    // Note: Creating goals no longer counts as "showing up" for streaks.
                     addGoal(goal);
                     onGoalCreated?.(goal.id);
                     dismissActiveGoalProposal(item.id);
@@ -3125,7 +3180,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
             : [];
         const rejectedTitles = [...(dismissedActivitySuggestionTitles ?? []), ...existingTitles]
           .map((t) => t.trim())
-          .filter((t) => t.length > 0);
+          .filter((t) => t.length > 0)
+          .slice(-40); // Only keep the last 40 to avoid hitting message size limits
         const rejectedTitleSet = new Set(rejectedTitles.map(normalizeActivitySuggestionTitle));
 
         const history: CoachChatTurn[] = messagesRef.current.map((m) => ({

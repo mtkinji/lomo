@@ -18,6 +18,13 @@ import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
 
+const MAX_MESSAGE_CONTENT_LENGTH = 19000;
+
+function truncateMessageContent(content: string, limit: number = MAX_MESSAGE_CONTENT_LENGTH): string {
+  if (content.length <= limit) return content;
+  return content.slice(0, limit) + '... [content truncated due to size]';
+}
+
 export type ActivityAiEnrichment = {
   notes?: string;
   tags?: string[];
@@ -1676,8 +1683,8 @@ export async function judgeArcRubric(
       },
     },
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
+      { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+      { role: 'user' as const, content: truncateMessageContent(userPrompt) },
     ],
   };
   
@@ -1884,8 +1891,8 @@ export async function judgeArcComparisonRubric(
       },
     },
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
+      { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+      { role: 'user' as const, content: truncateMessageContent(userPrompt) },
     ],
   };
   
@@ -2050,8 +2057,8 @@ Return one photo-library search phrase that matches the Arc's vibe.
     temperature: 0.8,
     max_tokens: 24,
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
+      { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+      { role: 'user' as const, content: truncateMessageContent(userPrompt) },
     ],
   };
 
@@ -2207,8 +2214,8 @@ async function requestOpenAiArcs(
       },
     },
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
+      { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+      { role: 'user' as const, content: truncateMessageContent(userPrompt) },
     ],
   };
   devLog('arcs:request:prepared', {
@@ -2539,8 +2546,8 @@ export async function sendCoachChat(
       model: resolveChatModel(),
       temperature: 0.2,
       messages: [
-        { role: 'system' as const, content: summarySystemPrompt },
-        { role: 'user' as const, content: summaryUserContent },
+        { role: 'system' as const, content: truncateMessageContent(summarySystemPrompt) },
+        { role: 'user' as const, content: truncateMessageContent(summaryUserContent) },
       ],
     };
 
@@ -2593,8 +2600,11 @@ export async function sendCoachChat(
   });
 
   const openAiMessages = [
-    { role: 'system' as const, content: systemPrompt },
-    ...historyMessages,
+    { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+    ...historyMessages.map((m) => ({
+      ...m,
+      content: truncateMessageContent(m.content),
+    })),
   ];
   const tools = buildCoachToolsForMode(options?.mode);
 
@@ -3243,8 +3253,8 @@ export async function enrichActivityWithAI(
         },
       },
       messages: [
-        { role: 'system' as const, content: systemPrompt },
-        { role: 'user' as const, content: userPrompt },
+        { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+        { role: 'user' as const, content: truncateMessageContent(userPrompt) },
       ],
     };
 
@@ -3377,8 +3387,8 @@ export async function suggestActivityTagsWithAi(
       temperature: 0.2,
       max_tokens: 80,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+        { role: 'user' as const, content: truncateMessageContent(userPrompt) },
       ],
     };
 

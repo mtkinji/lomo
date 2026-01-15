@@ -47,6 +47,16 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import type { LaunchContext } from '../../domain/workflows';
 import { installScreenshotSeedPack, removeScreenshotSeedPack, SCREENSHOT_PACK_ARC_IDS } from './screenshotSeedPack';
+import {
+  useCelebrationStore,
+  celebrateGoalCompleted,
+  celebrateActivityCompleted,
+  celebrateFirstActivity,
+  celebrateWeeklyStreak,
+  celebrateDailyStreak,
+  celebrateAllActivitiesDone,
+  celebrateStreakSaved,
+} from '../../store/useCelebrationStore';
 
 type InterstitialVariant = 'launch' | 'auth' | 'streak';
 type DevToolsRoute = RouteProp<RootDrawerParamList, 'DevTools'>;
@@ -1622,6 +1632,59 @@ export function DevToolsScreen() {
               <Text style={styles.meta}>
                 Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
                 {lastTriggeredLabel}
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Celebration Interstitials</Text>
+              <Text style={styles.cardBody}>
+                Full-screen GIPHY-powered celebration moments that appear at key milestones (goal completion, activity completion, streaks).
+              </Text>
+              <Button variant="secondary" onPress={() => celebrateGoalCompleted('Test Goal')} style={styles.cardAction}>
+                <ButtonLabel size="md">Goal Completed 🏆</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateActivityCompleted('Test Activity')} style={styles.cardAction}>
+                <ButtonLabel size="md">Activity Completed ✨</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateFirstActivity()} style={styles.cardAction}>
+                <ButtonLabel size="md">First Activity 🎯</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateWeeklyStreak(3)} style={styles.cardAction}>
+                <ButtonLabel size="md">Weekly Streak 🔥</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateDailyStreak(1)} style={styles.cardAction}>
+                <ButtonLabel size="md">Day 1 (quick) ✨</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateDailyStreak(2)} style={styles.cardAction}>
+                <ButtonLabel size="md">Day 2 (quick) 💫</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateDailyStreak(3)} style={styles.cardAction}>
+                <ButtonLabel size="md">Day 3 (milestone) 🌱</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateDailyStreak(7)} style={styles.cardAction}>
+                <ButtonLabel size="md">Day 7 (milestone) 🔥</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateDailyStreak(30)} style={styles.cardAction}>
+                <ButtonLabel size="md">Day 30 (milestone) 🏆</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateDailyStreak(365)} style={styles.cardAction}>
+                <ButtonLabel size="md">1-Year (milestone) 🎉</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateAllActivitiesDone()} style={styles.cardAction}>
+                <ButtonLabel size="md">All Clear 🎉</ButtonLabel>
+              </Button>
+              <Button variant="secondary" onPress={() => celebrateStreakSaved(15, 1, 0, 1)} style={styles.cardAction}>
+                <ButtonLabel size="md">Streak Saved 🛡️</ButtonLabel>
+              </Button>
+              <Button
+                variant="outline"
+                onPress={() => useCelebrationStore.getState().resetShownIds()}
+                style={styles.cardAction}
+              >
+                <ButtonLabel size="md">Reset Shown IDs</ButtonLabel>
+              </Button>
+              <Text style={styles.meta}>
+                Celebrations use GIPHY for animated GIFs. Some are auto-dismiss, others require a tap.
               </Text>
             </View>
 

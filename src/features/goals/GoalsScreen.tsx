@@ -37,6 +37,7 @@ import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScroll
 import { richTextToPlainText } from '../../ui/richText';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
+import type { GoalProposalDraft } from '../ai/AiChatScreen';
 import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { HapticsService } from '../../services/HapticsService';
 import { BrandLockup } from '../../ui/BrandLockup';
@@ -71,7 +72,10 @@ import {
   getArcMosaicCell,
   getArcTopoSizes,
   pickThumbnailStyle,
+  hashStringToIndex,
 } from '../arcs/thumbnailVisuals';
+import { ARC_HERO_LIBRARY } from '../arcs/arcHeroLibrary';
+import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
@@ -255,8 +259,7 @@ export function GoalsScreen() {
     }
 
     const goalId = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    // Creating a Goal counts as showing up (planning is still engagement).
-    recordShowUp();
+    // Note: Creating goals no longer counts as "showing up" for streaks.
     addGoal({
       id: goalId,
       arcId,
@@ -1023,8 +1026,7 @@ export function GoalCoachDrawer({
       heroImageMeta: draft.heroImageMeta,
     };
 
-    // Creating a Goal counts as showing up.
-    recordShowUp();
+    // Note: Creating goals no longer counts as "showing up" for streaks.
     addGoal(goal);
     showToast({
       message: 'Goal created',
@@ -1050,7 +1052,7 @@ export function GoalCoachDrawer({
   };
 
   const handleCreateGoalFromDraft = React.useCallback(
-    (arcId: string, goalDraft: GoalDraft) => {
+    (arcId: string, goalDraft: GoalProposalDraft) => {
       const timestamp = new Date().toISOString();
       const mergedForceIntent = { ...defaultForceLevels(0), ...goalDraft.forceIntent };
 
@@ -1073,6 +1075,40 @@ export function GoalCoachDrawer({
 
       const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+      const resolvedImage = (() => {
+        if (goalDraft.thumbnailUrl) {
+          return { uri: goalDraft.thumbnailUrl, meta: goalDraft.heroImageMeta };
+        }
+        const arc = arcId ? arcs.find((a) => a.id === arcId) : undefined;
+        if (arc) {
+          if (arc.thumbnailUrl) {
+            return { uri: arc.thumbnailUrl, meta: arc.heroImageMeta };
+          }
+          const selection = pickHeroForArc(arc);
+          if (selection.image) {
+            return {
+              uri: selection.image.uri,
+              meta: {
+                source: 'curated',
+                curatedId: selection.image.id,
+                createdAt: timestamp,
+              } as Goal['heroImageMeta'],
+            };
+          }
+        }
+        const seed = `${goalDraft.title}:${goalDraft.description ?? ''}`;
+        const index = hashStringToIndex(seed, ARC_HERO_LIBRARY.length);
+        const hero = ARC_HERO_LIBRARY[index] ?? ARC_HERO_LIBRARY[0];
+        return {
+          uri: hero.uri,
+          meta: {
+            source: 'curated',
+            curatedId: hero.id,
+            createdAt: timestamp,
+          } as Goal['heroImageMeta'],
+        };
+      })();
+
       const goal: Goal = {
         id,
         arcId,
@@ -1084,10 +1120,11 @@ export function GoalCoachDrawer({
         metrics: [],
         createdAt: timestamp,
         updatedAt: timestamp,
+        thumbnailUrl: resolvedImage.uri,
+        heroImageMeta: resolvedImage.meta,
       };
 
-      // Creating a Goal counts as showing up.
-      recordShowUp();
+      // Note: Creating goals no longer counts as "showing up" for streaks.
       addGoal(goal);
       showToast({
         message: 'Goal created',

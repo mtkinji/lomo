@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { colors, fonts, spacing, typography } from '../theme';
 import { HStack, VStack, Text } from './primitives';
 
@@ -24,62 +24,68 @@ export function GoalProgressSignalsRow({ signals, style }: GoalProgressSignalsRo
 
   return (
     <View style={[styles.container, style]}>
-      <HStack style={styles.row} alignItems="stretch" justifyContent="center">
-        {visibleSignals.map((signal, index) => {
-          const a11yLabel = signal.accessibilityLabel ?? `${signal.label}: ${signal.value}`;
-          const isTappable = Boolean(signal.onPress);
-          return (
-            <React.Fragment key={signal.id}>
-              {isTappable ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={a11yLabel}
-                  onPress={signal.onPress}
-                  style={({ pressed }) => [styles.cell, pressed ? styles.cellPressed : null]}
-                  hitSlop={10}
-                >
-                  <VStack space="xs" alignItems="center">
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.valueText, signal.valueColor ? { color: signal.valueColor } : null]}
-                    >
-                      {signal.value}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.labelText, signal.labelColor ? { color: signal.labelColor } : null]}
-                    >
-                      {signal.label}
-                    </Text>
-                  </VStack>
-                </Pressable>
-              ) : (
-                <View accessibilityRole="text" accessibilityLabel={a11yLabel} style={styles.cell}>
-                  <VStack space="xs" alignItems="center">
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.valueText, signal.valueColor ? { color: signal.valueColor } : null]}
-                    >
-                      {signal.value}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.labelText, signal.labelColor ? { color: signal.labelColor } : null]}
-                    >
-                      {signal.label}
-                    </Text>
-                  </VStack>
-                </View>
-              )}
-              {index < visibleSignals.length - 1 ? (
-                <View style={styles.dividerGutter}>
-                  <View style={styles.divider} />
-                </View>
-              ) : null}
-            </React.Fragment>
-          );
-        })}
-      </HStack>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <HStack style={styles.row} alignItems="stretch" justifyContent="center">
+          {visibleSignals.map((signal, index) => {
+            const a11yLabel = signal.accessibilityLabel ?? `${signal.label}: ${signal.value}`;
+            const isTappable = Boolean(signal.onPress);
+            return (
+              <React.Fragment key={signal.id}>
+                {isTappable ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={a11yLabel}
+                    onPress={signal.onPress}
+                    style={({ pressed }) => [styles.cell, pressed ? styles.cellPressed : null]}
+                    hitSlop={10}
+                  >
+                    <VStack space="xs" alignItems="center">
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.valueText, signal.valueColor ? { color: signal.valueColor } : null]}
+                      >
+                        {signal.value}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.labelText, signal.labelColor ? { color: signal.labelColor } : null]}
+                      >
+                        {signal.label}
+                      </Text>
+                    </VStack>
+                  </Pressable>
+                ) : (
+                  <View accessibilityRole="text" accessibilityLabel={a11yLabel} style={styles.cell}>
+                    <VStack space="xs" alignItems="center">
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.valueText, signal.valueColor ? { color: signal.valueColor } : null]}
+                      >
+                        {signal.value}
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.labelText, signal.labelColor ? { color: signal.labelColor } : null]}
+                      >
+                        {signal.label}
+                      </Text>
+                    </VStack>
+                  </View>
+                )}
+                {index < visibleSignals.length - 1 ? (
+                  <View style={styles.dividerGutter}>
+                    <View style={styles.divider} />
+                  </View>
+                ) : null}
+              </React.Fragment>
+            );
+          })}
+        </HStack>
+      </ScrollView>
     </View>
   );
 }
@@ -88,6 +94,10 @@ const styles = StyleSheet.create({
   container: {
     alignSelf: 'stretch',
     alignItems: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   row: {
     paddingVertical: spacing.sm,

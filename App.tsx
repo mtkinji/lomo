@@ -35,6 +35,7 @@ import { LocationOfferService } from './src/services/locationOffers/LocationOffe
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
+import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
@@ -332,6 +333,7 @@ export default function App() {
               <FirstTimeUxFlow />
             </>
           )}
+          <CelebrationInterstitialHost />
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

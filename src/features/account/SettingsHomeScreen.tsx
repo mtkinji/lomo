@@ -241,6 +241,38 @@ export function SettingsHomeScreen() {
     generativeCredits?.monthKey === currentKey ? Math.max(0, generativeCredits.usedThisMonth ?? 0) : 0;
   const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);
 
+  // Streak stats
+  const currentStreak = useAppStore((state) => state.currentShowUpStreak ?? 0);
+  const streakGrace = useAppStore((state) => state.streakGrace);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+
+  // Calculate streak status
+  const getStreakStatus = () => {
+    if (!lastShowUpDate || currentStreak === 0) {
+      return { status: 'none', message: 'Complete an activity to start your streak!' } as const;
+    }
+
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    if (lastShowUpDate === todayKey) {
+      return { status: 'active', message: "You've shown up today!" } as const;
+    }
+
+    // Check if we're within grace period
+    const graceAvailable = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+    if (graceAvailable > 0) {
+      return {
+        status: 'at_risk',
+        message: `${graceAvailable} grace day${graceAvailable > 1 ? 's' : ''} available`,
+      } as const;
+    }
+
+    return { status: 'at_risk', message: "Complete an activity to keep your streak!" } as const;
+  };
+
+  const streakStatus = getStreakStatus();
+
   const updateAvatar = (uri?: string) => {
     updateUserProfile((current) => ({
       ...current,
@@ -486,6 +518,71 @@ export function SettingsHomeScreen() {
             <Text style={styles.profileHeaderSubtitle} numberOfLines={1}>
               {profileSubtitle}
             </Text>
+          </View>
+
+          {/* Streak Stats Card */}
+          <View style={styles.streakCardSection}>
+            <View style={styles.streakCard}>
+              <HStack alignItems="center" justifyContent="space-between" style={styles.streakCardHeader}>
+                <HStack alignItems="center" space="sm">
+                  <Text style={styles.streakCardIcon}>🔥</Text>
+                  <VStack space={0}>
+                    <Text style={styles.streakCardTitle}>
+                      {currentStreak > 0 ? `${currentStreak}-Day Streak` : 'No Streak Yet'}
+                    </Text>
+                    <Text style={styles.streakCardSubtitle}>{streakStatus.message}</Text>
+                  </VStack>
+                </HStack>
+                {currentStreak > 0 && (
+                  <View
+                    style={[
+                      styles.streakStatusBadge,
+                      streakStatus.status === 'active'
+                        ? styles.streakStatusActive
+                        : styles.streakStatusAtRisk,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.streakStatusLabel,
+                        streakStatus.status === 'active'
+                          ? styles.streakStatusLabelActive
+                          : styles.streakStatusLabelAtRisk,
+                      ]}
+                    >
+                      {streakStatus.status === 'active' ? '✓ Today' : '⚡ At Risk'}
+                    </Text>
+                  </View>
+                )}
+              </HStack>
+              {/* Grace info */}
+              {(streakGrace?.graceDaysUsed ?? 0) > 0 && (
+                <View style={styles.streakGraceInfo}>
+                  <Text style={styles.streakGraceText}>
+                    🛡️ Streak saved! Used {streakGrace?.graceDaysUsed} grace day
+                    {(streakGrace?.graceDaysUsed ?? 0) > 1 ? 's' : ''} this week.
+                  </Text>
+                </View>
+              )}
+              {currentStreak > 0 && (
+                <View style={styles.streakGraceRow}>
+                  <HStack alignItems="center" space="xs">
+                    <Text style={styles.streakGraceLabel}>Grace days:</Text>
+                    <Text style={styles.streakGraceValue}>
+                      {streakGrace?.freeDaysRemaining ?? 0}/1 free
+                    </Text>
+                  </HStack>
+                  {isPro && (
+                    <HStack alignItems="center" space="xs">
+                      <Text style={styles.streakGraceLabel}>Shields:</Text>
+                      <Text style={styles.streakGraceValue}>
+                        {streakGrace?.shieldsAvailable ?? 0}/3
+                      </Text>
+                    </HStack>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Pro upsell (Free only). Keep this as a single, clear "Get Kwilt Pro" card. */}
@@ -762,6 +859,80 @@ const styles = StyleSheet.create({
   sheetOptionDescription: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  // Streak card styles
+  streakCardSection: {
+    paddingHorizontal: spacing.lg,
+  },
+  streakCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  streakCardHeader: {
+    marginBottom: spacing.sm,
+  },
+  streakCardIcon: {
+    fontSize: 28,
+  },
+  streakCardTitle: {
+    ...typography.body,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  streakCardSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  streakStatusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: 999,
+  },
+  streakStatusActive: {
+    backgroundColor: colors.accentSage + '20',
+  },
+  streakStatusAtRisk: {
+    backgroundColor: colors.accentAmber + '20',
+  },
+  streakStatusLabel: {
+    ...typography.label,
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  streakStatusLabelActive: {
+    color: colors.accentSageStrong,
+  },
+  streakStatusLabelAtRisk: {
+    color: colors.accentAmberStrong,
+  },
+  streakGraceInfo: {
+    backgroundColor: colors.shellAlt,
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  streakGraceText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  streakGraceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  streakGraceLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  streakGraceValue: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
   },
 });
 

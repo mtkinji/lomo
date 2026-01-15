@@ -156,9 +156,10 @@ export function useQuickAddDockController(params: Params) {
       updatedAt: timestamp,
     } as any;
 
-    recordShowUp();
+    // Note: Creating activities no longer counts as "showing up" for streaks.
+    // Streaks require completing activities/focus sessions.
     addActivity(activity);
-    
+
     onCreated?.(activity);
 
     showToast({
