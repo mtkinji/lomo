@@ -189,7 +189,9 @@ const InputBase = forwardRef<TextInput, Props>(
               styles.input,
               multiline && styles.multilineInput,
               size === 'sm' && styles.inputSm,
-              multiline && multilineHeight != null
+              // For inline variant, skip explicit height so TextInput auto-expands in real-time.
+              // Other variants use managed height for controlled textarea behavior.
+              multiline && multilineHeight != null && variant !== 'inline'
                 ? { height: multilineHeight }
                 : null,
               multiline && multilineMinHeight != null ? { minHeight: multilineMinHeight } : null,

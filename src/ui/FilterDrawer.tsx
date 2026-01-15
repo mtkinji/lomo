@@ -254,20 +254,12 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
     onClose();
   };
 
-  const handleClearAll = () => {
-    setLocalGroups([]);
-    setLocalGroupLogic('or');
-  };
-
   return (
     <BottomDrawer visible={visible} onClose={onClose} snapPoints={['95%']} keyboardAvoidanceEnabled={false}>
       <VStack flex={1} style={styles.container}>
-        <HStack justifyContent="space-between" alignItems="center" style={styles.header}>
+        <View style={styles.header}>
           <Heading variant="sm">Filter Activities</Heading>
-            <Button variant="ghost" size="small" onPress={handleClearAll}>
-              <ButtonLabel size="sm">Clear All</ButtonLabel>
-            </Button>
-        </HStack>
+        </View>
 
         <KeyboardAwareScrollView
           style={styles.scroll}
@@ -389,19 +381,19 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
               <Text>{localGroups.length === 0 ? 'Add a filter' : 'Add filter group'}</Text>
             </HStack>
           </Button>
-
-          {/* Footer inside scroll so it's accessible when keyboard is up */}
-          <HStack space="md" style={styles.footer} justifyContent="flex-end">
-            <Button variant="ghost" onPress={onClose}>
-              <ButtonLabel size="md">Cancel</ButtonLabel>
-            </Button>
-            <Button onPress={handleApply}>
-              <ButtonLabel size="md" tone="inverse">
-                Apply
-              </ButtonLabel>
-            </Button>
-          </HStack>
         </KeyboardAwareScrollView>
+
+        {/* Footer anchored to bottom */}
+        <HStack space="md" style={styles.footer} justifyContent="flex-end">
+          <Button variant="ghost" onPress={onClose}>
+            <ButtonLabel size="md">Cancel</ButtonLabel>
+          </Button>
+          <Button onPress={handleApply}>
+            <ButtonLabel size="md" tone="inverse">
+              Apply
+            </ButtonLabel>
+          </Button>
+        </HStack>
       </VStack>
     </BottomDrawer>
   );
@@ -508,7 +500,7 @@ function ValueInput({ field, value, onChange, goalOptions }: {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: spacing.xl,
+    // BottomDrawer handles safe area padding
   },
   header: {
     paddingHorizontal: spacing.md,
@@ -572,11 +564,18 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xl,
   },
   footer: {
-    marginTop: spacing.xl,
+    marginHorizontal: -spacing.lg,
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
+    backgroundColor: colors.shell,
+    shadowColor: colors.textPrimary,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });
 

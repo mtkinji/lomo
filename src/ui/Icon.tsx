@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { KwiltIcon, type KwiltIconName } from '../icons/KwiltIcons';
 
 // NOTE:
@@ -15,13 +15,15 @@ import { KwiltIcon, type KwiltIconName } from '../icons/KwiltIcons';
 
 type FeatherName = ComponentProps<typeof Feather>['name'];
 type IonName = ComponentProps<typeof Ionicons>['name'];
+type MciName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-type IconLibrary = 'feather' | 'ion' | 'kwilt';
+type IconLibrary = 'feather' | 'ion' | 'kwilt' | 'mci';
 
 type IconEntry =
   | { library: 'feather'; name: FeatherName }
   | { library: 'ion'; name: IonName }
-  | { library: 'kwilt'; name: KwiltIconName };
+  | { library: 'kwilt'; name: KwiltIconName }
+  | { library: 'mci'; name: MciName };
 
 const iconMap: Record<string, IconEntry> = {
   today: { library: 'feather', name: 'calendar' },
@@ -116,6 +118,15 @@ const iconMap: Record<string, IconEntry> = {
   undo: { library: 'feather', name: 'rotate-ccw' },
   redo: { library: 'feather', name: 'rotate-cw' },
   expand: { library: 'feather', name: 'maximize-2' },
+  // Semantic Sort Icons
+  sortAlphaAsc: { library: 'mci', name: 'sort-alphabetical-ascending' },
+  sortAlphaDesc: { library: 'mci', name: 'sort-alphabetical-descending' },
+  sortNumericAsc: { library: 'mci', name: 'sort-numeric-ascending' },
+  sortNumericDesc: { library: 'mci', name: 'sort-numeric-descending' },
+  sortCalendarAsc: { library: 'mci', name: 'sort-calendar-ascending' },
+  sortCalendarDesc: { library: 'mci', name: 'sort-calendar-descending' },
+  sortAmountAsc: { library: 'mci', name: 'sort-variant-lock-open' }, // Fallback for general amount
+  sortAmountDesc: { library: 'mci', name: 'sort-variant-lock' },
 };
 
 export type IconName = keyof typeof iconMap;
@@ -131,6 +142,10 @@ export function Icon({ name, size = 20, color = '#F9FAFB', ...rest }: IconProps)
 
   if (entry.library === 'ion') {
     return <Ionicons name={entry.name} size={size} color={color} {...rest} />;
+  }
+
+  if (entry.library === 'mci') {
+    return <MaterialCommunityIcons name={entry.name} size={size} color={color} {...rest} />;
   }
 
   if (entry.library === 'kwilt') {

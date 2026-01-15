@@ -24,7 +24,7 @@ import { Icon } from './Icon';
 import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
 
-const MAX_MENU_HEIGHT = 320; // ShadCN-ish: keeps long lists scrollable without feeling huge.
+const MAX_MENU_HEIGHT = 480; // Keeps long lists scrollable while showing more options.
 const MIN_MENU_HEIGHT = 180;
 // When the keyboard is about to open due to the combobox search autofocus,
 // scroll the *trigger field* up enough to keep the label + field + menu visible.
@@ -421,13 +421,14 @@ export function Combobox({
           // Match the LongText editor behavior: keep the visible content above the keyboard
           // while extending the sheet background under the keyboard to avoid iOS corner gaps.
           dynamicHeightUnderKeyboard
-          visibleContentHeightFallbackPx={400}
-          // Long lists (25+ arcs) should scroll rather than expanding to a huge sheet.
-          maxVisibleContentHeightPx={480}
-          // Don't let the drawer collapse below the intended visible height.
-          minVisibleContentHeightPx={400}
+          visibleContentHeightFallbackPx={240}
+          // Long lists should scroll rather than expanding to a huge sheet.
+          maxVisibleContentHeightPx={MAX_MENU_HEIGHT}
+          // Dynamic resizing: allow the sheet to shrink to fit small option lists.
+          minVisibleContentHeightPx={120}
           dismissOnBackdropPress
           enableContentPanningGesture
+          dynamicSizing
         >
           <View style={styles.drawerCommand}>
             {showSearch ? (
@@ -704,7 +705,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   list: {
-    maxHeight: 300,
+    maxHeight: 460,
   },
   listContent: {
     paddingHorizontal: spacing.xs,

@@ -950,8 +950,14 @@ export function ActivitiesScreen() {
     }
   }, [activeView, filterMode]);
 
+  const structuredSorts = React.useMemo<SortCondition[]>(() => {
+    // Structured sorts are Pro Tools. Free users should always see baseline sorting.
+    if (!isPro) return [];
+    return activeView?.sorts ?? [];
+  }, [activeView?.sorts, isPro]);
+
   const sortConditions = React.useMemo<SortCondition[]>(() => {
-    if (activeView?.sorts && activeView.sorts.length > 0) return activeView.sorts;
+    if (structuredSorts.length > 0) return structuredSorts;
     // Map legacy sortMode
     switch (sortMode) {
       case 'titleAsc':
@@ -968,7 +974,9 @@ export function ActivitiesScreen() {
       default:
         return [{ field: 'orderIndex', direction: 'asc' }];
     }
-  }, [activeView, sortMode]);
+  }, [structuredSorts, sortMode]);
+
+  const isManualOrderEffective = structuredSorts.length === 0 && sortMode === 'manual';
 
   const filteredActivities = React.useMemo(() => {
     const base = activities.filter((activity) => {
@@ -2268,7 +2276,7 @@ export function ActivitiesScreen() {
                       </Button>
                     {sortConditions.length > 1 && (
                       <View style={styles.toolbarBadgeCorner}>
-                        <Badge variant="secondary" style={styles.toolbarBadge}>
+                        <Badge variant="info" style={styles.toolbarBadge}>
                           <Text style={styles.toolbarBadgeText}>{sortConditions.length}</Text>
                         </Badge>
                       </View>
@@ -2303,46 +2311,11 @@ export function ActivitiesScreen() {
               </View>
             </HStack>
           </HStack>
-          {/* Show chips when filter or sort is not default */}
-          {(filterMode !== 'all' || sortMode !== 'manual') && (
-            <HStack style={styles.appliedChipsRow} space="xs" alignItems="center">
-              {filterMode !== 'all' && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear activity filters"
-                  onPress={() => handleUpdateFilterMode('all')}
-                  style={styles.appliedChip}
-                >
-                  <HStack space="xs" alignItems="center">
-                    <Text style={styles.appliedChipLabel}>
-                      Filter: {getFilterLabel(filterMode)}
-                    </Text>
-                    <Icon name="close" size={12} color={colors.textSecondary} />
-                  </HStack>
-                </Pressable>
-              )}
-              {sortMode !== 'manual' && (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Reset sort to manual order"
-                  onPress={() => handleUpdateSortMode('manual')}
-                  style={styles.appliedChip}
-                >
-                  <HStack space="xs" alignItems="center">
-                    <Text style={styles.appliedChipLabel}>
-                      Sort: {getSortLabel(sortMode)}
-                    </Text>
-                    <Icon name="close" size={12} color={colors.textSecondary} />
-                  </HStack>
-                </Pressable>
-              )}
-            </HStack>
-          )}
         </View>
       )}
     </View>
 
-      {sortMode === 'manual' ? (
+      {isManualOrderEffective ? (
         <DraggableList
           items={activeActivities}
           onOrderChange={handleReorderActivities}
@@ -2749,7 +2722,8 @@ export function ActivitiesScreen() {
       <SortDrawer
         visible={sortDrawerVisible}
         onClose={() => setSortDrawerVisible(false)}
-        sorts={sortConditions}
+        sorts={structuredSorts}
+        defaultSortMode={sortMode}
         onApply={handleUpdateSorts}
       />
       <ActivityCoachDrawer
@@ -2950,12 +2924,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  appliedChipsRow: {
-    // Keep a comfortable gap between the applied chips and the Activities list
-    // so the controls feel visually separate from the canvas, while still
-    // clearly associated with it.
-    marginBottom: spacing.lg,
-  },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
@@ -3098,16 +3066,6 @@ const styles = StyleSheet.create({
     marginHorizontal: -spacing.xs,
     paddingLeft: spacing.xs + spacing.sm,
     paddingRight: spacing.xs + spacing.sm,
-  },
-  appliedChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
-  },
-  appliedChipLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   activitiesGuideTitle: {
     ...typography.titleSm,
@@ -3462,38 +3420,6 @@ const styles = StyleSheet.create({
     color: colors.canvas,
   },
 });
-
-function getFilterLabel(mode: ActivityFilterMode): string {
-  switch (mode) {
-    case 'priority1':
-      return 'Starred';
-    case 'active':
-      return 'Active';
-    case 'completed':
-      return 'Completed';
-    case 'all':
-    default:
-      return 'All';
-  }
-}
-
-function getSortLabel(mode: ActivitySortMode): string {
-  switch (mode) {
-    case 'titleAsc':
-      return 'Title A–Z';
-    case 'titleDesc':
-      return 'Title Z–A';
-    case 'dueDateAsc':
-      return 'Due date (soonest first)';
-    case 'dueDateDesc':
-      return 'Due date (latest first)';
-    case 'priority':
-      return 'Starred first';
-    case 'manual':
-    default:
-      return 'Manual order';
-  }
-}
 
 type ActivityCoachDrawerProps = {
   visible: boolean;

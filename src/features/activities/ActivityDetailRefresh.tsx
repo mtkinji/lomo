@@ -920,7 +920,7 @@ export function ActivityDetailRefresh(props: any) {
                             // especially when users paste long text.
                             multilineMaxHeight={Number.POSITIVE_INFINITY}
                             scrollEnabled={false}
-                            blurOnSubmit={false}
+                            blurOnSubmit
                             returnKeyType="done"
                           />
                         )}
@@ -959,7 +959,7 @@ export function ActivityDetailRefresh(props: any) {
                   multilineMinHeight={typography.body.lineHeight}
                   multilineMaxHeight={Number.POSITIVE_INFINITY}
                   scrollEnabled={false}
-                  blurOnSubmit={false}
+                  blurOnSubmit
                   returnKeyType="done"
                   onSubmitEditing={() => commitInlineStep('continue')}
                   onBlur={() => {
