@@ -103,9 +103,14 @@ export async function fetchGoalFeed(params: FetchGoalFeedParams): Promise<GoalFe
     query = query.lt('created_at', params.before);
   }
 
+  // Fetch feed events, members, and check-in details in parallel
+  // Members fetch is best-effort - the feed should work even if it fails
   const [feedResult, membersResult, checkinsResult] = await Promise.all([
     query,
-    listGoalMembers(params.goalId),
+    listGoalMembers(params.goalId).catch((err) => {
+      console.warn('[goalFeed] Members fetch failed (non-blocking):', err);
+      return null;
+    }),
     // Also fetch check-in details to get the text content
     fetchCheckinDetails(params.goalId, limit, params.before),
   ]);

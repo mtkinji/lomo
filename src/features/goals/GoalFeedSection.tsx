@@ -104,8 +104,9 @@ export function GoalFeedSection({
         itemCount: result.items.length,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load feed';
-      setError(message);
+      // Show a user-friendly error, not the raw technical message
+      console.warn('[GoalFeedSection] Feed load error:', err);
+      setError('Unable to load activity. Check your connection and try again.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
