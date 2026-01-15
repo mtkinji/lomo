@@ -153,6 +153,12 @@ type CompletedActivitySectionProps = {
   onTogglePriority: (activityId: string) => void;
   onPressActivity: (activityId: string) => void;
   isMetaLoading?: (activityId: string) => boolean;
+  /** Set of activity IDs created during this session (for ghost detection) */
+  sessionCreatedIds: Set<string>;
+  /** Current filter groups applied to the view */
+  filterGroups: FilterGroup[];
+  /** The active view (used for filterGroupLogic) */
+  activeView: ActivityView | undefined;
 };
 
 function CompletedActivitySection({
@@ -162,6 +168,9 @@ function CompletedActivitySection({
   onTogglePriority,
   onPressActivity,
   isMetaLoading,
+  sessionCreatedIds,
+  filterGroups,
+  activeView,
 }: CompletedActivitySectionProps) {
   const [expanded, setExpanded] = React.useState(false);
 
@@ -2435,6 +2444,9 @@ export function ActivitiesScreen() {
                   onTogglePriority={handleTogglePriorityOne}
                   onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
                   isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+                  sessionCreatedIds={sessionCreatedIds}
+                  filterGroups={filterGroups}
+                  activeView={activeView}
                 />
               </View>
             ) : undefined
@@ -2558,8 +2570,11 @@ export function ActivitiesScreen() {
                   goalTitleById={goalTitleById}
                   onToggleComplete={handleToggleComplete}
                   onTogglePriority={handleTogglePriorityOne}
-                onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
+                  onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
                   isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+                  sessionCreatedIds={sessionCreatedIds}
+                  filterGroups={filterGroups}
+                  activeView={activeView}
                 />
               </View>
             ) : (
