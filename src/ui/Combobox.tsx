@@ -418,9 +418,9 @@ export function Combobox({
           onClose={() => handleOpenChange(false)}
           presentation={drawerPresentation}
           hideBackdrop={drawerHideBackdrop}
-          // Match the LongText editor behavior: keep the visible content above the keyboard
-          // while extending the sheet background under the keyboard to avoid iOS corner gaps.
-          dynamicHeightUnderKeyboard
+          // When showing search, use dynamic keyboard-aware sizing.
+          // When search is hidden, use fixed snap points for a simple picker experience.
+          dynamicHeightUnderKeyboard={showSearch}
           visibleContentHeightFallbackPx={240}
           // Long lists should scroll rather than expanding to a huge sheet.
           maxVisibleContentHeightPx={MAX_MENU_HEIGHT}
@@ -428,7 +428,8 @@ export function Combobox({
           minVisibleContentHeightPx={120}
           dismissOnBackdropPress
           enableContentPanningGesture
-          dynamicSizing
+          dynamicSizing={showSearch}
+          snapPoints={showSearch ? undefined : drawerSnapPoints ?? DEFAULT_DRAWER_SNAP_POINTS}
         >
           <View style={styles.drawerCommand}>
             {showSearch ? (
@@ -742,6 +743,7 @@ const styles = StyleSheet.create({
   },
   itemLabel: {
     ...typography.bodySm,
+    fontSize: 15,
     color: colors.textPrimary,
     flexShrink: 1,
   },
