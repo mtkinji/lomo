@@ -120,6 +120,7 @@ import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScroll
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
 import { createReferralCode } from '../../services/referrals';
 import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
+import { SharedGoalActivityDrawer } from '../goals/SharedGoalActivityDrawer';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
@@ -517,6 +518,7 @@ export function GoalDetailScreen() {
   const [sharedMembers, setSharedMembers] = useState<SharedMember[] | null>(null);
   const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
+  const [activityDrawerVisible, setActivityDrawerVisible] = useState(false);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
 
   const canLeaveSharedGoal = useMemo(() => {
@@ -2750,6 +2752,18 @@ export function GoalDetailScreen() {
           )}
 
           <View style={styles.membersSheetActions}>
+            {/* Activity button - opens the feed drawer */}
+            <Button
+              variant="primary"
+              fullWidth
+              onPress={() => {
+                setMembersSheetVisible(false);
+                setActivityDrawerVisible(true);
+              }}
+              accessibilityLabel="View activity"
+            >
+              <Text style={styles.membersSheetButtonLabel}>Activity</Text>
+            </Button>
             {authIdentity && canLeaveSharedGoal ? (
               <Button
                 variant="secondary"
@@ -2807,6 +2821,13 @@ export function GoalDetailScreen() {
           </View>
         </View>
       </BottomDrawer>
+      {/* Shared goal activity drawer (check-ins + feed) */}
+      <SharedGoalActivityDrawer
+        visible={activityDrawerVisible}
+        onClose={() => setActivityDrawerVisible(false)}
+        goalId={goalId}
+        goalTitle={goal?.name}
+      />
       <BottomDrawer
         visible={refineGoalSheetVisible}
         onClose={() => setRefineGoalSheetVisible(false)}
