@@ -62,6 +62,13 @@ export const AnalyticsEvent = {
   ArcDraftClaimAttempted: 'arc_draft_claim_attempted',
   ArcDraftClaimSucceeded: 'arc_draft_claim_succeeded',
   ArcDraftClaimFailed: 'arc_draft_claim_failed',
+
+  // Shared goal check-ins + reactions
+  SharedGoalCheckinCreated: 'shared_goal_checkin_created',
+  SharedGoalCheckinFailed: 'shared_goal_checkin_failed',
+  SharedGoalReactionAdded: 'shared_goal_reaction_added',
+  SharedGoalReactionRemoved: 'shared_goal_reaction_removed',
+  SharedGoalFeedViewed: 'shared_goal_feed_viewed',
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
