@@ -95,7 +95,11 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
-import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
+import {
+  recordShowUpWithCelebration,
+  recordCompletedFocusSessionWithMilestone,
+} from '../../store/useCelebrationStore';
+import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
@@ -215,7 +219,6 @@ export function ActivityDetailScreen() {
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
-  const recordCompletedFocusSession = useAppStore((state) => state.recordCompletedFocusSession);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const lastFocusMinutes = useAppStore((state) => state.lastFocusMinutes);
   const setLastFocusMinutes = useAppStore((state) => state.setLastFocusMinutes);
@@ -504,11 +507,11 @@ export function ActivityDetailScreen() {
 
   const difficultyOptions = useMemo(
     () => [
-      { value: 'very_easy', label: 'Very easy' },
-      { value: 'easy', label: 'Easy' },
-      { value: 'medium', label: 'Medium' },
-      { value: 'hard', label: 'Hard' },
-      { value: 'very_hard', label: 'Very hard' },
+      { value: 'very_easy', label: '1 · Very easy' },
+      { value: 'easy', label: '2 · Easy' },
+      { value: 'medium', label: '3 · Medium' },
+      { value: 'hard', label: '5 · Hard' },
+      { value: 'very_hard', label: '8 · Very hard' },
     ],
     [],
   );
@@ -1879,8 +1882,34 @@ export function ActivityDetailScreen() {
     // Session completed
     void HapticsService.trigger('outcome.success');
     recordShowUpWithCelebration();
-    recordCompletedFocusSession({ completedAtMs: Date.now() });
+    recordCompletedFocusSessionWithMilestone({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
+
+    // Check-in nudge for activities under shared goals
+    const activityGoalId = activity?.goalId;
+    if (activityGoalId) {
+      const { shouldShowNudge } = useCheckinNudgeStore.getState();
+      if (shouldShowNudge(activityGoalId, 'focus_complete')) {
+        setTimeout(() => {
+          useToastStore.getState().showToast({
+            message: 'Great focus session! Share with your team?',
+            variant: 'default',
+            durationMs: 4000,
+            actionLabel: 'Check in',
+            actionOnPress: () => {
+              rootNavigationRef.navigate('ArcsStack', {
+                screen: 'GoalDetail',
+                params: {
+                  goalId: activityGoalId,
+                  entryPoint: 'activitiesStack',
+                  openActivitySheet: true,
+                },
+              });
+            },
+          });
+        }, 1500); // Slightly longer delay to not compete with completion celebration
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingFocusMs, focusSession?.mode]);
 
@@ -2521,6 +2550,32 @@ export function ActivityDetailScreen() {
           next_status: 'done',
           had_steps: hadSteps,
         });
+
+        // Check-in nudge for activities under shared goals
+        const activityGoalId = activity.goalId;
+        if (activityGoalId) {
+          const { shouldShowNudge } = useCheckinNudgeStore.getState();
+          if (shouldShowNudge(activityGoalId, 'activity_complete')) {
+            setTimeout(() => {
+              useToastStore.getState().showToast({
+                message: 'Share your progress with your team?',
+                variant: 'default',
+                durationMs: 4000,
+                actionLabel: 'Check in',
+                actionOnPress: () => {
+                  rootNavigationRef.navigate('ArcsStack', {
+                    screen: 'GoalDetail',
+                    params: {
+                      goalId: activityGoalId,
+                      entryPoint: 'activitiesStack',
+                      openActivitySheet: true,
+                    },
+                  });
+                },
+              });
+            }, 1200);
+          }
+        }
       }
     });
   };
@@ -3177,15 +3232,15 @@ export function ActivityDetailScreen() {
     const formatDifficulty = (value: string) => {
       switch (value) {
         case 'very_easy':
-          return 'Very easy';
+          return '1 · Very easy';
         case 'easy':
-          return 'Easy';
+          return '2 · Easy';
         case 'medium':
-          return 'Medium';
+          return '3 · Medium';
         case 'hard':
-          return 'Hard';
+          return '5 · Hard';
         case 'very_hard':
-          return 'Very hard';
+          return '8 · Very hard';
         default:
           return value;
       }

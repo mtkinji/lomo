@@ -120,6 +120,10 @@ import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScroll
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
 import { createReferralCode } from '../../services/referrals';
 import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
+import { CheckinComposer } from '../goals/CheckinComposer';
+import { GoalFeedSection } from '../goals/GoalFeedSection';
+import { CheckinNudgePrompt } from '../../ui/CheckinNudgePrompt';
+import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
@@ -139,7 +143,7 @@ const FIRST_GOAL_ILLUSTRATION = require('../../../assets/illustrations/goal-set.
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
   const navigation = useNavigation();
-  const { goalId, entryPoint, initialTab } = route.params;
+  const { goalId, entryPoint, initialTab, openActivitySheet } = route.params;
   const showToast = useToastStore((state) => state.showToast);
   const setToastsSuppressed = useToastStore((state) => state.setToastsSuppressed);
   const { capture } = useAnalytics();
@@ -517,7 +521,46 @@ export function GoalDetailScreen() {
   const [sharedMembers, setSharedMembers] = useState<SharedMember[] | null>(null);
   const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
+  const [membersSheetTab, setMembersSheetTab] = useState<'activity' | 'members'>('activity');
+  const [isCheckinComposerVisible, setIsCheckinComposerVisible] = useState(false);
+  const [feedRefreshKey, setFeedRefreshKey] = useState(0);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
+  const [inlineNudgeDismissed, setInlineNudgeDismissed] = useState(false);
+  const recordCheckin = useCheckinNudgeStore((s) => s.recordCheckin);
+  const recordVisit = useCheckinNudgeStore((s) => s.recordVisit);
+  const shouldShowNudge = useCheckinNudgeStore((s) => s.shouldShowNudge);
+  const dismissNudge = useCheckinNudgeStore((s) => s.dismissNudge);
+
+  // Determine if this is a shared goal (has members beyond just the current user)
+  const isSharedGoal = useMemo(() => {
+    return Array.isArray(sharedMembers) && sharedMembers.length > 1;
+  }, [sharedMembers]);
+
+  // Show inline nudge for shared goals when appropriate
+  const showInlineCheckinNudge = useMemo(() => {
+    if (!isSharedGoal) return false;
+    if (inlineNudgeDismissed) return false;
+    return shouldShowNudge(goalId, 'goal_load');
+  }, [isSharedGoal, inlineNudgeDismissed, shouldShowNudge, goalId]);
+
+  // Record visit when goal detail is focused
+  useEffect(() => {
+    if (isFocused && goalId) {
+      recordVisit(goalId);
+    }
+  }, [isFocused, goalId, recordVisit]);
+
+  // Open the activity sheet if requested via route param (e.g., from activity completion nudge)
+  useEffect(() => {
+    if (openActivitySheet && isFocused) {
+      // Small delay to let the screen settle before showing the sheet
+      const timer = setTimeout(() => {
+        setMembersSheetVisible(true);
+        setMembersSheetTab('activity');
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [openActivitySheet, isFocused]);
 
   const canLeaveSharedGoal = useMemo(() => {
     const uid = authIdentity?.userId ?? '';
@@ -2319,6 +2362,26 @@ export function GoalDetailScreen() {
                   </View>
                 </View>
 
+                {/* Inline check-in nudge for shared goals */}
+                {showInlineCheckinNudge ? (
+                  <View style={styles.inlineNudgeSection}>
+                    <CheckinNudgePrompt
+                      goalId={goalId}
+                      headline="How's it going?"
+                      subheadline="Let your team know"
+                      source="goal_detail_inline"
+                      onCheckinSubmitted={() => {
+                        setInlineNudgeDismissed(true);
+                        setFeedRefreshKey((k) => k + 1);
+                      }}
+                      onDismiss={() => {
+                        setInlineNudgeDismissed(true);
+                        dismissNudge(goalId);
+                      }}
+                    />
+                  </View>
+                ) : null}
+
                 {/* Activities-first section */}
                 <View style={styles.sectionDivider} />
                 <VStack space="md">
@@ -2710,12 +2773,74 @@ export function GoalDetailScreen() {
         </View>
       <BottomDrawer
         visible={membersSheetVisible}
-        onClose={() => setMembersSheetVisible(false)}
-        snapPoints={['55%']}
+        onClose={() => {
+          setMembersSheetVisible(false);
+          // Reset to Activity tab for next open
+          setMembersSheetTab('activity');
+          setIsCheckinComposerVisible(false);
+        }}
+        snapPoints={['75%']}
         scrimToken="pineSubtle"
       >
         <View style={styles.membersSheetContent}>
-          <Text style={styles.membersSheetTitle}>Shared with</Text>
+          {/* Tabbed header */}
+          <View style={styles.membersSheetHeader}>
+            <SegmentedControl
+              value={membersSheetTab}
+              onChange={setMembersSheetTab}
+              options={[
+                { value: 'activity', label: 'Activity' },
+                { value: 'members', label: 'Members' },
+              ]}
+              size="compact"
+            />
+          </View>
+
+          {/* Activity Tab */}
+          {membersSheetTab === 'activity' ? (
+            <View style={styles.activityTabContent}>
+              {/* Check-in composer (collapsible) */}
+              {isCheckinComposerVisible ? (
+                <View style={styles.checkinComposerSection}>
+                  <CheckinComposer
+                    goalId={goalId}
+                    onCheckinSubmitted={() => {
+                      setIsCheckinComposerVisible(false);
+                      setFeedRefreshKey((k) => k + 1);
+                      recordCheckin(goalId);
+                    }}
+                    onDismiss={() => setIsCheckinComposerVisible(false)}
+                    compact
+                  />
+                </View>
+              ) : (
+                <View style={styles.checkinPromptRow}>
+                  <Button
+                    variant="secondary"
+                    size="compact"
+                    onPress={() => setIsCheckinComposerVisible(true)}
+                    style={styles.checkinButton}
+                  >
+                    <Icon name="MessageCircle" size={16} color={colors.accent} />
+                    <Text style={styles.checkinButtonText}>Check in</Text>
+                  </Button>
+                </View>
+              )}
+
+              {/* Feed */}
+              <View style={styles.feedSection}>
+                <GoalFeedSection
+                  goalId={goalId}
+                  refreshKey={feedRefreshKey}
+                  showCheckinPrompt={false}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {/* Members Tab */}
+          {membersSheetTab === 'members' ? (
+            <View style={styles.membersTabContent}>
           {authIdentity ? (
             <>
               {sharedMembersBusy ? (
@@ -2805,6 +2930,8 @@ export function GoalDetailScreen() {
               <Text style={styles.membersSheetButtonLabel}>Invite</Text>
             </Button>
           </View>
+            </View>
+          ) : null}
         </View>
       </BottomDrawer>
       <BottomDrawer
@@ -4615,6 +4742,38 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.primaryForeground,
     fontFamily: fonts.medium,
+  },
+  membersSheetHeader: {
+    marginBottom: spacing.md,
+  },
+  activityTabContent: {
+    flex: 1,
+  },
+  membersTabContent: {
+    flex: 1,
+  },
+  checkinComposerSection: {
+    marginBottom: spacing.md,
+  },
+  checkinPromptRow: {
+    marginBottom: spacing.md,
+  },
+  checkinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  checkinButtonText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.medium,
+  },
+  feedSection: {
+    flex: 1,
+  },
+  inlineNudgeSection: {
+    marginTop: spacing.lg,
   },
   editableField: {
     borderWidth: 1,

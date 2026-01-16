@@ -3,6 +3,12 @@ import type { CelebrationKind } from '../services/gifs';
 import { useAppStore } from './useAppStore';
 import { useFirstTimeUxStore } from './useFirstTimeUxStore';
 import { useToastStore } from './useToastStore';
+import {
+  recordShowUpStreakMilestone,
+  recordFocusStreakMilestone,
+  isShowUpStreakMilestone,
+  isFocusStreakMilestone,
+} from '../services/milestones';
 
 export type CelebrationMoment = {
   /** Unique key for this celebration instance to prevent duplicates */
@@ -539,6 +545,8 @@ export function celebrateStreakSaved(
  * Record a show-up and trigger daily streak celebration if hitting a milestone.
  * Use this wrapper instead of calling recordShowUp directly when you want
  * streak celebrations.
+ *
+ * Also records significant milestones to the server for future friend celebrations.
  */
 export function recordShowUpWithCelebration() {
   const appStore = useAppStore.getState();
@@ -579,5 +587,34 @@ export function recordShowUpWithCelebration() {
         celebrateDailyStreak(nextStreak);
       }, 500);
     }
+
+    // Record milestone to server if this is a significant threshold
+    // This is async/fire-and-forget - failures don't block the celebration
+    if (isShowUpStreakMilestone(nextStreak)) {
+      void recordShowUpStreakMilestone(nextStreak);
+    }
+  }
+}
+
+/**
+ * Record a completed focus session and track milestones to the server.
+ *
+ * Call this instead of the raw store action when completing a focus session
+ * to also record significant milestones to the server for future friend celebrations.
+ */
+export function recordCompletedFocusSessionWithMilestone(params?: { completedAtMs?: number }) {
+  const appStore = useAppStore.getState();
+  const prevStreak = appStore.currentFocusStreak ?? 0;
+
+  // Record the focus session
+  appStore.recordCompletedFocusSession(params);
+
+  // Get updated state
+  const nextState = useAppStore.getState();
+  const nextStreak = nextState.currentFocusStreak ?? 0;
+
+  // Only record milestone if streak actually increased
+  if (nextStreak > prevStreak && isFocusStreakMilestone(nextStreak)) {
+    void recordFocusStreakMilestone(nextStreak);
   }
 }

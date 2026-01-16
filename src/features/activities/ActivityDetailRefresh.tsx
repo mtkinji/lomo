@@ -1241,9 +1241,10 @@ export function ActivityDetailRefresh(props: any) {
                       }));
                     }}
                     options={difficultyOptions}
-                    searchPlaceholder="Search difficulty…"
                     emptyText="No difficulty options found."
                     allowDeselect
+                    presentation="popover"
+                    showSearch={false}
                     trigger={
                       <Pressable
                         accessibilityRole="button"

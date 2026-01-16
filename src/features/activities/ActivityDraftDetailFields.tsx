@@ -40,11 +40,11 @@ type Props = {
 };
 
 const difficultyOptions = [
-  { value: 'very_easy', label: 'Very easy' },
-  { value: 'easy', label: 'Easy' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'hard', label: 'Hard' },
-  { value: 'very_hard', label: 'Very hard' },
+  { value: 'very_easy', label: '1 · Very easy' },
+  { value: 'easy', label: '2 · Easy' },
+  { value: 'medium', label: '3 · Medium' },
+  { value: 'hard', label: '5 · Hard' },
+  { value: 'very_hard', label: '8 · Very hard' },
 ] as const;
 
 const activityTypeOptions = [

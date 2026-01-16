@@ -19,7 +19,12 @@ export type GoalDetailRouteParams = {
    * canvas rather than stepping back through any existing Arcs stack
    * history.
    */
-  entryPoint?: 'goalsTab' | 'arcsStack';
+  entryPoint?: 'goalsTab' | 'arcsStack' | 'activitiesStack';
+  /**
+   * When true, open the Activity/Members tabbed sheet on mount.
+   * Used by check-in nudges after activity completion.
+   */
+  openActivitySheet?: boolean;
 };
 
 export type ActivityDetailRouteParams = {
