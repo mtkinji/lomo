@@ -36,6 +36,7 @@ import './src/services/locationOffers/locationOfferGeofenceTask';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
+import { PartnerProgressGuideHost } from './src/ui/PartnerProgressGuide';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
@@ -45,6 +46,7 @@ import { ReturningUserPermissionsFlow } from './src/features/onboarding/Returnin
 import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { startDomainSync } from './src/services/sync/domainSync';
+import { startPartnerProgressService } from './src/services/partnerProgressService';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -222,6 +224,8 @@ export default function App() {
     startSpotlightIndexSync();
     // Best-effort domain sync (Arcs/Goals/Activities) when authenticated.
     startDomainSync();
+    // Partner progress alerts for shared goals (checks on foreground).
+    startPartnerProgressService();
   }, [refreshEntitlements]);
 
   useEffect(() => {
@@ -334,6 +338,7 @@ export default function App() {
             </>
           )}
           <CelebrationInterstitialHost />
+          <PartnerProgressGuideHost />
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

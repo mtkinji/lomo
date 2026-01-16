@@ -1,7 +1,7 @@
 import * as React from 'react';
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Keyboard, Platform, StyleSheet, View } from 'react-native';
+import { Keyboard, Platform, StyleSheet, View, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomDrawer, type BottomDrawerSnapPoint } from './BottomDrawer';
 import { cardElevation, colors } from '../theme';
@@ -227,9 +227,30 @@ export function UnderKeyboardDrawer({
     return typeof max === 'number' ? Math.min(lowerBounded, max) : lowerBounded;
   })();
   const dynamicSnapPoints = React.useMemo<BottomDrawerSnapPoint[]>(() => {
-    const h = Math.max(0, Math.round(effectiveSpacerHeight + visibleHeight));
-    return [h];
-  }, [effectiveSpacerHeight, visibleHeight]);
+    // If we're not using dynamic height under keyboard, we shouldn't be overriding snapPoints.
+    if (!dynamicHeightUnderKeyboard) return snapPoints ?? [];
+
+    const calculatedHeight = Math.max(0, Math.round(effectiveSpacerHeight + visibleHeight));
+
+    // If caller provided snap points (e.g. ['90%']), treat the largest as a hard cap
+    // for the dynamic calculation.
+    if (snapPoints && snapPoints.length > 0) {
+      const windowH = Dimensions.get('window').height;
+      const insetsTop = insets.top; // use the hook value
+      const availableH = windowH - insetsTop;
+
+      const parsedPoints = snapPoints.map(p => {
+        if (typeof p === 'number') return p;
+        if (p.endsWith('%')) return (Number(p.slice(0, -1)) / 100) * availableH;
+        return Number(p);
+      });
+      const maxSnapH = Math.max(...parsedPoints);
+
+      return [Math.min(calculatedHeight, maxSnapH)];
+    }
+
+    return [calculatedHeight];
+  }, [dynamicHeightUnderKeyboard, snapPoints, effectiveSpacerHeight, visibleHeight, insets.top]);
 
   return (
     <BottomDrawer
@@ -272,7 +293,10 @@ export function UnderKeyboardDrawer({
       >
         {dynamicHeightUnderKeyboard ? (
           <View
-            style={{ height: visibleHeight }}
+            style={{ 
+              maxHeight: maxVisibleContentHeightPx,
+              minHeight: minVisibleContentHeightPx,
+            }}
             onLayout={(event) => {
               const next = Math.round(event.nativeEvent.layout.height);
               if (next > 0 && next !== measuredVisibleHeight) {

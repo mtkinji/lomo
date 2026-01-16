@@ -23,6 +23,8 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
+import { useGoalStore } from '../../store/useGoalStore';
+import { useCelebrationStore } from '../../store/useCelebrationStore';
 import { useToastStore } from '../../store/useToastStore';
 import type { GoalDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
@@ -120,10 +122,8 @@ import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScroll
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
 import { createReferralCode } from '../../services/referrals';
 import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
-import { CheckinComposer } from '../goals/CheckinComposer';
+import { createProgressSignal } from '../../services/progressSignals';
 import { GoalFeedSection } from '../goals/GoalFeedSection';
-import { CheckinNudgePrompt } from '../../ui/CheckinNudgePrompt';
-import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
@@ -522,33 +522,13 @@ export function GoalDetailScreen() {
   const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
   const [membersSheetTab, setMembersSheetTab] = useState<'activity' | 'members'>('activity');
-  const [isCheckinComposerVisible, setIsCheckinComposerVisible] = useState(false);
   const [feedRefreshKey, setFeedRefreshKey] = useState(0);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
-  const [inlineNudgeDismissed, setInlineNudgeDismissed] = useState(false);
-  const recordCheckin = useCheckinNudgeStore((s) => s.recordCheckin);
-  const recordVisit = useCheckinNudgeStore((s) => s.recordVisit);
-  const shouldShowNudge = useCheckinNudgeStore((s) => s.shouldShowNudge);
-  const dismissNudge = useCheckinNudgeStore((s) => s.dismissNudge);
 
   // Determine if this is a shared goal (has members beyond just the current user)
   const isSharedGoal = useMemo(() => {
     return Array.isArray(sharedMembers) && sharedMembers.length > 1;
   }, [sharedMembers]);
-
-  // Show inline nudge for shared goals when appropriate
-  const showInlineCheckinNudge = useMemo(() => {
-    if (!isSharedGoal) return false;
-    if (inlineNudgeDismissed) return false;
-    return shouldShowNudge(goalId, 'goal_load');
-  }, [isSharedGoal, inlineNudgeDismissed, shouldShowNudge, goalId]);
-
-  // Record visit when goal detail is focused
-  useEffect(() => {
-    if (isFocused && goalId) {
-      recordVisit(goalId);
-    }
-  }, [isFocused, goalId, recordVisit]);
 
   // Open the activity sheet if requested via route param (e.g., from activity completion nudge)
   useEffect(() => {
@@ -1137,12 +1117,14 @@ export function GoalDetailScreen() {
     (activityId: string) => {
       const timestamp = new Date().toISOString();
       let didFireHaptic = false;
+      let wasCompleted = false;
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
         if (!didFireHaptic) {
           didFireHaptic = true;
           void HapticsService.trigger(nextIsDone ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
         }
+        wasCompleted = nextIsDone;
         return {
           ...activity,
           status: nextIsDone ? 'done' : 'planned',
@@ -1150,8 +1132,12 @@ export function GoalDetailScreen() {
           updatedAt: timestamp,
         };
       });
+      // Fire progress signal for shared goals (fire-and-forget)
+      if (wasCompleted && goalId) {
+        void createProgressSignal({ goalId, type: 'progress_made' });
+      }
     },
-    [updateActivity]
+    [updateActivity, goalId]
   );
 
   const handleOpenActivityDetail = useCallback(
@@ -2362,26 +2348,6 @@ export function GoalDetailScreen() {
                   </View>
                 </View>
 
-                {/* Inline check-in nudge for shared goals */}
-                {showInlineCheckinNudge ? (
-                  <View style={styles.inlineNudgeSection}>
-                    <CheckinNudgePrompt
-                      goalId={goalId}
-                      headline="How's it going?"
-                      subheadline="Let your team know"
-                      source="goal_detail_inline"
-                      onCheckinSubmitted={() => {
-                        setInlineNudgeDismissed(true);
-                        setFeedRefreshKey((k) => k + 1);
-                      }}
-                      onDismiss={() => {
-                        setInlineNudgeDismissed(true);
-                        dismissNudge(goalId);
-                      }}
-                    />
-                  </View>
-                ) : null}
-
                 {/* Activities-first section */}
                 <View style={styles.sectionDivider} />
                 <VStack space="md">
@@ -2777,9 +2743,8 @@ export function GoalDetailScreen() {
           setMembersSheetVisible(false);
           // Reset to Activity tab for next open
           setMembersSheetTab('activity');
-          setIsCheckinComposerVisible(false);
         }}
-        snapPoints={['75%']}
+        snapPoints={['90%']}
         scrimToken="pineSubtle"
       >
         <View style={styles.membersSheetContent}>
@@ -2799,41 +2764,9 @@ export function GoalDetailScreen() {
           {/* Activity Tab */}
           {membersSheetTab === 'activity' ? (
             <View style={styles.activityTabContent}>
-              {/* Check-in composer (collapsible) */}
-              {isCheckinComposerVisible ? (
-                <View style={styles.checkinComposerSection}>
-                  <CheckinComposer
-                    goalId={goalId}
-                    onCheckinSubmitted={() => {
-                      setIsCheckinComposerVisible(false);
-                      setFeedRefreshKey((k) => k + 1);
-                      recordCheckin(goalId);
-                    }}
-                    onDismiss={() => setIsCheckinComposerVisible(false)}
-                    compact
-                  />
-                </View>
-              ) : (
-                <View style={styles.checkinPromptRow}>
-                  <Button
-                    variant="secondary"
-                    size="compact"
-                    onPress={() => setIsCheckinComposerVisible(true)}
-                    style={styles.checkinButton}
-                  >
-                    <Icon name="MessageCircle" size={16} color={colors.accent} />
-                    <Text style={styles.checkinButtonText}>Check in</Text>
-                  </Button>
-                </View>
-              )}
-
-              {/* Feed */}
+              {/* Feed - automatic progress signals, no manual check-in */}
               <View style={styles.feedSection}>
-                <GoalFeedSection
-                  goalId={goalId}
-                  refreshKey={feedRefreshKey}
-                  showCheckinPrompt={false}
-                />
+                <GoalFeedSection goalId={goalId} refreshKey={feedRefreshKey} />
               </View>
             </View>
           ) : null}
@@ -2913,22 +2846,20 @@ export function GoalDetailScreen() {
                     ],
                   );
                 }}
+                label="Leave goal"
                 accessibilityLabel="Leave shared goal"
-              >
-                <Text style={styles.membersSheetButtonLabel}>Leave goal</Text>
-              </Button>
+              />
             ) : null}
             <Button
-              variant="ai"
+              variant="primary"
               fullWidth
               onPress={() => {
                 setMembersSheetVisible(false);
                 void handleShareGoal();
               }}
+              label="Invite"
               accessibilityLabel="Invite"
-            >
-              <Text style={styles.membersSheetButtonLabel}>Invite</Text>
-            </Button>
+            />
           </View>
             </View>
           ) : null}
@@ -3079,6 +3010,8 @@ export function GoalDetailScreen() {
                     // Trigger celebration when marking a goal as completed
                     if (nextStatus === 'completed' && wasNotCompleted) {
                       celebrateGoalCompleted(goal.title);
+                      // Fire progress signal for shared goals (fire-and-forget)
+                      void createProgressSignal({ goalId: goal.id, type: 'goal_completed' });
                     }
                   }}
                 >
@@ -4752,28 +4685,8 @@ const styles = StyleSheet.create({
   membersTabContent: {
     flex: 1,
   },
-  checkinComposerSection: {
-    marginBottom: spacing.md,
-  },
-  checkinPromptRow: {
-    marginBottom: spacing.md,
-  },
-  checkinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-  },
-  checkinButtonText: {
-    ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.medium,
-  },
   feedSection: {
     flex: 1,
-  },
-  inlineNudgeSection: {
-    marginTop: spacing.lg,
   },
   editableField: {
     borderWidth: 1,

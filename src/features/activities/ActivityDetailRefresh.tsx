@@ -1629,7 +1629,6 @@ export function ActivityDetailRefresh(props: any) {
                   accessibilityLabel="Change linked goal"
                   allowDeselect
                   presentation="drawer"
-                  drawerSnapPoints={['60%']}
                   size="compact"
                   leadingIcon="goals"
                   fieldVariant="filled"
@@ -1656,7 +1655,6 @@ export function ActivityDetailRefresh(props: any) {
                   accessibilityLabel="Change activity type"
                   allowDeselect={false}
                   presentation="drawer"
-                  drawerSnapPoints={['45%']}
                   size="compact"
                   leadingIcon="listBulleted"
                   fieldVariant="filled"

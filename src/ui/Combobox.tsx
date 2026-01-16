@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  findNodeHandle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,15 +20,15 @@ import { Input } from './Input';
 import { HStack, VStack } from './Stack';
 import { Text } from './Typography';
 import { Icon } from './Icon';
-import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';
 import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
 
-const MAX_MENU_HEIGHT = 480; // Keeps long lists scrollable while showing more options.
-const MIN_MENU_HEIGHT = 180;
+const MAX_MENU_HEIGHT = 1000; // Large enough to fill any screen up to the 90% cap.
+const MIN_MENU_HEIGHT = 480; // Generous minimum to ensure the drawer always feels "high enough".
 // When the keyboard is about to open due to the combobox search autofocus,
-// scroll the *trigger field* up enough to keep the label + field + menu visible.
-const REVEAL_EXTRA_OFFSET = MAX_MENU_HEIGHT + spacing.md;
-const DEFAULT_DRAWER_SNAP_POINTS: BottomDrawerSnapPoint[] = ['60%'];
+// we used to scroll the trigger field up. However, with a 90% height drawer,
+// the trigger is always covered, so we skip the background scrolling to
+// avoid jarring "jumps" behind the sheet.
+const DEFAULT_DRAWER_SNAP_POINTS: BottomDrawerSnapPoint[] = ['90%'];
 
 export type ComboboxOption = {
   value: string;
@@ -171,7 +170,6 @@ export function Combobox({
     presentation === 'auto' ? (Platform.OS === 'web' ? 'popover' : 'drawer') : presentation;
 
   const insets = useSafeAreaInsets();
-  const keyboardAware = useKeyboardAwareScroll();
   const [uncontrolledQuery, setUncontrolledQuery] = useState('');
   const query = controlledQuery ?? uncontrolledQuery;
   const setQuery = useCallback(
@@ -192,7 +190,7 @@ export function Combobox({
 
   useEffect(() => {
     if (!open) setQuery('');
-  }, [open]);
+  }, [open, setQuery]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
@@ -326,7 +324,7 @@ export function Combobox({
   // Keep the list scrollable while respecting the overall maxHeight.
   // (Search row + divider consume some vertical space.)
   const listMaxHeight = Math.max(120, placement.maxHeight - 56);
-  const shouldAutoFocusSearch = resolvedPresentation === 'drawer';
+  const shouldAutoFocusSearch = resolvedPresentation === 'drawer'; // Re-enable autofocus for better UX in the tall drawer.
   const minPopoverWidth = 240;
   const maxPopoverWidth = 320;
 
@@ -342,20 +340,6 @@ export function Combobox({
     [allowDeselect, displayOptions, onOpenChange, onValueChange, value],
   );
 
-  const prepareKeyboardReveal = useCallback(() => {
-    if (!keyboardAware) return;
-    const handle = triggerRef.current ? findNodeHandle(triggerRef.current) : null;
-    if (typeof handle !== 'number') return;
-
-    // If the keyboard is already open, scroll immediately. Otherwise, register a
-    // one-shot target that will be used on the upcoming keyboardDidShow.
-    if (keyboardAware.keyboardHeight > 0) {
-      keyboardAware.scrollToNodeHandle(handle, keyboardAware.keyboardClearance + REVEAL_EXTRA_OFFSET);
-    } else {
-      keyboardAware.setNextRevealTarget(handle, REVEAL_EXTRA_OFFSET);
-    }
-  }, [keyboardAware]);
-
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (nextOpen && keyboardHeight > 0) {
@@ -364,17 +348,13 @@ export function Combobox({
         Keyboard.dismiss();
         const subscription = Keyboard.addListener('keyboardDidHide', () => {
           subscription.remove();
-          prepareKeyboardReveal();
           onOpenChange(true);
         });
         return;
       }
-      if (nextOpen) {
-        prepareKeyboardReveal();
-      }
       onOpenChange(nextOpen);
     },
-    [keyboardHeight, onOpenChange, prepareKeyboardReveal],
+    [keyboardHeight, onOpenChange],
   );
 
   const triggerWithDrawerOpen = useMemo(() => {
@@ -418,18 +398,19 @@ export function Combobox({
           onClose={() => handleOpenChange(false)}
           presentation={drawerPresentation}
           hideBackdrop={drawerHideBackdrop}
-          // When showing search, use dynamic keyboard-aware sizing.
-          // When search is hidden, use fixed snap points for a simple picker experience.
-          dynamicHeightUnderKeyboard={showSearch}
-          visibleContentHeightFallbackPx={240}
+          // Use dynamic keyboard-aware height always for drawers.
+          // This ensures the content sits perfectly above the keyboard as it slides up.
+          dynamicHeightUnderKeyboard={true}
+          visibleContentHeightFallbackPx={MAX_MENU_HEIGHT}
           // Long lists should scroll rather than expanding to a huge sheet.
           maxVisibleContentHeightPx={MAX_MENU_HEIGHT}
-          // Dynamic resizing: allow the sheet to shrink to fit small option lists.
-          minVisibleContentHeightPx={120}
+          // Dynamic resizing: allow the sheet to shrink to fit small option lists,
+          // but maintain a generous minimum height so it always feels "tall enough".
+          minVisibleContentHeightPx={MIN_MENU_HEIGHT}
           dismissOnBackdropPress
           enableContentPanningGesture
-          dynamicSizing={showSearch}
-          snapPoints={showSearch ? undefined : drawerSnapPoints ?? DEFAULT_DRAWER_SNAP_POINTS}
+          dynamicSizing={false}
+          snapPoints={drawerSnapPoints ?? DEFAULT_DRAWER_SNAP_POINTS}
         >
           <View style={styles.drawerCommand}>
             {showSearch ? (
@@ -687,12 +668,12 @@ const styles = StyleSheet.create({
   },
   drawerCommand: {
     // BottomDrawer already provides its own rounded shell + padding.
-    // Keep this content flexible so dynamicSizing can shrink-to-fit.
-    flex: 1,
+    // We keep this flexible so UnderKeyboardDrawer can measure the content.
     minHeight: MIN_MENU_HEIGHT,
   },
   drawerList: {
-    flex: 1,
+    // We let the list grow naturally so UnderKeyboardDrawer can measure it.
+    // The capping is handled by UnderKeyboardDrawer's snapPoints and maxVisibleContentHeightPx.
   },
   command: {
     padding: 0,
@@ -706,7 +687,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   list: {
-    maxHeight: 460,
+    // Default popover list behavior.
   },
   listContent: {
     paddingHorizontal: spacing.xs,

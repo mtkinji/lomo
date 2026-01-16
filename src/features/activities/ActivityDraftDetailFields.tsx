@@ -508,7 +508,6 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 allowDeselect
                 accessibilityLabel="Edit difficulty"
                 presentation="drawer"
-                drawerSnapPoints={['55%']}
                 size="compact"
                 leadingIcon="difficulty"
                 fieldVariant="filled"
@@ -623,7 +622,6 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           emptyText="No type options found."
           accessibilityLabel="Change activity type"
           presentation="drawer"
-          drawerSnapPoints={['60%']}
           size="compact"
           leadingIcon="activity"
           fieldVariant="filled"

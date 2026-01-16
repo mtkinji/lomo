@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, Pressable, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { Text, HStack, VStack } from '../../ui/primitives';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
+import { EmptyState } from '../../ui/EmptyState';
 import { colors, spacing, typography, fonts, cardSurfaceStyle } from '../../theme';
 import {
   fetchGoalFeed,
@@ -62,13 +63,10 @@ function formatTimeAgo(date: Date): string {
 
 export type GoalFeedSectionProps = {
   goalId: string;
-  /** Callback to refresh the feed (e.g., after submitting a check-in) */
+  /** Callback to refresh the feed (e.g., after activity completion signals) */
   refreshKey?: number;
   /** Max height for the feed section (enables internal scrolling) */
   maxHeight?: number;
-  /** Whether to show the "Check in" prompt at the top */
-  showCheckinPrompt?: boolean;
-  onPressCheckin?: () => void;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,8 +77,6 @@ export function GoalFeedSection({
   goalId,
   refreshKey = 0,
   maxHeight,
-  showCheckinPrompt = false,
-  onPressCheckin,
 }: GoalFeedSectionProps) {
   const { capture } = useAnalytics();
   const [feedResult, setFeedResult] = useState<GoalFeedResult | null>(null);
@@ -177,19 +173,14 @@ export function GoalFeedSection({
 
   return (
     <View style={[styles.container, maxHeight ? { maxHeight } : undefined]}>
-      {showCheckinPrompt && onPressCheckin ? (
-        <Pressable style={styles.checkinPrompt} onPress={onPressCheckin}>
-          <Icon name="MessageCircle" size={18} color={colors.accent} />
-          <Text style={styles.checkinPromptText}>Share how it's going</Text>
-        </Pressable>
-      ) : null}
-
       {items.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            No activity yet. Check in to let your partner know how it's going!
-          </Text>
-        </View>
+        <EmptyState
+          title="No activity yet"
+          instructions="When you or your partner complete activities, progress will automatically show up here."
+          variant="compact"
+          iconName="activity"
+          style={styles.emptyContainer}
+        />
       ) : (
         <ScrollView
           style={styles.feedScroll}
@@ -240,7 +231,7 @@ function FeedItemCard({ item, onReaction }: FeedItemCardProps) {
   if (item.type === 'member_joined') {
     return (
       <SystemEventCard
-        icon="UserPlus"
+        icon="userPlus"
         message={`${item.actorName ?? 'Someone'} joined`}
         timeAgo={timeAgo}
       />
@@ -250,9 +241,33 @@ function FeedItemCard({ item, onReaction }: FeedItemCardProps) {
   if (item.type === 'member_left') {
     return (
       <SystemEventCard
-        icon="UserMinus"
+        icon="userMinus"
         message={`${item.actorName ?? 'Someone'} left`}
         timeAgo={timeAgo}
+      />
+    );
+  }
+
+  if (item.type === 'progress_made') {
+    return (
+      <ProgressCard
+        item={item}
+        timeAgo={timeAgo}
+        onReaction={(reaction) =>
+          onReaction(item.id, reaction, item.reactions?.myReaction ?? null)
+        }
+      />
+    );
+  }
+
+  if (item.type === 'goal_completed') {
+    return (
+      <GoalCompletedCard
+        item={item}
+        timeAgo={timeAgo}
+        onReaction={(reaction) =>
+          onReaction(item.id, reaction, item.reactions?.myReaction ?? null)
+        }
       />
     );
   }
@@ -309,6 +324,92 @@ function CheckinCard({ item, timeAgo, onReaction }: CheckinCardProps) {
             reactions={reactions}
             onReaction={onReaction}
           />
+        </VStack>
+      </HStack>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Progress Card (activity completed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ProgressCardProps = {
+  item: FeedItem;
+  timeAgo: string;
+  onReaction: (reaction: ReactionType) => void;
+};
+
+function ProgressCard({ item, timeAgo, onReaction }: ProgressCardProps) {
+  const reactions = item.reactions;
+
+  return (
+    <View style={styles.progressCard}>
+      <HStack space="sm" alignItems="flex-start">
+        <ProfileAvatar
+          name={item.actorName ?? undefined}
+          avatarUrl={item.actorAvatarUrl ?? undefined}
+          size={36}
+          borderRadius={18}
+        />
+        <VStack flex={1} space="xs">
+          <HStack space="xs" alignItems="center">
+            <Text style={styles.progressActorName}>
+              {item.actorName ?? 'Someone'}
+            </Text>
+            <Text style={styles.progressTime}>{timeAgo}</Text>
+          </HStack>
+
+          <HStack space="xs" alignItems="center">
+            <Icon name="check" size={14} color={colors.success} />
+            <Text style={styles.progressText}>Made progress</Text>
+          </HStack>
+
+          {/* Reactions row */}
+          <ReactionBar reactions={reactions} onReaction={onReaction} />
+        </VStack>
+      </HStack>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Goal Completed Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+type GoalCompletedCardProps = {
+  item: FeedItem;
+  timeAgo: string;
+  onReaction: (reaction: ReactionType) => void;
+};
+
+function GoalCompletedCard({ item, timeAgo, onReaction }: GoalCompletedCardProps) {
+  const reactions = item.reactions;
+
+  return (
+    <View style={styles.goalCompletedCard}>
+      <HStack space="sm" alignItems="flex-start">
+        <ProfileAvatar
+          name={item.actorName ?? undefined}
+          avatarUrl={item.actorAvatarUrl ?? undefined}
+          size={36}
+          borderRadius={18}
+        />
+        <VStack flex={1} space="xs">
+          <HStack space="xs" alignItems="center">
+            <Text style={styles.goalCompletedActorName}>
+              {item.actorName ?? 'Someone'}
+            </Text>
+            <Text style={styles.goalCompletedTime}>{timeAgo}</Text>
+          </HStack>
+
+          <HStack space="xs" alignItems="center">
+            <Text style={styles.goalCompletedEmoji}>🎉</Text>
+            <Text style={styles.goalCompletedText}>Completed this goal!</Text>
+          </HStack>
+
+          {/* Reactions row */}
+          <ReactionBar reactions={reactions} onReaction={onReaction} />
         </VStack>
       </HStack>
     </View>
@@ -411,12 +512,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     padding: spacing.xl,
+    paddingTop: spacing.md,
     alignItems: 'center',
-  },
-  emptyText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
   feedScroll: {
     flex: 1,
@@ -424,22 +521,6 @@ const styles = StyleSheet.create({
   feedScrollContent: {
     paddingVertical: spacing.sm,
     gap: spacing.sm,
-  },
-  checkinPrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.accentSubtle,
-    borderRadius: 12,
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  checkinPromptText: {
-    ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.medium,
   },
   checkinCard: {
     ...cardSurfaceStyle,
@@ -506,6 +587,51 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     fontSize: 12,
+  },
+  progressCard: {
+    ...cardSurfaceStyle,
+    borderRadius: 12,
+    padding: spacing.sm,
+  },
+  progressActorName: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  progressTime: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  progressText: {
+    ...typography.bodySm,
+    color: colors.success,
+    fontFamily: fonts.medium,
+  },
+  goalCompletedCard: {
+    ...cardSurfaceStyle,
+    borderRadius: 12,
+    padding: spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.success,
+  },
+  goalCompletedActorName: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  goalCompletedTime: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  goalCompletedEmoji: {
+    fontSize: 16,
+  },
+  goalCompletedText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
   },
 });
 

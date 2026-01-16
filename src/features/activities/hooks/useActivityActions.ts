@@ -11,6 +11,7 @@ import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { HapticsService } from '../../../services/HapticsService';
 import { playActivityDoneSound } from '../../../services/uiSounds';
+import { createProgressSignal } from '../../../services/progressSignals';
 import type { Activity } from '../../../domain/types';
 
 export type UseActivityActionsReturn = {
@@ -30,6 +31,7 @@ export function useActivityActions(): UseActivityActionsReturn {
       const timestamp = new Date().toISOString();
       let didFireHaptic = false;
       let wasFirstCompletion = false;
+      let completedGoalId: string | null = null;
       LayoutAnimation.configureNext(
         LayoutAnimation.create(
           220,
@@ -46,6 +48,8 @@ export function useActivityActions(): UseActivityActionsReturn {
         if (nextIsDone) {
           void playActivityDoneSound();
           wasFirstCompletion = true;
+          // Capture goalId for progress signal
+          completedGoalId = activity.goalId ?? null;
         }
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activities_list',
@@ -61,6 +65,11 @@ export function useActivityActions(): UseActivityActionsReturn {
           updatedAt: timestamp,
         };
       });
+
+      // Fire progress signal for shared goals (fire-and-forget)
+      if (completedGoalId) {
+        void createProgressSignal({ goalId: completedGoalId, type: 'progress_made' });
+      }
 
       // Celebration checks (run after state update settles)
       if (wasFirstCompletion) {
