@@ -680,6 +680,7 @@ export function GoalDetailScreen() {
           : undefined;
       const nextTargetDate = typeof proposal.targetDate === 'string' ? proposal.targetDate : undefined;
       const nextMetrics = Array.isArray(proposal.metrics) ? proposal.metrics : undefined;
+      const nextPriority = proposal.priority;
 
       updateGoal(goal.id, (prev) => {
         const mergedTargetDate = nextTargetDate ?? prev.targetDate;
@@ -691,6 +692,7 @@ export function GoalDetailScreen() {
           description: typeof nextDescription === 'string' ? nextDescription : prev.description,
           ...(nextTargetDate ? { targetDate: nextTargetDate } : null),
           ...(nextMetrics ? { metrics: nextMetrics } : null),
+          ...(nextPriority !== undefined ? { priority: nextPriority } : null),
           qualityState: hasQuality ? 'ready' : 'draft',
           updatedAt: now,
         };
@@ -848,7 +850,8 @@ export function GoalDetailScreen() {
 
   const shouldShowPostGoalPlanGuide =
     hasCompletedFirstTimeOnboarding &&
-    goal?.id === pendingPostGoalPlanGuideGoalId &&
+    goal?.id != null &&
+    goal.id === pendingPostGoalPlanGuideGoalId &&
     !(dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id] &&
     isPlanEmpty &&
     !activityCoachVisible &&
@@ -2600,6 +2603,32 @@ export function GoalDetailScreen() {
                       searchPlaceholder="Search arcs…"
                       emptyText="No arcs found."
                       accessibilityLabel={arc ? 'Change linked arc' : 'Link this goal to an arc'}
+                      allowDeselect
+                    />
+                  </View>
+
+                  <View style={styles.detailFieldBlock}>
+                    <Text style={styles.arcConnectionLabel}>Priority</Text>
+                    <ObjectPicker
+                      value={goal.priority != null ? String(goal.priority) : ''}
+                      onValueChange={(nextPriority) => {
+                        const timestamp = new Date().toISOString();
+                        const parsed = nextPriority ? (Number(nextPriority) as 1 | 2 | 3) : undefined;
+                        updateGoal(goal.id, (prev) => ({
+                          ...prev,
+                          priority: parsed,
+                          updatedAt: timestamp,
+                        }));
+                      }}
+                      options={[
+                        { value: '1', label: 'P1 (High)' },
+                        { value: '2', label: 'P2 (Medium)' },
+                        { value: '3', label: 'P3 (Low)' },
+                      ]}
+                      placeholder="No priority"
+                      searchPlaceholder="Search priority…"
+                      emptyText="No priority options."
+                      accessibilityLabel="Set goal priority"
                       allowDeselect
                     />
                   </View>

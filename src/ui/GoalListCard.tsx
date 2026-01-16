@@ -265,13 +265,18 @@ export function GoalListCard({
             ]}
           >
             {headerLabel}
-            <Heading
-              style={[styles.goalTitle, isDense && styles.goalTitleDense]}
-              numberOfLines={2}
-              ellipsizeMode="tail"
-            >
-              {goal.title}
-            </Heading>
+            <HStack alignItems="center" space="xs">
+              <Heading
+                style={[styles.goalTitle, isDense && styles.goalTitleDense, { flex: 1 }]}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {goal.title}
+              </Heading>
+              {goal.priority === 1 && (
+                <Icon name="starFilled" size={isDense ? 12 : 14} color={colors.turmeric} />
+              )}
+            </HStack>
           </VStack>
         </HStack>
 

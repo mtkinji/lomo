@@ -68,6 +68,7 @@ export const goalCreationWorkflow: WorkflowDefinition = {
           '  "title": "…",',
           '  "description": "…",',
           '  "status": "planned" | "in_progress",',
+          '  "priority": 1 | 2 | 3 (optional, 1=high, 2=medium, 3=low),',
           '  "targetDate": "YYYY-MM-DD" | "ISO-8601 timestamp",',
           '  "metrics": [',
           '    { "id": "metric-1", "kind": "count" | "threshold" | "event_count" | "milestone", "label": "…", "baseline": 0, "target": 6, "unit": "…" },',

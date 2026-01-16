@@ -217,6 +217,11 @@ type ProposedGoalDraft = {
   title: string;
   description?: string;
   status?: Goal['status'];
+  /**
+   * Optional priority level (1 = high, 2 = medium, 3 = low). Cascades to activity
+   * recommendation scoring when the goal is adopted.
+   */
+  priority?: 1 | 2 | 3;
   suggestedArcName?: string | null;
   forceIntent?: GoalForceIntent;
   timeHorizon?: string;
@@ -2449,6 +2454,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       title: trimmedTitle,
                       description: trimmedDescription.length ? trimmedDescription : undefined,
                       status: proposal.status ?? 'planned',
+                      priority: proposal.priority,
                       qualityState: hasQuality ? 'ready' : 'draft',
                       startDate: timestamp,
                       targetDate,

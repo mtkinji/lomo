@@ -292,9 +292,9 @@ export default function App() {
     );
   }
 
-  // First-time sign-in gate: require auth before onboarding for new users.
-  // Users who have already completed onboarding can still use the app if signed out.
-  if (!authIdentity && !hasCompletedFirstTimeOnboarding) {
+  // Require sign-in for all users (including legacy users who onboarded before auth was required).
+  // Their local data will automatically sync to their account once they authenticate.
+  if (!authIdentity) {
     return <SignInInterstitial onSignInComplete={handleSignInComplete} />;
   }
 

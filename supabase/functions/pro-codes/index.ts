@@ -1509,74 +1509,101 @@ serve(async (req) => {
 
       // Arcs created in period
       const { count: arcsCreated } = await admin
-        .from('arcs')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', periodStartIso)
-        .lte('created_at', periodEndIso);
-
-      // Goals created in period
-      const { count: goalsCreated } = await admin
-        .from('goals')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', periodStartIso)
-        .lte('created_at', periodEndIso);
-
-      // Activities created in period
-      const { count: activitiesCreated } = await admin
-        .from('activities')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', periodStartIso)
-        .lte('created_at', periodEndIso);
-
-      // Check-ins in period
-      const { count: checkinsCompleted } = await admin
-        .from('checkins')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', periodStartIso)
-        .lte('created_at', periodEndIso);
-
-      // Focus sessions in period
-      const { count: focusSessionsCompleted } = await admin
-        .from('focus_sessions')
+        .from('kwilt_arcs')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', periodStartIso)
         .lte('created_at', periodEndIso)
-        .not('completed_at', 'is', null);
+        .or('deleted_at.is.null');
+
+      // Goals created in period
+      const { count: goalsCreated } = await admin
+        .from('kwilt_goals')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso)
+        .or('deleted_at.is.null');
+
+      // Activities created in period
+      const { count: activitiesCreated } = await admin
+        .from('kwilt_activities')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso)
+        .or('deleted_at.is.null');
+
+      // Check-ins in period
+      const { count: checkinsCompleted } = await admin
+        .from('goal_checkins')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', periodStartIso)
+        .lte('created_at', periodEndIso);
+
+      // Focus sessions in period (table may not exist yet - returns 0)
+      let focusSessionsCompleted: number | null = 0;
 
       // AI usage metrics
-      // Sum credits from daily usage table for period
+      // Sum from monthly usage table (has both actions_count and tokens_count)
       let aiActionsTotal = 0;
       let aiSpendCents = 0;
       
-      // Query daily usage within period
-      const periodStartDate = periodStartIso.split('T')[0];
-      const periodEndDate = periodEndIso.split('T')[0];
-      const { data: dailyUsage } = await admin
-        .from('kwilt_ai_usage_daily')
-        .select('actions_count')
-        .gte('date', periodStartDate)
-        .lte('date', periodEndDate);
+      // Get month range for the period (YYYY-MM format)
+      const periodStartMonth = periodStartIso.slice(0, 7);
+      const periodEndMonth = periodEndIso.slice(0, 7);
       
-      if (Array.isArray(dailyUsage)) {
-        aiActionsTotal = dailyUsage.reduce((sum, row: any) => {
-          return sum + (typeof row?.actions_count === 'number' ? row.actions_count : 0);
-        }, 0);
+      // Query monthly usage for better accuracy (includes token counts)
+      const { data: monthlyUsage } = await admin
+        .from('kwilt_ai_usage_monthly')
+        .select('actions_count, tokens_count')
+        .gte('month', periodStartMonth)
+        .lte('month', periodEndMonth);
+      
+      let totalTokens = 0;
+      if (Array.isArray(monthlyUsage)) {
+        for (const row of monthlyUsage) {
+          aiActionsTotal += typeof (row as any)?.actions_count === 'number' ? (row as any).actions_count : 0;
+          totalTokens += typeof (row as any)?.tokens_count === 'number' ? (row as any).tokens_count : 0;
+        }
       }
       
-      // Rough cost estimate: ~$0.01 per AI action (adjust as needed)
-      aiSpendCents = Math.round(aiActionsTotal * 1);
+      // Calculate spend based on tokens if available, otherwise estimate from actions
+      // Average GPT-4 pricing: ~$0.03/1K input + ~$0.06/1K output ≈ $0.04/1K tokens blended
+      // We also fall back to daily table if monthly is empty (for backwards compatibility)
+      if (totalTokens > 0) {
+        // Token-based cost: ~$0.04 per 1000 tokens (4 cents per 1K)
+        aiSpendCents = Math.round((totalTokens / 1000) * 4);
+      } else {
+        // Fall back to daily table for action count if monthly data is empty
+        const periodStartDate = periodStartIso.split('T')[0];
+        const periodEndDate = periodEndIso.split('T')[0];
+        const { data: dailyUsage } = await admin
+          .from('kwilt_ai_usage_daily')
+          .select('count')
+          .gte('day', periodStartDate)
+          .lte('day', periodEndDate);
+        
+        if (Array.isArray(dailyUsage) && aiActionsTotal === 0) {
+          aiActionsTotal = dailyUsage.reduce((sum, row: any) => {
+            return sum + (typeof row?.count === 'number' ? row.count : 0);
+          }, 0);
+        }
+        // Rough cost estimate: ~$0.02 per AI action (typical request uses ~500 tokens)
+        aiSpendCents = Math.round(aiActionsTotal * 2);
+      }
 
       // Activated users (users who have created at least one arc, goal, or activity)
       // This is an approximation - real activation may require joining multiple tables
       const { data: usersWithArcs } = await admin
-        .from('arcs')
-        .select('user_id');
+        .from('kwilt_arcs')
+        .select('user_id')
+        .or('deleted_at.is.null');
       const { data: usersWithGoals } = await admin
-        .from('goals')
-        .select('user_id');
+        .from('kwilt_goals')
+        .select('user_id')
+        .or('deleted_at.is.null');
       const { data: usersWithActivities } = await admin
-        .from('activities')
-        .select('user_id');
+        .from('kwilt_activities')
+        .select('user_id')
+        .or('deleted_at.is.null');
       
       const activatedUserIds = new Set<string>();
       for (const row of usersWithArcs ?? []) {
