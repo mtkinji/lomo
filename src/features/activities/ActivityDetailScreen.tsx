@@ -100,8 +100,6 @@ import {
   recordCompletedFocusSessionWithMilestone,
 } from '../../store/useCelebrationStore';
 import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
-import { useToastStore } from '../../store/useToastStore';
-import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
