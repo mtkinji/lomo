@@ -792,6 +792,11 @@ export interface UserProfile {
   };
   timezone?: string;
   preferences?: {
+    /**
+     * When false, suppress celebration media (e.g. GIF interstitials) and only show lightweight confirmations.
+     * Defaults to true when unset for backward compatibility.
+     */
+    showCelebrationMedia?: boolean;
   };
   communication: {
     tone?: CommunicationTone;

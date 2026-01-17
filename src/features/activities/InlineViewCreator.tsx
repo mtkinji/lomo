@@ -6,9 +6,12 @@ import {
   StyleSheet,
   Keyboard,
   ActivityIndicator,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { HStack, VStack, Text } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
+import { Card } from '../../ui/Card';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography, fonts } from '../../theme/typography';
@@ -36,26 +39,40 @@ function LayoutCard({
   icon,
   title,
   subtitle,
+  iconContainerStyle,
+  iconColor,
   onPress,
 }: {
   icon: 'viewList' | 'viewKanban';
   title: string;
   subtitle: string;
+  iconContainerStyle?: StyleProp<ViewStyle>;
+  iconColor?: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       style={({ pressed }) => [
-        styles.layoutCard,
+        styles.layoutCardPressable,
         pressed && styles.layoutCardPressed,
       ]}
       onPress={onPress}
+      accessibilityRole="button"
     >
-      <View style={styles.layoutIconContainer}>
-        <Icon name={icon} size={32} color={colors.textPrimary} />
-      </View>
-      <Text style={styles.layoutTitle}>{title}</Text>
-      <Text style={styles.layoutSubtitle}>{subtitle}</Text>
+      {({ pressed }) => (
+        <Card
+          padding="none"
+          marginVertical={0}
+          elevation={pressed ? 'lift' : 'soft'}
+          style={styles.layoutCardInner}
+        >
+          <View style={[styles.layoutIconContainer, iconContainerStyle]}>
+            <Icon name={icon} size={32} color={iconColor ?? colors.textPrimary} />
+          </View>
+          <Text style={styles.layoutTitle}>{title}</Text>
+          <Text style={styles.layoutSubtitle}>{subtitle}</Text>
+        </Card>
+      )}
     </Pressable>
   );
 }
@@ -115,19 +132,21 @@ export function InlineViewCreator({
     <View style={styles.container}>
       <VStack space="lg">
         {/* Main choices */}
-        <Text style={styles.prompt}>What kind of view?</Text>
-        
         <HStack space="md" style={styles.cardsRow}>
           <LayoutCard
             icon="viewList"
             title="List"
             subtitle="Scrollable list"
+            iconContainerStyle={styles.layoutIconContainerList}
+            iconColor={colors.quiltBlue800}
             onPress={handleCreateList}
           />
           <LayoutCard
             icon="viewKanban"
             title="Board"
             subtitle="Kanban columns"
+            iconContainerStyle={styles.layoutIconContainerBoard}
+            iconColor={colors.pine800}
             onPress={handleCreateBoard}
           />
         </HStack>
@@ -189,37 +208,37 @@ export function InlineViewCreator({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.md,
-  },
-  prompt: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    textAlign: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
   cardsRow: {
     justifyContent: 'center',
   },
-  layoutCard: {
+  layoutCardPressable: {
     flex: 1,
-    maxWidth: 160,
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    maxWidth: 168,
+  },
+  layoutCardInner: {
+    width: '100%',
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
   },
   layoutCardPressed: {
-    backgroundColor: colors.fieldFill,
+    transform: [{ scale: 0.99 }],
   },
   layoutIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: colors.fieldFill,
+    width: 68,
+    height: 68,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
+  },
+  layoutIconContainerList: {
+    backgroundColor: colors.quiltBlue100,
+  },
+  layoutIconContainerBoard: {
+    backgroundColor: colors.pine100,
   },
   layoutTitle: {
     ...typography.body,
@@ -231,7 +250,7 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.muted,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 4,
   },
   aiSection: {
     marginTop: spacing.sm,

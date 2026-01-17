@@ -70,7 +70,7 @@ export function KanbanCard({
           {goalTitle && isFieldVisible('goal') && (
             <View style={styles.goalPill}>
               <HStack alignItems="center" space="xs">
-                <Icon name="goals" size={12} color={colors.textSecondary} />
+                <Icon name="goals" size={11} color={colors.textSecondary} />
                 <Text style={styles.goalPillText} numberOfLines={1}>
                   {goalTitle}
                 </Text>
@@ -220,8 +220,8 @@ const styles = StyleSheet.create({
   },
   goalPill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 3,
     borderRadius: 999,
     marginBottom: 2,
     backgroundColor: colors.shellAlt,
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   goalPillText: {
-    ...typography.bodySm,
+    ...typography.bodyXs,
     color: colors.textSecondary,
     flexShrink: 1,
   },

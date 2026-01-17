@@ -50,10 +50,10 @@ export function CompletedActivitySection({
         onPress={() => setExpanded((current) => !current)}
         style={styles.completedToggle}
         accessibilityRole="button"
-        accessibilityLabel={expanded ? 'Hide completed activities' : 'Show completed activities'}
+        accessibilityLabel={expanded ? 'Hide completed and closed activities' : 'Show completed and closed activities'}
       >
         <HStack alignItems="center" space="xs">
-          <Text style={styles.completedToggleLabel}>Completed</Text>
+          <Text style={styles.completedToggleLabel}>Completed & closed</Text>
           <Icon
             name={expanded ? 'chevronDown' : 'chevronRight'}
             size={14}

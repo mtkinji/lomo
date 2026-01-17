@@ -13,7 +13,32 @@
  */
 
 import { getSupabaseClient } from './backend/supabaseClient';
-import { getAccessToken, getEdgeFunctionUrl, buildEdgeHeaders } from './backend/supabaseHelpers';
+import { getAccessToken } from './backend/auth';
+import { getEdgeFunctionUrl } from './edgeFunctions';
+import { getSupabasePublishableKey } from '../utils/getEnv';
+import { getInstallId } from './installId';
+
+async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
+  const headers = new Headers();
+  headers.set('Content-Type', 'application/json');
+  headers.set('x-kwilt-client', 'kwilt-mobile');
+
+  const supabaseKey = getSupabasePublishableKey()?.trim();
+  if (supabaseKey) {
+    headers.set('apikey', supabaseKey);
+  }
+
+  const installId = await getInstallId();
+  headers.set('x-kwilt-install-id', installId);
+
+  if (requireAuth) {
+    const token = (await getAccessToken())?.trim();
+    if (!token) throw new Error('Missing access token (not signed in)');
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return headers;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

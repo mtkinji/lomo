@@ -23,7 +23,6 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
-import { useGoalStore } from '../../store/useGoalStore';
 import { useCelebrationStore } from '../../store/useCelebrationStore';
 import { useToastStore } from '../../store/useToastStore';
 import type { GoalDetailRouteParams } from '../../navigation/routeParams';

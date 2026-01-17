@@ -1114,7 +1114,7 @@ export function GoalCoachDrawer({
         arcId,
         title: goalDraft.title,
         description: goalDraft.description,
-        status: goalDraft.status,
+        status: goalDraft.status ?? 'planned',
         qualityState: 'draft',
         forceIntent: mergedForceIntent,
         metrics: [],

@@ -892,10 +892,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   streakStatusActive: {
-    backgroundColor: colors.accentSage + '20',
+    backgroundColor: colors.success + '20',
   },
   streakStatusAtRisk: {
-    backgroundColor: colors.accentAmber + '20',
+    backgroundColor: colors.turmeric + '20',
   },
   streakStatusLabel: {
     ...typography.label,
@@ -903,10 +903,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   streakStatusLabelActive: {
-    color: colors.accentSageStrong,
+    color: colors.success,
   },
   streakStatusLabelAtRisk: {
-    color: colors.accentAmberStrong,
+    color: colors.turmeric700,
   },
   streakGraceInfo: {
     backgroundColor: colors.shellAlt,

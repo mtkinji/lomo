@@ -280,6 +280,7 @@ export async function ensureSignedInWithPrompt(
     | 'share_goal_email'
     | 'join_goal'
     | 'claim_arc_draft'
+    | 'follow'
     | 'upload_attachment'
     | 'admin'
     | 'settings',
@@ -323,6 +324,8 @@ export async function ensureSignedInWithPrompt(
           ? 'To join this shared goal, you need to sign in so access stays safe.'
           : reason === 'claim_arc_draft'
             ? 'Sign in to claim your Arc draft and continue in the app.'
+          : reason === 'follow'
+            ? 'To follow someone, you need to sign in so your connections stay tied to your account.'
           : reason === 'upload_attachment'
             ? 'To upload attachments, you need to sign in so access stays safe.'
           : reason === 'settings'

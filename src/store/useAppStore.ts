@@ -546,6 +546,7 @@ interface AppState {
    * Once true, the coachmark will not show again, though the bottom guide still will for new goals.
    */
   hasSeenPostGoalPlanCoachmark: boolean;
+  setHasSeenPostGoalPlanCoachmark: (hasSeen: boolean) => void;
   /**
    * Dismissal flag for the first-time Goal detail "Vectors for this goal" coachmark.
    * Explains how balancing vectors leads to more sustainable goals.
@@ -1406,7 +1407,7 @@ export const useAppStore = create<AppState>()(
               state.pendingPostGoalPlanGuideGoalId === goalId ? null : state.pendingPostGoalPlanGuideGoalId,
           };
         }),
-      setHasSeenPostGoalPlanCoachmark: (hasSeen) =>
+      setHasSeenPostGoalPlanCoachmark: (hasSeen: boolean) =>
         set(() => ({
           hasSeenPostGoalPlanCoachmark: hasSeen,
         })),

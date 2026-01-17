@@ -46,7 +46,7 @@ export function CheckinComposer({
   const [error, setError] = useState<string | null>(null);
 
   const handlePresetPress = useCallback((preset: CheckinPreset) => {
-    HapticsService.trigger('canvas.selection');
+    void HapticsService.trigger('canvas.selection');
     setSelectedPreset((current) => (current === preset ? null : preset));
     setError(null);
   }, []);
@@ -74,7 +74,7 @@ export function CheckinComposer({
         hasText: Boolean(text.trim()),
       });
 
-      HapticsService.trigger('canvas.success');
+      void HapticsService.trigger('outcome.success');
       onCheckinSubmitted?.();
 
       // Reset form
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   presetChipSelected: {
-    backgroundColor: colors.accentSubtle,
+    backgroundColor: colors.pine100,
     borderColor: colors.accent,
   },
   presetEmoji: {

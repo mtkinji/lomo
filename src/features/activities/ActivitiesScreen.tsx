@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
+  Easing,
   runOnJS,
   scrollTo,
   useAnimatedRef,
@@ -246,7 +247,6 @@ export function ActivitiesScreen() {
   
   // New inline view creator state
   const [viewCreatorVisible, setViewCreatorVisible] = React.useState(false);
-  const [isCreatingAiView, setIsCreatingAiView] = React.useState(false);
   
   // View customization guide state (shown after creating a view)
   const [customizationGuideVisible, setCustomizationGuideVisible] = React.useState(false);
@@ -389,6 +389,54 @@ export function ActivitiesScreen() {
 
   const isKanbanLayout = activeView?.layout === 'kanban';
 
+  // Local UI state for the Kanban expand/collapse control. Used to hide the fixed toolbar
+  // and let the board claim that vertical space when expanded.
+  const [isKanbanExpanded, setIsKanbanExpanded] = React.useState(false);
+  React.useEffect(() => {
+    // If we leave Kanban layout, reset the expanded state so returning to Kanban starts compact.
+    if (!isKanbanLayout && isKanbanExpanded) {
+      setIsKanbanExpanded(false);
+    }
+  }, [isKanbanExpanded, isKanbanLayout]);
+
+  // Smoothly animate the fixed toolbar out/in (instead of mounting/unmounting) so the Kanban
+  // expand/collapse transition doesn't "jump" vertically.
+  const shouldShowFixedToolbar = activities.length > 0 && (!isKanbanLayout || !isKanbanExpanded);
+  const fixedToolbarProgress = useSharedValue(shouldShowFixedToolbar ? 1 : 0);
+  const [fixedToolbarMeasuredHeight, setFixedToolbarMeasuredHeight] = React.useState(0);
+  React.useEffect(() => {
+    // When returning to the collapsed state, reset the cached measurement so we don't
+    // get stuck with a clipped height from a previous animation frame.
+    if (shouldShowFixedToolbar) {
+      setFixedToolbarMeasuredHeight(0);
+    }
+  }, [shouldShowFixedToolbar]);
+  React.useEffect(() => {
+    fixedToolbarProgress.value = withTiming(shouldShowFixedToolbar ? 1 : 0, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [fixedToolbarProgress, shouldShowFixedToolbar]);
+
+  const fixedToolbarAnimatedStyle = useAnimatedStyle(() => {
+    // Prefer a measured height so expanded Kanban reclaims *exactly* the prior toolbar space.
+    // Fallback to maxHeight until we get the first measurement (so the toolbar can render).
+    if (fixedToolbarMeasuredHeight > 0) {
+      return {
+        maxHeight: fixedToolbarMeasuredHeight * fixedToolbarProgress.value,
+        opacity: fixedToolbarProgress.value,
+        transform: [{ translateY: (1 - fixedToolbarProgress.value) * -8 }],
+      };
+    }
+
+    const FALLBACK_MAX_TOOLBAR_HEIGHT = 140;
+    return {
+      maxHeight: FALLBACK_MAX_TOOLBAR_HEIGHT * fixedToolbarProgress.value,
+      opacity: fixedToolbarProgress.value,
+      transform: [{ translateY: (1 - fixedToolbarProgress.value) * -8 }],
+    };
+  }, [fixedToolbarMeasuredHeight, fixedToolbarProgress]);
+
   const [kanbanCardFieldsDrawerVisible, setKanbanCardFieldsDrawerVisible] = React.useState(false);
   const [kanbanCardFieldOrder, setKanbanCardFieldOrder] = React.useState<KanbanCardField[]>(
     KANBAN_CARD_FIELDS.map((f) => f.field),
@@ -461,6 +509,7 @@ export function ActivitiesScreen() {
             conditions: [
               { id: 'legacy-active-done', field: 'status', operator: 'neq', value: 'done' },
               { id: 'legacy-active-can', field: 'status', operator: 'neq', value: 'cancelled' },
+              { id: 'legacy-active-skip', field: 'status', operator: 'neq', value: 'skipped' },
             ],
           },
         ];
@@ -631,13 +680,26 @@ export function ActivitiesScreen() {
   }, [filteredActivities, sortConditions]);
 
   const activeActivities = React.useMemo(
-    () => visibleActivities.filter((activity) => activity.status !== 'done'),
+    () =>
+      visibleActivities.filter(
+        (activity) =>
+          activity.status !== 'done' &&
+          activity.status !== 'skipped' &&
+          activity.status !== 'cancelled'
+      ),
     [visibleActivities],
   );
 
   const completedActivities = React.useMemo(
     () =>
-      showCompleted ? visibleActivities.filter((activity) => activity.status === 'done') : [],
+      showCompleted
+        ? visibleActivities.filter(
+            (activity) =>
+              activity.status === 'done' ||
+              activity.status === 'skipped' ||
+              activity.status === 'cancelled'
+          )
+        : [],
     [visibleActivities, showCompleted],
   );
 
@@ -1427,6 +1489,76 @@ export function ActivitiesScreen() {
     [reorderActivities],
   );
 
+  const goalIdSet = React.useMemo(() => new Set(goals.map((g) => g.id)), [goals]);
+
+  const getKanbanColumnIdForActivity = React.useCallback((activity: Activity, groupBy: KanbanGroupBy): string => {
+    switch (groupBy) {
+      case 'status':
+        return activity.status;
+      case 'priority':
+        return activity.priority === 1 ? 'starred' : 'normal';
+      case 'goal':
+        return activity.goalId ?? 'no-goal';
+      case 'phase':
+        return activity.phase ?? 'no-phase';
+      default:
+        return activity.status;
+    }
+  }, []);
+
+  const handleMoveActivity = React.useCallback(
+    (activityId: string, params: { groupBy: KanbanGroupBy; toColumnId: string }) => {
+      const { groupBy, toColumnId } = params;
+      const atIso = new Date().toISOString();
+
+      updateActivity(activityId, (activity) => {
+        const fromColumnId = getKanbanColumnIdForActivity(activity, groupBy);
+        if (fromColumnId === toColumnId) return activity;
+
+        const patch: Partial<Activity> = {};
+        if (groupBy === 'status') {
+          patch.status = toColumnId as Activity['status'];
+          // Keep completedAt consistent with done/not-done transitions.
+          if (toColumnId === 'done') {
+            patch.completedAt = activity.completedAt ?? atIso;
+          } else if (activity.status === 'done') {
+            patch.completedAt = null;
+          }
+        } else if (groupBy === 'priority') {
+          patch.priority = toColumnId === 'starred' ? 1 : undefined;
+        } else if (groupBy === 'goal') {
+          if (toColumnId === 'no-goal') {
+            patch.goalId = null;
+          } else if (goalIdSet.has(toColumnId)) {
+            patch.goalId = toColumnId;
+          } else {
+            // Unknown goal id (likely stale UI) - ignore.
+            return activity;
+          }
+        } else if (groupBy === 'phase') {
+          patch.phase = toColumnId === 'no-phase' ? null : toColumnId;
+        }
+
+        // Place the activity at the end of the destination column.
+        const maxOrderInTarget = activities
+          .filter((a) => a.id !== activityId)
+          .filter((a) => getKanbanColumnIdForActivity(a, groupBy) === toColumnId)
+          .reduce((max, a) => {
+            const v = typeof a.orderIndex === 'number' ? a.orderIndex : -1;
+            return Math.max(max, v);
+          }, -1);
+
+        return {
+          ...activity,
+          ...patch,
+          orderIndex: maxOrderInTarget + 1,
+          updatedAt: atIso,
+        };
+      });
+    },
+    [activities, getKanbanColumnIdForActivity, goalIdSet, updateActivity],
+  );
+
   const handleUpdateShowCompleted = React.useCallback(
     (next: boolean) => {
       if (!activeView) return;
@@ -1459,30 +1591,6 @@ export function ActivitiesScreen() {
       setTimeout(() => setCustomizationGuideVisible(true), 300);
     },
     [addActivityView, setActiveActivityViewId],
-  );
-
-  // Handler for creating a view from AI prompt (skips customization guide since AI already configured it)
-  const handleCreateAiView = React.useCallback(
-    async (prompt: string) => {
-      setIsCreatingAiView(true);
-      try {
-        const result = await createViewFromPrompt(prompt);
-        if (result.success) {
-          addActivityView(result.view);
-          setActiveActivityViewId(result.view.id);
-          setViewCreatorVisible(false);
-          void HapticsService.trigger('canvas.selection');
-          showToast({ message: `Created "${result.view.name}"`, variant: 'success' });
-        } else {
-          showToast({ message: result.error, variant: 'danger' });
-        }
-      } catch (error) {
-        showToast({ message: 'Failed to create view. Please try again.', variant: 'danger' });
-      } finally {
-        setIsCreatingAiView(false);
-      }
-    },
-    [addActivityView, setActiveActivityViewId, showToast],
   );
 
   // Handler for applying a preset to a view
@@ -1866,19 +1974,86 @@ export function ActivitiesScreen() {
         )}
 
       {activities.length > 0 && (
-        <View style={styles.fixedToolbarContainer}>
-          <HStack
-            style={styles.toolbarRow}
-            alignItems="center"
-            justifyContent="space-between"
+        <Animated.View
+          style={[
+            styles.fixedToolbarAnimatedWrapper,
+            fixedToolbarAnimatedStyle,
+          ]}
+          pointerEvents={shouldShowFixedToolbar ? 'auto' : 'none'}
+          accessibilityElementsHidden={!shouldShowFixedToolbar}
+          importantForAccessibility={shouldShowFixedToolbar ? 'auto' : 'no-hide-descendants'}
+        >
+          <View
+            style={styles.fixedToolbarContainer}
+            onLayout={(e) => {
+              if (!shouldShowFixedToolbar) return;
+              const h = e.nativeEvent.layout.height;
+              // Ignore tiny heights that can happen during animation/clipping.
+              if (h >= 40) {
+                // Capture the "natural" toolbar height (including padding) while visible.
+                setFixedToolbarMeasuredHeight((prev) => (prev === 0 || Math.abs(prev - h) > 1 ? h : prev));
+              }
+            }}
           >
-            <View style={styles.toolbarButtonWrapper}>
-              {isPro ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
+            <HStack
+              style={styles.toolbarRow}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <View style={styles.toolbarButtonWrapper}>
+                {isPro ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      testID="e2e.activities.toolbar.views"
+                      accessibilityRole="button"
+                      accessibilityLabel="Views menu"
+                    >
+                      <Button
+                        ref={viewsButtonRef}
+                        collapsable={false}
+                        variant="outline"
+                        size="small"
+                        pointerEvents="none"
+                        accessible={false}
+                      >
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="panelLeft" size={14} color={colors.textPrimary} />
+                          <Text style={styles.toolbarButtonLabel}>
+                            {activeView?.name ?? 'Default view'}
+                          </Text>
+                        </HStack>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    {!viewEditorVisible && (
+                      <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                        {activityViews.map((view) => (
+                          <ViewMenuItem
+                            key={view.id}
+                            view={view}
+                            onApplyView={applyView}
+                            onOpenViewSettings={handleOpenViewSettings}
+                          />
+                        ))}
+                        <DropdownMenuItem
+                          onPress={handleOpenCreateView}
+                          style={styles.newViewMenuItem}
+                        >
+                          <HStack alignItems="center" space="xs">
+                            <Icon name="plus" size={14} color={colors.textSecondary} />
+                            <Text style={styles.menuItemText}>New view</Text>
+                          </HStack>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    )}
+                  </DropdownMenu>
+                ) : (
+                  <Pressable
                     testID="e2e.activities.toolbar.views"
                     accessibilityRole="button"
-                    accessibilityLabel="Views menu"
+                    accessibilityLabel="Views (Pro)"
+                    onPress={() =>
+                      openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' })
+                    }
                   >
                     <Button
                       ref={viewsButtonRef}
@@ -1890,190 +2065,147 @@ export function ActivitiesScreen() {
                     >
                       <HStack alignItems="center" space="xs">
                         <Icon name="panelLeft" size={14} color={colors.textPrimary} />
-                        <Text style={styles.toolbarButtonLabel}>
-                          {activeView?.name ?? 'Default view'}
-                        </Text>
+                        <Text style={styles.toolbarButtonLabel}>Default view</Text>
+                        <Icon name="lock" size={12} color={colors.textSecondary} />
                       </HStack>
                     </Button>
-                  </DropdownMenuTrigger>
-                  {!viewEditorVisible && (
-                    <DropdownMenuContent side="bottom" sideOffset={4} align="start">
-                      {activityViews.map((view) => (
-                        <ViewMenuItem
-                          key={view.id}
-                          view={view}
-                          onApplyView={applyView}
-                          onOpenViewSettings={handleOpenViewSettings}
-                        />
-                      ))}
-                      <DropdownMenuItem
-                        onPress={handleOpenCreateView}
-                        style={styles.newViewMenuItem}
-                      >
-                        <HStack alignItems="center" space="xs">
-                          <Icon name="plus" size={14} color={colors.textSecondary} />
-                          <Text style={styles.menuItemText}>New view</Text>
-                        </HStack>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  )}
-                </DropdownMenu>
-              ) : (
-                <Pressable
-                  testID="e2e.activities.toolbar.views"
-                  accessibilityRole="button"
-                  accessibilityLabel="Views (Pro)"
-                  onPress={() =>
-                    openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' })
-                  }
-                >
-                  <Button
-                    ref={viewsButtonRef}
-                    collapsable={false}
-                    variant="outline"
-                    size="small"
-                    pointerEvents="none"
-                    accessible={false}
-                  >
-                    <HStack alignItems="center" space="xs">
-                      <Icon name="panelLeft" size={14} color={colors.textPrimary} />
-                      <Text style={styles.toolbarButtonLabel}>Default view</Text>
-                      <Icon name="lock" size={12} color={colors.textSecondary} />
-                    </HStack>
-                  </Button>
-                </Pressable>
-              )}
-            </View>
+                  </Pressable>
+                )}
+              </View>
 
-            <HStack space="sm" alignItems="center">
-              {isKanbanLayout && (
+              <HStack space="sm" alignItems="center">
+                {isKanbanLayout && (
+                  <View style={styles.toolbarButtonWrapper}>
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onPress={() => setKanbanCardFieldsDrawerVisible(true)}
+                      testID="e2e.activities.toolbar.cardFields"
+                      accessibilityLabel="Card fields"
+                    >
+                      <Icon name="eye" size={14} color={colors.textPrimary} />
+                    </Button>
+                  </View>
+                )}
                 <View style={styles.toolbarButtonWrapper}>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    onPress={() => setKanbanCardFieldsDrawerVisible(true)}
-                    testID="e2e.activities.toolbar.cardFields"
-                    accessibilityLabel="Card fields"
-                  >
-                    <Icon name="eye" size={14} color={colors.textPrimary} />
-                  </Button>
-                </View>
-              )}
-              <View style={styles.toolbarButtonWrapper}>
-                {isPro ? (
-                  <>
-                      <Button
-                        ref={filterButtonRef}
-                        variant="outline"
-                        size="small"
-                      onPress={() => setFilterDrawerVisible(true)}
+                  {isPro ? (
+                    <>
+                        <Button
+                          ref={filterButtonRef}
+                          variant="outline"
+                          size="small"
+                        onPress={() => setFilterDrawerVisible(true)}
+                        testID="e2e.activities.toolbar.filter"
+                        >
+                          <Icon name="funnel" size={14} color={colors.textPrimary} />
+                        </Button>
+                      {filterGroups.length > 0 && (
+                        <View style={styles.toolbarBadgeCorner}>
+                          <Badge variant="info" style={styles.toolbarBadge}>
+                            <Text style={styles.toolbarBadgeText}>{filterGroups.reduce((acc, g) => acc + g.conditions.length, 0)}</Text>
+                          </Badge>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <Pressable
                       testID="e2e.activities.toolbar.filter"
-                      >
-                        <Icon name="funnel" size={14} color={colors.textPrimary} />
-                      </Button>
-                    {filterGroups.length > 0 && (
-                      <View style={styles.toolbarBadgeCorner}>
-                        <Badge variant="info" style={styles.toolbarBadge}>
-                          <Text style={styles.toolbarBadgeText}>{filterGroups.reduce((acc, g) => acc + g.conditions.length, 0)}</Text>
-                        </Badge>
+                      accessibilityRole="button"
+                      accessibilityLabel="Filter activities (Pro)"
+                      onPress={() =>
+                        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
+                      }
+                    >
+                      <View style={styles.proLockedButton}>
+                        <Button
+                          ref={filterButtonRef}
+                          collapsable={false}
+                          variant="outline"
+                          size="small"
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="funnel" size={14} color={colors.textPrimary} />
+                        </Button>
+                        <View style={styles.proLockedBadge}>
+                          <Icon name="lock" size={10} color={colors.textSecondary} />
+                        </View>
                       </View>
-                    )}
-                  </>
-                ) : (
-                  <Pressable
-                    testID="e2e.activities.toolbar.filter"
-                    accessibilityRole="button"
-                    accessibilityLabel="Filter activities (Pro)"
-                    onPress={() =>
-                      openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
-                    }
-                  >
-                    <View style={styles.proLockedButton}>
-                      <Button
-                        ref={filterButtonRef}
-                        collapsable={false}
-                        variant="outline"
-                        size="small"
-                        pointerEvents="none"
-                        accessible={false}
-                      >
-                        <Icon name="funnel" size={14} color={colors.textPrimary} />
-                      </Button>
-                      <View style={styles.proLockedBadge}>
-                        <Icon name="lock" size={10} color={colors.textSecondary} />
-                      </View>
-                    </View>
-                  </Pressable>
-                )}
-              </View>
+                    </Pressable>
+                  )}
+                </View>
 
-              <View style={styles.toolbarButtonWrapper}>
-                {isPro ? (
-                  <>
-                      <Button
-                        ref={sortButtonRef}
-                        variant="outline"
-                        size="small"
-                      onPress={() => setSortDrawerVisible(true)}
+                <View style={styles.toolbarButtonWrapper}>
+                  {isPro ? (
+                    <>
+                        <Button
+                          ref={sortButtonRef}
+                          variant="outline"
+                          size="small"
+                        onPress={() => setSortDrawerVisible(true)}
+                        testID="e2e.activities.toolbar.sort"
+                        >
+                          <Icon name="sort" size={14} color={colors.textPrimary} />
+                        </Button>
+                      {sortConditions.length > 1 && (
+                        <View style={styles.toolbarBadgeCorner}>
+                          <Badge variant="info" style={styles.toolbarBadge}>
+                            <Text style={styles.toolbarBadgeText}>{sortConditions.length}</Text>
+                          </Badge>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <Pressable
                       testID="e2e.activities.toolbar.sort"
-                      >
-                        <Icon name="sort" size={14} color={colors.textPrimary} />
-                      </Button>
-                    {sortConditions.length > 1 && (
-                      <View style={styles.toolbarBadgeCorner}>
-                        <Badge variant="info" style={styles.toolbarBadge}>
-                          <Text style={styles.toolbarBadgeText}>{sortConditions.length}</Text>
-                        </Badge>
+                      accessibilityRole="button"
+                      accessibilityLabel="Sort activities (Pro)"
+                      onPress={() =>
+                        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
+                      }
+                    >
+                      <View style={styles.proLockedButton}>
+                        <Button
+                          ref={sortButtonRef}
+                          collapsable={false}
+                          variant="outline"
+                          size="small"
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="sort" size={14} color={colors.textPrimary} />
+                        </Button>
+                        <View style={styles.proLockedBadge}>
+                          <Icon name="lock" size={10} color={colors.textSecondary} />
+                        </View>
                       </View>
-                    )}
-                  </>
-                ) : (
-                  <Pressable
-                    testID="e2e.activities.toolbar.sort"
-                    accessibilityRole="button"
-                    accessibilityLabel="Sort activities (Pro)"
-                    onPress={() =>
-                      openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
-                    }
-                  >
-                    <View style={styles.proLockedButton}>
-                      <Button
-                        ref={sortButtonRef}
-                        collapsable={false}
-                        variant="outline"
-                        size="small"
-                        pointerEvents="none"
-                        accessible={false}
-                      >
-                        <Icon name="sort" size={14} color={colors.textPrimary} />
-                      </Button>
-                      <View style={styles.proLockedBadge}>
-                        <Icon name="lock" size={10} color={colors.textSecondary} />
-                      </View>
-                    </View>
-                  </Pressable>
-                )}
-              </View>
+                    </Pressable>
+                  )}
+                </View>
+              </HStack>
             </HStack>
-          </HStack>
-        </View>
+          </View>
+        </Animated.View>
       )}
     </View>
 
       {/* Render either Kanban or List view based on activeView.layout */}
       {activeView?.layout === 'kanban' ? (
         <KanbanBoard
-          activities={activities}
+          activities={visibleActivities}
           goals={goals}
           groupBy={activeView?.kanbanGroupBy ?? 'status'}
           enrichingActivityIds={enrichingActivityIds}
           onToggleComplete={handleToggleComplete}
           onTogglePriority={handleTogglePriorityOne}
           onPressActivity={navigateToActivityDetail}
+          onMoveActivity={handleMoveActivity}
           onAddActivity={() => setActivityCoachVisible(true)}
           addCardAnchorRef={kanbanAddCardAnchorRef}
           cardVisibleFields={kanbanCardVisibleFields}
           extraBottomPadding={scrollExtraBottomPadding}
+          isExpanded={isKanbanExpanded}
+          onExpandedChange={setIsKanbanExpanded}
         />
       ) : isManualOrderEffective ? (
         <DraggableList
@@ -2705,16 +2837,14 @@ export function ActivitiesScreen() {
       <BottomDrawer
         visible={viewCreatorVisible}
         onClose={() => setViewCreatorVisible(false)}
-        snapPoints={['45%']}
+        snapPoints={['60%']}
       >
         <BottomDrawerScrollView>
           <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Create view</Text>
+            <Text style={styles.sheetTitle}>Choose a view type</Text>
             <InlineViewCreator
               goals={goals}
               onCreateView={handleCreateViewFromTemplate}
-              onCreateAiView={handleCreateAiView}
-              isAiLoading={isCreatingAiView}
               onClose={() => setViewCreatorVisible(false)}
             />
           </View>

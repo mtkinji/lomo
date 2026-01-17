@@ -218,6 +218,11 @@ type ProposedGoalDraft = {
   description?: string;
   status?: Goal['status'];
   /**
+   * Optional Arc container for the draft (used when adopting a goal proposal while already scoped to an Arc).
+   * When omitted, the caller can still infer Arc from surrounding context.
+   */
+  arcId?: string | null;
+  /**
    * Optional priority level (1 = high, 2 = medium, 3 = low). Cascades to activity
    * recommendation scoring when the goal is adopted.
    */
@@ -2379,13 +2384,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                               createdAt: timestamp,
                             } as Goal['heroImageMeta'],
                           };
-                        }
-                      }
-
-                      if (workflowRuntime?.definition?.chatMode === 'goalCreation') {
-                        const selection = useFirstTimeUxStore.getState().prefetchedArcHero;
-                        if (selection.image?.uri) {
-                          return { uri: selection.image.uri, meta: selection.heroImageMeta };
                         }
                       }
 

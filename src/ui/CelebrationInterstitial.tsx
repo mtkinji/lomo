@@ -272,7 +272,6 @@ function CelebrationInterstitialContent({
         {/* Background gradient */}
         <LinearGradient
           colors={[colors.pine700, colors.pine800, colors.sumi900]}
-          locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFill}
         />
 

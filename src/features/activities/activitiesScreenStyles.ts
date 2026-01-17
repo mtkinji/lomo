@@ -6,6 +6,9 @@ import { typography, fonts } from '../../theme/typography';
 export const QUICK_ADD_BAR_HEIGHT = 64;
 
 export const styles = StyleSheet.create({
+  fixedToolbarAnimatedWrapper: {
+    overflow: 'hidden',
+  },
   fixedToolbarContainer: {
     // Toolbar stays fixed above the scroll view
     paddingHorizontal: spacing.sm,

@@ -1,7 +1,9 @@
 import React from 'react';
 import type { RefObject } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { VStack, HStack, Text } from '../../ui/primitives';
+import Animated, { interpolate, runOnJS, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { HStack, Text } from '../../ui/primitives';
 import { KanbanCard, type KanbanCardField } from './KanbanCard';
 import { Icon, type IconName } from '../../ui/Icon';
 import { colors } from '../../theme/colors';
@@ -67,11 +69,201 @@ export type KanbanColumnProps = {
    * Whether to show in expanded mode (full card details) or compact mode.
    */
   isExpanded?: boolean;
+  /**
+   * When true, disable vertical scrolling in the column so drag gestures win.
+   */
+  isDragging?: boolean;
+  /**
+   * Activity id to visually hide (keeps layout stable while an overlay is rendered by the board).
+   */
+  hiddenActivityId?: string | null;
+  /**
+   * Whether this column is currently the hovered drop target.
+   */
+  isDropTarget?: boolean;
+  /**
+   * Shared drag state from the board.
+   */
+  draggingId?: SharedValue<string | null>;
+  dragTranslateX?: SharedValue<number>;
+  dragTranslateY?: SharedValue<number>;
+  hoveredColumnId?: SharedValue<string | null>;
+  containerX?: SharedValue<number>;
+  scrollX?: SharedValue<number>;
+  columnIds?: SharedValue<string[]>;
+  expandedProgress?: SharedValue<number>;
+  compactColumnWidth?: number;
+  expandedColumnWidth?: number;
+  columnGap?: number;
+  contentPadding?: number;
+  onBeginDrag?: (activityId: string, cardLayout: { x: number; y: number; width: number; height: number }) => void;
+  onEndDrag?: (activityId: string, dropColumnId: string | null) => void;
+  /**
+   * Native gesture wrapper from the horizontal board scroll view. When provided,
+   * card drags can run simultaneously with horizontal page swipes.
+   */
+  scrollableGesture?: ReturnType<typeof Gesture.Native> | null;
 };
+
+function DraggableKanbanCard({
+  activity,
+  goalTitle,
+  visibleFields,
+  isLoading,
+  isDragging,
+  hidden,
+  draggingId,
+  dragTranslateX,
+  dragTranslateY,
+  hoveredColumnId,
+  containerX,
+  scrollX,
+  columnIds,
+  expandedProgress,
+  compactColumnWidth,
+  expandedColumnWidth,
+  columnGap,
+  contentPadding,
+  onBeginDrag,
+  onEndDrag,
+  scrollableGesture,
+  onToggleComplete,
+  onPress,
+}: {
+  activity: Activity;
+  goalTitle?: string;
+  visibleFields?: ReadonlySet<KanbanCardField>;
+  isLoading: boolean;
+  isDragging: boolean;
+  hidden: boolean;
+  draggingId?: SharedValue<string | null>;
+  dragTranslateX?: SharedValue<number>;
+  dragTranslateY?: SharedValue<number>;
+  hoveredColumnId?: SharedValue<string | null>;
+  containerX?: SharedValue<number>;
+  scrollX?: SharedValue<number>;
+  columnIds?: SharedValue<string[]>;
+  expandedProgress?: SharedValue<number>;
+  compactColumnWidth?: number;
+  expandedColumnWidth?: number;
+  columnGap?: number;
+  contentPadding?: number;
+  onBeginDrag?: (activityId: string, cardLayout: { x: number; y: number; width: number; height: number }) => void;
+  onEndDrag?: (activityId: string, dropColumnId: string | null) => void;
+  scrollableGesture?: ReturnType<typeof Gesture.Native> | null;
+  onToggleComplete: () => void;
+  onPress: () => void;
+}) {
+  const containerRef = React.useRef<View>(null);
+
+  const beginDrag = React.useCallback(() => {
+    if (!onBeginDrag) return;
+    const node = containerRef.current;
+    if (!node?.measureInWindow) return;
+    node.measureInWindow((x, y, width, height) => {
+      onBeginDrag(activity.id, { x, y, width, height });
+    });
+  }, [activity.id, onBeginDrag]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const isActive = draggingId?.value === activity.id;
+    return {
+      opacity: hidden || isActive ? 0 : 1,
+    };
+  }, [activity.id, draggingId, hidden]);
+
+  const gesture = React.useMemo(() => {
+    const longPress = Gesture.LongPress()
+      .minDuration(280)
+      .maxDistance(24)
+      .onStart(() => {
+        runOnJS(beginDrag)();
+      });
+
+    let pan = Gesture.Pan()
+      .manualActivation(true)
+      .onTouchesMove((_e, stateManager) => {
+        if (draggingId?.value === activity.id) {
+          stateManager.activate();
+        } else {
+          stateManager.fail();
+        }
+      })
+      .onUpdate((e) => {
+        if (draggingId?.value !== activity.id) return;
+        if (!dragTranslateX || !dragTranslateY) return;
+
+        dragTranslateX.value = e.translationX;
+        dragTranslateY.value = e.translationY;
+
+        if (!hoveredColumnId || !containerX || !scrollX || !columnIds || !expandedProgress) return;
+        const ids = columnIds.value ?? [];
+        if (ids.length === 0) return;
+
+        const w = interpolate(
+          expandedProgress.value,
+          [0, 1],
+          [compactColumnWidth ?? 0, expandedColumnWidth ?? 0]
+        );
+        const stride = w + (columnGap ?? 0);
+
+        // Convert finger absoluteX into the ScrollView content coordinate space.
+        const localX =
+          (e.absoluteX - containerX.value) +
+          scrollX.value -
+          (contentPadding ?? 0);
+
+        const idx = Math.floor(localX / Math.max(1, stride));
+        if (idx < 0 || idx >= ids.length) {
+          hoveredColumnId.value = null;
+        } else {
+          hoveredColumnId.value = ids[idx] ?? null;
+        }
+      })
+      .onEnd(() => {
+        if (draggingId?.value !== activity.id) return;
+        const dropId = hoveredColumnId?.value ?? null;
+        if (onEndDrag) {
+          runOnJS(onEndDrag)(activity.id, dropId);
+        }
+      });
+
+    if (scrollableGesture) {
+      pan = pan.simultaneousWithExternalGesture(scrollableGesture);
+    }
+
+    return Gesture.Simultaneous(longPress, pan);
+  }, [
+    activity.id,
+    beginDrag,
+    dragTranslateX,
+    dragTranslateY,
+    draggingId,
+    hoveredColumnId,
+    onEndDrag,
+    scrollableGesture,
+  ]);
+
+  return (
+    <View ref={containerRef} collapsable={false}>
+      <GestureDetector gesture={gesture}>
+        <Animated.View style={animatedStyle}>
+          <KanbanCard
+            activity={activity}
+            goalTitle={goalTitle}
+            visibleFields={visibleFields}
+            onToggleComplete={isDragging ? undefined : onToggleComplete}
+            onPress={isDragging ? undefined : onPress}
+            isLoading={isLoading}
+          />
+        </Animated.View>
+      </GestureDetector>
+    </View>
+  );
+}
 
 export function KanbanColumn({
   title,
-  iconName,
   accentColor: _accentColor = colors.accent,
   activities,
   cardVisibleFields,
@@ -84,41 +276,80 @@ export function KanbanColumn({
   addCardAnchorRef,
   width,
   isExpanded: _isExpanded = true,
+  isDragging = false,
+  hiddenActivityId = null,
+  isDropTarget = false,
+  draggingId,
+  dragTranslateX,
+  dragTranslateY,
+  hoveredColumnId,
+  containerX,
+  scrollX,
+  columnIds,
+  expandedProgress,
+  compactColumnWidth,
+  expandedColumnWidth,
+  columnGap,
+  contentPadding,
+  onBeginDrag,
+  onEndDrag,
+  scrollableGesture,
 }: KanbanColumnProps) {
   return (
     <View style={[styles.wrapper, width != null ? { width } : null]}>
-      {/* Floating label (like a filled field label) */}
-      <HStack style={styles.floatingLabelRow} alignItems="center" justifyContent="space-between" space="sm">
-        <HStack alignItems="center" space="xs" style={{ flex: 1 }}>
-          <Text style={styles.floatingLabelText} numberOfLines={1}>{title}</Text>
-        </HStack>
-        <Text style={styles.countText}>{activities.length}</Text>
-      </HStack>
-
       {/* Filled surface (like a filled input) */}
-      <View style={styles.surface}>
+      <View style={[styles.surface, isDropTarget ? styles.surfaceDropTarget : null]}>
+        {/* Column header (inside the column surface) */}
+        <HStack style={styles.columnHeaderRow} alignItems="center" space="xs">
+          <Text style={styles.columnHeaderText} numberOfLines={1}>
+            {title}
+          </Text>
+          <View style={styles.countPill}>
+            <Text style={styles.countPillText}>{activities.length}</Text>
+          </View>
+        </HStack>
+
         {/* Cards list */}
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
+          scrollEnabled={!isDragging}
         >
           {activities.map((activity) => {
             const goalTitle = activity.goalId
               ? goalTitleById[activity.goalId]
               : undefined;
             const isLoading = enrichingActivityIds?.has(activity.id);
+            const hidden = hiddenActivityId === activity.id;
 
             return (
-              <KanbanCard
+              <DraggableKanbanCard
                 key={activity.id}
                 activity={activity}
                 goalTitle={goalTitle}
                 visibleFields={cardVisibleFields}
+                isLoading={Boolean(isLoading)}
+                isDragging={isDragging}
+                hidden={hidden}
+                draggingId={draggingId}
+                dragTranslateX={dragTranslateX}
+                dragTranslateY={dragTranslateY}
+                hoveredColumnId={hoveredColumnId}
+                containerX={containerX}
+                scrollX={scrollX}
+                columnIds={columnIds}
+                expandedProgress={expandedProgress}
+                compactColumnWidth={compactColumnWidth}
+                expandedColumnWidth={expandedColumnWidth}
+                columnGap={columnGap}
+                contentPadding={contentPadding}
+                onBeginDrag={onBeginDrag}
+                onEndDrag={onEndDrag}
+                scrollableGesture={scrollableGesture}
                 onToggleComplete={() => onToggleComplete(activity.id)}
                 onPress={() => onPressActivity(activity.id)}
-                isLoading={isLoading}
               />
             );
           })}
@@ -160,20 +391,6 @@ const styles = StyleSheet.create({
     maxHeight: '100%',
     height: '100%',
   },
-  floatingLabelRow: {
-    paddingHorizontal: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  floatingLabelText: {
-    ...typography.bodySm,
-    fontFamily: fonts.bold,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  countText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
   surface: {
     flex: 1,
     backgroundColor: colors.fieldFill,
@@ -181,6 +398,36 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  columnHeaderRow: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  columnHeaderText: {
+    ...typography.bodySm,
+    fontFamily: fonts.bold,
+    color: colors.textPrimary,
+    flex: 0,
+    maxWidth: '70%',
+  },
+  countPill: {
+    marginLeft: spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  countPillText: {
+    ...typography.bodySm,
+    fontSize: 12,
+    lineHeight: 14,
+    color: colors.textSecondary,
+  },
+  surfaceDropTarget: {
+    borderColor: colors.accent,
+    borderWidth: 2,
   },
   scrollArea: {
     flex: 1,
@@ -201,8 +448,7 @@ const styles = StyleSheet.create({
   addCardButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopWidth: 0,
     backgroundColor: colors.fieldFill,
   },
   addCardText: {

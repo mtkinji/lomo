@@ -101,7 +101,6 @@ export function EmptyState({
               name={iconName}
               size={iconSize}
               color={colors.border}
-              strokeWidth={1}
             />
           </View>
         ) : showIllustration ? (

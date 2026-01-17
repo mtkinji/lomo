@@ -20,7 +20,7 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, VStack, HStack } from '../../ui/primitives';
-import { AppShell } from '../../ui/AppShell';
+import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
@@ -90,7 +90,7 @@ export function FriendsScreen({}: FriendsScreenProps) {
   }, [loadData]);
 
   const handleAddFriend = useCallback(async () => {
-    HapticsService.trigger('canvas.selection');
+    void HapticsService.trigger('canvas.selection');
     setIsCreatingInvite(true);
 
     try {
@@ -98,7 +98,7 @@ export function FriendsScreen({}: FriendsScreenProps) {
       if (!invite) {
         useToastStore.getState().showToast({
           message: 'Failed to create invite link',
-          variant: 'error',
+          variant: 'danger',
         });
         return;
       }
@@ -122,11 +122,11 @@ export function FriendsScreen({}: FriendsScreenProps) {
 
   const handleAcceptRequest = useCallback(
     async (request: PendingFriendRequest) => {
-      HapticsService.trigger('canvas.selection');
+      void HapticsService.trigger('canvas.selection');
 
       const success = await acceptFriendRequest(request.friendshipId);
       if (success) {
-        HapticsService.trigger('canvas.success');
+        void HapticsService.trigger('outcome.success');
         useToastStore.getState().showToast({
           message: `You're now friends with ${request.fromUserName || 'this user'}!`,
           variant: 'success',
@@ -136,7 +136,7 @@ export function FriendsScreen({}: FriendsScreenProps) {
       } else {
         useToastStore.getState().showToast({
           message: 'Failed to accept request',
-          variant: 'error',
+          variant: 'danger',
         });
       }
     },
@@ -145,7 +145,7 @@ export function FriendsScreen({}: FriendsScreenProps) {
 
   const handleDeclineRequest = useCallback(
     async (request: PendingFriendRequest) => {
-      HapticsService.trigger('canvas.secondary');
+      void HapticsService.trigger('canvas.selection');
 
       const success = await declineOrBlockFriend(request.friendshipId);
       if (success) {
@@ -161,8 +161,8 @@ export function FriendsScreen({}: FriendsScreenProps) {
       <View style={styles.friendCard}>
         <HStack space="md" style={styles.friendCardContent}>
           <ProfileAvatar
-            uri={item.avatarUrl}
-            name={item.name}
+            avatarUrl={item.avatarUrl}
+            name={item.name ?? undefined}
             size={48}
           />
           <VStack space="xs" style={styles.friendInfo}>
@@ -182,8 +182,8 @@ export function FriendsScreen({}: FriendsScreenProps) {
       <View style={styles.requestCard}>
         <HStack space="md" style={styles.requestCardContent}>
           <ProfileAvatar
-            uri={item.fromUserAvatarUrl}
-            name={item.fromUserName}
+            avatarUrl={item.fromUserAvatarUrl}
+            name={item.fromUserName ?? undefined}
             size={48}
           />
           <VStack space="xs" style={styles.requestInfo}>
@@ -195,13 +195,13 @@ export function FriendsScreen({}: FriendsScreenProps) {
               style={styles.declineButton}
               onPress={() => handleDeclineRequest(item)}
             >
-              <Icon name="X" size={20} color={colors.textSecondary} />
+              <Icon name="close" size={20} color={colors.textSecondary} />
             </Pressable>
             <Pressable
               style={styles.acceptButton}
               onPress={() => handleAcceptRequest(item)}
             >
-              <Icon name="Check" size={20} color={colors.canvas} />
+              <Icon name="check" size={20} color={colors.canvas} />
             </Pressable>
           </HStack>
         </HStack>
@@ -222,7 +222,7 @@ export function FriendsScreen({}: FriendsScreenProps) {
             disabled={isCreatingInvite}
           >
             <HStack space="sm" style={styles.addFriendContent}>
-              <Icon name="UserPlus" size={20} color={colors.canvas} />
+              <Icon name="userPlus" size={20} color={colors.canvas} />
               <Text style={styles.addFriendText}>
                 {isCreatingInvite ? 'Creating link...' : 'Add Friend'}
               </Text>
