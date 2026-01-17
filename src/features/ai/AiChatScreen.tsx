@@ -217,6 +217,16 @@ type ProposedGoalDraft = {
   title: string;
   description?: string;
   status?: Goal['status'];
+  /**
+   * Optional Arc container for the draft (used when adopting a goal proposal while already scoped to an Arc).
+   * When omitted, the caller can still infer Arc from surrounding context.
+   */
+  arcId?: string | null;
+  /**
+   * Optional priority level (1 = high, 2 = medium, 3 = low). Cascades to activity
+   * recommendation scoring when the goal is adopted.
+   */
+  priority?: 1 | 2 | 3;
   suggestedArcName?: string | null;
   forceIntent?: GoalForceIntent;
   timeHorizon?: string;
@@ -2377,13 +2387,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                         }
                       }
 
-                      if (workflowRuntime?.definition?.chatMode === 'goalCreation') {
-                        const selection = useFirstTimeUxStore.getState().prefetchedArcHero;
-                        if (selection.image?.uri) {
-                          return { uri: selection.image.uri, meta: selection.heroImageMeta };
-                        }
-                      }
-
                       const seed = `${trimmedTitle}:${trimmedDescription}`;
                       const index = hashStringToIndex(seed, ARC_HERO_LIBRARY.length);
                       const hero = ARC_HERO_LIBRARY[index] ?? ARC_HERO_LIBRARY[0];
@@ -2449,6 +2452,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                       title: trimmedTitle,
                       description: trimmedDescription.length ? trimmedDescription : undefined,
                       status: proposal.status ?? 'planned',
+                      priority: proposal.priority,
                       qualityState: hasQuality ? 'ready' : 'draft',
                       startDate: timestamp,
                       targetDate,

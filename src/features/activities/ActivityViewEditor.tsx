@@ -5,8 +5,10 @@ import { Dialog } from '../../ui/Dialog';
 import { Button } from '../../ui/Button';
 import { ButtonLabel } from '../../ui/Typography';
 import { Icon } from '../../ui/Icon';
+import { SegmentedControl } from '../../ui/SegmentedControl';
 import { colors } from '../../theme/colors';
 import { styles } from './activitiesScreenStyles';
+import type { ActivityViewLayout, KanbanGroupBy } from '../../domain/types';
 
 export type ActivityViewEditorProps = {
   visible: boolean;
@@ -16,10 +18,26 @@ export type ActivityViewEditorProps = {
   onChangeViewName: (name: string) => void;
   showCompleted: boolean;
   onUpdateShowCompleted: (show: boolean) => void;
+  layout: ActivityViewLayout;
+  onChangeLayout: (layout: ActivityViewLayout) => void;
+  kanbanGroupBy: KanbanGroupBy;
+  onChangeKanbanGroupBy: (groupBy: KanbanGroupBy) => void;
   onConfirm: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
 };
+
+const LAYOUT_OPTIONS: Array<{ value: ActivityViewLayout; label: string }> = [
+  { value: 'list', label: 'List' },
+  { value: 'kanban', label: 'Kanban' },
+];
+
+const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
+  { value: 'status', label: 'Status' },
+  { value: 'goal', label: 'Goal' },
+  { value: 'priority', label: 'Priority' },
+  { value: 'phase', label: 'Phase' },
+];
 
 export function ActivityViewEditor({
   visible,
@@ -29,6 +47,10 @@ export function ActivityViewEditor({
   onChangeViewName,
   showCompleted,
   onUpdateShowCompleted,
+  layout,
+  onChangeLayout,
+  kanbanGroupBy,
+  onChangeKanbanGroupBy,
   onConfirm,
   onDuplicate,
   onDelete,
@@ -64,6 +86,28 @@ export function ActivityViewEditor({
             onChangeText={onChangeViewName}
           />
         </View>
+
+        <View>
+          <Text style={styles.viewEditorFieldLabel}>Layout</Text>
+          <SegmentedControl
+            value={layout}
+            onChange={onChangeLayout}
+            options={LAYOUT_OPTIONS}
+            size="compact"
+          />
+        </View>
+
+        {layout === 'kanban' && (
+          <View>
+            <Text style={styles.viewEditorFieldLabel}>Group by</Text>
+            <SegmentedControl
+              value={kanbanGroupBy}
+              onChange={onChangeKanbanGroupBy}
+              options={KANBAN_GROUP_OPTIONS}
+              size="compact"
+            />
+          </View>
+        )}
 
         {mode === 'settings' && (
           <>

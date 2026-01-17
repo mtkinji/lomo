@@ -91,7 +91,7 @@ export function SharedGoalActivityDrawer({
               onPress={handleOpenComposer}
               style={styles.checkinButton}
             >
-              <Icon name="MessageCircle" size={16} color={colors.accent} />
+              <Icon name="messageCircle" size={16} color={colors.accent} />
               <Text style={styles.checkinButtonText}>Check in</Text>
             </Button>
           </View>
@@ -102,7 +102,6 @@ export function SharedGoalActivityDrawer({
           <GoalFeedSection
             goalId={goalId}
             refreshKey={feedRefreshKey}
-            showCheckinPrompt={false}
           />
         </View>
       </View>

@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   reactionButtonSelected: {
-    backgroundColor: colors.accentSubtle,
+    backgroundColor: colors.pine100,
   },
   reactionButtonWithCount: {
     backgroundColor: colors.shell,

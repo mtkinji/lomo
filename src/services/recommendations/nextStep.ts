@@ -32,13 +32,25 @@ function isActionable(activity: Activity): boolean {
 
 type ScoredActivity = { activity: Activity; score: number };
 
-function scoreActivities(params: { activities: Activity[]; now: Date }): ScoredActivity[] {
+function scoreActivities(params: { activities: Activity[]; goals: Goal[]; now: Date }): ScoredActivity[] {
   const todayKey = localDateKey(params.now);
   const actionable = params.activities.filter(isActionable);
+
+  // Build a lookup map from goalId to goal for efficient priority lookups.
+  const goalById = new Map<string, Goal>();
+  for (const goal of params.goals) {
+    goalById.set(goal.id, goal);
+  }
+
   return actionable
     .map((activity) => {
       const scheduledToday = isScheduledForLocalDay(activity, todayKey) ? 1 : 0;
-      const priority = activity.priority === 1 ? 1 : activity.priority === 2 ? 0.5 : 0;
+      const activityPriority = activity.priority === 1 ? 1 : activity.priority === 2 ? 0.5 : 0;
+
+      // Look up the parent goal's priority and factor it into the score.
+      const parentGoal = activity.goalId ? goalById.get(activity.goalId) : null;
+      const goalPriority = parentGoal?.priority === 1 ? 1 : parentGoal?.priority === 2 ? 0.5 : 0;
+
       const estimate = typeof activity.estimateMinutes === 'number' ? activity.estimateMinutes : null;
       // Prefer smaller estimates; cap to avoid overfitting.
       const estimateScore =
@@ -47,8 +59,9 @@ function scoreActivities(params: { activities: Activity[]; now: Date }): ScoredA
       const updatedScore = Number.isNaN(updatedAt)
         ? 0
         : Math.min(1, (Date.now() - updatedAt) / (7 * 24 * 60 * 60 * 1000));
-      // Higher is better.
-      const score = scheduledToday * 3 + priority * 2 + estimateScore * 1 + updatedScore * 0.2;
+      // Higher is better. Goal priority sits between scheduledToday and activity priority.
+      const score =
+        scheduledToday * 3 + goalPriority * 2.5 + activityPriority * 2 + estimateScore * 1 + updatedScore * 0.2;
       return { activity, score };
     })
     .sort((a, b) => b.score - a.score);
@@ -70,7 +83,7 @@ export function getSuggestedActivitiesRanked(params: {
   if (!goals || goals.length === 0) return [];
   if (!activities || activities.length === 0) return [];
 
-  return scoreActivities({ activities, now })
+  return scoreActivities({ activities, goals, now })
     .slice(0, Math.max(1, Math.round(limit)))
     .map((s) => s.activity);
 }
@@ -91,8 +104,7 @@ export function getSuggestedNextStep(params: {
     return { kind: 'setup', reason: 'no_activities' };
   }
 
-  const todayKey = localDateKey(now);
-  const scored = scoreActivities({ activities, now });
+  const scored = scoreActivities({ activities, goals, now });
   if (scored.length === 0) {
     return { kind: 'setup', reason: 'no_activities' };
   }

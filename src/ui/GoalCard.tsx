@@ -1,5 +1,6 @@
 import { StyleSheet, ViewStyle, StyleProp, TouchableOpacity, View } from 'react-native';
 import { VStack, Heading, Text, HStack } from './primitives';
+import { Icon } from './Icon';
 import { cardSurfaceStyle, colors, spacing, typography } from '../theme';
 
 type GoalCardProps = {
@@ -23,6 +24,11 @@ type GoalCardProps = {
    */
   metaRight?: string;
   /**
+   * Optional priority indicator (1 = high, 2 = medium, 3 = low). When set to 1,
+   * a star icon is displayed next to the title.
+   */
+  priority?: 1 | 2 | 3;
+  /**
    * Optional click handler. When provided, the entire card becomes tappable.
    */
   onPress?: () => void;
@@ -35,6 +41,7 @@ export function GoalCard({
   body,
   metaLeft,
   metaRight,
+  priority,
   onPress,
   style,
 }: GoalCardProps) {
@@ -51,7 +58,10 @@ export function GoalCard({
         : null)}
     >
       <VStack space="xs">
-        <Heading style={styles.goalTitle}>{title}</Heading>
+        <HStack alignItems="center" space="xs">
+          <Heading style={[styles.goalTitle, { flex: 1 }]}>{title}</Heading>
+          {priority === 1 && <Icon name="starFilled" size={14} color={colors.turmeric} />}
+        </HStack>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         {body ? (
           <Text style={styles.goalDescription} numberOfLines={2}>

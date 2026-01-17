@@ -60,7 +60,7 @@ export function CheckinNudgePrompt({
     async (preset: CheckinPreset) => {
       if (isSubmitting) return;
 
-      HapticsService.trigger('canvas.selection');
+      void HapticsService.trigger('canvas.selection');
       setIsSubmitting(true);
       setSubmittedPreset(preset);
 
@@ -80,7 +80,7 @@ export function CheckinNudgePrompt({
         });
 
         recordCheckin(goalId);
-        HapticsService.trigger('canvas.success');
+        void HapticsService.trigger('outcome.success');
 
         // Brief delay to show success state before dismissing
         setTimeout(() => {
@@ -101,7 +101,7 @@ export function CheckinNudgePrompt({
   );
 
   const handleDismiss = useCallback(() => {
-    HapticsService.trigger('canvas.secondary');
+    void HapticsService.trigger('canvas.selection');
     dismissNudge(goalId);
     onDismiss?.();
   }, [goalId, dismissNudge, onDismiss]);
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   presetChipSelected: {
-    backgroundColor: colors.accentSubtle,
+    backgroundColor: colors.pine100,
     borderColor: colors.accent,
   },
   presetChipDisabled: {

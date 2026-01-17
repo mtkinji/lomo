@@ -13,6 +13,7 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { ActivitySortMode, ActivitySortableField, SortCondition } from '../domain/types';
+import type { IconName } from './Icon';
 
 interface Props {
   visible: boolean;
@@ -28,7 +29,11 @@ interface Props {
   onApply: (sorts: SortCondition[]) => void;
 }
 
-const SORTABLE_FIELDS: ObjectPickerOption[] = [
+const SORTABLE_FIELDS: Array<{
+  value: ActivitySortableField;
+  label: string;
+  leftElement?: React.ReactNode;
+}> = [
   { value: 'title', label: 'Title', leftElement: <Icon name="edit" size={14} color={colors.textSecondary} /> },
   { value: 'status', label: 'Status', leftElement: <Icon name="checkCircle" size={14} color={colors.textSecondary} /> },
   { value: 'priority', label: 'Priority', leftElement: <Icon name="star" size={14} color={colors.textSecondary} /> },
@@ -53,6 +58,7 @@ const FIELD_TYPE_MAP: Record<ActivitySortableField, 'string' | 'number' | 'date'
   difficulty: 'number',
   estimateMinutes: 'number',
   createdAt: 'date',
+  orderIndex: 'number',
 };
 
 function getSortIcon(field: ActivitySortableField, direction: 'asc' | 'desc'): IconName {
@@ -184,7 +190,8 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
                 onDragEnd={({ data }) => setLocalSorts(data)}
                 activationDistance={10}
                 scrollEnabled={false}
-                renderItem={({ item, index, drag, isActive }: RenderItemParams<LocalSortCondition>) => {
+                renderItem={({ item, drag, isActive, getIndex }: RenderItemParams<LocalSortCondition>) => {
+                  const index = getIndex?.() ?? 0;
                   const filteredOptions = SORTABLE_FIELDS.filter(
                     (f) => !usedFields.has(f.value) || f.value === item.field,
                   );
@@ -211,11 +218,9 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
                         <View style={{ flex: 1 }}>
                           <ObjectPicker
                             size="compact"
-                            options={filteredOptions}
+                            options={filteredOptions as unknown as ObjectPickerOption[]}
                             value={item.field}
-                            onValueChange={(val) =>
-                              handleUpdateSort(index ?? 0, { field: val as ActivitySortableField })
-                            }
+                            onValueChange={(val) => handleUpdateSort(index, { field: val as ActivitySortableField })}
                             accessibilityLabel="Select field to sort by"
                             placeholder="Sort by..."
                             presentation="popover"
@@ -227,7 +232,7 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
                       <IconButton
                         variant="ghost"
                         onPress={() =>
-                          handleUpdateSort(index ?? 0, {
+                          handleUpdateSort(index, {
                             direction: item.direction === 'asc' ? 'desc' : 'asc',
                           })
                         }
@@ -245,7 +250,7 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
 
                         <IconButton
                           variant="ghost"
-                          onPress={() => handleRemoveSort(index ?? 0)}
+                          onPress={() => handleRemoveSort(index)}
                           accessibilityLabel="Remove sort level"
                           disabled={localSorts.length <= 1}
                           style={styles.compactIconButton}

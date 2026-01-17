@@ -6,6 +6,9 @@ import { typography, fonts } from '../../theme/typography';
 export const QUICK_ADD_BAR_HEIGHT = 64;
 
 export const styles = StyleSheet.create({
+  fixedToolbarAnimatedWrapper: {
+    overflow: 'hidden',
+  },
   fixedToolbarContainer: {
     // Toolbar stays fixed above the scroll view
     paddingHorizontal: spacing.sm,
@@ -463,6 +466,53 @@ export const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  kanbanFieldsSheetContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  kanbanFieldsListContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  kanbanFieldsSheetSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: -spacing.sm,
+  },
+  kanbanFieldsSortCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.shell,
+  },
+  kanbanFieldsSortCardActive: {
+    backgroundColor: colors.gray100,
+  },
+  kanbanFieldsSortRow: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  kanbanFieldsDragHandle: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kanbanFieldsRowPressable: {
+    flex: 1,
+    paddingRight: spacing.sm,
+    borderRadius: 12,
+  },
+  kanbanFieldsRowPressed: {
+    backgroundColor: colors.shell,
+  },
+  kanbanFieldsRowTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
   },
   triggerGuideTitle: {
     ...typography.titleSm,

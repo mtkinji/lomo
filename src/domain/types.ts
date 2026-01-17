@@ -183,6 +183,12 @@ export interface Goal {
    * Optional for backward compatibility; omitted implies `ready`.
    */
   qualityState?: 'draft' | 'ready';
+  /**
+   * Optional priority bucket for Goals. When set, 1 represents the
+   * highest priority (e.g., "Priority 1"), with larger numbers indicating
+   * lower urgency. Cascades to activity recommendation scoring.
+   */
+  priority?: 1 | 2 | 3;
   startDate?: string;
   targetDate?: string;
   forceIntent: GoalForceIntent;
@@ -288,6 +294,18 @@ export type ActivitySortMode =
   | 'dueDateAsc'
   | 'dueDateDesc'
   | 'priority';
+
+/**
+ * Layout modes for activity views.
+ * - list: Traditional vertical scrolling list (default)
+ * - kanban: Horizontal swimlane board grouped by a field
+ */
+export type ActivityViewLayout = 'list' | 'kanban';
+
+/**
+ * Field to group activities by when using Kanban layout.
+ */
+export type KanbanGroupBy = 'status' | 'goal' | 'phase' | 'priority';
 
 export type FilterOperator =
   | 'eq' | 'neq'           // equals / not equals
@@ -553,6 +571,15 @@ export interface ActivityView {
   id: ActivityViewId;
   name: string;
   /**
+   * Layout mode for the view: list (default) or kanban board.
+   */
+  layout?: ActivityViewLayout;
+  /**
+   * When layout is 'kanban', this determines how activities are grouped into columns.
+   * Defaults to 'status' if not specified.
+   */
+  kanbanGroupBy?: KanbanGroupBy;
+  /**
    * Legacy filter mode (keep for backward compatibility).
    * New structured queries in `filters` take precedence when present.
    */
@@ -765,6 +792,11 @@ export interface UserProfile {
   };
   timezone?: string;
   preferences?: {
+    /**
+     * When false, suppress celebration media (e.g. GIF interstitials) and only show lightweight confirmations.
+     * Defaults to true when unset for backward compatibility.
+     */
+    showCelebrationMedia?: boolean;
   };
   communication: {
     tone?: CommunicationTone;

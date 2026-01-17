@@ -61,6 +61,10 @@ const iconMap: Record<string, IconEntry> = {
   plus: { library: 'feather', name: 'plus' },
   more: { library: 'feather', name: 'more-horizontal' },
   goals: { library: 'feather', name: 'target' },
+  target: { library: 'feather', name: 'target' },
+  inbox: { library: 'feather', name: 'inbox' },
+  layers: { library: 'feather', name: 'layers' },
+  checklist: { library: 'feather', name: 'check-square' },
   info: { library: 'feather', name: 'info' },
   warning: { library: 'feather', name: 'alert-triangle' },
   danger: { library: 'feather', name: 'alert-octagon' },
@@ -117,10 +121,13 @@ const iconMap: Record<string, IconEntry> = {
   bold: { library: 'feather', name: 'bold' },
   italic: { library: 'feather', name: 'italic' },
   underline: { library: 'feather', name: 'underline' },
+  eye: { library: 'feather', name: 'eye' },
+  eyeOff: { library: 'feather', name: 'eye-off' },
   // Editor history
   undo: { library: 'feather', name: 'rotate-ccw' },
   redo: { library: 'feather', name: 'rotate-cw' },
   expand: { library: 'feather', name: 'maximize-2' },
+  collapse: { library: 'feather', name: 'minimize-2' },
   // Semantic Sort Icons
   sortAlphaAsc: { library: 'mci', name: 'sort-alphabetical-ascending' },
   sortAlphaDesc: { library: 'mci', name: 'sort-alphabetical-descending' },
@@ -130,6 +137,9 @@ const iconMap: Record<string, IconEntry> = {
   sortCalendarDesc: { library: 'mci', name: 'sort-calendar-descending' },
   sortAmountAsc: { library: 'mci', name: 'sort-variant-lock-open' }, // Fallback for general amount
   sortAmountDesc: { library: 'mci', name: 'sort-variant-lock' },
+  // View layout icons for activity views
+  viewList: { library: 'mci', name: 'view-list' },
+  viewKanban: { library: 'mci', name: 'view-column' },
 };
 
 export type IconName = keyof typeof iconMap;

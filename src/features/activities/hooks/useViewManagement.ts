@@ -3,7 +3,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
 import { HapticsService } from '../../../services/HapticsService';
 import { openPaywallInterstitial } from '../../../services/paywall';
-import type { ActivityView } from '../../../domain/types';
+import type { ActivityView, ActivityViewLayout, KanbanGroupBy } from '../../../domain/types';
 
 export type UseViewManagementReturn = {
   // Views state
@@ -18,6 +18,10 @@ export type UseViewManagementReturn = {
   viewEditorTargetId: string | null;
   viewEditorName: string;
   setViewEditorName: React.Dispatch<React.SetStateAction<string>>;
+  viewEditorLayout: ActivityViewLayout;
+  setViewEditorLayout: React.Dispatch<React.SetStateAction<ActivityViewLayout>>;
+  viewEditorKanbanGroupBy: KanbanGroupBy;
+  setViewEditorKanbanGroupBy: React.Dispatch<React.SetStateAction<KanbanGroupBy>>;
 
   // Actions
   applyView: (viewId: string) => void;
@@ -43,6 +47,8 @@ export function useViewManagement(): UseViewManagementReturn {
   const [viewEditorMode, setViewEditorMode] = React.useState<'create' | 'settings'>('create');
   const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
   const [viewEditorName, setViewEditorName] = React.useState('');
+  const [viewEditorLayout, setViewEditorLayout] = React.useState<ActivityViewLayout>('list');
+  const [viewEditorKanbanGroupBy, setViewEditorKanbanGroupBy] = React.useState<KanbanGroupBy>('status');
 
   // Close view editor if Pro is lost
   React.useEffect(() => {
@@ -82,6 +88,8 @@ export function useViewManagement(): UseViewManagementReturn {
     setViewEditorMode('create');
     setViewEditorTargetId(null);
     setViewEditorName('New view');
+    setViewEditorLayout('list');
+    setViewEditorKanbanGroupBy('status');
     setViewEditorVisible(true);
   }, [isPro]);
 
@@ -94,6 +102,8 @@ export function useViewManagement(): UseViewManagementReturn {
       setViewEditorMode('settings');
       setViewEditorTargetId(view.id);
       setViewEditorName(view.name);
+      setViewEditorLayout(view.layout ?? 'list');
+      setViewEditorKanbanGroupBy(view.kanbanGroupBy ?? 'status');
       setViewEditorVisible(true);
     },
     [isPro],
@@ -110,6 +120,8 @@ export function useViewManagement(): UseViewManagementReturn {
         // New views always start from the base default configuration.
         filterMode: 'all',
         sortMode: 'manual',
+        layout: viewEditorLayout,
+        kanbanGroupBy: viewEditorLayout === 'kanban' ? viewEditorKanbanGroupBy : undefined,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -118,6 +130,8 @@ export function useViewManagement(): UseViewManagementReturn {
       updateActivityView(viewEditorTargetId, (view) => ({
         ...view,
         name: trimmedName,
+        layout: viewEditorLayout,
+        kanbanGroupBy: viewEditorLayout === 'kanban' ? viewEditorKanbanGroupBy : undefined,
       }));
     }
 
@@ -128,6 +142,8 @@ export function useViewManagement(): UseViewManagementReturn {
     updateActivityView,
     viewEditorMode,
     viewEditorName,
+    viewEditorLayout,
+    viewEditorKanbanGroupBy,
     viewEditorTargetId,
   ]);
 
@@ -139,6 +155,8 @@ export function useViewManagement(): UseViewManagementReturn {
         name: `${view.name} copy`,
         filterMode: view.filterMode,
         sortMode: view.sortMode,
+        layout: view.layout,
+        kanbanGroupBy: view.kanbanGroupBy,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -183,6 +201,10 @@ export function useViewManagement(): UseViewManagementReturn {
     viewEditorTargetId,
     viewEditorName,
     setViewEditorName,
+    viewEditorLayout,
+    setViewEditorLayout,
+    viewEditorKanbanGroupBy,
+    setViewEditorKanbanGroupBy,
     applyView,
     handleOpenCreateView,
     handleOpenViewSettings,
