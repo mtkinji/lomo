@@ -47,10 +47,9 @@
       }
     },
     "production": {
-      "credentialsSource": "local",
       "distribution": "store",
       "ios": {
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
@@ -62,10 +61,9 @@
       }
     },
     "production-widgets": {
-      "credentialsSource": "local",
       "distribution": "store",
       "ios": {
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
