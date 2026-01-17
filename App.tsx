@@ -245,8 +245,8 @@ export default function App() {
 
   const handleSignInComplete = (result: SignInResult) => {
     setIsReturningUser(result.isReturningUser);
-    if (result.isReturningUser) {
-      // Show permissions-only flow for returning users
+    if (result.isReturningUser && !hasCompletedFirstTimeOnboarding) {
+      // Show permissions-only flow for returning users who haven't finished onboarding on this device
       setShowReturningUserFlow(true);
     }
     // For new users, normal FTUE will start automatically via the effect
