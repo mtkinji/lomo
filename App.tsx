@@ -292,21 +292,42 @@ export default function App() {
     );
   }
 
-  // Require sign-in for all users (including legacy users who onboarded before auth was required).
-  // Their local data will automatically sync to their account once they authenticate.
-  if (!authIdentity) {
-    return <SignInInterstitial onSignInComplete={handleSignInComplete} />;
-  }
-
-  // Returning user permissions flow (for users who reinstall with existing data)
-  if (showReturningUserFlow) {
-    return (
-      <ReturningUserPermissionsFlow
-        visible={showReturningUserFlow}
-        onComplete={handleReturningUserFlowComplete}
-      />
-    );
-  }
+  // Always render app surfaces under SafeAreaProvider so any top-level interstitials
+  // (sign-in, returning-user flows, etc.) can safely call `useSafeAreaInsets()`.
+  const content = !authIdentity ? (
+    // Require sign-in for all users (including legacy users who onboarded before auth was required).
+    // Their local data will automatically sync to their account once they authenticate.
+    <SignInInterstitial onSignInComplete={handleSignInComplete} />
+  ) : showReturningUserFlow ? (
+    // Returning user permissions flow (for users who reinstall with existing data)
+    <ReturningUserPermissionsFlow
+      visible={showReturningUserFlow}
+      onComplete={handleReturningUserFlowComplete}
+    />
+  ) : isPosthogEnabled && posthogClient ? (
+    <PostHogProvider
+      client={posthogClient}
+      autocapture={{
+        // React Navigation v7+ requires manual screen capture.
+        captureScreens: false,
+      }}
+      // Default to quiet analytics in dev/offline environments; enable explicitly
+      // via `extra.posthogDebug` when needed.
+      debug={__DEV__ && isPosthogDebugEnabled}
+    >
+      <RootNavigatorWithPostHog />
+      <FirstTimeUxFlow />
+      <CelebrationInterstitialHost />
+      <PartnerProgressGuideHost />
+    </PostHogProvider>
+  ) : (
+    <>
+      <RootNavigator />
+      <FirstTimeUxFlow />
+      <CelebrationInterstitialHost />
+      <PartnerProgressGuideHost />
+    </>
+  );
 
   return (
     <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.shell }]}>
@@ -317,28 +338,7 @@ export default function App() {
               can render the mark without a visible pop-in the first time the
               Agent workspace opens. */}
           <Logo size={1} style={styles.logoPreload} />
-          {isPosthogEnabled && posthogClient ? (
-            <PostHogProvider
-              client={posthogClient}
-              autocapture={{
-                // React Navigation v7+ requires manual screen capture.
-                captureScreens: false,
-              }}
-              // Default to quiet analytics in dev/offline environments; enable explicitly
-              // via `extra.posthogDebug` when needed.
-              debug={__DEV__ && isPosthogDebugEnabled}
-            >
-              <RootNavigatorWithPostHog />
-              <FirstTimeUxFlow />
-            </PostHogProvider>
-          ) : (
-            <>
-              <RootNavigator />
-              <FirstTimeUxFlow />
-            </>
-          )}
-          <CelebrationInterstitialHost />
-          <PartnerProgressGuideHost />
+          {content}
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>
