@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
-import { Button } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ObjectPicker } from '../../ui/ObjectPicker';
 import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
@@ -13,6 +13,7 @@ import {
   disconnectCalendarAccount,
   listCalendarAccounts,
   listCalendars,
+  listCalendarsWithErrors,
   getCalendarPreferences,
   startCalendarConnect,
   updateCalendarPreferences,
@@ -38,14 +39,45 @@ function decodeCalendarValue(value: string): CalendarRef | null {
   return { provider, accountId, calendarId };
 }
 
+function humanizeCalendarError(raw: string): string {
+  const s = (raw ?? '').trim();
+  if (!s) return 'Unable to load calendars';
+
+  const firstColon = s.indexOf(':');
+  const provider = firstColon >= 0 ? s.slice(0, firstColon) : '';
+  const detail = firstColon >= 0 ? s.slice(firstColon + 1) : s;
+  const providerLabel = provider === 'google' ? 'Google' : provider === 'microsoft' ? 'Outlook' : 'Calendar';
+
+  if (detail === 'token_unavailable') {
+    return `${providerLabel} is connected, but Kwilt can’t access your calendars. Disconnect and reconnect to refresh permissions.`;
+  }
+  if (detail === 'google_refresh_failed' || detail === 'microsoft_refresh_failed') {
+    return `${providerLabel} needs to be reconnected to refresh access.`;
+  }
+  if (detail.startsWith('google_calendar_list_failed')) {
+    const parts = detail.split(':');
+    const msg = parts.slice(1).join(':').trim();
+    return msg ? `${providerLabel} calendar list failed: ${msg}` : `${providerLabel} calendar list failed.`;
+  }
+  if (detail.startsWith('microsoft_calendar_list_failed')) {
+    const parts = detail.split(':');
+    const msg = parts.slice(1).join(':').trim();
+    return msg ? `${providerLabel} calendar list failed: ${msg}` : `${providerLabel} calendar list failed.`;
+  }
+
+  return `${providerLabel}: ${detail.replace(/_/g, ' ')}`;
+}
+
 export function PlanCalendarSettingsScreen() {
   const navigation = useNavigation();
   const showToast = useToastStore((s) => s.showToast);
   const [accounts, setAccounts] = useState<CalendarAccount[]>([]);
   const [calendars, setCalendars] = useState<CalendarListItem[]>([]);
+  const [calendarErrors, setCalendarErrors] = useState<string[]>([]);
   const [readRefs, setReadRefs] = useState<CalendarRef[]>([]);
   const [writeRef, setWriteRef] = useState<CalendarRef | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [disconnectingAccountKey, setDisconnectingAccountKey] = useState<string | null>(null);
 
   const refreshAll = async () => {
@@ -58,13 +90,30 @@ export function PlanCalendarSettingsScreen() {
     setWriteRef(prefs.writeCalendarRef ?? null);
 
     try {
-      const cal = await listCalendars();
+      const { calendars: cal, errors } = await listCalendarsWithErrors();
       setCalendars(cal);
+      setCalendarErrors(errors);
+      if (errors.length > 0) {
+        showToast({ message: humanizeCalendarError(errors[0] ?? ''), variant: 'danger', durationMs: 7000 });
+      }
     } catch (err: any) {
       setCalendars([]);
+      setCalendarErrors([]);
       const msg =
         typeof err?.message === 'string' && err.message.trim().length > 0 ? err.message : 'Unable to list calendars';
       showToast({ message: msg, variant: 'danger', durationMs: 7000 });
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAll();
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : 'Unable to refresh calendars';
+      showToast({ message: msg, variant: 'danger', durationMs: 7000 });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -283,8 +332,26 @@ export function PlanCalendarSettingsScreen() {
   return (
     <AppShell>
       <View style={styles.screen}>
-        <PageHeader title="Calendars" onPressBack={() => navigation.goBack()} />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <PageHeader
+          title="Calendars"
+          onPressBack={() => navigation.goBack()}
+          rightElement={
+            <IconButton accessibilityLabel="Refresh calendars" onPress={handleRefresh} disabled={isRefreshing}>
+              <Icon name="refresh" size={20} color={colors.textSecondary} />
+            </IconButton>
+          }
+        />
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.textSecondary}
+            />
+          }
+        >
           <Text style={styles.helperText}>
             Choose which calendars count as busy time and where Plan should write commitments.
           </Text>
@@ -332,7 +399,11 @@ export function PlanCalendarSettingsScreen() {
                 <Text style={styles.cardSubtitle}>
                   {isLoading
                     ? 'Loading calendars…'
-                    : 'Connect an account (above) to choose which calendars count as busy time.'}
+                    : accounts.length === 0
+                      ? 'Connect an account (above) to choose which calendars count as busy time.'
+                      : calendarErrors.length > 0
+                        ? humanizeCalendarError(calendarErrors[0] ?? '')
+                        : 'No calendars found for the connected account(s).'}
                 </Text>
               ) : (
                 <>
@@ -394,7 +465,13 @@ export function PlanCalendarSettingsScreen() {
             <VStack space="sm">
               <Text style={styles.cardTitle}>Default write calendar</Text>
               {calendars.length === 0 ? (
-                <Text style={styles.cardSubtitle}>Connect an account to choose where Kwilt writes commitments.</Text>
+                <Text style={styles.cardSubtitle}>
+                  {accounts.length === 0
+                    ? 'Connect an account to choose where Kwilt writes commitments.'
+                    : calendarErrors.length > 0
+                      ? humanizeCalendarError(calendarErrors[0] ?? '')
+                      : 'No writable calendars found for the connected account(s).'}
+                </Text>
               ) : (
                 <>
                   <Text style={styles.cardSubtitle}>

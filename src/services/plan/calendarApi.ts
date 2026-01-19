@@ -153,16 +153,20 @@ export async function disconnectCalendarAccount(params: { provider: CalendarProv
 }
 
 export async function listCalendars(): Promise<CalendarListItem[]> {
+  const { calendars } = await listCalendarsWithErrors();
+  return calendars;
+}
+
+export async function listCalendarsWithErrors(): Promise<{ calendars: CalendarListItem[]; errors: string[] }> {
   const res = await postJson<{ calendars: CalendarListItem[]; errors?: string[] }>(
     'calendar-api',
     { action: 'list_calendars' },
     true,
   );
-  const errors = Array.isArray(res?.errors) ? res.errors : [];
-  if (errors.length > 0) {
-    throw new Error(errors[0] ?? 'Unable to list calendars');
-  }
-  return res.calendars ?? [];
+  return {
+    calendars: res.calendars ?? [],
+    errors: Array.isArray(res?.errors) ? res.errors : [],
+  };
 }
 
 export async function getCalendarPreferences(): Promise<{
