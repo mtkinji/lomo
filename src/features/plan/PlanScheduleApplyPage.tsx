@@ -337,7 +337,7 @@ export function PlanScheduleApplyPage({
       <View style={[styles.center, { padding: contentPadding }]}>
         <EmptyState
           title={mode === 'selected' ? 'Select activities to schedule' : 'Nothing to schedule'}
-          description={
+          instructions={
             mode === 'selected'
               ? 'Pick a few recommendations, then come back to schedule them.'
               : 'Add some activities to see a proposed schedule.'
@@ -364,7 +364,7 @@ export function PlanScheduleApplyPage({
     >
       <VStack space={spacing.md}>
         <VStack space={spacing.xs}>
-          <Heading size="sm">Scheduling Assist</Heading>
+          <Heading variant="sm">Scheduling Assist</Heading>
           <Text style={styles.subtitle}>
             {mode === 'selected'
               ? `Proposed placements for ${proposals.length} selected activities.`
@@ -398,8 +398,8 @@ export function PlanScheduleApplyPage({
               <Icon name="undo" size={16} color={colors.textPrimary} />
               <Text style={styles.undoText}>Just applied a schedule.</Text>
               <View style={{ flex: 1 }} />
-              <Button variant="outline" onPress={handleUndo} loading={isUndoing}>
-                Undo
+              <Button variant="outline" onPress={handleUndo} disabled={isUndoing}>
+                {isUndoing ? 'Undoing…' : 'Undo'}
               </Button>
             </HStack>
           </View>
@@ -449,10 +449,10 @@ export function PlanScheduleApplyPage({
           variant="primary"
           fullWidth
           onPress={handleApply}
-          loading={isApplying}
+          disabled={isApplying}
           style={styles.applyButton}
         >
-          Apply to Calendar
+          {isApplying ? 'Applying…' : 'Apply to Calendar'}
         </Button>
       </VStack>
     </ScrollView>

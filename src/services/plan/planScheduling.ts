@@ -1,6 +1,7 @@
 import type { Activity, Arc, Goal, UserProfile } from '../../domain/types';
 import { getSuggestedActivitiesRanked } from '../recommendations/nextStep';
 import type { BusyInterval, ProposedEvent } from '../scheduling/schedulingEngine';
+import { inferSchedulingDomain } from '../scheduling/inferSchedulingDomain';
 import { clampToNextQuarterHour, formatTimeLabel, setTimeOnDate } from './planDates';
 import { getAvailabilityForDate, getWindowsForMode, type PlanMode } from './planAvailability';
 
@@ -26,8 +27,8 @@ function normalizeBusy(intervals: BusyInterval[]): BusyInterval[] {
   return merged;
 }
 
-function resolveModeForActivity(activity: Activity): PlanMode {
-  const domain = (activity.schedulingDomain ?? '').toLowerCase();
+function resolveModeForActivity(activity: Activity, goals: Goal[]): PlanMode {
+  const domain = inferSchedulingDomain(activity, goals).toLowerCase();
   if (domain.includes('work')) return 'work';
   return 'personal';
 }
@@ -85,7 +86,7 @@ export function proposeDailyPlan(params: {
     if (activity.scheduledAt) continue;
     if (!writeCalendarId) continue;
 
-    const mode = resolveModeForActivity(activity);
+    const mode = resolveModeForActivity(activity, goals);
     const windows = getWindowsForMode(dayAvailability, mode);
     if (windows.length === 0) continue;
 

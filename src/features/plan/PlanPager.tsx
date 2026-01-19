@@ -26,6 +26,7 @@ import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { getAvailabilityForDate, getWindowsForMode } from '../../services/plan/planAvailability';
 import { proposeDailyPlan, type DailyPlanProposal } from '../../services/plan/planScheduling';
 import { formatDayLabel, setTimeOnDate, toLocalDateKey } from '../../services/plan/planDates';
+import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
@@ -43,14 +44,19 @@ export function PlanPager({
   insetMode = 'screen',
   targetDate,
   entryPoint = 'manual',
+  activePageIndex: controlledActivePageIndex,
+  onActivePageIndexChange,
 }: {
   insetMode?: PlanPagerInsetMode;
   targetDate: Date;
   entryPoint?: PlanPagerEntryPoint;
+  activePageIndex?: number;
+  onActivePageIndexChange?: (index: number) => void;
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const [pagerWidth, setPagerWidth] = useState(screenWidth);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [uncontrolledActiveIndex, setUncontrolledActiveIndex] = useState(0);
+  const activeIndex = controlledActivePageIndex ?? uncontrolledActiveIndex;
   const scrollRef = useRef<ScrollView | null>(null);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
   const [allowRerun, setAllowRerun] = useState(false);
@@ -76,7 +82,20 @@ export function PlanPager({
   const showAlreadyPlanned = Boolean(plannedRecord) && !allowRerun;
   const showRecommendations = !showAlreadyPlanned;
 
-  const pagePadding = insetMode === 'drawer' ? 0 : spacing.xl;
+  // In the Plan tab (`insetMode="screen"`), the page is hosted inside `AppShell`,
+  // which already applies the canonical horizontal gutters. In drawer contexts,
+  // the drawer surface supplies its own gutter as well. So: avoid double-padding.
+  const pagePadding = 0;
+
+  const setActiveIndex = useCallback(
+    (next: number) => {
+      onActivePageIndexChange?.(next);
+      if (controlledActivePageIndex == null) {
+        setUncontrolledActiveIndex(next);
+      }
+    },
+    [controlledActivePageIndex, onActivePageIndexChange],
+  );
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -96,6 +115,11 @@ export function PlanPager({
     },
     [pagerWidth],
   );
+
+  useEffect(() => {
+    if (controlledActivePageIndex == null) return;
+    scrollRef.current?.scrollTo({ x: controlledActivePageIndex * pagerWidth, y: 0, animated: true });
+  }, [controlledActivePageIndex, pagerWidth]);
 
   useEffect(() => {
     setAllowRerun(false);
@@ -214,7 +238,7 @@ export function PlanPager({
           activityId: p.activityId,
           title: activity?.title ?? p.title,
           goalTitle: goal?.title ?? null,
-          arcTitle: arc?.title ?? null,
+          arcTitle: arc?.name ?? null,
           proposal: p,
         };
       });
@@ -305,7 +329,7 @@ export function PlanPager({
     if (!proposal || !activity) return;
     const duration = Math.max(10, activity.estimateMinutes ?? 30);
     const newEnd = new Date(newStart.getTime() + duration * 60000);
-    const mode = (activity.schedulingDomain ?? '').toLowerCase().includes('work') ? 'work' : 'personal';
+    const mode = inferSchedulingDomain(activity, goals).toLowerCase().includes('work') ? 'work' : 'personal';
     if (!isWithinWindows(mode, newStart, newEnd)) {
       Alert.alert('Outside availability', 'Pick a time within your availability windows.');
       return;
@@ -335,7 +359,7 @@ export function PlanPager({
     const activity = block.activity;
     const duration = Math.max(10, activity.estimateMinutes ?? 30);
     const newEnd = new Date(newStart.getTime() + duration * 60000);
-    const mode = (activity.schedulingDomain ?? '').toLowerCase().includes('work') ? 'work' : 'personal';
+    const mode = inferSchedulingDomain(activity, goals).toLowerCase().includes('work') ? 'work' : 'personal';
     if (!isWithinWindows(mode, newStart, newEnd)) {
       Alert.alert('Outside availability', 'Pick a time within your availability windows.');
       return;

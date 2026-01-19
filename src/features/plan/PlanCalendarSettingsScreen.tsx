@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, BackHandler, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
@@ -69,7 +69,7 @@ function humanizeCalendarError(raw: string): string {
 }
 
 export function PlanCalendarSettingsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const showToast = useToastStore((s) => s.showToast);
   const [accounts, setAccounts] = useState<CalendarAccount[]>([]);
   const [calendars, setCalendars] = useState<CalendarListItem[]>([]);
@@ -329,18 +329,37 @@ export function PlanCalendarSettingsScreen() {
     return writeRef ? encodeCalendarValue(writeRef) : '';
   }, [writeRef]);
 
+  const handleBack = useCallback(() => {
+    // If this screen was opened directly (i.e. Settings stack only contains this route),
+    // `goBack()` will bubble to the parent navigator (drawer) and can land on Arcs.
+    // Instead, hard-reset the Settings stack to SettingsHome so Settings is always reachable.
+    const state = typeof navigation.getState === 'function' ? navigation.getState() : null;
+    const routeCount = Array.isArray(state?.routes) ? state.routes.length : 0;
+    if (routeCount <= 1) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'SettingsHome' }],
+      });
+      return;
+    }
+
+    navigation.goBack();
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+      return () => sub.remove();
+    }, [handleBack]),
+  );
+
   return (
     <AppShell>
       <View style={styles.screen}>
-        <PageHeader
-          title="Calendars"
-          onPressBack={() => navigation.goBack()}
-          rightElement={
-            <IconButton accessibilityLabel="Refresh calendars" onPress={handleRefresh} disabled={isRefreshing}>
-              <Icon name="refresh" size={20} color={colors.textSecondary} />
-            </IconButton>
-          }
-        />
+        <PageHeader title="Calendars" onPressBack={handleBack} />
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -357,7 +376,18 @@ export function PlanCalendarSettingsScreen() {
           </Text>
           <View style={styles.card}>
             <VStack space="sm">
-              <Text style={styles.cardTitle}>Connected accounts</Text>
+              <View style={styles.cardTitleRow}>
+                <Text style={styles.cardTitle}>Connected accounts</Text>
+                <IconButton
+                  accessibilityLabel="Refresh calendars"
+                  onPress={handleRefresh}
+                  disabled={isRefreshing}
+                  variant="ghost"
+                  style={styles.inlineRefreshButton}
+                >
+                  <Icon name="refresh" size={18} color={colors.textSecondary} />
+                </IconButton>
+              </View>
               <HStack space="sm">
                 <Button variant="secondary" size="sm" onPress={() => handleConnect('google')}>
                   Connect Google
@@ -377,15 +407,18 @@ export function PlanCalendarSettingsScreen() {
                         {account.displayName || account.email || account.accountId}
                       </Text>
                     </HStack>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onPress={() => confirmDisconnect(account)}
+                    <Switch
+                      value={true}
+                      onValueChange={(next) => {
+                        if (next) return;
+                        confirmDisconnect(account);
+                      }}
                       disabled={disconnectingAccountKey === `${account.provider}:${account.accountId}`}
-                      accessibilityLabel={`Disconnect ${providerLabel(account.provider)} account`}
-                    >
-                      <ButtonLabel tone="destructive">Disconnect</ButtonLabel>
-                    </Button>
+                      trackColor={{ false: colors.border, true: colors.accentMuted }}
+                      thumbColor={colors.shell}
+                      ios_backgroundColor={colors.border}
+                      accessibilityLabel={`Toggle ${providerLabel(account.provider)} account connection`}
+                    />
                   </View>
                 ))
               )}
@@ -516,6 +549,16 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: spacing['2xl'],
     gap: spacing.md,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inlineRefreshButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   helperText: {
     ...typography.bodySm,

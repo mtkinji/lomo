@@ -9,17 +9,30 @@ import { PlanPager } from './PlanPager';
 import { HStack, Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import { formatDayLabel } from '../../services/plan/planDates';
+import { Icon } from '../../ui/Icon';
+import { Combobox, type ComboboxOption } from '../../ui/Combobox';
+import { Dialog } from '../../ui/Dialog';
+import { Button } from '../../ui/Button';
+import { SegmentedControl } from '../../ui/SegmentedControl';
+import { IconButton } from '../../ui/Button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 export function PlanScreen() {
   const navigation = useNavigation();
-  const menuOpen = useDrawerStatus() === 'open';
+  const drawerOpen = useDrawerStatus() === 'open';
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [pickerVisible, setPickerVisible] = useState(false);
+  const [dateMenuOpen, setDateMenuOpen] = useState(false);
+  const [androidPickerVisible, setAndroidPickerVisible] = useState(false);
+  const [iosDateDialogVisible, setIosDateDialogVisible] = useState(false);
+  const [pendingDate, setPendingDate] = useState(() => new Date());
   const [selectionMode, setSelectionMode] = useState<'today' | 'tomorrow' | 'custom'>('today');
+  const [activePageIndex, setActivePageIndex] = useState(0);
 
   const handleSelectToday = () => {
     const now = new Date();
     setSelectedDate(now);
     setSelectionMode('today');
+    setAndroidPickerVisible(false);
+    setIosDateDialogVisible(false);
   };
 
   const handleSelectTomorrow = () => {
@@ -27,20 +40,38 @@ export function PlanScreen() {
     next.setDate(next.getDate() + 1);
     setSelectedDate(next);
     setSelectionMode('tomorrow');
+    setAndroidPickerVisible(false);
+    setIosDateDialogVisible(false);
   };
 
-  const handleSelectCustom = () => {
+  const openCustomDatePicker = () => {
     setSelectionMode('custom');
-    setPickerVisible(true);
+    if (Platform.OS === 'ios') {
+      setPendingDate(selectedDate);
+      setIosDateDialogVisible(true);
+      setAndroidPickerVisible(false);
+    } else {
+      setAndroidPickerVisible(true);
+      setIosDateDialogVisible(false);
+    }
   };
 
-  const handleDateChange = (_event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setPickerVisible(false);
+  const handleAndroidDateChange = (event: DateTimePickerEvent, date?: Date) => {
+    const eventType = (event as unknown as { type?: string })?.type;
+    if (eventType === 'dismissed') {
+      setAndroidPickerVisible(false);
+      return;
     }
     if (date) {
       setSelectedDate(date);
       setSelectionMode('custom');
+      setAndroidPickerVisible(false);
+    }
+  };
+
+  const handleIosPendingDateChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (date) {
+      setPendingDate(date);
     }
   };
 
@@ -50,60 +81,171 @@ export function PlanScreen() {
     return formatDayLabel(selectedDate);
   }, [selectedDate, selectionMode]);
 
+  const dateOptions = useMemo(() => {
+    const options: ComboboxOption[] = [
+      { value: 'today', label: 'Today' },
+      { value: 'tomorrow', label: 'Tomorrow' },
+    ];
+    if (selectionMode === 'custom') {
+      options.push({ value: 'custom', label: formatDayLabel(selectedDate) });
+    }
+    options.push({ value: 'pick', label: 'Pick date…' });
+    return options;
+  }, [selectedDate, selectionMode]);
+
+  const comboboxValue = selectionMode === 'custom' ? 'custom' : selectionMode;
+
+  const handleComboboxValueChange = (next: string) => {
+    if (next === 'pick') {
+      openCustomDatePicker();
+      return;
+    }
+    if (next === 'today') {
+      handleSelectToday();
+      return;
+    }
+    if (next === 'tomorrow') {
+      handleSelectTomorrow();
+      return;
+    }
+    if (next === 'custom') {
+      setSelectionMode('custom');
+      return;
+    }
+  };
+
   return (
     <AppShell>
       <View style={styles.container}>
         <PageHeader
           title="Plan"
-          menuOpen={menuOpen}
+          menuOpen={drawerOpen}
           onPressMenu={() => {
             navigation.dispatch(DrawerActions.openDrawer());
           }}
+          rightElement={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton
+                  accessibilityLabel="Plan settings"
+                  style={styles.headerMoreButton}
+                  onPress={() => {
+                    // handled by DropdownMenuTrigger
+                  }}
+                >
+                  <Icon name="more" size={20} color={colors.textPrimary} />
+                </IconButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="bottom">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    (navigation as any).navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
+                  }}
+                >
+                  <Text style={styles.menuItemText}>Manage calendars</Text>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    (navigation as any).navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
+                  }}
+                >
+                  <Text style={styles.menuItemText}>Set availability</Text>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+          children={
+            <HStack alignItems="center" justifyContent="space-between" style={styles.headerControlsRow}>
+              <SegmentedControl
+                value={activePageIndex === 0 ? 'recs' : 'calendar'}
+                onChange={(v) => {
+                  setActivePageIndex(v === 'recs' ? 0 : 1);
+                }}
+                size="compact"
+                options={[
+                  { value: 'recs', label: 'Recommendations' },
+                  { value: 'calendar', label: 'Calendar' },
+                ]}
+              />
+              <Combobox
+                open={dateMenuOpen}
+                onOpenChange={setDateMenuOpen}
+                value={comboboxValue}
+                onValueChange={handleComboboxValueChange}
+                options={dateOptions}
+                allowDeselect={false}
+                showSearch={false}
+                presentation="popover"
+                trigger={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Select plan date"
+                    style={styles.headerDateTrigger}
+                  >
+                    <HStack space={spacing.xs} alignItems="center">
+                      <Text style={styles.headerDateTriggerText}>{selectedLabel}</Text>
+                      <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+                    </HStack>
+                  </Pressable>
+                }
+              />
+            </HStack>
+          }
         />
-        <View style={styles.selectorCard}>
-          <HStack gap={spacing.sm} alignItems="center">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Plan for today"
-              onPress={handleSelectToday}
-              style={[styles.selectorPill, selectionMode === 'today' ? styles.selectorPillActive : null]}
-            >
-              <Text style={[styles.selectorText, selectionMode === 'today' ? styles.selectorTextActive : null]}>
-                Today
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Plan for tomorrow"
-              onPress={handleSelectTomorrow}
-              style={[styles.selectorPill, selectionMode === 'tomorrow' ? styles.selectorPillActive : null]}
-            >
-              <Text style={[styles.selectorText, selectionMode === 'tomorrow' ? styles.selectorTextActive : null]}>
-                Tomorrow
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Pick a date"
-              onPress={handleSelectCustom}
-              style={[styles.selectorPill, selectionMode === 'custom' ? styles.selectorPillActive : null]}
-            >
-              <Text style={[styles.selectorText, selectionMode === 'custom' ? styles.selectorTextActive : null]}>
-                Pick date
-              </Text>
-            </Pressable>
-          </HStack>
-          <Text style={styles.selectorSubtitle}>{selectedLabel}</Text>
-          {pickerVisible ? (
+
+        {/* Android: showing the component triggers the native date dialog. */}
+        {androidPickerVisible ? (
+          <DateTimePicker value={selectedDate} mode="date" onChange={handleAndroidDateChange} display="default" />
+        ) : null}
+
+        {/* iOS: show a dedicated modal so "Pick date…" launches immediately (no inline field). */}
+        <Dialog
+          visible={iosDateDialogVisible}
+          onClose={() => setIosDateDialogVisible(false)}
+          title="Pick a date"
+          footer={
+            <View style={styles.dialogFooter}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={() => {
+                  setIosDateDialogVisible(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onPress={() => {
+                  setSelectedDate(pendingDate);
+                  setSelectionMode('custom');
+                  setIosDateDialogVisible(false);
+                }}
+              >
+                Done
+              </Button>
+            </View>
+          }
+        >
+          <View style={styles.dialogBody}>
             <DateTimePicker
-              value={selectedDate}
+              value={pendingDate}
               mode="date"
-              onChange={handleDateChange}
-              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={handleIosPendingDateChange}
+              display="inline"
+              style={styles.iosInlinePicker}
             />
-          ) : null}
-        </View>
-        <PlanPager insetMode="screen" targetDate={selectedDate} entryPoint="manual" />
+          </View>
+        </Dialog>
+
+        <PlanPager
+          insetMode="screen"
+          targetDate={selectedDate}
+          entryPoint="manual"
+          activePageIndex={activePageIndex}
+          onActivePageIndexChange={setActivePageIndex}
+        />
       </View>
     </AppShell>
   );
@@ -113,17 +255,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  selectorCard: {
-    marginHorizontal: spacing.xl,
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  headerControlsRow: {
+    // AppShell already provides the canvas horizontal padding.
+    // Adding extra padding here double-indents the controls.
+    paddingHorizontal: 0,
   },
-  selectorPill: {
+  headerDateTrigger: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 999,
@@ -131,21 +268,28 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.canvas,
   },
-  selectorPillActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  selectorText: {
+  headerDateTriggerText: {
     ...typography.bodySm,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
-  selectorTextActive: {
-    color: colors.primaryForeground,
+  headerMoreButton: {
+    backgroundColor: 'transparent',
   },
-  selectorSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
+  menuItemText: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  dialogFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  dialogBody: {
+    marginTop: -spacing.sm,
+  },
+  iosInlinePicker: {
+    alignSelf: 'stretch',
   },
 });
 

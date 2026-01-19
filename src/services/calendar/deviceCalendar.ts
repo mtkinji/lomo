@@ -17,6 +17,12 @@ export interface DeviceCalendarEvent {
   allDay?: boolean;
 }
 
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' || typeof value === 'number') return new Date(value);
+  return new Date(NaN);
+}
+
 export async function requestCalendarPermissions(): Promise<boolean> {
   const { status } = await Calendar.requestCalendarPermissionsAsync();
   return status === 'granted';
@@ -87,12 +93,17 @@ export async function getCalendarEvents(params: {
       .map((e) => ({
         id: e.id,
         title: e.title ?? undefined,
-        startDate: e.startDate,
-        endDate: e.endDate,
+        startDate: toDate((e as any).startDate),
+        endDate: toDate((e as any).endDate),
         calendarId: (e as any).calendarId ?? '',
         allDay: Boolean((e as any).allDay),
       }))
-      .filter((e) => Boolean(e.id) && Boolean(e.startDate) && Boolean(e.endDate) && Boolean(e.calendarId));
+      .filter((e) => {
+        if (!e.id || !e.calendarId) return false;
+        if (!(e.startDate instanceof Date) || !(e.endDate instanceof Date)) return false;
+        if (Number.isNaN(e.startDate.getTime()) || Number.isNaN(e.endDate.getTime())) return false;
+        return true;
+      });
   } catch {
     return [];
   }

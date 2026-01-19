@@ -1414,6 +1414,10 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           lastKickoffShownDateKey: dateKey,
         })),
+      updateLastKickoffShownDateKey: (dateKey) =>
+        set(() => ({
+          lastKickoffShownDateKey: dateKey,
+        })),
       setLastSchedulingApply: (record) =>
         set(() => ({
           lastSchedulingApply: record,

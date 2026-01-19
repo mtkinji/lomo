@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
-import { EmptyState, Heading, HStack, Text, VStack } from '../../ui/primitives';
+import { EmptyState, HStack, Text, VStack } from '../../ui/primitives';
 import { formatTimeRange } from '../../services/plan/planDates';
 
 type PlanRecommendation = {
@@ -62,13 +62,39 @@ export function PlanRecsPage({
     setPickerVisible(true);
   };
 
+  const normalizePickedTime = useCallback(
+    (picked: Date) => {
+      if (!pendingMoveDate) return picked;
+      const next = new Date(pendingMoveDate);
+      next.setHours(picked.getHours(), picked.getMinutes(), 0, 0);
+      return next;
+    },
+    [pendingMoveDate],
+  );
+
   const handleMoveChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (!date) return;
+    const normalized = normalizePickedTime(date);
+    setPendingMoveDate(normalized);
+
+    // Android picker is a modal; apply immediately and close.
     if (Platform.OS !== 'ios') {
       setPickerVisible(false);
+      if (pendingMoveId) onMove(pendingMoveId, normalized);
     }
-    if (date && pendingMoveId) {
-      onMove(pendingMoveId, date);
+  };
+
+  const handleMoveCancel = () => {
+    setPickerVisible(false);
+    setPendingMoveId(null);
+    setPendingMoveDate(null);
+  };
+
+  const handleMoveDone = () => {
+    if (pendingMoveId && pendingMoveDate) {
+      onMove(pendingMoveId, pendingMoveDate);
     }
+    setPickerVisible(false);
   };
 
   if (calendarStatus === 'missing') {
@@ -77,7 +103,7 @@ export function PlanRecsPage({
         <View style={styles.emptyContent}>
           <EmptyState
             title="Connect calendars"
-            description="Connect Google or Outlook calendars to plan your day and commit time blocks."
+            instructions="Connect Google or Outlook calendars to plan your day and commit time blocks."
           />
           <Button variant="primary" fullWidth onPress={onOpenCalendarSettings} style={styles.cta}>
             Open Calendar Settings
@@ -93,7 +119,7 @@ export function PlanRecsPage({
         <View style={styles.emptyContent}>
           <EmptyState
             title="Already set"
-            description="Your plan for this day is already committed. Review or adjust your blocks."
+            instructions="Your plan for this day is already committed. Review or adjust your blocks."
           />
           <VStack space={spacing.sm} style={styles.emptyActions}>
             <Button variant="primary" fullWidth onPress={onReviewPlan}>
@@ -111,11 +137,11 @@ export function PlanRecsPage({
   }
 
   if (recommendations.length === 0 && emptyState) {
-    const showSettingsCta = calendarStatus === 'missing' || emptyState.title === 'Choose a calendar';
+    const showSettingsCta = emptyState.title === 'Choose a calendar';
     return (
       <View style={[styles.emptyContainer, { padding: contentPadding }]}>
         <View style={styles.emptyContent}>
-          <EmptyState title={emptyState.title} description={emptyState.description} />
+          <EmptyState title={emptyState.title} instructions={emptyState.description} />
           {showSettingsCta ? (
             <Button variant="primary" fullWidth onPress={onOpenCalendarSettings} style={styles.cta}>
               Open Calendar Settings
@@ -128,29 +154,31 @@ export function PlanRecsPage({
 
   return (
     <ScrollView
-      contentContainerStyle={[styles.container, { padding: contentPadding, paddingBottom: spacing.xl * 4 }]}
+      contentContainerStyle={[
+        styles.container,
+        {
+          paddingHorizontal: contentPadding,
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.xl * 4,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
     >
-      <VStack gap={spacing.md}>
-        <VStack gap={spacing.xs}>
-          <Heading size="sm">Recommendations</Heading>
-          <Text style={styles.subtitle}>
-            Commit a few for {targetDayLabel}. Everything else stays deferred.
-          </Text>
-        </VStack>
+      <VStack space={spacing.md}>
+        <Text style={styles.subtitle}>Commit a few for {targetDayLabel}. Everything else stays deferred.</Text>
 
-        <VStack gap={spacing.sm}>
+        <VStack space={spacing.sm}>
           {recommendations.map((rec) => {
             const start = new Date(rec.proposal.startDate);
             const end = new Date(rec.proposal.endDate);
             const meta = [rec.arcTitle, rec.goalTitle].filter(Boolean).join(' • ');
             return (
               <View key={rec.activityId} style={styles.recCard}>
-                <VStack gap={spacing.xs}>
+                <VStack space={spacing.xs}>
                   <Text style={styles.recTitle}>{rec.title}</Text>
                   {meta ? <Text style={styles.recMeta}>{meta}</Text> : null}
                   <Text style={styles.recMeta}>{formatTimeRange(start, end)}</Text>
-                  <HStack gap={spacing.sm} style={styles.recActions}>
+                  <HStack space={spacing.sm} style={styles.recActions}>
                     <Button variant="primary" size="sm" onPress={() => onCommit(rec.activityId)}>
                       Commit
                     </Button>
@@ -173,12 +201,24 @@ export function PlanRecsPage({
       </VStack>
 
       {pickerVisible && pendingMoveDate ? (
-        <DateTimePicker
-          value={pendingMoveDate}
-          mode="time"
-          onChange={handleMoveChange}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-        />
+        <View style={styles.pickerContainer}>
+          <DateTimePicker
+            value={pendingMoveDate}
+            mode="time"
+            onChange={handleMoveChange}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          />
+          {Platform.OS === 'ios' ? (
+            <HStack space={spacing.sm} style={styles.pickerActions}>
+              <Button variant="ghost" size="sm" onPress={handleMoveCancel}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onPress={handleMoveDone}>
+                Done
+              </Button>
+            </HStack>
+          ) : null}
+        </View>
       ) : null}
     </ScrollView>
   );
@@ -243,5 +283,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     width: '100%',
     maxWidth: 420,
+  },
+  pickerContainer: {
+    paddingTop: spacing.md,
+  },
+  pickerActions: {
+    justifyContent: 'flex-end',
+    paddingTop: spacing.sm,
   },
 });

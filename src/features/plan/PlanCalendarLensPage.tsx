@@ -7,7 +7,7 @@ import { formatTimeRange } from '../../services/plan/planDates';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { EmptyState, Heading, HStack, Text, VStack } from '../../ui/primitives';
+import { EmptyState, HStack, Text, VStack } from '../../ui/primitives';
 
 type KwiltBlock = {
   activity: Activity;
@@ -71,12 +71,30 @@ export function PlanCalendarLensPage({
   };
 
   const handleMoveChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (!date) return;
+    if (!pendingMoveDate) return;
+    const next = new Date(pendingMoveDate);
+    next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+    setPendingMoveDate(next);
+
+    // Android picker is a modal; apply immediately and close.
     if (Platform.OS !== 'ios') {
       setPickerVisible(false);
+      if (pendingMoveId) onMoveCommitment(pendingMoveId, next);
     }
-    if (date && pendingMoveId) {
-      onMoveCommitment(pendingMoveId, date);
+  };
+
+  const handleMoveCancel = () => {
+    setPickerVisible(false);
+    setPendingMoveId(null);
+    setPendingMoveDate(null);
+  };
+
+  const handleMoveDone = () => {
+    if (pendingMoveId && pendingMoveDate) {
+      onMoveCommitment(pendingMoveId, pendingMoveDate);
     }
+    setPickerVisible(false);
   };
 
   if (calendarStatus === 'missing') {
@@ -85,7 +103,7 @@ export function PlanCalendarLensPage({
         <View style={styles.emptyContent}>
           <EmptyState
             title="Connect calendars"
-            description="Connect calendars to show your day and move commitments."
+            instructions="Connect calendars to show your day and move commitments."
           />
           <Button variant="primary" fullWidth onPress={onOpenCalendarSettings} style={styles.cta}>
             Open Calendar Settings
@@ -97,14 +115,18 @@ export function PlanCalendarLensPage({
 
   return (
     <ScrollView
-      contentContainerStyle={[styles.container, { padding: contentPadding, paddingBottom: spacing.xl * 4 }]}
+      contentContainerStyle={[
+        styles.container,
+        {
+          paddingHorizontal: contentPadding,
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.xl * 4,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <VStack space={spacing.md}>
-        <VStack space={spacing.xs}>
-          <Heading size="sm">Calendar Lens</Heading>
-          <Text style={styles.subtitle}>Busy and free time for {targetDayLabel}.</Text>
-        </VStack>
+        <Text style={styles.subtitle}>Busy and free time for {targetDayLabel}.</Text>
 
         {availabilitySummary.length > 0 ? (
           <View style={styles.availabilityCard}>
@@ -129,7 +151,7 @@ export function PlanCalendarLensPage({
               const end = e.end;
               return (
                 <View key={`${start.toISOString()}-${end.toISOString()}`} style={styles.eventCard}>
-                  <HStack gap={spacing.sm} alignItems="center">
+                  <HStack space={spacing.sm} alignItems="center">
                     <Icon name="today" size={14} color={colors.textSecondary} />
                     <Text style={styles.eventTitle}>Busy</Text>
                   </HStack>
@@ -147,7 +169,7 @@ export function PlanCalendarLensPage({
           ) : (
             sortedProposals.map((block) => (
               <View key={`${block.title}-${block.start.toISOString()}`} style={styles.eventCard}>
-                <HStack gap={spacing.sm} alignItems="center">
+                <HStack space={spacing.sm} alignItems="center">
                   <Icon name="plan" size={14} color={colors.textSecondary} />
                   <Text style={styles.eventTitle}>{block.title}</Text>
                 </HStack>
@@ -173,7 +195,7 @@ export function PlanCalendarLensPage({
                   ]}
                 >
                   <VStack space={spacing.xs}>
-                    <HStack gap={spacing.sm} alignItems="center">
+                    <HStack space={spacing.sm} alignItems="center">
                       <Icon name="daily" size={14} color={colors.textSecondary} />
                       <Text style={styles.eventTitle}>{block.activity.title}</Text>
                     </HStack>
@@ -197,12 +219,24 @@ export function PlanCalendarLensPage({
       </VStack>
 
       {pickerVisible && pendingMoveDate ? (
-        <DateTimePicker
-          value={pendingMoveDate}
-          mode="time"
-          onChange={handleMoveChange}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-        />
+        <View style={styles.pickerContainer}>
+          <DateTimePicker
+            value={pendingMoveDate}
+            mode="time"
+            onChange={handleMoveChange}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          />
+          {Platform.OS === 'ios' ? (
+            <HStack space={spacing.sm} style={styles.pickerActions}>
+              <Button variant="ghost" size="sm" onPress={handleMoveCancel}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onPress={handleMoveDone}>
+                Done
+              </Button>
+            </HStack>
+          ) : null}
+        </View>
       ) : null}
     </ScrollView>
   );
@@ -282,6 +316,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     width: '100%',
     maxWidth: 420,
+  },
+  pickerContainer: {
+    paddingTop: spacing.md,
+  },
+  pickerActions: {
+    justifyContent: 'flex-end',
+    paddingTop: spacing.sm,
   },
 });
 

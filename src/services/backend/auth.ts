@@ -283,6 +283,7 @@ export async function ensureSignedInWithPrompt(
     | 'follow'
     | 'upload_attachment'
     | 'admin'
+    | 'plan'
     | 'settings',
 ): Promise<Session> {
   const existing = await getSession();
@@ -328,6 +329,8 @@ export async function ensureSignedInWithPrompt(
             ? 'To follow someone, you need to sign in so your connections stay tied to your account.'
           : reason === 'upload_attachment'
             ? 'To upload attachments, you need to sign in so access stays safe.'
+          : reason === 'plan'
+            ? 'Sign in to connect calendars and commit your plan.'
           : reason === 'settings'
             ? 'Sign in to sync your account across devices and access sharing + admin tools.'
           : 'To access Admin tools, you need to sign in.';
