@@ -58,6 +58,29 @@ type SettingsGroup = {
 
 const SETTINGS_GROUPS: SettingsGroup[] = [
   {
+    id: 'planning',
+    title: 'Planning',
+    description: 'Availability and calendar settings for Plan.',
+    items: [
+      {
+        id: 'plan_availability',
+        title: 'Availability',
+        description: 'When Kwilt helps with planning.',
+        icon: 'today',
+        route: 'SettingsPlanAvailability',
+        tags: ['plan', 'availability', 'boundaries'],
+      },
+      {
+        id: 'plan_calendars',
+        title: 'Calendars',
+        description: 'Connect calendars for planning.',
+        icon: 'sendToCalendar',
+        route: 'SettingsPlanCalendars',
+        tags: ['calendar', 'plan', 'commitments'],
+      },
+    ],
+  },
+  {
     id: 'integrations',
     title: 'Integrations',
     description: 'Connect destinations that can receive handed-off Activities.',

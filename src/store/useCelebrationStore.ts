@@ -81,6 +81,13 @@ function hasActiveConflicts(): { blocked: boolean; reason?: string } {
 const DEFERRED_RETRY_MS = 1500;
 let deferredRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Celebration auto-dismiss defaults.
+// These moments are intentionally skippable (tap anywhere) so we can afford a
+// slightly longer dwell time to let the user actually register the GIF.
+const DAILY_STREAK_AUTO_DISMISS_MS = 4000;
+const ACTIVITY_COMPLETED_AUTO_DISMISS_MS = 4500;
+const ALL_ACTIVITIES_DONE_AUTO_DISMISS_MS = 5000;
+
 function scheduleDeferredRetry() {
   if (deferredRetryTimer) return;
   deferredRetryTimer = setTimeout(() => {
@@ -248,7 +255,7 @@ export function celebrateActivityCompleted(activityTitle: string, onDismiss?: ()
     kind: 'activityCompleted',
     headline: 'Nice work! ✨',
     subheadline: `"${activityTitle}" is done. Keep the momentum going!`,
-    autoDismissMs: 3500,
+    autoDismissMs: ACTIVITY_COMPLETED_AUTO_DISMISS_MS,
     priority: 'low', // Low priority - drop if conflicts exist
     onDismiss,
   });
@@ -475,7 +482,7 @@ export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
     // Special milestones: high priority, manual dismiss
     // Regular days: low priority (drops during conflicts), auto-dismiss
     priority: isSpecial ? 'high' : 'low',
-    autoDismissMs: isSpecial ? undefined : 2500,
+    autoDismissMs: isSpecial ? undefined : DAILY_STREAK_AUTO_DISMISS_MS,
     onDismiss,
   });
 }
@@ -489,7 +496,7 @@ export function celebrateAllActivitiesDone(onDismiss?: () => void) {
     kind: 'allActivitiesDone',
     headline: 'All Clear! 🎉',
     subheadline: "You knocked out everything on your list. Time to plan what's next!",
-    autoDismissMs: 4000,
+    autoDismissMs: ALL_ACTIVITIES_DONE_AUTO_DISMISS_MS,
     priority: 'low', // Low priority - drop if conflicts exist
     onDismiss,
   });

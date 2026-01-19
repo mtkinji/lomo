@@ -316,6 +316,29 @@ export type AuthIdentity = {
   provider?: string;
 };
 
+export type SchedulingApplyUndoRecord = {
+  appliedAtMs: number;
+  items: Array<{
+    activityId: string;
+    calendarId: string;
+    eventId: string;
+    startAtISO: string;
+    endAtISO: string;
+    prevScheduledAt: string | null | undefined;
+    prevCalendarId: string | null | undefined;
+    domain: string;
+  }>;
+  /**
+   * Optional domain→calendar mapping that should be persisted when the user applies.
+   */
+  domainCalendarMappingApplied?: Record<string, string>;
+};
+
+export type DailyPlanRecord = {
+  plannedAtMs: number;
+  committedActivityIds: string[];
+};
+
 interface AppState {
   forces: Force[];
   arcs: Arc[];
@@ -515,6 +538,19 @@ interface AppState {
    */
   hasSeenFirstArcCelebration: boolean;
   /**
+   * Local date key (YYYY-MM-DD) of when the daily Plan kickoff drawer was last shown.
+   */
+  lastKickoffShownDateKey: string | null;
+  /**
+   * Per-day planning records for the Plan surface.
+   */
+  dailyPlanHistory: Record<string, DailyPlanRecord>;
+  /**
+   * Most recent Scheduling Assist apply operation, stored so the user can Undo.
+   * Best-effort: event deletion can fail if permissions change or the event is edited externally.
+   */
+  lastSchedulingApply: SchedulingApplyUndoRecord | null;
+  /**
    * Dismissal flag for the post-onboarding "create your first goal" guide.
    * This is intentionally separate from the celebration flags so users can
    * dismiss guidance without losing celebrations (and vice versa).
@@ -651,6 +687,10 @@ interface AppState {
   dismissWidgetPrompt: (surface: 'inline' | 'modal') => void;
   completeWidgetNudge: (source: string) => void;
   /**
+   * Update the local date key (YYYY-MM-DD) of when the daily Plan kickoff drawer was last shown.
+   */
+  updateLastKickoffShownDateKey: (dateKey: string) => void;
+  /**
    * Update notification preferences in a single place so the notifications
    * service and settings screens stay in sync.
    */
@@ -731,6 +771,10 @@ interface AppState {
   setHasSeenFirstArcCelebration: (seen: boolean) => void;
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
+  setLastKickoffShownDateKey: (dateKey: string | null) => void;
+  setLastSchedulingApply: (record: SchedulingApplyUndoRecord | null) => void;
+  setDailyPlanRecord: (dateKey: string, record: DailyPlanRecord | null) => void;
+  addDailyPlanCommitment: (dateKey: string, activityId: string) => void;
   setHasSeenOnboardingSharePrompt: (seen: boolean) => void;
   setHasSeenShareSignInHero: (seen: boolean) => void;
   setHasSeenCreditsEducationInterstitial: (seen: boolean) => void;
@@ -1086,6 +1130,9 @@ export const useAppStore = create<AppState>()(
       lastOnboardingGoalId: null,
       hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
+      lastKickoffShownDateKey: null,
+      dailyPlanHistory: {},
+      lastSchedulingApply: null,
       hasSeenOnboardingSharePrompt: false,
       hasSeenShareSignInHero: false,
       hasSeenCreditsEducationInterstitial: false,
@@ -1363,6 +1410,43 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           hasSeenFirstGoalCelebration: seen,
         })),
+      setLastKickoffShownDateKey: (dateKey) =>
+        set(() => ({
+          lastKickoffShownDateKey: dateKey,
+        })),
+      setLastSchedulingApply: (record) =>
+        set(() => ({
+          lastSchedulingApply: record,
+        })),
+      setDailyPlanRecord: (dateKey, record) =>
+        set((state) => {
+          if (!record) {
+            const next = { ...(state.dailyPlanHistory ?? {}) };
+            delete next[dateKey];
+            return { dailyPlanHistory: next };
+          }
+          return {
+            dailyPlanHistory: {
+              ...(state.dailyPlanHistory ?? {}),
+              [dateKey]: record,
+            },
+          };
+        }),
+      addDailyPlanCommitment: (dateKey, activityId) =>
+        set((state) => {
+          const existing = state.dailyPlanHistory?.[dateKey] ?? null;
+          const committed = new Set(existing?.committedActivityIds ?? []);
+          committed.add(activityId);
+          return {
+            dailyPlanHistory: {
+              ...(state.dailyPlanHistory ?? {}),
+              [dateKey]: {
+                plannedAtMs: existing?.plannedAtMs ?? Date.now(),
+                committedActivityIds: Array.from(committed),
+              },
+            },
+          };
+        }),
       setHasSeenOnboardingSharePrompt: (seen) =>
         set(() => ({
           hasSeenOnboardingSharePrompt: seen,

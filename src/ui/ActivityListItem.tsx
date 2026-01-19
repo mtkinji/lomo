@@ -56,6 +56,11 @@ type ActivityListItemProps = {
    */
   onTogglePriority?: () => void;
   /**
+   * Optional right-side accessory. When provided, this is rendered instead of the
+   * priority/star control. Useful for contextual actions like “Add to schedule”.
+   */
+  rightAccessory?: React.ReactNode;
+  /**
    * Whether to show the priority/star affordance. Defaults to true.
    * Useful for "preview" cards (e.g. suggestions) that should look like a list item
    * but avoid extra controls.
@@ -94,6 +99,7 @@ export function ActivityListItem({
   onToggleComplete,
   isPriorityOne = false,
   onTogglePriority,
+  rightAccessory,
   showPriorityControl = true,
   onPress,
   onLongPress,
@@ -316,21 +322,25 @@ export function ActivityListItem({
           </VStack>
         </HStack>
 
-        {/* Importance / priority affordance */}
-        {showPriorityControl && onTogglePriority ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isPriorityOne ? 'Remove star from activity' : 'Star this activity'}
-            hitSlop={8}
-            onPress={onTogglePriority}
-          >
-            <Icon
-              name={isPriorityOne ? 'starFilled' : 'star'}
-              size={18}
-              color={isPriorityOne ? colors.turmeric : colors.textSecondary}
-            />
-          </Pressable>
-        ) : null}
+        {/* Right-side accessory (custom) OR importance / priority affordance */}
+        {rightAccessory
+          ? rightAccessory
+          : showPriorityControl && onTogglePriority
+            ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isPriorityOne ? 'Remove star from activity' : 'Star this activity'}
+                  hitSlop={8}
+                  onPress={onTogglePriority}
+                >
+                  <Icon
+                    name={isPriorityOne ? 'starFilled' : 'star'}
+                    size={18}
+                    color={isPriorityOne ? colors.turmeric : colors.textSecondary}
+                  />
+                </Pressable>
+              )
+            : null}
       </HStack>
     </Card>
   );

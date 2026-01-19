@@ -38,6 +38,26 @@ function inferSupabaseUrlFromAiProxyBaseUrl(aiProxyBaseUrl: string | undefined):
   }
 }
 
+function inferSupabaseUrlFromCustomFunctionsHost(aiProxyBaseUrl: string | undefined): string | undefined {
+  if (!aiProxyBaseUrl) return undefined;
+  try {
+    const u = new URL(aiProxyBaseUrl);
+    // If the AI proxy base URL lives on a custom domain that already hosts Supabase
+    // Edge Functions at `/functions/v1/*` (e.g. https://auth.kwilt.app/functions/v1/ai-chat),
+    // we can infer the Supabase base URL as the origin.
+    const host = (u.hostname ?? '').trim().toLowerCase();
+    if (!host) return undefined;
+    const path = (u.pathname ?? '').toLowerCase();
+    const looksLikeFunctionsPath = path.includes('/functions/v1/');
+    if (!looksLikeFunctionsPath) return undefined;
+    // Avoid treating a true Supabase functions host as the Supabase base URL.
+    if (host.endsWith('.functions.supabase.co')) return undefined;
+    return u.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 export function getGiphyApiKey(): string | undefined {
   return getEnvVar<string>('giphyApiKey');
 }
@@ -83,11 +103,12 @@ export function getSupabaseUrl(): string | undefined {
   // which defeats custom auth domains like https://auth.kwilt.app.)
   if (Constants.appOwnership !== 'expo') return undefined;
 
-  return inferSupabaseUrlFromAiProxyBaseUrl(
+  const ai =
     getEnvVar<string>('aiProxyBaseUrl') ??
-      getProcessEnvString('EXPO_PUBLIC_AI_PROXY_BASE_URL') ??
-      getProcessEnvString('AI_PROXY_BASE_URL')
-  );
+    getProcessEnvString('EXPO_PUBLIC_AI_PROXY_BASE_URL') ??
+    getProcessEnvString('AI_PROXY_BASE_URL');
+
+  return inferSupabaseUrlFromCustomFunctionsHost(ai) ?? inferSupabaseUrlFromAiProxyBaseUrl(ai);
 }
 
 export function getAmazonAssociatesTag(): string | undefined {

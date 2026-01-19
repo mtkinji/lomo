@@ -83,6 +83,7 @@ const iconMap: Record<string, IconEntry> = {
   checkCircle: { library: 'feather', name: 'check-circle' },
   dev: { library: 'feather', name: 'code' },
   sparkles: { library: 'feather', name: 'zap' },
+  plan: { library: 'feather', name: 'zap' },
   // Calm focus affordance (used for Focus mode / execution).
   focus: { library: 'kwilt', name: 'focus' },
   // Send/push payload outside of Kwilt (export / send out).

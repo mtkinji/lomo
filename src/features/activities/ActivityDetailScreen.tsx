@@ -89,6 +89,14 @@ import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaType
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
 import * as Calendar from 'expo-calendar';
+import {
+  getWritableCalendars,
+  getCalendarPermissions,
+  requestCalendarPermissions,
+  getDefaultCalendarId,
+  createCalendarEvent,
+} from '../../services/calendar/deviceCalendar';
+import type { DeviceCalendar } from '../../services/calendar/deviceCalendar';
 import { buildIcsEvent } from '../../utils/ics';
 import { buildOutlookEventLinks } from '../../utils/outlookEventLinks';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
@@ -2028,11 +2036,10 @@ export function ActivityDetailScreen() {
   const loadWritableCalendars = async (): Promise<boolean> => {
     setIsLoadingCalendars(true);
     try {
-      const permissions = await Calendar.getCalendarPermissionsAsync();
-      const hasPermission = permissions.status === 'granted';
+      const hasPermission = await getCalendarPermissions();
       if (!hasPermission) {
-        const requested = await Calendar.requestCalendarPermissionsAsync();
-        if (requested.status !== 'granted') {
+        const granted = await requestCalendarPermissions();
+        if (!granted) {
           setCalendarPermissionStatus('denied');
           setWritableCalendars([]);
           setSelectedCalendarId(null);
@@ -2041,16 +2048,8 @@ export function ActivityDetailScreen() {
       }
 
       setCalendarPermissionStatus('granted');
-      const all = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      const writable = all.filter((cal) => {
-        // iOS exposes `allowsModifications`; Android uses accessLevel/source.
-        // We treat missing fields as permissive and let createEventAsync fail gracefully if needed.
-        const anyCal = cal as unknown as { allowsModifications?: boolean; isPrimary?: boolean };
-        if (anyCal.allowsModifications === false) return false;
-        return true;
-      });
-
-      setWritableCalendars(writable);
+      const writable = await getWritableCalendars();
+      setWritableCalendars(writable as any);
 
       // Auto-select:
       // - keep existing selection if still valid
@@ -2060,18 +2059,13 @@ export function ActivityDetailScreen() {
       const isExistingValid = Boolean(selectedCalendarId && writable.some((c) => c.id === selectedCalendarId));
       if (isExistingValid) return true;
 
-      let nextId: string | null = null;
-      try {
-        const defaultCal = await Calendar.getDefaultCalendarAsync();
-        if (defaultCal?.id && writable.some((c) => c.id === defaultCal.id)) {
-          nextId = defaultCal.id;
-        }
-      } catch {
-        // ignore
+      let nextId = await getDefaultCalendarId();
+      if (nextId && !writable.some((c) => c.id === nextId)) {
+        nextId = null;
       }
 
       if (!nextId) {
-        const anyPrimary = writable.find((c) => (c as unknown as { isPrimary?: boolean }).isPrimary);
+        const anyPrimary = writable.find((c) => c.isPrimary);
         nextId = anyPrimary?.id ?? writable[0]?.id ?? null;
       }
 
@@ -2171,11 +2165,12 @@ export function ActivityDetailScreen() {
 
     setIsCreatingCalendarEvent(true);
     try {
-      const eventId = await Calendar.createEventAsync(selectedCalendarId, {
+      const eventId = await createCalendarEvent({
+        calendarId: selectedCalendarId,
         title: activity.title,
         startDate: startAt,
         endDate: endAt,
-        notes,
+        notes: notes || undefined,
       });
 
       // Persist scheduledAt (additive model).

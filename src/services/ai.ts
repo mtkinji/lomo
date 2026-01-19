@@ -3323,6 +3323,92 @@ export async function enrichActivityWithAI(
   }
 }
 
+export async function inferActivitySchedulingDomainWithAI(params: {
+  title: string;
+  goalTitle?: string | null;
+  goalDescriptionPlain?: string | null;
+}): Promise<string | null> {
+  try {
+    if (isAiQuotaBlocked()) return null;
+    const apiKey = resolveOpenAiApiKey();
+    if (!apiKey) return null;
+
+    const title = String(params.title ?? '').trim();
+    if (!title) return null;
+
+    const systemPrompt =
+      'You classify a task/activity into a scheduling domain.\n' +
+      'Return JSON only, matching the schema.\n' +
+      'Domains should be one of: work|personal|health|family|home|finance|learning|social|other.\n' +
+      'Choose the best single domain.\n' +
+      'Do not include any PII and do not add extra keys.';
+
+    const userPrompt = [
+      `Activity title: ${title}`,
+      params.goalTitle ? `Goal: ${String(params.goalTitle).trim()}` : 'Goal: (none)',
+      params.goalDescriptionPlain
+        ? `Goal context: ${String(params.goalDescriptionPlain).trim()}`
+        : 'Goal context: (none)',
+    ].join('\n');
+
+    const body = {
+      model: resolveChatModel(),
+      temperature: 0.1,
+      max_tokens: 120,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'scheduling_domain',
+          schema: {
+            type: 'object',
+            properties: {
+              domain: {
+                type: 'string',
+                enum: ['work', 'personal', 'health', 'family', 'home', 'finance', 'learning', 'social', 'other'],
+              },
+            },
+            required: ['domain'],
+            additionalProperties: false,
+          },
+        },
+      },
+      messages: [
+        { role: 'system' as const, content: truncateMessageContent(systemPrompt) },
+        { role: 'user' as const, content: truncateMessageContent(userPrompt) },
+      ],
+    };
+
+    const response = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      },
+      OPENAI_TIMEOUT_MS
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      markOpenAiQuotaExceeded('schedulingDomain', response.status, errorText, apiKey);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return null;
+    const parsed = JSON.parse(content) as { domain?: string } | null;
+    const domain = typeof parsed?.domain === 'string' ? parsed.domain.trim() : '';
+    if (!domain) return null;
+    return domain;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Cheap/single-shot tag suggestion helper.
  *
