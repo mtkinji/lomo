@@ -1,11 +1,12 @@
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { colors, spacing, typography } from '../../theme';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import { colors, fonts, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
+import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { EmptyState, HStack, Text, VStack } from '../../ui/primitives';
-import { GoalPill } from '../../ui/GoalPill';
+import { Icon } from '../../ui/Icon';
 import { formatTimeRange } from '../../services/plan/planDates';
+import { formatMinutes } from '../../utils/formatMinutes';
 
 type PlanRecommendation = {
   activityId: string;
@@ -16,6 +17,7 @@ type PlanRecommendation = {
     startDate: string;
     endDate: string;
   };
+  candidateStartDates?: string[] | null;
 };
 
 type PlanRecsPageProps = {
@@ -68,51 +70,51 @@ export function PlanRecsPage({
   committingActivityId = null,
   contentPadding = spacing.xl,
 }: PlanRecsPageProps) {
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [pendingMoveId, setPendingMoveId] = useState<string | null>(null);
-  const [pendingMoveDate, setPendingMoveDate] = useState<Date | null>(null);
+  const [expandedMoveActivityId, setExpandedMoveActivityId] = useState<string | null>(null);
   const isCommittingAny = Boolean(committingActivityId);
 
-  const handleMovePress = (activityId: string, start: Date) => {
-    setPendingMoveId(activityId);
-    setPendingMoveDate(start);
-    setPickerVisible(true);
-  };
+  function parseDateSafe(iso: string): Date | null {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
 
-  const normalizePickedTime = useCallback(
-    (picked: Date) => {
-      if (!pendingMoveDate) return picked;
-      const next = new Date(pendingMoveDate);
-      next.setHours(picked.getHours(), picked.getMinutes(), 0, 0);
-      return next;
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  const animateExpandCollapse = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, []);
+
+  const toggleMovePickerFor = useCallback(
+    (activityId: string, start: Date) => {
+      if (isCommittingAny) return;
+      const isExpanded = expandedMoveActivityId === activityId;
+      animateExpandCollapse();
+      if (isExpanded) {
+        setExpandedMoveActivityId(null);
+        return;
+      }
+      setExpandedMoveActivityId(activityId);
     },
-    [pendingMoveDate],
+    [animateExpandCollapse, expandedMoveActivityId, isCommittingAny],
   );
 
-  const handleMoveChange = (_event: DateTimePickerEvent, date?: Date) => {
-    if (!date) return;
-    const normalized = normalizePickedTime(date);
-    setPendingMoveDate(normalized);
-
-    // Android picker is a modal; apply immediately and close.
-    if (Platform.OS !== 'ios') {
-      setPickerVisible(false);
-      if (pendingMoveId) onMove(pendingMoveId, normalized);
-    }
-  };
-
   const handleMoveCancel = () => {
-    setPickerVisible(false);
-    setPendingMoveId(null);
-    setPendingMoveDate(null);
+    animateExpandCollapse();
+    setExpandedMoveActivityId(null);
   };
 
-  const handleMoveDone = () => {
-    if (pendingMoveId && pendingMoveDate) {
-      onMove(pendingMoveId, pendingMoveDate);
-    }
-    setPickerVisible(false);
-  };
+  const handleSelectSlot = useCallback(
+    (activityId: string, newStart: Date) => {
+      onMove(activityId, newStart);
+      animateExpandCollapse();
+      setExpandedMoveActivityId(null);
+    },
+    [animateExpandCollapse, onMove],
+  );
 
   if (calendarStatus === 'missing') {
     return (
@@ -181,7 +183,8 @@ export function PlanRecsPage({
   }
 
   return (
-    <ScrollView
+    <BottomDrawerScrollView
+      style={styles.scrollView}
       contentContainerStyle={[
         styles.container,
         {
@@ -239,69 +242,128 @@ export function PlanRecsPage({
 
         <VStack space={spacing.sm}>
           {recommendations.map((rec) => {
-            const start = new Date(rec.proposal.startDate);
-            const end = new Date(rec.proposal.endDate);
+            const start = parseDateSafe(rec.proposal.startDate);
+            const end = parseDateSafe(rec.proposal.endDate);
             const isCommittingThis = committingActivityId === rec.activityId;
+            const isExpanded = expandedMoveActivityId === rec.activityId;
+            const durationMinutes =
+              start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)) : null;
+            const metaParts: string[] = [];
+            if (durationMinutes && durationMinutes > 0) metaParts.push(formatMinutes(durationMinutes));
+            if (rec.goalTitle) metaParts.push(rec.goalTitle);
+            const meta = metaParts.length > 0 ? metaParts.join(' · ') : null;
+            const candidateStarts =
+              (rec.candidateStartDates ?? [])
+                .map(parseDateSafe)
+                .filter((d): d is Date => Boolean(d)) ?? [];
             return (
               <View key={rec.activityId} style={styles.recCard}>
                 <VStack space={spacing.xs}>
                   <Text style={styles.recTitle}>{rec.title}</Text>
-                  {rec.goalTitle ? <GoalPill title={rec.goalTitle} /> : null}
-                  <Text style={styles.recMeta}>{formatTimeRange(start, end)}</Text>
-                  <HStack space={spacing.sm} style={styles.recActions}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={isCommittingAny}
-                        onPress={() => handleMovePress(rec.activityId, start)}
-                      >
-                      Move
-                    </Button>
-                      <Button
+                  {meta ? (
+                    <Text style={styles.recMetaText} numberOfLines={1} ellipsizeMode="tail">
+                      {meta}
+                    </Text>
+                  ) : null}
+                  <HStack style={styles.recActionsRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Change time for ${rec.title}`}
+                      disabled={isCommittingAny || !start || !end}
+                      onPress={() => {
+                        if (start) toggleMovePickerFor(rec.activityId, start);
+                      }}
+                      style={({ pressed }) => [
+                        styles.timeControl,
+                        (isCommittingAny || !start || !end) && styles.timeControlDisabled,
+                        pressed && !(isCommittingAny || !start || !end) ? styles.timeControlPressed : null,
+                      ]}
+                    >
+                      <HStack alignItems="center" space={spacing.xs} style={styles.timeControlRow}>
+                        <Text style={styles.timeBadgeText}>
+                          {start && end ? formatTimeRange(start, end) : 'Time unavailable'}
+                        </Text>
+                        <Icon
+                          name={isExpanded ? 'chevronUp' : 'chevronDown'}
+                          size={14}
+                          color={colors.textSecondary}
+                        />
+                      </HStack>
+                    </Pressable>
+                    <HStack space={spacing.sm} style={styles.recActions}>
+                    <Button
                         variant="ghost"
-                        size="sm"
+                        size="xs"
+                      style={styles.recActionButton}
                         disabled={isCommittingAny}
                         onPress={() => onSkip(rec.activityId)}
                       >
-                      Skip
-                    </Button>
+                        Skip
+                      </Button>
                       <Button
                         variant="primary"
-                        size="sm"
+                        size="xs"
+                      style={styles.recActionButton}
                         disabled={isCommittingAny}
                         onPress={() => onCommit(rec.activityId)}
                       >
                         {isCommittingThis ? 'Committing…' : 'Commit'}
-                    </Button>
+                      </Button>
+                    </HStack>
                   </HStack>
+
+                  {isExpanded ? (
+                    <View style={styles.inlinePickerContainer}>
+                      <Text style={styles.slotListLabel}>Pick a time</Text>
+                      <VStack space={spacing.xs} style={styles.slotList}>
+                        {candidateStarts.length > 0 && durationMinutes ? (
+                          candidateStarts.map((slotStart) => {
+                            const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
+                            const label = formatTimeRange(slotStart, slotEnd);
+                            const isSelected = start ? slotStart.getTime() === start.getTime() : false;
+                            return (
+                              <Pressable
+                                key={slotStart.toISOString()}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Move to ${label}`}
+                                disabled={isCommittingAny}
+                                onPress={() => handleSelectSlot(rec.activityId, slotStart)}
+                                style={({ pressed }) => [
+                                  styles.slotRow,
+                                  isSelected ? styles.slotRowSelected : null,
+                                  pressed ? styles.slotRowPressed : null,
+                                  isCommittingAny ? styles.slotRowDisabled : null,
+                                ]}
+                              >
+                                <HStack alignItems="center" justifyContent="space-between" style={styles.slotRowInner}>
+                                  <Text style={styles.slotRowText}>{label}</Text>
+                                  {isSelected ? (
+                                    <Icon name="check" size={16} color={colors.textPrimary} />
+                                  ) : null}
+                                </HStack>
+                              </Pressable>
+                            );
+                          })
+                        ) : (
+                          <Text style={styles.slotEmptyText}>
+                            No open slots found within your availability and conflicts.
+                          </Text>
+                        )}
+                      </VStack>
+                      <HStack space={spacing.sm} style={styles.slotActions}>
+                        <Button variant="ghost" size="sm" onPress={handleMoveCancel}>
+                          Close
+                        </Button>
+                      </HStack>
+                    </View>
+                  ) : null}
                 </VStack>
               </View>
             );
           })}
         </VStack>
       </VStack>
-
-      {pickerVisible && pendingMoveDate ? (
-        <View style={styles.pickerContainer}>
-          <DateTimePicker
-            value={pendingMoveDate}
-            mode="time"
-            onChange={handleMoveChange}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          />
-          {Platform.OS === 'ios' ? (
-            <HStack space={spacing.sm} style={styles.pickerActions}>
-              <Button variant="ghost" size="sm" onPress={handleMoveCancel}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" onPress={handleMoveDone}>
-                Done
-              </Button>
-            </HStack>
-          ) : null}
-        </View>
-      ) : null}
-    </ScrollView>
+    </BottomDrawerScrollView>
   );
 }
 
@@ -309,6 +371,10 @@ const styles = StyleSheet.create({
   container: {
     padding: 0,
     paddingBottom: 0,
+    overflow: 'visible',
+  },
+  scrollView: {
+    overflow: 'visible',
   },
   emptyContainer: {
     flex: 1,
@@ -370,21 +436,65 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   recTitle: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.textPrimary,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
+  },
+  recMetaText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  recActionsRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    alignSelf: 'stretch',
   },
   recMeta: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  timeControl: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  timeControlRow: {
+    minWidth: 0,
+  },
+  timeControlPressed: {
+    opacity: 0.92,
+  },
+  timeControlDisabled: {
+    opacity: 0.55,
+  },
+  timeBadgeText: {
+    // ...typography.mono,
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textPrimary,
+    letterSpacing: -0.25,
+  },
   recActions: {
     alignItems: 'center',
-    marginTop: spacing.xs,
     justifyContent: 'flex-end',
     alignSelf: 'stretch',
+  },
+  recActionButton: {
+    paddingHorizontal: spacing.sm,
+    height: 30,
   },
   emptyActions: {
     marginTop: spacing.md,
@@ -395,10 +505,50 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
   },
-  pickerContainer: {
-    paddingTop: spacing.md,
+  inlinePickerContainer: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
-  pickerActions: {
+  slotListLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  slotList: {
+    alignSelf: 'stretch',
+  },
+  slotRow: {
+    borderRadius: 10,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  slotRowInner: {
+    minWidth: 0,
+  },
+  slotRowText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  slotRowSelected: {
+    borderColor: colors.textPrimary,
+  },
+  slotRowPressed: {
+    opacity: 0.92,
+  },
+  slotRowDisabled: {
+    opacity: 0.55,
+  },
+  slotEmptyText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  slotActions: {
     justifyContent: 'flex-end',
     paddingTop: spacing.sm,
   },

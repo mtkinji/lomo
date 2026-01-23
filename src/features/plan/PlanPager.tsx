@@ -387,7 +387,7 @@ export function PlanPager({
           readCalendarRefs: readRefs,
         });
         if (!mounted) return;
-        const external = intervals.map((i) => ({
+        const external = (intervals ?? []).map((i) => ({
           start: new Date(i.start),
           end: new Date(i.end),
         }));
@@ -812,6 +812,75 @@ export function PlanPager({
     [dayAvailability, targetDate],
   );
 
+  const getCandidateStartSlotsForRecommendation = useCallback(
+    (activityId: string): string[] => {
+      const proposal = proposals.find((p) => p.activityId === activityId);
+      const activity = activities.find((a) => a.id === activityId);
+      if (!proposal || !activity) return [];
+
+      const baseStart = new Date(proposal.startDate);
+      const baseEnd = new Date(proposal.endDate);
+      const proposalDurationMinutes = Math.round((baseEnd.getTime() - baseStart.getTime()) / 60000);
+      const durationMinutes =
+        Number.isFinite(proposalDurationMinutes) && proposalDurationMinutes > 0
+          ? proposalDurationMinutes
+          : Math.max(10, activity.estimateMinutes ?? 30);
+
+      const mode = inferSchedulingDomain(activity, goals).toLowerCase().includes('work') ? 'work' : 'personal';
+      if (!dayAvailability.enabled) return [];
+
+      const otherProposalIntervals = proposals
+        .filter((p) => p.activityId !== activityId)
+        .map((p) => ({ start: new Date(p.startDate), end: new Date(p.endDate) }));
+
+      const windows = getWindowsForMode(dayAvailability, mode);
+      const stepMinutes = 15;
+      const candidates: Date[] = [];
+
+      function roundUpToStep(d: Date): Date {
+        const next = new Date(d);
+        next.setSeconds(0, 0);
+        const mins = next.getMinutes();
+        const remainder = mins % stepMinutes;
+        if (remainder !== 0) next.setMinutes(mins + (stepMinutes - remainder));
+        return next;
+      }
+
+      for (const w of windows) {
+        const ws = setTimeOnDate(targetDate, w.start);
+        const we = setTimeOnDate(targetDate, w.end);
+        if (!ws || !we) continue;
+
+        let cursor = roundUpToStep(ws);
+        const latestStart = new Date(we.getTime() - durationMinutes * 60000);
+        while (cursor <= latestStart) {
+          const newStart = cursor;
+          const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+          const conflicts =
+            busyIntervals.some((b) => b.start < newEnd && newStart < b.end) ||
+            otherProposalIntervals.some((b) => b.start < newEnd && newStart < b.end);
+          if (!conflicts) {
+            candidates.push(new Date(newStart));
+          }
+          cursor = new Date(cursor.getTime() + stepMinutes * 60000);
+        }
+      }
+
+      // Prefer times nearest the existing proposal start; cap for UI density.
+      const base = baseStart.getTime();
+      candidates.sort((a, b) => Math.abs(a.getTime() - base) - Math.abs(b.getTime() - base));
+      const uniqueByTime = new Map<number, Date>();
+      for (const d of candidates) uniqueByTime.set(d.getTime(), d);
+
+      const finalCandidates = Array.from(uniqueByTime.values())
+        .sort((a, b) => Math.abs(a.getTime() - base) - Math.abs(b.getTime() - base))
+        .slice(0, 8);
+
+      return finalCandidates.map((d) => d.toISOString());
+    },
+    [activities, busyIntervals, dayAvailability, goals, proposals, targetDate],
+  );
+
   const handleMoveRecommendation = (activityId: string, newStart: Date) => {
     const proposal = proposals.find((p) => p.activityId === activityId);
     const activity = activities.find((a) => a.id === activityId);
@@ -1162,6 +1231,7 @@ export function PlanPager({
                     goalTitle: r.goalTitle,
                     arcTitle: r.arcTitle,
                     proposal: { startDate: r.proposal.startDate, endDate: r.proposal.endDate },
+                    candidateStartDates: getCandidateStartSlotsForRecommendation(r.activityId),
                   })),
                   emptyState,
                   isLoading: isLoadingRecommendations,

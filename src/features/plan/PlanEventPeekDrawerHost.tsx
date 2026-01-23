@@ -137,13 +137,10 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   sheetTitle: {
-    ...typography.bodySm,
+    ...typography.titleSm,
     color: colors.textPrimary,
-    fontWeight: '700',
   },
 });
 

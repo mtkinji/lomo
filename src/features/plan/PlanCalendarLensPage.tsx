@@ -648,6 +648,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderLeftWidth: 1,
     borderLeftColor: colors.border,
+    paddingLeft: spacing.xs,
   },
   skeletonBlock: {
     position: 'absolute',
@@ -665,7 +666,7 @@ const styles = StyleSheet.create({
   },
   nowIndicator: {
     position: 'absolute',
-    left: 0,
+    left: spacing.xs,
     right: 0,
     zIndex: 20,
   },

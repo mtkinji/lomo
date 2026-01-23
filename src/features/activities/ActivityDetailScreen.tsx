@@ -69,7 +69,7 @@ import { LongTextField } from '../../ui/LongTextField';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
-import { DurationPicker } from './DurationPicker';
+import { DurationPicker, formatDurationMinutes } from './DurationPicker';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Card } from '../../ui/Card';
@@ -673,6 +673,7 @@ export function ActivityDetailScreen() {
   const calendarSheetVisible = activeSheet === 'calendar';
   const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
   const [calendarDurationDraft, setCalendarDurationDraft] = useState('30');
+  const [scheduleDurationExpanded, setScheduleDurationExpanded] = useState(false);
   const [scheduleTargetDate, setScheduleTargetDate] = useState<Date>(new Date());
   const scheduleInitialTargetDateRef = useRef<Date>(new Date());
   const scheduleHorizonCacheRef = useRef<{
@@ -698,10 +699,24 @@ export function ActivityDetailScreen() {
     });
   }, [activity?.calendarBinding]);
 
+  const scheduleDurationOptions = useMemo(
+    () => Array.from({ length: 16 }, (_, idx) => (idx + 1) * 15),
+    [],
+  );
+  const scheduleDurationMinutes = useMemo(() => {
+    const fallback = Math.round(activity?.estimateMinutes ?? 30);
+    const raw = Math.round(Number(calendarDurationDraft));
+    let minutes = Number.isFinite(raw) && raw > 0 ? raw : fallback;
+    minutes = Math.min(240, Math.max(15, minutes));
+    const snapped = Math.round(minutes / 15) * 15;
+    return Math.min(240, Math.max(15, snapped));
+  }, [activity?.estimateMinutes, calendarDurationDraft]);
+
   const scheduleSlots = useMemo(() => {
     if (!activity) return [];
+    const scheduleActivity = { ...activity, estimateMinutes: scheduleDurationMinutes };
     return proposeSlotsForActivity({
-      activity,
+      activity: scheduleActivity,
       goals: goals ?? [],
       userProfile,
       targetDate: scheduleTargetDate,
@@ -709,7 +724,15 @@ export function ActivityDetailScreen() {
       writeCalendarId: scheduleWriteRef?.calendarId ?? null,
       limit: 6,
     });
-  }, [activity, goals, scheduleBusyIntervals, scheduleTargetDate, scheduleWriteRef?.calendarId, userProfile]);
+  }, [
+    activity,
+    goals,
+    scheduleBusyIntervals,
+    scheduleDurationMinutes,
+    scheduleTargetDate,
+    scheduleWriteRef?.calendarId,
+    userProfile,
+  ]);
 
   const selectedSlot = manualScheduleSlot
     ? { startDate: manualScheduleSlot.startDate, endDate: manualScheduleSlot.endDate }
@@ -2019,6 +2042,7 @@ export function ActivityDetailScreen() {
 
     setCalendarStartDraft(draftStart);
     setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
+    setScheduleDurationExpanded(false);
     scheduleInitialTargetDateRef.current = new Date(draftStart);
     scheduleHorizonCacheRef.current = null;
     setScheduleTargetDate(new Date(draftStart));
@@ -2072,6 +2096,7 @@ export function ActivityDetailScreen() {
 
         setCalendarStartDraft(draftStart);
         setCalendarDurationDraft(String(duration));
+        setScheduleDurationExpanded(false);
         scheduleInitialTargetDateRef.current = new Date(draftStart);
         scheduleHorizonCacheRef.current = null;
         setScheduleTargetDate(new Date(draftStart));
@@ -2205,12 +2230,13 @@ export function ActivityDetailScreen() {
         let resolvedBusy: Array<{ start: Date; end: Date }> = [];
         let resolvedEvents: CalendarEvent[] = [];
 
+        const scheduleActivity = { ...activity, estimateMinutes: scheduleDurationMinutes };
         for (let offset = 0; offset <= HORIZON_DAYS; offset++) {
           const day = new Date(horizonStart);
           day.setDate(day.getDate() + offset);
           const dayBusy = sliceBusyForDay(day);
           const slots = proposeSlotsForActivity({
-            activity,
+            activity: scheduleActivity,
             goals: goals ?? [],
             userProfile,
             targetDate: day,
@@ -2299,6 +2325,12 @@ export function ActivityDetailScreen() {
 
   useEffect(() => {
     if (!calendarSheetVisible) return;
+    setManualScheduleSlot(null);
+    setSelectedSlotIndex(0);
+  }, [calendarSheetVisible, scheduleDurationMinutes]);
+
+  useEffect(() => {
+    if (!calendarSheetVisible) return;
     if (Platform.OS !== 'ios') {
       setIsOutlookInstalled(false);
       return;
@@ -2325,7 +2357,7 @@ export function ActivityDetailScreen() {
       if (Number.isNaN(start.getTime())) return;
       start.setSeconds(0, 0);
 
-      const durationMinutes = Math.max(10, Math.round(activity.estimateMinutes ?? 30));
+      const durationMinutes = Math.max(10, scheduleDurationMinutes);
       const end = new Date(start.getTime() + durationMinutes * 60_000);
 
       const dayStart = new Date(start);
@@ -2407,7 +2439,15 @@ export function ActivityDetailScreen() {
       setSelectedSlotIndex(-1);
       // Day view is always visible in this sheet.
     },
-    [activity, goals, scheduleBusyIntervals, scheduleWriteRef?.calendarId, showToast, userProfile],
+    [
+      activity,
+      goals,
+      scheduleBusyIntervals,
+      scheduleDurationMinutes,
+      scheduleWriteRef?.calendarId,
+      showToast,
+      userProfile,
+    ],
   );
 
   const scheduleIntoWriteCalendar = async (slotIndex?: number) => {
@@ -4716,66 +4756,15 @@ export function ActivityDetailScreen() {
           setActiveSheet(null);
         }}
         // Day-first schedule sheet should be tall enough to actually use the timeline.
-        snapPoints={Platform.OS === 'ios' ? ['92%'] : ['90%']}
+        snapPoints={['95%']}
         scrimToken="pineSubtle"
       >
-        <View style={styles.sheetContent}>
+        <View style={[styles.sheetContent, styles.scheduleSheetContent]}>
           <HStack justifyContent="space-between" alignItems="center" style={{ marginBottom: spacing.xs }}>
-            <Text style={styles.sheetTitle}>Schedule</Text>
-            <HStack space="xs" alignItems="center">
-              <DropdownMenu>
-                <DropdownMenuTrigger accessibilityLabel="Schedule options">
-                  <View pointerEvents="none">
-                    <IconButton accessibilityLabel="Schedule options" variant="ghost">
-                      <Icon name="more" size={18} color={colors.textPrimary} />
-                    </IconButton>
-                  </View>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 240 }}>
-                  <DropdownMenuItem
-                    onPress={() => {
-                      shareActivityAsIcs().catch(() => undefined);
-                    }}
-                  >
-                    <View style={styles.menuItemRow}>
-                      <Icon name="fileText" size={16} color={colors.textPrimary} />
-                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        Export .ics file
-                      </Text>
-                    </View>
-                  </DropdownMenuItem>
-                  {Platform.OS === 'ios' ? (
-                    <DropdownMenuItem
-                      onPress={() => {
-                        openOutlookEventComposer().catch(() => undefined);
-                      }}
-                    >
-                      <View style={styles.menuItemRow}>
-                        <Icon name="outlook" size={16} color={colors.textPrimary} />
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Handoff to Outlook
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
-                  ) : null}
-                  <DropdownMenuItem
-                    onPress={() => {
-                      openGoogleCalendarComposer().catch(() => undefined);
-                    }}
-                  >
-                    <View style={styles.menuItemRow}>
-                      <Icon name="google" size={16} color={colors.textPrimary} />
-                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        Handoff to Google Calendar
-                      </Text>
-                    </View>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <IconButton accessibilityLabel="Close" variant="ghost" onPress={() => setActiveSheet(null)}>
-                <Icon name="close" size={18} color={colors.textPrimary} />
-              </IconButton>
-            </HStack>
+            <Text style={styles.sheetTitle}>Schedule activity</Text>
+            <IconButton accessibilityLabel="Close" variant="ghost" onPress={() => setActiveSheet(null)}>
+              <Icon name="close" size={18} color={colors.textPrimary} />
+            </IconButton>
           </HStack>
           <Text style={styles.sheetDescription}>Adds a block to your Plan calendar.</Text>
           {calendarBindingHealth && calendarBindingHealth !== 'healthy' ? (
@@ -4785,12 +4774,39 @@ export function ActivityDetailScreen() {
           ) : null}
 
           <VStack space="md">
-            <HStack justifyContent="space-between" alignItems="center">
-              <Text style={styles.sheetDescription}>
-                {scheduleTargetDayLabel} · {Math.max(10, Math.round(activity?.estimateMinutes ?? 30))} min
-              </Text>
-              <View />
-            </HStack>
+            <VStack space="sm">
+              <HStack justifyContent="space-between" alignItems="center">
+                <Text style={styles.sheetSectionLabel}>Duration</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit scheduling duration"
+                  onPress={() => setScheduleDurationExpanded((prev) => !prev)}
+                  style={({ pressed }) => [
+                    styles.scheduleDurationChip,
+                    pressed ? styles.scheduleDurationChipPressed : null,
+                  ]}
+                >
+                  <Text style={styles.scheduleDurationChipText}>{formatDurationMinutes(scheduleDurationMinutes)}</Text>
+                </Pressable>
+              </HStack>
+              {scheduleDurationExpanded ? (
+                <View style={styles.scheduleDurationPicker}>
+                  <View style={styles.scheduleDurationCard}>
+                    <DurationPicker
+                      valueMinutes={scheduleDurationMinutes}
+                      onChangeMinutes={(next) => {
+                        setCalendarDurationDraft(String(next));
+                      }}
+                      optionsMinutes={scheduleDurationOptions}
+                      accessibilityLabel="Select scheduling duration"
+                      iosWheelHeight={180}
+                      showHelperText={false}
+                      iosUseEdgeFades={false}
+                    />
+                  </View>
+                </View>
+              ) : null}
+            </VStack>
 
             {scheduleLoading ? (
               <HStack alignItems="center" space="sm">
@@ -4812,29 +4828,40 @@ export function ActivityDetailScreen() {
                 </Button>
               </VStack>
             ) : scheduleSlots.length === 0 && !manualScheduleSlot ? (
-              <VStack space="sm">
-                <Text style={styles.sheetDescription}>
-                  {scheduleHorizonExhausted
-                    ? 'No available time found in the next 2 weeks.'
-                    : 'No suggested slots found for this day.'}
-                </Text>
-                <Text style={styles.sheetDescription}>Tap the calendar below to pick a time.</Text>
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  onPress={() => {
-                    setActiveSheet(null);
-                    rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
-                  }}
-                >
-                  Adjust availability
-                </Button>
-              </VStack>
+              <View style={styles.scheduleEmptyStateCard}>
+                <HStack space="sm" alignItems="flex-start">
+                  <View style={styles.scheduleEmptyStateIconWrap}>
+                    <Icon name="calendar" size={16} color={colors.textSecondary} />
+                  </View>
+                  <VStack space="xs" style={{ flex: 1 }}>
+                    <Text style={styles.scheduleEmptyStateTitle}>
+                      {scheduleHorizonExhausted
+                        ? 'No available time in the next 2 weeks'
+                        : 'No suggested times for this day'}
+                    </Text>
+                    <Text style={styles.scheduleEmptyStateBody}>
+                      Tap the calendar below to pick a time or adjust availability.
+                    </Text>
+                    <View style={styles.scheduleEmptyStateActionRow}>
+                      <Button
+                        variant="secondary"
+                        fullWidth
+                        onPress={() => {
+                          setActiveSheet(null);
+                          rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
+                        }}
+                      >
+                        Adjust availability
+                      </Button>
+                    </View>
+                  </VStack>
+                </HStack>
+              </View>
             ) : (
               <VStack space="sm">
-                <Text style={styles.sheetDescription}>{scheduleSlots.length > 0 ? 'Suggested times' : 'Pick a time'}</Text>
+                <Text style={styles.sheetSectionLabel}>{scheduleSlots.length > 0 ? 'Suggested times' : 'Pick a time'}</Text>
                 {scheduleSlots.length > 0 ? (
-                  <HStack space="sm" style={{ flexWrap: 'wrap' }}>
+                  <HStack style={{ flexWrap: 'wrap', gap: spacing.sm }}>
                     {scheduleSlots.map((slot, idx) => {
                       const start = new Date(slot.startDate);
                       const end = new Date(slot.endDate);
@@ -4861,7 +4888,7 @@ export function ActivityDetailScreen() {
 
             {scheduleWriteRef ? (
               <View style={{ marginTop: spacing.sm }}>
-                <View style={{ height: 72, marginBottom: spacing.sm }}>
+                <View style={{ height: 72, marginBottom: spacing.xs }}>
                   <PlanDateStrip selectedDate={scheduleTargetDate} onSelectDate={handleSelectScheduleDate} />
                 </View>
                 <View style={{ height: scheduleLensHeightPx }}>
