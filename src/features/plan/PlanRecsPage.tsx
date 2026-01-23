@@ -20,6 +20,12 @@ type PlanRecommendation = {
 
 type PlanRecsPageProps = {
   targetDayLabel: string;
+  dueUnplaced?: Array<{
+    activityId: string;
+    title: string;
+    goalTitle?: string | null;
+    arcTitle?: string | null;
+  }>;
   recommendations: PlanRecommendation[];
   emptyState: { title: string; description: string } | null;
   isLoading?: boolean;
@@ -27,6 +33,8 @@ type PlanRecsPageProps = {
   entryPoint: 'manual' | 'kickoff';
   calendarStatus: 'unknown' | 'connected' | 'missing';
   onOpenCalendarSettings: () => void;
+  onOpenAvailabilitySettings?: () => void;
+  onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
   onRerun: () => void;
   onCommit: (activityId: string) => void;
@@ -42,6 +50,7 @@ type PlanRecsPageProps = {
 
 export function PlanRecsPage({
   targetDayLabel,
+  dueUnplaced = [],
   recommendations,
   emptyState,
   isLoading = false,
@@ -49,6 +58,8 @@ export function PlanRecsPage({
   entryPoint,
   calendarStatus,
   onOpenCalendarSettings,
+  onOpenAvailabilitySettings,
+  onDismissForToday,
   onReviewPlan,
   onRerun,
   onCommit,
@@ -182,7 +193,49 @@ export function PlanRecsPage({
       showsVerticalScrollIndicator={false}
     >
       <VStack space={spacing.md}>
-        <Text style={styles.subtitle}>Commit a few for {targetDayLabel}. Everything else stays deferred.</Text>
+        {dueUnplaced.length > 0 ? (
+          <View style={styles.warningCard}>
+            <VStack space={spacing.sm}>
+              <VStack space={spacing.xs}>
+                <Text style={styles.warningTitle}>Due today didn’t fit</Text>
+                <Text style={styles.warningBody}>
+                  {dueUnplaced.length === 1
+                    ? 'One due-today activity couldn’t be scheduled within your availability and conflicts.'
+                    : `${dueUnplaced.length} due-today activities couldn’t be scheduled within your availability and conflicts.`}
+                </Text>
+              </VStack>
+
+              <VStack space={spacing.xs}>
+                {dueUnplaced.slice(0, 5).map((a) => (
+                  <HStack key={a.activityId} alignItems="center" justifyContent="space-between">
+                    <Text style={styles.warningItemTitle}>{a.title}</Text>
+                    {onDismissForToday ? (
+                      <Button variant="ghost" size="sm" onPress={() => onDismissForToday(a.activityId)}>
+                        Dismiss for today
+                      </Button>
+                    ) : null}
+                  </HStack>
+                ))}
+                {dueUnplaced.length > 5 ? (
+                  <Text style={styles.warningMore}>+{dueUnplaced.length - 5} more</Text>
+                ) : null}
+              </VStack>
+
+              <HStack space={spacing.sm} style={{ justifyContent: 'flex-end' }}>
+                {onOpenAvailabilitySettings ? (
+                  <Button variant="secondary" size="sm" onPress={onOpenAvailabilitySettings}>
+                    Adjust availability
+                  </Button>
+                ) : null}
+                <Button variant="ghost" size="sm" onPress={onOpenCalendarSettings}>
+                  Calendars
+                </Button>
+              </HStack>
+            </VStack>
+          </View>
+        ) : null}
+
+        <Text style={styles.subtitle}>Commit a few for {targetDayLabel}.</Text>
 
         <VStack space={spacing.sm}>
           {recommendations.map((rec) => {
@@ -226,10 +279,6 @@ export function PlanRecsPage({
             );
           })}
         </VStack>
-
-        <View style={styles.deferredCard}>
-          <Text style={styles.deferredText}>Everything else stays deferred.</Text>
-        </View>
       </VStack>
 
       {pickerVisible && pendingMoveDate ? (
@@ -288,6 +337,33 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  warningCard: {
+    backgroundColor: colors.shellAlt,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  warningTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  warningBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  warningItemTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  warningMore: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
   recCard: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -309,17 +385,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     justifyContent: 'flex-end',
     alignSelf: 'stretch',
-  },
-  deferredCard: {
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.shellAlt,
-  },
-  deferredText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
   emptyActions: {
     marginTop: spacing.md,

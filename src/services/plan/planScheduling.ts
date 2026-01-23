@@ -2,7 +2,7 @@ import type { Activity, Arc, Goal, UserProfile } from '../../domain/types';
 import { getSuggestedActivitiesRanked } from '../recommendations/nextStep';
 import type { BusyInterval, ProposedEvent } from '../scheduling/schedulingEngine';
 import { inferSchedulingDomain } from '../scheduling/inferSchedulingDomain';
-import { clampToNextQuarterHour, formatTimeLabel, setTimeOnDate } from './planDates';
+import { clampToNextQuarterHour, formatTimeLabel, setTimeOnDate, toLocalDateKey } from './planDates';
 import { getAvailabilityForDate, getWindowsForMode, type PlanMode } from './planAvailability';
 
 function overlaps(a: BusyInterval, b: BusyInterval): boolean {
@@ -38,6 +38,15 @@ export type DailyPlanProposal = ProposedEvent & {
   arcId?: string | null;
 };
 
+export type DailyPlanProposeResult = {
+  proposals: DailyPlanProposal[];
+  /**
+   * Activities that are due on the target day but couldn't be placed (constraints/conflicts).
+   * This enables an explicit warning surface rather than silently dropping them.
+   */
+  unplacedDueActivityIds: string[];
+};
+
 export function proposeDailyPlan(params: {
   activities: Activity[];
   goals: Goal[];
@@ -47,7 +56,8 @@ export function proposeDailyPlan(params: {
   busyIntervals: BusyInterval[];
   writeCalendarId: string | null;
   maxItems?: number;
-}): DailyPlanProposal[] {
+  dismissedActivityIds?: string[] | Set<string>;
+}): DailyPlanProposeResult {
   const {
     activities,
     goals,
@@ -57,16 +67,23 @@ export function proposeDailyPlan(params: {
     busyIntervals,
     writeCalendarId,
     maxItems = 4,
+    dismissedActivityIds,
   } = params;
 
   const dayAvailability = getAvailabilityForDate(userProfile, targetDate);
-  if (!dayAvailability.enabled) return [];
+  if (!dayAvailability.enabled) return { proposals: [], unplacedDueActivityIds: [] };
 
   const now = new Date();
   const isToday =
     targetDate.getFullYear() === now.getFullYear() &&
     targetDate.getMonth() === now.getMonth() &&
     targetDate.getDate() === now.getDate();
+
+  const targetKey = toLocalDateKey(targetDate);
+  const dismissed =
+    dismissedActivityIds instanceof Set
+      ? dismissedActivityIds
+      : new Set(Array.isArray(dismissedActivityIds) ? dismissedActivityIds : []);
 
   const ranked = getSuggestedActivitiesRanked({
     activities,
@@ -82,18 +99,29 @@ export function proposeDailyPlan(params: {
   const busy = normalizeBusy(busyIntervals);
   const startCursor = clampToNextQuarterHour(now);
 
-  for (const activity of ranked) {
-    if (proposals.length >= maxItems) break;
-    if (activity.status === 'done' || activity.status === 'cancelled') continue;
-    if (activity.scheduledAt) continue;
-    if (!writeCalendarId) continue;
+  function canConsiderActivity(activity: Activity): boolean {
+    if (activity.status === 'done' || activity.status === 'cancelled') return false;
+    if (activity.scheduledAt) return false;
+    if (dismissed.has(activity.id)) return false;
+    return true;
+  }
+
+  function isDueOnTargetDay(activity: Activity): boolean {
+    const raw = activity.scheduledDate ?? null;
+    if (!raw) return false;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return false;
+    return toLocalDateKey(d) === targetKey;
+  }
+
+  function tryPlace(activity: Activity): boolean {
+    if (!writeCalendarId) return false;
 
     const mode = resolveModeForActivity(activity, goals);
     const windows = getWindowsForMode(dayAvailability, mode);
-    if (windows.length === 0) continue;
+    if (windows.length === 0) return false;
 
     const durationMinutes = Math.max(10, activity.estimateMinutes ?? 30);
-    let placed = false;
 
     for (const window of windows) {
       const windowStart = setTimeOnDate(targetDate, window.start);
@@ -121,21 +149,109 @@ export function proposeDailyPlan(params: {
             goalId: activity.goalId ?? null,
           });
           busy.push(candidate);
-          placed = true;
-          break;
+          return true;
         }
         cursor = new Date(cursor.getTime() + 15 * 60 * 1000);
       }
-      if (placed) break;
     }
+    return false;
   }
 
-  return proposals;
+  // 1) Force-schedule due-on-target-day activities first (unless dismissed).
+  const dueCandidates = ranked.filter((a) => canConsiderActivity(a) && isDueOnTargetDay(a));
+  const unplacedDueActivityIds: string[] = [];
+  for (const activity of dueCandidates) {
+    if (proposals.length >= maxItems) break;
+    const placed = tryPlace(activity);
+    if (!placed) unplacedDueActivityIds.push(activity.id);
+  }
+
+  // 2) Fill remaining slots with the normal ranked list.
+  for (const activity of ranked) {
+    if (proposals.length >= maxItems) break;
+    if (!canConsiderActivity(activity)) continue;
+    // Skip if it was already attempted as a due candidate.
+    if (isDueOnTargetDay(activity)) continue;
+    void tryPlace(activity);
+  }
+
+  return { proposals, unplacedDueActivityIds };
 }
 
 export function formatProposalTimeLabel(proposal: DailyPlanProposal): string {
   const start = new Date(proposal.startDate);
   return formatTimeLabel(start);
+}
+
+/**
+ * Suggest multiple candidate slots for a single activity on a target day.
+ * This is used by the Activity Detail "Schedule" surface (hybrid: slots + optional day view).
+ */
+export function proposeSlotsForActivity(params: {
+  activity: Activity;
+  goals: Goal[];
+  userProfile: UserProfile | null;
+  targetDate: Date;
+  busyIntervals: BusyInterval[];
+  writeCalendarId: string | null;
+  limit?: number;
+}): DailyPlanProposal[] {
+  const { activity, goals, userProfile, targetDate, busyIntervals, writeCalendarId, limit = 6 } = params;
+  if (!writeCalendarId) return [];
+
+  const dayAvailability = getAvailabilityForDate(userProfile, targetDate);
+  if (!dayAvailability.enabled) return [];
+
+  const now = new Date();
+  const isToday =
+    targetDate.getFullYear() === now.getFullYear() &&
+    targetDate.getMonth() === now.getMonth() &&
+    targetDate.getDate() === now.getDate();
+
+  const busy = normalizeBusy(busyIntervals);
+  const startCursor = clampToNextQuarterHour(now);
+
+  const mode = resolveModeForActivity(activity, goals);
+  const windows = getWindowsForMode(dayAvailability, mode);
+  if (windows.length === 0) return [];
+
+  const durationMinutes = Math.max(10, activity.estimateMinutes ?? 30);
+  const proposals: DailyPlanProposal[] = [];
+
+  for (const window of windows) {
+    if (proposals.length >= limit) break;
+    const windowStart = setTimeOnDate(targetDate, window.start);
+    const windowEnd = setTimeOnDate(targetDate, window.end);
+    if (!windowStart || !windowEnd) continue;
+
+    let cursor = new Date(windowStart);
+    if (isToday && cursor < startCursor) cursor = new Date(startCursor);
+    cursor.setSeconds(0, 0);
+
+    while (cursor.getTime() + durationMinutes * 60000 <= windowEnd.getTime()) {
+      if (proposals.length >= limit) break;
+      const candidate: BusyInterval = {
+        start: cursor,
+        end: new Date(cursor.getTime() + durationMinutes * 60000),
+      };
+      const conflict = busy.some((b) => overlaps(b, candidate));
+      if (!conflict) {
+        proposals.push({
+          activityId: activity.id,
+          title: activity.title,
+          startDate: candidate.start.toISOString(),
+          endDate: candidate.end.toISOString(),
+          calendarId: writeCalendarId,
+          domain: activity.schedulingDomain ?? 'personal',
+          goalId: activity.goalId ?? null,
+        });
+        busy.push(candidate);
+      }
+      cursor = new Date(cursor.getTime() + 15 * 60 * 1000);
+    }
+  }
+
+  return proposals;
 }
 
 

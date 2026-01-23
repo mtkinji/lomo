@@ -43,8 +43,11 @@ export const styles = StyleSheet.create({
   },
   toolbarBadgeCorner: {
     position: 'absolute',
-    top: -6,
-    right: -6,
+    // Keep the badge within the toolbar's animated/clipped wrapper so it can't be
+    // cut off when `fixedToolbarAnimatedWrapper` uses `overflow: 'hidden'`.
+    // This only affects visual positioning (no layout impact).
+    top: 0,
+    right: 0,
     zIndex: 1,
   },
   toolbarButtonLabel: {
@@ -65,6 +68,19 @@ export const styles = StyleSheet.create({
     color: colors.canvas,
     textAlign: 'center',
     lineHeight: 12,
+  },
+  toolbarCountButtonActive: {
+    // "Applied" state for Filter/Sort buttons: whole control goes pine700 and
+    // the count is rendered inside the button (no floating badge).
+    backgroundColor: colors.pine700,
+    borderColor: colors.pine700,
+  },
+  toolbarCountButtonActiveText: {
+    fontSize: 12,
+    lineHeight: 14,
+    fontFamily: fonts.semibold,
+    color: colors.primaryForeground,
+    textAlign: 'center',
   },
   proLockedButton: {
     position: 'relative',

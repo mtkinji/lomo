@@ -13,6 +13,12 @@ export type PlanDrawerMode = 'recs' | 'activity' | 'external';
 type PlanRecommendationsModel = {
   recommendationCount: number;
   targetDayLabel: string;
+  dueUnplaced?: Array<{
+    activityId: string;
+    title: string;
+    goalTitle?: string | null;
+    arcTitle?: string | null;
+  }>;
   recommendations: Array<{
     activityId: string;
     title: string;
@@ -26,6 +32,8 @@ type PlanRecommendationsModel = {
   entryPoint: 'manual' | 'kickoff';
   calendarStatus: 'unknown' | 'connected' | 'missing';
   onOpenCalendarSettings: () => void;
+  onOpenAvailabilitySettings?: () => void;
+  onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
   onRerun: () => void;
   onCommit: (activityId: string) => void;
@@ -85,6 +93,7 @@ export function PlanEventPeekDrawerHost({
             // BottomDrawer already provides the canonical gutter.
             contentPadding={0}
             targetDayLabel={recommendations.targetDayLabel}
+            dueUnplaced={recommendations.dueUnplaced ?? []}
             recommendations={recommendations.recommendations}
             emptyState={recommendations.recommendations.length === 0 ? recommendations.emptyState : null}
             isLoading={recommendations.isLoading}
@@ -92,6 +101,8 @@ export function PlanEventPeekDrawerHost({
             entryPoint={recommendations.entryPoint}
             calendarStatus={recommendations.calendarStatus}
             onOpenCalendarSettings={recommendations.onOpenCalendarSettings}
+            onOpenAvailabilitySettings={recommendations.onOpenAvailabilitySettings}
+            onDismissForToday={recommendations.onDismissForToday}
             onReviewPlan={recommendations.onReviewPlan}
             onRerun={recommendations.onRerun}
             onCommit={recommendations.onCommit}

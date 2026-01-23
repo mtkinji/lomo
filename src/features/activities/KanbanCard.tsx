@@ -139,7 +139,7 @@ export function KanbanCard({
                 <Icon
                   name="calendar"
                   size={12}
-                  color={isDueToday(activity.scheduledDate) ? colors.destructive : colors.textSecondary}
+                  color={isDueToday(activity.scheduledDate) || isOverdue(activity.scheduledDate) ? colors.destructive : colors.textSecondary}
                 />
               </HStack>
             )}
@@ -171,6 +171,14 @@ function isDueToday(dateStr: string): boolean {
     date.getMonth() === today.getMonth() &&
     date.getDate() === today.getDate()
   );
+}
+
+function isOverdue(dateStr: string): boolean {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date.getTime() < today.getTime() && !isDueToday(dateStr);
 }
 
 function formatEstimate(minutes: number): string {

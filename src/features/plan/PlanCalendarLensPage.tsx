@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { GestureResponderEvent } from 'react-native';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import type { Activity } from '../../domain/types';
@@ -36,6 +37,11 @@ type PlanCalendarLensPageProps = {
     color?: string | null;
   }) => void;
   /**
+   * Optional: called when the user taps empty space on the timeline (not an event block).
+   * This enables "tap-to-place" scheduling flows.
+   */
+  onPressEmptyTime?: (params: { date: Date }) => void;
+  /**
    * Extra padding applied by the page itself. When hosted inside `BottomDrawer`,
    * the drawer already supplies a horizontal gutter, so this should be 0.
    */
@@ -56,6 +62,7 @@ export function PlanCalendarLensPage({
   onMoveCommitment,
   onPressKwiltBlock,
   onPressExternalEvent,
+  onPressEmptyTime,
   contentPadding = spacing.xl,
 }: PlanCalendarLensPageProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -88,7 +95,7 @@ export function PlanCalendarLensPage({
 
   const externalEventsForDay = useMemo(() => {
     const items = Array.isArray(externalEvents) ? externalEvents : [];
-    return items
+    const filtered = items
       .map((e) => {
         const start = new Date(e.start);
         const end = new Date(e.end);
@@ -105,8 +112,19 @@ export function PlanCalendarLensPage({
         // Always filter to the current day window for both timed and all-day events.
         if (Number.isNaN(e._start.getTime()) || Number.isNaN(e._end.getTime())) return false;
         return e._end > dayStart && e._start < dayEnd;
-      })
-      .sort((a, b) => a._start.getTime() - b._start.getTime());
+      });
+
+    // Providers can sometimes return duplicate event rows for the same event instance.
+    // De-dupe aggressively to avoid React key collisions and double-rendering.
+    const unique = new Map<string, (typeof filtered)[number]>();
+    for (const e of filtered) {
+      const k = `${e.provider}:${e.accountId}:${e.calendarId}:${e.eventId}:${e._start.toISOString()}:${e._end.toISOString()}:${
+        e._isAllDay ? '1' : '0'
+      }`;
+      if (!unique.has(k)) unique.set(k, e);
+    }
+
+    return Array.from(unique.values()).sort((a, b) => a._start.getTime() - b._start.getTime());
   }, [externalEvents, dayStart, dayEnd]);
 
   const allDayEvents = useMemo(() => externalEventsForDay.filter((e) => e._isAllDay), [externalEventsForDay]);
@@ -197,7 +215,9 @@ export function PlanCalendarLensPage({
       const color = calendarColorByRefKey?.[key] ?? colors.gray400;
       items.push({
         kind: 'external',
-        id: `${key}:${e.eventId}`,
+        // NOTE: Some providers can yield duplicate items with the same eventId in a single fetch.
+        // Include start time in the ID to keep React keys unique per rendered instance.
+        id: `${key}:${e.eventId}:${e._start.toISOString()}`,
         title: (e.title ?? 'Busy').trim() || 'Busy',
         start: e._start,
         end: e._end,
@@ -352,6 +372,17 @@ export function PlanCalendarLensPage({
     );
   }
 
+  const handlePressEmptyTime = (e: GestureResponderEvent) => {
+    if (!onPressEmptyTime) return;
+    const rawY = typeof e?.nativeEvent?.locationY === 'number' ? e.nativeEvent.locationY : 0;
+    const clampedY = Math.max(0, rawY);
+    const minutesRaw = (clampedY / HOUR_HEIGHT) * 60;
+    const minutesClamped = Math.max(0, Math.min(24 * 60, minutesRaw));
+    const snappedMinutes = Math.max(0, Math.min(24 * 60, Math.round(minutesClamped / 15) * 15));
+    const date = new Date(dayStart.getTime() + snappedMinutes * 60_000);
+    onPressEmptyTime({ date });
+  };
+
   return (
     <View style={styles.root}>
       <View
@@ -373,7 +404,8 @@ export function PlanCalendarLensPage({
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.allDayChips}>
                 {allDayEvents.slice(0, 8).map((e) => (
                   <View
-                    key={`${e.provider}:${e.accountId}:${e.calendarId}:${e.eventId}`}
+                    // Include start time to avoid duplicate keys if provider returns duplicates.
+                    key={`${e.provider}:${e.accountId}:${e.calendarId}:${e.eventId}:${e._start.toISOString()}`}
                     style={[
                       styles.allDayChip,
                       (() => {
@@ -411,7 +443,7 @@ export function PlanCalendarLensPage({
             ))}
           </View>
 
-          <View style={styles.eventsColumn}>
+          <Pressable style={styles.eventsColumn} onPress={handlePressEmptyTime}>
             {HOURS.map((h) => (
               <View key={h} style={styles.gridRow} />
             ))}
@@ -487,7 +519,7 @@ export function PlanCalendarLensPage({
                 <View style={[styles.skeletonBlock, { top: 5.2 * HOUR_HEIGHT, height: 0.8 * HOUR_HEIGHT, left: '14%' as any, width: '62%' as any }]} />
               </>
             ) : null}
-          </View>
+          </Pressable>
         </View>
 
         {pickerVisible && pendingMoveDate ? (

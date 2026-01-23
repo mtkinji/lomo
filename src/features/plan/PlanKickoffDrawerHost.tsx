@@ -70,7 +70,7 @@ export function PlanKickoffDrawerHost() {
         <VStack space={spacing.xs}>
           <Text style={styles.title}>Plan your day</Text>
           <Text style={styles.body}>
-            See your calendar and commit a few recommendations. Everything else stays deferred.
+            See your calendar and commit a few recommendations.
           </Text>
         </VStack>
 

@@ -821,6 +821,47 @@ serve(async (req) => {
     return json(200, { ok: true });
   }
 
+  if (action === 'delete_event') {
+    const ref = body?.eventRef;
+    const provider = ref?.provider === 'google' || ref?.provider === 'microsoft' ? ref.provider : null;
+    const accountId = typeof ref?.accountId === 'string' ? ref.accountId : null;
+    const calendarId = typeof ref?.calendarId === 'string' ? ref.calendarId : null;
+    const eventId = typeof ref?.eventId === 'string' ? ref.eventId : null;
+    if (!provider || !accountId || !calendarId || !eventId) {
+      return json(400, { error: { message: 'Missing event fields', code: 'bad_request' } });
+    }
+    const account = accounts.find((a) => a.provider === provider && a.provider_account_id === accountId);
+    if (!account) {
+      return json(400, { error: { message: 'Account not found', code: 'bad_request' } });
+    }
+    const token = await getAccessToken({ admin, account, tokenSecret });
+    if (!token) {
+      return json(401, { error: { message: 'Account token unavailable', code: 'unauthorized' } });
+    }
+
+    if (provider === 'google') {
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(
+          eventId,
+        )}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok && res.status !== 410 && res.status !== 404) {
+        return json(500, { error: { message: 'Failed to delete event', code: 'server_error' } });
+      }
+      return json(200, { ok: true });
+    }
+
+    const res = await fetch(`https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(eventId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok && res.status !== 404) {
+      return json(500, { error: { message: 'Failed to delete event', code: 'server_error' } });
+    }
+    return json(200, { ok: true });
+  }
+
   return json(400, { error: { message: 'Unknown action', code: 'bad_request' } });
 });
 

@@ -209,6 +209,24 @@ export type ActivityStatus = 'planned' | 'in_progress' | 'done' | 'skipped' | 'c
 
 export type ActivityDifficulty = 'very_easy' | 'easy' | 'medium' | 'hard' | 'very_hard';
 
+export type ActivityCalendarBinding =
+  | {
+      kind: 'device';
+      calendarId: string;
+      eventId: string;
+      createdBy: 'plan' | 'activity_detail';
+    }
+  | {
+      kind: 'provider';
+      provider: 'google' | 'microsoft';
+      accountId: string;
+      calendarId: string;
+      eventId: string;
+      createdBy: 'plan' | 'activity_detail';
+    };
+
+export type ActivityCalendarBindingHealth = 'healthy' | 'degraded' | 'broken';
+
 /**
  * Activity "kind" used to shape planning + UI behaviors.
  *
@@ -537,6 +555,12 @@ export interface Activity {
    * See: `docs/prds/calendar-export-ics-prd.md`
    */
   scheduledAt?: string | null;
+  /**
+   * Canonical calendar binding. When present, Kwilt can manage (move/unschedule)
+   * the external calendar event. By product policy, `scheduledAt` should only be
+   * set when this binding exists.
+   */
+  calendarBinding?: ActivityCalendarBinding | null;
   /**
    * Optional recurrence rule for Activities that repeat on a cadence. This is
    * intentionally lightweight for now; a future implementation can expand this

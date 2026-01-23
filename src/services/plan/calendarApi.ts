@@ -340,4 +340,8 @@ export async function updateCalendarEvent(params: {
   return await postJson('calendar-api', { action: 'update_event', ...params }, true);
 }
 
+export async function deleteCalendarEvent(params: { eventRef: CalendarEventRef }): Promise<{ ok: boolean }> {
+  return await postJson('calendar-api', { action: 'delete_event', ...params }, true);
+}
+
 

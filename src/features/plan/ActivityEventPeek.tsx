@@ -22,6 +22,7 @@ export type ActivityEventPeekModel = {
   onOpenFocus: (activityId: string) => void;
   onOpenFullActivity: (activityId: string) => void;
   onMoveCommitment: (activityId: string, newStart: Date) => void;
+  onUnscheduleCommitment: (activityId: string) => void;
   onRequestClose: () => void;
 };
 
@@ -33,6 +34,7 @@ export function ActivityEventPeek({
   onOpenFocus,
   onOpenFullActivity,
   onMoveCommitment,
+  onUnscheduleCommitment,
   onRequestClose,
 }: ActivityEventPeekModel) {
   const activity = useAppStore((s) => s.activities.find((a) => a.id === activityId) ?? null);
@@ -68,7 +70,7 @@ export function ActivityEventPeek({
     return byId;
   }, [activity?.steps, activities]);
 
-  const handleReschedulePress = () => {
+  const handleMovePress = () => {
     setPendingMoveDate(new Date(start));
     setPickerVisible(true);
   };
@@ -313,10 +315,18 @@ export function ActivityEventPeek({
             ...(conflict
               ? ([
                   {
-                    id: 'reschedule',
+                    id: 'move',
                     icon: 'daily',
-                    label: 'Reschedule',
-                    onPress: handleReschedulePress,
+                    label: 'Move',
+                    onPress: handleMovePress,
+                    tileBackgroundColor: colors.canvas,
+                    tileBorderColor: colors.border,
+                  },
+                  {
+                    id: 'unschedule',
+                    icon: 'undo',
+                    label: 'Unschedule',
+                    onPress: () => onUnscheduleCommitment(activityId),
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -345,10 +355,18 @@ export function ActivityEventPeek({
                     tileBorderColor: colors.border,
                   },
                   {
-                    id: 'reschedule',
+                    id: 'move',
                     icon: 'daily',
-                    label: 'Reschedule',
-                    onPress: handleReschedulePress,
+                    label: 'Move',
+                    onPress: handleMovePress,
+                    tileBackgroundColor: colors.canvas,
+                    tileBorderColor: colors.border,
+                  },
+                  {
+                    id: 'unschedule',
+                    icon: 'undo',
+                    label: 'Unschedule',
+                    onPress: () => onUnscheduleCommitment(activityId),
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },

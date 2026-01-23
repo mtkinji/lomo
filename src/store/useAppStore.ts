@@ -339,6 +339,14 @@ export type DailyPlanRecord = {
   committedActivityIds: string[];
 };
 
+export type DailyActivityResolutionRecord = {
+  /**
+   * Activity ids explicitly dismissed for this dateKey ("not today").
+   * This is intentionally per-day and does not mutate the Activity due date.
+   */
+  dismissedActivityIds: string[];
+};
+
 interface AppState {
   forces: Force[];
   arcs: Arc[];
@@ -545,6 +553,10 @@ interface AppState {
    * Per-day planning records for the Plan surface.
    */
   dailyPlanHistory: Record<string, DailyPlanRecord>;
+  /**
+   * Per-day resolution records (e.g. dismissed-for-today).
+   */
+  dailyActivityResolutions: Record<string, DailyActivityResolutionRecord>;
   /**
    * Most recent Scheduling Assist apply operation, stored so the user can Undo.
    * Best-effort: event deletion can fail if permissions change or the event is edited externally.
@@ -775,6 +787,9 @@ interface AppState {
   setLastSchedulingApply: (record: SchedulingApplyUndoRecord | null) => void;
   setDailyPlanRecord: (dateKey: string, record: DailyPlanRecord | null) => void;
   addDailyPlanCommitment: (dateKey: string, activityId: string) => void;
+  removeDailyPlanCommitment: (dateKey: string, activityId: string) => void;
+  dismissActivityForDay: (dateKey: string, activityId: string) => void;
+  undismissActivityForDay: (dateKey: string, activityId: string) => void;
   setHasSeenOnboardingSharePrompt: (seen: boolean) => void;
   setHasSeenShareSignInHero: (seen: boolean) => void;
   setHasSeenCreditsEducationInterstitial: (seen: boolean) => void;
@@ -1132,6 +1147,7 @@ export const useAppStore = create<AppState>()(
       hasSeenFirstGoalCelebration: false,
       lastKickoffShownDateKey: null,
       dailyPlanHistory: {},
+      dailyActivityResolutions: {},
       lastSchedulingApply: null,
       hasSeenOnboardingSharePrompt: false,
       hasSeenShareSignInHero: false,
@@ -1450,6 +1466,46 @@ export const useAppStore = create<AppState>()(
               },
             },
           };
+        }),
+      removeDailyPlanCommitment: (dateKey, activityId) =>
+        set((state) => {
+          const existing = state.dailyPlanHistory?.[dateKey] ?? null;
+          if (!existing) return {};
+          const committed = new Set(existing.committedActivityIds ?? []);
+          committed.delete(activityId);
+          const next = { ...(state.dailyPlanHistory ?? {}) };
+          if (committed.size === 0) {
+            delete next[dateKey];
+          } else {
+            next[dateKey] = { ...existing, committedActivityIds: Array.from(committed) };
+          }
+          return { dailyPlanHistory: next };
+        }),
+      dismissActivityForDay: (dateKey, activityId) =>
+        set((state) => {
+          const existing = state.dailyActivityResolutions?.[dateKey] ?? { dismissedActivityIds: [] };
+          const next = new Set(existing.dismissedActivityIds ?? []);
+          next.add(activityId);
+          return {
+            dailyActivityResolutions: {
+              ...(state.dailyActivityResolutions ?? {}),
+              [dateKey]: { dismissedActivityIds: Array.from(next) },
+            },
+          };
+        }),
+      undismissActivityForDay: (dateKey, activityId) =>
+        set((state) => {
+          const existing = state.dailyActivityResolutions?.[dateKey] ?? null;
+          if (!existing) return {};
+          const next = new Set(existing.dismissedActivityIds ?? []);
+          next.delete(activityId);
+          const nextObj = { ...(state.dailyActivityResolutions ?? {}) };
+          if (next.size === 0) {
+            delete nextObj[dateKey];
+          } else {
+            nextObj[dateKey] = { dismissedActivityIds: Array.from(next) };
+          }
+          return { dailyActivityResolutions: nextObj };
         }),
       setHasSeenOnboardingSharePrompt: (seen) =>
         set(() => ({
