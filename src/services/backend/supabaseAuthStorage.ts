@@ -11,6 +11,88 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 export class SupabaseAuthStorage {
   private memory = new Map<string, string>();
+  private didAttemptAuthTokenMigration = false;
+  private pendingWrites = new Set<Promise<unknown>>();
+
+  /**
+   * Supabase can kick off PKCE writes without awaiting our storage writes.
+   * If we immediately background the app to open the system browser, iOS can
+   * suspend/kill the JS context before AsyncStorage flushes the code verifier.
+   *
+   * `flush()` allows callers (our auth flow) to await all in-flight writes.
+   */
+  async flush(): Promise<void> {
+    const pending = Array.from(this.pendingWrites);
+    if (pending.length === 0) return;
+    await Promise.allSettled(pending);
+  }
+
+  private async maybeMigrateAuthToken(targetKey: string): Promise<string | null> {
+    if (this.didAttemptAuthTokenMigration) return null;
+    this.didAttemptAuthTokenMigration = true;
+
+    // We only attempt migration for our explicit stable storage key.
+    if (targetKey !== 'kwilt.supabase.auth') return null;
+
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      if (!Array.isArray(keys) || keys.length === 0) return null;
+
+      // Supabase JS historically uses keys like:
+      // - sb-<project-ref>-auth-token
+      // - sb-auth-token
+      // Some builds may also use other prefixes; we scan broadly but validate content.
+      const candidates = keys
+        .filter((k) => k !== targetKey)
+        .filter((k) => {
+          const kk = String(k ?? '');
+          return (
+            kk.includes('auth-token') ||
+            kk.includes('supabase.auth') ||
+            (kk.startsWith('sb-') && kk.endsWith('-auth-token'))
+          );
+        })
+        .sort((a, b) => {
+          // Prefer explicit auth-token keys.
+          const aScore = a.includes('auth-token') ? 0 : 1;
+          const bScore = b.includes('auth-token') ? 0 : 1;
+          return aScore - bScore;
+        });
+
+      for (const k of candidates) {
+        const v = await AsyncStorage.getItem(k);
+        if (typeof v !== 'string' || v.length < 20) continue;
+
+        // Heuristic: Supabase session JSON includes these fields.
+        const looksLikeSession =
+          v.includes('"access_token"') && v.includes('"refresh_token"') && v.includes('"user"');
+        if (!looksLikeSession) continue;
+
+        // Cache and persist under the new key.
+        this.memory.set(targetKey, v);
+        try {
+          await AsyncStorage.setItem(targetKey, v);
+        } catch (err) {
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.warn('[auth] failed to migrate supabase session storage key', err);
+          }
+        }
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log('[auth] migrated supabase session storage key:', { from: k, to: targetKey });
+        }
+        return v;
+      }
+    } catch (err) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] supabase session migration scan failed', err);
+      }
+    }
+
+    return null;
+  }
 
   async getItem(key: string): Promise<string | null> {
     if (this.memory.has(key)) return this.memory.get(key) ?? null;
@@ -19,24 +101,43 @@ export class SupabaseAuthStorage {
       this.memory.set(key, v);
       return v;
     }
+    const migrated = await this.maybeMigrateAuthToken(key);
+    if (typeof migrated === 'string') return migrated;
     return null;
   }
 
   async setItem(key: string, value: string): Promise<void> {
     this.memory.set(key, value);
+    let p: Promise<unknown> | null = null;
     try {
-      await AsyncStorage.setItem(key, value);
-    } catch {
+      p = AsyncStorage.setItem(key, value);
+      this.pendingWrites.add(p);
+      await p.finally(() => {
+        if (p) this.pendingWrites.delete(p);
+      });
+    } catch (err) {
       // Best-effort: memory cache is enough to complete in-flight auth flows.
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] SupabaseAuthStorage setItem failed', { key }, err);
+      }
     }
   }
 
   async removeItem(key: string): Promise<void> {
     this.memory.delete(key);
+    let p: Promise<unknown> | null = null;
     try {
-      await AsyncStorage.removeItem(key);
-    } catch {
-      // ignore
+      p = AsyncStorage.removeItem(key);
+      this.pendingWrites.add(p);
+      await p.finally(() => {
+        if (p) this.pendingWrites.delete(p);
+      });
+    } catch (err) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] SupabaseAuthStorage removeItem failed', { key }, err);
+      }
     }
   }
 }

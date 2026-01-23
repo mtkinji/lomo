@@ -211,8 +211,9 @@ const styles = StyleSheet.create({
     left: spacing.lg,
     right: spacing.lg,
     alignItems: 'center',
-    zIndex: 999,
-    elevation: 999,
+    // Ensure toast wins over inline drawers/sheets (e.g. Plan recommendations sheet).
+    zIndex: 1200,
+    elevation: 1200,
   },
   surface: {
     maxWidth: 520,

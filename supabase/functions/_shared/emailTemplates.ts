@@ -192,4 +192,118 @@ export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: st
   return { subject, text, html };
 }
 
+export function buildSecretExpiryAlertEmail(params: {
+  environment: string;
+  items: Array<{
+    displayName: string;
+    secretKey: string;
+    provider: string | null;
+    expiresAtIso: string;
+    daysUntilExpiry: number;
+    ownerEmail: string | null;
+    rotationUrl: string | null;
+    notes: string | null;
+    severity: 'warning' | 'expired';
+  }>;
+}): EmailContent {
+  const { primaryColor } = getBrandConfig();
+  const env = params.environment.trim() || 'prod';
+  const items = params.items;
+
+  const subject =
+    items.some((i) => i.severity === 'expired')
+      ? `[Kwilt] Secrets expired (${env})`
+      : `[Kwilt] Secrets expiring soon (${env})`;
+
+  const lines = items
+    .slice()
+    .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry)
+    .map((i) => {
+      const when =
+        i.severity === 'expired'
+          ? `EXPIRED (${formatDateShort(i.expiresAtIso)})`
+          : `in ${i.daysUntilExpiry} day${i.daysUntilExpiry === 1 ? '' : 's'} (${formatDateShort(i.expiresAtIso)})`;
+      const provider = i.provider ? ` [${i.provider}]` : '';
+      return `- ${i.displayName}${provider}\n  key: ${i.secretKey}\n  expires: ${when}${
+        i.ownerEmail ? `\n  owner: ${i.ownerEmail}` : ''
+      }${i.rotationUrl ? `\n  rotate: ${i.rotationUrl}` : ''}${i.notes ? `\n  notes: ${i.notes}` : ''}`;
+    });
+
+  const text =
+    `Secret expiry alert (${env})\n\n` +
+    (lines.length ? lines.join('\n\n') : 'No items.') +
+    `\n\nThis is an automated reminder. Update the expiry record after rotating.`;
+
+  const rowsHtml = items
+    .slice()
+    .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry)
+    .map((i) => {
+      const badgeBg = i.severity === 'expired' ? '#991b1b' : '#92400e';
+      const badgeText = i.severity === 'expired' ? 'EXPIRED' : 'EXPIRING';
+      const when =
+        i.severity === 'expired'
+          ? `${escapeHtml(formatDateShort(i.expiresAtIso))}`
+          : `${escapeHtml(String(i.daysUntilExpiry))} day${i.daysUntilExpiry === 1 ? '' : 's'} (${escapeHtml(
+              formatDateShort(i.expiresAtIso),
+            )})`;
+      const rotate = i.rotationUrl
+        ? `<a href="${escapeHtml(i.rotationUrl)}" style="color:${escapeHtml(primaryColor)};">Rotate</a>`
+        : '';
+      const owner = i.ownerEmail ? escapeHtml(i.ownerEmail) : '';
+      const provider = i.provider ? escapeHtml(i.provider) : '';
+      const notes = i.notes ? escapeHtml(i.notes) : '';
+      return `
+        <tr>
+          <td style="padding:10px 10px;border-top:1px solid #f3f4f6;vertical-align:top;">
+            <div style="font-weight:900;color:#111827;margin:0 0 4px;">${escapeHtml(i.displayName)}</div>
+            <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:12px;color:#6b7280;">
+              ${escapeHtml(i.secretKey)}
+            </div>
+          </td>
+          <td style="padding:10px 10px;border-top:1px solid #f3f4f6;vertical-align:top;color:#111827;">${provider}</td>
+          <td style="padding:10px 10px;border-top:1px solid #f3f4f6;vertical-align:top;color:#111827;">${when}</td>
+          <td style="padding:10px 10px;border-top:1px solid #f3f4f6;vertical-align:top;color:#111827;">${owner}</td>
+          <td style="padding:10px 10px;border-top:1px solid #f3f4f6;vertical-align:top;">${rotate}</td>
+        </tr>
+        ${notes ? `<tr><td colspan="5" style="padding:0 10px 10px;color:#6b7280;">${notes}</td></tr>` : ''}
+      `;
+    })
+    .join('');
+
+  const html = renderLayout({
+    title: `Secret expiry alert (${env})`,
+    preheader: subject,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">
+        One or more <strong>provider-side secrets</strong> are expired or expiring soon for <strong>${escapeHtml(env)}</strong>.
+      </p>
+      <div style="margin:0 0 14px;">
+        <span style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;padding:8px 12px;border-radius:999px;font-weight:900;font-size:12px;">
+          Environment: ${escapeHtml(env)}
+        </span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#ffffff;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="text-align:left;padding:10px 10px;font-size:12px;color:#6b7280;">Secret</th>
+            <th style="text-align:left;padding:10px 10px;font-size:12px;color:#6b7280;">Provider</th>
+            <th style="text-align:left;padding:10px 10px;font-size:12px;color:#6b7280;">Expires</th>
+            <th style="text-align:left;padding:10px 10px;font-size:12px;color:#6b7280;">Owner</th>
+            <th style="text-align:left;padding:10px 10px;font-size:12px;color:#6b7280;">Rotate</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+      <p style="margin:14px 0 0;color:#6b7280;font-size:13px;line-height:18px;">
+        After rotating, update the expiry date in Supabase (table: <strong>kwilt_secret_expirations</strong>).
+      </p>
+    `,
+    footerText: 'Automated reminder. This email does not contain secret values.',
+  });
+
+  return { subject, text, html };
+}
+
 

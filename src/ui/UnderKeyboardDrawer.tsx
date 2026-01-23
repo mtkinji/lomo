@@ -162,10 +162,11 @@ export function UnderKeyboardDrawer({
   React.useEffect(() => {
     const setTo = (nextHeight: number) => {
       // iOS `endCoordinates.height` typically includes the home-indicator safe area.
-      // BottomDrawer already pads its sheet by `insets.bottom`, so if we use the raw
-      // keyboard height here we double-count and the visible content floats too high.
-      const adjusted =
-        Platform.OS === 'ios' ? Math.max(0, nextHeight - insets.bottom) : nextHeight;
+      // For UnderKeyboardDrawer we treat keyboard height as the full "covered" region
+      // because we manage all bottom padding ourselves (sheetBase sets paddingBottom=0).
+      // Subtracting `insets.bottom` here causes the spacer/snap height to be too small,
+      // leaving the visible content partially under the keyboard.
+      const adjusted = Math.max(0, nextHeight);
       setKeyboardHeight(adjusted);
       if (adjusted > 0) lastKnownKeyboardHeightRef.current = adjusted;
     };

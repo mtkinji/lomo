@@ -26,6 +26,9 @@ import { GoalsScreen } from '../features/goals/GoalsScreen';
 import { JoinSharedGoalScreen } from '../features/goals/JoinSharedGoalScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { ActivityDetailScreen } from '../features/activities/ActivityDetailScreen';
+import { PlanScreen } from '../features/plan/PlanScreen';
+import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilitySettingsScreen';
+import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
@@ -46,6 +49,7 @@ import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInt
 import { JoinSharedGoalDrawerHost } from '../features/goals/JoinSharedGoalDrawerHost';
 import { ToastHost } from '../ui/ToastHost';
 import { AuthPromptDrawerHost } from '../features/account/AuthPromptDrawerHost';
+import { PlanKickoffDrawerHost } from '../features/plan/PlanKickoffDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { handleIncomingInviteUrl } from '../services/invites';
 import { handleIncomingArcDraftUrl } from '../services/arcDrafts';
@@ -72,6 +76,15 @@ export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Goals: NavigatorScreenParams<GoalsStackParamList> | undefined;
   Activities: NavigatorScreenParams<ActivitiesStackParamList> | undefined;
+  Plan:
+    | {
+        /**
+         * When true, open the Recommendations bottom sheet on entry.
+         * Used by the app-start Plan kickoff guide CTA.
+         */
+        openRecommendations?: boolean;
+      }
+    | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {
@@ -145,6 +158,8 @@ export type SettingsStackParamList = {
   SettingsRedeemProCode: undefined;
   SettingsExecutionTargets: undefined;
   SettingsDestinationsLibrary: undefined;
+  SettingsPlanAvailability: undefined;
+  SettingsPlanCalendars: undefined;
   SettingsDestinationDetail:
     | { mode: 'create'; definitionId: string }
     | { mode: 'edit'; targetId: string };
@@ -258,6 +273,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             'ArcsStack',
             'Goals',
             'Activities',
+            'Plan',
             'Settings',
             ...(showDevTools ? (['DevTools', 'DevArcTestingResults'] as const) : []),
           ];
@@ -392,6 +408,9 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             },
           },
         },
+        Plan: {
+          path: 'plan',
+        },
       },
     },
   };
@@ -478,6 +497,23 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               navigation.navigate('Activities', {
                 screen: 'ActivitiesList',
               });
+              return;
+            }
+
+            if (route.name === 'Plan') {
+              event.preventDefault();
+              navigation.navigate('Plan');
+              return;
+            }
+
+            if (route.name === 'Settings') {
+              // Mirror other primary nav items: tapping Settings should always land on the
+              // Settings home canvas, not the last nested Settings screen (e.g. Subscriptions).
+              event.preventDefault();
+              navigation.navigate('Settings', {
+                screen: 'SettingsHome',
+              });
+              return;
             }
           },
         })}
@@ -527,6 +563,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           component={ActivitiesStackNavigator}
           options={{ title: 'Activities' }}
         />
+        <Drawer.Screen
+          name="Plan"
+          component={PlanScreen}
+          options={{ title: 'Plan' }}
+        />
         {showDevTools && (
           <>
             <Drawer.Screen
@@ -550,6 +591,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           options={{ title: 'Settings' }}
         />
       </Drawer.Navigator>
+      <PlanKickoffDrawerHost />
       <CreditsInterstitialDrawerHost />
       <PaywallDrawerHost />
       <JoinSharedGoalDrawerHost />
@@ -692,6 +734,14 @@ function SettingsStackNavigator() {
         component={DestinationsLibraryScreen}
       />
       <SettingsStack.Screen
+        name="SettingsPlanAvailability"
+        component={PlanAvailabilitySettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsPlanCalendars"
+        component={PlanCalendarSettingsScreen}
+      />
+      <SettingsStack.Screen
         name="SettingsDestinationDetail"
         component={DestinationDetailScreen}
         options={{
@@ -732,6 +782,8 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
       return 'goals';
     case 'Activities':
       return 'activities';
+    case 'Plan':
+      return 'plan';
     case 'Settings':
       return 'dot';
     case 'DevTools':
@@ -780,6 +832,12 @@ function KwiltDrawerContent(props: any) {
 
     if (routeName === 'Activities') {
       props.navigation.navigate('Activities', { screen: 'ActivitiesList' });
+      props.navigation.dispatch(DrawerActions.closeDrawer());
+      return;
+    }
+
+    if (routeName === 'Plan') {
+      props.navigation.navigate('Plan');
       props.navigation.dispatch(DrawerActions.closeDrawer());
       return;
     }
@@ -881,7 +939,9 @@ function KwiltDrawerContent(props: any) {
             accessibilityRole="button"
             accessibilityLabel="View profile and settings"
             onPress={() => {
-              props.navigation.navigate('Settings');
+              // Always land on the Settings home canvas from the profile row (not the last
+              // nested Settings screen like Subscriptions).
+              props.navigation.navigate('Settings', { screen: 'SettingsHome' });
               props.navigation.dispatch(DrawerActions.closeDrawer());
             }}
           >

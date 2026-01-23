@@ -83,6 +83,7 @@ const iconMap: Record<string, IconEntry> = {
   checkCircle: { library: 'feather', name: 'check-circle' },
   dev: { library: 'feather', name: 'code' },
   sparkles: { library: 'feather', name: 'zap' },
+  plan: { library: 'feather', name: 'zap' },
   // Calm focus affordance (used for Focus mode / execution).
   focus: { library: 'kwilt', name: 'focus' },
   // Send/push payload outside of Kwilt (export / send out).
@@ -128,6 +129,7 @@ const iconMap: Record<string, IconEntry> = {
   redo: { library: 'feather', name: 'rotate-cw' },
   expand: { library: 'feather', name: 'maximize-2' },
   collapse: { library: 'feather', name: 'minimize-2' },
+  externalLink: { library: 'feather', name: 'external-link' },
   // Semantic Sort Icons
   sortAlphaAsc: { library: 'mci', name: 'sort-alphabetical-ascending' },
   sortAlphaDesc: { library: 'mci', name: 'sort-alphabetical-descending' },

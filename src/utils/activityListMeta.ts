@@ -1,14 +1,7 @@
 import type { Activity } from '../domain/types';
+import { formatMinutes } from './formatMinutes';
 
 export type ActivityMetaLeadingIconName = 'today' | 'bell' | 'paperclip';
-
-function formatActivityMinutes(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (mins === 0) return `${hrs} hr${hrs === 1 ? '' : 's'}`;
-  return `${hrs} hr${hrs === 1 ? '' : 's'} ${mins} min`;
-}
 
 function formatActivityRepeatRule(rule: Activity['repeatRule'] | undefined): string | null {
   if (!rule) return null;
@@ -83,7 +76,7 @@ export function buildActivityListMeta(args: {
     parts.push(formatActivityReminderLabel(activity.reminderAt));
   }
   if (activity.estimateMinutes != null) {
-    parts.push(formatActivityMinutes(activity.estimateMinutes));
+    parts.push(formatMinutes(activity.estimateMinutes));
   }
   const repeatLabel = formatActivityRepeatRule(activity.repeatRule);
   if (repeatLabel) {

@@ -102,8 +102,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
     minHeight: 56,
+    overflow: 'hidden',
     // Tokenized: keep lift below "card" prominence.
     ...cardElevation.lift,
   },
@@ -116,8 +118,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.md,
     minHeight: 72,
+    overflow: 'hidden',
     ...cardElevation.lift,
   },
   tilePressed: {
@@ -127,6 +131,8 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     fontFamily: fonts.semibold,
     color: colors.textPrimary,
+    flexShrink: 1,
+    minWidth: 0,
   },
 });
 

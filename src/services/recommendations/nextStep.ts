@@ -19,7 +19,15 @@ function localDateKey(date: Date): string {
 }
 
 function isScheduledForLocalDay(activity: Activity, dateKey: string): boolean {
-  const raw = activity.scheduledAt ?? activity.scheduledDate ?? null;
+  const raw = activity.scheduledAt ?? null;
+  if (!raw) return false;
+  const when = new Date(raw);
+  if (Number.isNaN(when.getTime())) return false;
+  return localDateKey(when) === dateKey;
+}
+
+function isDueForLocalDay(activity: Activity, dateKey: string): boolean {
+  const raw = activity.scheduledDate ?? null;
   if (!raw) return false;
   const when = new Date(raw);
   if (Number.isNaN(when.getTime())) return false;
@@ -45,6 +53,7 @@ function scoreActivities(params: { activities: Activity[]; goals: Goal[]; now: D
   return actionable
     .map((activity) => {
       const scheduledToday = isScheduledForLocalDay(activity, todayKey) ? 1 : 0;
+      const dueToday = isDueForLocalDay(activity, todayKey) ? 1 : 0;
       const activityPriority = activity.priority === 1 ? 1 : activity.priority === 2 ? 0.5 : 0;
 
       // Look up the parent goal's priority and factor it into the score.
@@ -61,7 +70,12 @@ function scoreActivities(params: { activities: Activity[]; goals: Goal[]; now: D
         : Math.min(1, (Date.now() - updatedAt) / (7 * 24 * 60 * 60 * 1000));
       // Higher is better. Goal priority sits between scheduledToday and activity priority.
       const score =
-        scheduledToday * 3 + goalPriority * 2.5 + activityPriority * 2 + estimateScore * 1 + updatedScore * 0.2;
+        scheduledToday * 3 +
+        dueToday * 3.25 +
+        goalPriority * 2.5 +
+        activityPriority * 2 +
+        estimateScore * 1 +
+        updatedScore * 0.2;
       return { activity, score };
     })
     .sort((a, b) => b.score - a.score);

@@ -8,6 +8,7 @@ export type AuthPromptReason =
   | 'follow'
   | 'upload_attachment'
   | 'admin'
+  | 'plan'
   | 'settings';
 
 type Deferred<T> = {

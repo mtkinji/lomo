@@ -635,10 +635,19 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  scheduleSheetContent: {
+    // Match the Plan screen gutter (AppShell default).
+    paddingHorizontal: spacing.sm,
+  },
   sheetTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  sheetSectionLabel: {
+    ...typography.label,
+    color: colors.formLabel,
+    marginBottom: spacing.xs,
   },
   sheetBody: {
     ...typography.bodySm,
@@ -674,6 +683,60 @@ export const styles = StyleSheet.create({
   sheetRowLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  scheduleDurationChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  scheduleDurationChipPressed: {
+    backgroundColor: colors.shellAlt,
+  },
+  scheduleDurationChipText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  scheduleDurationPicker: {
+    paddingTop: spacing.xs,
+  },
+  scheduleDurationCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  scheduleEmptyStateCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.shellAlt,
+    padding: spacing.md,
+  },
+  scheduleEmptyStateIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.canvas,
+  },
+  scheduleEmptyStateTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  scheduleEmptyStateBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  scheduleEmptyStateActionRow: {
+    marginTop: spacing.sm,
   },
   locationFormulaTrigger: {
     // Match Input variant="filled" (same radius + subtle fill).

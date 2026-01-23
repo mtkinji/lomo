@@ -8,6 +8,7 @@ const MAX_GEOFENCES = 20;
 let isInitialized = false;
 let hasAttachedStoreSubscription = false;
 let reconcileTimeout: ReturnType<typeof setTimeout> | null = null;
+let lastRegionsSignature: string | null = null;
 
 function getEligibleActivities() {
   const state = useAppStore.getState();
@@ -45,6 +46,23 @@ async function stopGeofencingIfRunning(): Promise<void> {
   }
 }
 
+function signatureForRegions(regions: Location.LocationRegion[]): string {
+  // Generate a stable signature so we only restart geofencing when the effective region set changes.
+  // (This avoids unnecessary stop/start churn and noisy dev logging.)
+  return regions
+    .map((r) => {
+      const lat = Number(r.latitude);
+      const lon = Number(r.longitude);
+      const radius = Number(r.radius);
+      const enter = r.notifyOnEnter ? 1 : 0;
+      const exit = r.notifyOnExit ? 1 : 0;
+      // Clamp float precision to avoid tiny representation differences flipping the signature.
+      return `${r.identifier}:${lat.toFixed(5)},${lon.toFixed(5)}:${radius}:${enter}:${exit}`;
+    })
+    .sort()
+    .join('|');
+}
+
 async function reconcileGeofencesInternal(): Promise<void> {
   const state = useAppStore.getState();
   const prefs = state.notificationPreferences;
@@ -53,6 +71,7 @@ async function reconcileGeofencesInternal(): Promise<void> {
   // Feature gate: user must opt in at the product layer.
   if (!locPrefs.enabled) {
     await stopGeofencingIfRunning();
+    lastRegionsSignature = null;
     return;
   }
 
@@ -60,6 +79,7 @@ async function reconcileGeofencesInternal(): Promise<void> {
   // offer would be invisible, so stop to avoid background work.
   if (!prefs.notificationsEnabled || prefs.osPermissionStatus !== 'authorized') {
     await stopGeofencingIfRunning();
+    lastRegionsSignature = null;
     return;
   }
 
@@ -69,6 +89,7 @@ async function reconcileGeofencesInternal(): Promise<void> {
   const ok = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
   if (!ok) {
     await stopGeofencingIfRunning();
+    lastRegionsSignature = null;
     return;
   }
 
@@ -82,6 +103,7 @@ async function reconcileGeofencesInternal(): Promise<void> {
       const available = await isGeofencingAvailableAsync();
       if (!available) {
         await stopGeofencingIfRunning();
+        lastRegionsSignature = null;
         return;
       }
     }
@@ -92,6 +114,7 @@ async function reconcileGeofencesInternal(): Promise<void> {
   const eligible = getEligibleActivities();
   if (eligible.length === 0) {
     await stopGeofencingIfRunning();
+    lastRegionsSignature = null;
     return;
   }
 
@@ -111,9 +134,24 @@ async function reconcileGeofencesInternal(): Promise<void> {
     };
   });
 
+  const signature = signatureForRegions(regions);
+  let alreadyStarted = false;
+  try {
+    alreadyStarted = await Location.hasStartedGeofencingAsync(LOCATION_OFFER_GEOFENCE_TASK);
+  } catch {
+    // best-effort
+  }
+
+  // Idempotency: if the effective region set hasn't changed and geofencing is already running,
+  // do nothing (avoids churn + log spam).
+  if (alreadyStarted && lastRegionsSignature === signature) {
+    return;
+  }
+
   // Restart with the latest region set (simple + reliable).
   await stopGeofencingIfRunning();
   await Location.startGeofencingAsync(LOCATION_OFFER_GEOFENCE_TASK, regions);
+  lastRegionsSignature = signature;
 
   if (__DEV__) {
     try {
@@ -145,18 +183,27 @@ function attachStoreSubscription() {
   if (hasAttachedStoreSubscription) return;
   hasAttachedStoreSubscription = true;
 
-  let prevActivitiesRef = useAppStore.getState().activities;
-  let prevPrefsRef = useAppStore.getState().locationOfferPreferences;
-
-  useAppStore.subscribe((next) => {
-    const nextActivities = next.activities;
-    const nextPrefs = next.locationOfferPreferences;
-    if (nextActivities !== prevActivitiesRef || nextPrefs !== prevPrefsRef) {
-      prevActivitiesRef = nextActivities;
-      prevPrefsRef = nextPrefs;
-      scheduleReconcile();
+  // Note: useAppStore has `subscribeWithSelector`, so this selector-style subscription is supported.
+  // We include notification prefs too; otherwise we might not start/stop geofencing promptly when
+  // notifications are toggled/authorized.
+  useAppStore.subscribe(
+    (s) => [
+      s.activities,
+      s.locationOfferPreferences.enabled,
+      s.locationOfferPreferences.osPermissionStatus,
+      s.notificationPreferences.notificationsEnabled,
+      s.notificationPreferences.osPermissionStatus,
+    ],
+    () => scheduleReconcile(),
+    {
+      equalityFn: (a, b) =>
+        a[0] === b[0] &&
+        a[1] === b[1] &&
+        a[2] === b[2] &&
+        a[3] === b[3] &&
+        a[4] === b[4],
     }
-  });
+  );
 }
 
 export const LocationOfferService = {

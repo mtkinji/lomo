@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -47,6 +47,7 @@ import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceab
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { startDomainSync } from './src/services/sync/domainSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
+import { Text } from './src/ui/primitives';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -78,6 +79,7 @@ export default function App() {
   // between the native splash and the main navigation shell.
   const [isBootstrapped, setIsBootstrapped] = useState(false);
   const [bootError, setBootError] = useState<Error | null>(null);
+  const [authHydrated, setAuthHydrated] = useState(false);
   
   // Track if user is returning (has existing synced data) vs new after sign-in.
   // null = not yet determined, true = returning user, false = new user
@@ -93,27 +95,50 @@ export default function App() {
       return;
     }
     let cancelled = false;
-
-    // Hydrate once on mount (covers cold start with persisted Supabase session).
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const identity = deriveAuthIdentityFromSession(data.session ?? null);
-        if (identity) setAuthIdentity(identity);
-        else clearAuthIdentity();
-      })
-      .catch(() => {
-        if (cancelled) return;
-        clearAuthIdentity();
-      });
+    setAuthHydrated(false);
 
     // Keep in sync as auth changes.
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Important: Supabase can emit an INITIAL_SESSION event with a null session while
+    // it's still hydrating from storage. Don't treat that as a real sign-out.
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      const identity = deriveAuthIdentityFromSession(session);
+      if (identity) {
+        setAuthIdentity(identity);
+        return;
+      }
+      if (event === 'SIGNED_OUT') {
+        clearAuthIdentity();
+      }
+    });
+
+    // Hydrate once on mount (covers cold start with persisted Supabase session).
+    // Add a short grace window to avoid showing "signed out" UI during storage races.
+    (async () => {
+      let session: any = null;
+      for (let i = 0; i < 3; i += 1) {
+        try {
+          const res = await supabase!.auth.getSession();
+          session = res?.data?.session ?? null;
+        } catch {
+          session = null;
+        }
+        if (session) break;
+        await new Promise((r) => setTimeout(r, 150 * (i + 1)));
+      }
       if (cancelled) return;
       const identity = deriveAuthIdentityFromSession(session);
       if (identity) setAuthIdentity(identity);
       else clearAuthIdentity();
+      setAuthHydrated(true);
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[auth] hydrate complete:', identity ? 'signed_in' : 'signed_out');
+      }
+    })().catch(() => {
+      if (cancelled) return;
+      // Be conservative: if hydration fails, don't force-clear here.
+      setAuthHydrated(true);
     });
 
     return () => {
@@ -294,7 +319,12 @@ export default function App() {
 
   // Always render app surfaces under SafeAreaProvider so any top-level interstitials
   // (sign-in, returning-user flows, etc.) can safely call `useSafeAreaInsets()`.
-  const content = !authIdentity ? (
+  const content = !authHydrated ? (
+    <View style={styles.authHydrationScreen}>
+      <Logo size={64} />
+      <Text style={styles.authHydrationText}>Restoring your session…</Text>
+    </View>
+  ) : !authIdentity ? (
     // Require sign-in for all users (including legacy users who onboarded before auth was required).
     // Their local data will automatically sync to their account once they authenticate.
     <SignInInterstitial onSignInComplete={handleSignInComplete} />
@@ -349,6 +379,17 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  authHydrationScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shell,
+    padding: 24,
+    gap: 14,
+  },
+  authHydrationText: {
+    color: colors.textSecondary,
   },
   logoPreload: {
     position: 'absolute',

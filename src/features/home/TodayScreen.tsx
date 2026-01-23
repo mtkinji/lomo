@@ -10,6 +10,7 @@ import { Logo } from '../../ui/Logo';
 import { Card } from '../../ui/Card';
 import { VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
 import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from '../../services/recommendations/nextStep';
+import { toLocalDateKey } from '../../services/plan/planDates';
 
 const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 
@@ -17,6 +18,7 @@ export function TodayScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const arcs = useAppStore((state) => state.arcs);
+  const dailyActivityResolutions = useAppStore((state) => state.dailyActivityResolutions);
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isFocused = useIsFocused();
@@ -119,17 +121,39 @@ export function TodayScreen() {
     };
   }, []);
   const renderActivity = ({ item, index }: { item: typeof activities[number]; index: number }) => {
-    const scheduledDate = item.scheduledDate ? new Date(item.scheduledDate) : null;
-    const timeLabel = scheduledDate
-      ? scheduledDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-      : 'Anytime';
+    const scheduledAt = item.scheduledAt ? new Date(item.scheduledAt) : null;
+    const dueDate = item.scheduledDate ? new Date(item.scheduledDate) : null;
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const isDueToday =
+      Boolean(dueDate && !Number.isNaN(dueDate.getTime())) && dueDate!.toDateString() === now.toDateString();
+    const isOverdue = Boolean(dueDate && !Number.isNaN(dueDate.getTime()) && dueDate!.getTime() < todayStart.getTime());
+    const dismissedToday = (() => {
+      const key = toLocalDateKey(now);
+      const dismissedIds = dailyActivityResolutions?.[key]?.dismissedActivityIds ?? [];
+      return dismissedIds.includes(item.id);
+    })();
+
+    const timeLabel = scheduledAt && !Number.isNaN(scheduledAt.getTime())
+      ? scheduledAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : dueDate && !Number.isNaN(dueDate.getTime())
+        ? isOverdue
+          ? 'Overdue'
+          : isDueToday
+            ? 'Due today'
+            : 'Due'
+        : 'Anytime';
     const goalTitle = goalLookup[item.goalId ?? ''];
     return (
       <Card style={styles.scheduleCard}>
         <VStack>
           <HStack justifyContent="space-between" alignItems="center">
             <Text style={styles.scheduleTime}>{timeLabel}</Text>
-            {item.phase && <Badge variant="secondary">{item.phase}</Badge>}
+            <HStack space="xs" alignItems="center">
+              {dismissedToday ? <Badge variant="secondary">Dismissed</Badge> : null}
+              {item.phase ? <Badge variant="secondary">{item.phase}</Badge> : null}
+            </HStack>
           </HStack>
           <Text style={styles.scheduleTitle}>{item.title}</Text>
           {goalTitle ? <Text style={styles.scheduleGoal}>{goalTitle}</Text> : null}

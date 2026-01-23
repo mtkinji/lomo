@@ -167,7 +167,6 @@ import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, ge
 import { QueryService } from '../../services/QueryService';
 import { FilterDrawer } from '../../ui/FilterDrawer';
 import { SortDrawer } from '../../ui/SortDrawer';
-import { Badge } from '../../ui/Badge';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { KanbanBoard } from './KanbanBoard';
 import type { KanbanCardField } from './KanbanCard';
@@ -526,6 +525,10 @@ export function ActivitiesScreen() {
     }
   }, [activeView, filterMode]);
 
+  const filterCount = React.useMemo(() => {
+    return filterGroups.reduce((acc, g) => acc + g.conditions.length, 0);
+  }, [filterGroups]);
+
   const structuredSorts = React.useMemo<SortCondition[]>(() => {
     // Structured sorts are Pro Tools. Free users should always see baseline sorting.
     if (!isPro) return [];
@@ -551,6 +554,8 @@ export function ActivitiesScreen() {
         return [{ field: 'orderIndex', direction: 'asc' }];
     }
   }, [structuredSorts, sortMode]);
+
+  const sortCount = sortConditions.length;
 
   const isManualOrderEffective = structuredSorts.length === 0 && sortMode === 'manual';
 
@@ -2094,18 +2099,26 @@ export function ActivitiesScreen() {
                           ref={filterButtonRef}
                           variant="outline"
                           size="small"
-                        onPress={() => setFilterDrawerVisible(true)}
-                        testID="e2e.activities.toolbar.filter"
+                          onPress={() => setFilterDrawerVisible(true)}
+                          testID="e2e.activities.toolbar.filter"
+                          style={filterCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                          accessibilityLabel={
+                            filterCount > 0
+                              ? `Filter activities (${filterCount})`
+                              : 'Filter activities'
+                          }
                         >
-                          <Icon name="funnel" size={14} color={colors.textPrimary} />
+                          <HStack alignItems="center" space="xs">
+                            <Icon
+                              name="funnel"
+                              size={14}
+                              color={filterCount > 0 ? colors.primaryForeground : colors.textPrimary}
+                            />
+                            {filterCount > 0 ? (
+                              <Text style={styles.toolbarCountButtonActiveText}>{filterCount}</Text>
+                            ) : null}
+                          </HStack>
                         </Button>
-                      {filterGroups.length > 0 && (
-                        <View style={styles.toolbarBadgeCorner}>
-                          <Badge variant="info" style={styles.toolbarBadge}>
-                            <Text style={styles.toolbarBadgeText}>{filterGroups.reduce((acc, g) => acc + g.conditions.length, 0)}</Text>
-                          </Badge>
-                        </View>
-                      )}
                     </>
                   ) : (
                     <Pressable
@@ -2142,18 +2155,26 @@ export function ActivitiesScreen() {
                           ref={sortButtonRef}
                           variant="outline"
                           size="small"
-                        onPress={() => setSortDrawerVisible(true)}
-                        testID="e2e.activities.toolbar.sort"
+                          onPress={() => setSortDrawerVisible(true)}
+                          testID="e2e.activities.toolbar.sort"
+                          style={sortCount > 1 ? styles.toolbarCountButtonActive : undefined}
+                          accessibilityLabel={
+                            sortCount > 1
+                              ? `Sort activities (${sortCount})`
+                              : 'Sort activities'
+                          }
                         >
-                          <Icon name="sort" size={14} color={colors.textPrimary} />
+                          <HStack alignItems="center" space="xs">
+                            <Icon
+                              name="sort"
+                              size={14}
+                              color={sortCount > 1 ? colors.primaryForeground : colors.textPrimary}
+                            />
+                            {sortCount > 1 ? (
+                              <Text style={styles.toolbarCountButtonActiveText}>{sortCount}</Text>
+                            ) : null}
+                          </HStack>
                         </Button>
-                      {sortConditions.length > 1 && (
-                        <View style={styles.toolbarBadgeCorner}>
-                          <Badge variant="info" style={styles.toolbarBadge}>
-                            <Text style={styles.toolbarBadgeText}>{sortConditions.length}</Text>
-                          </Badge>
-                        </View>
-                      )}
                     </>
                   ) : (
                     <Pressable

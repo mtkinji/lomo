@@ -209,6 +209,24 @@ export type ActivityStatus = 'planned' | 'in_progress' | 'done' | 'skipped' | 'c
 
 export type ActivityDifficulty = 'very_easy' | 'easy' | 'medium' | 'hard' | 'very_hard';
 
+export type ActivityCalendarBinding =
+  | {
+      kind: 'device';
+      calendarId: string;
+      eventId: string;
+      createdBy: 'plan' | 'activity_detail';
+    }
+  | {
+      kind: 'provider';
+      provider: 'google' | 'microsoft';
+      accountId: string;
+      calendarId: string;
+      eventId: string;
+      createdBy: 'plan' | 'activity_detail';
+    };
+
+export type ActivityCalendarBindingHealth = 'healthy' | 'degraded' | 'broken';
+
 /**
  * Activity "kind" used to shape planning + UI behaviors.
  *
@@ -538,6 +556,12 @@ export interface Activity {
    */
   scheduledAt?: string | null;
   /**
+   * Canonical calendar binding. When present, Kwilt can manage (move/unschedule)
+   * the external calendar event. By product policy, `scheduledAt` should only be
+   * set when this binding exists.
+   */
+  calendarBinding?: ActivityCalendarBinding | null;
+  /**
    * Optional recurrence rule for Activities that repeat on a cadence. This is
    * intentionally lightweight for now; a future implementation can expand this
    * to a richer RRULE-style structure if needed.
@@ -548,6 +572,24 @@ export interface Activity {
    * selected days). Only used when repeatRule === 'custom'.
    */
   repeatCustom?: ActivityRepeatCustom;
+  /**
+   * AI-inferred domain (e.g. 'work', 'personal') used to suggest the destination
+   * calendar for scheduling. This is advisory and can be overridden by the user.
+   */
+  schedulingDomain?: string | null;
+  /**
+   * The destination device calendar identifier for this Activity. When set,
+   * the Scheduling Assist engine will attempt to create events in this calendar.
+   */
+  calendarId?: string | null;
+  /**
+   * Provider metadata for committed Plan events (direct OAuth calendars).
+   * These identifiers allow Kwilt-only moves without touching external events.
+   */
+  scheduledProvider?: 'google' | 'microsoft' | null;
+  scheduledProviderAccountId?: string | null;
+  scheduledProviderCalendarId?: string | null;
+  scheduledProviderEventId?: string | null;
   orderIndex?: number | null;
   phase?: string | null;
   status: ActivityStatus;
@@ -797,6 +839,38 @@ export interface UserProfile {
      * Defaults to true when unset for backward compatibility.
      */
     showCelebrationMedia?: boolean;
+    /**
+     * Scheduling preferences for the Scheduling Assist engine.
+     */
+    scheduling?: {
+      /**
+       * Default calendar mapping per domain.
+       * e.g. { 'work': 'calendar-id-1', 'personal': 'calendar-id-2' }
+       */
+      domainCalendarMapping?: Record<string, string>;
+      /**
+       * Preferred time windows for scheduling (e.g. 'morning', 'afternoon').
+       */
+      preferredWindows?: string[];
+    };
+    /**
+     * Plan-specific availability + calendar settings for daily planning.
+     */
+    plan?: {
+      availability?: {
+        sun: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
+        mon: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
+        tue: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
+        wed: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
+        thu: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
+        fri: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
+        sat: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
+      };
+      calendar?: {
+        readCalendarIds?: string[];
+        writeCalendarId?: string | null;
+      };
+    };
   };
   communication: {
     tone?: CommunicationTone;

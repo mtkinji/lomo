@@ -33,6 +33,7 @@ const DEFAULT_DRAWER_SNAP_POINTS: BottomDrawerSnapPoint[] = ['90%'];
 export type ComboboxOption = {
   value: string;
   label: string;
+  subtitle?: string;
   keywords?: string[];
   /**
    * When true, the row is non-interactive (useful for "Searching…" or section headers).
@@ -293,6 +294,8 @@ export function Combobox({
     return options.filter((opt) => {
       const label = opt.label.toLowerCase();
       if (label.includes(q)) return true;
+      const subtitle = (opt.subtitle ?? '').toLowerCase();
+      if (subtitle && subtitle.includes(q)) return true;
       // For short queries (1–2 chars), only match against the label so "Search arcs"
       // feels predictable (avoids accidental matches in long narrative keywords).
       if (q.length < 3) return false;
@@ -472,7 +475,16 @@ export function Combobox({
                             {opt.leftElement ? (
                               <View style={styles.leftSlot}>{opt.leftElement}</View>
                             ) : null}
-                            <Text style={styles.itemLabel}>{opt.label}</Text>
+                            <VStack space="xs" style={styles.itemTextStack}>
+                              <Text style={styles.itemLabel} numberOfLines={1}>
+                                {opt.label}
+                              </Text>
+                              {opt.subtitle ? (
+                                <Text style={styles.itemSubtitle} numberOfLines={1}>
+                                  {opt.subtitle}
+                                </Text>
+                              ) : null}
+                            </VStack>
                           </HStack>
                           {opt.rightElement ? (
                             opt.rightElement
@@ -480,7 +492,9 @@ export function Combobox({
                             <HStack alignItems="center" space="xs">
                               {isRecommended ? (
                                 <HStack alignItems="center" space="xs" pointerEvents="none">
-                                  <Text style={styles.recommendedText}>{recommendedLabel}</Text>
+                                  {recommendedLabel ? (
+                                    <Text style={styles.recommendedText}>{recommendedLabel}</Text>
+                                  ) : null}
                                   <View style={styles.recommendedMark}>
                                     <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
                                       <LinearGradient
@@ -614,7 +628,16 @@ export function Combobox({
                             {opt.leftElement ? (
                               <View style={styles.leftSlot}>{opt.leftElement}</View>
                             ) : null}
-                            <Text style={styles.itemLabel}>{opt.label}</Text>
+                            <VStack space="xs" style={styles.itemTextStack}>
+                              <Text style={styles.itemLabel} numberOfLines={1}>
+                                {opt.label}
+                              </Text>
+                              {opt.subtitle ? (
+                                <Text style={styles.itemSubtitle} numberOfLines={1}>
+                                  {opt.subtitle}
+                                </Text>
+                              ) : null}
+                            </VStack>
                           </HStack>
                           {opt.rightElement ? (
                             opt.rightElement
@@ -622,7 +645,9 @@ export function Combobox({
                             <HStack alignItems="center" space="xs">
                               {isRecommended ? (
                                 <HStack alignItems="center" space="xs" pointerEvents="none">
-                                  <Text style={styles.recommendedText}>{recommendedLabel}</Text>
+                                  {recommendedLabel ? (
+                                    <Text style={styles.recommendedText}>{recommendedLabel}</Text>
+                                  ) : null}
                                   <View style={styles.recommendedMark}>
                                     <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
                                       <LinearGradient
@@ -722,10 +747,20 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  itemTextStack: {
+    flex: 1,
+    minWidth: 0,
+  },
   itemLabel: {
     ...typography.bodySm,
     fontSize: 15,
     color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  itemSubtitle: {
+    ...typography.bodySm,
+    fontSize: 13,
+    color: colors.textSecondary,
     flexShrink: 1,
   },
   leftSlot: {

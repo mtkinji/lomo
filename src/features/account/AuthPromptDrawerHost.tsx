@@ -24,6 +24,8 @@ function copyForReason(reason: AuthPromptReason): { title: string; body: string 
       return { title: 'Sign in required', body: 'Sign in to upload attachments and keep access safe.' };
     case 'admin':
       return { title: 'Sign in required', body: 'Sign in to access Admin tools.' };
+    case 'plan':
+      return { title: 'Sign in to plan', body: 'Sign in to connect calendars and commit your plan.' };
     case 'settings':
     default:
       return { title: 'Sign in required', body: 'Sign in to sync your account across devices and access sharing + admin tools.' };
