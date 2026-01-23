@@ -2,6 +2,7 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
+  AppState,
   Image,
   InteractionManager,
   LayoutAnimation,
@@ -80,6 +81,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { normalizeActivitySteps } from '../../domain/normalizeActivity';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { parseTags, suggestTagsFromText } from '../../utils/tags';
 import { suggestActivityTagsWithAi } from '../../services/ai';
@@ -1941,6 +1943,17 @@ export function ActivityDetailScreen() {
     stopSoundscapeLoop().catch(() => undefined);
   }, [focusSession?.mode, soundscapeEnabled, soundscapeTrackId]);
 
+  useEffect(() => {
+    if (!isFocused) return;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      if (focusSession?.mode === 'running' && soundscapeEnabled) {
+        startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
+      }
+    });
+    return () => subscription.remove();
+  }, [isFocused, focusSession?.mode, soundscapeEnabled, soundscapeTrackId]);
+
   // Best-effort: expose Focus session state to iOS ecosystem surfaces via App Group.
   useEffect(() => {
     if (!activity) return;
@@ -2821,6 +2834,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleToggleStepComplete = (stepId: string) => {
+    if (!stepId) return;
     const existing = (stepsDraft ?? []).find((s) => s.id === stepId);
     if (existing?.linkedActivityId) {
       // Linked steps mirror completion from the target Activity and are not directly checkable here.
@@ -2860,21 +2874,25 @@ export function ActivityDetailScreen() {
   };
 
   const handleChangeStepTitle = (stepId: string, title: string) => {
+    if (!stepId) return;
     applyStepUpdate((steps) => steps.map((step) => (step.id === stepId ? { ...step, title } : step)));
   };
 
   const handleToggleStepOptional = (stepId: string) => {
+    if (!stepId) return;
     applyStepUpdate((steps) =>
       steps.map((step) => (step.id === stepId ? { ...step, isOptional: !step.isOptional } : step))
     );
   };
 
   const handleRemoveStep = (stepId: string) => {
+    if (!stepId) return;
     applyStepUpdate((steps) => steps.filter((step) => step.id !== stepId));
   };
 
   const handleConvertStepToActivity = useCallback(
     (stepId: string) => {
+      if (!stepId) return;
       const step = (stepsDraft ?? []).find((s) => s.id === stepId) ?? null;
       if (!step) return;
       if (step.linkedActivityId) {
@@ -3005,6 +3023,11 @@ export function ActivityDetailScreen() {
     });
   };
 
+  // Guard against duplicate commits when `onSubmitEditing` and `onBlur` both fire
+  // for the same "Done" action (platform-dependent). This should only suppress the
+  // immediate double-fire window, not prevent adding the same title twice intentionally.
+  const inlineStepCommitGuardRef = useRef<{ value: string; ts: number } | null>(null);
+
   const commitInlineStep = (mode: 'continue' | 'exit' = 'exit') => {
     const trimmed = newStepTitle.trim();
     if (!trimmed) {
@@ -3012,6 +3035,14 @@ export function ActivityDetailScreen() {
       setNewStepTitle('');
       return;
     }
+
+    const now = Date.now();
+    const prevCommit = inlineStepCommitGuardRef.current;
+    if (prevCommit && prevCommit.value === trimmed && now - prevCommit.ts < 200) {
+      // Ignore the duplicate call (commonly a trailing blur after submit).
+      return;
+    }
+    inlineStepCommitGuardRef.current = { value: trimmed, ts: now };
 
     const newStep: ActivityStep = {
       id: `step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -3574,8 +3605,23 @@ export function ActivityDetailScreen() {
   useEffect(() => {
     setTitleDraft(activity.title ?? '');
     setTagsInputDraft('');
-    setStepsDraft(activity.steps ?? []);
-  }, [activity.title, activity.notes, activity.steps, activity.id]);
+    const nowIso = new Date().toISOString();
+    const normalized = normalizeActivitySteps({ activityId: activity.id, steps: activity.steps ?? [], nowIso });
+    setStepsDraft(normalized.steps);
+    if (normalized.changed) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[ActivityDetailScreen] normalized invalid/duplicate step ids', { activityId: activity.id });
+      }
+      InteractionManager.runAfterInteractions(() => {
+        updateActivity(activity.id, (prev) => ({
+          ...prev,
+          steps: normalized.steps,
+          updatedAt: nowIso,
+        }));
+      });
+    }
+  }, [activity.title, activity.notes, activity.steps, activity.id, updateActivity]);
 
   useEffect(() => {
     // Keep linked-step completion mirrored with the target activity so both UI and

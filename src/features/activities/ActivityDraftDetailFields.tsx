@@ -100,6 +100,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
   const [isAddingStepInline, setIsAddingStepInline] = React.useState(false);
   const [newStepTitle, setNewStepTitle] = React.useState('');
   const newStepInputRef = React.useRef<TextInput | null>(null);
+  const inlineDraftStepCommitGuardRef = React.useRef<{ value: string; ts: number } | null>(null);
 
   const commitInlineDraftStep = React.useCallback(
     (mode: 'continue' | 'exit' = 'exit') => {
@@ -109,6 +110,13 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
         setNewStepTitle('');
         return;
       }
+
+      const now = Date.now();
+      const prevCommit = inlineDraftStepCommitGuardRef.current;
+      if (prevCommit && prevCommit.value === trimmed && now - prevCommit.ts < 200) {
+        return;
+      }
+      inlineDraftStepCommitGuardRef.current = { value: trimmed, ts: now };
 
       onChange((prev) => ({
         ...prev,

@@ -147,6 +147,10 @@ export function useAgentLauncher(workspaceSnapshot?: string, options?: AgentLaun
             hideBrandHeader={hideBrandHeader}
             // BottomDrawer pads its sheet by safe-area bottom; AiChatPane should subtract it.
             hostBottomInsetAlreadyApplied
+            // Ensure in-workspace dismiss actions (e.g., paywall close / "X") can actually
+            // close the hosting BottomDrawer. Without this, some entry points (like the
+            // Activity detail action dock) can feel "stuck" when quota/paywall is shown.
+            onDismiss={close}
           />
         ) : null}
       </BottomDrawer>

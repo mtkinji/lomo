@@ -2,6 +2,7 @@ import { InteractionManager } from 'react-native';
 import { getSupabaseClient } from '../backend/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import type { Activity, Arc, Goal } from '../../domain/types';
+import { normalizeActivity } from '../../domain/normalizeActivity';
 
 type DomainTable = 'kwilt_arcs' | 'kwilt_goals' | 'kwilt_activities';
 
@@ -137,7 +138,9 @@ function applyRemoteMerge(params: {
 
   const nextArcs = Array.from(nextArcsById.values());
   const nextGoals = Array.from(nextGoalsById.values());
-  const nextActivities = Array.from(nextActivitiesById.values());
+  const nextActivities = Array.from(nextActivitiesById.values()).map((a) =>
+    normalizeActivity({ activity: a, nowIso })
+  );
 
   // Prevent push loops from the merge write itself.
   suppressNextPush = true;

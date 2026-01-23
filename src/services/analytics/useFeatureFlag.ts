@@ -63,7 +63,7 @@ export function useFeatureFlag(flagKey: string, fallback: boolean = false): bool
       // ignore
     }
 
-    let unsubscribe: undefined | (() => void);
+    let unsubscribe: undefined | (() => void) | { unsubscribe?: () => void; remove?: () => void };
     try {
       const anyPosthog = posthog as any;
       if (typeof anyPosthog.onFeatureFlags === 'function') {
@@ -79,7 +79,13 @@ export function useFeatureFlag(flagKey: string, fallback: boolean = false): bool
     return () => {
       cancelled = true;
       try {
-        unsubscribe?.();
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        } else if (unsubscribe && typeof unsubscribe.unsubscribe === 'function') {
+          unsubscribe.unsubscribe();
+        } else if (unsubscribe && typeof unsubscribe.remove === 'function') {
+          unsubscribe.remove();
+        }
       } catch {
         // ignore
       }

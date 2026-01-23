@@ -30,8 +30,8 @@ let activityDoneLoading: Promise<void> | null = null;
 const STEP_DONE_SOURCE = require('../../assets/audio/sfx/list-tap.wav');
 const ACTIVITY_DONE_SOURCE = require('../../assets/audio/sfx/mark-complete.wav');
 
-async function ensureUiAudioMode() {
-  if (audioModeConfigured) return;
+async function ensureUiAudioMode(opts?: { force?: boolean }) {
+  if (audioModeConfigured && !opts?.force) return;
   const Audio = await getAudio();
   const interruptionModeIOS =
     (Audio as any)?.InterruptionModeIOS?.DuckOthers ??
@@ -96,10 +96,19 @@ export async function playStepDoneSound() {
     await preloadStepDoneSound();
     if (!stepDoneSound) return;
 
+    await ensureUiAudioMode({ force: true });
     // Re-assert volume at playback time (some platform/device states can alter gain).
     await stepDoneSound.setVolumeAsync(0.95);
     // `replayAsync` is the most reliable "start over and play" across platforms.
-    await stepDoneSound.replayAsync();
+    try {
+      await stepDoneSound.replayAsync();
+    } catch {
+      await stepDoneSound?.unloadAsync().catch(() => undefined);
+      stepDoneSound = null;
+      await preloadStepDoneSound();
+      await stepDoneSound?.setVolumeAsync(0.95);
+      await stepDoneSound?.replayAsync();
+    }
   } catch {
     // Best-effort: no-op if audio fails (simulators, background state, etc).
   }
@@ -133,8 +142,17 @@ export async function playActivityDoneSound() {
   try {
     await preloadActivityDoneSound();
     if (!activityDoneSound) return;
+    await ensureUiAudioMode({ force: true });
     await activityDoneSound.setVolumeAsync(1.0);
-    await activityDoneSound.replayAsync();
+    try {
+      await activityDoneSound.replayAsync();
+    } catch {
+      await activityDoneSound?.unloadAsync().catch(() => undefined);
+      activityDoneSound = null;
+      await preloadActivityDoneSound();
+      await activityDoneSound?.setVolumeAsync(1.0);
+      await activityDoneSound?.replayAsync();
+    }
   } catch {
     // Best-effort: no-op if audio fails.
   }

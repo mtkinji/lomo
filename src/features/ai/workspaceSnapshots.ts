@@ -1,6 +1,25 @@
 import type { Arc, Goal, Activity } from '../../domain/types';
 import { richTextToPlainText } from '../../ui/richText';
 
+const MAX_WORKSPACE_SNAPSHOT_CHARS = 8000;
+const SNAPSHOT_TRUNCATION_NOTICE = '\n\n[Workspace snapshot truncated for length limits.]';
+
+function clampWorkspaceSnapshot(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const text = raw.trim();
+  if (!text) return undefined;
+  if (text.length <= MAX_WORKSPACE_SNAPSHOT_CHARS) return text;
+
+  // Preserve the most important content first (we build focused sections near the top),
+  // while preventing oversized AI requests that can fail transport/model limits.
+  const maxPrefix =
+    MAX_WORKSPACE_SNAPSHOT_CHARS - SNAPSHOT_TRUNCATION_NOTICE.length - 1; // reserve room for ellipsis + notice
+  if (maxPrefix <= 0) {
+    return `${text.slice(0, Math.max(0, MAX_WORKSPACE_SNAPSHOT_CHARS - 1))}…`;
+  }
+  return `${text.slice(0, maxPrefix).trimEnd()}…${SNAPSHOT_TRUNCATION_NOTICE}`;
+}
+
 /**
  * Shared helper for building a natural-language snapshot of the user's
  * existing Arcs and Goals. This is passed into AgentWorkspace as a hidden
@@ -95,7 +114,7 @@ export function buildArcCoachLaunchContext(
     lines.push('');
   }
 
-  return lines.join('\n');
+  return clampWorkspaceSnapshot(lines.join('\n'));
 }
 
 /**
@@ -325,7 +344,7 @@ export function buildActivityCoachLaunchContext(
     lines.push('');
   }
 
-  return lines.join('\n');
+  return clampWorkspaceSnapshot(lines.join('\n'));
 }
 
 

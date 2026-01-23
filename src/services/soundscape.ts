@@ -21,6 +21,10 @@ let pendingStop = false;
 let opCounter = 0;
 let audioModeConfigured = false;
 let loadPromise: Promise<void> | null = null;
+let shouldBePlaying = false;
+let resumeAttempts = 0;
+let lastResumeAttemptMs = 0;
+let playbackListenerAttached = false;
 
 export type SoundscapeId = 'default';
 
@@ -65,6 +69,7 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
         { isLooping: true, volume: 0, shouldPlay: false },
       );
       sound = created.sound;
+      attachPlaybackStatusListener(sound);
       status = 'ready';
 
       if (pendingStop) {
@@ -81,6 +86,7 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
         // ignore
       }
       sound = null;
+      playbackListenerAttached = false;
       throw e;
     } finally {
       loadPromise = null;
@@ -96,6 +102,8 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
   }
   const opId = ++opCounter;
   pendingStop = false;
+  shouldBePlaying = true;
+  resumeAttempts = 0;
   const fadeInMs = typeof opts?.fadeInMs === 'number' && Number.isFinite(opts.fadeInMs)
     ? Math.max(0, Math.round(opts.fadeInMs))
     : 250;
@@ -130,12 +138,15 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
       throw new Error('Soundscape failed to load');
     }
 
+    // Re-assert audio mode on each explicit start so route changes/silent toggles recover.
+    await ensureAudioMode({ force: true });
     status = 'playing';
     try {
       await sound.setIsLoopingAsync(true);
     } catch {
       // best-effort
     }
+    attachPlaybackStatusListener(sound);
     try {
       await sound.playAsync();
     } catch (e) {
@@ -170,6 +181,7 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
       // ignore
     }
     sound = null;
+    playbackListenerAttached = false;
     throw e;
   }
 }
@@ -178,6 +190,9 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
   const opId = ++opCounter;
   pendingStop = true;
   const unload = Boolean(opts?.unload);
+  shouldBePlaying = false;
+  resumeAttempts = 0;
+  lastResumeAttemptMs = 0;
 
   // If we're loading but haven't created the Sound instance yet, mark stopped now.
   // The start flow checks `pendingStop` after load and will shut down immediately.
@@ -205,12 +220,14 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
       // ignore
     }
     try {
+      sound.setOnPlaybackStatusUpdate?.(null);
       await sound.unloadAsync();
     } catch {
       // ignore
     }
     sound = null;
     status = 'stopped';
+    playbackListenerAttached = false;
   } else {
     // Keep the asset loaded so turning sound back on feels instant.
     try {
@@ -248,8 +265,8 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
-async function ensureAudioMode() {
-  if (audioModeConfigured) return;
+async function ensureAudioMode(opts?: { force?: boolean }) {
+  if (audioModeConfigured && !opts?.force) return;
   const Audio = await getAudio();
   const interruptionModeIOS =
     (Audio as any)?.InterruptionModeIOS?.DuckOthers ??
@@ -281,6 +298,40 @@ async function ensureAudioMode() {
     });
   }
   audioModeConfigured = true;
+}
+
+function attachPlaybackStatusListener(target: any) {
+  if (!target?.setOnPlaybackStatusUpdate || playbackListenerAttached) return;
+  playbackListenerAttached = true;
+  target.setOnPlaybackStatusUpdate((status: any) => {
+    if (!status || !status.isLoaded) return;
+    if (!shouldBePlaying) return;
+    if (status.isPlaying || status.isBuffering) return;
+    // Best-effort: resume after route changes / interruptions.
+    const now = Date.now();
+    const cooldownMs = resumeAttempts < 2 ? 500 : 1500;
+    if (now - lastResumeAttemptMs < cooldownMs) return;
+    lastResumeAttemptMs = now;
+    resumeAttempts += 1;
+    void attemptResumePlayback();
+  });
+}
+
+async function attemptResumePlayback() {
+  if (!sound || !shouldBePlaying) return;
+  try {
+    await ensureAudioMode({ force: true });
+  } catch {
+    // best-effort
+  }
+  try {
+    await sound.playAsync();
+  } catch (e) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn('[soundscape] resume playback failed', e);
+    }
+  }
 }
 
 type VolumeFadableSound = {

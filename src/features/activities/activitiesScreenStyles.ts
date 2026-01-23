@@ -11,7 +11,6 @@ export const styles = StyleSheet.create({
   },
   fixedToolbarContainer: {
     // Toolbar stays fixed above the scroll view
-    paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xs,
   },
   suggestedCardFixedContainer: {
