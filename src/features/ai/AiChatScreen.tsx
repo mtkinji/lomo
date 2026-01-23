@@ -1484,6 +1484,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const hasShownGoalProposalRef = useRef(false);
   const pendingGoalProposalIdRef = useRef<string | null>(null);
   const pendingGoalProposalAnchorMessageIdRef = useRef<string | null>(null);
+  const pendingGoalProposalSkeletonTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalizedGoalProposalAnchorIdsRef = useRef<Set<string>>(new Set());
   const [dictationState, setDictationState] = useState<DictationState>(
     iosSpeechModule ? 'idle' : 'unavailable'
@@ -2602,12 +2603,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
           }
           streamAssistantReply(parsed.displayContent, baseId, opts);
         } else if (mode === 'goalCreation') {
-          // When we see the workflow "drafting…" status message, immediately show
-          // a pending/skeleton proposal card anchored to that message.
+          // Any agent reply (other than the drafting status itself) means we should stop
+          // waiting to show a skeleton card.
+          if (baseId !== 'assistant-goal-status' && pendingGoalProposalSkeletonTimeoutRef.current) {
+            clearTimeout(pendingGoalProposalSkeletonTimeoutRef.current);
+            pendingGoalProposalSkeletonTimeoutRef.current = null;
+          }
+
+          // When we see the workflow "drafting…" status message, stream the status
+          // copy and show a pending/skeleton proposal card anchored to that message.
           if (baseId === 'assistant-goal-status') {
             const messageId = streamAssistantReply(goalDraftingStatusCopy, baseId, opts);
             if (messageId) {
-              appendPendingGoalProposalTimelineItem(messageId);
+              // Don't show the skeleton instantly — if the agent immediately asks a
+              // clarifying question, a brief skeleton flash feels glitchy.
+              // Instead, wait a beat and only show it if we're still in the "drafting"
+              // window.
+              pendingGoalProposalAnchorMessageIdRef.current = messageId;
+              if (pendingGoalProposalSkeletonTimeoutRef.current) {
+                clearTimeout(pendingGoalProposalSkeletonTimeoutRef.current);
+              }
+              pendingGoalProposalSkeletonTimeoutRef.current = setTimeout(() => {
+                pendingGoalProposalSkeletonTimeoutRef.current = null;
+                const anchor = pendingGoalProposalAnchorMessageIdRef.current;
+                if (!anchor || anchor !== messageId) return;
+                if (pendingGoalProposalIdRef.current) return;
+                appendPendingGoalProposalTimelineItem(messageId);
+              }, 900);
             }
             return;
           }
@@ -2637,13 +2659,19 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
             const fallbackId = streamAssistantReply('Draft ready.', baseId, {
               ...opts,
-              onDone: () => opts?.onDone?.(),
+              onDone: () => {
+                // Ensure the proposal card does not appear until after the lead-in
+                // message has finished typing.
+                if (fallbackId) {
+                  finalizedGoalProposalAnchorIdsRef.current.add(fallbackId);
+                  pendingGoalProposalIdRef.current = null;
+                  pendingGoalProposalAnchorMessageIdRef.current = null;
+                  appendGoalProposalTimelineItem(nextProposal, fallbackId);
+                }
+                opts?.onDone?.();
+              },
             });
             if (fallbackId) {
-              finalizedGoalProposalAnchorIdsRef.current.add(fallbackId);
-              pendingGoalProposalIdRef.current = null;
-              pendingGoalProposalAnchorMessageIdRef.current = null;
-              appendGoalProposalTimelineItem(nextProposal, fallbackId);
               return;
             }
 
@@ -2658,6 +2686,30 @@ export const AiChatPane = forwardRef(function AiChatPane(
             opts?.onDone?.();
             return;
           }
+
+          // If the agent didn't actually produce a proposal (e.g. it asked a clarifying question),
+          // ensure we don't leave a pending/skeleton card or "drafting…" status in the timeline.
+          const pendingId = pendingGoalProposalIdRef.current;
+          if (pendingId) {
+            pendingGoalProposalIdRef.current = null;
+            pendingGoalProposalAnchorMessageIdRef.current = null;
+            setGoalProposalTimeline((prev) => prev.filter((item) => item.id !== pendingId));
+            setActiveGoalProposalId((current) => (current === pendingId ? null : current));
+          }
+          const pendingAnchorId = pendingGoalProposalAnchorMessageIdRef.current;
+          const latestStatus = [...messagesRef.current]
+            .slice()
+            .reverse()
+            .find((m) => m.role === 'assistant' && m.id.startsWith('assistant-goal-status-'));
+          const statusIdToRemove = pendingAnchorId ?? latestStatus?.id ?? null;
+          if (statusIdToRemove) {
+            const nextMessages = messagesRef.current.filter((m) => m.id !== statusIdToRemove);
+            if (nextMessages.length !== messagesRef.current.length) {
+              messagesRef.current = nextMessages;
+              setMessages(nextMessages);
+            }
+          }
+          pendingGoalProposalAnchorMessageIdRef.current = null;
 
           streamAssistantReply(parsed.displayContent || fullText, baseId, opts);
         } else if (mode === 'arcCreation') {
@@ -3100,8 +3152,17 @@ export const AiChatPane = forwardRef(function AiChatPane(
     // keep the keyboard anchored (especially important inside the agent workspace sheet).
     expandedInputRef.current?.blur?.();
     inputRef.current?.blur?.();
-    await sendMessageWithContent(input);
+    // Clear immediately so the composer doesn't "stick" while the agent is responding.
+    const submitted = input;
     setInput('');
+    try {
+      await sendMessageWithContent(submitted);
+    } catch (err) {
+      // `sendMessageWithContent` already handles most transport errors internally, but
+      // some workflow branches can still throw. Avoid unhandled promise warnings.
+      console.error('kwilt Coach send failed', err);
+      onTransportError?.();
+    }
   };
 
   const openExpandedComposer = useCallback(() => {

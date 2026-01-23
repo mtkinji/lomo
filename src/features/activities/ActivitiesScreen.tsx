@@ -72,6 +72,7 @@ import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
+import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -262,7 +263,7 @@ export function ActivitiesScreen() {
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
   const quickAddFocusedRef = React.useRef(false);
   const quickAddLastFocusAtRef = React.useRef<number>(0);
-  const activityDetailNavLockRef = React.useRef<{ atMs: number; activityId: string } | null>(null);
+  const canOpenActivityDetail = useNavigationTapGuard({ cooldownMs: 2000 });
   const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
   const [hasQuickAddAiGenerated, setHasQuickAddAiGenerated] = React.useState(false);
   const lastQuickAddAiTitleRef = React.useRef<string | null>(null);
@@ -835,6 +836,66 @@ export function ActivitiesScreen() {
   const quickAddBottomPadding = isKanbanLayout ? 0 : Math.max(insets.bottom, spacing.sm);
   const quickAddInitialReservedHeight = isKanbanLayout ? 0 : QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4;
 
+  const quickAddDefaultsFromFilters = React.useMemo<Partial<Activity>>(() => {
+    // Users expect new activities created while filters are applied to "inherit" those filters.
+    // We keep this conservative and only apply unambiguous equality-based constraints.
+    if (!filterGroups || filterGroups.length !== 1) return {};
+    const group = filterGroups[0];
+    if (!group || group.logic !== 'and') return {};
+
+    const defaults: Partial<Activity> = {};
+    const tagDefaults: string[] = [];
+
+    for (const c of group.conditions ?? []) {
+      if (!c) continue;
+      switch (c.field) {
+        case 'goalId':
+          if (c.operator === 'eq' && typeof c.value === 'string') defaults.goalId = c.value;
+          break;
+        case 'priority':
+          if (c.operator === 'eq' && typeof c.value === 'number' && (c.value === 1 || c.value === 2 || c.value === 3)) {
+            defaults.priority = c.value as any;
+          }
+          break;
+        case 'status':
+          if (c.operator === 'eq' && typeof c.value === 'string') {
+            // Only apply "planning-safe" statuses for quick add.
+            if (c.value === 'planned' || c.value === 'in_progress') defaults.status = c.value as any;
+          }
+          break;
+        case 'scheduledDate':
+          if (c.operator === 'eq' && typeof c.value === 'string') defaults.scheduledDate = c.value;
+          break;
+        case 'reminderAt':
+          if (c.operator === 'eq' && typeof c.value === 'string') defaults.reminderAt = c.value;
+          break;
+        case 'type':
+          if (c.operator === 'eq' && typeof c.value === 'string') defaults.type = c.value as any;
+          break;
+        case 'difficulty':
+          if (c.operator === 'eq' && typeof c.value === 'string') defaults.difficulty = c.value as any;
+          break;
+        case 'estimateMinutes':
+          if (c.operator === 'eq' && typeof c.value === 'number') defaults.estimateMinutes = c.value;
+          break;
+        case 'tags':
+          // Tag filters are expressed via `in` (value is an array). If the user is filtering by tags,
+          // add those tags to the new activity so it appears in the filtered view.
+          if (c.operator === 'in' && Array.isArray(c.value)) {
+            for (const t of c.value) {
+              if (typeof t === 'string' && t.trim().length > 0) tagDefaults.push(t.trim());
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (tagDefaults.length > 0) defaults.tags = Array.from(new Set(tagDefaults));
+    return defaults;
+  }, [filterGroups]);
+
   const {
     value: quickAddTitle,
     setValue: setQuickAddTitle,
@@ -858,6 +919,17 @@ export function ActivitiesScreen() {
   } = useQuickAddDockController({
     goalId: null,
     activitiesCount: activities.length,
+    getNextOrderIndex: () => {
+      // Append to the bottom of the *currently visible* list when manual ordering is in effect.
+      // (Using `activities.length` can insert into the middle when `orderIndex` has gaps.)
+      let max = -1;
+      for (const a of activeActivities) {
+        const v = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : -1;
+        if (v > max) max = v;
+      }
+      return max + 1;
+    },
+    getActivityDefaults: () => quickAddDefaultsFromFilters,
     addActivity,
     updateActivity,
     recordShowUp,
@@ -1028,25 +1100,12 @@ export function ActivitiesScreen() {
   const navigateToActivityDetail = React.useCallback(
     (activityId: string) => {
       // Prevent rapid taps from stacking duplicate ActivityDetail screens.
-      const nowMs = Date.now();
-      const last = activityDetailNavLockRef.current;
-      if (last && nowMs - last.atMs < 800 && last.activityId === activityId) {
+      if (!canOpenActivityDetail()) {
         return;
       }
-      if (last && nowMs - last.atMs < 350) {
-        return;
-      }
-      activityDetailNavLockRef.current = { atMs: nowMs, activityId };
       navigation.push('ActivityDetail', { activityId });
-      // Release the lock shortly after; this is a best-effort guard.
-      setTimeout(() => {
-        const cur = activityDetailNavLockRef.current;
-        if (cur && cur.activityId === activityId) {
-          activityDetailNavLockRef.current = null;
-        }
-      }, 1200);
     },
-    [navigation],
+    [canOpenActivityDetail, navigation],
   );
 
   // (moved) reorder mode handlers are declared below `handleUpdateSortMode`

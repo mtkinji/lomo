@@ -417,6 +417,35 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
 
       try {
         const stepGuidanceTurns: CoachChatTurn[] = [];
+
+        // Always include any workflow-collected user inputs as an authoritative snapshot.
+        // Some workflows collect data via step cards (not the freeform composer). If the
+        // presenter forgets to append those answers into the visible transcript, relying
+        // solely on chat history can cause the model to "miss" the user's submission.
+        const collectedEntries = Object.entries(workflowInstance.collectedData ?? {}).filter(
+          ([, value]) => {
+            if (value === null || typeof value === 'undefined') return false;
+            if (typeof value === 'string') return value.trim().length > 0;
+            if (Array.isArray(value)) return value.length > 0;
+            if (typeof value === 'object') return Object.keys(value as any).length > 0;
+            return true;
+          }
+        );
+        if (collectedEntries.length > 0) {
+          const lines = collectedEntries.map(([key, value]) => {
+            if (typeof value === 'string') return `- ${key}: ${value.trim()}`;
+            try {
+              return `- ${key}: ${JSON.stringify(value)}`;
+            } catch {
+              return `- ${key}: [unserializable]`;
+            }
+          });
+          stepGuidanceTurns.push({
+            role: 'system',
+            content: ['Workflow-collected user inputs (authoritative):', ...lines].join('\n'),
+          });
+        }
+
         if (step?.promptTemplate) {
           const validationHint = step.validationHint ? `\n\nValidation hint:\n${step.validationHint}` : '';
           stepGuidanceTurns.push({

@@ -49,6 +49,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal, Activity, ActivityType, ActivityStep } from '../../domain/types';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
@@ -150,6 +151,7 @@ export function GoalDetailScreen() {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const { height: windowHeight } = useWindowDimensions();
+  const canOpenActivityDetail = useNavigationTapGuard({ cooldownMs: 2000 });
 
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -382,6 +384,18 @@ export function GoalDetailScreen() {
   } = useQuickAddDockController({
     goalId,
     activitiesCount: activities.length,
+    getNextOrderIndex: () => {
+      // Append to the bottom of this goal's active list when using manual ordering.
+      // (Using `activities.length` can insert into the middle when `orderIndex` has gaps.)
+      let max = -1;
+      for (const a of activities) {
+        if ((a.goalId ?? null) !== (goalId ?? null)) continue;
+        if (a.status === 'done' || a.status === 'cancelled') continue;
+        const v = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : -1;
+        if (v > max) max = v;
+      }
+      return max + 1;
+    },
     addActivity,
     updateActivity,
     recordShowUp,
@@ -394,6 +408,15 @@ export function GoalDetailScreen() {
         source: 'goal_detail_quick_add',
         activity_id: activity.id,
         goal_id: goalId,
+      });
+
+      // After creating a new activity, scroll so it becomes visible (best-effort).
+      // Goal detail is a long scroll surface, so we jump to the bottom where the
+      // Activities section typically ends.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({ y: 999999, animated: true });
+        });
       });
     },
   });
@@ -1144,6 +1167,9 @@ export function GoalDetailScreen() {
 
   const handleOpenActivityDetail = useCallback(
     (activityId: string) => {
+      if (!canOpenActivityDetail()) {
+        return;
+      }
       const nav: any = navigation;
       if (nav && typeof nav.navigate === 'function') {
         nav.navigate('ActivityDetailFromGoal', {
@@ -1152,7 +1178,7 @@ export function GoalDetailScreen() {
         });
       }
     },
-    [navigation],
+    [canOpenActivityDetail, navigation],
   );
 
   const handleToggleActivityPriorityOne = useCallback(

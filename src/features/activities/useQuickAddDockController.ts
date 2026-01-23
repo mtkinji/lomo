@@ -21,7 +21,21 @@ type Params = {
    * When non-null, new activities created from the dock are linked to this goal.
    */
   goalId: string | null;
+  /**
+   * Used only as a fallback for legacy call sites. Prefer `getNextOrderIndex`
+   * so new items can reliably append/prepend even when `orderIndex` has gaps.
+   */
   activitiesCount: number;
+  /**
+   * Return the next `orderIndex` to use for a newly created activity.
+   * This should typically be `(maxVisibleOrderIndex + 1)` to append to the bottom.
+   */
+  getNextOrderIndex?: () => number;
+  /**
+   * Optional: provide default Activity fields derived from UI context (e.g. active filters).
+   * This is applied in a conservative way (only to fields that aren't explicitly set by the dock).
+   */
+  getActivityDefaults?: () => Partial<Activity>;
   addActivity: (activity: Activity) => void;
   updateActivity?: (activityId: string, updater: (prev: Activity) => Activity) => void;
   recordShowUp: () => void;
@@ -56,6 +70,8 @@ export function useQuickAddDockController(params: Params) {
   const {
     goalId,
     activitiesCount,
+    getNextOrderIndex,
+    getActivityDefaults,
     addActivity,
     updateActivity,
     recordShowUp,
@@ -128,26 +144,62 @@ export function useQuickAddDockController(params: Params) {
 
     const timestamp = new Date().toISOString();
     const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const defaults: Partial<Activity> = (() => {
+      try {
+        const v = getActivityDefaults?.();
+        return v && typeof v === 'object' ? v : {};
+      } catch {
+        return {};
+      }
+    })();
+    const nextOrderIndex = (() => {
+      try {
+        const v = getNextOrderIndex?.();
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+      } catch {
+        // best-effort only; fall back to count-based ordering
+      }
+      return (activitiesCount || 0) + 1;
+    })();
+    const resolvedGoalId = goalId ?? (typeof defaults.goalId === 'string' ? defaults.goalId : null) ?? null;
+    const resolvedStatus = (() => {
+      const s = (defaults as any)?.status;
+      // Quick-add is for planning; avoid creating "done/cancelled/skipped" rows by default.
+      if (s === 'planned' || s === 'in_progress') return s;
+      return 'planned';
+    })() as any;
+    const resolvedPriority = (() => {
+      const p = (defaults as any)?.priority;
+      return p === 1 || p === 2 || p === 3 ? p : undefined;
+    })() as any;
+    const resolvedType = typeof (defaults as any)?.type === 'string' ? ((defaults as any).type as any) : 'task';
+    const resolvedTags = Array.isArray((defaults as any)?.tags)
+      ? (defaults as any).tags.filter((t: any) => typeof t === 'string' && t.trim().length > 0)
+      : [];
+    const resolvedDifficulty = typeof (defaults as any)?.difficulty === 'string' ? ((defaults as any).difficulty as any) : undefined;
 
     const activity: Activity = {
       id,
-      goalId: goalId ?? null,
+      goalId: resolvedGoalId,
       title: trimmed,
-      type: 'task',
-      tags: [],
+      type: resolvedType,
+      tags: resolvedTags,
       notes: undefined,
       steps: [],
-      reminderAt: reminderAt ?? null,
-      priority: undefined,
-      estimateMinutes: estimateMinutes ?? null,
+      reminderAt: reminderAt ?? (typeof defaults.reminderAt === 'string' ? defaults.reminderAt : null) ?? null,
+      priority: resolvedPriority,
+      estimateMinutes:
+        estimateMinutes ??
+        (typeof (defaults as any).estimateMinutes === 'number' ? (defaults as any).estimateMinutes : null),
+      difficulty: resolvedDifficulty,
       creationSource: 'manual',
       planGroupId: null,
-      scheduledDate: scheduledDate ?? null,
+      scheduledDate: scheduledDate ?? (typeof defaults.scheduledDate === 'string' ? defaults.scheduledDate : null) ?? null,
       repeatRule,
       repeatCustom: undefined,
-      orderIndex: (activitiesCount || 0) + 1,
+      orderIndex: nextOrderIndex,
       phase: null,
-      status: 'planned',
+      status: resolvedStatus,
       actualMinutes: null,
       startedAt: null,
       completedAt: null,
@@ -231,6 +283,8 @@ export function useQuickAddDockController(params: Params) {
     activitiesCount,
     addActivity,
     estimateMinutes,
+    getActivityDefaults,
+    getNextOrderIndex,
     goalId,
     enrichActivityWithAI,
     markActivityEnrichment,

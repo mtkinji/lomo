@@ -34,6 +34,7 @@ import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { useToastStore } from '../../store/useToastStore';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Button } from '../../ui/Button';
+import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { reconcilePlanCalendarEvents } from '../../services/plan/planCalendarReconcile';
 import { deleteManagedEvent } from '../../services/calendar/managedEvents';
 import { moveManagedEvent } from '../../services/calendar/managedEvents';
@@ -78,6 +79,7 @@ export function PlanPager({
   const [readRefs, setReadRefs] = useState<CalendarRef[]>([]);
   const [writeRef, setWriteRef] = useState<CalendarRef | null>(null);
   const [externalBusyIntervals, setExternalBusyIntervals] = useState<BusyInterval[]>([]);
+  const canOpenActivityDetail = useNavigationTapGuard({ cooldownMs: 2000 });
   const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
   const [calendarColorByRefKey, setCalendarColorByRefKey] = useState<Record<string, string>>({});
   const [busyIntervals, setBusyIntervals] = useState<BusyInterval[]>([]);
@@ -1101,19 +1103,21 @@ export function PlanPager({
 
   const handleOpenFocus = useCallback((activityId: string) => {
     if (!rootNavigationRef.isReady()) return;
+    if (!canOpenActivityDetail()) return;
     rootNavigationRef.navigate('Activities', {
       screen: 'ActivityDetail',
       params: { activityId, openFocus: true },
     } as any);
-  }, []);
+  }, [canOpenActivityDetail]);
 
   const handleOpenFullActivity = useCallback((activityId: string) => {
     if (!rootNavigationRef.isReady()) return;
+    if (!canOpenActivityDetail()) return;
     rootNavigationRef.navigate('Activities', {
       screen: 'ActivityDetail',
       params: { activityId },
     } as any);
-  }, []);
+  }, [canOpenActivityDetail]);
 
   const drawerMode: PlanDrawerMode | null = peekSelection
     ? peekSelection.kind === 'activity'

@@ -22,6 +22,7 @@ import {
   UserProfile,
 } from '../domain/types';
 import { getArcHeroUriById } from '../domain/curatedHeroLibrary';
+import { normalizeActivity } from '../domain/normalizeActivity';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
   PRO_GENERATIVE_CREDITS_PER_MONTH,
@@ -2141,13 +2142,27 @@ export const useAppStore = create<AppState>()(
       },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        const anyState = state as any;
+        // Defensive normalization: persisted state can be partial or corrupted.
+        if (!Array.isArray(anyState.arcs)) anyState.arcs = [];
+        if (!Array.isArray(anyState.goals)) anyState.goals = [];
+        if (!Array.isArray(anyState.activities)) anyState.activities = [];
+        if (!anyState.activityTagHistory || typeof anyState.activityTagHistory !== 'object') {
+          anyState.activityTagHistory = {};
+        }
+        if (!Array.isArray(anyState.forces)) {
+          anyState.forces = canonicalForces;
+        }
+        if (!Array.isArray(anyState.activityViews) || anyState.activityViews.length === 0) {
+          anyState.activityViews = initialActivityViews;
+        }
+
         // Domain objects are loaded asynchronously from a separate key.
         // Ensure the runtime flag starts false each launch so screens can gate their empty states.
-        (state as any).domainHydrated = false;
+        anyState.domainHydrated = false;
         // Backward-compatible: older persisted stores won't have hapticsEnabled.
-        const anyState = state as any;
         if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
-          (state as any).hapticsEnabled = true;
+          anyState.hapticsEnabled = true;
         }
         // Backward-compatible: older persisted stores won't have lifecycle counters / widget nudge state.
         if (!('appOpenCount' in anyState) || typeof anyState.appOpenCount !== 'number') {
@@ -2592,7 +2607,12 @@ export const useAppStore = create<AppState>()(
 
               if (Array.isArray(next.arcs)) next.arcs = (next.arcs as any[]).map(normalizeHero) as any;
               if (Array.isArray(next.goals)) next.goals = (next.goals as any[]).map(normalizeHero) as any;
-              if (Array.isArray(next.activities)) next.activities = (next.activities as any[]).map(normalizeHero) as any;
+              if (Array.isArray(next.activities)) {
+                const nowIso = now();
+                next.activities = (next.activities as any[])
+                  .map(normalizeHero)
+                  .map((activity) => normalizeActivity({ activity: activity as any, nowIso })) as any;
+              }
               if (Object.keys(next).length > 0) {
                 useAppStore.setState({ ...(next as any), domainHydrated: true } as any);
                 return;
