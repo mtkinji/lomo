@@ -110,6 +110,20 @@ export function ManageSubscriptionScreen() {
   const [plan, setPlan] = React.useState<ProPlan>('individual');
   const pendingOpenDrawerRef = React.useRef(false);
 
+  const handleBack = React.useCallback(() => {
+    // If this screen was opened as the root of a stack (e.g. from a paywall overlay),
+    // `goBack()` will jump out to whatever drawer tab is underneath (can feel random).
+    // Ensure the back affordance always lands on the Settings home canvas.
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'SettingsHome' as const }],
+    });
+  }, [navigation]);
+
   const shouldNudgeAnnual =
     (currentShowUpStreak ?? 0) >= ANNUAL_NUDGE_STREAK_THRESHOLD && billingCadence === 'monthly';
 
@@ -158,7 +172,7 @@ export function ManageSubscriptionScreen() {
 
   return (
     <AppShell>
-      <PageHeader title="Subscriptions" onPressBack={() => navigation.goBack()} />
+      <PageHeader title="Subscriptions" onPressBack={handleBack} />
       <View style={styles.container}>
         <ScrollView
           style={styles.scroll}

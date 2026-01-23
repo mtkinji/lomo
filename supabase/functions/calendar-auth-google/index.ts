@@ -33,7 +33,11 @@ function buildAuthUrl(params: Record<string, string>) {
 function buildRedirectUrl(req: Request) {
   const envRedirect = getEnv('GOOGLE_CALENDAR_REDIRECT_URL');
   if (envRedirect) return envRedirect;
-  return new URL(req.url).toString();
+  // Keep redirect_uri stable across authorize + token exchange.
+  const u = new URL(req.url);
+  u.search = '';
+  u.hash = '';
+  return u.toString();
 }
 
 serve(async (req) => {

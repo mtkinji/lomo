@@ -1,25 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useWindowDimensions } from 'react-native';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing } from '../../theme';
-import { HStack } from '../../ui/Stack';
+import { HStack, VStack, Text } from '../../ui/primitives';
 import { useAppStore } from '../../store/useAppStore';
-import { PlanRecsPage } from './PlanRecsPage';
 import { PlanCalendarLensPage } from './PlanCalendarLensPage';
+import { PlanEventPeekDrawerHost, type PlanDrawerMode } from './PlanEventPeekDrawerHost';
 import type { BusyInterval } from '../../services/scheduling/schedulingEngine';
 import {
   createCalendarEvent,
-  getCalendarPreferences,
+  getOrInitCalendarPreferences,
+  listCalendars,
+  listCalendarEvents,
   listBusyIntervals,
   updateCalendarEvent,
   type CalendarEventRef,
+  type CalendarEvent,
   type CalendarRef,
 } from '../../services/plan/calendarApi';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
@@ -28,6 +31,10 @@ import { proposeDailyPlan, type DailyPlanProposal } from '../../services/plan/pl
 import { formatDayLabel, setTimeOnDate, toLocalDateKey } from '../../services/plan/planDates';
 import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { useToastStore } from '../../store/useToastStore';
+import { BottomGuide } from '../../ui/BottomGuide';
+import { Button } from '../../ui/Button';
+import { reconcilePlanCalendarEvents } from '../../services/plan/planCalendarReconcile';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
@@ -44,28 +51,54 @@ export function PlanPager({
   insetMode = 'screen',
   targetDate,
   entryPoint = 'manual',
-  activePageIndex: controlledActivePageIndex,
-  onActivePageIndexChange,
+  recommendationsSheetSnapIndex: controlledSheetSnapIndex,
+  onRecommendationsSheetSnapIndexChange,
+  onRecommendationsCountChange,
+  onNavigateDay,
 }: {
   insetMode?: PlanPagerInsetMode;
   targetDate: Date;
   entryPoint?: PlanPagerEntryPoint;
-  activePageIndex?: number;
-  onActivePageIndexChange?: (index: number) => void;
+  /**
+   * Recommendations drawer state.
+   * 0 = closed, 1 = open.
+   */
+  recommendationsSheetSnapIndex?: number;
+  onRecommendationsSheetSnapIndexChange?: (index: number) => void;
+  onRecommendationsCountChange?: (count: number) => void;
+  /** Called when the user swipes the calendar canvas left/right to change day. */
+  onNavigateDay?: (deltaDays: number) => void;
 }) {
-  const { width: screenWidth } = useWindowDimensions();
-  const [pagerWidth, setPagerWidth] = useState(screenWidth);
-  const [uncontrolledActiveIndex, setUncontrolledActiveIndex] = useState(0);
-  const activeIndex = controlledActivePageIndex ?? uncontrolledActiveIndex;
-  const scrollRef = useRef<ScrollView | null>(null);
+  const [uncontrolledSheetSnapIndex, setUncontrolledSheetSnapIndex] = useState(0);
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
   const [allowRerun, setAllowRerun] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [readRefs, setReadRefs] = useState<CalendarRef[]>([]);
   const [writeRef, setWriteRef] = useState<CalendarRef | null>(null);
   const [externalBusyIntervals, setExternalBusyIntervals] = useState<BusyInterval[]>([]);
+  const [externalEvents, setExternalEvents] = useState<CalendarEvent[]>([]);
+  const [calendarColorByRefKey, setCalendarColorByRefKey] = useState<Record<string, string>>({});
   const [busyIntervals, setBusyIntervals] = useState<BusyInterval[]>([]);
+  const [busyIntervalsStatus, setBusyIntervalsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [prefetchStatus, setPrefetchStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [prefetched, setPrefetched] = useState<{
+    startISO: string;
+    endISO: string;
+    events: CalendarEvent[];
+    intervals: BusyInterval[];
+    fetchedAtMs: number;
+  } | null>(null);
   const [proposals, setProposals] = useState<DailyPlanProposal[]>([]);
+  const [committingActivityId, setCommittingActivityId] = useState<string | null>(null);
+  const [commitSuccessGuideVisible, setCommitSuccessGuideVisible] = useState(false);
+  const [peekSelection, setPeekSelection] = useState<
+    | null
+    | { kind: 'activity'; activityId: string }
+    | {
+        kind: 'external';
+        event: { title: string; start: Date; end: Date; calendarLabel?: string | null; color?: string | null };
+      }
+  >(null);
 
   const activities = useAppStore((s) => s.activities);
   const goals = useAppStore((s) => s.goals);
@@ -75,51 +108,67 @@ export function PlanPager({
   const dailyPlanHistory = useAppStore((s) => s.dailyPlanHistory);
   const addDailyPlanCommitment = useAppStore((s) => s.addDailyPlanCommitment);
   const setDailyPlanRecord = useAppStore((s) => s.setDailyPlanRecord);
+  const showToast = useToastStore((s) => s.showToast);
 
   const dateKey = useMemo(() => toLocalDateKey(targetDate), [targetDate]);
   const dayAvailability = useMemo(() => getAvailabilityForDate(userProfile, targetDate), [userProfile, targetDate]);
   const plannedRecord = dailyPlanHistory?.[dateKey] ?? null;
-  const showAlreadyPlanned = Boolean(plannedRecord) && !allowRerun;
-  const showRecommendations = !showAlreadyPlanned;
+  const hasAnyCommitment = (plannedRecord?.committedActivityIds?.length ?? 0) > 0;
+
+  // Smooth horizontal day transition (swipe only).
+  const { width: screenWidth } = useWindowDimensions();
+  const canvasTranslateX = useSharedValue(0);
+  const canvasWidth = useSharedValue(Math.max(1, screenWidth));
+  const isDayTransitionAnimating = useSharedValue(false);
+
+  useEffect(() => {
+    canvasWidth.value = Math.max(1, screenWidth);
+  }, [screenWidth, canvasWidth]);
+
+  const sheetSnapIndex = controlledSheetSnapIndex ?? uncontrolledSheetSnapIndex;
+  const recommendationsDrawerVisible = sheetSnapIndex > 0;
+  const setSheetSnapIndex = useCallback(
+    (next: number) => {
+      onRecommendationsSheetSnapIndexChange?.(next);
+      if (controlledSheetSnapIndex == null) {
+        setUncontrolledSheetSnapIndex(next);
+      }
+    },
+    [controlledSheetSnapIndex, onRecommendationsSheetSnapIndexChange],
+  );
+
+  useEffect(() => {
+    if (!recommendationsDrawerVisible) return;
+    // Guardrail: if the user opens the recommendations drawer after changing calendar settings,
+    // ensure we aren't using stale prefs (PlanPager remains mounted across navigation).
+    let active = true;
+    (async () => {
+      try {
+        await refreshPreferences();
+      } catch (err: any) {
+        if (!active) return;
+        setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
+        setReadRefs([]);
+        setWriteRef(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [recommendationsDrawerVisible, refreshPreferences]);
 
   // In the Plan tab (`insetMode="screen"`), the page is hosted inside `AppShell`,
   // which already applies the canonical horizontal gutters. In drawer contexts,
   // the drawer surface supplies its own gutter as well. So: avoid double-padding.
   const pagePadding = 0;
 
-  const setActiveIndex = useCallback(
-    (next: number) => {
-      onActivePageIndexChange?.(next);
-      if (controlledActivePageIndex == null) {
-        setUncontrolledActiveIndex(next);
-      }
-    },
-    [controlledActivePageIndex, onActivePageIndexChange],
-  );
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      const index = Math.round(offsetX / Math.max(1, pagerWidth));
-      if (index !== activeIndex) {
-        setActiveIndex(index);
-      }
-    },
-    [pagerWidth, activeIndex],
-  );
-
-  const goToPage = useCallback(
-    (index: number) => {
-      scrollRef.current?.scrollTo({ x: index * pagerWidth, y: 0, animated: true });
-      setActiveIndex(index);
-    },
-    [pagerWidth],
-  );
-
   useEffect(() => {
-    if (controlledActivePageIndex == null) return;
-    scrollRef.current?.scrollTo({ x: controlledActivePageIndex * pagerWidth, y: 0, animated: true });
-  }, [controlledActivePageIndex, pagerWidth]);
+    if (!commitSuccessGuideVisible) return;
+    const timeoutId = setTimeout(() => {
+      setCommitSuccessGuideVisible(false);
+    }, 2400);
+    return () => clearTimeout(timeoutId);
+  }, [commitSuccessGuideVisible]);
 
   useEffect(() => {
     setAllowRerun(false);
@@ -127,28 +176,69 @@ export function PlanPager({
   }, [dateKey]);
 
   const refreshPreferences = useCallback(async () => {
-    const prefs = await getCalendarPreferences();
+    const prefs = await getOrInitCalendarPreferences();
     setReadRefs(prefs.readCalendarRefs ?? []);
     setWriteRef(prefs.writeCalendarRef ?? null);
     setCalendarError(null);
   }, []);
+
+  const refreshCalendarColors = useCallback(async () => {
+    try {
+      const cals = await listCalendars();
+      const next: Record<string, string> = {};
+      for (const c of cals) {
+        const key = `${c.provider}:${c.accountId}:${c.calendarId}`;
+        const color = typeof c.color === 'string' && c.color.trim().length > 0 ? c.color.trim() : null;
+        if (color) next[key] = color;
+      }
+      setCalendarColorByRefKey(next);
+    } catch {
+      // best-effort; day view will fall back to default event colors
+      setCalendarColorByRefKey({});
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Calendar settings live in a different stack. When the user returns to Plan after
+      // changing calendar prefs, this component stays mounted, so we must refresh on focus.
+      let active = true;
+      (async () => {
+        try {
+          await refreshPreferences();
+          await refreshCalendarColors();
+        } catch (err: any) {
+          if (!active) return;
+          setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
+          setReadRefs([]);
+          setWriteRef(null);
+          setCalendarColorByRefKey({});
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [refreshPreferences, refreshCalendarColors]),
+  );
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         await refreshPreferences();
+        await refreshCalendarColors();
       } catch (err: any) {
         if (!mounted) return;
         setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
         setReadRefs([]);
         setWriteRef(null);
+        setCalendarColorByRefKey({});
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [refreshPreferences]);
+  }, [refreshPreferences, refreshCalendarColors]);
 
   const kwiltBlocks = useMemo(() => {
     return activities
@@ -170,20 +260,122 @@ export function PlanPager({
       });
   }, [activities, dateKey]);
 
+  function startOfLocalDay(d: Date): Date {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  function addDays(d: Date, deltaDays: number): Date {
+    const x = new Date(d);
+    x.setDate(x.getDate() + deltaDays);
+    return x;
+  }
+
+  function clampIntervalsToDay(input: BusyInterval[], dayStart: Date, dayEnd: Date): BusyInterval[] {
+    const out: BusyInterval[] = [];
+    for (const it of input) {
+      const s = it.start;
+      const e = it.end;
+      if (!(s instanceof Date) || !(e instanceof Date)) continue;
+      if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) continue;
+      if (e <= dayStart || s >= dayEnd) continue;
+      out.push({
+        start: s < dayStart ? dayStart : s,
+        end: e > dayEnd ? dayEnd : e,
+      });
+    }
+    return out;
+  }
+
+  // Prefetch external data for a 15-day window centered on "today" so day swipes render instantly.
+  useEffect(() => {
+    if (calendarError) return;
+    if (!readRefs || readRefs.length === 0) return;
+    let mounted = true;
+    (async () => {
+      try {
+        setPrefetchStatus('loading');
+        const todayStart = startOfLocalDay(new Date());
+        const windowStart = addDays(todayStart, -7);
+        const windowEnd = addDays(todayStart, 8); // exclusive end (covers today + 7 ahead)
+        const startISO = windowStart.toISOString();
+        const endISO = windowEnd.toISOString();
+
+        const [{ intervals }, { events, errors }] = await Promise.all([
+          listBusyIntervals({ start: startISO, end: endISO, readCalendarRefs: readRefs }),
+          listCalendarEvents({ start: startISO, end: endISO, readCalendarRefs: readRefs }),
+        ]);
+        if (!mounted) return;
+
+        const externalIntervals = (intervals ?? []).map((i) => ({ start: new Date(i.start), end: new Date(i.end) }));
+        setPrefetched({
+          startISO,
+          endISO,
+          events: Array.isArray(events) ? events : [],
+          intervals: externalIntervals,
+          fetchedAtMs: Date.now(),
+        });
+        setPrefetchStatus('ready');
+
+        if (Array.isArray(errors) && errors.length > 0) {
+          const msg = 'Some calendars failed to load. Try reconnecting in Settings → Calendars.';
+          showToast({ message: msg, variant: 'danger', durationMs: 7000 });
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.warn('[PlanPager] prefetch list_events errors:', errors);
+          }
+        }
+      } catch (err) {
+        if (!mounted) return;
+        setPrefetchStatus('error');
+        // Keep day-level fallback fetch below as a backstop.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [calendarError, readRefs]);
+
   useEffect(() => {
     if (calendarError) {
       setExternalBusyIntervals([]);
+      setExternalEvents([]);
       setBusyIntervals([]);
+      setBusyIntervalsStatus('error');
       return;
     }
     const dayStart = new Date(targetDate);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(dayStart);
     dayEnd.setDate(dayEnd.getDate() + 1);
+
+    // Fast path: if the day is inside our prefetched window, slice from cache.
+    if (prefetched && prefetchStatus === 'ready') {
+      const rangeStart = new Date(prefetched.startISO);
+      const rangeEnd = new Date(prefetched.endISO);
+      const inRange = dayStart >= rangeStart && dayEnd <= rangeEnd;
+      if (inRange) {
+        const extBusy = clampIntervalsToDay(prefetched.intervals, dayStart, dayEnd);
+        setExternalBusyIntervals(extBusy);
+        // Pass the whole prefetched event list; the lens page filters per-day.
+        setExternalEvents(prefetched.events);
+        setBusyIntervals([...extBusy, ...kwiltBlocks.map((b) => ({ start: b.start, end: b.end }))]);
+        setBusyIntervalsStatus('ready');
+        return;
+      }
+    }
+
     let mounted = true;
     (async () => {
       try {
+        setBusyIntervalsStatus('loading');
         const { intervals } = await listBusyIntervals({
+          start: dayStart.toISOString(),
+          end: dayEnd.toISOString(),
+          readCalendarRefs: readRefs,
+        });
+        const { events, errors } = await listCalendarEvents({
           start: dayStart.toISOString(),
           end: dayEnd.toISOString(),
           readCalendarRefs: readRefs,
@@ -194,21 +386,36 @@ export function PlanPager({
           end: new Date(i.end),
         }));
         setExternalBusyIntervals(external);
+        setExternalEvents(Array.isArray(events) ? events : []);
+        if (Array.isArray(errors) && errors.length > 0) {
+          const msg = 'Some calendars failed to load. Try reconnecting in Settings → Calendars.';
+          // We still show any events we did load; this is a non-fatal warning.
+          showToast({ message: msg, variant: 'danger', durationMs: 7000 });
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.warn('[PlanPager] list_events errors:', errors);
+          }
+        }
         setBusyIntervals([...external, ...kwiltBlocks.map((b) => ({ start: b.start, end: b.end }))]);
+        setBusyIntervalsStatus('ready');
       } catch (err: any) {
         if (!mounted) return;
         setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
         setExternalBusyIntervals([]);
+        setExternalEvents([]);
         setBusyIntervals([]);
+        setBusyIntervalsStatus('error');
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [calendarError, readRefs, targetDate, kwiltBlocks]);
+  }, [calendarError, readRefs, targetDate, kwiltBlocks, prefetched, prefetchStatus]);
 
   useEffect(() => {
-    if (!showRecommendations) {
+    // Avoid showing stale proposals from the previous day while we fetch this day's calendar data.
+    // We'll re-propose once busy intervals are loaded.
+    if (busyIntervalsStatus !== 'ready') {
       setProposals([]);
       return;
     }
@@ -223,7 +430,7 @@ export function PlanPager({
       maxItems: 4,
     });
     setProposals(next);
-  }, [activities, goals, arcs, userProfile, targetDate, busyIntervals, writeRef, showRecommendations]);
+  }, [activities, goals, arcs, userProfile, targetDate, busyIntervals, writeRef, busyIntervalsStatus]);
 
   const recommendations = useMemo<PlanRecommendation[]>(() => {
     const goalById = new Map(goals.map((g) => [g.id, g]));
@@ -243,6 +450,10 @@ export function PlanPager({
         };
       });
   }, [proposals, skippedIds, activities, goals, arcs]);
+
+  useEffect(() => {
+    onRecommendationsCountChange?.(recommendations.length);
+  }, [recommendations.length, onRecommendationsCountChange]);
 
   const hasEligibleActivities = useMemo(() => {
     return activities.some((a) => a.status !== 'done' && a.status !== 'cancelled' && !a.scheduledAt);
@@ -266,14 +477,144 @@ export function PlanPager({
 
   const calendarStatus: 'unknown' | 'connected' | 'missing' = authRequired ? 'missing' : 'connected';
 
+  const reconciledExternal = useMemo(() => {
+    return reconcilePlanCalendarEvents({ externalEvents, kwiltBlocks });
+  }, [externalEvents, kwiltBlocks]);
+
+  const externalEventsForTimeline = reconciledExternal.externalEvents;
+
   const conflicts = useMemo(() => {
-    if (externalBusyIntervals.length === 0 || kwiltBlocks.length === 0) return [];
+    if (kwiltBlocks.length === 0) return [];
+
+    // Prefer event-level overlap checks so we can ignore external duplicates of Kwilt blocks.
+    // Fallback to busy intervals only when no events were loaded.
+    const conflictIntervals =
+      externalEventsForTimeline.length > 0
+        ? externalEventsForTimeline
+            .map((e) => {
+              const start = new Date(e.start);
+              const end = new Date(e.end);
+              if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+              return { start, end };
+            })
+            .filter(Boolean) as Array<{ start: Date; end: Date }>
+        : externalBusyIntervals;
+
+    if (conflictIntervals.length === 0) return [];
+
     return kwiltBlocks
-      .filter((block) =>
-        externalBusyIntervals.some((busy) => busy.start < block.end && block.start < busy.end),
-      )
+      .filter((block) => conflictIntervals.some((busy) => busy.start < block.end && block.start < busy.end))
       .map((block) => block.activity.id);
-  }, [externalBusyIntervals, kwiltBlocks]);
+  }, [externalBusyIntervals, externalEventsForTimeline, kwiltBlocks]);
+
+  function getCommitAlertForError(err: unknown): { title: string; message: string } | null {
+    const raw =
+      err instanceof Error
+        ? err.message
+        : typeof (err as any)?.message === 'string'
+          ? String((err as any).message)
+          : '';
+    const msg = (raw ?? '').trim();
+    const lower = msg.toLowerCase();
+
+    // If the user actively cancels sign-in, don't show an "error" alert.
+    if (lower.includes('sign-in cancelled') || lower.includes('signin cancelled') || lower.includes('cancelled')) {
+      return null;
+    }
+
+    // Auth missing/expired.
+    if (lower.includes('missing access token') || lower.includes('unauthorized') || lower.includes('access token')) {
+      return {
+        title: 'Sign in required',
+        message: 'Please sign in again to connect calendars and commit your plan.',
+      };
+    }
+
+    // Provider permission / write access denied.
+    if (
+      lower.includes('forbidden') ||
+      lower.includes('insufficient') ||
+      lower.includes('permission') ||
+      lower.includes('(403)') ||
+      lower.includes('request failed (403)')
+    ) {
+      return {
+        title: 'Calendar access denied',
+        message: 'Kwilt can’t write to that calendar. Try picking a different write calendar or reconnecting your calendar account in Settings.',
+      };
+    }
+
+    // Generic fallback.
+    return { title: 'Unable to commit', message: 'Please check your calendar connection and try again.' };
+  }
+
+  async function verifyCommitLikelySucceeded(args: {
+    proposal: DailyPlanProposal;
+    writeRef: CalendarRef;
+  }): Promise<boolean> {
+    try {
+      const start = new Date(args.proposal.startDate);
+      const end = new Date(args.proposal.endDate);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+      const padMs = 5 * 60 * 1000;
+      const paddedStart = new Date(start.getTime() - padMs);
+      const paddedEnd = new Date(end.getTime() + padMs);
+      const { intervals = [] } = await listBusyIntervals({
+        start: paddedStart.toISOString(),
+        end: paddedEnd.toISOString(),
+        // Force-check the write calendar even if the user didn't add it to "read" calendars.
+        readCalendarRefs: [args.writeRef],
+      });
+      return intervals.some((i) => {
+        const s = new Date(i.start);
+        const e = new Date(i.end);
+        if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
+        return s < end && start < e;
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  function applyLocalCommit(args: {
+    activityId: string;
+    proposal: DailyPlanProposal;
+    eventRef?: CalendarEventRef | null;
+  }) {
+    const timestamp = new Date().toISOString();
+    try {
+      updateActivity(args.activityId, (prev) => ({
+        ...prev,
+        scheduledAt: args.proposal.startDate,
+        scheduledProvider: args.eventRef?.provider ?? prev.scheduledProvider,
+        scheduledProviderAccountId: args.eventRef?.accountId ?? prev.scheduledProviderAccountId,
+        scheduledProviderCalendarId: args.eventRef?.calendarId ?? prev.scheduledProviderCalendarId,
+        scheduledProviderEventId: args.eventRef?.eventId ?? prev.scheduledProviderEventId,
+        updatedAt: timestamp,
+      }));
+      addDailyPlanCommitment(dateKey, args.activityId);
+    } catch (e) {
+      // Never show a hard error if the calendar side-effect likely succeeded.
+      // If local state update fails, the next sync/reload will reconcile.
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[PlanPager] Local commit update failed:', e);
+      }
+    }
+  }
+
+  function showCommitSuccessFeedback() {
+    if (insetMode === 'drawer') {
+      setCommitSuccessGuideVisible(true);
+    } else {
+      showToast({
+        message: 'Added to your calendar.',
+        variant: 'light',
+        actionLabel: 'Review',
+        actionOnPress: () => setSheetSnapIndex(0),
+      });
+    }
+  }
 
   const handleCommit = async (activityId: string) => {
     const proposal = proposals.find((p) => p.activityId === activityId);
@@ -283,29 +624,52 @@ export function PlanPager({
       Alert.alert('Choose a calendar', 'Select a write calendar in Settings before committing.');
       return;
     }
+    if (committingActivityId) return;
 
     try {
+      setCommittingActivityId(activityId);
       await ensureSignedInWithPrompt('plan');
-      const { eventRef } = await createCalendarEvent({
-        title: proposal.title,
-        start: proposal.startDate,
-        end: proposal.endDate,
-        writeCalendarRef: writeRef,
-      });
-      const timestamp = new Date().toISOString();
-      updateActivity(activityId, (prev) => ({
-        ...prev,
-        scheduledAt: proposal.startDate,
-        scheduledProvider: eventRef.provider,
-        scheduledProviderAccountId: eventRef.accountId,
-        scheduledProviderCalendarId: eventRef.calendarId,
-        scheduledProviderEventId: eventRef.eventId,
-        updatedAt: timestamp,
-      }));
-      addDailyPlanCommitment(dateKey, activityId);
-      Alert.alert('Committed', 'Added to your calendar.');
+      let eventRef: CalendarEventRef | null = null;
+      try {
+        const res = await createCalendarEvent({
+          title: proposal.title,
+          start: proposal.startDate,
+          end: proposal.endDate,
+          writeCalendarRef: writeRef,
+        });
+        eventRef = (res as any)?.eventRef ?? null;
+      } catch (err) {
+        // Sometimes the calendar side-effect succeeds but the network response fails
+        // (timeouts, HTML error bodies, etc.). Best-effort verify via busy intervals.
+        const likelySucceeded = await verifyCommitLikelySucceeded({ proposal, writeRef });
+        if (likelySucceeded) {
+          applyLocalCommit({ activityId, proposal, eventRef: null });
+          showCommitSuccessFeedback();
+          return;
+        }
+        const alert = getCommitAlertForError(err);
+        if (alert) Alert.alert(alert.title, alert.message);
+        return;
+      }
+
+      // Even if we didn't get an eventRef payload (e.g. non-JSON body), we still treat
+      // this as a successful commit. We just won't be able to support moves reliably.
+      if (!eventRef) {
+        const likelySucceeded = await verifyCommitLikelySucceeded({ proposal, writeRef });
+        if (!likelySucceeded) {
+          // If we can't verify, still show a softer message (no false “Unable to commit”).
+          Alert.alert('Check your calendar', 'We may have added this time block, but we couldn’t confirm it. Please check your calendar.');
+          return;
+        }
+      }
+
+      applyLocalCommit({ activityId, proposal, eventRef });
+      showCommitSuccessFeedback();
     } catch (err) {
-      Alert.alert('Unable to commit', 'Please check calendar permissions and try again.');
+      const alert = getCommitAlertForError(err);
+      if (alert) Alert.alert(alert.title, alert.message);
+    } finally {
+      setCommittingActivityId(null);
     }
   };
 
@@ -457,59 +821,156 @@ export function PlanPager({
     };
   }, [dayAvailability, hasAvailabilityWindows, hasEligibleActivities, hasCalendarConfigured, authRequired]);
 
-  return (
-    <View
-      style={styles.container}
-      onLayout={(e) => {
-        const nextWidth = e.nativeEvent.layout.width;
-        if (nextWidth > 0 && nextWidth !== pagerWidth) {
-          setPagerWidth(nextWidth);
-        }
-      }}
-    >
-      <ScrollView
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        ref={(node) => {
-          scrollRef.current = node;
-        }}
-      >
-        <View style={{ width: pagerWidth }}>
-          <PlanRecsPage
-            contentPadding={pagePadding}
-            targetDayLabel={formatDayLabel(targetDate)}
-            recommendations={recommendations}
-            emptyState={recommendations.length === 0 ? emptyState : null}
-            showAlreadyPlanned={showAlreadyPlanned}
-            entryPoint={entryPoint}
-            onRerun={handleRerun}
-            onReviewPlan={() => goToPage(1)}
-            calendarStatus={calendarStatus}
-            onOpenCalendarSettings={() => {
-              if (rootNavigationRef.isReady()) {
-                rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
+  const isLoadingRecommendations = calendarStatus !== 'missing' && busyIntervalsStatus === 'loading';
+
+  // A day should only be considered "already set" when the user has committed at least one
+  // block AND there are no remaining recommendations to show. Committing a single item
+  // should not hide the rest of the recommended blocks.
+  const showAlreadyPlanned = hasAnyCommitment && !allowRerun && !isLoadingRecommendations && proposals.length === 0;
+
+  const canvasAnimatedStyle = useAnimatedStyle(() => {
+    // Small opacity dip during the off-screen transition reduces the “hard cut” feel.
+    const w = Math.max(1, canvasWidth.value);
+    const t = Math.min(1, Math.abs(canvasTranslateX.value) / w);
+    const opacity = 1 - 0.12 * t;
+    return {
+      transform: [{ translateX: canvasTranslateX.value }],
+      opacity,
+    };
+  });
+
+  const swipeGesture = useMemo(() => {
+    const enabled = typeof onNavigateDay === 'function' && !recommendationsDrawerVisible && !peekSelection;
+    if (!enabled) {
+      return Gesture.Pan().enabled(false);
+    }
+    return (
+      Gesture.Pan()
+        // Require intentional horizontal motion; fail quickly on vertical scroll.
+        .activeOffsetX([-28, 28])
+        .failOffsetY([-18, 18])
+        .onEnd((e) => {
+          'worklet';
+          if (isDayTransitionAnimating.value) return;
+          const dx = e.translationX ?? 0;
+          const vx = e.velocityX ?? 0;
+          const absDx = Math.abs(dx);
+          if (absDx < 70 && Math.abs(vx) < 650) return;
+          // Swipe left = next day, swipe right = previous day.
+          const direction = dx < 0 ? 1 : -1;
+          const w = Math.max(1, canvasWidth.value);
+          isDayTransitionAnimating.value = true;
+
+          // Phase 1: slide current day out.
+          canvasTranslateX.value = withTiming(
+            -direction * w,
+            { duration: 170, easing: Easing.out(Easing.cubic) },
+            (finished) => {
+              if (!finished) {
+                canvasTranslateX.value = 0;
+                isDayTransitionAnimating.value = false;
+                return;
               }
-            }}
-            onCommit={handleCommit}
-            onMove={handleMoveRecommendation}
-            onSkip={handleSkip}
-          />
-        </View>
-        <View style={{ width: pagerWidth }}>
+
+              // Swap the day on JS thread.
+              runOnJS(onNavigateDay)(direction);
+
+              // Phase 2: jump the new day off-screen (opposite side) then slide in.
+              canvasTranslateX.value = direction * w;
+              canvasTranslateX.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) }, () => {
+                isDayTransitionAnimating.value = false;
+              });
+            },
+          );
+        })
+    );
+  }, [onNavigateDay, recommendationsDrawerVisible, peekSelection, canvasTranslateX, canvasWidth, isDayTransitionAnimating]);
+
+  const handleOpenFocus = useCallback((activityId: string) => {
+    if (!rootNavigationRef.isReady()) return;
+    rootNavigationRef.navigate('Activities', {
+      screen: 'ActivityDetail',
+      params: { activityId, openFocus: true },
+    } as any);
+  }, []);
+
+  const handleOpenFullActivity = useCallback((activityId: string) => {
+    if (!rootNavigationRef.isReady()) return;
+    rootNavigationRef.navigate('Activities', {
+      screen: 'ActivityDetail',
+      params: { activityId },
+    } as any);
+  }, []);
+
+  const drawerMode: PlanDrawerMode | null = peekSelection
+    ? peekSelection.kind === 'activity'
+      ? kwiltBlocks.some((b) => b.activity.id === peekSelection.activityId)
+        ? 'activity'
+        : null
+      : 'external'
+    : recommendationsDrawerVisible
+      ? 'recs'
+      : null;
+
+  const handleDrawerClose = useCallback(() => {
+    if (peekSelection) {
+      setPeekSelection(null);
+      return;
+    }
+    setSheetSnapIndex(0);
+  }, [peekSelection, setSheetSnapIndex]);
+
+  const activityPeekModel = useMemo(() => {
+    if (!peekSelection || peekSelection.kind !== 'activity') return null;
+    const block = kwiltBlocks.find((b) => b.activity.id === peekSelection.activityId) ?? null;
+    if (!block) return null;
+    const conflict = conflicts.includes(peekSelection.activityId);
+    return {
+      activityId: peekSelection.activityId,
+      start: block.start,
+      end: block.end,
+      conflict,
+      onOpenFocus: handleOpenFocus,
+      onOpenFullActivity: handleOpenFullActivity,
+      onMoveCommitment: handleMoveCommitment,
+      onRequestClose: () => setPeekSelection(null),
+    };
+  }, [conflicts, handleMoveCommitment, handleOpenFocus, handleOpenFullActivity, kwiltBlocks, peekSelection]);
+
+  const externalPeekModel = useMemo(() => {
+    if (!peekSelection || peekSelection.kind !== 'external') return null;
+    return {
+      title: peekSelection.event.title,
+      start: peekSelection.event.start,
+      end: peekSelection.event.end,
+      calendarLabel: peekSelection.event.calendarLabel ?? null,
+      color: peekSelection.event.color ?? null,
+      onRequestClose: () => setPeekSelection(null),
+    };
+  }, [peekSelection]);
+
+  return (
+    <View style={styles.container}>
+      <GestureDetector gesture={swipeGesture}>
+        <Animated.View style={[{ flex: 1 }, canvasAnimatedStyle]}>
           <PlanCalendarLensPage
             contentPadding={pagePadding}
             targetDayLabel={formatDayLabel(targetDate)}
-            externalBusyIntervals={externalBusyIntervals}
-            proposedBlocks={proposals.map((p) => ({
-              title: p.title,
-              start: new Date(p.startDate),
-              end: new Date(p.endDate),
-            }))}
+            targetDate={targetDate}
+            externalEvents={externalEventsForTimeline}
+            calendarColorByRefKey={calendarColorByRefKey}
+            isLoadingExternal={busyIntervalsStatus === 'loading'}
+            // Don't paint recommendations onto the calendar canvas when the drawer is closed.
+            // Otherwise they read like real scheduled blocks and visually "repeat" on every day.
+            proposedBlocks={
+              recommendationsDrawerVisible
+                ? proposals.map((p) => ({
+                    title: p.title,
+                    start: new Date(p.startDate),
+                    end: new Date(p.endDate),
+                  }))
+                : []
+            }
             kwiltBlocks={kwiltBlocks}
             conflictActivityIds={conflicts}
             calendarStatus={calendarStatus}
@@ -519,32 +980,93 @@ export function PlanPager({
               }
             }}
             onMoveCommitment={handleMoveCommitment}
-            availabilitySummary={
-              hasAvailabilityWindows
-                ? [
-                    ...dayAvailability.windows.work.map(
-                      (w) => `Work ${w.start} - ${w.end}`,
-                    ),
-                    ...dayAvailability.windows.personal.map(
-                      (w) => `Personal ${w.start} - ${w.end}`,
-                    ),
-                  ]
-                : []
-            }
+            onPressKwiltBlock={(activityId) => {
+              if (recommendationsDrawerVisible) setSheetSnapIndex(0);
+              setPeekSelection({ kind: 'activity', activityId });
+            }}
+            onPressExternalEvent={(event) => {
+              if (recommendationsDrawerVisible) setSheetSnapIndex(0);
+              setPeekSelection({ kind: 'external', event });
+            }}
           />
-        </View>
-      </ScrollView>
+        </Animated.View>
+      </GestureDetector>
 
-      <View style={styles.paginationContainer}>
-        <HStack space={spacing.xs} style={styles.pagination}>
-          {[0, 1].map((index) => (
-            <View
-              key={index}
-              style={[styles.dot, index === activeIndex ? styles.activeDot : styles.inactiveDot]}
-            />
-          ))}
-        </HStack>
-      </View>
+      {drawerMode ? (
+        <PlanEventPeekDrawerHost
+          visible
+          mode={drawerMode}
+          onClose={handleDrawerClose}
+          recommendations={
+            drawerMode === 'recs'
+              ? {
+                  recommendationCount: recommendations.length,
+                  targetDayLabel: formatDayLabel(targetDate),
+                  recommendations: recommendations.map((r) => ({
+                    activityId: r.activityId,
+                    title: r.title,
+                    goalTitle: r.goalTitle,
+                    arcTitle: r.arcTitle,
+                    proposal: { startDate: r.proposal.startDate, endDate: r.proposal.endDate },
+                  })),
+                  emptyState,
+                  isLoading: isLoadingRecommendations,
+                  showAlreadyPlanned,
+                  entryPoint,
+                  calendarStatus,
+                  onOpenCalendarSettings: () => {
+                    if (rootNavigationRef.isReady()) {
+                      rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
+                    }
+                  },
+                  onReviewPlan: () => setSheetSnapIndex(0),
+                  onRerun: handleRerun,
+                  onCommit: handleCommit,
+                  onMove: handleMoveRecommendation,
+                  onSkip: handleSkip,
+                  committingActivityId,
+                }
+              : undefined
+          }
+          activityPeek={drawerMode === 'activity' ? (activityPeekModel ?? undefined) : undefined}
+          externalPeek={drawerMode === 'external' ? (externalPeekModel ?? undefined) : undefined}
+        />
+      ) : null}
+
+      {/* Drawer-only success confirmation (toast can be hidden under modal layers) */}
+      <BottomGuide
+        visible={insetMode === 'drawer' && commitSuccessGuideVisible}
+        onClose={() => setCommitSuccessGuideVisible(false)}
+        snapPoints={['28%']}
+        scrim="none"
+        dynamicSizing
+      >
+        <VStack space={spacing.sm}>
+          <VStack space={spacing.xs}>
+            <Text style={styles.commitGuideTitle}>Added to your calendar</Text>
+            <Text style={styles.commitGuideBody}>Your time block is committed successfully.</Text>
+          </VStack>
+          <HStack space={spacing.sm} style={{ justifyContent: 'flex-end' }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={() => setCommitSuccessGuideVisible(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onPress={() => {
+                setCommitSuccessGuideVisible(false);
+                setSheetSnapIndex(0);
+              }}
+            >
+              Review
+            </Button>
+          </HStack>
+        </VStack>
+      </BottomGuide>
     </View>
   );
 }
@@ -553,37 +1075,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
+  commitGuideTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
-  contentContainer: {
-    flexGrow: 1,
-  },
-  paginationContainer: {
-    position: 'absolute',
-    bottom: spacing.xl,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    pointerEvents: 'none',
-  },
-  pagination: {
-    backgroundColor: 'rgba(15, 23, 42, 0.05)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  activeDot: {
-    backgroundColor: colors.textPrimary,
-  },
-  inactiveDot: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.3,
+  commitGuideBody: {
+    color: colors.textSecondary,
   },
 });
 

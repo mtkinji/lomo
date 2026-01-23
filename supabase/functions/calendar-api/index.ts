@@ -249,6 +249,97 @@ async function listMicrosoftCalendars(accessToken: string) {
   }));
 }
 
+async function listGoogleEvents(params: {
+  accessToken: string;
+  calendarId: string;
+  start: string;
+  end: string;
+}): Promise<Array<{ eventId: string; title: string | null; start: string; end: string; isAllDay: boolean }>> {
+  const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(params.calendarId)}/events`;
+  let pageToken: string | null = null;
+  const out: Array<{ eventId: string; title: string | null; start: string; end: string; isAllDay: boolean }> = [];
+
+  // Pagination matters for some large/very busy calendars; also protects us from partial results.
+  // Keep response light-ish; we only need `summary`, `start`, `end`.
+  const fields = 'items(id,summary,start,end),nextPageToken';
+
+  for (let i = 0; i < 6; i++) {
+    const url = new URL(baseUrl);
+    url.searchParams.set('timeMin', params.start);
+    url.searchParams.set('timeMax', params.end);
+    url.searchParams.set('singleEvents', 'true');
+    url.searchParams.set('orderBy', 'startTime');
+    url.searchParams.set('showDeleted', 'false');
+    url.searchParams.set('maxResults', '2500');
+    url.searchParams.set('fields', fields);
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${params.accessToken}` } });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = json?.error?.message || json?.error?.status || `HTTP ${res.status}`;
+      throw new Error(`google_events_list_failed:${msg}`);
+    }
+
+    const items = Array.isArray(json?.items) ? json.items : [];
+    for (const e of items) {
+      const start = e?.start?.dateTime ?? e?.start?.date ?? null;
+      const end = e?.end?.dateTime ?? e?.end?.date ?? null;
+      const isAllDay = Boolean(e?.start?.date && !e?.start?.dateTime);
+      const eventId = typeof e?.id === 'string' ? e.id : '';
+      if (!eventId || typeof start !== 'string' || typeof end !== 'string' || !start || !end) continue;
+      out.push({
+        eventId,
+        title: typeof e?.summary === 'string' ? e.summary : null,
+        start,
+        end,
+        isAllDay,
+      });
+    }
+
+    pageToken = typeof json?.nextPageToken === 'string' && json.nextPageToken ? String(json.nextPageToken) : null;
+    if (!pageToken) break;
+  }
+
+  return out;
+}
+
+async function listMicrosoftEvents(params: {
+  accessToken: string;
+  calendarId: string;
+  start: string;
+  end: string;
+}): Promise<Array<{ eventId: string; title: string | null; start: string; end: string; isAllDay: boolean }>> {
+  const viewUrl = new URL(
+    `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(params.calendarId)}/calendarView`,
+  );
+  viewUrl.searchParams.set('startDateTime', params.start);
+  viewUrl.searchParams.set('endDateTime', params.end);
+  // Limit payload; we only need these fields.
+  viewUrl.searchParams.set('$select', 'id,subject,start,end,isAllDay');
+
+  const res = await fetch(viewUrl.toString(), { headers: { Authorization: `Bearer ${params.accessToken}` } });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = json?.error?.message || json?.error?.code || `HTTP ${res.status}`;
+    throw new Error(`microsoft_events_list_failed:${msg}`);
+  }
+  const items = Array.isArray(json?.value) ? json.value : [];
+  return items
+    .map((e: any) => {
+      const startAt = e?.start?.dateTime ?? null;
+      const endAt = e?.end?.dateTime ?? null;
+      return {
+        eventId: typeof e?.id === 'string' ? e.id : '',
+        title: typeof e?.subject === 'string' ? e.subject : null,
+        start: typeof startAt === 'string' ? startAt : '',
+        end: typeof endAt === 'string' ? endAt : '',
+        isAllDay: Boolean(e?.isAllDay),
+      };
+    })
+    .filter((e) => Boolean(e.eventId && e.start && e.end));
+}
+
 function mergeIntervals(intervals: Array<{ start: string; end: string }>) {
   const sorted = [...intervals].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   const merged: Array<{ start: string; end: string }> = [];
@@ -504,6 +595,91 @@ serve(async (req) => {
     }
 
     return json(200, { intervals: mergeIntervals(intervals) });
+  }
+
+  if (action === 'list_events') {
+    const start = typeof body?.start === 'string' ? body.start : null;
+    const end = typeof body?.end === 'string' ? body.end : null;
+    if (!start || !end) {
+      return json(400, { error: { message: 'Missing date range', code: 'bad_request' } });
+    }
+    const inputRefs = normalizeRefs(body?.readCalendarRefs);
+    const { data: prefData } = await admin
+      .from('kwilt_calendar_preferences')
+      .select('read_calendar_refs')
+      .eq('user_id', userId)
+      .single();
+    const refs = inputRefs.length > 0 ? inputRefs : normalizeRefs(prefData?.read_calendar_refs);
+
+    const events: Array<{
+      provider: Provider;
+      accountId: string;
+      calendarId: string;
+      eventId: string;
+      title: string | null;
+      start: string;
+      end: string;
+      isAllDay: boolean;
+    }> = [];
+    const errors: string[] = [];
+
+    for (const account of accounts) {
+      const token = await getAccessToken({ admin, account, tokenSecret });
+      if (!token) continue;
+      const accountRefs = refs.filter(
+        (r) => r.provider === account.provider && r.accountId === account.provider_account_id,
+      );
+      if (accountRefs.length === 0) continue;
+
+      // IMPORTANT: never let a single broken/stale calendar ref wipe out the rest.
+      if (account.provider === 'google') {
+        for (const ref of accountRefs) {
+          try {
+            const items = await listGoogleEvents({ accessToken: token, calendarId: ref.calendarId, start, end });
+            for (const e of items) {
+              events.push({
+                provider: 'google',
+                accountId: ref.accountId,
+                calendarId: ref.calendarId,
+                eventId: e.eventId,
+                title: e.title,
+                start: e.start,
+                end: e.end,
+                isAllDay: e.isAllDay,
+              });
+            }
+          } catch (err: any) {
+            const msg = typeof err?.message === 'string' ? err.message : 'google_events_list_failed';
+            errors.push(`google:${ref.accountId}:${ref.calendarId}:${msg}`);
+            continue;
+          }
+        }
+      } else {
+        for (const ref of accountRefs) {
+          try {
+            const items = await listMicrosoftEvents({ accessToken: token, calendarId: ref.calendarId, start, end });
+            for (const e of items) {
+              events.push({
+                provider: 'microsoft',
+                accountId: ref.accountId,
+                calendarId: ref.calendarId,
+                eventId: e.eventId,
+                title: e.title,
+                start: e.start,
+                end: e.end,
+                isAllDay: e.isAllDay,
+              });
+            }
+          } catch (err: any) {
+            const msg = typeof err?.message === 'string' ? err.message : 'microsoft_events_list_failed';
+            errors.push(`microsoft:${ref.accountId}:${ref.calendarId}:${msg}`);
+            continue;
+          }
+        }
+      }
+    }
+
+    return json(200, { events, errors });
   }
 
   if (action === 'create_event') {

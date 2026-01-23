@@ -76,7 +76,15 @@ export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Goals: NavigatorScreenParams<GoalsStackParamList> | undefined;
   Activities: NavigatorScreenParams<ActivitiesStackParamList> | undefined;
-  Plan: undefined;
+  Plan:
+    | {
+        /**
+         * When true, open the Recommendations bottom sheet on entry.
+         * Used by the app-start Plan kickoff guide CTA.
+         */
+        openRecommendations?: boolean;
+      }
+    | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {
@@ -495,6 +503,17 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             if (route.name === 'Plan') {
               event.preventDefault();
               navigation.navigate('Plan');
+              return;
+            }
+
+            if (route.name === 'Settings') {
+              // Mirror other primary nav items: tapping Settings should always land on the
+              // Settings home canvas, not the last nested Settings screen (e.g. Subscriptions).
+              event.preventDefault();
+              navigation.navigate('Settings', {
+                screen: 'SettingsHome',
+              });
+              return;
             }
           },
         })}
@@ -920,7 +939,9 @@ function KwiltDrawerContent(props: any) {
             accessibilityRole="button"
             accessibilityLabel="View profile and settings"
             onPress={() => {
-              props.navigation.navigate('Settings');
+              // Always land on the Settings home canvas from the profile row (not the last
+              // nested Settings screen like Subscriptions).
+              props.navigation.navigate('Settings', { screen: 'SettingsHome' });
               props.navigation.dispatch(DrawerActions.closeDrawer());
             }}
           >

@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { EmptyState, HStack, Text, VStack } from '../../ui/primitives';
+import { GoalPill } from '../../ui/GoalPill';
 import { formatTimeRange } from '../../services/plan/planDates';
 
 type PlanRecommendation = {
@@ -21,6 +22,7 @@ type PlanRecsPageProps = {
   targetDayLabel: string;
   recommendations: PlanRecommendation[];
   emptyState: { title: string; description: string } | null;
+  isLoading?: boolean;
   showAlreadyPlanned: boolean;
   entryPoint: 'manual' | 'kickoff';
   calendarStatus: 'unknown' | 'connected' | 'missing';
@@ -30,6 +32,7 @@ type PlanRecsPageProps = {
   onCommit: (activityId: string) => void;
   onMove: (activityId: string, newStart: Date) => void;
   onSkip: (activityId: string) => void;
+  committingActivityId?: string | null;
   /**
    * Extra padding applied by the page itself. When hosted inside `BottomDrawer`,
    * the drawer already supplies a horizontal gutter, so this should be 0.
@@ -41,6 +44,7 @@ export function PlanRecsPage({
   targetDayLabel,
   recommendations,
   emptyState,
+  isLoading = false,
   showAlreadyPlanned,
   entryPoint,
   calendarStatus,
@@ -50,11 +54,13 @@ export function PlanRecsPage({
   onCommit,
   onMove,
   onSkip,
+  committingActivityId = null,
   contentPadding = spacing.xl,
 }: PlanRecsPageProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pendingMoveId, setPendingMoveId] = useState<string | null>(null);
   const [pendingMoveDate, setPendingMoveDate] = useState<Date | null>(null);
+  const isCommittingAny = Boolean(committingActivityId);
 
   const handleMovePress = (activityId: string, start: Date) => {
     setPendingMoveId(activityId);
@@ -118,8 +124,8 @@ export function PlanRecsPage({
       <View style={[styles.emptyContainer, { padding: contentPadding }]}>
         <View style={styles.emptyContent}>
           <EmptyState
-            title="Already set"
-            instructions="Your plan for this day is already committed. Review or adjust your blocks."
+            title="All set"
+            instructions="No recommendations remain for this day. Review or adjust your blocks on the calendar."
           />
           <VStack space={spacing.sm} style={styles.emptyActions}>
             <Button variant="primary" fullWidth onPress={onReviewPlan}>
@@ -131,6 +137,17 @@ export function PlanRecsPage({
               </Button>
             ) : null}
           </VStack>
+        </View>
+      </View>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={[styles.emptyContainer, { padding: contentPadding }]}>
+        <View style={styles.loadingContent}>
+          <ActivityIndicator size="small" color={colors.textSecondary} />
+          <Text style={styles.loadingText}>Loading your plan…</Text>
         </View>
       </View>
     );
@@ -171,22 +188,37 @@ export function PlanRecsPage({
           {recommendations.map((rec) => {
             const start = new Date(rec.proposal.startDate);
             const end = new Date(rec.proposal.endDate);
-            const meta = [rec.arcTitle, rec.goalTitle].filter(Boolean).join(' • ');
+            const isCommittingThis = committingActivityId === rec.activityId;
             return (
               <View key={rec.activityId} style={styles.recCard}>
                 <VStack space={spacing.xs}>
                   <Text style={styles.recTitle}>{rec.title}</Text>
-                  {meta ? <Text style={styles.recMeta}>{meta}</Text> : null}
+                  {rec.goalTitle ? <GoalPill title={rec.goalTitle} /> : null}
                   <Text style={styles.recMeta}>{formatTimeRange(start, end)}</Text>
                   <HStack space={spacing.sm} style={styles.recActions}>
-                    <Button variant="primary" size="sm" onPress={() => onCommit(rec.activityId)}>
-                      Commit
-                    </Button>
-                    <Button variant="secondary" size="sm" onPress={() => handleMovePress(rec.activityId, start)}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={isCommittingAny}
+                        onPress={() => handleMovePress(rec.activityId, start)}
+                      >
                       Move
                     </Button>
-                    <Button variant="ghost" size="sm" onPress={() => onSkip(rec.activityId)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isCommittingAny}
+                        onPress={() => onSkip(rec.activityId)}
+                      >
                       Skip
+                    </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={isCommittingAny}
+                        onPress={() => onCommit(rec.activityId)}
+                      >
+                        {isCommittingThis ? 'Committing…' : 'Commit'}
                     </Button>
                   </HStack>
                 </VStack>
@@ -234,6 +266,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'stretch',
   },
+  loadingContent: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
   emptyContent: {
     width: '100%',
     maxWidth: 520,
@@ -263,6 +307,8 @@ const styles = StyleSheet.create({
   recActions: {
     alignItems: 'center',
     marginTop: spacing.xs,
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
   },
   deferredCard: {
     marginTop: spacing.sm,

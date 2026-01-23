@@ -176,6 +176,21 @@ export function PlanCalendarSettingsScreen() {
     try {
       await ensureSignedInWithPrompt('settings');
       const { authUrl } = await startCalendarConnect(provider);
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(`[calendar] connect(${provider}) authUrl:`, authUrl);
+      }
+      // Guardrail: if the server ever returns a malformed URL (missing redirect_uri),
+      // Microsoft will fail with AADSTS900971 ("No reply address provided").
+      try {
+        const u = new URL(authUrl);
+        if (provider === 'microsoft' && !u.searchParams.get('redirect_uri')) {
+          throw new Error('Missing redirect_uri in Microsoft auth URL');
+        }
+      } catch (e: any) {
+        const msg = typeof e?.message === 'string' ? e.message : 'Invalid auth URL';
+        throw new Error(`Calendar auth misconfigured: ${msg}`);
+      }
       await Linking.openURL(authUrl);
     } catch (err: any) {
       Alert.alert('Unable to connect', typeof err?.message === 'string' ? err.message : 'Please try again.');

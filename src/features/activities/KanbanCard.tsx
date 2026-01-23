@@ -2,6 +2,7 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { VStack, HStack, Text } from '../../ui/primitives';
 import { Icon, type IconName } from '../../ui/Icon';
+import { GoalPill } from '../../ui/GoalPill';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography, fonts } from '../../theme/typography';
@@ -68,14 +69,7 @@ export function KanbanCard({
         <VStack space="xs" style={styles.cardContent}>
           {/* Goal badge */}
           {goalTitle && isFieldVisible('goal') && (
-            <View style={styles.goalPill}>
-              <HStack alignItems="center" space="xs">
-                <Icon name="goals" size={11} color={colors.textSecondary} />
-                <Text style={styles.goalPillText} numberOfLines={1}>
-                  {goalTitle}
-                </Text>
-              </HStack>
-            </View>
+            <GoalPill title={goalTitle} style={styles.goalPill} textStyle={styles.goalPillText} />
           )}
 
         {/* Title row with checkbox */}
@@ -219,20 +213,11 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   goalPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 3,
-    borderRadius: 999,
     marginBottom: 2,
-    backgroundColor: colors.shellAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    maxWidth: '100%',
   },
   goalPillText: {
+    // Keep Kanban's label slightly tighter without diverging pill visuals.
     ...typography.bodyXs,
-    color: colors.textSecondary,
-    flexShrink: 1,
   },
   checkboxHitArea: {
     marginTop: 2,

@@ -118,6 +118,7 @@ import {
   setAttachmentSharedWithGoalMembers,
   stopAudioRecordingAndAttachToActivity,
 } from '../../services/attachments/activityAttachments';
+import { deriveStatusFromSteps } from './activityStepStatus';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 import { listExecutionTargets, type ExecutionTargetRow } from '../../services/executionTargets/executionTargets';
@@ -2451,44 +2452,6 @@ export function ActivityDetailScreen() {
     setTagsInputDraft('');
   };
 
-  const deriveStatusFromSteps = (
-    prevStatus: ActivityStatus,
-    prevSteps: ActivityStep[],
-    nextSteps: ActivityStep[],
-    timestamp: string,
-    prevCompletedAt?: string | null
-  ) => {
-    if (nextSteps.length === 0) {
-      return { nextStatus: prevStatus, nextCompletedAt: prevCompletedAt ?? null };
-    }
-
-    const prevAllStepsComplete = prevSteps.length > 0 && prevSteps.every((s) => !!s.completedAt);
-    const allStepsComplete = nextSteps.length > 0 && nextSteps.every((s) => !!s.completedAt);
-    const anyStepComplete = nextSteps.some((s) => !!s.completedAt);
-
-    let nextStatus: ActivityStatus = prevStatus;
-    if (allStepsComplete) {
-      // Key UX: when a user checks the last step, we auto-mark the activity done once.
-      // But if they later un-mark the activity as not done, we should NOT force it back to done
-      // just because the steps remain checked.
-      if (!prevAllStepsComplete && prevStatus !== 'done') {
-        nextStatus = 'done';
-      } else if (prevStatus === 'done') {
-        nextStatus = 'done';
-      } else {
-        nextStatus = 'in_progress';
-      }
-    } else if (anyStepComplete) {
-      nextStatus = 'in_progress';
-    } else {
-      nextStatus = 'planned';
-    }
-
-    const nextCompletedAt = nextStatus === 'done' ? prevCompletedAt ?? timestamp : null;
-
-    return { nextStatus, nextCompletedAt };
-  };
-
   const applyStepUpdate = (updater: (current: ActivityStep[]) => ActivityStep[]) => {
     // Important: Persisting the app store currently serializes a large object to AsyncStorage.
     // Doing that synchronously in the press handler can delay the visual checkmark update.
@@ -2508,13 +2471,13 @@ export function ActivityDetailScreen() {
         const currentSteps = prev.steps ?? [];
         const nextSteps = updater(currentSteps);
         hadSteps = nextSteps.length > 0;
-        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps(
-          prev.status,
-          currentSteps,
+        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps({
+          prevStatus: prev.status,
+          prevSteps: currentSteps,
           nextSteps,
           timestamp,
-          prev.completedAt
-        );
+          prevCompletedAt: prev.completedAt,
+        });
 
         if (prev.status !== 'done' && nextStatus === 'done') {
           markedDone = true;

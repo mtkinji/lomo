@@ -3,7 +3,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import type { Session } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import { getSupabaseClient } from './supabaseClient';
+import { flushSupabaseAuthStorage, getSupabaseClient } from './supabaseClient';
 import { useAuthPromptStore } from '../../store/useAuthPromptStore';
 import { getSupabaseUrl } from '../../utils/getEnv';
 
@@ -202,10 +202,13 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     }
   }
 
-  // Supabase JS writes the PKCE flow state to storage. AsyncStorage is async,
-  // and if we immediately background the app to open the browser, the write can
-  // race on some devices. A tiny delay makes this far more reliable.
-  await new Promise((r) => setTimeout(r, 150));
+  // Supabase JS writes the PKCE flow state (code verifier/state) to storage.
+  // The library may not await storage writes, and if we immediately background
+  // the app to open the system browser iOS can suspend/kill JS before the write
+  // flushes -> "code verifier should be non-empty" on return.
+  await flushSupabaseAuthStorage();
+  // Small buffer to reduce tail-risk on slower devices / sim.
+  await new Promise((r) => setTimeout(r, 50));
 
   if (__DEV__ && isExpoGo) {
     try {

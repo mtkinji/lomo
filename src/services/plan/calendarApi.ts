@@ -62,6 +62,13 @@ export type CalendarEventRef = CalendarRef & {
   eventId: string;
 };
 
+export type CalendarEvent = CalendarEventRef & {
+  title: string | null;
+  start: string;
+  end: string;
+  isAllDay?: boolean;
+};
+
 async function buildHeaders(requireAuth: boolean): Promise<Headers> {
   const headers = new Headers();
   headers.set('Content-Type', 'application/json');
@@ -118,9 +125,21 @@ async function postJson<T>(fnName: string, body: Record<string, unknown>, requir
       body: JSON.stringify(body),
     });
     const text = await res.text().catch(() => '');
-    const json = text ? JSON.parse(text) : null;
+    // Some edge/CDN layers can return non-JSON bodies (HTML, empty, etc.) even when the
+    // underlying side-effect succeeded. Treat JSON parsing as best-effort so we can
+    // surface a stable error message and allow callers to apply verification strategies.
+    let json: any = null;
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = null;
+      }
+    }
     if (res.ok) {
-      return json as T;
+      // If the body isn't valid JSON, fall back to an empty object. Callers should
+      // defensively handle missing fields (e.g. create_event may still have succeeded).
+      return (json ?? ({} as any)) as T;
     }
     const message = json?.error?.message || `Request failed (${res.status})`;
     lastError = { status: res.status, message, url };
@@ -176,6 +195,107 @@ export async function getCalendarPreferences(): Promise<{
   return await postJson('calendar-api', { action: 'get_preferences' }, true);
 }
 
+/**
+ * Best-effort initializer:
+ * - If the user has never configured calendar prefs, auto-select sensible defaults so
+ *   Plan can show "what's already on the calendar" without extra setup.
+ * - We ONLY run this when both read + write are missing, so we won't override intentional choices.
+ */
+export async function getOrInitCalendarPreferences(): Promise<{
+  readCalendarRefs: CalendarRef[];
+  writeCalendarRef: CalendarRef | null;
+}> {
+  const prefs = await getCalendarPreferences();
+  const existingRead = Array.isArray(prefs.readCalendarRefs) ? prefs.readCalendarRefs : [];
+  const existingWrite = prefs.writeCalendarRef ?? null;
+  const needsRead = existingRead.length === 0;
+  const needsWrite = !existingWrite;
+  // If the user already configured both, never override.
+  if (!needsRead && !needsWrite) return { readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
+
+  // No prefs saved yet; infer defaults from the provider calendar lists.
+  let calendars: CalendarListItem[] = [];
+  try {
+    const res = await listCalendarsWithErrors();
+    calendars = Array.isArray(res.calendars) ? res.calendars : [];
+  } catch {
+    // If we can't list calendars, fall back to empty prefs.
+    return prefs;
+  }
+
+  if (calendars.length === 0) return { readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
+
+  const byAccount = new Map<string, CalendarListItem[]>();
+  for (const c of calendars) {
+    const key = `${c.provider}:${c.accountId}`;
+    byAccount.set(key, [...(byAccount.get(key) ?? []), c]);
+  }
+
+  const inferredReadCalendarRefs: CalendarRef[] = [];
+  let inferredWriteCalendarRef: CalendarRef | null = null;
+
+  for (const [key, itemsRaw] of byAccount.entries()) {
+    const items = (itemsRaw ?? []).filter((c) => !c.hidden);
+    if (items.length === 0) continue;
+    const [provider, accountId] = key.split(':');
+    if ((provider !== 'google' && provider !== 'microsoft') || !accountId) continue;
+
+    const primary =
+      provider === 'google'
+        ? items.find((c) => c.primary)
+        : items.find((c) => c.isDefault);
+
+    const selected = provider === 'google' ? items.filter((c) => c.selected) : [];
+
+    const picked = [
+      ...(primary ? [primary] : []),
+      ...selected,
+      // Fallback: at least one calendar per connected account.
+      ...(primary || selected.length > 0 ? [] : [items[0]]),
+    ]
+      // Deduplicate
+      .filter((c, idx, arr) => arr.findIndex((x) => x.calendarId === c.calendarId) === idx)
+      // Cap per account (avoid selecting dozens of shared calendars by default)
+      .slice(0, 6);
+
+    for (const c of picked) {
+      inferredReadCalendarRefs.push({ provider: c.provider, accountId: c.accountId, calendarId: c.calendarId });
+    }
+
+    // Default write calendar: prefer primary/default if writable, else any writable.
+    if (!inferredWriteCalendarRef) {
+      const writable = items.filter((c) => c.canWrite !== false);
+      const preferredWritable =
+        (primary && primary.canWrite !== false ? primary : null) ?? writable[0] ?? null;
+      if (preferredWritable) {
+        inferredWriteCalendarRef = {
+          provider: preferredWritable.provider,
+          accountId: preferredWritable.accountId,
+          calendarId: preferredWritable.calendarId,
+        };
+      }
+    }
+  }
+
+  const readCalendarRefs = needsRead ? inferredReadCalendarRefs : existingRead;
+  const writeCalendarRef = needsWrite ? inferredWriteCalendarRef : existingWrite;
+
+  if (readCalendarRefs.length === 0 && !writeCalendarRef) {
+    return { readCalendarRefs: existingRead, writeCalendarRef: existingWrite };
+  }
+
+  try {
+    await updateCalendarPreferences({
+      readCalendarRefs,
+      writeCalendarRef,
+    });
+  } catch {
+    // If saving fails, still return inferred values so the UI can proceed.
+  }
+
+  return { readCalendarRefs, writeCalendarRef };
+}
+
 export async function updateCalendarPreferences(params: {
   readCalendarRefs: CalendarRef[];
   writeCalendarRef: CalendarRef | null;
@@ -187,6 +307,18 @@ export async function listBusyIntervals(params: { start: string; end: string; re
   return await postJson<{ intervals: Array<{ start: string; end: string }> }>(
     'calendar-api',
     { action: 'list_busy', ...params },
+    true,
+  );
+}
+
+export async function listCalendarEvents(params: {
+  start: string;
+  end: string;
+  readCalendarRefs?: CalendarRef[];
+}): Promise<{ events: CalendarEvent[]; errors?: string[] }> {
+  return await postJson<{ events: CalendarEvent[]; errors?: string[] }>(
+    'calendar-api',
+    { action: 'list_events', ...params },
     true,
   );
 }

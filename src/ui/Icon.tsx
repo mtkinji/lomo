@@ -129,6 +129,7 @@ const iconMap: Record<string, IconEntry> = {
   redo: { library: 'feather', name: 'rotate-cw' },
   expand: { library: 'feather', name: 'maximize-2' },
   collapse: { library: 'feather', name: 'minimize-2' },
+  externalLink: { library: 'feather', name: 'external-link' },
   // Semantic Sort Icons
   sortAlphaAsc: { library: 'mci', name: 'sort-alphabetical-ascending' },
   sortAlphaDesc: { library: 'mci', name: 'sort-alphabetical-descending' },

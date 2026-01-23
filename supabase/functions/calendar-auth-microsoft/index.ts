@@ -25,7 +25,17 @@ function getEnv(name: string): string | null {
 function buildRedirectUrl(req: Request) {
   const envRedirect = getEnv('MICROSOFT_CALENDAR_REDIRECT_URL');
   if (envRedirect) return envRedirect;
-  return new URL(req.url).toString();
+  // IMPORTANT: `redirect_uri` must match exactly between:
+  // 1) the initial authorize URL, and
+  // 2) the subsequent token exchange.
+  //
+  // On the callback request, `req.url` includes `?code=...&state=...`, which would
+  // make the token request's `redirect_uri` mismatch the original authorize request.
+  // Normalize to a stable origin+path value.
+  const u = new URL(req.url);
+  u.search = '';
+  u.hash = '';
+  return u.toString();
 }
 
 function buildAuthUrl(params: Record<string, string>) {

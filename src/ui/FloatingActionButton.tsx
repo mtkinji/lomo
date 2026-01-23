@@ -3,19 +3,33 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../theme';
+import { typography } from '../theme/typography';
+import { Text } from './Typography';
 
 export interface FloatingActionButtonProps {
   onPress: () => void;
   accessibilityLabel: string;
   icon: ReactNode;
+  badgeCount?: number;
 }
 
 /**
  * Lightweight FAB for primary creation actions.
  * Intentionally matches the existing "floating" treatment used elsewhere (size, shadow, position).
  */
-export function FloatingActionButton({ onPress, accessibilityLabel, icon }: FloatingActionButtonProps) {
+function formatBadgeCount(count: number) {
+  if (count > 99) return '99+';
+  return String(count);
+}
+
+export function FloatingActionButton({
+  onPress,
+  accessibilityLabel,
+  icon,
+  badgeCount,
+}: FloatingActionButtonProps) {
   const insets = useSafeAreaInsets();
+  const showBadge = typeof badgeCount === 'number' && badgeCount > 0;
 
   return (
     <View
@@ -37,6 +51,11 @@ export function FloatingActionButton({ onPress, accessibilityLabel, icon }: Floa
           >
             <View style={styles.iconContainer}>{icon}</View>
           </LinearGradient>
+          {showBadge ? (
+            <View style={styles.badge} pointerEvents="none">
+              <Text style={styles.badgeText}>{formatBadgeCount(badgeCount)}</Text>
+            </View>
+          ) : null}
         </View>
       </Pressable>
     </View>
@@ -82,6 +101,24 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 999,
+    backgroundColor: colors.destructive,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    ...typography.caption,
+    color: colors.primaryForeground,
+    fontWeight: '700',
+    includeFontPadding: false,
   },
   buttonPressed: {
     opacity: 0.9,

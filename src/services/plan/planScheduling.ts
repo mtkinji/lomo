@@ -62,23 +62,25 @@ export function proposeDailyPlan(params: {
   const dayAvailability = getAvailabilityForDate(userProfile, targetDate);
   if (!dayAvailability.enabled) return [];
 
+  const now = new Date();
+  const isToday =
+    targetDate.getFullYear() === now.getFullYear() &&
+    targetDate.getMonth() === now.getMonth() &&
+    targetDate.getDate() === now.getDate();
+
   const ranked = getSuggestedActivitiesRanked({
     activities,
     goals,
     arcs,
-    now: new Date(),
+    // For non-today days, anchor ranking to the target day (so "what's next" can vary by day).
+    // Using midday avoids edge cases around midnight/timezone boundaries.
+    now: isToday ? now : new Date(new Date(targetDate).setHours(12, 0, 0, 0)),
     limit: Math.max(10, maxItems * 3),
   });
 
   const proposals: DailyPlanProposal[] = [];
   const busy = normalizeBusy(busyIntervals);
-  const now = new Date();
   const startCursor = clampToNextQuarterHour(now);
-
-  const isToday =
-    targetDate.getFullYear() === now.getFullYear() &&
-    targetDate.getMonth() === now.getMonth() &&
-    targetDate.getDate() === now.getDate();
 
   for (const activity of ranked) {
     if (proposals.length >= maxItems) break;
