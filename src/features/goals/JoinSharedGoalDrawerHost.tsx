@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Share, StyleSheet, View } from 'react-native';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { IconButton, Button } from '../../ui/Button';
-import { Icon } from '../../ui/Icon';
-import { Heading, Text, VStack } from '../../ui/primitives';
+import { Button } from '../../ui/Button';
+import { Text, VStack } from '../../ui/primitives';
+import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
 import { colors, spacing, typography } from '../../theme';
 import { acceptGoalInvite, previewGoalInvite } from '../../services/invites';
 import { useJoinSharedGoalDrawerStore } from '../../store/useJoinSharedGoalDrawerStore';
@@ -197,12 +197,11 @@ export function JoinSharedGoalDrawerHost() {
       handleStyle={styles.handle}
     >
       <View style={styles.surface}>
-        <View style={styles.headerRow}>
-          <Heading style={styles.headerTitle}>Join shared goal</Heading>
-          <IconButton accessibilityLabel="Close" onPress={close} variant="ghost">
-            <Icon name="close" size={18} color={colors.textPrimary} />
-          </IconButton>
-        </View>
+        <BottomDrawerHeader
+          title="Join shared goal"
+          rightAction={<BottomDrawerHeaderClose onPress={close} />}
+          titleStyle={styles.headerTitle}
+        />
 
         {previewBusy ? (
           <Text style={styles.subtle}>Loading invite details…</Text>
@@ -262,14 +261,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   headerTitle: {
-    flex: 1,
-    paddingRight: spacing.md,
+    textAlign: 'left',
   },
   body: {
     color: colors.textPrimary,

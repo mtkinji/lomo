@@ -1,6 +1,7 @@
 import * as DropdownMenuPrimitive from '@rn-primitives/dropdown-menu';
 import * as React from 'react';
 import {
+  useWindowDimensions,
   Platform,
   StyleSheet,
   Text,
@@ -98,6 +99,15 @@ function DropdownMenuContent({
   overlayStyle?: StyleProp<ViewStyle>;
   portalHost?: string;
 }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const MENU_SIDE_GUTTER_PX = spacing.lg;
+  const ABSOLUTE_MAX_MENU_WIDTH_PX = 360;
+  const resolvedMaxWidthPx = Math.min(
+    ABSOLUTE_MAX_MENU_WIDTH_PX,
+    // Keep the menu off the screen edges (and never below our minWidth).
+    Math.max(styles.content.minWidth ?? 0, windowWidth - MENU_SIDE_GUTTER_PX * 2),
+  );
+
   const resolvedOverlayStyle = StyleSheet.flatten([StyleSheet.absoluteFillObject, overlayStyle]) as any;
   return (
     <DropdownMenuPrimitive.Portal hostName={portalHost}>
@@ -110,7 +120,9 @@ function DropdownMenuContent({
             exiting={motion.menu.exiting}
           >
             <DropdownMenuPrimitive.Content
-              style={[styles.content, style] as any}
+              // Default cap so menus can expand for longer labels, but never become awkwardly wide.
+              // Note: `style` prop can override maxWidth (Combobox/ObjectPicker already do).
+              style={[styles.content, { maxWidth: resolvedMaxWidthPx }, style] as any}
               side={side}
               align={align}
               sideOffset={sideOffset}
@@ -239,7 +251,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
-    minWidth: 224,
+    minWidth: 260,
     ...cardElevation.overlay,
   },
   item: {

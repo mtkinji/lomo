@@ -15,8 +15,6 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
-import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -24,8 +22,7 @@ import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
-import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
-import { openRootDrawer } from '../../navigation/openDrawer';
+import type { GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useToastStore } from '../../store/useToastStore';
 import { usePaywallStore } from '../../store/usePaywallStore';
@@ -122,14 +119,8 @@ const GOAL_FORCE_LABELS: Record<(typeof GOAL_FORCE_ORDER)[number], string> = {
 
 export function GoalsScreen() {
   const { capture } = useAnalytics();
-  const navigation =
-    useNavigation<
-      NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'> &
-        DrawerNavigationProp<RootDrawerParamList>
-    >();
+  const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'>>();
   const route = useRoute<RouteProp<GoalsStackParamList, 'GoalsList'>>();
-  const drawerStatus = useDrawerStatus();
-  const menuOpen = drawerStatus === 'open';
   const insets = useSafeAreaInsets();
 
   const goals = useAppStore((state) => state.goals);
@@ -371,10 +362,6 @@ export function GoalsScreen() {
         title="Goals"
         //Add this to the page header if you want to wrap the title in a large badge with the icon
         // boxedTitle
-        menuOpen={menuOpen}
-        onPressMenu={() => {
-          openRootDrawer(navigation as DrawerNavigationProp<RootDrawerParamList>);
-        }}
         rightElement={
           <DropdownMenu>
             <DropdownMenuTrigger accessibilityLabel="Goal list options">
@@ -382,7 +369,7 @@ export function GoalsScreen() {
                 <IconButton
                   accessibilityRole="button"
                   accessibilityLabel="Goal list options"
-                  variant="outline"
+                  variant="ghost"
                 >
                   <Icon name="more" size={18} color={colors.textPrimary} />
                 </IconButton>

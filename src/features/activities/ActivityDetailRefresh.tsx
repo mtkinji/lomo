@@ -11,6 +11,7 @@ import { NarrativeEditableTitle, type NarrativeEditableTitleRef } from '../../ui
 import { LongTextField } from '../../ui/LongTextField';
 import { Badge } from '../../ui/Badge';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
+import { menuItemTextProps } from '../../ui/menuStyles';
 import type { ActivityDifficulty, ActivityType } from '../../domain/types';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
@@ -379,7 +380,7 @@ export function ActivityDetailRefresh(props: any) {
                       </HeaderActionPill>
                     </View>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                     <DropdownMenuItem
                       onPress={() => {
                         onPressEditHeaderImage?.();
@@ -449,7 +450,10 @@ export function ActivityDetailRefresh(props: any) {
                       id: 'arcs',
                       label: 'Arcs',
                       onPress: () =>
-                        rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' }),
+                        rootNavigationRef.navigate('MainTabs', {
+                          screen: 'MoreTab',
+                          params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+                        }),
                     },
                     ...(arc?.id
                       ? [
@@ -457,9 +461,12 @@ export function ActivityDetailRefresh(props: any) {
                             id: 'arc',
                             label: arc?.name ?? 'Arc',
                             onPress: () =>
-                              rootNavigationRef.navigate('ArcsStack', {
-                                screen: 'ArcDetail',
-                                params: { arcId: arc.id },
+                              rootNavigationRef.navigate('MainTabs', {
+                                screen: 'MoreTab',
+                                params: {
+                                  screen: 'MoreArcs',
+                                  params: { screen: 'ArcDetail', params: { arcId: arc.id } },
+                                },
                               }),
                           },
                         ]
@@ -512,7 +519,7 @@ export function ActivityDetailRefresh(props: any) {
                       </IconButton>
                     </View>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                     <DropdownMenuItem
                       onPress={() => {
                         onPressEditHeaderImage?.();
@@ -838,7 +845,7 @@ export function ActivityDetailRefresh(props: any) {
                                 <Icon name="more" size={16} color={colors.textSecondary} />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 260 }}>
+                            <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                               {isLinked ? (
                                 <>
                                   {linkedActivityId && linkedActivity ? (
@@ -1512,7 +1519,9 @@ export function ActivityDetailRefresh(props: any) {
                           >
                             <HStack space="sm" alignItems="center">
                               <Icon name="image" size={16} color={colors.textSecondary} />
-                              <Text style={styles.menuItemText}>Photo / Video</Text>
+                              <Text style={styles.menuItemText} {...menuItemTextProps}>
+                                Photo / Video
+                              </Text>
                             </HStack>
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -1522,7 +1531,9 @@ export function ActivityDetailRefresh(props: any) {
                           >
                             <HStack space="sm" alignItems="center">
                               <Icon name="mic" size={16} color={colors.textSecondary} />
-                              <Text style={styles.menuItemText}>Record audio</Text>
+                              <Text style={styles.menuItemText} {...menuItemTextProps}>
+                                Record audio
+                              </Text>
                             </HStack>
                           </DropdownMenuItem>
                         </DropdownMenuContent>

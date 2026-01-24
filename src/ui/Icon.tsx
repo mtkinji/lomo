@@ -60,6 +60,7 @@ const iconMap: Record<string, IconEntry> = {
   arrowLeft: { library: 'feather', name: 'arrow-left' },
   plus: { library: 'feather', name: 'plus' },
   more: { library: 'feather', name: 'more-horizontal' },
+  settings: { library: 'feather', name: 'settings' },
   goals: { library: 'feather', name: 'target' },
   target: { library: 'feather', name: 'target' },
   inbox: { library: 'feather', name: 'inbox' },

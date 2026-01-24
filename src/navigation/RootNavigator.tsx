@@ -69,6 +69,8 @@ import { Button } from '../ui/Button';
 import { rootNavigationRef } from './rootNavigationRef';
 import { KwiltBottomBar } from './KwiltBottomBar';
 import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen';
+import { MoreScreen } from '../features/more/MoreScreen';
+import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { PLACE_TABS } from './placeTabs';
 import type {
   ActivityDetailRouteParams,
@@ -79,7 +81,18 @@ import type {
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
+  /**
+   * Compatibility route name used by existing deep links + callers.
+   *
+   * Arcs now lives under the More tab, so this route keeps direct access
+   * to the Arcs stack without relying on tab navigation.
+   */
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
+  /**
+   * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
+   * allow programmatic launches even though the "Agent" tab has been removed.
+   */
+  Agent: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {
@@ -121,11 +134,25 @@ export type MainTabsParamList = {
         openRecommendations?: boolean;
       }
     | undefined;
-  AgentTab: undefined;
+  MoreTab: NavigatorScreenParams<MoreStackParamList> | undefined;
+};
+
+export type MoreStackParamList = {
+  MoreHome: undefined;
+  MoreArcs: NavigatorScreenParams<ArcsStackParamList> | undefined;
+  MoreChapters: undefined;
 };
 
 export type ArcsStackParamList = {
-  ArcsList: undefined;
+  ArcsList:
+    | {
+        /**
+         * When true, open the Arc creation flow on entry.
+         * Used by the floating bottom bar primary action on the Arcs tab.
+         */
+        openCreateArc?: boolean;
+      }
+    | undefined;
   ArcDraftContinue: undefined;
   ArcDetail: {
     arcId: string;
@@ -206,6 +233,7 @@ const ActivitiesStack = createNativeStackNavigator<ActivitiesStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 const Drawer = createDrawerNavigator<RootDrawerParamList>();
 const Tabs = createBottomTabNavigator<MainTabsParamList>();
+const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 // Match the AppShell's top gutter so the drawer content aligns with the page header.
 const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // Bump this key whenever the top-level navigator structure changes in a way
@@ -214,7 +242,7 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // This ensures we don't restore stale navigation state that can prevent certain
 // screens (like Arcs or Goals) from being reachable or animating correctly.
 // Prefix with "kwilt" so new installs don't carry any legacy LOMO state keys.
-const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v2';
+const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v4';
 
 const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
   headerShown: false,
@@ -416,6 +444,13 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             PlanTab: {
               path: 'plan',
             },
+            MoreTab: {
+              screens: {
+                MoreHome: {
+                  path: 'more',
+                },
+              },
+            },
             AgentTab: {
               path: 'agent',
             },
@@ -551,7 +586,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         />
         <Drawer.Screen
           name="ArcsStack"
-          component={ArcsStackNavigator}
+          component={ArcsStackRedirectScreen}
           options={{ title: 'Arcs' }}
         />
         {showDevTools && (
@@ -642,6 +677,24 @@ function ArcsStackNavigator() {
   );
 }
 
+function ArcsStackRedirectScreen({ navigation, route }: any) {
+  useEffect(() => {
+    const arcsParams =
+      route?.params && typeof route.params === 'object' && 'screen' in route.params
+        ? route.params
+        : { screen: 'ArcsList', params: route?.params };
+    navigation.navigate('MainTabs', {
+      screen: 'MoreTab',
+      params: {
+        screen: 'MoreArcs',
+        params: arcsParams,
+      },
+    });
+  }, [navigation, route?.params]);
+
+  return null;
+}
+
 function GoalsStackNavigator() {
   return (
     <GoalsStack.Navigator
@@ -719,11 +772,21 @@ function MainTabsNavigator() {
         options={{ title: 'Plan' }}
       />
       <Tabs.Screen
-        name="AgentTab"
-        component={AiChatScreen}
-        options={{ title: 'Agent' }}
+        name="MoreTab"
+        component={MoreStackNavigator}
+        options={{ title: 'More' }}
       />
     </Tabs.Navigator>
+  );
+}
+
+function MoreStackNavigator() {
+  return (
+    <MoreStack.Navigator screenOptions={{ headerShown: false }}>
+      <MoreStack.Screen name="MoreHome" component={MoreScreen} />
+      <MoreStack.Screen name="MoreArcs" component={ArcsStackNavigator} />
+      <MoreStack.Screen name="MoreChapters" component={ChaptersScreen} />
+    </MoreStack.Navigator>
   );
 }
 
@@ -842,10 +905,9 @@ function KwiltDrawerContent(props: any) {
       route.name !== 'MainTabs' &&
       route.name !== 'Settings' &&
       route.name !== 'DevArcTestingResults' &&
-      route.name !== 'DevTools',
+      route.name !== 'DevTools' &&
+      route.name !== 'ArcsStack', // ArcsStack is shown via PLACE_TABS, so exclude it from main routes
   );
-  const arcsRoute = mainRoutes.find((route: { name: string }) => route.name === 'ArcsStack');
-  const remainingMainRoutes = mainRoutes.filter((route: { name: string }) => route.name !== 'ArcsStack');
 
   const getActivePlaceTab = (): string | undefined => {
     if (activeRouteName !== 'MainTabs') return undefined;
@@ -931,28 +993,6 @@ function KwiltDrawerContent(props: any) {
       <View style={styles.drawerLayout}>
         <View style={styles.drawerTop}>
           <View style={styles.drawerMainItems}>
-              {!!arcsRoute && (
-                <DrawerItem
-                  key={arcsRoute.key}
-                  testID="nav.drawer.item.ArcsStack"
-                  label={getDrawerLabel(arcsRoute)}
-                  focused={arcsRoute.key === activeRoute?.key}
-                  onPress={() => navigateFromDrawer('ArcsStack')}
-                  icon={({ color, size }) => (
-                    <Icon
-                      name={getDrawerIcon('ArcsStack')}
-                      color={color}
-                      size={DRAWER_ICON_SIZE ?? size ?? 20}
-                    />
-                  )}
-                  activeTintColor={colors.parchment}
-                  inactiveTintColor={colors.textSecondary}
-                  activeBackgroundColor={colors.pine700}
-                  inactiveBackgroundColor="transparent"
-                  labelStyle={styles.drawerLabel}
-                  style={styles.drawerItem}
-                />
-              )}
               {PLACE_TABS.map((tab) => {
                 const focused = activeRouteName === 'MainTabs' && activePlaceTabName === tab.name;
                 return (
@@ -974,7 +1014,7 @@ function KwiltDrawerContent(props: any) {
                   />
                 );
               })}
-            {remainingMainRoutes.map((route: { key: string; name: keyof RootDrawerParamList }) => {
+            {mainRoutes.map((route: { key: string; name: keyof RootDrawerParamList }) => {
               const focused = route.key === activeRoute?.key;
               const label = getDrawerLabel(route);
               const iconName = getDrawerIcon(route.name);

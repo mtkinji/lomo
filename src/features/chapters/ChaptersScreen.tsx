@@ -1,18 +1,14 @@
 import { StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
-import type { DrawerNavigationProp } from '@react-navigation/drawer';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
-import type { RootDrawerParamList } from '../../navigation/RootNavigator';
-import { openRootDrawer } from '../../navigation/openDrawer';
+import type { MoreStackParamList } from '../../navigation/RootNavigator';
 import { VStack, Heading, Text, EmptyState } from '../../ui/primitives';
 
 export function ChaptersScreen() {
-  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const drawerStatus = useDrawerStatus();
-  const menuOpen = drawerStatus === 'open';
+  const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList, 'MoreChapters'>>();
 
   return (
     <AppShell>
@@ -20,8 +16,13 @@ export function ChaptersScreen() {
         title="Chapters"
         iconName="chapters"
         iconTone="chapter"
-        menuOpen={menuOpen}
-        onPressMenu={() => openRootDrawer(navigation)}
+        onPressBack={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+            return;
+          }
+          navigation.navigate('MoreHome');
+        }}
       />
       <VStack space="lg">
         <EmptyState

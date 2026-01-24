@@ -92,6 +92,10 @@ export type ActivitiesListRouteParams = {
    * Example: `kwilt://today?source=widget`
    */
   source?: string;
+  /**
+   * When true, open the Activities search drawer on mount.
+   */
+  openSearch?: boolean;
 };
 
 export type JoinSharedGoalRouteParams = {

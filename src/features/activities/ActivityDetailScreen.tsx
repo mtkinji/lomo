@@ -67,6 +67,7 @@ import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { LongTextField } from '../../ui/LongTextField';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
@@ -561,9 +562,9 @@ export function ActivityDetailScreen() {
       },
       {
         value: 'instructions',
-        label: 'Recipe / instructions',
+        label: 'Instructions',
         keywords: ['recipe', 'instructions', 'how-to', 'steps'],
-        leftElement: <Icon name="chapters" size={16} color={colors.textSecondary} />,
+        leftElement: <Icon name="fileText" size={16} color={colors.textSecondary} />,
       },
       {
         value: 'plan',
@@ -2023,12 +2024,18 @@ export function ActivityDetailScreen() {
             durationMs: 4000,
             actionLabel: 'Check in',
             actionOnPress: () => {
-              rootNavigationRef.navigate('ArcsStack', {
-                screen: 'GoalDetail',
+              rootNavigationRef.navigate('MainTabs', {
+                screen: 'MoreTab',
                 params: {
-                  goalId: activityGoalId,
-                  entryPoint: 'activitiesStack',
-                  openActivitySheet: true,
+                  screen: 'MoreArcs',
+                  params: {
+                    screen: 'GoalDetail',
+                    params: {
+                      goalId: activityGoalId,
+                      entryPoint: 'activitiesStack',
+                      openActivitySheet: true,
+                    },
+                  },
                 },
               });
             },
@@ -2816,12 +2823,18 @@ export function ActivityDetailScreen() {
                 durationMs: 4000,
                 actionLabel: 'Check in',
                 actionOnPress: () => {
-                  rootNavigationRef.navigate('ArcsStack', {
-                    screen: 'GoalDetail',
+                  rootNavigationRef.navigate('MainTabs', {
+                    screen: 'MoreTab',
                     params: {
-                      goalId: activityGoalId,
-                      entryPoint: 'activitiesStack',
-                      openActivitySheet: true,
+                      screen: 'MoreArcs',
+                      params: {
+                        screen: 'GoalDetail',
+                        params: {
+                          goalId: activityGoalId,
+                          entryPoint: 'activitiesStack',
+                          openActivitySheet: true,
+                        },
+                      },
                     },
                   });
                 },
@@ -3962,7 +3975,12 @@ export function ActivityDetailScreen() {
           contentContainerStyle={styles.sheetContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.sheetTitle}>Remind me</Text>
+          <BottomDrawerHeader
+            title="Remind me"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="sm">
             <SheetOption
               testID="e2e.activityDetail.reminder.laterToday"
@@ -4021,7 +4039,12 @@ export function ActivityDetailScreen() {
           contentContainerStyle={styles.sheetContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.sheetTitle}>Due</Text>
+          <BottomDrawerHeader
+            title="Due"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="sm">
             <SheetOption testID="e2e.activityDetail.dueDate.today" label="Today" onPress={() => handleSelectDueDate(0)} />
             <SheetOption testID="e2e.activityDetail.dueDate.tomorrow" label="Tomorrow" onPress={() => handleSelectDueDate(1)} />
@@ -4053,7 +4076,12 @@ export function ActivityDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Repeat</Text>
+          <BottomDrawerHeader
+            title="Repeat"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="sm">
             <SheetOption testID="e2e.activityDetail.repeat.daily" label="Daily" onPress={() => handleSelectRepeat('daily')} />
             <SheetOption testID="e2e.activityDetail.repeat.weekly" label="Weekly" onPress={() => handleSelectRepeat('weekly')} />
@@ -4094,7 +4122,12 @@ export function ActivityDetailScreen() {
           ) : (
             <PortalHost name={LOCATION_SHEET_PORTAL_HOST} />
           )}
-          <Text style={styles.sheetTitle}>Location</Text>
+          <BottomDrawerHeader
+            title="Location"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
 
           {locationStatusHint ? (
             <Text style={[styles.sheetRowSubtext, { marginTop: spacing.xs }]}>{locationStatusHint}</Text>
@@ -4254,10 +4287,14 @@ export function ActivityDetailScreen() {
                     align="start"
                   >
                     <DropdownMenuItem onPress={() => setLocationTriggerDraft('leave')}>
-                      <Text style={styles.menuRowText}>When I leave</Text>
+                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                        When I leave
+                      </Text>
                     </DropdownMenuItem>
                     <DropdownMenuItem onPress={() => setLocationTriggerDraft('arrive')}>
-                      <Text style={styles.menuRowText}>When I enter</Text>
+                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                        When I enter
+                      </Text>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -4291,7 +4328,9 @@ export function ActivityDetailScreen() {
                           setLocationRadiusMetersDraft(ft * 0.3048);
                         }}
                       >
-                        <Text style={styles.menuRowText}>{ft} feet</Text>
+                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          {ft} feet
+                        </Text>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -4593,7 +4632,12 @@ export function ActivityDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Duration</Text>
+          <BottomDrawerHeader
+            title="Duration"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="md">
             <DurationPicker
               valueMinutes={estimateDraftMinutes}
@@ -4647,7 +4691,12 @@ export function ActivityDetailScreen() {
           >
             <VStack space="md">
               <View>
-                <Text style={styles.sheetTitle}>Focus mode</Text>
+                <BottomDrawerHeader
+                  title="Focus mode"
+                  variant="minimal"
+                  containerStyle={styles.sheetHeader}
+                  titleStyle={styles.sheetTitle}
+                />
                 <Text style={styles.sheetDescription}>
                   Start a distraction-free timer for this activity. Pick a duration, then tap Start.
                 </Text>
@@ -4760,7 +4809,9 @@ export function ActivityDetailScreen() {
                           setSoundscapeTrackId(s.id);
                         }}
                       >
-                        <Text style={styles.menuRowText}>{s.title}</Text>
+                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                          {s.title}
+                        </Text>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -4806,12 +4857,13 @@ export function ActivityDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={[styles.sheetContent, styles.scheduleSheetContent]}>
-          <HStack justifyContent="space-between" alignItems="center" style={{ marginBottom: spacing.xs }}>
-            <Text style={styles.sheetTitle}>Schedule activity</Text>
-            <IconButton accessibilityLabel="Close" variant="ghost" onPress={() => setActiveSheet(null)}>
-              <Icon name="close" size={18} color={colors.textPrimary} />
-            </IconButton>
-          </HStack>
+          <BottomDrawerHeader
+            title="Schedule activity"
+            variant="withClose"
+            onClose={() => setActiveSheet(null)}
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <Text style={styles.sheetDescription}>Adds a block to your Plan calendar.</Text>
           {calendarBindingHealth && calendarBindingHealth !== 'healthy' ? (
             <Text style={[styles.sheetDescription, { color: colors.warning, marginTop: spacing.sm }]}>
@@ -5130,7 +5182,12 @@ export function ActivityDetailScreen() {
             if (!att) {
               return (
                 <>
-                  <Text style={styles.sheetTitle}>Attachment</Text>
+                  <BottomDrawerHeader
+                    title="Attachment"
+                    variant="minimal"
+                    containerStyle={styles.sheetHeader}
+                    titleStyle={styles.sheetTitle}
+                  />
                   <Text style={styles.sheetBody}>No attachment selected.</Text>
                 </>
               );
@@ -5206,7 +5263,12 @@ export function ActivityDetailScreen() {
                   )}
                 </View>
 
-                <Text style={styles.sheetTitle}>{name}</Text>
+                <BottomDrawerHeader
+                  title={name}
+                  variant="minimal"
+                  containerStyle={styles.sheetHeader}
+                  titleStyle={styles.sheetTitle}
+                />
                 <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
                   {kindLabel}
                   {sizeBytes ? ` · ${formatBytes(sizeBytes)}` : ''}
@@ -5305,7 +5367,12 @@ export function ActivityDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Record audio</Text>
+          <BottomDrawerHeader
+            title="Record audio"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
             Record a quick voice note and attach it to this activity.
           </Text>
@@ -5377,7 +5444,12 @@ export function ActivityDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Send to…</Text>
+          <BottomDrawerHeader
+            title="Send to…"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           {(() => {
             const type = (activity?.type ?? 'task') as any;
             const supported = installedDestinations

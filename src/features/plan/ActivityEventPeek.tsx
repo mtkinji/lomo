@@ -11,6 +11,7 @@ import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Icon } from '../../ui/Icon';
 import { Badge } from '../../ui/Badge';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
 import { ActivityPeekNotes, ActivityPeekSteps, ActivityPeekTags } from '../activities/ActivityPeekFields';
 import { deriveStatusFromSteps } from '../activities/activityStepStatus';
 
@@ -250,14 +251,11 @@ export function ActivityEventPeek({
   if (!activity) {
     return (
       <View style={styles.container}>
-        <View style={styles.headerRow}>
-          <Heading style={styles.headerTitle} variant="sm">
-            Scheduled
-          </Heading>
-          <IconButton accessibilityLabel="Close" onPress={onRequestClose} variant="ghost">
-            <Icon name="close" size={18} color={colors.textPrimary} />
-          </IconButton>
-        </View>
+        <BottomDrawerHeader
+          title="Scheduled"
+          rightAction={<BottomDrawerHeaderClose onPress={onRequestClose} />}
+          titleStyle={styles.headerTitle}
+        />
         <Text style={styles.bodyText}>This activity can’t be found.</Text>
       </View>
     );
@@ -270,14 +268,11 @@ export function ActivityEventPeek({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.headerRow}>
-        <Heading style={styles.headerTitle} variant="sm">
-          Scheduled
-        </Heading>
-        <IconButton accessibilityLabel="Close" onPress={onRequestClose} variant="ghost">
-          <Icon name="close" size={18} color={colors.textPrimary} />
-        </IconButton>
-      </View>
+      <BottomDrawerHeader
+        title="Scheduled"
+        rightAction={<BottomDrawerHeaderClose onPress={onRequestClose} />}
+        titleStyle={styles.headerTitle}
+      />
 
       <VStack space={spacing.md}>
         <View style={styles.summaryCard}>
@@ -429,15 +424,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing['2xl'],
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: spacing.sm,
-  },
   headerTitle: {
-    flex: 1,
-    paddingRight: spacing.md,
+    textAlign: 'left',
   },
   summaryCard: {
     ...cardSurfaceStyle,

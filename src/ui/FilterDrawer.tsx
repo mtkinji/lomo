@@ -3,9 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import { BottomDrawer } from './BottomDrawer';
 import { Card } from './Card';
 import { VStack, HStack } from './Stack';
-import { Text, Heading, ButtonLabel } from './Typography';
+import { Text, ButtonLabel } from './Typography';
 import { Button, IconButton } from './Button';
 import { Icon } from './Icon';
+import { BottomDrawerHeader } from './layout/BottomDrawerHeader';
 import { ObjectPicker, ObjectPickerOption } from './ObjectPicker';
 import { Input } from './Input';
 import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
@@ -254,12 +255,23 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
     onClose();
   };
 
+  const handleClearAll = () => {
+    setLocalGroups([]);
+    setLocalGroupLogic(initialGroupLogic);
+  };
+
+  const hasAnyFilters = localGroups.length > 0;
+
   return (
     <BottomDrawer visible={visible} onClose={onClose} snapPoints={['95%']} keyboardAvoidanceEnabled={false}>
       <VStack flex={1} style={styles.container}>
-        <View style={styles.header}>
-          <Heading variant="sm">Filter Activities</Heading>
-        </View>
+        <BottomDrawerHeader
+          title="Filter Activities"
+          containerStyle={styles.header}
+          titleStyle={styles.headerTitle}
+          variant="withClose"
+          onClose={onClose}
+        />
 
         <KeyboardAwareScrollView
           style={styles.scroll}
@@ -384,15 +396,26 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
         </KeyboardAwareScrollView>
 
         {/* Footer anchored to bottom */}
-        <HStack space="md" style={styles.footer} justifyContent="flex-end">
-          <Button variant="ghost" onPress={onClose}>
-            <ButtonLabel size="md">Cancel</ButtonLabel>
+        <HStack style={styles.footer} justifyContent="space-between" alignItems="center">
+          <Button
+            variant="ghost"
+            onPress={handleClearAll}
+            disabled={!hasAnyFilters}
+            accessibilityLabel="Clear all filters"
+          >
+            <ButtonLabel size="md">Clear all</ButtonLabel>
           </Button>
-          <Button onPress={handleApply}>
-            <ButtonLabel size="md" tone="inverse">
-              Apply
-            </ButtonLabel>
-          </Button>
+
+          <HStack space="md" justifyContent="flex-end">
+            <Button variant="ghost" onPress={onClose}>
+              <ButtonLabel size="md">Cancel</ButtonLabel>
+            </Button>
+            <Button onPress={handleApply}>
+              <ButtonLabel size="md" tone="inverse">
+                Apply
+              </ButtonLabel>
+            </Button>
+          </HStack>
         </HStack>
       </VStack>
     </BottomDrawer>
@@ -507,6 +530,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.md,
   },
+  headerTitle: {
+    textAlign: 'left',
+  },
   scroll: {
     flex: 1,
   },
@@ -568,14 +594,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.shell,
-    shadowColor: colors.textPrimary,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
+    // Let the BottomDrawer sheet provide the surface styling (background, elevation).
+    // Avoid a "separate white footer bar" treatment.
   },
 });
 

@@ -94,6 +94,8 @@ export function PlanPager({
   } | null>(null);
   const [proposals, setProposals] = useState<DailyPlanProposal[]>([]);
   const [unplacedDueActivityIds, setUnplacedDueActivityIds] = useState<string[]>([]);
+  const [hasLoadedProposalsOnce, setHasLoadedProposalsOnce] = useState(false);
+  const prevDateKeyRef = useRef<string | null>(null);
   const [committingActivityId, setCommittingActivityId] = useState<string | null>(null);
   const [commitSuccessGuideVisible, setCommitSuccessGuideVisible] = useState(false);
   const [peekSelection, setPeekSelection] = useState<
@@ -146,15 +148,23 @@ export function PlanPager({
     [controlledSheetSnapIndex, onRecommendationsSheetSnapIndexChange],
   );
 
+  const lastPreferencesRefreshRef = useRef<number>(0);
+
   const refreshPreferences = useCallback(async () => {
     const prefs = await getOrInitCalendarPreferences();
     setReadRefs(prefs.readCalendarRefs ?? []);
     setWriteRef(prefs.writeCalendarRef ?? null);
     setCalendarError(null);
+    lastPreferencesRefreshRef.current = Date.now();
   }, []);
 
   useEffect(() => {
     if (!recommendationsDrawerVisible) return;
+    // Only refresh if preferences haven't been refreshed recently (within last 2 seconds).
+    // This prevents redundant refreshes when the drawer opens shortly after navigating to the screen.
+    const timeSinceLastRefresh = Date.now() - lastPreferencesRefreshRef.current;
+    if (timeSinceLastRefresh < 2000) return;
+
     // Guardrail: if the user opens the recommendations drawer after changing calendar settings,
     // ensure we aren't using stale prefs (PlanPager remains mounted across navigation).
     let active = true;
@@ -422,11 +432,24 @@ export function PlanPager({
   }, [calendarError, readRefs, targetDate, kwiltBlocks, prefetched, prefetchStatus]);
 
   useEffect(() => {
+    // Reset the "loaded once" flag when the date changes so we show proper loading for the new day
+    if (prevDateKeyRef.current !== dateKey) {
+      setHasLoadedProposalsOnce(false);
+      prevDateKeyRef.current = dateKey;
+    }
+  }, [dateKey]);
+
+  useEffect(() => {
     // Avoid showing stale proposals from the previous day while we fetch this day's calendar data.
     // We'll re-propose once busy intervals are loaded.
     if (busyIntervalsStatus !== 'ready') {
-      setProposals([]);
-      setUnplacedDueActivityIds([]);
+      // Only clear proposals if we haven't loaded them yet (initial load or date change).
+      // On subsequent reloads (e.g., when returning to the screen), keep the previous
+      // proposals visible to avoid flashing empty state.
+      if (!hasLoadedProposalsOnce) {
+        setProposals([]);
+        setUnplacedDueActivityIds([]);
+      }
       return;
     }
     const dismissedForDay = dailyActivityResolutions?.[dateKey]?.dismissedActivityIds ?? [];
@@ -443,6 +466,7 @@ export function PlanPager({
     });
     setProposals(next.proposals);
     setUnplacedDueActivityIds(next.unplacedDueActivityIds);
+    setHasLoadedProposalsOnce(true);
   }, [
     activities,
     goals,
@@ -454,6 +478,7 @@ export function PlanPager({
     busyIntervalsStatus,
     dateKey,
     dailyActivityResolutions,
+    hasLoadedProposalsOnce,
   ]);
 
   const handleDismissForToday = useCallback(

@@ -1,8 +1,6 @@
 import React from 'react';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
-import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   FlatList,
@@ -34,11 +32,7 @@ import { DraggableList } from '../../ui/DraggableList';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
-import type {
-  ActivitiesStackParamList,
-  RootDrawerParamList,
-} from '../../navigation/RootNavigator';
-import { openRootDrawer } from '../../navigation/openDrawer';
+import type { ActivitiesStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import {
@@ -83,6 +77,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
+import { menuItemTextProps } from '../../ui/menuStyles';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { Coachmark } from '../../ui/Coachmark';
@@ -97,6 +92,7 @@ import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDe
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
 import { CompletedActivitySection } from './CompletedActivitySection';
 import { ViewMenuItem } from './ViewMenuItem';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { useActivityListData } from './hooks/useActivityListData';
 import type {
   Activity,
@@ -113,6 +109,7 @@ import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBotto
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
+import { ActivitySearchDrawer } from './ActivitySearchDrawer';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
@@ -192,14 +189,9 @@ const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
 
 export function ActivitiesScreen() {
   const isFocused = useIsFocused();
-  const navigation = useNavigation<
-    NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'> &
-      DrawerNavigationProp<RootDrawerParamList>
-  >();
+  const navigation = useNavigation<NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'>>();
   const route = useRoute<RouteProp<ActivitiesStackParamList, 'ActivitiesList'>>();
   const insets = useSafeAreaInsets();
-  const drawerStatus = useDrawerStatus();
-  const menuOpen = drawerStatus === 'open';
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
   const widgetNudgesEnabled = useFeatureFlag('widget_nudges_enabled', false);
@@ -261,6 +253,7 @@ export function ActivitiesScreen() {
 
   const [filterDrawerVisible, setFilterDrawerVisible] = React.useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = React.useState(false);
+  const [searchDrawerVisible, setSearchDrawerVisible] = React.useState(false);
 
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
   const quickAddFocusedRef = React.useRef(false);
@@ -373,6 +366,16 @@ export function ActivitiesScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(route.params as any)?.contextGoalId]);
+
+  React.useEffect(() => {
+    if (!route.params?.openSearch) return;
+    setSearchDrawerVisible(true);
+    try {
+      (navigation as any).setParams?.({ openSearch: undefined });
+    } catch {
+      // no-op
+    }
+  }, [navigation, route.params?.openSearch]);
 
   React.useEffect(() => {
     // Views (and their editor) are Pro Tools; don't leave the editor open if Pro is lost.
@@ -1496,12 +1499,18 @@ export function ActivitiesScreen() {
                 actionLabel: 'Check in',
                 actionOnPress: () => {
                   // Navigate to goal detail with activity sheet open
-                  rootNavigationRef.navigate('ArcsStack', {
-                    screen: 'GoalDetail',
+                  rootNavigationRef.navigate('MainTabs', {
+                    screen: 'MoreTab',
                     params: {
-                      goalId: activityGoalId,
-                      entryPoint: 'activitiesStack',
-                      openActivitySheet: true,
+                      screen: 'MoreArcs',
+                      params: {
+                        screen: 'GoalDetail',
+                        params: {
+                          goalId: activityGoalId,
+                          entryPoint: 'activitiesStack',
+                          openActivitySheet: true,
+                        },
+                      },
                     },
                   });
                 },
@@ -1860,10 +1869,6 @@ export function ActivitiesScreen() {
     <AppShell>
       <PageHeader
         title="Activities"
-        menuOpen={menuOpen}
-        onPressMenu={() => {
-          openRootDrawer(navigation as DrawerNavigationProp<RootDrawerParamList>);
-        }}
         rightElement={
           isQuickAddFocused ? (
             <Button
@@ -2106,8 +2111,10 @@ export function ActivitiesScreen() {
                           style={styles.newViewMenuItem}
                         >
                           <HStack alignItems="center" space="xs">
-                            <Icon name="plus" size={14} color={colors.textSecondary} />
-                            <Text style={styles.menuItemText}>New view</Text>
+                            <Icon name="plus" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemText} {...menuItemTextProps}>
+                              New view
+                            </Text>
                           </HStack>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -2402,7 +2409,7 @@ export function ActivitiesScreen() {
           }
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: activeActivities.length > 0 ? spacing.sm : 0 }}>
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -2530,7 +2537,7 @@ export function ActivitiesScreen() {
           }
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: activeActivities.length > 0 ? spacing.sm : 0 }}>
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -2605,7 +2612,12 @@ export function ActivitiesScreen() {
         hideBackdrop
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Reminder</Text>
+          <BottomDrawerHeader
+            title="Reminder"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="sm">
             <SheetOption label="In 1 hour" onPress={() => setQuickAddReminderByOffsetMinutes(60)} />
             <SheetOption label="This evening" onPress={() => setQuickAddReminderByOffsetMinutes(60 * 6)} />
@@ -2635,7 +2647,12 @@ export function ActivitiesScreen() {
           contentContainerStyle={styles.sheetContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.sheetTitle}>Due</Text>
+          <BottomDrawerHeader
+            title="Due"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="sm">
             <SheetOption label="Today" onPress={() => setQuickAddDueDateByOffsetDays(0)} />
             <SheetOption label="Tomorrow" onPress={() => setQuickAddDueDateByOffsetDays(1)} />
@@ -2664,7 +2681,12 @@ export function ActivitiesScreen() {
         hideBackdrop
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Repeat</Text>
+          <BottomDrawerHeader
+            title="Repeat"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="sm">
             <SheetOption label="Daily" onPress={() => handleQuickAddSelectRepeat('daily')} />
             <SheetOption label="Weekly" onPress={() => handleQuickAddSelectRepeat('weekly')} />
@@ -2684,7 +2706,12 @@ export function ActivitiesScreen() {
         hideBackdrop
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Estimate</Text>
+          <BottomDrawerHeader
+            title="Estimate"
+            variant="minimal"
+            containerStyle={styles.sheetHeader}
+            titleStyle={styles.sheetTitle}
+          />
           <VStack space="sm">
             <SheetOption label="10 min" onPress={() => handleQuickAddSelectEstimate(10)} />
             <SheetOption label="20 min" onPress={() => handleQuickAddSelectEstimate(20)} />
@@ -2695,6 +2722,15 @@ export function ActivitiesScreen() {
           </VStack>
         </View>
       </BottomDrawer>
+      <ActivitySearchDrawer
+        visible={searchDrawerVisible}
+        onClose={() => setSearchDrawerVisible(false)}
+        activities={activities}
+        goalTitleById={goalTitleById}
+        onPressActivity={navigateToActivityDetail}
+        onToggleComplete={handleToggleComplete}
+        onTogglePriority={handleTogglePriorityOne}
+      />
       <FilterDrawer
         visible={filterDrawerVisible}
         onClose={() => setFilterDrawerVisible(false)}
@@ -2725,10 +2761,14 @@ export function ActivitiesScreen() {
             contentContainerStyle={styles.kanbanFieldsListContent}
             ListHeaderComponent={
               <>
-                <Text style={styles.sheetTitle}>Card fields</Text>
-                <Text style={styles.kanbanFieldsSheetSubtitle}>
-                  Show only the fields you want visible on each card.
-                </Text>
+                <BottomDrawerHeader
+                  title="Card fields"
+                  subtitle="Show only the fields you want visible on each card."
+                  variant="minimal"
+                  containerStyle={styles.sheetHeader}
+                  titleStyle={styles.sheetTitle}
+                  subtitleStyle={styles.kanbanFieldsSheetSubtitle}
+                />
                 <View style={{ height: spacing.md }} />
               </>
             }
@@ -2924,7 +2964,12 @@ export function ActivitiesScreen() {
       >
         <BottomDrawerScrollView>
           <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Choose a view type</Text>
+            <BottomDrawerHeader
+              title="Choose a view type"
+              variant="minimal"
+              containerStyle={styles.sheetHeader}
+              titleStyle={styles.sheetTitle}
+            />
             <InlineViewCreator
               goals={goals}
               onCreateView={handleCreateViewFromTemplate}

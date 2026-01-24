@@ -151,7 +151,10 @@ export async function handleIncomingArcDraftUrl(
     capture?.(AnalyticsEvent.ArcDraftClaimSucceeded, { draft_id: draftId, version: payload.version });
 
     // Route into the Arcs canvas flow that continues Arc creation from the claimed draft.
-    rootNavigationRef.navigate('ArcsStack', { screen: 'ArcDraftContinue' } as any);
+    rootNavigationRef.navigate('MainTabs', {
+      screen: 'MoreTab',
+      params: { screen: 'MoreArcs', params: { screen: 'ArcDraftContinue' } },
+    });
   } catch (e: any) {
     capture?.(AnalyticsEvent.ArcDraftClaimFailed, {
       draft_id: draftId,

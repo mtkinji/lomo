@@ -431,6 +431,24 @@ interface AppState {
    */
   hapticsEnabled: boolean;
   /**
+   * Whether activity search should include completed & closed activities.
+   * Default: false.
+   */
+  activitySearchIncludeCompleted: boolean;
+  setActivitySearchIncludeCompleted: (include: boolean) => void;
+  /**
+   * Whether activity search should show the completion check circle.
+   * Default: false.
+   */
+  activitySearchShowCheckCircle: boolean;
+  setActivitySearchShowCheckCircle: (show: boolean) => void;
+  /**
+   * Whether activity search should show the metadata row.
+   * Default: false.
+   */
+  activitySearchShowMeta: boolean;
+  setActivitySearchShowMeta: (show: boolean) => void;
+  /**
    * Selected soundscape track id for Focus sessions.
    */
   soundscapeTrackId: SoundscapeId;
@@ -994,6 +1012,9 @@ export const useAppStore = create<AppState>()(
       soundscapeEnabled: false,
       hapticsEnabled: true,
       soundscapeTrackId: 'default',
+      activitySearchIncludeCompleted: false,
+      activitySearchShowCheckCircle: false,
+      activitySearchShowMeta: false,
       enabledSendToDestinations: {},
       lastShowUpDate: null,
       currentShowUpStreak: 0,
@@ -1816,6 +1837,18 @@ export const useAppStore = create<AppState>()(
       setSoundscapeTrackId: (trackId) =>
         set(() => ({
           soundscapeTrackId: (trackId || 'default') as SoundscapeId,
+        })),
+      setActivitySearchIncludeCompleted: (include) =>
+        set(() => ({
+          activitySearchIncludeCompleted: Boolean(include),
+        })),
+      setActivitySearchShowCheckCircle: (show) =>
+        set(() => ({
+          activitySearchShowCheckCircle: Boolean(show),
+        })),
+      setActivitySearchShowMeta: (show) =>
+        set(() => ({
+          activitySearchShowMeta: Boolean(show),
         })),
       setFocusContextGoalId: (goalId) =>
         set(() => ({

@@ -2,11 +2,11 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BottomDrawer, type BottomDrawerSnapPoint } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
-import { HStack, Text } from '../../ui/primitives';
-import { Button } from '../../ui/Button';
+import { Text } from '../../ui/primitives';
 import { PlanRecsPage } from './PlanRecsPage';
 import { ActivityEventPeek, type ActivityEventPeekModel } from './ActivityEventPeek';
 import { ExternalEventPeek, type ExternalEventPeekModel } from './ExternalEventPeek';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 
 export type PlanDrawerMode = 'recs' | 'activity' | 'external';
 
@@ -77,17 +77,18 @@ export function PlanEventPeekDrawerHost({
     >
       {mode === 'recs' && recommendations ? (
         <View>
-          <View style={styles.headerRow}>
-            <HStack alignItems="center" justifyContent="space-between">
+          <BottomDrawerHeader
+            title={
               <Text style={styles.sheetTitle}>
                 Recommendations
-                {Number.isFinite(recommendations.recommendationCount) ? ` (${recommendations.recommendationCount})` : ''}
+                {Number.isFinite(recommendations.recommendationCount)
+                  ? ` (${recommendations.recommendationCount})`
+                  : ''}
               </Text>
-              <Button variant="ghost" size="sm" onPress={onClose}>
-                Close
-              </Button>
-            </HStack>
-          </View>
+            }
+            variant="withClose"
+            onClose={onClose}
+          />
 
           <PlanRecsPage
             // BottomDrawer already provides the canonical gutter.
@@ -134,9 +135,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: colors.border,
     opacity: 0.8,
-  },
-  headerRow: {
-    paddingBottom: spacing.sm,
   },
   sheetTitle: {
     ...typography.titleSm,

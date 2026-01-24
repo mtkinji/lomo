@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, View, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { DrawerNavigationProp } from '@react-navigation/drawer';
-import { useDrawerStatus } from '@react-navigation/drawer';
 import * as ImagePicker from 'expo-image-picker';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -31,7 +30,6 @@ import { withHapticPress } from '../../ui/haptics/withHapticPress';
 import { shareUrlWithPreview } from '../../utils/share';
 import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
 import { persistImageUri } from '../../utils/persistImageUri';
-import { openRootDrawer } from '../../navigation/openDrawer';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -134,9 +132,7 @@ export function SettingsHomeScreen() {
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const navigation = useNavigation<SettingsNavigationProp>();
-  const drawerNavigation = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
-  const drawerStatus = useDrawerStatus();
-  const menuOpen = drawerStatus === 'open';
+  const rootNavigation = navigation.getParent<NavigationProp<RootDrawerParamList>>();
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
@@ -239,10 +235,20 @@ export function SettingsHomeScreen() {
     );
   };
 
-  const handleOpenMenu = () => {
-    if (drawerNavigation) {
-      openRootDrawer(drawerNavigation);
+  const handleBack = () => {
+    if (rootNavigation && typeof rootNavigation.canGoBack === 'function' && rootNavigation.canGoBack()) {
+      rootNavigation.goBack();
+      return;
     }
+    if (typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    // Safety fallback: return to the More home canvas.
+    rootNavigation?.navigate('MainTabs', {
+      screen: 'MoreTab',
+      params: { screen: 'MoreHome' },
+    } as any);
   };
 
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
@@ -509,8 +515,7 @@ export function SettingsHomeScreen() {
       <View style={styles.screen}>
         <PageHeader
           title="Settings"
-          menuOpen={menuOpen}
-          onPressMenu={handleOpenMenu}
+          onPressBack={handleBack}
         />
         <ScrollView
           contentContainerStyle={styles.scrollContent}

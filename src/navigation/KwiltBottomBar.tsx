@@ -56,7 +56,11 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
   );
   const activeRouteName = state.routes[state.index]?.name;
   const actionIcon: IconName =
-    activeRouteName === 'PlanTab' ? 'checklist' : 'plus';
+    activeRouteName === 'PlanTab'
+      ? 'checklist'
+      : activeRouteName === 'ActivitiesTab'
+        ? 'search'
+        : 'plus';
   const showActionBadge = activeRouteName === 'PlanTab' && planRecommendationsCount > 0;
   const handlePlaceItemLayout = useCallback(
     (routeKey: string) => (event: LayoutChangeEvent) => {
@@ -78,6 +82,13 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     [],
   );
   const handleActionPress = () => {
+    if (activeRouteName === 'ActivitiesTab') {
+      navigation.navigate('ActivitiesTab', {
+        screen: 'ActivitiesList',
+        params: { openSearch: true },
+      });
+      return;
+    }
     if (activeRouteName === 'GoalsTab') {
       navigation.navigate('GoalsTab', {
         screen: 'GoalsList',
@@ -89,10 +100,21 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
       navigation.navigate('PlanTab', { openRecommendations: true });
       return;
     }
+    if (activeRouteName === 'MoreTab') {
+      navigation.navigate('MoreTab', {
+        screen: 'MoreArcs',
+        params: { screen: 'ArcsList', params: { openCreateArc: true } },
+      });
+      return;
+    }
   };
 
   useEffect(() => {
-    if (shouldHideTabBar) return;
+    if (shouldHideTabBar) {
+      // Reset indicator when tab bar is hidden so it reinitializes cleanly when shown again
+      indicatorReady.current = false;
+      return;
+    }
     if (!activeLayout) return;
     if (!indicatorReady.current) {
       indicatorX.setValue(activeLayout.x);
@@ -113,10 +135,15 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
       Animated.timing(indicatorWidth, { ...timingConfig, toValue: activeLayout.width }),
       Animated.timing(indicatorHeight, { ...timingConfig, toValue: activeLayout.height }),
     ]).start();
-  }, [activeLayout, indicatorHeight, indicatorWidth, indicatorX, indicatorY]);
+  }, [activeLayout, indicatorHeight, indicatorWidth, indicatorX, indicatorY, shouldHideTabBar]);
 
   useEffect(() => {
-    if (shouldHideTabBar) return;
+    if (shouldHideTabBar) {
+      // Reset badge state when tab bar is hidden
+      wasShowingBadge.current = false;
+      badgeScale.setValue(0);
+      return;
+    }
     if (showActionBadge && !wasShowingBadge.current) {
       badgeScale.setValue(0);
       Animated.spring(badgeScale, {
@@ -130,7 +157,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
       badgeScale.setValue(0);
     }
     wasShowingBadge.current = showActionBadge;
-  }, [badgeScale, showActionBadge]);
+  }, [badgeScale, showActionBadge, shouldHideTabBar]);
 
   if (shouldHideTabBar) return null;
 
@@ -175,7 +202,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
               const isFocused = state.index === index;
               const options = descriptors[route.key]?.options ?? {};
               const iconName = placeConfigByName[route.name]?.icon ?? 'dot';
-              const tintColor = isFocused ? colors.textPrimary : colors.textSecondary;
+              const tintColor = isFocused ? colors.pine700 : colors.textSecondary;
 
               const onPress = () => {
                 const event = navigation.emit({

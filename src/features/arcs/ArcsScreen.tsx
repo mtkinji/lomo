@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   StyleSheet,
@@ -6,25 +6,21 @@ import {
   View,
   Text,
   Pressable,
-  TextInput,
-  Platform,
+  Switch,
 } from 'react-native';
-import { useNavigation as useRootNavigation } from '@react-navigation/native';
+import { useNavigation as useRootNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
-import { fonts } from '../../theme/typography';
+import { menuItemTextProps } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
 import { useToastStore } from '../../store/useToastStore';
 import { Card } from '../../ui/Card';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useDrawerStatus } from '@react-navigation/drawer';
-import type { DrawerNavigationProp } from '@react-navigation/drawer';
-import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
-import { openRootDrawer } from '../../navigation/openDrawer';
+import type { ArcsStackParamList } from '../../navigation/RootNavigator';
 import type { Arc, Goal } from '../../domain/types';
 import { canCreateArc } from '../../domain/limits';
 import { BottomDrawer } from '../../ui/BottomDrawer';
@@ -45,13 +41,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { buildArcThumbnailSeed, getArcGradient } from './thumbnailVisuals';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import { FloatingActionButton } from '../../ui/FloatingActionButton';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
+import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -68,9 +63,7 @@ export function ArcsScreen() {
   const goals = useAppStore((state) => state.goals);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
-  const drawerNavigation = useRootNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const drawerStatus = useDrawerStatus();
-  const menuOpen = drawerStatus === 'open';
+  const route = useRoute<RouteProp<ArcsStackParamList, 'ArcsList'>>();
   const insets = useSafeAreaInsets();
   const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
@@ -80,14 +73,22 @@ export function ArcsScreen() {
   const visibleArcs = useMemo(() => arcs.filter((arc) => arc.status !== 'archived'), [arcs]);
   const archivedArcs = useMemo(() => arcs.filter((arc) => arc.status === 'archived'), [arcs]);
 
-  const handleOpenNewArc = () => {
+  const handleOpenNewArc = useCallback(() => {
     const canCreate = canCreateArc({ isPro, arcs });
     if (!canCreate.ok) {
       openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'arcs_create' });
       return;
     }
     setNewArcModalVisible(true);
-  };
+  }, [arcs, isPro]);
+
+  useEffect(() => {
+    if (route.params?.openCreateArc) {
+      logArcsDebug('newArc:open-from-route-param');
+      handleOpenNewArc();
+      navigation.setParams({ openCreateArc: undefined });
+    }
+  }, [handleOpenNewArc, navigation, route.params?.openCreateArc]);
 
   const arcCreationWorkflow = useMemo(
     () => getWorkflowLaunchConfig('arcCreation'),
@@ -105,8 +106,7 @@ export function ArcsScreen() {
   );
 
   const listTopPadding = headerHeight ? headerHeight : spacing['2xl'];
-  const fabClearancePx = insets.bottom + spacing.lg + 56 + spacing.lg;
-  const listBottomPadding = fabClearancePx;
+  const listBottomPadding = KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + insets.bottom + spacing.lg;
 
   return (
     <AppShell>
@@ -122,8 +122,6 @@ export function ArcsScreen() {
         >
           <PageHeader
             title="Arcs"
-            menuOpen={menuOpen}
-            onPressMenu={() => openRootDrawer(drawerNavigation)}
             rightElement={
               <DropdownMenu>
                 <DropdownMenuTrigger accessibilityLabel="Arc list options">
@@ -131,23 +129,36 @@ export function ArcsScreen() {
                     <IconButton
                       accessibilityRole="button"
                       accessibilityLabel="Arc list options"
-                      variant="outline"
+                      variant="ghost"
                     >
                       <Icon name="more" size={18} color={colors.textPrimary} />
                     </IconButton>
                   </View>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                  <DropdownMenuCheckboxItem
-                    checked={showArchived}
-                    onCheckedChange={(next) => {
-                      const resolved = Boolean(next);
-                      setShowArchived(resolved);
-                      if (!resolved) setArchivedExpanded(false);
+                <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 220 }}>
+                  <Pressable
+                    accessibilityRole="switch"
+                    accessibilityLabel="Show archived arcs"
+                    accessibilityState={{ checked: showArchived }}
+                    onPress={() => {
+                      const next = !showArchived;
+                      setShowArchived(next);
+                      if (!next) setArchivedExpanded(false);
                     }}
+                    style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
                   >
-                    <Text style={typography.bodySm}>Show archived</Text>
-                  </DropdownMenuCheckboxItem>
+                    <Text style={styles.menuItemText} {...menuItemTextProps}>
+                      Show archived
+                    </Text>
+                    <View style={styles.menuSwitch} pointerEvents="none">
+                      <Switch
+                        value={showArchived}
+                        onValueChange={() => {}}
+                        trackColor={{ false: colors.border, true: colors.accent }}
+                        thumbColor={colors.canvas}
+                      />
+                    </View>
+                  </Pressable>
                 </DropdownMenuContent>
               </DropdownMenu>
             }
@@ -237,15 +248,6 @@ export function ArcsScreen() {
           />
         </View>
 
-        <FloatingActionButton
-          accessibilityLabel="Create a new Arc"
-          onPress={() => {
-            logArcsDebug('newArc:create-pressed');
-            handleOpenNewArc();
-          }}
-          icon={<Icon name="plus" size={22} color={colors.aiForeground} />}
-        />
-
         <NewArcModal visible={newArcModalVisible} onClose={() => setNewArcModalVisible(false)} />
       </View>
     </AppShell>
@@ -306,6 +308,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+  },
+  menuItemPressed: {
+    backgroundColor: colors.gray100,
+  },
+  menuItemText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flexShrink: 1,
+    minWidth: 0,
+    marginRight: spacing.sm,
+  },
+  menuSwitch: {
+    marginLeft: 'auto',
+    transform: [{ scale: 0.85 }],
   },
   emptyTitle: {
     ...typography.titleSm,

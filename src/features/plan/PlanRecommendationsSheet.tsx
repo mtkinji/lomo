@@ -2,9 +2,9 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BottomDrawer, type BottomDrawerSnapPoint } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
-import { HStack, Text } from '../../ui/primitives';
-import { Button } from '../../ui/Button';
+import { Text } from '../../ui/primitives';
 import { PlanRecsPage } from './PlanRecsPage';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 
 type PlanRecommendationsSheetProps = {
   visible: boolean;
@@ -73,20 +73,16 @@ export function PlanRecommendationsSheet({
       handleContainerStyle={styles.handleContainer}
       handleStyle={styles.handle}
     >
-      <View style={styles.headerRow}>
-        <HStack alignItems="center" justifyContent="space-between">
+      <BottomDrawerHeader
+        title={
           <Text style={styles.sheetTitle}>
             Recommendations{Number.isFinite(recommendationCount) ? ` (${recommendationCount})` : ''}
           </Text>
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={onClose}
-          >
-            Close
-          </Button>
-        </HStack>
-      </View>
+        }
+        variant="withClose"
+        onClose={onClose}
+        showDivider
+      />
 
       <PlanRecsPage
         // BottomDrawer already provides the canonical gutter.
@@ -126,11 +122,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: colors.border,
     opacity: 0.8,
-  },
-  headerRow: {
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   sheetTitle: {
     ...typography.bodySm,

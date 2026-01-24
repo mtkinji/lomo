@@ -324,9 +324,12 @@ export function DevToolsScreen() {
     setHasSeenFirstArcCelebration(false);
     setHasDismissedOnboardingGoalGuide(false);
 
-    navigation.navigate('ArcsStack', {
-      screen: 'ArcDetail',
-      params: { arcId: targetArcId, openGoalCreation: false },
+    navigation.navigate('MainTabs', {
+      screen: 'MoreTab',
+      params: {
+        screen: 'MoreArcs',
+        params: { screen: 'ArcDetail', params: { arcId: targetArcId, openGoalCreation: false } },
+      },
     });
   };
 
@@ -415,9 +418,12 @@ export function DevToolsScreen() {
     setHasDismissedOnboardingActivitiesGuide(false);
     setHasDismissedOnboardingPlanReadyGuide(false);
 
-    navigation.navigate('ArcsStack', {
-      screen: 'GoalDetail',
-      params: { goalId: targetGoalId, entryPoint: 'arcsStack' },
+    navigation.navigate('MainTabs', {
+      screen: 'MoreTab',
+      params: {
+        screen: 'MoreArcs',
+        params: { screen: 'GoalDetail', params: { goalId: targetGoalId, entryPoint: 'arcsStack' } },
+      },
     });
   };
 

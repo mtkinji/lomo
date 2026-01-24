@@ -213,8 +213,8 @@ Owner model: `docs/engagement-and-motivation-system.md`
 ### 2.4 Spokes to Other Value Surfaces
 
 - [ ] Ensure **Chapters / reflection** flows feel like a natural extension of daily Activity logging (not a separate product).
-- [ ] Add at least one **“export / share” spoke** (e.g., summary email, PDF export, or shareable snapshot of a Chapter).
-- [ ] Explore one **service‑oriented spoke** (e.g., coaching, accountability, or weekly email recaps) that leverages existing Activity and Chapter data.
+- [ ] Add at least one **“export / share” spoke** (e.g., “Work Update” report template, summary email, PDF export, or shareable snapshot of a Chapter).
+- [ ] Explore one **service‑oriented spoke** (e.g., coaching, accountability, or opt‑in email recaps) that leverages Activity + Chapter templates without creating new top-level navigation.
 - [ ] Document how these spokes should show up in prompts and UI without overwhelming the primary flows.
 
 **Value checkpoint:**  
@@ -243,7 +243,7 @@ When **users can reliably return to the Today tab, log Activities, see small but
 - [ ] Define which features are **core free** vs **paid value** (keep core planning loop accessible).
 - [ ] Implement in‑app upgrade surfaces that:
   - Live in Settings / subtle upsell moments (never block core flows abruptly).
-  - Are orchestrated by the Agent where appropriate (e.g., “Want me to unlock weekly Chapters for you?”).
+  - Are orchestrated by the Agent where appropriate (e.g., “Want me to unlock automatic Chapter templates (weekly/monthly/yearly)?”).
 - [ ] Validate end‑to‑end: from marketing site → install → in‑app upgrade → receipt validation.
 
 ### 3.3 Calendar & External Integrations

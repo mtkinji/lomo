@@ -187,21 +187,29 @@ Result: The system accumulates timestamped Activities with actual time and force
 #### 5.1 Chapters Overview
 
 - **Canvas**
-  - List of existing Chapters (cards with title, date range, key insight snippet).
-  - Empty state: explanation that Chapters are AI-written lookbacks over a chosen period.
+  - “Latest ready” card (when available): title, date range, a 1‑line hook, and a **Review** CTA.
+  - List of past Chapters (cards with title, date range, key insight snippet, and “new/unread” state).
+  - Each Chapter clearly shows:
+    - the **template** that produced it (e.g. “Weekly Reflection”, “Work Update”)
+    - a lightweight “what’s included” summary (e.g. “Included 18 activities · Filtered: tag=work”)
+  - Empty state: explanation that Chapters are AI-written lookbacks that turn Activities into narrative and patterns.
 
 - **Primary CTA**
-  - **“Generate a Chapter”**.
+  - **“Generate now”** (manual generation for any template / custom range).
+  - Mature posture: most users should primarily see **automatic** Chapters arrive on cadence (weekly/monthly/yearly) once templates are configured.
 
 #### 5.2 Generate Chapter Flow
 
-- **Step 1: Select time window**
+- **Step 1: Choose template or range**
   - Options:
-    - “Last 7 days”.
-    - “Last 30 days”.
-    - “Custom range”.
-  - Preview:
-    - Counts: Activities, Arcs, Goals included.
+    - “Weekly Reflection” (default)
+    - “Monthly Reflection”
+    - “Yearly Review”
+    - “Work Update” (report/export mode)
+    - “Custom range”
+  - Preview (always visible before generation):
+    - Counts: Activities, Arcs, Goals included
+    - Filters applied (tags/arcs/status) if any
 
 - **Step 2: Optional focus question**
   - Text prompt:
@@ -230,10 +238,14 @@ Result: The system accumulates timestamped Activities with actual time and force
     - “Goals that moved”: key goal highlights.
     - “Emerging patterns”: insights.
     - “Next experiments”: suggested next Goals with CTAs.
+  - Export affordances (mature):
+    - Copy / Share
+    - Email recap (when a template is configured for email delivery)
 
 - **User actions**
   - Pin Chapter’s date range as the visible context in the app shell.
   - One-tap **“Create this Goal”** for suggested next Goals.
+  - (Optional) Edit title/sections inline; AI can offer rewrites, never overwrites.
 
 ---
 

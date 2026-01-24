@@ -3,9 +3,9 @@ import { ActivityIndicator, Alert, Linking, Platform, Share, StyleSheet, View } 
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { IconButton, Button } from '../../ui/Button';
-import { Icon } from '../../ui/Icon';
+import { Button } from '../../ui/Button';
 import { Heading, Input, Text, VStack } from '../../ui/primitives';
+import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
 import { colors, spacing } from '../../theme';
 import { shareUrlWithPreview } from '../../utils/share';
 import {
@@ -228,12 +228,11 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
       handleStyle={styles.handle}
     >
       <View style={styles.surface}>
-        <View style={styles.headerRow}>
-          <Heading style={styles.headerTitle}>Share goal</Heading>
-          <IconButton accessibilityLabel="Close" onPress={onClose} variant="ghost">
-            <Icon name="close" size={18} color={colors.textPrimary} />
-          </IconButton>
-        </View>
+        <BottomDrawerHeader
+          title="Share goal"
+          rightAction={<BottomDrawerHeaderClose onPress={onClose} />}
+          titleStyle={styles.headerTitle}
+        />
 
         {step === 'kind' ? (
           <VStack space="md">
@@ -332,14 +331,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.md,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   headerTitle: {
-    flex: 1,
-    paddingRight: spacing.md,
+    textAlign: 'left',
   },
   body: {
     color: colors.textSecondary,
