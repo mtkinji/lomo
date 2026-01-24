@@ -451,10 +451,10 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
                 },
               },
             },
-            AgentTab: {
-              path: 'agent',
-            },
           },
+        },
+        Agent: {
+          path: 'agent',
         },
         ArcsStack: {
           screens: {

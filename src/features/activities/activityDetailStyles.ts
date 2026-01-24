@@ -66,7 +66,11 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   menuItemText: menuStyles.menuItemText,
-  destructiveMenuRowText: menuStyles.destructiveMenuItemText,
+  destructiveMenuRowText: {
+    ...menuStyles.destructiveMenuItemText,
+    flexShrink: 1,
+    flex: 1,
+  },
   tagsFieldContainer: {
     width: '100%',
     borderRadius: 12,
@@ -936,12 +940,6 @@ export const styles = StyleSheet.create({
     width: 36,
     height: 36,
     backgroundColor: colors.primary,
-  },
-  destructiveMenuRowText: {
-    ...typography.body,
-    color: colors.destructive,
-    flexShrink: 1,
-    flex: 1,
   },
   doneButton: {
     paddingHorizontal: spacing.sm,

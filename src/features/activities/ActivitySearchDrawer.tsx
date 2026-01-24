@@ -70,10 +70,10 @@ export function ActivitySearchDrawer({
     return activities.filter((a) => a.status !== 'done' && a.status !== 'cancelled');
   }, [activities, includeCompletedLocal]);
   
-    const recommendations = React.useMemo(
-      () => getRecommendedActivities({ activities: filteredActivities, limit: 3 }),
-      [filteredActivities],
-    );
+  const recommendations = React.useMemo(
+    () => getRecommendedActivities({ activities: filteredActivities, limit: 3 }),
+    [filteredActivities],
+  );
   const results = React.useMemo(
     () => searchActivities({ activities: filteredActivities, query: trimmedQuery, goalTitleById }),
     [filteredActivities, goalTitleById, trimmedQuery],
@@ -89,35 +89,47 @@ export function ActivitySearchDrawer({
     [onClose, onPressActivity],
   );
 
-    const renderItem = React.useCallback(
-      ({ item }: { item: Activity }) => {
-        const goalTitle = item.goalId ? goalTitleById[item.goalId] : undefined;
-        const metaInfo = showMetaRow
-          ? buildActivityListMeta({ activity: item, goalTitle })
-          : { meta: undefined, metaLeadingIconName: undefined, metaLeadingIconNames: undefined, isDueToday: undefined };
-        return (
-          <View style={styles.itemWrap}>
-            <ActivityListItem
-              title={item.title}
-              meta={metaInfo.meta}
-              metaLeadingIconName={metaInfo.metaLeadingIconName}
-              metaLeadingIconNames={metaInfo.metaLeadingIconNames}
-              isCompleted={item.status === 'done'}
-              onToggleComplete={
-                showCheckCircleLocal && onToggleComplete ? () => onToggleComplete(item.id) : undefined
-              }
-              showCheckbox={showCheckCircleLocal}
-              isPriorityOne={item.priority === 1}
-              onTogglePriority={onTogglePriority ? () => onTogglePriority(item.id) : undefined}
-              onPress={() => handleSelect(item.id)}
-              isDueToday={metaInfo.isDueToday}
-              showPriorityControl={Boolean(onTogglePriority)}
-            />
-          </View>
-        );
-      },
-      [goalTitleById, handleSelect, onToggleComplete, onTogglePriority, showCheckCircleLocal, showMetaRow],
-    );
+  const renderItem = React.useCallback(
+    ({ item }: { item: Activity }) => {
+      const goalTitle = item.goalId ? goalTitleById[item.goalId] : undefined;
+      const metaInfo = showMetaRowLocal
+        ? buildActivityListMeta({ activity: item, goalTitle })
+        : {
+            meta: undefined,
+            metaLeadingIconName: undefined,
+            metaLeadingIconNames: undefined,
+            isDueToday: undefined,
+          };
+      return (
+        <View style={styles.itemWrap}>
+          <ActivityListItem
+            title={item.title}
+            meta={metaInfo.meta}
+            metaLeadingIconName={metaInfo.metaLeadingIconName}
+            metaLeadingIconNames={metaInfo.metaLeadingIconNames}
+            isCompleted={item.status === 'done'}
+            onToggleComplete={
+              showCheckCircleLocal && onToggleComplete ? () => onToggleComplete(item.id) : undefined
+            }
+            showCheckbox={showCheckCircleLocal}
+            isPriorityOne={item.priority === 1}
+            onTogglePriority={onTogglePriority ? () => onTogglePriority(item.id) : undefined}
+            onPress={() => handleSelect(item.id)}
+            isDueToday={metaInfo.isDueToday}
+            showPriorityControl={Boolean(onTogglePriority)}
+          />
+        </View>
+      );
+    },
+    [
+      goalTitleById,
+      handleSelect,
+      onToggleComplete,
+      onTogglePriority,
+      showCheckCircleLocal,
+      showMetaRowLocal,
+    ],
+  );
 
   const listHeader = (
     <VStack space="xs" style={styles.sectionHeader}>

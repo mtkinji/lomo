@@ -1,6 +1,7 @@
 import React from 'react';
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   FlatList,
@@ -32,7 +33,7 @@ import { DraggableList } from '../../ui/DraggableList';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
-import type { ActivitiesStackParamList } from '../../navigation/RootNavigator';
+import type { ActivitiesStackParamList, MainTabsParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import {
@@ -191,6 +192,7 @@ export function ActivitiesScreen() {
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'>>();
   const route = useRoute<RouteProp<ActivitiesStackParamList, 'ActivitiesList'>>();
+  const tabsNavigation = navigation.getParent<BottomTabNavigationProp<MainTabsParamList>>();
   const insets = useSafeAreaInsets();
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
@@ -777,7 +779,13 @@ export function ActivitiesScreen() {
       }
       if (suggested.kind === 'setup') {
         if (suggested.reason === 'no_goals') {
-          navigation.navigate('MainTabs', { screen: 'GoalsTab', params: { screen: 'GoalsList' } });
+          // Jump across tabs (Activities -> Goals). Our local navigation prop is the
+          // Activities stack, so we must navigate via the parent tab navigator.
+          if (tabsNavigation) {
+            tabsNavigation.navigate('GoalsTab', { screen: 'GoalsList' });
+          } else {
+            rootNavigationRef.navigate('MainTabs', { screen: 'GoalsTab', params: { screen: 'GoalsList' } });
+          }
           return;
         }
         setActivityCoachVisible(true);
@@ -798,7 +806,7 @@ export function ActivitiesScreen() {
     void HapticsService.trigger('canvas.primary.confirm');
     showToast({ message: 'Added to Today', variant: 'success', durationMs: 2200 });
     setHighlightSuggested(false);
-  }, [navigation, setActivityCoachVisible, showToast, suggested, suggestedActivity, updateActivity]);
+  }, [navigation, rootNavigationRef, setActivityCoachVisible, showToast, suggested, suggestedActivity, tabsNavigation, updateActivity]);
 
   const dismissSuggestedCard = React.useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
