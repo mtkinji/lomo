@@ -92,9 +92,12 @@ export function JoinSharedGoalDrawerHost() {
       durationMs: 2200,
     });
     close();
-    rootNavigationRef.navigate('Goals', {
-      screen: 'GoalDetail',
-      params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+    rootNavigationRef.navigate('MainTabs', {
+      screen: 'GoalsTab',
+      params: {
+        screen: 'GoalDetail',
+        params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+      },
     } as any);
   }, [alreadyHasGoal, close, preview?.goalId, visible]);
 
@@ -138,9 +141,12 @@ export function JoinSharedGoalDrawerHost() {
       }
 
       close();
-      rootNavigationRef.navigate('Goals', {
-        screen: 'GoalDetail',
-        params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+      rootNavigationRef.navigate('MainTabs', {
+        screen: 'GoalsTab',
+        params: {
+          screen: 'GoalDetail',
+          params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+        },
       } as any);
       capture(AnalyticsEvent.JoinGoalSucceeded, { goalId });
       useToastStore.getState().showToast({

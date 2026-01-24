@@ -424,9 +424,12 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
             variant: 'success',
             durationMs: 2200,
           });
-          rootNavigationRef.navigate('Goals', {
-            screen: 'GoalDetail',
-            params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+          rootNavigationRef.navigate('MainTabs', {
+            screen: 'GoalsTab',
+            params: {
+              screen: 'GoalDetail',
+              params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+            },
           } as any);
           return true;
         }
@@ -438,9 +441,12 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
             const accepted = await acceptGoalInvite(code);
             const acceptedGoalId = accepted?.goalId?.trim();
             if (acceptedGoalId) {
-              rootNavigationRef.navigate('Goals', {
-                screen: 'GoalDetail',
-                params: { goalId: acceptedGoalId, entryPoint: 'goalsTab', initialTab: 'details' },
+              rootNavigationRef.navigate('MainTabs', {
+                screen: 'GoalsTab',
+                params: {
+                  screen: 'GoalDetail',
+                  params: { goalId: acceptedGoalId, entryPoint: 'goalsTab', initialTab: 'details' },
+                },
               } as any);
               return true;
             }

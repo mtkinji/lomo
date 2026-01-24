@@ -495,6 +495,11 @@ interface AppState {
    * first-time onboarding flow so we can land the user directly on it.
    */
   goalRecommendations: Record<string, GoalDraft[]>;
+  /**
+   * Lightweight global count of Plan recommendations for the currently selected day
+   * (best-effort). Used for bottom-bar badge and other shell-level affordances.
+   */
+  planRecommendationsCount: number;
   arcFeedback: ArcProposalFeedback[];
   /**
    * Runtime-only signed-in identity derived from Supabase Auth session.
@@ -762,6 +767,7 @@ interface AppState {
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
+  setPlanRecommendationsCount: (count: number) => void;
   addArcFeedback: (feedback: ArcProposalFeedback) => void;
   setAuthIdentity: (identity: AuthIdentity) => void;
   clearAuthIdentity: () => void;
@@ -1019,6 +1025,7 @@ export const useAppStore = create<AppState>()(
       activeActivityViewId: 'default',
       focusContextGoalId: null,
       goalRecommendations: {},
+      planRecommendationsCount: 0,
       arcFeedback: [],
       blockedCelebrationGifIds: [],
       likedCelebrationGifs: [],
@@ -1384,6 +1391,10 @@ export const useAppStore = create<AppState>()(
             ...state.goalRecommendations,
             [arcId]: goals,
           },
+        })),
+      setPlanRecommendationsCount: (count) =>
+        set(() => ({
+          planRecommendationsCount: Math.max(0, Math.floor(Number.isFinite(count) ? count : 0)),
         })),
       dismissGoalRecommendation: (arcId, goalTitle) =>
         set((state) => {

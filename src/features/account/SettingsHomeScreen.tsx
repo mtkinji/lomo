@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, View, Pressable } from 'react-native';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useDrawerStatus } from '@react-navigation/drawer';
@@ -31,6 +31,7 @@ import { withHapticPress } from '../../ui/haptics/withHapticPress';
 import { shareUrlWithPreview } from '../../utils/share';
 import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
 import { persistImageUri } from '../../utils/persistImageUri';
+import { openRootDrawer } from '../../navigation/openDrawer';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -240,7 +241,7 @@ export function SettingsHomeScreen() {
 
   const handleOpenMenu = () => {
     if (drawerNavigation) {
-      drawerNavigation.dispatch(DrawerActions.openDrawer());
+      openRootDrawer(drawerNavigation);
     }
   };
 

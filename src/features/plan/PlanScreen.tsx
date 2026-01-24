@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -10,12 +10,12 @@ import { colors, spacing, typography } from '../../theme';
 import { Icon } from '../../ui/Icon';
 import { IconButton } from '../../ui/Button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
-import type { RootDrawerParamList } from '../../navigation/RootNavigator';
-import { FloatingActionButton } from '../../ui/FloatingActionButton';
+import type { MainTabsParamList } from '../../navigation/RootNavigator';
+import { openRootDrawer } from '../../navigation/openDrawer';
 import { PlanDateStrip } from './PlanDateStrip';
 export function PlanScreen() {
   const navigation = useNavigation();
-  const route = useRoute<any>() as unknown as { params?: RootDrawerParamList['Plan'] };
+  const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
   const drawerOpen = useDrawerStatus() === 'open';
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [recsSheetSnapIndex, setRecsSheetSnapIndex] = useState(0);
@@ -43,7 +43,7 @@ export function PlanScreen() {
           title="Plan"
           menuOpen={drawerOpen}
           onPressMenu={() => {
-            navigation.dispatch(DrawerActions.openDrawer());
+            openRootDrawer(navigation as any);
           }}
           rightElement={
             <DropdownMenu>
@@ -92,14 +92,6 @@ export function PlanScreen() {
           onNavigateDay={(delta) => shiftDays(delta)}
         />
 
-        <FloatingActionButton
-          accessibilityLabel="Open recommendations"
-          onPress={() => setRecsSheetSnapIndex(1)}
-          badgeCount={recsCount}
-          icon={
-            <Icon name="plan" size={22} color={colors.aiForeground} />
-          }
-        />
       </View>
     </AppShell>
   );

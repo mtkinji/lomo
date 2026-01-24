@@ -9,7 +9,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import { DrawerActions, useNavigation as useRootNavigation } from '@react-navigation/native';
+import { useNavigation as useRootNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -24,6 +24,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { ArcsStackParamList, RootDrawerParamList } from '../../navigation/RootNavigator';
+import { openRootDrawer } from '../../navigation/openDrawer';
 import type { Arc, Goal } from '../../domain/types';
 import { canCreateArc } from '../../domain/limits';
 import { BottomDrawer } from '../../ui/BottomDrawer';
@@ -122,7 +123,7 @@ export function ArcsScreen() {
           <PageHeader
             title="Arcs"
             menuOpen={menuOpen}
-            onPressMenu={() => drawerNavigation.dispatch(DrawerActions.openDrawer())}
+            onPressMenu={() => openRootDrawer(drawerNavigation)}
             rightElement={
               <DropdownMenu>
                 <DropdownMenuTrigger accessibilityLabel="Arc list options">

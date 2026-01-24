@@ -84,7 +84,10 @@ export function PlanKickoffDrawerHost() {
             onPress={() => {
               handleDismissForToday();
               if (rootNavigationRef.isReady()) {
-                rootNavigationRef.navigate('Plan', { openRecommendations: true } as any);
+                rootNavigationRef.navigate('MainTabs', {
+                  screen: 'PlanTab',
+                  params: { openRecommendations: true },
+                });
               }
             }}
           >

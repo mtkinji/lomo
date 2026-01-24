@@ -116,6 +116,7 @@ export function PlanPager({
   const setDailyPlanRecord = useAppStore((s) => s.setDailyPlanRecord);
   const dailyActivityResolutions = useAppStore((s) => s.dailyActivityResolutions);
   const dismissActivityForDay = useAppStore((s) => s.dismissActivityForDay);
+  const setPlanRecommendationsCount = useAppStore((s) => s.setPlanRecommendationsCount);
   const showToast = useToastStore((s) => s.showToast);
 
   const dateKey = useMemo(() => toLocalDateKey(targetDate), [targetDate]);
@@ -504,7 +505,8 @@ export function PlanPager({
 
   useEffect(() => {
     onRecommendationsCountChange?.(recommendations.length);
-  }, [recommendations.length, onRecommendationsCountChange]);
+    setPlanRecommendationsCount(recommendations.length);
+  }, [recommendations.length, onRecommendationsCountChange, setPlanRecommendationsCount]);
 
   const hasEligibleActivities = useMemo(() => {
     return activities.some((a) => a.status !== 'done' && a.status !== 'cancelled' && !a.scheduledAt);
@@ -1104,18 +1106,18 @@ export function PlanPager({
   const handleOpenFocus = useCallback((activityId: string) => {
     if (!rootNavigationRef.isReady()) return;
     if (!canOpenActivityDetail()) return;
-    rootNavigationRef.navigate('Activities', {
-      screen: 'ActivityDetail',
-      params: { activityId, openFocus: true },
+    rootNavigationRef.navigate('MainTabs', {
+      screen: 'ActivitiesTab',
+      params: { screen: 'ActivityDetail', params: { activityId, openFocus: true } },
     } as any);
   }, [canOpenActivityDetail]);
 
   const handleOpenFullActivity = useCallback((activityId: string) => {
     if (!rootNavigationRef.isReady()) return;
     if (!canOpenActivityDetail()) return;
-    rootNavigationRef.navigate('Activities', {
-      screen: 'ActivityDetail',
-      params: { activityId },
+    rootNavigationRef.navigate('MainTabs', {
+      screen: 'ActivitiesTab',
+      params: { screen: 'ActivityDetail', params: { activityId } },
     } as any);
   }, [canOpenActivityDetail]);
 

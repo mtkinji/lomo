@@ -13,7 +13,8 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList, GoalsStackParamList } from '../../navigation/RootNavigator';
+import { openRootDrawer } from '../../navigation/openDrawer';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useToastStore } from '../../store/useToastStore';
 import { usePaywallStore } from '../../store/usePaywallStore';
@@ -83,7 +85,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
 import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
-import { FloatingActionButton } from '../../ui/FloatingActionButton';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -126,6 +127,7 @@ export function GoalsScreen() {
       NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'> &
         DrawerNavigationProp<RootDrawerParamList>
     >();
+  const route = useRoute<RouteProp<GoalsStackParamList, 'GoalsList'>>();
   const drawerStatus = useDrawerStatus();
   const menuOpen = drawerStatus === 'open';
   const insets = useSafeAreaInsets();
@@ -354,7 +356,14 @@ export function GoalsScreen() {
     setGoalCoachVisible(true);
   };
 
-  const fabClearancePx = insets.bottom + spacing.lg + 56 + spacing.lg;
+  React.useEffect(() => {
+    if (route.params?.openCreateGoal) {
+      handlePressNewGoal();
+      (navigation as any).setParams?.({ openCreateGoal: undefined });
+    }
+  }, [navigation, route.params?.openCreateGoal]);
+
+  const fabClearancePx = insets.bottom + spacing.xl + 56;
 
   return (
     <AppShell>
@@ -364,8 +373,7 @@ export function GoalsScreen() {
         // boxedTitle
         menuOpen={menuOpen}
         onPressMenu={() => {
-          const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
-          parent?.dispatch(DrawerActions.openDrawer());
+          openRootDrawer(navigation as DrawerNavigationProp<RootDrawerParamList>);
         }}
         rightElement={
           <DropdownMenu>
@@ -527,11 +535,6 @@ export function GoalsScreen() {
         goals={goals}
       />
 
-      <FloatingActionButton
-        accessibilityLabel="Create a new goal"
-        onPress={handlePressNewGoal}
-        icon={<Icon name="plus" size={22} color={colors.aiForeground} />}
-      />
     </AppShell>
   );
 }

@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
 import type { Activity } from '../../domain/types';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
@@ -12,12 +11,10 @@ import { HStack } from '../../ui/primitives';
 import { EditorSurface } from '../../ui/EditorSurface';
 import { Toolbar, ToolbarButton, ToolbarGroup } from '../../ui/Toolbar';
 import { UnderKeyboardDrawer } from '../../ui/UnderKeyboardDrawer';
+import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
-// Idle state was intentionally “raised” off the bottom by 24pt; keep it flush to the bottom.
-const QUICK_ADD_IDLE_RAISE = 0;
-// Visually lift the collapsed "Add an activity" control so it aligns with the phone's bottom curve.
-const COLLAPSED_DOCK_LIFT_PX = 12;
+const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -85,11 +82,8 @@ export function QuickAddDock({
   dismissAfterSubmit = true,
   onReservedHeightChange,
 }: QuickAddDockProps) {
-  const insets = useSafeAreaInsets();
-  const activeBottomPadding = 0;
-  const idleBottomPadding =
-    placement === 'inline' ? 0 : Math.max(insets.bottom, spacing.sm);
-  const bottomPadding = isFocused ? activeBottomPadding : idleBottomPadding;
+  const collapsedBottomOffsetPx =
+    placement === 'inline' ? 0 : KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + QUICK_ADD_DOCK_FLOATING_GAP_PX;
   
   // Generate accessory ID for keyboard toolbar
   // Keep stable ID in case we re-enable keyboard accessory behavior later.
@@ -102,7 +96,7 @@ export function QuickAddDock({
   const BLUR_GUARD_MS = 300;
 
   // Minimum dock height used before we get a measurement.
-  const fallbackHeight = QUICK_ADD_BAR_HEIGHT + bottomPadding + spacing.xs + (isFocused ? 0 : QUICK_ADD_IDLE_RAISE);
+  const fallbackHeight = QUICK_ADD_BAR_HEIGHT + collapsedBottomOffsetPx + spacing.xs;
 
   const lastReservedHeightRef = React.useRef<number>(fallbackHeight);
 
@@ -193,23 +187,24 @@ export function QuickAddDock({
     <>
       {/* Collapsed dock trigger (always mounted so we can open quickly). */}
       {placement === 'bottomDock' ? (
-        <View style={[styles.dock, isFocused ? styles.dockHidden : null]}>
+        <View
+          style={[
+            styles.floatingDock,
+            { bottom: collapsedBottomOffsetPx },
+            isFocused ? styles.dockHidden : null,
+          ]}
+        >
           <View
             style={[
-              // Full-width "shell" surface (edge-to-edge), with an inner gutter so the
-              // input aligns with the 3-column card rhythm above.
-              styles.collapsedShell,
-              { paddingBottom: idleBottomPadding + COLLAPSED_DOCK_LIFT_PX },
+              styles.floatingSurface,
             ]}
             onLayout={(event) => {
               const layoutHeight = Math.round(event.nativeEvent.layout.height);
-              reportReservedHeight(layoutHeight);
+              reportReservedHeight(layoutHeight + collapsedBottomOffsetPx + spacing.xs);
             }}
           >
-            <View style={styles.collapsedInnerGutter}>
-              <View style={styles.collapsedInputShell}>
-                <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
-              </View>
+            <View style={styles.collapsedInputShell}>
+              <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
             </View>
           </View>
         </View>
@@ -382,14 +377,20 @@ function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  dock: {
+  floatingDock: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
     // Ensure the dock renders above the scroll view content on both platforms.
     zIndex: 50,
     elevation: 50,
+  },
+  floatingSurface: {
+    width: '100%',
+    maxWidth: 560,
+    backgroundColor: 'transparent',
   },
   dockHidden: {
     opacity: 0,
@@ -399,32 +400,23 @@ const styles = StyleSheet.create({
     opacity: 0,
     pointerEvents: 'none',
   },
-  collapsedShell: {
-    // Full-width dock "shell" behind the trigger row.
-    paddingTop: spacing.sm,
-    backgroundColor: colors.canvas,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    ...cardElevation.lift,
-  },
-  collapsedInnerGutter: {
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
   collapsedInputShell: {
     width: '100%',
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    // Keep it looking like an input, not a card.
-    ...cardElevation.none,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.cardBorder,
+    borderRadius: 999,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   collapsedPressable: {
     width: '100%',
   },
   collapsedRowContent: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },

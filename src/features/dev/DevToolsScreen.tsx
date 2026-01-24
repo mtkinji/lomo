@@ -1,6 +1,6 @@
 import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
+import { openRootDrawer } from '../../navigation/openDrawer';
 import {
   DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
   clearAllCoachConversationMemory,
@@ -266,7 +267,10 @@ export function DevToolsScreen() {
 
   const handleShowActivitiesListGuide = () => {
     setHasDismissedActivitiesListGuide(false);
-    navigation.navigate('Activities', { screen: 'ActivitiesList' });
+    navigation.navigate('MainTabs', {
+      screen: 'ActivitiesTab',
+      params: { screen: 'ActivitiesList' },
+    });
   };
 
   const handleShowActivityDetailGuide = () => {
@@ -276,7 +280,10 @@ export function DevToolsScreen() {
     // key fields are visible without extra taps.
     setActivityDetailPlanExpanded(true);
     setActivityDetailDetailsExpanded(true);
-    navigation.navigate('Activities', { screen: 'ActivityDetail', params: { activityId } });
+    navigation.navigate('MainTabs', {
+      screen: 'ActivitiesTab',
+      params: { screen: 'ActivityDetail', params: { activityId } },
+    });
   };
 
   const handleDebugDailyShowUpNotification = () => {
@@ -1354,7 +1361,7 @@ export function DevToolsScreen() {
         title="Dev mode"
         iconName="dev"
         menuOpen={menuOpen}
-        onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onPressMenu={() => openRootDrawer(navigation as DrawerNavigationProp<RootDrawerParamList>)}
       >
         <Text style={[styles.screenSubtitle, { paddingTop: spacing.lg }]}>
           {isGallery

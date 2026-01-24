@@ -1,11 +1,12 @@
 import { StyleSheet } from 'react-native';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
+import { openRootDrawer } from '../../navigation/openDrawer';
 import { VStack, Heading, Text, EmptyState } from '../../ui/primitives';
 
 export function ChaptersScreen() {
@@ -20,7 +21,7 @@ export function ChaptersScreen() {
         iconName="chapters"
         iconTone="chapter"
         menuOpen={menuOpen}
-        onPressMenu={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onPressMenu={() => openRootDrawer(navigation)}
       />
       <VStack space="lg">
         <EmptyState
@@ -29,7 +30,11 @@ export function ChaptersScreen() {
           primaryAction={{
             label: 'Go to Activities',
             variant: 'accent',
-            onPress: () => navigation.navigate('Activities', { screen: 'ActivitiesList' }),
+            onPress: () =>
+              navigation.navigate('MainTabs', {
+                screen: 'ActivitiesTab',
+                params: { screen: 'ActivitiesList' },
+              }),
             accessibilityLabel: 'Go to the Activities list',
           }}
           style={styles.emptyState}

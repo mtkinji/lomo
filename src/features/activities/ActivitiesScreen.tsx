@@ -1,5 +1,5 @@
 import React from 'react';
-import { DrawerActions, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -38,6 +38,7 @@ import type {
   ActivitiesStackParamList,
   RootDrawerParamList,
 } from '../../navigation/RootNavigator';
+import { openRootDrawer } from '../../navigation/openDrawer';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import {
@@ -108,6 +109,7 @@ import type {
   ActivityStep,
 } from '../../domain/types';
 import { styles, QUICK_ADD_BAR_HEIGHT } from './activitiesScreenStyles';
+import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
@@ -772,7 +774,7 @@ export function ActivitiesScreen() {
       }
       if (suggested.kind === 'setup') {
         if (suggested.reason === 'no_goals') {
-          navigation.navigate('Goals', { screen: 'GoalsList' });
+          navigation.navigate('MainTabs', { screen: 'GoalsTab', params: { screen: 'GoalsList' } });
           return;
         }
         setActivityCoachVisible(true);
@@ -833,8 +835,10 @@ export function ActivitiesScreen() {
     return enrichingActivityIdsRef.current.has(activityId);
   }, []);
 
-  const quickAddBottomPadding = isKanbanLayout ? 0 : Math.max(insets.bottom, spacing.sm);
-  const quickAddInitialReservedHeight = isKanbanLayout ? 0 : QUICK_ADD_BAR_HEIGHT + quickAddBottomPadding + 4;
+  const quickAddDockBottomOffsetPx = isKanbanLayout ? 0 : KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + spacing.sm;
+  const quickAddInitialReservedHeight = isKanbanLayout
+    ? 0
+    : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
 
   const quickAddDefaultsFromFilters = React.useMemo<Partial<Activity>>(() => {
     // Users expect new activities created while filters are applied to "inherit" those filters.
@@ -1858,8 +1862,7 @@ export function ActivitiesScreen() {
         title="Activities"
         menuOpen={menuOpen}
         onPressMenu={() => {
-          const parent = navigation.getParent<DrawerNavigationProp<RootDrawerParamList>>();
-          parent?.dispatch(DrawerActions.openDrawer());
+          openRootDrawer(navigation as DrawerNavigationProp<RootDrawerParamList>);
         }}
         rightElement={
           isQuickAddFocused ? (

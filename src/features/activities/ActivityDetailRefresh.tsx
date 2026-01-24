@@ -474,9 +474,12 @@ export function ActivityDetailRefresh(props: any) {
                                 navigation.goBack();
                                 return;
                               }
-                              rootNavigationRef.navigate('Goals', {
-                                screen: 'GoalDetail',
-                                params: { goalId: goal.id, entryPoint: 'goalsTab' },
+                              rootNavigationRef.navigate('MainTabs', {
+                                screen: 'GoalsTab',
+                                params: {
+                                  screen: 'GoalDetail',
+                                  params: { goalId: goal.id, entryPoint: 'goalsTab' },
+                                },
                               });
                             },
                           },
@@ -704,9 +707,12 @@ export function ActivityDetailRefresh(props: any) {
                   accessibilityRole="button"
                   accessibilityLabel={`Open goal: ${label}`}
                   onPress={() => {
-                    rootNavigationRef.navigate('Goals', {
-                      screen: 'GoalDetail',
-                      params: { goalId: goal.id, entryPoint: 'goalsTab' },
+                    rootNavigationRef.navigate('MainTabs', {
+                      screen: 'GoalsTab',
+                      params: {
+                        screen: 'GoalDetail',
+                        params: { goalId: goal.id, entryPoint: 'goalsTab' },
+                      },
                     });
                   }}
                   style={({ pressed }) => [styles.originLinkRow, pressed ? { opacity: 0.7 } : null]}

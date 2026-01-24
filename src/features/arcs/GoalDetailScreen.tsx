@@ -523,7 +523,10 @@ export function GoalDetailScreen() {
         if (entryPoint === 'arcsStack') {
           parent.navigate('ArcsStack', { screen: 'ArcsList' });
         } else {
-          parent.navigate('Goals');
+          parent.navigate('MainTabs', {
+            screen: 'GoalsTab',
+            params: { screen: 'GoalsList' },
+          });
         }
         return;
       }
@@ -532,7 +535,10 @@ export function GoalDetailScreen() {
       if (entryPoint === 'arcsStack') {
         nav.navigate('ArcsStack', { screen: 'ArcsList' });
       } else {
-        nav.navigate('Goals');
+        nav.navigate('MainTabs', {
+          screen: 'GoalsTab',
+          params: { screen: 'GoalsList' },
+        });
       }
     }
   };
