@@ -115,6 +115,8 @@ export function DevToolsScreen() {
   const setDevArcDetailDebugLoggingEnabled = useAppStore(
     (state) => state.setDevArcDetailDebugLoggingEnabled
   );
+  const devNavDrawerMenuEnabled = useAppStore((state) => state.devNavDrawerMenuEnabled);
+  const setDevNavDrawerMenuEnabled = useAppStore((state) => state.setDevNavDrawerMenuEnabled);
   const devResetGenerativeCredits = useAppStore((state) => state.devResetGenerativeCredits);
   const devSetGenerativeCreditsUsedThisMonth = useAppStore((state) => state.devSetGenerativeCreditsUsedThisMonth);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
@@ -1911,6 +1913,21 @@ export function DevToolsScreen() {
               </View>
               <Text style={styles.meta}>
                 When enabled, Arc detail screens will emit verbose debug logs (e.g. onboarding handoff state) to the console.
+              </Text>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Show left-rail menu button (hamburger) in primary headers</Text>
+                <Switch
+                  value={devNavDrawerMenuEnabled}
+                  onValueChange={(next) => setDevNavDrawerMenuEnabled(next)}
+                  trackColor={{ false: colors.border, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                  ios_backgroundColor={colors.border}
+                  accessibilityLabel="Toggle left-rail menu button in headers"
+                />
+              </View>
+              <Text style={styles.meta}>
+                When enabled, top-level canvases (Goals/Activities/Plan/More/Arcs) show a menu button that opens the navigation drawer.
               </Text>
 
             </View>

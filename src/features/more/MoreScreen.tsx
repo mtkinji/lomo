@@ -5,6 +5,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { openRootDrawer } from '../../navigation/openDrawer';
+import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { HStack, VStack, Text } from '../../ui/primitives';
 import { Icon, type IconName } from '../../ui/Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
@@ -51,10 +53,11 @@ export function MoreScreen() {
   const navigation = useNavigation<MoreNavigation>();
   const insets = useSafeAreaInsets();
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const drawerMenuEnabled = useDrawerMenuEnabled();
 
   return (
     <AppShell>
-      <PageHeader title="More" />
+      <PageHeader title="More" onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

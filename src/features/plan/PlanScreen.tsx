@@ -3,6 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { openRootDrawer } from '../../navigation/openDrawer';
+import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { PlanPager } from './PlanPager';
 import { Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
@@ -15,6 +17,7 @@ import { PlanDateStrip } from './PlanDateStrip';
 export function PlanScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
+  const drawerMenuEnabled = useDrawerMenuEnabled();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [recsSheetSnapIndex, setRecsSheetSnapIndex] = useState(0);
   const [recsCount, setRecsCount] = useState(0);
@@ -39,6 +42,7 @@ export function PlanScreen() {
       <View style={styles.container}>
         <PageHeader
           title="Plan"
+          onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
           rightElement={
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

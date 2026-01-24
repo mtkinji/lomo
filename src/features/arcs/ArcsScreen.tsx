@@ -12,6 +12,8 @@ import { useNavigation as useRootNavigation, useRoute, type RouteProp } from '@r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { openRootDrawer } from '../../navigation/openDrawer';
+import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
@@ -59,6 +61,7 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
 };
 
 export function ArcsScreen() {
+  const drawerMenuEnabled = useDrawerMenuEnabled();
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const isPro = useEntitlementsStore((state) => state.isPro);
@@ -122,6 +125,7 @@ export function ArcsScreen() {
         >
           <PageHeader
             title="Arcs"
+            onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
             rightElement={
               <DropdownMenu>
                 <DropdownMenuTrigger accessibilityLabel="Arc list options">

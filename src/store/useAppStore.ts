@@ -376,6 +376,11 @@ interface AppState {
   devObjectDetailHeaderV2Enabled: boolean;
   devArcDetailDebugLoggingEnabled: boolean;
   /**
+   * Dev-only nav experiment: show a hamburger menu affordance in primary headers
+   * to open the Root Drawer (left-rail) even when bottom tabs are the default shell.
+   */
+  devNavDrawerMenuEnabled: boolean;
+  /**
    * App-level notification preferences and OS permission status.
    * Used by the notifications service to decide what to schedule.
    */
@@ -841,6 +846,7 @@ interface AppState {
   setDevBreadcrumbsEnabled: (enabled: boolean) => void;
   setDevObjectDetailHeaderV2Enabled: (enabled: boolean) => void;
   setDevArcDetailDebugLoggingEnabled: (enabled: boolean) => void;
+  setDevNavDrawerMenuEnabled: (enabled: boolean) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
@@ -987,6 +993,7 @@ export const useAppStore = create<AppState>()(
       devBreadcrumbsEnabled: false,
       devObjectDetailHeaderV2Enabled: false,
       devArcDetailDebugLoggingEnabled: false,
+      devNavDrawerMenuEnabled: false,
       notificationPreferences: {
         notificationsEnabled: false,
         osPermissionStatus: 'notRequested',
@@ -1675,6 +1682,10 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           devArcDetailDebugLoggingEnabled: enabled,
         })),
+      setDevNavDrawerMenuEnabled: (enabled) =>
+        set(() => ({
+          devNavDrawerMenuEnabled: enabled,
+        })),
       setSendToDestinationEnabled: (kind, enabled) =>
         set((state) => {
           const k = String(kind ?? '').trim().toLowerCase();
@@ -2117,6 +2128,7 @@ export const useAppStore = create<AppState>()(
           devBreadcrumbsEnabled: false,
           devObjectDetailHeaderV2Enabled: false,
           devArcDetailDebugLoggingEnabled: false,
+          devNavDrawerMenuEnabled: false,
           goalRecommendations: {},
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,

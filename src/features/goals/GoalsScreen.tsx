@@ -18,6 +18,8 @@ import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { openRootDrawer } from '../../navigation/openDrawer';
+import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
@@ -122,6 +124,7 @@ export function GoalsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'>>();
   const route = useRoute<RouteProp<GoalsStackParamList, 'GoalsList'>>();
   const insets = useSafeAreaInsets();
+  const drawerMenuEnabled = useDrawerMenuEnabled();
 
   const goals = useAppStore((state) => state.goals);
   const arcs = useAppStore((state) => state.arcs);
@@ -360,6 +363,7 @@ export function GoalsScreen() {
     <AppShell>
       <PageHeader
         title="Goals"
+        onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
         //Add this to the page header if you want to wrap the title in a large badge with the icon
         // boxedTitle
         rightElement={

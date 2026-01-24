@@ -32,6 +32,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DraggableList } from '../../ui/DraggableList';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { openRootDrawer } from '../../navigation/openDrawer';
+import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
 import type { ActivitiesStackParamList, MainTabsParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
@@ -189,6 +191,7 @@ const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
 ];
 
 export function ActivitiesScreen() {
+  const drawerMenuEnabled = useDrawerMenuEnabled();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'>>();
   const route = useRoute<RouteProp<ActivitiesStackParamList, 'ActivitiesList'>>();
@@ -1877,6 +1880,7 @@ export function ActivitiesScreen() {
     <AppShell>
       <PageHeader
         title="Activities"
+        onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
         rightElement={
           isQuickAddFocused ? (
             <Button
