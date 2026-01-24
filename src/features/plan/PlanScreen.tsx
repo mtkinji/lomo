@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { DrawerActions, useNavigation, useRoute } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { openRootDrawer } from '../../navigation/openDrawer';
+import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { PlanPager } from './PlanPager';
 import { Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
+import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
 import { Icon } from '../../ui/Icon';
 import { IconButton } from '../../ui/Button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
-import type { RootDrawerParamList } from '../../navigation/RootNavigator';
-import { FloatingActionButton } from '../../ui/FloatingActionButton';
+import type { MainTabsParamList } from '../../navigation/RootNavigator';
 import { PlanDateStrip } from './PlanDateStrip';
 export function PlanScreen() {
   const navigation = useNavigation();
-  const route = useRoute<any>() as unknown as { params?: RootDrawerParamList['Plan'] };
-  const drawerOpen = useDrawerStatus() === 'open';
+  const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
+  const drawerMenuEnabled = useDrawerMenuEnabled();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [recsSheetSnapIndex, setRecsSheetSnapIndex] = useState(0);
   const [recsCount, setRecsCount] = useState(0);
@@ -41,21 +42,18 @@ export function PlanScreen() {
       <View style={styles.container}>
         <PageHeader
           title="Plan"
-          menuOpen={drawerOpen}
-          onPressMenu={() => {
-            navigation.dispatch(DrawerActions.openDrawer());
-          }}
+          onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
           rightElement={
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <IconButton
                   accessibilityLabel="Plan settings"
-                  style={styles.headerMoreButton}
+                  variant="ghost"
                   onPress={() => {
                     // handled by DropdownMenuTrigger
                   }}
                 >
-                  <Icon name="more" size={20} color={colors.textPrimary} />
+                  <Icon name="more" size={16} color={colors.textPrimary} />
                 </IconButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="bottom">
@@ -64,14 +62,18 @@ export function PlanScreen() {
                     (navigation as any).navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
                   }}
                 >
-                  <Text style={styles.menuItemText}>Manage calendars</Text>
+                  <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                    Manage calendars
+                  </Text>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onPress={() => {
                     (navigation as any).navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
                   }}
                 >
-                  <Text style={styles.menuItemText}>Set availability</Text>
+                  <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                    Set availability
+                  </Text>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -92,14 +94,6 @@ export function PlanScreen() {
           onNavigateDay={(delta) => shiftDays(delta)}
         />
 
-        <FloatingActionButton
-          accessibilityLabel="Open recommendations"
-          onPress={() => setRecsSheetSnapIndex(1)}
-          badgeCount={recsCount}
-          icon={
-            <Icon name="plan" size={22} color={colors.aiForeground} />
-          }
-        />
       </View>
     </AppShell>
   );
@@ -113,17 +107,6 @@ const styles = StyleSheet.create({
     // AppShell already provides the canvas horizontal padding.
     // Adding extra padding here double-indents the controls.
     paddingHorizontal: 0,
-  },
-  headerChevronButton: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: spacing.xs,
-  },
-  headerMoreButton: {
-    backgroundColor: 'transparent',
-  },
-  menuItemText: {
-    ...typography.body,
-    color: colors.textPrimary,
   },
   dateStripRow: {
     flexDirection: 'row',

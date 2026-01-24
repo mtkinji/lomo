@@ -30,6 +30,7 @@ import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaType
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
+import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -894,33 +895,37 @@ export function ArcDetailScreen() {
                     </View>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                      <DropdownMenuItem
-                        onPress={() => {
-                          setIsHeroModalVisible(true);
-                        }}
-                      >
-                      <View style={styles.menuItemRow}>
+                    <DropdownMenuItem
+                      onPress={() => {
+                        setIsHeroModalVisible(true);
+                      }}
+                    >
+                      <View style={menuStyles.menuItemRow}>
                         <Icon name="edit" size={16} color={colors.textSecondary} />
-                          <Text style={styles.menuItemLabel}>Cover image</Text>
+                        <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                          Cover image
+                        </Text>
                       </View>
                     </DropdownMenuItem>
                     <DropdownMenuItem onPress={handleToggleArchiveArc}>
-                      <View style={styles.menuItemRow}>
+                      <View style={menuStyles.menuItemRow}>
                         <Icon
                           name={arc?.status === 'archived' ? 'refresh' : 'archive'}
                           size={16}
                           color={colors.textSecondary}
                         />
-                        <Text style={styles.menuItemLabel}>
+                        <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
                           {arc?.status === 'archived' ? 'Restore' : 'Archive'}
                         </Text>
                       </View>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                      <View style={styles.menuItemRow}>
+                      <View style={menuStyles.menuItemRow}>
                         <Icon name="trash" size={16} color={colors.destructive} />
-                        <Text style={styles.destructiveMenuRowText}>Delete arc</Text>
+                        <Text style={menuStyles.destructiveMenuItemText} {...menuItemTextProps}>
+                          Delete arc
+                        </Text>
                       </View>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -2336,22 +2341,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     width: 32,
     height: 32,
-  },
-  menuItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    columnGap: spacing.sm,
-    width: '100%',
-  },
-  menuItemLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  destructiveMenuRowText: {
-    ...typography.bodySm,
-    color: colors.destructive,
-    fontFamily: fonts.medium,
   },
   narrativeSheetContent: {
     flex: 1,

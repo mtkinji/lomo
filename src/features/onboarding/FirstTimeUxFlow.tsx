@@ -257,25 +257,40 @@ export function FirstTimeUxFlow() {
         }
 
         if (arcId) {
-          rootNavigationRef.navigate('ArcsStack', {
-            screen: 'ArcDetail',
+          rootNavigationRef.navigate('MainTabs', {
+            screen: 'MoreTab',
             params: {
-              arcId,
-              showFirstArcCelebration: true,
+              screen: 'MoreArcs',
+              params: {
+                screen: 'ArcDetail',
+                params: {
+                  arcId,
+                  showFirstArcCelebration: true,
+                },
+              },
             },
           });
           return;
         }
 
         if (goalId) {
-          rootNavigationRef.navigate('ArcsStack', {
-            screen: 'GoalDetail',
-            params: { goalId, entryPoint: 'arcsStack' },
+          rootNavigationRef.navigate('MainTabs', {
+            screen: 'MoreTab',
+            params: {
+              screen: 'MoreArcs',
+              params: {
+                screen: 'GoalDetail',
+                params: { goalId, entryPoint: 'arcsStack' },
+              },
+            },
           });
           return;
         }
 
-        rootNavigationRef.navigate('ArcsStack', { screen: 'ArcsList' });
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'MoreTab',
+          params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+        });
       };
 
       navigateToOutcome();

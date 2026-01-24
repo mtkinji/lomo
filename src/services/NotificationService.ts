@@ -1360,9 +1360,9 @@ function attachNotificationResponseListener() {
         }
         const activityId = (data as { activityId?: string }).activityId;
         if (!activityId) return;
-        rootNavigationRef.navigate('Activities', {
-          screen: 'ActivityDetail',
-          params: { activityId },
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: { screen: 'ActivityDetail', params: { activityId } },
         });
         break;
       }
@@ -1372,9 +1372,9 @@ function attachNotificationResponseListener() {
         }
         const activityId = (data as { activityId?: string }).activityId;
         if (!activityId) return;
-        rootNavigationRef.navigate('Activities', {
-          screen: 'ActivityDetail',
-          params: { activityId },
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: { screen: 'ActivityDetail', params: { activityId } },
         });
         break;
       }
@@ -1384,9 +1384,12 @@ function attachNotificationResponseListener() {
         }
         const goalId = (data as { goalId?: string }).goalId;
         if (!goalId) return;
-        rootNavigationRef.navigate('Goals', {
-          screen: 'GoalDetail',
-          params: { goalId, entryPoint: 'goalsTab', initialTab: 'plan' },
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'GoalsTab',
+          params: {
+            screen: 'GoalDetail',
+            params: { goalId, entryPoint: 'goalsTab', initialTab: 'plan' },
+          },
         });
         break;
       }
@@ -1402,9 +1405,12 @@ function attachNotificationResponseListener() {
           return;
         }
         // Land on Activities list and highlight Suggested if Today has no scheduled items.
-        rootNavigationRef.navigate('Activities', {
-          screen: 'ActivitiesList',
-          params: { highlightSuggested: true, suggestedSource: 'notification' },
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: {
+            screen: 'ActivitiesList',
+            params: { highlightSuggested: true, suggestedSource: 'notification' },
+          },
         });
         break;
       }
@@ -1412,9 +1418,12 @@ function attachNotificationResponseListener() {
         if (!rootNavigationRef.isReady()) {
           return;
         }
-        rootNavigationRef.navigate('Activities', {
-          screen: 'ActivitiesList',
-          params: { highlightSuggested: true, suggestedSource: 'notification' },
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: {
+            screen: 'ActivitiesList',
+            params: { highlightSuggested: true, suggestedSource: 'notification' },
+          },
         });
         break;
       }
@@ -1427,8 +1436,9 @@ function attachNotificationResponseListener() {
         if (!rootNavigationRef.isReady()) {
           return;
         }
-        rootNavigationRef.navigate('Activities', {
-          screen: 'ActivitiesList',
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: { screen: 'ActivitiesList' },
         });
         break;
       }
@@ -1437,8 +1447,9 @@ function attachNotificationResponseListener() {
         if (!rootNavigationRef.isReady()) {
           return;
         }
-        rootNavigationRef.navigate('Activities', {
-          screen: 'ActivitiesList',
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: { screen: 'ActivitiesList' },
         });
         break;
       }

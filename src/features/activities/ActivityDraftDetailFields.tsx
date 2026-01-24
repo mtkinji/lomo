@@ -68,9 +68,9 @@ const activityTypeOptions = [
   },
   {
     value: 'instructions',
-    label: 'Recipe / instructions',
+    label: 'Instructions',
     keywords: ['recipe', 'instructions', 'how-to', 'steps'],
-    leftElement: <Icon name="chapters" size={16} color={colors.textSecondary} />,
+    leftElement: <Icon name="fileText" size={16} color={colors.textSecondary} />,
   },
   {
     value: 'plan',

@@ -190,6 +190,10 @@ The engagement system appears consistently across:
     - “You showed up X days this period.”  
     - “These Arcs received the most attention.”  
   - Suggestions framed as next gentle experiments, not prescriptions.
+  - Mature posture:
+    - Chapters are produced from **templates** (weekly/monthly/yearly reflection, plus optional report-style exports).
+    - “Chapter ready” delivery is opt-in via email/notification; the in-app canvas is the primary home.
+    - Report templates can power “work update” and “annual accomplishments” exports without diluting the reflective meaning of Chapters.
 
 All of this must **respect the app shell vs canvas separation**: the shell provides stable framing and nav; engagement elements live mainly **inside the canvas surfaces** (cards, sections, banners) so they feel like part of the experience, not overlays.
 

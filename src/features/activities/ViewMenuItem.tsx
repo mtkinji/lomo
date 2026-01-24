@@ -3,6 +3,7 @@ import { Pressable } from 'react-native';
 import { HStack, Text } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { DropdownMenuItem } from '../../ui/DropdownMenu';
+import { menuItemTextProps } from '../../ui/menuStyles';
 import { colors } from '../../theme/colors';
 import { styles } from './activitiesScreenStyles';
 import type { ActivityView } from '../../domain/types';
@@ -26,7 +27,9 @@ export function ViewMenuItem({ view, onApplyView, onOpenViewSettings }: ViewMenu
       }}
     >
       <HStack alignItems="center" justifyContent="space-between" space="sm" flex={1}>
-        <Text style={styles.menuItemText}>{view.name}</Text>
+        <Text style={styles.menuItemText} {...menuItemTextProps}>
+          {view.name}
+        </Text>
         <Pressable
           onPress={() => {
             iconPressedRef.current = true;

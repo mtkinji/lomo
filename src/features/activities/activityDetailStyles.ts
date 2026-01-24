@@ -1,5 +1,6 @@
 import { Platform, StyleSheet } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../theme';
+import { menuStyles } from '../../ui/menuStyles';
 
 // Shared styles for Activity Detail (refresh layout).
 export const styles = StyleSheet.create({
@@ -56,22 +57,19 @@ export const styles = StyleSheet.create({
     flex: 0,
   },
   menuItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    columnGap: spacing.sm,
-    width: '100%',
+    ...menuStyles.menuItemRow,
     flexShrink: 1,
   },
   menuRowText: {
-    ...typography.body,
-    color: colors.textPrimary,
+    ...menuStyles.menuItemText,
     flexShrink: 1,
     flex: 1,
   },
-  menuItemText: {
-    ...typography.body,
-    color: colors.textPrimary,
+  menuItemText: menuStyles.menuItemText,
+  destructiveMenuRowText: {
+    ...menuStyles.destructiveMenuItemText,
+    flexShrink: 1,
+    flex: 1,
   },
   tagsFieldContainer: {
     width: '100%',
@@ -635,6 +633,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  sheetHeader: {
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
   scheduleSheetContent: {
     // Match the Plan screen gutter (AppShell default).
     paddingHorizontal: spacing.sm,
@@ -938,12 +940,6 @@ export const styles = StyleSheet.create({
     width: 36,
     height: 36,
     backgroundColor: colors.primary,
-  },
-  destructiveMenuRowText: {
-    ...typography.body,
-    color: colors.destructive,
-    flexShrink: 1,
-    flex: 1,
   },
   doneButton: {
     paddingHorizontal: spacing.sm,

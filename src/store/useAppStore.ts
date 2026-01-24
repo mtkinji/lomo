@@ -376,6 +376,11 @@ interface AppState {
   devObjectDetailHeaderV2Enabled: boolean;
   devArcDetailDebugLoggingEnabled: boolean;
   /**
+   * Dev-only nav experiment: show a hamburger menu affordance in primary headers
+   * to open the Root Drawer (left-rail) even when bottom tabs are the default shell.
+   */
+  devNavDrawerMenuEnabled: boolean;
+  /**
    * App-level notification preferences and OS permission status.
    * Used by the notifications service to decide what to schedule.
    */
@@ -430,6 +435,24 @@ interface AppState {
    * Default: true.
    */
   hapticsEnabled: boolean;
+  /**
+   * Whether activity search should include completed & closed activities.
+   * Default: false.
+   */
+  activitySearchIncludeCompleted: boolean;
+  setActivitySearchIncludeCompleted: (include: boolean) => void;
+  /**
+   * Whether activity search should show the completion check circle.
+   * Default: false.
+   */
+  activitySearchShowCheckCircle: boolean;
+  setActivitySearchShowCheckCircle: (show: boolean) => void;
+  /**
+   * Whether activity search should show the metadata row.
+   * Default: false.
+   */
+  activitySearchShowMeta: boolean;
+  setActivitySearchShowMeta: (show: boolean) => void;
   /**
    * Selected soundscape track id for Focus sessions.
    */
@@ -495,6 +518,11 @@ interface AppState {
    * first-time onboarding flow so we can land the user directly on it.
    */
   goalRecommendations: Record<string, GoalDraft[]>;
+  /**
+   * Lightweight global count of Plan recommendations for the currently selected day
+   * (best-effort). Used for bottom-bar badge and other shell-level affordances.
+   */
+  planRecommendationsCount: number;
   arcFeedback: ArcProposalFeedback[];
   /**
    * Runtime-only signed-in identity derived from Supabase Auth session.
@@ -762,6 +790,7 @@ interface AppState {
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
+  setPlanRecommendationsCount: (count: number) => void;
   addArcFeedback: (feedback: ArcProposalFeedback) => void;
   setAuthIdentity: (identity: AuthIdentity) => void;
   clearAuthIdentity: () => void;
@@ -817,6 +846,7 @@ interface AppState {
   setDevBreadcrumbsEnabled: (enabled: boolean) => void;
   setDevObjectDetailHeaderV2Enabled: (enabled: boolean) => void;
   setDevArcDetailDebugLoggingEnabled: (enabled: boolean) => void;
+  setDevNavDrawerMenuEnabled: (enabled: boolean) => void;
   setHasCompletedFirstTimeOnboarding: (completed: boolean) => void;
   resetOnboardingAnswers: () => void;
   resetStore: () => void;
@@ -963,6 +993,7 @@ export const useAppStore = create<AppState>()(
       devBreadcrumbsEnabled: false,
       devObjectDetailHeaderV2Enabled: false,
       devArcDetailDebugLoggingEnabled: false,
+      devNavDrawerMenuEnabled: false,
       notificationPreferences: {
         notificationsEnabled: false,
         osPermissionStatus: 'notRequested',
@@ -988,6 +1019,9 @@ export const useAppStore = create<AppState>()(
       soundscapeEnabled: false,
       hapticsEnabled: true,
       soundscapeTrackId: 'default',
+      activitySearchIncludeCompleted: false,
+      activitySearchShowCheckCircle: false,
+      activitySearchShowMeta: false,
       enabledSendToDestinations: {},
       lastShowUpDate: null,
       currentShowUpStreak: 0,
@@ -1019,6 +1053,7 @@ export const useAppStore = create<AppState>()(
       activeActivityViewId: 'default',
       focusContextGoalId: null,
       goalRecommendations: {},
+      planRecommendationsCount: 0,
       arcFeedback: [],
       blockedCelebrationGifIds: [],
       likedCelebrationGifs: [],
@@ -1385,6 +1420,10 @@ export const useAppStore = create<AppState>()(
             [arcId]: goals,
           },
         })),
+      setPlanRecommendationsCount: (count) =>
+        set(() => ({
+          planRecommendationsCount: Math.max(0, Math.floor(Number.isFinite(count) ? count : 0)),
+        })),
       dismissGoalRecommendation: (arcId, goalTitle) =>
         set((state) => {
           const current = state.goalRecommendations[arcId] ?? [];
@@ -1643,6 +1682,10 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           devArcDetailDebugLoggingEnabled: enabled,
         })),
+      setDevNavDrawerMenuEnabled: (enabled) =>
+        set(() => ({
+          devNavDrawerMenuEnabled: enabled,
+        })),
       setSendToDestinationEnabled: (kind, enabled) =>
         set((state) => {
           const k = String(kind ?? '').trim().toLowerCase();
@@ -1805,6 +1848,18 @@ export const useAppStore = create<AppState>()(
       setSoundscapeTrackId: (trackId) =>
         set(() => ({
           soundscapeTrackId: (trackId || 'default') as SoundscapeId,
+        })),
+      setActivitySearchIncludeCompleted: (include) =>
+        set(() => ({
+          activitySearchIncludeCompleted: Boolean(include),
+        })),
+      setActivitySearchShowCheckCircle: (show) =>
+        set(() => ({
+          activitySearchShowCheckCircle: Boolean(show),
+        })),
+      setActivitySearchShowMeta: (show) =>
+        set(() => ({
+          activitySearchShowMeta: Boolean(show),
         })),
       setFocusContextGoalId: (goalId) =>
         set(() => ({
@@ -2073,6 +2128,7 @@ export const useAppStore = create<AppState>()(
           devBreadcrumbsEnabled: false,
           devObjectDetailHeaderV2Enabled: false,
           devArcDetailDebugLoggingEnabled: false,
+          devNavDrawerMenuEnabled: false,
           goalRecommendations: {},
           userProfile: buildDefaultUserProfile(),
           activityViews: initialActivityViews,

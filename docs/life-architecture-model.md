@@ -208,6 +208,48 @@ A **Chapter** is an AI-generated lookback over any date range. It pulls together
 
 Its purpose is **meaning-making, not planning**.
 
+### Mature product posture (how Chapters work in practice)
+
+In a mature Kwilt, Chapters are generated from **Chapter templates** that define *when* a Chapter is produced, *what it includes*, and *how it is delivered*. This keeps “Chapters” coherent while supporting multiple real-world use cases without turning the reflection surface into a generic reporting dashboard.
+
+#### Chapter templates
+
+A **Chapter template** defines:
+
+- **Cadence / period**: weekly (default), monthly, yearly (and later custom ranges).
+- **Inclusion filter**: which Activities are eligible (e.g., only `done`, only `work` tag, only a specific Arc).
+- **Output format**:
+  - **Reflection** (identity-first narrative): meaning + patterns + gentle experiments.
+  - **Report** (professional export): structured recap suitable for sharing (e.g., manager update).
+- **Delivery**: in-app only, or in-app + opt-in email.
+
+Templates are first-class and transparent: a Chapter should clearly show the template name and “what was included” so users trust the output.
+
+#### Writing style (default reflection)
+
+Default Chapters should be:
+
+- **Grounded and human** (no corporate tone, no productivity clichés).
+- **Data-anchored** (counts/time/what happened) with **humble interpretation** (no overconfident psychoanalysis).
+- **Identity-aware** (trace meaning back to Arcs and Force patterns).
+- **Non-shaming** (drift is described as information, not failure).
+
+The output should respect user preferences (tone/detail/spiritual-language) when present.
+
+#### Report-mode Chapters (explicitly non-reflective)
+
+Some users need a “what did I do?” artifact (weekly manager update, annual accomplishments). The mature model supports this via **Report templates** that:
+
+- keep language concise and professional,
+- prioritize grouping and totals over narrative,
+- are explicitly framed as an export artifact (so the reflection meaning of “Chapters” stays intact).
+
+#### Delivery and automation posture
+
+- Chapters can be **generated automatically** on a cadence for signed-in users when the server has the required history (Activities/Goals/Arcs).
+- Email notifications (“Your Chapter is ready”) are **opt-in** and should be minimal by default (a short preview + a link to review in-app).
+  - Email content should avoid leaking sensitive details unless the user explicitly chooses a report template designed for sharing.
+
 ### A Chapter answers
 
 - What was this period of life about?

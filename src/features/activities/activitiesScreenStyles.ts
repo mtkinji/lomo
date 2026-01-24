@@ -2,6 +2,7 @@ import { StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography, fonts } from '../../theme/typography';
+import { menuStyles } from '../../ui/menuStyles';
 
 export const QUICK_ADD_BAR_HEIGHT = 64;
 
@@ -215,7 +216,9 @@ export const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   completedSection: {
-    marginTop: spacing['2xl'],
+    // Spacing above this section is controlled by the list footer wrapper in `ActivitiesScreen`
+    // so we don't accidentally double-space it.
+    marginTop: 0,
   },
   completedToggle: {
     paddingVertical: spacing.xs,
@@ -228,10 +231,7 @@ export const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  menuItemText: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
+  menuItemText: menuStyles.menuItemText,
   newViewMenuItem: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -476,6 +476,10 @@ export const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+  },
+  sheetHeader: {
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   sheetTitle: {
     ...typography.titleSm,

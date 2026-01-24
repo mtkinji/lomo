@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
+import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
 import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
 import { useCelebrationStore } from '../../store/useCelebrationStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -49,6 +50,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import type { Arc, ForceLevel, ThumbnailStyle, Goal, Activity, ActivityType, ActivityStep } from '../../domain/types';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomGuide } from '../../ui/BottomGuide';
@@ -521,18 +523,30 @@ export function GoalDetailScreen() {
       const parent = nav.getParent();
       if (parent && typeof parent.navigate === 'function') {
         if (entryPoint === 'arcsStack') {
-          parent.navigate('ArcsStack', { screen: 'ArcsList' });
+          parent.navigate('MainTabs', {
+            screen: 'MoreTab',
+            params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+          });
         } else {
-          parent.navigate('Goals');
+          parent.navigate('MainTabs', {
+            screen: 'GoalsTab',
+            params: { screen: 'GoalsList' },
+          });
         }
         return;
       }
     }
     if (nav && typeof nav.navigate === 'function') {
       if (entryPoint === 'arcsStack') {
-        nav.navigate('ArcsStack', { screen: 'ArcsList' });
+        nav.navigate('MainTabs', {
+          screen: 'MoreTab',
+          params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+        });
       } else {
-        nav.navigate('Goals');
+        nav.navigate('MainTabs', {
+          screen: 'GoalsTab',
+          params: { screen: 'GoalsList' },
+        });
       }
     }
   };
@@ -2177,34 +2191,40 @@ export function GoalDetailScreen() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                       <DropdownMenuItem onPress={() => setThumbnailSheetVisible(true)}>
-                        <View style={styles.menuItemRow}>
+                        <View style={menuStyles.menuItemRow}>
                           <Icon name="image" size={16} color={colors.textSecondary} />
-                          <Text style={styles.menuItemLabel}>Edit banner</Text>
+                          <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                            Edit banner
+                          </Text>
                         </View>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={() => setRefineGoalSheetVisible(true)}>
-                        <View style={styles.menuItemRow}>
+                        <View style={menuStyles.menuItemRow}>
                           <Icon name="sparkles" size={16} color={colors.textSecondary} />
-                          <Text style={styles.menuItemLabel}>Refine goal with AI</Text>
+                          <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                            Refine goal with AI
+                          </Text>
                         </View>
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={handleToggleArchiveGoal}>
-                        <View style={styles.menuItemRow}>
+                        <View style={menuStyles.menuItemRow}>
                           <Icon
                             name={goal?.status === 'archived' ? 'refresh' : 'archive'}
                             size={16}
                             color={colors.textSecondary}
                           />
-                          <Text style={styles.menuItemLabel}>
+                          <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
                             {goal?.status === 'archived' ? 'Restore' : 'Archive'}
                           </Text>
                         </View>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onPress={handleDeleteGoal} variant="destructive">
-                        <View style={styles.menuItemRow}>
+                        <View style={menuStyles.menuItemRow}>
                           <Icon name="trash" size={16} color={colors.destructive} />
-                          <Text style={styles.destructiveMenuRowText}>Delete goal</Text>
+                          <Text style={menuStyles.destructiveMenuItemText} {...menuItemTextProps}>
+                            Delete goal
+                          </Text>
                         </View>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -2954,7 +2974,12 @@ export function GoalDetailScreen() {
         <View style={[styles.quickAddSheetContent, { flex: 1 }]}>
           {goalTargetDateSheetStep === 'menu' ? (
             <>
-              <Text style={styles.quickAddSheetTitle}>Target date</Text>
+              <BottomDrawerHeader
+                title="Target date"
+                variant="minimal"
+                containerStyle={styles.quickAddSheetHeader}
+                titleStyle={styles.quickAddSheetTitle}
+              />
               <VStack space="sm">
                 <Pressable style={styles.quickAddSheetRow} onPress={() => setGoalTargetDateByOffsetDays(0)}>
                   <Text style={styles.quickAddSheetRowLabel}>Today</Text>
@@ -3042,7 +3067,12 @@ export function GoalDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={styles.quickAddSheetContent}>
-          <Text style={styles.quickAddSheetTitle}>Status</Text>
+          <BottomDrawerHeader
+            title="Status"
+            variant="minimal"
+            containerStyle={styles.quickAddSheetHeader}
+            titleStyle={styles.quickAddSheetTitle}
+          />
           <VStack space="sm">
             {GOAL_STATUS_OPTIONS.map((nextStatus) => {
               const nextAppearance = getGoalStatusAppearance(nextStatus);
@@ -3115,7 +3145,12 @@ export function GoalDetailScreen() {
           contentContainerStyle={styles.quickAddSheetContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.quickAddSheetTitle}>Reminder</Text>
+          <BottomDrawerHeader
+            title="Reminder"
+            variant="minimal"
+            containerStyle={styles.quickAddSheetHeader}
+            titleStyle={styles.quickAddSheetTitle}
+          />
           <VStack space="sm">
             <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddReminderByOffsetDays(0, 18, 0)}>
               <Text style={styles.quickAddSheetRowLabel}>Later today (6pm)</Text>
@@ -3170,7 +3205,12 @@ export function GoalDetailScreen() {
           contentContainerStyle={styles.quickAddSheetContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.quickAddSheetTitle}>Due</Text>
+          <BottomDrawerHeader
+            title="Due"
+            variant="minimal"
+            containerStyle={styles.quickAddSheetHeader}
+            titleStyle={styles.quickAddSheetTitle}
+          />
           <VStack space="sm">
             <Pressable style={styles.quickAddSheetRow} onPress={() => setQuickAddDueDateByOffsetDays(0)}>
               <Text style={styles.quickAddSheetRowLabel}>Today</Text>
@@ -3216,7 +3256,12 @@ export function GoalDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={styles.quickAddSheetContent}>
-          <Text style={styles.quickAddSheetTitle}>Repeat</Text>
+          <BottomDrawerHeader
+            title="Repeat"
+            variant="minimal"
+            containerStyle={styles.quickAddSheetHeader}
+            titleStyle={styles.quickAddSheetTitle}
+          />
           <VStack space="sm">
             {(['daily', 'weekly', 'weekdays', 'monthly', 'yearly'] as const).map((rule) => (
               <Pressable
@@ -3252,7 +3297,12 @@ export function GoalDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={styles.quickAddSheetContent}>
-          <Text style={styles.quickAddSheetTitle}>Duration</Text>
+          <BottomDrawerHeader
+            title="Duration"
+            variant="minimal"
+            containerStyle={styles.quickAddSheetHeader}
+            titleStyle={styles.quickAddSheetTitle}
+          />
           <VStack space="md">
             <DurationPicker
               valueMinutes={quickAddEstimateDraftMinutes}
@@ -3585,7 +3635,7 @@ function GoalActivityComposerModal({
               { value: 'task', label: 'Task' },
               { value: 'checklist', label: 'Checklist' },
               { value: 'shopping_list', label: 'List' },
-              { value: 'instructions', label: 'Recipe' },
+              { value: 'instructions', label: 'Instructions' },
               { value: 'plan', label: 'Plan' },
             ]}
           />
@@ -4217,22 +4267,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     backgroundColor: colors.primary,
-  },
-  menuItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    columnGap: spacing.sm,
-    width: '100%',
-  },
-  menuItemLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  destructiveMenuRowText: {
-    ...typography.bodySm,
-    color: colors.destructive,
-    fontFamily: fonts.medium,
   },
   arcRow: {
     paddingHorizontal: spacing.md,
@@ -5087,6 +5121,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  quickAddSheetHeader: {
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   quickAddSheetTitle: {
     ...typography.titleSm,

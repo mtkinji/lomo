@@ -60,6 +60,7 @@ const iconMap: Record<string, IconEntry> = {
   arrowLeft: { library: 'feather', name: 'arrow-left' },
   plus: { library: 'feather', name: 'plus' },
   more: { library: 'feather', name: 'more-horizontal' },
+  settings: { library: 'feather', name: 'settings' },
   goals: { library: 'feather', name: 'target' },
   target: { library: 'feather', name: 'target' },
   inbox: { library: 'feather', name: 'inbox' },
@@ -83,7 +84,8 @@ const iconMap: Record<string, IconEntry> = {
   checkCircle: { library: 'feather', name: 'check-circle' },
   dev: { library: 'feather', name: 'code' },
   sparkles: { library: 'feather', name: 'zap' },
-  plan: { library: 'feather', name: 'zap' },
+  // "Plan" is a scheduling canvas; avoid "zap" (reads as energy/spark).
+  plan: { library: 'feather', name: 'calendar' },
   // Calm focus affordance (used for Focus mode / execution).
   focus: { library: 'kwilt', name: 'focus' },
   // Send/push payload outside of Kwilt (export / send out).

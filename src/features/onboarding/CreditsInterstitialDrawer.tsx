@@ -4,8 +4,7 @@ import { useCreditsInterstitialStore } from '../../store/useCreditsInterstitialS
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAppStore } from '../../store/useAppStore';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { IconButton } from '../../ui/Button';
-import { Icon } from '../../ui/Icon';
+import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
 import { colors, spacing, typography } from '../../theme';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 
@@ -71,12 +70,12 @@ export function CreditsInterstitialDrawerHost() {
       handleStyle={styles.handle}
     >
       <View style={styles.surface}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>{title}</Text>
-          <IconButton accessibilityLabel="Close" onPress={close} variant="ghost">
-            <Icon name="close" size={18} color={colors.textPrimary} />
-          </IconButton>
-        </View>
+        <BottomDrawerHeader
+          title={title}
+          rightAction={<BottomDrawerHeaderClose onPress={close} />}
+          titleVariant="md"
+          titleStyle={styles.headerTitle}
+        />
 
         <Text style={styles.subtitle}>{subtitle}</Text>
 
@@ -130,17 +129,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
   headerTitle: {
     ...typography.titleMd,
     color: colors.textPrimary,
-    flex: 1,
-    paddingRight: spacing.md,
+    textAlign: 'left',
   },
   subtitle: {
     ...typography.body,

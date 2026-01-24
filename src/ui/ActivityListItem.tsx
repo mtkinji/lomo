@@ -67,6 +67,11 @@ type ActivityListItemProps = {
    */
   showPriorityControl?: boolean;
   /**
+   * Whether to show the checkbox/completion control. Defaults to true.
+   * When false, the checkbox is completely hidden.
+   */
+  showCheckbox?: boolean;
+  /**
    * Optional handler for tapping anywhere on the row (excluding the checkbox).
    */
   onPress?: () => void;
@@ -101,6 +106,7 @@ export function ActivityListItem({
   onTogglePriority,
   rightAccessory,
   showPriorityControl = true,
+  showCheckbox = true,
   onPress,
   onLongPress,
   isDueToday = false,
@@ -201,6 +207,7 @@ export function ActivityListItem({
       style={[
         styles.card,
         variant === 'full' && styles.cardFull,
+        isCompleted && styles.cardCompleted,
         isGhost && styles.ghostCard,
       ]}
     >
@@ -212,16 +219,30 @@ export function ActivityListItem({
         <HStack
           space="md"
           alignItems={variant === 'full' ? 'flex-start' : 'center'}
-          style={styles.leftCluster}
+          style={[styles.leftCluster, !showCheckbox && styles.leftClusterNoCheckbox]}
         >
-          <View style={styles.checkboxWrapper}>
-            {onToggleComplete ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isCompleted ? 'Mark activity as not done' : 'Mark activity as done'}
-                hitSlop={8}
-                onPress={handlePressComplete}
-              >
+          {showCheckbox ? (
+            <View style={styles.checkboxWrapper}>
+              {onToggleComplete ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isCompleted ? 'Mark activity as not done' : 'Mark activity as done'}
+                  hitSlop={8}
+                  onPress={handlePressComplete}
+                >
+                  <View
+                    style={[
+                      styles.checkboxBase,
+                      isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
+                      isGhost && styles.ghostCheckbox,
+                    ]}
+                  >
+                    {isCompleted ? (
+                      <Icon name="check" size={14} color={colors.primaryForeground} />
+                    ) : null}
+                  </View>
+                </Pressable>
+              ) : (
                 <View
                   style={[
                     styles.checkboxBase,
@@ -233,37 +254,25 @@ export function ActivityListItem({
                     <Icon name="check" size={14} color={colors.primaryForeground} />
                   ) : null}
                 </View>
-              </Pressable>
-            ) : (
-              <View
-                style={[
-                  styles.checkboxBase,
-                  isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
-                  isGhost && styles.ghostCheckbox,
-                ]}
-              >
-                {isCompleted ? (
-                  <Icon name="check" size={14} color={colors.primaryForeground} />
-                ) : null}
-              </View>
-            )}
+              )}
 
-            {isAnimatingComplete && (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.completionBurst,
-                  {
-                    transform: [{ scale: completionScale }],
-                  },
-                ]}
-              >
-                <View style={styles.completionBurstInner}>
-                  <Icon name="check" size={12} color={colors.primaryForeground} />
-                </View>
-              </Animated.View>
-            )}
-          </View>
+              {isAnimatingComplete && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.completionBurst,
+                    {
+                      transform: [{ scale: completionScale }],
+                    },
+                  ]}
+                >
+                  <View style={styles.completionBurstInner}>
+                    <Icon name="check" size={12} color={colors.primaryForeground} />
+                  </View>
+                </Animated.View>
+              )}
+            </View>
+          ) : null}
 
           <VStack style={styles.textBlock} space="xs">
             <Text
@@ -379,6 +388,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
+  cardCompleted: {
+    backgroundColor: colors.shellAlt,
+  },
   metaSkeleton: {
     height: 10,
     width: 132,
@@ -387,6 +399,9 @@ const styles = StyleSheet.create({
   },
   leftCluster: {
     flex: 1,
+  },
+  leftClusterNoCheckbox: {
+    paddingLeft: spacing.xs,
   },
   checkboxWrapper: {
     position: 'relative',
@@ -438,6 +453,7 @@ const styles = StyleSheet.create({
   },
   titleCompleted: {
     color: colors.textSecondary,
+    textDecorationLine: 'line-through',
   },
   meta: {
     ...typography.bodySm,
