@@ -44,11 +44,11 @@ const CATCH_MESSAGES = [
 ] as const;
 
 const WALLPAPER_BACKGROUNDS = [
-  require('../../../assets/illustrations/activity-types/image.png'),
-  require('../../../assets/illustrations/activity-types/image copy 3.png'),
-  require('../../../assets/illustrations/activity-types/image4.png'),
-  require('../../../assets/illustrations/activity-types/image copy 4.png'),
-  require('../../../assets/illustrations/activity-types/image copy 10.png'),
+  require('../../../assets/illustrations/welcome.png'),
+  require('../../../assets/illustrations/goal-set.png'),
+  require('../../../assets/illustrations/aspiration.png'),
+  require('../../../assets/illustrations/aspirations.png'),
+  require('../../../assets/illustrations/notifications.png'),
   require('../../assets/arc-banners/banner1.png'),
   require('../../assets/arc-banners/banner7.png'),
 ] as const;

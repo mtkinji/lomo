@@ -16,6 +16,7 @@ import type { ActivityDifficulty, ActivityType } from '../../domain/types';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
+import { getEffectiveThumbnailUrl } from '../../domain/getEffectiveThumbnailUrl';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { KwiltAiQuotaExceededError } from '../../services/ai';
@@ -241,7 +242,8 @@ export function ActivityDetailRefresh(props: any) {
   });
 
   const headerArtworkSource = getActivityHeaderArtworkSource(activity.type as ActivityType);
-  const heroImageSource = activity?.thumbnailUrl ? { uri: activity.thumbnailUrl } : headerArtworkSource;
+  const effectiveThumbnailUrl = getEffectiveThumbnailUrl(activity);
+  const heroImageSource = effectiveThumbnailUrl ? { uri: effectiveThumbnailUrl } : headerArtworkSource;
   const resolvedHeroArtwork =
     heroImageSource && typeof heroImageSource === 'number' ? Image.resolveAssetSource(heroImageSource) : undefined;
   const heroImageAspectRatio =

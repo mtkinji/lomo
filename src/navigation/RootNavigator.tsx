@@ -71,6 +71,7 @@ import { KwiltBottomBar } from './KwiltBottomBar';
 import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen';
 import { MoreScreen } from '../features/more/MoreScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
+import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
 import { PLACE_TABS } from './placeTabs';
 import type {
   ActivityDetailRouteParams,
@@ -140,7 +141,17 @@ export type MainTabsParamList = {
 export type MoreStackParamList = {
   MoreHome: undefined;
   MoreArcs: NavigatorScreenParams<ArcsStackParamList> | undefined;
-  MoreChapters: undefined;
+  MoreChapters:
+    | {
+        /**
+         * When true, trigger the "create chapter" flow from the global + button.
+         * We keep this as a navigation param so the bottom bar can stay dumb and
+         * screens can own their own side-effects (auth prompts, RPCs, etc).
+         */
+        openCreateChapter?: boolean;
+      }
+    | undefined;
+  MoreChapterDetail: { chapterId: string };
 };
 
 export type ArcsStackParamList = {
@@ -740,7 +751,9 @@ function MainTabsNavigator() {
     <Tabs.Navigator
       screenOptions={({ route }) => {
         const focusedRouteName = getFocusedRouteNameFromRoute(route) ?? '';
-        const hideTabBar = route.name === 'ActivitiesTab' && focusedRouteName === 'ActivityDetail';
+        const hideTabBar =
+          (route.name === 'ActivitiesTab' && focusedRouteName === 'ActivityDetail') ||
+          (route.name === 'MoreTab' && focusedRouteName === 'MoreChapterDetail');
         return {
           headerShown: false,
           tabBarStyle: hideTabBar
@@ -786,6 +799,7 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MoreHome" component={MoreScreen} />
       <MoreStack.Screen name="MoreArcs" component={ArcsStackNavigator} />
       <MoreStack.Screen name="MoreChapters" component={ChaptersScreen} />
+      <MoreStack.Screen name="MoreChapterDetail" component={ChapterDetailScreen} />
     </MoreStack.Navigator>
   );
 }

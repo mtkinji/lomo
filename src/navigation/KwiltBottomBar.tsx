@@ -7,6 +7,7 @@ import { colors, spacing, typography, fonts } from '../theme';
 import { Icon, type IconName } from '../ui/Icon';
 import { PLACE_TABS } from './placeTabs';
 import { useAppStore } from '../store/useAppStore';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import {
   KWILT_BOTTOM_BAR_BOTTOM_OFFSET_PX,
   KWILT_BOTTOM_BAR_FLOATING_SIZE_PX,
@@ -101,6 +102,19 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
       return;
     }
     if (activeRouteName === 'MoreTab') {
+      // Route the global + button based on the focused screen inside the More stack.
+      const moreRoute = state.routes[state.index];
+      const focused = moreRoute ? getFocusedRouteNameFromRoute(moreRoute as any) : null;
+      const isOnChapters = focused === 'MoreChapters' || focused === 'MoreChapterDetail';
+
+      if (isOnChapters) {
+        navigation.navigate('MoreTab', {
+          screen: 'MoreChapters',
+          params: { openCreateChapter: true },
+        });
+        return;
+      }
+
       navigation.navigate('MoreTab', {
         screen: 'MoreArcs',
         params: { screen: 'ArcsList', params: { openCreateArc: true } },
