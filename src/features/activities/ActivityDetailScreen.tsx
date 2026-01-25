@@ -148,6 +148,7 @@ import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
+import { getEffectiveThumbnailUrl } from '../../domain/getEffectiveThumbnailUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
@@ -287,7 +288,7 @@ export function ActivityDetailScreen() {
     }
   }, [activity]);
 
-  const displayThumbnailUrlForSheet = activity?.thumbnailUrl ?? defaultHeroUrl;
+  const displayThumbnailUrlForSheet = (activity ? getEffectiveThumbnailUrl(activity) : undefined) ?? defaultHeroUrl;
 
   const handleUploadActivityThumbnail = useCallback(async () => {
     if (!activity) return;
@@ -5129,7 +5130,7 @@ export function ActivityDetailScreen() {
           );
         }}
         heroSeed={heroSeed}
-        hasHero={Boolean(activity?.thumbnailUrl)}
+        hasHero={Boolean(activity ? getEffectiveThumbnailUrl(activity) : undefined)}
         loading={heroImageLoading}
         error={heroImageError}
         thumbnailUrl={displayThumbnailUrlForSheet}

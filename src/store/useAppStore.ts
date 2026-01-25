@@ -2623,36 +2623,11 @@ export const useAppStore = create<AppState>()(
 
                 const normalizeHttp = (url: string) => (url.startsWith('http://') ? `https://${url.slice('http://'.length)}` : url);
 
-                // Curated: always derive from curatedId (stable across builds).
-                if (source === 'curated') {
-                  const curatedId = typeof meta?.curatedId === 'string' ? meta.curatedId.trim() : '';
-                  const resolved = curatedId ? getArcHeroUriById(curatedId) : null;
-                  if (resolved && rawUrl !== resolved) {
-                    return { ...(obj as any), thumbnailUrl: resolved } as T;
-                  }
-                  if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
-                    return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
-                  }
-                  return obj;
-                }
-
-                // Unsplash: if we have a photo id but the stored URL doesn't look like an Unsplash image URL,
-                // reconstruct to a stable, CDN-served endpoint.
-                if (source === 'unsplash') {
-                  const photoId = typeof meta?.unsplashPhotoId === 'string' ? meta.unsplashPhotoId.trim() : '';
-                  const isUnsplashImageUrl =
-                    rawUrl.includes('images.unsplash.com') || rawUrl.includes('source.unsplash.com') || rawUrl.includes('plus.unsplash.com');
-                  const isTransientFile = rawUrl.startsWith('file://') || rawUrl.startsWith('content://');
-                  if (photoId && (!rawUrl || isTransientFile || !isUnsplashImageUrl)) {
-                    // Aspect-biased default for hero banners.
-                    const reconstructed = `https://source.unsplash.com/${encodeURIComponent(photoId)}/1200x500`;
-                    return { ...(obj as any), thumbnailUrl: reconstructed } as T;
-                  }
-                  if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
-                    return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
-                  }
-                  return obj;
-                }
+                // IMPORTANT: Do not rewrite hero URLs during hydration.
+                // We rely on `heroImageMeta` at render-time to reconstruct stable display URLs when needed.
+                // Hydration-time rewrites can accidentally overwrite previously distinct thumbnails across
+                // many objects if upstream metadata is corrupted or incomplete.
+                void source;
 
                 // Generic normalization for any other remote URL.
                 if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
