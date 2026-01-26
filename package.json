@@ -13,7 +13,8 @@
     "web": "expo start --web",
     "ios:build:production": "eas build --platform ios --profile production --non-interactive",
     "ios:submit:production": "eas submit --platform ios --profile production --non-interactive",
-    "ios:testflight": "eas build --platform ios --profile production --non-interactive --auto-submit",
+    "ios:testflight": "eas build --platform ios --profile production-widgets --non-interactive --auto-submit",
+    "ios:testflight:no-widgets": "eas build --platform ios --profile production --non-interactive --auto-submit",
     "lint": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch"

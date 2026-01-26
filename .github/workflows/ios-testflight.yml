@@ -28,7 +28,7 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build (production) + auto-submit to TestFlight
+      - name: Build (production-widgets) + auto-submit to TestFlight
         env:
           # Expo token for non-interactive EAS auth.
           # The expo/expo-github-action sets EXPO_TOKEN for the CLI; we keep this for clarity.

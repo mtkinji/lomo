@@ -353,7 +353,7 @@ export function ActivityDetailRefresh(props: any) {
               materialOpacity={headerActionPillOpacity}
               materialVariant={headerPillMaterialVariant}
             >
-              <Icon name="chevronLeft" size={20} color={headerInk} />
+              <Icon name="arrowLeft" size={20} color={headerInk} />
             </HeaderActionPill>
           }
           // Intentionally omit the object-type pill in the header for Activity detail.

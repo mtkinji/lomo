@@ -3,8 +3,6 @@ import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { openRootDrawer } from '../../navigation/openDrawer';
-import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { PlanPager } from './PlanPager';
 import { Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
@@ -14,13 +12,17 @@ import { IconButton } from '../../ui/Button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import type { MainTabsParamList } from '../../navigation/RootNavigator';
 import { PlanDateStrip } from './PlanDateStrip';
+import { useAppStore } from '../../store/useAppStore';
 export function PlanScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
-  const drawerMenuEnabled = useDrawerMenuEnabled();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [recsSheetSnapIndex, setRecsSheetSnapIndex] = useState(0);
   const [recsCount, setRecsCount] = useState(0);
+  const authIdentity = useAppStore((state) => state.authIdentity);
+  const userProfile = useAppStore((state) => state.userProfile);
+  const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
 
   const shiftDays = (deltaDays: number) => {
     const next = new Date(selectedDate);
@@ -39,75 +41,66 @@ export function PlanScreen() {
 
   return (
     <AppShell>
-      <View style={styles.container}>
-        <PageHeader
-          title="Plan"
-          onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
-          rightElement={
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <IconButton
-                  accessibilityLabel="Plan settings"
-                  variant="ghost"
-                  onPress={() => {
-                    // handled by DropdownMenuTrigger
-                  }}
-                >
-                  <Icon name="more" size={16} color={colors.textPrimary} />
-                </IconButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="bottom">
-                <DropdownMenuItem
-                  onPress={() => {
-                    (navigation as any).navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
-                  }}
-                >
-                  <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
-                    Manage calendars
-                  </Text>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onPress={() => {
-                    (navigation as any).navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
-                  }}
-                >
-                  <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
-                    Set availability
-                  </Text>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
-        />
+      <PageHeader
+        title="Plan"
+        onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
+        avatarName={avatarName}
+        avatarUrl={avatarUrl}
+        rightElement={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <IconButton
+                accessibilityLabel="Plan settings"
+                variant="ghost"
+                onPress={() => {
+                  // handled by DropdownMenuTrigger
+                }}
+              >
+                <Icon name="more" size={16} color={colors.textPrimary} />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="bottom">
+              <DropdownMenuItem
+                onPress={() => {
+                  (navigation as any).navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
+                }}
+              >
+                <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                  Manage calendars
+                </Text>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onPress={() => {
+                  (navigation as any).navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
+                }}
+              >
+                <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                  Set availability
+                </Text>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
 
-        <View style={styles.dateStripRow}>
-          <PlanDateStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-        </View>
-
-        <PlanPager
-          insetMode="screen"
-          targetDate={selectedDate}
-          entryPoint="manual"
-          recommendationsSheetSnapIndex={recsSheetSnapIndex}
-          onRecommendationsSheetSnapIndexChange={setRecsSheetSnapIndex}
-          onRecommendationsCountChange={setRecsCount}
-          onNavigateDay={(delta) => shiftDays(delta)}
-        />
-
+      <View style={styles.dateStripRow}>
+        <PlanDateStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} />
       </View>
+
+      <PlanPager
+        insetMode="screen"
+        targetDate={selectedDate}
+        entryPoint="manual"
+        recommendationsSheetSnapIndex={recsSheetSnapIndex}
+        onRecommendationsSheetSnapIndexChange={setRecsSheetSnapIndex}
+        onRecommendationsCountChange={setRecsCount}
+        onNavigateDay={(delta) => shiftDays(delta)}
+      />
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headerControlsRow: {
-    // AppShell already provides the canvas horizontal padding.
-    // Adding extra padding here double-indents the controls.
-    paddingHorizontal: 0,
-  },
   dateStripRow: {
     flexDirection: 'row',
     alignItems: 'center',

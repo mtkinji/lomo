@@ -122,6 +122,12 @@ import {
   recordCompletedFocusSessionWithMilestone,
 } from '../../store/useCelebrationStore';
 import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
+import {
+  canSubmitCheckin,
+  getOneTapCheckinPreset,
+  submitOneTapCheckin,
+  type CheckinTrigger,
+} from '../../services/checkins';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,

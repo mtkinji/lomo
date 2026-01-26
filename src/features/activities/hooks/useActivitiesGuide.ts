@@ -84,7 +84,7 @@ export function useActivitiesGuide({
     if (guideVariant === 'empty') {
       return {
         title: 'Start here',
-        body: 'Use the Quick Add bar at the bottom to add your first Activity. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
+        body: 'Use the field at the bottom to add your first Activity. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
       };
     }
     if (activitiesGuideStep === 0) {

@@ -66,6 +66,7 @@ export const AnalyticsEvent = {
   // Shared goal check-ins + reactions
   SharedGoalCheckinCreated: 'shared_goal_checkin_created',
   SharedGoalCheckinFailed: 'shared_goal_checkin_failed',
+  SharedGoalCheckinNudgeTapped: 'shared_goal_checkin_nudge_tapped',
   SharedGoalReactionAdded: 'shared_goal_reaction_added',
   SharedGoalReactionRemoved: 'shared_goal_reaction_removed',
   SharedGoalFeedViewed: 'shared_goal_feed_viewed',

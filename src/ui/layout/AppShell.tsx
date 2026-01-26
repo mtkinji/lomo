@@ -36,7 +36,7 @@ export function AppShell({
         style={[
           styles.container,
           {
-            paddingTop: fullBleedCanvas ? 0 : spacing.sm + insets.top,
+            paddingTop: fullBleedCanvas ? 0 : insets.top,
             // NOTE: Do not pad the canvas bottom here.
             // Bottom safe area should be handled by scrollable content (via contentContainerStyle)
             // or by explicit bottom UI (e.g., a composer) so content can scroll into the bottom space

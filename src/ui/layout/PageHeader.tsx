@@ -1,10 +1,11 @@
 import { ReactNode, useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { IconButton } from '../Button';
 import { ObjectTypeIconBadge } from '../ObjectTypeIconBadge';
 import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objectTypeBadges';
+import { ProfileAvatar } from '../ProfileAvatar';
 
 type PageHeaderProps = {
   title: string;
@@ -36,6 +37,20 @@ type PageHeaderProps = {
    */
   onPressBack?: () => void;
   /**
+   * Optional avatar handler; when provided (and `onPressBack`/`onPressMenu` are not),
+   * shows the user's avatar in the top-left slot. Intended for top-level canvases
+   * where the avatar opens Settings.
+   */
+  onPressAvatar?: () => void;
+  /**
+   * Display name used for initials + deterministic gradient in the avatar.
+   */
+  avatarName?: string;
+  /**
+   * Optional avatar URL.
+   */
+  avatarUrl?: string | null;
+  /**
    * When true, the menu icon is visually treated as "open" (rotated 180deg).
    * Typically wired to the drawer's open/closed state.
    */
@@ -60,6 +75,10 @@ type PageHeaderProps = {
    * (filters, tabs, meta, etc).
    */
   children?: ReactNode;
+  /**
+   * Optional container style overrides (e.g. adjust top padding for specific screens).
+   */
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
 export function PageHeader({
@@ -69,28 +88,35 @@ export function PageHeader({
   iconTone = 'default',
   onPressMenu,
   onPressBack,
+  onPressAvatar,
+  avatarName,
+  avatarUrl,
   menuOpen = false,
   onPressInfo,
   rightElement,
   boxedTitle = false,
   children,
+  containerStyle,
 }: PageHeaderProps) {
   const headerActionSize = 44;
   const headerBadgeSize = 36;
   const headerBadgeRadius = Math.round(headerBadgeSize * 0.32);
   const badgeColors = getObjectTypeBadgeColors(iconTone);
 
-  const iconColor = variant === 'inverse' ? colors.aiForeground : colors.canvas;
+  // Header icons should be neutral (not CTA), so default to ink on white canvas.
+  // Inverse headers (on dark/gradient surfaces) keep a bright foreground.
+  const iconColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
   const titleColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <View style={styles.topRow}>
         <View style={styles.sideColumn}>
           {onPressBack ? (
             <IconButton
               accessibilityLabel={`Go back from ${title}`}
               onPress={onPressBack}
+              variant="ghost"
               style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
             >
               <Icon name="arrowLeft" size={20} color={iconColor} />
@@ -108,6 +134,25 @@ export function PageHeader({
             >
               <MenuToggleIcon open={menuOpen} />
             </IconButton>
+          ) : onPressAvatar ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+              testID="nav.header.avatar"
+              onPress={onPressAvatar}
+              style={({ pressed }) => [
+                styles.headerAvatarButton,
+                { width: headerActionSize, height: headerActionSize },
+                pressed ? styles.headerAvatarButtonPressed : null,
+              ]}
+            >
+              <ProfileAvatar
+                name={avatarName}
+                avatarUrl={avatarUrl}
+                size={32}
+                borderRadius={16}
+              />
+            </Pressable>
           ) : null}
         </View>
 
@@ -152,6 +197,7 @@ export function PageHeader({
               <IconButton
                 accessibilityLabel={`Learn about ${title.toLowerCase()}`}
                 onPress={onPressInfo}
+                variant="ghost"
                 style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
               >
                 <Icon name="info" size={20} color={iconColor} />
@@ -181,6 +227,15 @@ const styles = StyleSheet.create({
   headerIconButtonGhost: {
     // Menu toggle should appear as a bare icon (no filled background).
     backgroundColor: 'transparent',
+  },
+  headerAvatarButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  headerAvatarButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.97 }],
   },
   childrenContainer: {
     marginTop: spacing.md,
