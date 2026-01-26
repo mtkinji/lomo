@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   historyTitle: {
-    ...typography.bodyMd,
+    ...typography.body,
     color: colors.textPrimary,
   },
   sectionTitle: {

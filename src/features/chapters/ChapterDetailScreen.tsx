@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   dek: {
-    ...typography.bodyMd,
+    ...typography.body,
     color: colors.textPrimary,
     textAlign: 'left',
     marginTop: spacing.xs,
@@ -396,11 +396,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   body: {
-    ...typography.bodyMd,
+    ...typography.body,
     color: colors.textPrimary,
   },
   articleBody: {
-    ...typography.bodyLg,
+    ...typography.body,
     color: colors.textPrimary,
     lineHeight: 24,
   },

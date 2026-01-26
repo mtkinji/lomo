@@ -92,8 +92,9 @@ export function ChapterGenerateDrawer(props: {
       enableContentPanningGesture
     >
       <BottomDrawerHeader
+        variant="withClose"
         title="Generate Chapter"
-        rightElement={<BottomDrawerHeaderClose onPress={onClose} />}
+        onClose={onClose}
       />
 
       <BottomDrawerScrollView
@@ -294,7 +295,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionTitle: {
-    ...typography.bodyMd,
+    ...typography.body,
     color: colors.textPrimary,
   },
   optionDesc: {
