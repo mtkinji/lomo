@@ -895,24 +895,48 @@ if userActivity.activityType == CSSearchableItemActionType,
       `import WidgetKit
 import SwiftUI
 
-// NOTE: v1 is intentionally minimal. Widgets/Live Activities should preserve the app shell/canvas
-// by deep-linking into existing screens (e.g. kwilt://today, kwilt://activity/<id>?openFocus=1).
-
-struct SimpleEntry: TimelineEntry {
-  let date: Date
-  let title: String
-  let deepLink: URL?
-}
+// Widgets should preserve the app shell/canvas by deep-linking into existing screens.
+// We keep WidgetKit data minimal and read a single JSON blob from the App Group:
+// key = "kwilt_glanceable_state_v1" (written by startGlanceableStateSync() in the app).
 
 struct GlanceableStateV1: Codable {
+  struct WidgetItem: Codable {
+    let activityId: String
+    let title: String
+    let scheduledAtMs: Double?
+    let estimateMinutes: Double?
+  }
+
+  struct Suggested: Codable { let items: [WidgetItem] }
+  struct Schedule: Codable { let items: [WidgetItem] }
+
+  struct Momentum: Codable {
+    let completedToday: Int
+    let completedThisWeek: Int
+    let showUpStreakDays: Int?
+    let focusStreakDays: Int?
+  }
+
   struct NextUp: Codable {
     let activityId: String
     let title: String
     let scheduledAtMs: Double?
+    let estimateMinutes: Double?
   }
+
+  struct TodaySummary: Codable {
+    struct Top3: Codable { let activityId: String; let title: String }
+    let top3: [Top3]
+    let completedCount: Int
+  }
+
   let version: Int
   let updatedAtMs: Double
   let nextUp: NextUp?
+  let todaySummary: TodaySummary?
+  let suggested: Suggested?
+  let schedule: Schedule?
+  let momentum: Momentum?
 }
 
 func readGlanceableState() -> GlanceableStateV1? {
@@ -922,55 +946,330 @@ func readGlanceableState() -> GlanceableStateV1? {
   return try? JSONDecoder().decode(GlanceableStateV1.self, from: data)
 }
 
-struct Provider: TimelineProvider {
-  func placeholder(in context: Context) -> SimpleEntry {
-    SimpleEntry(date: Date(), title: "Open Kwilt", deepLink: URL(string: "kwilt://today"))
+func deepLinkToday() -> URL? {
+  return URL(string: "kwilt://today?source=widget")
+}
+
+func deepLinkActivity(_ activityId: String) -> URL? {
+  return URL(string: "kwilt://activity/\\(activityId)?source=widget")
+}
+
+func formatTimeLabel(ms: Double?) -> String? {
+  guard let ms = ms else { return nil }
+  let date = Date(timeIntervalSince1970: ms / 1000.0)
+  let df = DateFormatter()
+  df.locale = Locale.autoupdatingCurrent
+  df.dateStyle = .none
+  df.timeStyle = .short
+  return df.string(from: date)
+}
+
+func formatRelativeLabel(ms: Double?) -> String? {
+  guard let ms = ms else { return nil }
+  let date = Date(timeIntervalSince1970: ms / 1000.0)
+  let rf = RelativeDateTimeFormatter()
+  rf.locale = Locale.autoupdatingCurrent
+  rf.unitsStyle = .abbreviated
+  return rf.localizedString(for: date, relativeTo: Date())
+}
+
+struct GlanceableEntry: TimelineEntry {
+  let date: Date
+  let state: GlanceableStateV1?
+}
+
+struct GlanceableProvider: TimelineProvider {
+  func placeholder(in context: Context) -> GlanceableEntry {
+    GlanceableEntry(date: Date(), state: nil)
   }
 
-  func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> Void) {
-    if let state = readGlanceableState(), state.version == 1, let next = state.nextUp {
-      completion(SimpleEntry(date: Date(), title: next.title, deepLink: URL(string: "kwilt://activity/\\(next.activityId)")))
-      return
-    }
-    completion(SimpleEntry(date: Date(), title: "Open Kwilt", deepLink: URL(string: "kwilt://today")))
+  func getSnapshot(in context: Context, completion: @escaping (GlanceableEntry) -> Void) {
+    completion(GlanceableEntry(date: Date(), state: readGlanceableState()))
   }
 
-  func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> Void) {
-    let entry: SimpleEntry
-    if let state = readGlanceableState(), state.version == 1, let next = state.nextUp {
-      entry = SimpleEntry(date: Date(), title: next.title, deepLink: URL(string: "kwilt://activity/\\(next.activityId)"))
-    } else {
-      entry = SimpleEntry(date: Date(), title: "Open Kwilt", deepLink: URL(string: "kwilt://today"))
+  func getTimeline(in context: Context, completion: @escaping (Timeline<GlanceableEntry>) -> Void) {
+    let now = Date()
+    let state = readGlanceableState()
+    let entry = GlanceableEntry(date: now, state: state)
+
+    // Keep updates conservative; iOS will throttle aggressively if we ask for too many refreshes.
+    // Default to 15 minutes, but if the next scheduled activity is sooner, refresh around that time.
+    var refresh = now.addingTimeInterval(15 * 60)
+    if let ms = state?.nextUp?.scheduledAtMs {
+      let next = Date(timeIntervalSince1970: ms / 1000.0)
+      if next > now && next < refresh {
+        refresh = next
+      }
     }
-    completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(60))))
+    completion(Timeline(entries: [entry], policy: .after(refresh)))
   }
 }
 
-struct KwiltWidgetsEntryView: View {
-  var entry: Provider.Entry
+struct KwiltTileChrome: View {
+  let label: String
+  let timeLabel: String?
 
   var body: some View {
-    if let url = entry.deepLink {
-      Link(destination: url) {
-        Text(entry.title)
+    HStack(alignment: .firstTextBaseline) {
+      Text(label)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+      Spacer()
+      if let timeLabel = timeLabel {
+        Text(timeLabel)
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
+    }
+  }
+}
+
+struct KwiltQuickWidgetView: View {
+  let entry: GlanceableEntry
+  @Environment(\\.widgetFamily) var family
+
+  var body: some View {
+    let state = entry.state
+    let next = state?.nextUp
+    let title = next?.title ?? "Open Kwilt"
+    let url = next != nil ? deepLinkActivity(next!.activityId) : deepLinkToday()
+    let timeLabel = formatRelativeLabel(ms: next?.scheduledAtMs) ?? formatTimeLabel(ms: next?.scheduledAtMs)
+
+    VStack(alignment: .leading, spacing: 8) {
+      KwiltTileChrome(label: "Next up", timeLabel: timeLabel)
+      Text(title)
+        .font(.headline)
+        .lineLimit(family == .accessoryCircular ? 1 : 3)
+      Spacer()
+      if family == .systemSmall {
+        Text("Tap to open Today")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
+    }
+    .widgetURL(url)
+    .padding()
+  }
+}
+
+struct KwiltSuggestedWidgetView: View {
+  let entry: GlanceableEntry
+  @Environment(\\.widgetFamily) var family
+
+  var body: some View {
+    let items = entry.state?.suggested?.items ?? []
+    let primary = items.first
+    let url = primary != nil ? deepLinkActivity(primary!.activityId) : deepLinkToday()
+
+    let limit: Int = {
+      switch family {
+      case .systemSmall: return 1
+      case .systemMedium: return 3
+      default: return 8
+      }
+    }()
+
+    VStack(alignment: .leading, spacing: 10) {
+      KwiltTileChrome(label: "Suggested next step", timeLabel: nil)
+
+      if let primary = primary, items.count > 0 {
+        if family == .systemSmall {
+          Text(primary.title).font(.headline).lineLimit(3)
+        } else {
+          VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(items.prefix(limit).enumerated()), id: \\.offset) { idx, item in
+              HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(idx == 0 ? "Next" : "Alt")
+                  .font(.caption2)
+                  .foregroundStyle(.secondary)
+                  .frame(width: 34, alignment: .leading)
+                Text(item.title)
+                  .font(.caption)
+                  .lineLimit(1)
+              }
+            }
+          }
+        }
+      } else {
+        Text("Open Today to pick your next step.")
+          .font(.headline)
+          .lineLimit(3)
+      }
+
+      Spacer()
+      Text("Tap to open Kwilt")
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+    }
+    .widgetURL(url)
+    .padding()
+  }
+}
+
+struct KwiltScheduleWidgetView: View {
+  let entry: GlanceableEntry
+  @Environment(\\.widgetFamily) var family
+
+  var body: some View {
+    let items = entry.state?.schedule?.items ?? []
+    let primary = items.first
+    let url = primary != nil ? deepLinkActivity(primary!.activityId) : deepLinkToday()
+    let timeLabel = formatTimeLabel(ms: primary?.scheduledAtMs) ?? (primary?.scheduledAtMs == nil ? "Anytime" : nil)
+
+    let limit: Int = {
+      switch family {
+      case .systemSmall: return 1
+      case .systemMedium: return 4
+      default: return 10
+      }
+    }()
+
+    VStack(alignment: .leading, spacing: 10) {
+      KwiltTileChrome(label: "Schedule", timeLabel: timeLabel)
+
+      if let primary = primary, items.count > 0 {
+        if family == .systemSmall {
+          Text(primary.title).font(.headline).lineLimit(3)
+        } else {
+          VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(items.prefix(limit).enumerated()), id: \\.offset) { _, item in
+              HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(formatTimeLabel(ms: item.scheduledAtMs) ?? "Anytime")
+                  .font(.caption2)
+                  .foregroundStyle(.secondary)
+                  .frame(width: 64, alignment: .leading)
+                  .lineLimit(1)
+                Text(item.title)
+                  .font(.caption)
+                  .lineLimit(1)
+              }
+            }
+          }
+        }
+      } else {
+        Text("Open Today to see your plan.")
+          .font(.headline)
+          .lineLimit(3)
+      }
+
+      Spacer()
+      Text("Tap to open your plan")
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+    }
+    .widgetURL(url)
+    .padding()
+  }
+}
+
+struct KwiltMomentumWidgetView: View {
+  let entry: GlanceableEntry
+  @Environment(\\.widgetFamily) var family
+
+  var body: some View {
+    let m = entry.state?.momentum
+    let url = deepLinkToday()
+
+    VStack(alignment: .leading, spacing: 10) {
+      KwiltTileChrome(label: "Momentum", timeLabel: nil)
+
+      if let m = m {
+        if family == .systemSmall {
+          Text("\\(m.completedToday) done today").font(.headline).lineLimit(1)
+          if let streak = m.showUpStreakDays {
+            Text("\\(streak)d show-up streak")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          } else {
+            Text("\\(m.completedThisWeek) this week")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          }
+        } else {
+          HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+              Text("Done today").font(.caption2).foregroundStyle(.secondary)
+              Text("\\(m.completedToday)").font(.title2).monospacedDigit()
+            }
+            VStack(alignment: .leading, spacing: 2) {
+              Text("This week").font(.caption2).foregroundStyle(.secondary)
+              Text("\\(m.completedThisWeek)").font(.title2).monospacedDigit()
+            }
+            VStack(alignment: .leading, spacing: 2) {
+              Text("Show up").font(.caption2).foregroundStyle(.secondary)
+              Text("\\((m.showUpStreakDays ?? 0))d").font(.title2).monospacedDigit()
+            }
+          }
+        }
+      } else {
+        Text("Open Kwilt to build momentum.")
           .font(.headline)
           .lineLimit(2)
       }
-    } else {
-      Text(entry.title).font(.headline)
+
+      Spacer()
+      Text("Tap to open Today")
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
     }
+    .widgetURL(url)
+    .padding()
   }
 }
 
 struct KwiltQuickWidget: Widget {
   let kind: String = "${targetName}.quick"
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: Provider()) { entry in
-      KwiltWidgetsEntryView(entry: entry)
+    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
+      KwiltQuickWidgetView(entry: entry)
     }
-    .configurationDisplayName("Kwilt")
-    .description("Quick entrypoints into your plan.")
+    .configurationDisplayName("Next up")
+    .description("Open your next Activity or Today.")
     .supportedFamilies([.accessoryRectangular, .accessoryCircular, .systemSmall])
+  }
+}
+
+struct KwiltSuggestedWidget: Widget {
+  let kind: String = "${targetName}.suggested"
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
+      KwiltSuggestedWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Suggested next step")
+    .description("A tiny next move to keep momentum.")
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+  }
+}
+
+struct KwiltScheduleWidget: Widget {
+  let kind: String = "${targetName}.schedule"
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
+      KwiltScheduleWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Schedule")
+    .description("Timed work first, plus “anytime today” items.")
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+  }
+}
+
+struct KwiltMomentumWidget: Widget {
+  let kind: String = "${targetName}.momentum"
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
+      KwiltMomentumWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Momentum")
+    .description("Done today, this week, and your streaks.")
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
   }
 }
 
@@ -1018,6 +1317,9 @@ struct KwiltFocusLiveActivityWidget: Widget {
 struct ${targetName}Bundle: WidgetBundle {
   var body: some Widget {
     KwiltQuickWidget()
+    KwiltSuggestedWidget()
+    KwiltScheduleWidget()
+    KwiltMomentumWidget()
 #if canImport(ActivityKit)
     if #available(iOS 16.1, *) {
       KwiltFocusLiveActivityWidget()
