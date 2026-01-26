@@ -18,8 +18,6 @@ import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { openRootDrawer } from '../../navigation/openDrawer';
-import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
@@ -124,16 +122,20 @@ export function GoalsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'>>();
   const route = useRoute<RouteProp<GoalsStackParamList, 'GoalsList'>>();
   const insets = useSafeAreaInsets();
-  const drawerMenuEnabled = useDrawerMenuEnabled();
 
   const goals = useAppStore((state) => state.goals);
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
+  const authIdentity = useAppStore((state) => state.authIdentity);
+  const userProfile = useAppStore((state) => state.userProfile);
   const goalRecommendations = useAppStore((state) => state.goalRecommendations);
   const addGoal = useAppStore((state) => state.addGoal);
   const dismissGoalRecommendation = useAppStore((state) => state.dismissGoalRecommendation);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
+
+  const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
 
   const arcLookup = arcs.reduce<Record<string, string>>((acc, arc) => {
     acc[arc.id] = arc.name;
@@ -363,7 +365,9 @@ export function GoalsScreen() {
     <AppShell>
       <PageHeader
         title="Goals"
-        onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
+        onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
+        avatarName={avatarName}
+        avatarUrl={avatarUrl}
         //Add this to the page header if you want to wrap the title in a large badge with the icon
         // boxedTitle
         rightElement={

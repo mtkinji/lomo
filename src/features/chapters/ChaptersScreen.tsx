@@ -19,12 +19,17 @@ import {
 import type { MoreStackParamList } from '../../navigation/RootNavigator';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { useToastStore } from '../../store/useToastStore';
+import { useAppStore } from '../../store/useAppStore';
 import { ChapterGenerateDrawer, type ChapterPeriodChoice, type ChapterCadenceChoice } from './ChapterGenerateDrawer';
 
 export function ChaptersScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList, 'MoreChapters'>>();
   const route = useRoute<RouteProp<MoreStackParamList, 'MoreChapters'>>();
   const showToast = useToastStore((s) => s.showToast);
+  const authIdentity = useAppStore((state) => state.authIdentity);
+  const userProfile = useAppStore((state) => state.userProfile);
+  const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
   const [refreshing, setRefreshing] = React.useState(false);
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
   const [drawerVisible, setDrawerVisible] = React.useState(false);
@@ -171,7 +176,12 @@ export function ChaptersScreen() {
 
   return (
     <AppShell>
-      <PageHeader title="Chapters" />
+      <PageHeader
+        title="Chapters"
+        onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
+        avatarName={avatarName}
+        avatarUrl={avatarUrl}
+      />
       <ChapterGenerateDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}

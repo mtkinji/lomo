@@ -18,9 +18,9 @@ import {
   Share,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, VStack, HStack } from '../../ui/primitives';
 import { AppShell } from '../../ui/layout/AppShell';
+import { PageHeader } from '../../ui/layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
@@ -51,7 +51,6 @@ type FriendsScreenProps = {};
 
 export function FriendsScreen({}: FriendsScreenProps) {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { capture } = useAnalytics();
 
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -278,20 +277,8 @@ export function FriendsScreen({}: FriendsScreenProps) {
 
   return (
     <AppShell>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            hitSlop={12}
-          >
-            <Icon name="ChevronLeft" size={24} color={colors.textPrimary} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Friends</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
+      <PageHeader title="Friends" onPressBack={() => (navigation as any)?.goBack?.()} />
+      <View style={styles.container}>
         {/* Content */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -328,27 +315,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.canvas,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.shell,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    ...typography.titleMd,
-    color: colors.textPrimary,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 32,
   },
   loadingContainer: {
     flex: 1,

@@ -12,8 +12,6 @@ import { useNavigation as useRootNavigation, useRoute, type RouteProp } from '@r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { openRootDrawer } from '../../navigation/openDrawer';
-import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
@@ -61,17 +59,20 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
 };
 
 export function ArcsScreen() {
-  const drawerMenuEnabled = useDrawerMenuEnabled();
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
+  const authIdentity = useAppStore((state) => state.authIdentity);
+  const userProfile = useAppStore((state) => state.userProfile);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const navigation = useRootNavigation<NativeStackNavigationProp<ArcsStackParamList>>();
   const route = useRoute<RouteProp<ArcsStackParamList, 'ArcsList'>>();
   const insets = useSafeAreaInsets();
-  const [headerHeight, setHeaderHeight] = useState(0);
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
   const [showArchived, setShowArchived] = useState(true);
   const [archivedExpanded, setArchivedExpanded] = useState(false);
+
+  const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
 
   const visibleArcs = useMemo(() => arcs.filter((arc) => arc.status !== 'archived'), [arcs]);
   const archivedArcs = useMemo(() => arcs.filter((arc) => arc.status === 'archived'), [arcs]);
@@ -93,11 +94,6 @@ export function ArcsScreen() {
     }
   }, [handleOpenNewArc, navigation, route.params?.openCreateArc]);
 
-  const arcCreationWorkflow = useMemo(
-    () => getWorkflowLaunchConfig('arcCreation'),
-    []
-  );
-
   const goalCountByArc = useMemo(
     () =>
       goals.reduce<Record<string, number>>((acc, goal) => {
@@ -108,76 +104,65 @@ export function ArcsScreen() {
     [goals]
   );
 
-  const listTopPadding = headerHeight ? headerHeight : spacing['2xl'];
   const listBottomPadding = KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + insets.bottom + spacing.lg;
 
   return (
     <AppShell>
-      <View style={styles.screen}>
-        <View
-          style={styles.fixedHeader}
-          onLayout={(event) => {
-            const nextHeight = event.nativeEvent.layout.height;
-            setHeaderHeight((prev) =>
-              Math.abs(prev - nextHeight) < 0.5 ? prev : nextHeight,
-            );
-          }}
-        >
-          <PageHeader
-            title="Arcs"
-            onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
-            rightElement={
-              <DropdownMenu>
-                <DropdownMenuTrigger accessibilityLabel="Arc list options">
-                  <View pointerEvents="none">
-                    <IconButton
-                      accessibilityRole="button"
-                      accessibilityLabel="Arc list options"
-                      variant="ghost"
-                    >
-                      <Icon name="more" size={18} color={colors.textPrimary} />
-                    </IconButton>
-                  </View>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 220 }}>
-                  <Pressable
-                    accessibilityRole="switch"
-                    accessibilityLabel="Show archived arcs"
-                    accessibilityState={{ checked: showArchived }}
-                    onPress={() => {
-                      const next = !showArchived;
-                      setShowArchived(next);
-                      if (!next) setArchivedExpanded(false);
-                    }}
-                    style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                  >
-                    <Text style={styles.menuItemText} {...menuItemTextProps}>
-                      Show archived
-                    </Text>
-                    <View style={styles.menuSwitch} pointerEvents="none">
-                      <Switch
-                        value={showArchived}
-                        onValueChange={() => {}}
-                        trackColor={{ false: colors.border, true: colors.accent }}
-                        thumbColor={colors.canvas}
-                      />
-                    </View>
-                  </Pressable>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            }
-          />
-        </View>
-        <View style={styles.listContainer}>
-          <FlatList
-            style={styles.list}
-            data={visibleArcs}
-            keyExtractor={(arc) => arc.id}
-            contentContainerStyle={[
-              styles.listContent,
-              { paddingTop: listTopPadding, paddingBottom: listBottomPadding },
-              visibleArcs.length === 0 ? styles.listEmptyContent : null,
-            ]}
+      <PageHeader
+        title="Arcs"
+        onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
+        avatarName={avatarName}
+        avatarUrl={avatarUrl}
+        rightElement={
+          <DropdownMenu>
+            <DropdownMenuTrigger accessibilityLabel="Arc list options">
+              <View pointerEvents="none">
+                <IconButton
+                  accessibilityRole="button"
+                  accessibilityLabel="Arc list options"
+                  variant="ghost"
+                >
+                  <Icon name="more" size={18} color={colors.textPrimary} />
+                </IconButton>
+              </View>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 220 }}>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityLabel="Show archived arcs"
+                accessibilityState={{ checked: showArchived }}
+                onPress={() => {
+                  const next = !showArchived;
+                  setShowArchived(next);
+                  if (!next) setArchivedExpanded(false);
+                }}
+                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+              >
+                <Text style={styles.menuItemText} {...menuItemTextProps}>
+                  Show archived
+                </Text>
+                <View style={styles.menuSwitch} pointerEvents="none">
+                  <Switch
+                    value={showArchived}
+                    onValueChange={() => {}}
+                    trackColor={{ false: colors.border, true: colors.accent }}
+                    thumbColor={colors.canvas}
+                  />
+                </View>
+              </Pressable>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
+      <FlatList
+        style={styles.list}
+        data={visibleArcs}
+        keyExtractor={(arc) => arc.id}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: listBottomPadding },
+          visibleArcs.length === 0 ? styles.listEmptyContent : null,
+        ]}
             renderItem={({ item }) => (
               <Pressable onPress={() => navigation.navigate('ArcDetail', { arcId: item.id })}>
                 <ArcListCard arc={item} goalCount={goalCountByArc[item.id] ?? 0} />
@@ -249,47 +234,23 @@ export function ArcsScreen() {
                 <View style={{ height: spacing['2xl'] }} />
               )
             }
-          />
-        </View>
+      />
 
-        <NewArcModal visible={newArcModalVisible} onClose={() => setNewArcModalVisible(false)} />
-      </View>
+      <NewArcModal visible={newArcModalVisible} onClose={() => setNewArcModalVisible(false)} />
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    // Let card shadows render naturally without clipping at the screen edges.
-    overflow: 'visible',
-  },
-  listContainer: {
-    flex: 1,
-    // Clip vertical overscroll so Arc cards never appear inside the top
-    // safe-area / header band when you pull down on the list.
-    overflow: 'hidden',
-  },
   list: {
     flex: 1,
-    // Let the list inherit the app shell / canvas background so it doesn’t look like a separate panel
     backgroundColor: 'transparent',
-    overflow: 'visible',
   },
   listContent: {
     paddingHorizontal: 0,
   },
   listEmptyContent: {
     flexGrow: 1,
-  },
-  fixedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    // Header floats above the Light Canvas with a subtle tint
-    backgroundColor: colors.shell,
   },
   emptyState: {
     marginTop: spacing['2xl'],

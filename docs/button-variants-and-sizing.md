@@ -80,4 +80,10 @@ Only use `sm`/`xs` for:
 - Prefer `IconButton` or `variant="ghost"` with clear iconography
 - Keep these visually light to preserve content hierarchy
 
+**Important:** `IconButton` defaults to the **CTA** token (filled, accent-forward). That is great for true “primary icon CTAs”, but it is **not** appropriate for navigation.
+- **Header navigation (Back / Info / Menu)** should be `variant="ghost"` (neutral).
+- Reserve **Kwilt green** (CTA) for high-signal primary actions.
+
+See also: `docs/back-affordances.md`.
+
 

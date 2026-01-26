@@ -82,12 +82,6 @@ export function MoreScreen() {
             onPress={() => navigation.navigate('MoreChapters')}
           />
           <View style={styles.divider} />
-          <MoreRow
-            title="Settings"
-            subtitle="Profile, notifications, and preferences."
-            icon="settings"
-            onPress={() => navigation.navigate('Settings', { screen: 'SettingsHome' })}
-          />
           {!isPro ? (
             <>
               <View style={styles.divider} />

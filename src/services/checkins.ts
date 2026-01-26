@@ -49,6 +49,13 @@ export type SubmitCheckinParams = {
   text?: string | null;
 };
 
+export type CheckinTrigger = 'activity_complete' | 'focus_complete';
+
+const ONE_TAP_PRESET_BY_TRIGGER: Record<CheckinTrigger, CheckinPreset> = {
+  activity_complete: 'just_checking_in',
+  focus_complete: 'made_progress',
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Submit a check-in
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,6 +128,53 @@ export async function submitCheckin(params: SubmitCheckinParams): Promise<Checki
     text: checkin.text,
     createdAt: checkin.created_at,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One-tap check-in helpers (toast CTA)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Best-effort check to see if a user can submit a check-in for this goal.
+ * Requires: signed in + shared goal (2+ active members).
+ */
+export async function canSubmitCheckin(goalId: string): Promise<boolean> {
+  const supabase = getSupabaseClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) return false;
+
+  const { data: members, error: membersError } = await supabase
+    .from('kwilt_memberships')
+    .select('user_id')
+    .eq('entity_type', 'goal')
+    .eq('entity_id', goalId)
+    .eq('status', 'active')
+    .limit(2);
+
+  if (membersError || !members) return false;
+
+  return members.length >= 2;
+}
+
+export function getOneTapCheckinPreset(trigger: CheckinTrigger): CheckinPreset {
+  return ONE_TAP_PRESET_BY_TRIGGER[trigger];
+}
+
+export async function submitOneTapCheckin(params: {
+  goalId: string;
+  trigger: CheckinTrigger;
+}): Promise<Checkin> {
+  const preset = getOneTapCheckinPreset(params.trigger);
+  return submitCheckin({
+    goalId: params.goalId,
+    preset,
+    text: null,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

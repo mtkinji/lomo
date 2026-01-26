@@ -869,7 +869,7 @@ export function ArcDetailScreen() {
                 accessibilityLabel="Back to Arcs"
                 materialOpacity={headerActionPillOpacity}
               >
-                <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
+                  <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
               </HeaderActionPill>
             }
             right={

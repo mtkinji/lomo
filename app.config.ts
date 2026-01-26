@@ -63,7 +63,7 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '39',
+    buildNumber: '40',
     // iOS app extensions (WidgetKit) are created at prebuild time via `withAppleEcosystemIntegrations`.
     // We declare the extension bundle id here so EAS credentials/build can provision/sign it too.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -102,7 +102,7 @@ const config: ExpoConfig = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 39,
+    versionCode: 40,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -146,6 +146,20 @@ const config: ExpoConfig = {
     eas: {
       // Linked EAS project for the kwilt app (added manually for dynamic config).
       projectId: '7717f04d-8327-47a9-8bb4-84c21dc8214f',
+      // Experimental: declare iOS app extension targets so EAS can provision/sign them.
+      // EAS CLI (currently) reads this from `extra.eas.build.experimental.ios.appExtensions`.
+      build: {
+        experimental: {
+          ios: {
+            appExtensions: [
+              {
+                targetName: 'KwiltWidgets',
+                bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
+              },
+            ],
+          },
+        },
+      },
     },
     // EAS build profile name (e.g. "development", "preview", "production").
     // Useful at runtime to hide internal tooling in store builds while still

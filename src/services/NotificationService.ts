@@ -1404,13 +1404,10 @@ function attachNotificationResponseListener() {
         if (!rootNavigationRef.isReady()) {
           return;
         }
-        // Land on Activities list and highlight Suggested if Today has no scheduled items.
+        // Plan owns the primary "choose your next step" flow; open recommendations.
         rootNavigationRef.navigate('MainTabs', {
-          screen: 'ActivitiesTab',
-          params: {
-            screen: 'ActivitiesList',
-            params: { highlightSuggested: true, suggestedSource: 'notification' },
-          },
+          screen: 'PlanTab',
+          params: { openRecommendations: true },
         });
         break;
       }
@@ -1419,11 +1416,8 @@ function attachNotificationResponseListener() {
           return;
         }
         rootNavigationRef.navigate('MainTabs', {
-          screen: 'ActivitiesTab',
-          params: {
-            screen: 'ActivitiesList',
-            params: { highlightSuggested: true, suggestedSource: 'notification' },
-          },
+          screen: 'PlanTab',
+          params: { openRecommendations: true },
         });
         break;
       }

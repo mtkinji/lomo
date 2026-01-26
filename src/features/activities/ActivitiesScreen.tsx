@@ -32,7 +32,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DraggableList } from '../../ui/DraggableList';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { openRootDrawer } from '../../navigation/openDrawer';
 import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
 import type { ActivitiesStackParamList, MainTabsParamList } from '../../navigation/RootNavigator';
@@ -67,6 +66,12 @@ import {
   recordShowUpWithCelebration,
 } from '../../store/useCelebrationStore';
 import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
+import {
+  canSubmitCheckin,
+  getOneTapCheckinPreset,
+  submitOneTapCheckin,
+  type CheckinTrigger,
+} from '../../services/checkins';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
@@ -117,10 +122,9 @@ import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
-import { OpportunityCard } from '../../ui/OpportunityCard';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
-import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from '../../services/recommendations/nextStep';
+// (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
 import { PaywallContent } from '../paywall/PaywallDrawer';
 
 const KANBAN_CARD_FIELDS: Array<{
@@ -191,7 +195,7 @@ const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
 ];
 
 export function ActivitiesScreen() {
-  const drawerMenuEnabled = useDrawerMenuEnabled();
+  useDrawerMenuEnabled();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'>>();
   const route = useRoute<RouteProp<ActivitiesStackParamList, 'ActivitiesList'>>();
@@ -208,6 +212,8 @@ export function ActivitiesScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
+  const authIdentity = useAppStore((state) => state.authIdentity);
+  const userProfile = useAppStore((state) => state.userProfile);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
@@ -218,6 +224,9 @@ export function ActivitiesScreen() {
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const activityViews = useAppStore((state) => state.activityViews);
+  const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
   const addActivityView = useAppStore((state) => state.addActivityView);
@@ -270,16 +279,19 @@ export function ActivitiesScreen() {
   // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
   const [enrichingActivityIds, setEnrichingActivityIds] = React.useState<Set<string>>(() => new Set());
   const enrichingActivityIdsRef = React.useRef<Set<string>>(new Set());
-  const [sessionCreatedIds, setSessionCreatedIds] = React.useState<Set<string>>(() => new Set());
+  /**
+   * Track which "view/filter context" an activity was created in so our post-create
+   * "ghost" behavior doesn't leak across view switches.
+   *
+   * Example bug fixed: create activities in the default view, then switch to a goal-filtered
+   * view and see those unrelated activities as "ghosts". They should not appear at all.
+   */
+  const [sessionCreatedContextById, setSessionCreatedContextById] = React.useState<Record<string, string>>(
+    () => ({}),
+  );
   const lastCreatedActivityRef = React.useRef<Activity | null>(null);
 
 
-  const suggestedCardYRef = React.useRef<number | null>(null);
-  const [highlightSuggested, setHighlightSuggested] = React.useState<boolean>(
-    Boolean(route.params?.highlightSuggested),
-  );
-  const [hasDismissedSuggestedCard, setHasDismissedSuggestedCard] = React.useState(false);
-  const [quickAddInfoVisible, setQuickAddInfoVisible] = React.useState(false);
   const [widgetModalVisible, setWidgetModalVisible] = React.useState(false);
   const hasTrackedWidgetInlineThisFocusRef = React.useRef(false);
   const hasOpenedWidgetModalThisFocusRef = React.useRef(false);
@@ -352,12 +364,6 @@ export function ActivitiesScreen() {
     // Enable LayoutAnimation on Android (no-op on newer RN versions where it's enabled).
     UIManager.setLayoutAnimationEnabledExperimental?.(true);
   }, []);
-
-  React.useEffect(() => {
-    if (route.params?.highlightSuggested) {
-      setHighlightSuggested(true);
-    }
-  }, [route.params?.highlightSuggested]);
 
   React.useEffect(() => {
     const id = (route.params as any)?.contextGoalId as string | undefined;
@@ -570,6 +576,43 @@ export function ActivitiesScreen() {
 
   const isManualOrderEffective = structuredSorts.length === 0 && sortMode === 'manual';
 
+  // Sort button "applied" state:
+  // - Manual/default sort (orderIndex) should NOT show as applied.
+  // - Any non-manual legacy sortMode should show as applied (count 1).
+  // - Any structured sorts should show as applied (count = number of sort levels).
+  const appliedSortCount = React.useMemo(() => {
+    if (structuredSorts.length > 0) return structuredSorts.length;
+    return sortMode !== 'manual' ? 1 : 0;
+  }, [structuredSorts.length, sortMode]);
+
+  const ghostContextKey = React.useMemo(() => {
+    const groupLogic = activeView?.filterGroupLogic ?? 'or';
+    // IMPORTANT: keep this stable across renders and insensitive to transient IDs.
+    // We only include the semantic parts of filters (field/operator/value).
+    const normalizedFilters = (filterGroups ?? []).map((g) => ({
+      logic: g.logic,
+      conditions: (g.conditions ?? []).map((c) => ({
+        field: c.field,
+        operator: c.operator,
+        value: c.value,
+      })),
+    }));
+    return JSON.stringify({
+      viewId: effectiveActiveViewId ?? 'default',
+      focusContextGoalId: focusContextGoalId ?? null,
+      groupLogic,
+      filterGroups: normalizedFilters,
+    });
+  }, [activeView?.filterGroupLogic, effectiveActiveViewId, filterGroups, focusContextGoalId]);
+
+  const sessionCreatedIdsForGhostContext = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const [id, ctx] of Object.entries(sessionCreatedContextById)) {
+      if (ctx === ghostContextKey) ids.add(id);
+    }
+    return ids;
+  }, [ghostContextKey, sessionCreatedContextById]);
+
   const filteredActivities = React.useMemo(() => {
     const base = activities.filter((activity) => {
       if (focusContextGoalId && activity.goalId !== focusContextGoalId) return false;
@@ -578,20 +621,26 @@ export function ActivitiesScreen() {
 
     if (filterGroups.length === 0) return base;
 
-    // Apply filters but also include any IDs created in this session ("ghost" logic)
+    // Apply filters but also include any IDs created in this same view/filter context ("ghost" logic)
     const filtered = QueryService.applyActivityFilters(
       base,
       filterGroups,
       activeView?.filterGroupLogic ?? 'or',
     );
 
-    if (sessionCreatedIds.size === 0) return filtered;
+    if (sessionCreatedIdsForGhostContext.size === 0) return filtered;
 
     const filteredIds = new Set(filtered.map((a) => a.id));
-    const ghosts = base.filter((a) => sessionCreatedIds.has(a.id) && !filteredIds.has(a.id));
+    const ghosts = base.filter((a) => sessionCreatedIdsForGhostContext.has(a.id) && !filteredIds.has(a.id));
 
     return [...filtered, ...ghosts];
-  }, [activities, filterGroups, focusContextGoalId, activeView?.filterGroupLogic, sessionCreatedIds]);
+  }, [
+    activities,
+    filterGroups,
+    focusContextGoalId,
+    activeView?.filterGroupLogic,
+    sessionCreatedIdsForGhostContext,
+  ]);
 
   const handleUpdateFilters = React.useCallback(
     (next: FilterGroup[], groupLogic: 'and' | 'or') => {
@@ -721,111 +770,7 @@ export function ActivitiesScreen() {
 
   const hasAnyActivities = visibleActivities.length > 0;
 
-  const suggested = React.useMemo(() => {
-    return getSuggestedNextStep({
-      arcs,
-      goals,
-      activities,
-      now: new Date(),
-    });
-  }, [activities, arcs, goals]);
-
-  const suggestedKey = React.useMemo(() => {
-    if (!suggested) return 'none';
-    if (suggested.kind === 'activity') return `activity:${suggested.activityId}`;
-    return `setup:${suggested.reason}`;
-  }, [suggested]);
-
-  React.useEffect(() => {
-    // If the suggestion changes, allow showing the new card even if the previous one was dismissed.
-    setHasDismissedSuggestedCard(false);
-  }, [suggestedKey]);
-
-  const suggestedActivity = React.useMemo(() => {
-    if (!suggested || suggested.kind !== 'activity') return null;
-    return activities.find((a) => a.id === suggested.activityId) ?? null;
-  }, [activities, suggested]);
-
-  const suggestedActivityGoalTitle = React.useMemo(() => {
-    if (!suggestedActivity?.goalId) return null;
-    return goals.find((g) => g.id === suggestedActivity.goalId)?.title ?? null;
-  }, [goals, suggestedActivity?.goalId]);
-
-  const suggestedCardTitle = React.useMemo(() => {
-    return suggestedActivity ? suggestedActivity.title : null;
-  }, [suggestedActivity]);
-
-  const suggestedCardBody = React.useMemo(() => {
-    if (suggested?.kind === 'setup') {
-      return suggested.reason === 'no_goals'
-        ? 'Create your first Goal so Kwilt can help you stay consistent.'
-        : 'Add one Activity so you can build momentum today.';
-    }
-
-    return 'Here’s a tiny step you can complete today.';
-  }, [suggested, suggestedActivity, suggestedActivityGoalTitle]);
-
-  const suggestedActivityMeta = React.useMemo(() => {
-    if (!suggestedActivity) return { meta: undefined, metaLeadingIconName: undefined };
-    return buildActivityListMeta({
-      activity: suggestedActivity,
-      goalTitle: suggestedActivityGoalTitle ?? undefined,
-    });
-  }, [suggestedActivity, suggestedActivityGoalTitle]);
-
-  const handleAcceptSuggested = React.useCallback(() => {
-    if (!suggested || suggested.kind !== 'activity' || !suggestedActivity) {
-      // Fallback to prior behavior for setup / null cases.
-      if (!suggested) {
-        setActivityCoachVisible(true);
-        return;
-      }
-      if (suggested.kind === 'setup') {
-        if (suggested.reason === 'no_goals') {
-          // Jump across tabs (Activities -> Goals). Our local navigation prop is the
-          // Activities stack, so we must navigate via the parent tab navigator.
-          if (tabsNavigation) {
-            tabsNavigation.navigate('GoalsTab', { screen: 'GoalsList' });
-          } else {
-            rootNavigationRef.navigate('MainTabs', { screen: 'GoalsTab', params: { screen: 'GoalsList' } });
-          }
-          return;
-        }
-        setActivityCoachVisible(true);
-        return;
-      }
-      return;
-    }
-
-    const timestamp = new Date().toISOString();
-    const scheduled = new Date();
-    scheduled.setHours(9, 0, 0, 0);
-
-    updateActivity(suggestedActivity.id, (prev) => ({
-      ...prev,
-      scheduledDate: scheduled.toISOString(),
-      updatedAt: timestamp,
-    }));
-    void HapticsService.trigger('canvas.primary.confirm');
-    showToast({ message: 'Added to Today', variant: 'success', durationMs: 2200 });
-    setHighlightSuggested(false);
-  }, [navigation, rootNavigationRef, setActivityCoachVisible, showToast, suggested, suggestedActivity, tabsNavigation, updateActivity]);
-
-  const dismissSuggestedCard = React.useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setHasDismissedSuggestedCard(true);
-    setHighlightSuggested(false);
-  }, []);
-
-  const shouldShowSuggestedCard = React.useMemo(() => {
-    if (hasDismissedSuggestedCard) return false;
-    // Hide suggestions when user is actively filtering
-    if (filterGroups.length > 0) return false;
-    if (highlightSuggested) return true;
-    if (!suggested) return false;
-    // Only surface deterministic suggestions on "empty today" days to avoid noise.
-    return !hasAnyActivitiesScheduledForToday({ activities, now: new Date() });
-  }, [activities, hasDismissedSuggestedCard, highlightSuggested, suggested, filterGroups.length]);
+  // (removed) Suggested/AI-pick card logic (Plan now owns primary scheduling flow)
 
   // When an activity is created that doesn't match current filters, we "ghost" it
   // (keep it visible during this session). This tracks the last such ID to trigger a guide.
@@ -938,14 +883,20 @@ export function ActivitiesScreen() {
     goalId: null,
     activitiesCount: activities.length,
     getNextOrderIndex: () => {
-      // Append to the bottom of the *currently visible* list when manual ordering is in effect.
-      // (Using `activities.length` can insert into the middle when `orderIndex` has gaps.)
-      let max = -1;
+      // Prepend to the top of the *currently visible* list so newly created activities
+      // reliably appear at the top (and match the post-create scroll-to-top behavior).
+      //
+      // Note: We only consider numeric `orderIndex` values. Items without an `orderIndex`
+      // are treated as "last" by the manual fallback sort, so using min-1 is the most
+      // stable way to ensure the new item is first.
+      let min = Number.POSITIVE_INFINITY;
       for (const a of activeActivities) {
-        const v = typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : -1;
-        if (v > max) max = v;
+        const v =
+          typeof a.orderIndex === 'number' && Number.isFinite(a.orderIndex) ? a.orderIndex : null;
+        if (v == null) continue;
+        if (v < min) min = v;
       }
-      return max + 1;
+      return Number.isFinite(min) ? min - 1 : 0;
     },
     getActivityDefaults: () => quickAddDefaultsFromFilters,
     addActivity,
@@ -956,7 +907,7 @@ export function ActivitiesScreen() {
     focusAfterSubmit: false,
     onCreated: (activity) => {
       lastCreatedActivityRef.current = activity;
-      setSessionCreatedIds((prev) => new Set(prev).add(activity.id));
+      setSessionCreatedContextById((prev) => ({ ...prev, [activity.id]: ghostContextKey }));
       pendingScrollToActivityIdRef.current = activity.id;
 
       // Check if this new activity matches current filters
@@ -1024,7 +975,6 @@ export function ActivitiesScreen() {
       setQuickAddRepeatSheetVisible(false);
       setQuickAddEstimateSheetVisible(false);
       setQuickAddIsDueDatePickerVisible(false);
-      setQuickAddInfoVisible(false);
       setKanbanCardFieldsDrawerVisible(false);
       return;
     }
@@ -1036,19 +986,11 @@ export function ActivitiesScreen() {
     isKanbanLayout,
     quickAddInitialReservedHeight,
     setQuickAddFocused,
-    setQuickAddInfoVisible,
     setQuickAddReservedHeight,
     setKanbanCardFieldsDrawerVisible,
   ]);
 
-  React.useEffect(() => {
-    if (!highlightSuggested) return;
-    const y = suggestedCardYRef.current;
-    if (typeof y !== 'number') return;
-    canvasScrollRef.current?.scrollToOffset({ offset: Math.max(0, y - spacing.lg), animated: true });
-    const t = setTimeout(() => setHighlightSuggested(false), 2400);
-    return () => clearTimeout(t);
-  }, [highlightSuggested]);
+  // (removed) deep-link highlight behavior for the deleted suggested card
 
   const guideVariant = activities.length > 0 ? 'full' : 'empty';
   const guideTotalSteps = guideVariant === 'full' ? 3 : 1;
@@ -1081,8 +1023,8 @@ export function ActivitiesScreen() {
       return {
         title: 'Start here',
         body: isKanbanLayout
-          ? 'Use “Add card” in a column to add your first Activity. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.'
-          : 'Use the Quick Add bar at the bottom to add your first Activity. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
+          ? 'Use “Add card” in a column to add your first Activity. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.'
+          : 'Use the field at the bottom to add your first Activity. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
       };
     }
     if (activitiesGuideStep === 0) {
@@ -1302,7 +1244,7 @@ export function ActivitiesScreen() {
 
   const handleRefreshView = React.useCallback(() => {
     // Determine how many items will be hidden
-    const ghostedIds = Array.from(sessionCreatedIds).filter((id) => {
+    const ghostedIds = Array.from(sessionCreatedIdsForGhostContext).filter((id) => {
       const activity = activities.find((a) => a.id === id);
       if (!activity) return false;
       const matches =
@@ -1314,7 +1256,14 @@ export function ActivitiesScreen() {
       return !matches;
     });
 
-    setSessionCreatedIds(new Set());
+    // Clear ghost state for this *specific* view/filter context (so it doesn't leak across views).
+    setSessionCreatedContextById((prev) => {
+      const next = { ...prev };
+      for (const id of sessionCreatedIdsForGhostContext) {
+        if (next[id] === ghostContextKey) delete next[id];
+      }
+      return next;
+    });
     setPostCreateGhostId(null);
     setGhostWarningVisible(false);
 
@@ -1324,26 +1273,44 @@ export function ActivitiesScreen() {
         variant: 'default',
       });
     }
-  }, [activities, filterGroups, activeView?.filterGroupLogic, sessionCreatedIds, showToast]);
+  }, [
+    activities,
+    filterGroups,
+    activeView?.filterGroupLogic,
+    ghostContextKey,
+    sessionCreatedIdsForGhostContext,
+    showToast,
+  ]);
 
-  // After creating a new activity, scroll so it becomes visible just above the dock.
-  // This relies on the reserved bottom padding from `quickAddReservedHeight`.
+  // After creating a new activity, scroll so it becomes visible.
+  // - If it's at/near the top (common when manual ordering prepends), scroll to top.
+  // - Otherwise, scroll directly to the item's index (e.g. when sorting by title/due date/etc.).
   React.useEffect(() => {
     const pendingId = pendingScrollToActivityIdRef.current;
     if (!pendingId) return;
-    if (!activeActivities.some((a) => a.id === pendingId)) return;
+    const index = activeActivities.findIndex((a) => a.id === pendingId);
+    if (index < 0) return;
 
     pendingScrollToActivityIdRef.current = null;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        canvasScrollRef.current?.scrollToEnd({ animated: true });
+        if (index <= 1) {
+          canvasScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+          return;
+        }
+        try {
+          canvasScrollRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.2 });
+        } catch {
+          // Best-effort fallback: we'll also handle failures via onScrollToIndexFailed on the list.
+          canvasScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }
       });
     });
-  }, [activeActivities, quickAddReservedHeight]);
+  }, [activeActivities]);
 
   // When the quick-add dock is expanded (keyboard visible), the visible dock surface
   // occludes more of the canvas than the collapsed dock height alone. Add temporary
-  // extra padding so `scrollToEnd()` lands the last row above the dock/keyboard.
+  // extra padding so the last rows can still scroll above the dock/keyboard.
   const effectiveKeyboardHeight =
     keyboardHeight > 0 ? keyboardHeight : isQuickAddFocused ? lastKnownKeyboardHeight : 0;
   const scrollExtraBottomPadding = isKanbanLayout
@@ -1499,34 +1466,69 @@ export function ActivitiesScreen() {
         const completedActivity = activities.find((a) => a.id === activityId);
         const activityGoalId = completedActivity?.goalId;
         if (activityGoalId) {
+          const trigger: CheckinTrigger = 'activity_complete';
           const { shouldShowNudge } = useCheckinNudgeStore.getState();
-          if (shouldShowNudge(activityGoalId, 'activity_complete')) {
-            // Show a toast with an action to check in
-            setTimeout(() => {
-              useToastStore.getState().showToast({
-                message: 'Share your progress with your team?',
-                variant: 'default',
-                durationMs: 4000,
-                actionLabel: 'Check in',
-                actionOnPress: () => {
-                  // Navigate to goal detail with activity sheet open
-                  rootNavigationRef.navigate('MainTabs', {
-                    screen: 'MoreTab',
-                    params: {
-                      screen: 'MoreArcs',
-                      params: {
-                        screen: 'GoalDetail',
+          if (shouldShowNudge(activityGoalId, trigger)) {
+            void (async () => {
+              const canSubmit = await canSubmitCheckin(activityGoalId);
+              if (!canSubmit) return;
+              // Show a toast with an action to check in
+              setTimeout(() => {
+                useToastStore.getState().showToast({
+                  message: 'Share your progress with your team?',
+                  variant: 'default',
+                  durationMs: 4000,
+                  actionLabel: 'Check in',
+                  actionOnPress: async () => {
+                    capture(AnalyticsEvent.SharedGoalCheckinNudgeTapped, {
+                      goalId: activityGoalId,
+                      trigger,
+                      source: 'activities_list',
+                    });
+                    try {
+                      await submitOneTapCheckin({ goalId: activityGoalId, trigger });
+                      useCheckinNudgeStore.getState().recordCheckin(activityGoalId);
+                      capture(AnalyticsEvent.SharedGoalCheckinCreated, {
+                        goalId: activityGoalId,
+                        hasPreset: true,
+                        preset: getOneTapCheckinPreset(trigger),
+                        hasText: false,
+                        source: 'checkin_nudge_toast',
+                        trigger,
+                      });
+                      // Navigate to goal detail with activity sheet open
+                      rootNavigationRef.navigate('MainTabs', {
+                        screen: 'MoreTab',
                         params: {
-                          goalId: activityGoalId,
-                          entryPoint: 'activitiesStack',
-                          openActivitySheet: true,
+                          screen: 'MoreArcs',
+                          params: {
+                            screen: 'GoalDetail',
+                            params: {
+                              goalId: activityGoalId,
+                              entryPoint: 'activitiesStack',
+                              openActivitySheet: true,
+                            },
+                          },
                         },
-                      },
-                    },
-                  });
-                },
-              });
-            }, 1200); // Delay to not compete with celebration
+                      });
+                    } catch (err) {
+                      const message = err instanceof Error ? err.message : 'Failed to check in';
+                      capture(AnalyticsEvent.SharedGoalCheckinFailed, {
+                        goalId: activityGoalId,
+                        error: message,
+                        source: 'checkin_nudge_toast',
+                        trigger,
+                      });
+                      useToastStore.getState().showToast({
+                        message,
+                        variant: 'danger',
+                        durationMs: 2600,
+                      });
+                    }
+                  },
+                });
+              }, 1200); // Delay to not compete with celebration
+            })();
           }
         }
       }
@@ -1858,7 +1860,7 @@ export function ActivitiesScreen() {
   const handleCoachAddActivity = React.useCallback(
     (activity: Activity) => {
       lastCreatedActivityRef.current = activity;
-      setSessionCreatedIds((prev) => new Set(prev).add(activity.id));
+      setSessionCreatedContextById((prev) => ({ ...prev, [activity.id]: ghostContextKey }));
 
       const matches =
         QueryService.applyActivityFilters(
@@ -1873,14 +1875,16 @@ export function ActivitiesScreen() {
 
       addActivity(activity);
     },
-    [addActivity, filterGroups, activeView?.filterGroupLogic],
+    [addActivity, filterGroups, activeView?.filterGroupLogic, ghostContextKey],
   );
 
   return (
     <AppShell>
       <PageHeader
         title="Activities"
-        onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined}
+        onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
+        avatarName={avatarName}
+        avatarUrl={avatarUrl}
         rightElement={
           isQuickAddFocused ? (
             <Button
@@ -1973,90 +1977,6 @@ export function ActivitiesScreen() {
       </Dialog>
       {/* Toolbar and suggestions rendered outside scroll views so they stay fixed when scrolling */}
       <View>
-        {shouldShowSuggestedCard && (
-          <View
-            style={styles.suggestedCardFixedContainer}
-            onLayout={(e) => {
-              suggestedCardYRef.current = e.nativeEvent.layout.y;
-            }}
-          >
-            <OpportunityCard
-              tone="brand"
-              shadow="layered"
-              padding="xs"
-              ctaAlign="right"
-              header={
-                <HStack justifyContent="space-between" alignItems="center">
-                  <HStack alignItems="center" space="xs">
-                    <Icon name="sparkles" size={14} color={colors.parchment} />
-                    <Text style={styles.aiPickOnBrandLabel}>Quick add</Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="About Quick add"
-                      hitSlop={10}
-                      onPress={() => setQuickAddInfoVisible(true)}
-                    >
-                      <Icon name="info" size={16} color={colors.parchment} />
-                    </Pressable>
-                  </HStack>
-                  <HStack alignItems="center" space="xs">
-                    {suggested?.kind === 'setup' ? (
-                      <Text style={styles.aiPickOnBrandPill}>Setup</Text>
-                    ) : null}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss Quick add"
-                      hitSlop={10}
-                      onPress={dismissSuggestedCard}
-                    >
-                      <Icon name="close" size={16} color={colors.parchment} />
-                    </Pressable>
-                  </HStack>
-                </HStack>
-              }
-              title={null}
-              body={
-                suggested?.kind === 'activity' && suggestedActivity ? (
-                  <ActivityListItem
-                    title={suggestedActivity.title}
-                    meta={suggestedActivityMeta.meta}
-                    metaLeadingIconName={suggestedActivityMeta.metaLeadingIconName}
-                    onPress={() => navigateToActivityDetail(suggestedActivity.id)}
-                    showPriorityControl={false}
-                  />
-                ) : (
-                  suggestedCardBody
-                )
-              }
-              ctaLabel={
-                suggested?.kind === 'setup'
-                  ? suggested.reason === 'no_goals'
-                    ? 'Create goal'
-                    : 'Add activity'
-                  : 'Add to Today'
-              }
-              ctaVariant={suggested?.kind === 'activity' ? 'inverse' : 'inverse'}
-              ctaLeadingIconName={suggested?.kind === 'activity' ? undefined : 'sparkles'}
-              ctaSize="xs"
-              ctaAccessibilityLabel={
-                suggested?.kind === 'activity'
-                  ? 'Add suggested activity to Today'
-                  : 'Add activity'
-              }
-              onPressCta={handleAcceptSuggested}
-              secondaryCtaLabel="Not now"
-              secondaryCtaVariant="ghost"
-              secondaryCtaSize="xs"
-              secondaryCtaAccessibilityLabel="Dismiss Quick add"
-              onPressSecondaryCta={dismissSuggestedCard}
-              style={[
-                styles.suggestedOpportunityCard,
-                highlightSuggested && styles.suggestedOpportunityCardHighlighted,
-              ]}
-            />
-          </View>
-        )}
-
       {activities.length > 0 && (
         <Animated.View
           style={[
@@ -2238,10 +2158,10 @@ export function ActivitiesScreen() {
                           size="small"
                           onPress={() => setSortDrawerVisible(true)}
                           testID="e2e.activities.toolbar.sort"
-                          style={sortCount > 1 ? styles.toolbarCountButtonActive : undefined}
+                          style={appliedSortCount > 0 ? styles.toolbarCountButtonActive : undefined}
                           accessibilityLabel={
-                            sortCount > 1
-                              ? `Sort activities (${sortCount})`
+                            appliedSortCount > 0
+                              ? `Sort activities (${appliedSortCount})`
                               : 'Sort activities'
                           }
                         >
@@ -2249,10 +2169,10 @@ export function ActivitiesScreen() {
                             <Icon
                               name="sort"
                               size={14}
-                              color={sortCount > 1 ? colors.primaryForeground : colors.textPrimary}
+                              color={appliedSortCount > 0 ? colors.primaryForeground : colors.textPrimary}
                             />
-                            {sortCount > 1 ? (
-                              <Text style={styles.toolbarCountButtonActiveText}>{sortCount}</Text>
+                            {appliedSortCount > 0 ? (
+                              <Text style={styles.toolbarCountButtonActiveText}>{appliedSortCount}</Text>
                             ) : null}
                           </HStack>
                         </Button>
@@ -2343,7 +2263,7 @@ export function ActivitiesScreen() {
                   onPress={isDragging ? undefined : () => navigateToActivityDetail(activity.id)}
                   isDueToday={isDueToday}
                   isGhost={
-                    sessionCreatedIds.has(activity.id) &&
+                    sessionCreatedIdsForGhostContext.has(activity.id) &&
                     QueryService.applyActivityFilters(
                       [activity],
                       filterGroups,
@@ -2429,7 +2349,7 @@ export function ActivitiesScreen() {
                   onTogglePriority={handleTogglePriorityOne}
                   onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
                   isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
-                  sessionCreatedIds={sessionCreatedIds}
+                  sessionCreatedIds={sessionCreatedIdsForGhostContext}
                   filterGroups={filterGroups}
                   activeView={activeView}
                 />
@@ -2450,6 +2370,18 @@ export function ActivitiesScreen() {
           scrollEnabled={activitiesGuideHost.scrollEnabled}
           automaticallyAdjustKeyboardInsets={false}
           keyboardShouldPersistTaps="handled"
+          onScrollToIndexFailed={(info) => {
+            // FlatList may not have measured enough rows yet; approximate, then retry.
+            const approx = info.averageItemLength * info.index;
+            canvasScrollRef.current?.scrollToOffset({ offset: approx, animated: true });
+            setTimeout(() => {
+              canvasScrollRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0.2,
+              });
+            }, 80);
+          }}
           data={activeActivities}
           keyExtractor={(activity) => activity.id}
           ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
@@ -2472,7 +2404,7 @@ export function ActivitiesScreen() {
                 onPress={() => navigateToActivityDetail(activity.id)}
                 isDueToday={isDueToday}
                 isGhost={
-                  sessionCreatedIds.has(activity.id) &&
+                  sessionCreatedIdsForGhostContext.has(activity.id) &&
                   QueryService.applyActivityFilters(
                     [activity],
                     filterGroups,
@@ -2557,7 +2489,7 @@ export function ActivitiesScreen() {
                   onTogglePriority={handleTogglePriorityOne}
                   onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
                   isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
-                  sessionCreatedIds={sessionCreatedIds}
+                  sessionCreatedIds={sessionCreatedIdsForGhostContext}
                   filterGroups={filterGroups}
                   activeView={activeView}
                 />
@@ -2838,22 +2770,6 @@ export function ActivitiesScreen() {
         markActivityEnrichment={markActivityEnrichment}
         isActivityEnriching={isActivityEnriching}
       />
-      <Dialog
-        visible={quickAddInfoVisible}
-        onClose={() => setQuickAddInfoVisible(false)}
-        title="AI pick"
-        size="sm"
-        showHeaderDivider
-      >
-        <VStack space="sm">
-          <Text style={styles.quickAddInfoBody}>
-            AI pick highlights one next Activity from your existing list when you don’t have anything scheduled for today.
-          </Text>
-          <Text style={styles.quickAddInfoBody}>
-            It doesn’t generate new activities, and it doesn’t use your generative credits.
-          </Text>
-        </VStack>
-      </Dialog>
       <Dialog
         visible={viewEditorVisible}
         onClose={() => setViewEditorVisible(false)}

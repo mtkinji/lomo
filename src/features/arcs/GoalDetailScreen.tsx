@@ -1241,11 +1241,13 @@ export function GoalDetailScreen() {
           <VStack space="md">
             <Button
               size="icon"
-              style={styles.backButton}
+                  variant="secondary"
+                  iconButtonSize={36}
+                  style={styles.backButton}
               onPress={handleBack}
               accessibilityLabel="Back"
             >
-              <Icon name="arrowLeft" size={20} color={colors.canvas} />
+                  <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
             </Button>
             <View style={{ paddingTop: spacing.md }}>
               <ActivityIndicator color={colors.textPrimary} />
@@ -1260,11 +1262,13 @@ export function GoalDetailScreen() {
         <VStack space="md">
           <Button
             size="icon"
+            variant="secondary"
+            iconButtonSize={36}
             style={styles.backButton}
             onPress={handleBack}
             accessibilityLabel="Back"
           >
-            <Icon name="arrowLeft" size={20} color={colors.canvas} />
+            <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
           </Button>
           <Text style={styles.emptyBody}>Goal not found.</Text>
         </VStack>
@@ -2150,7 +2154,7 @@ export function GoalDetailScreen() {
                   accessibilityLabel="Back"
                   materialOpacity={headerActionPillOpacity}
                 >
-                  <Icon name="chevronLeft" size={24} color={colors.textPrimary} />
+                  <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
                 </HeaderActionPill>
               }
               right={
@@ -4157,10 +4161,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    backgroundColor: colors.primary,
+    // Sizing is controlled via `iconButtonSize={36}` on the Button.
   },
   addActivityIconButton: {
     borderRadius: 999,
