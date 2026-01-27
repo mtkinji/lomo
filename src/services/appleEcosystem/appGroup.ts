@@ -1,12 +1,17 @@
 import { NativeModules, Platform } from 'react-native';
-import Constants from 'expo-constants';
 
-const FALLBACK_BUNDLE_ID = 'com.andrewwatanabe.kwilt';
-const bundleId = (Constants.expoConfig?.ios?.bundleIdentifier ??
-  (Constants as any)?.manifest2?.extra?.expoClient?.ios?.bundleIdentifier ??
-  FALLBACK_BUNDLE_ID) as string;
-
-export const KWILT_IOS_APP_GROUP_ID = `group.${String(bundleId).trim() || FALLBACK_BUNDLE_ID}`;
+/**
+ * IMPORTANT:
+ * The WidgetKit extension reads glanceable state from a fixed App Group:
+ *   group.com.andrewwatanabe.kwilt
+ *
+ * In dev builds the iOS bundle identifier may differ from production, but the
+ * entitlements for App Groups are static. If we derive the group id from the
+ * bundle id (e.g. group.<bundleId>), the app can end up writing to an App Group
+ * the widget doesn't have access to, making the widget appear empty (often when
+ * resizing triggers a fresh timeline read).
+ */
+export const KWILT_IOS_APP_GROUP_ID = 'group.com.andrewwatanabe.kwilt';
 
 type KwiltAppGroupNativeModule = {
   setString: (key: string, value: string, appGroup: string) => Promise<void> | void;

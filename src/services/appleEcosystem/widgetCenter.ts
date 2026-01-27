@@ -1,5 +1,4 @@
 import { NativeModules, Platform } from 'react-native';
-import Constants from 'expo-constants';
 
 type KwiltWidgetCenterNativeModule = {
   reloadTimelines: (kinds: string[]) => Promise<boolean> | boolean;
@@ -7,16 +6,16 @@ type KwiltWidgetCenterNativeModule = {
 
 const native: KwiltWidgetCenterNativeModule | undefined = (NativeModules as any)?.KwiltWidgetCenter;
 
-const FALLBACK_APP_NAME = 'Kwilt';
-const appName =
-  (Constants.expoConfig?.name ??
-    (Constants as any)?.manifest2?.extra?.expoClient?.name ??
-    FALLBACK_APP_NAME) as string;
-const widgetTargetName = `${String(appName || FALLBACK_APP_NAME).trim()}Widgets`;
-
-export const KWILT_WIDGET_KINDS = [
-  `${widgetTargetName}.activities`,
-];
+/**
+ * IMPORTANT:
+ * Widget kinds must exactly match the `kind` string declared in the WidgetKit extension.
+ * Deriving kinds from the *app name* is brittle (dev builds often rename the app),
+ * which can cause reloadTimelines() to point at a non-existent kind and make widgets
+ * appear stale/empty when resizing triggers a refresh.
+ *
+ * See: ios/KwiltWidgets/KwiltWidgets.swift -> KwiltActivitiesWidget.kind
+ */
+export const KWILT_WIDGET_KINDS = ['KwiltWidgets.activities'];
 
 let pendingKinds = new Set<string>();
 let reloadTimeout: ReturnType<typeof setTimeout> | null = null;

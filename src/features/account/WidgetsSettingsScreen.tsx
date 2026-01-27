@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +12,8 @@ import { HStack, Text, VStack, ButtonLabel, Card } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { scheduleWidgetReload } from '../../services/appleEcosystem/widgetCenter';
+import { readGlanceableState } from '../../services/appleEcosystem/glanceableState';
 
 type WidgetsSettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -21,6 +23,7 @@ type WidgetsSettingsNavigationProp = NativeStackNavigationProp<
 export function WidgetsSettingsScreen() {
   const navigation = useNavigation<WidgetsSettingsNavigationProp>();
   const { capture } = useAnalytics();
+  const [lastWidgetSync, setLastWidgetSync] = useState<string | null>(null);
 
   useEffect(() => {
     capture(AnalyticsEvent.WidgetSetupViewed, { source: 'settings' });
@@ -41,6 +44,14 @@ export function WidgetsSettingsScreen() {
     // Show the payoff by routing into the same shell/canvas destinations the widget uses.
     // Note: keep this distinct from source=widget so we don't treat it as widget adoption.
     await Linking.openURL('kwilt://activities?source=widget_setup_try');
+  };
+
+  const handleRefreshWidget = async () => {
+    capture(AnalyticsEvent.WidgetSetupHelpOpened, { source: 'settings_refresh' });
+    scheduleWidgetReload();
+    const state = await readGlanceableState().catch(() => null);
+    const ms = state?.updatedAtMs;
+    setLastWidgetSync(typeof ms === 'number' ? new Date(ms).toLocaleString() : null);
   };
 
   return (
@@ -98,6 +109,28 @@ export function WidgetsSettingsScreen() {
             </VStack>
           </Card>
 
+          <Card style={styles.card}>
+            <VStack space="md">
+              <HStack alignItems="center" space="sm">
+                <Icon name="refresh" size={18} color={colors.textPrimary} />
+                <Text style={styles.cardTitle}>Debug: refresh widget</Text>
+              </HStack>
+              <Text style={styles.previewHint}>
+                If the widget is showing “Open Kwilt to sync…”, open the dev build once, then tap refresh.
+              </Text>
+              <HStack justifyContent="space-between" alignItems="center">
+                <Button onPress={() => void handleRefreshWidget()}>
+                  <ButtonLabel tone="inverse">Refresh widget now</ButtonLabel>
+                </Button>
+                {lastWidgetSync ? (
+                  <Text style={styles.syncMeta} numberOfLines={1}>
+                    Last sync: {lastWidgetSync}
+                  </Text>
+                ) : null}
+              </HStack>
+            </VStack>
+          </Card>
+
           <View style={styles.section}>
             <Text style={styles.sectionBody}>
               Tip: after you add the widget, tapping it should open Kwilt directly to your Activities list view.
@@ -149,6 +182,13 @@ const styles = StyleSheet.create({
   widgetTitle: {
     ...typography.bodyBold,
     color: colors.textPrimary,
+  },
+  syncMeta: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: spacing.sm,
   },
 });
 
