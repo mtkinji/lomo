@@ -89,6 +89,8 @@ export function getSupabasePublishableKey(): string | undefined {
 }
 
 export function getSupabaseUrl(): string | undefined {
+  const environment = (getEnvVar<string>('environment') ?? '').trim().toLowerCase();
+  const isProduction = environment === 'production';
   const explicit =
     getEnvVar<string>('supabaseUrl') ??
     getProcessEnvString('EXPO_PUBLIC_SUPABASE_URL') ??
@@ -96,7 +98,27 @@ export function getSupabaseUrl(): string | undefined {
 
   // If the app has an explicit Supabase URL configured, always trust it—even in Expo Go.
   // (This enables using custom domains like https://auth.kwilt.app during Expo Go testing.)
-  if (explicit) return explicit;
+  if (explicit) {
+    const trimmed = explicit.trim();
+    // Safety rail: for production builds we strongly prefer the custom auth domain so iOS
+    // sign-in prompts reference Kwilt-owned domains (and to avoid accidental regressions
+    // where CI/build env falls back to the raw *.supabase.co project URL).
+    if (isProduction) {
+      try {
+        const host = new URL(trimmed).hostname.trim().toLowerCase();
+        if (host.endsWith('.supabase.co')) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[env] Overriding SUPABASE_URL from ${host} to auth.kwilt.app for production build safety.`,
+          );
+          return 'https://auth.kwilt.app';
+        }
+      } catch {
+        // ignore URL parse errors and fall back to the explicit value
+      }
+    }
+    return trimmed;
+  }
 
   // Only Expo Go should attempt inference; standalone/dev/prod builds should be explicitly configured.
   // (Silent inference in production can accidentally fall back to https://<project-ref>.supabase.co,

@@ -105,7 +105,7 @@ export default function App() {
       if (cancelled) return;
       // If the client gets stuck with a stale refresh token, Supabase may emit refresh-failed events.
       // Clear persisted auth state so the dev client doesn't keep surfacing runtime error banners.
-      if (event === 'TOKEN_REFRESH_FAILED') {
+      if (String(event) === 'TOKEN_REFRESH_FAILED') {
         void resetSupabaseAuthStorage().catch(() => undefined);
         clearAuthIdentity();
         return;

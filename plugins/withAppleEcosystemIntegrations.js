@@ -1148,6 +1148,14 @@ func isLockScreenFamily(_ family: WidgetFamily) -> Bool {
   return family == .accessoryCircular || family == .accessoryRectangular || family == .accessoryInline
 }
 
+#if canImport(UIKit)
+func kwiltLogoImage() -> Image? {
+  if let ui = UIImage(named: "KwiltLogoWhite") { return Image(uiImage: ui) }
+  if let ui = UIImage(named: "KwiltLogoWhite.png") { return Image(uiImage: ui) }
+  return nil
+}
+#endif
+
 @ViewBuilder
 func widgetContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
   if #available(iOS 17.0, *) {
@@ -1254,14 +1262,18 @@ struct ActivitiesWidgetView: View {
     let remaining = max(0, entry.totalCount - rows.count)
 
     widgetContainer {
-      VStack(alignment: .leading, spacing: 10) {
+      VStack(alignment: .leading, spacing: 0) {
         // Kwilt-styled header (pine background + white logo mark).
         HStack(spacing: 10) {
-          Image("KwiltLogoWhite")
-            .resizable()
-            .renderingMode(.original)
-            .aspectRatio(contentMode: .fit)
-            .frame(width: 22, height: 22)
+#if canImport(UIKit)
+          if let logo = kwiltLogoImage() {
+            logo
+              .resizable()
+              .renderingMode(.original)
+              .aspectRatio(contentMode: .fit)
+              .frame(width: 22, height: 22)
+          }
+#endif
           VStack(alignment: .leading, spacing: 1) {
             Text("Activities")
               .font(.headline)
@@ -1274,10 +1286,11 @@ struct ActivitiesWidgetView: View {
           }
           Spacer()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(KwiltPalette.pine)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(UnevenRoundedRectangle(cornerRadii: .init(topLeading: 24, topTrailing: 24)))
 
         if rows.isEmpty {
           Spacer()
@@ -1287,7 +1300,7 @@ struct ActivitiesWidgetView: View {
             .multilineTextAlignment(.leading)
           Spacer()
         } else {
-          VStack(alignment: .leading, spacing: 8) {
+          VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(rows.enumerated()), id: \\.offset) { _, row in
               HStack(alignment: .top, spacing: 10) {
                 Image(systemName: row.status == "done" ? "checkmark.circle.fill" : "circle")
@@ -1334,7 +1347,6 @@ struct ActivitiesWidgetView: View {
         }
       }
       .widgetURL(url)
-      .padding()
     }
   }
 }
