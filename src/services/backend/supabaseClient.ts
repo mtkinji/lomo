@@ -14,6 +14,17 @@ export async function flushSupabaseAuthStorage(): Promise<void> {
   }
 }
 
+export async function resetSupabaseAuthStorage(): Promise<void> {
+  try {
+    if (!_authStorage) {
+      _authStorage = new SupabaseAuthStorage();
+    }
+    await _authStorage.clearAuthSessionKeys();
+  } catch {
+    // best-effort
+  }
+}
+
 export function getSupabaseClient(): SupabaseClient {
   if (_client) return _client;
 
@@ -44,9 +55,10 @@ export function getSupabaseClient(): SupabaseClient {
       storageKey: 'kwilt.supabase.auth',
       persistSession: true,
       // Expo Go is notably fragile around backgrounding/suspension during OAuth and reloads.
-      // Disable auto-refresh there to avoid unhandled refresh errors; we refresh explicitly
-      // at the points we require auth (see `ensureSignedInWithPrompt`).
-      autoRefreshToken: !isExpoGo,
+      // Disable auto-refresh in Expo Go and in __DEV__ to avoid repeated "Invalid Refresh Token"
+      // runtime error banners when the simulator has stale auth state. We refresh explicitly at
+      // the points we require auth (see `ensureSignedInWithPrompt`).
+      autoRefreshToken: !isExpoGo && !__DEV__,
       detectSessionInUrl: false,
       flowType: 'pkce',
     },

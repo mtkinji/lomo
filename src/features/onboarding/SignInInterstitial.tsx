@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
+  Easing,
   Linking,
   StyleSheet,
   View,
@@ -65,17 +66,31 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   const messageOpacity = useRef(new Animated.Value(1)).current;
   const baseOpacity = useRef(new Animated.Value(1)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const motion = useRef(new Animated.Value(0)).current;
+  const motionLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Refs for timer-critical values to avoid closure staleness
   const messageIndexRef = useRef(0);
   const activeLayerRef = useRef<'base' | 'overlay'>('base');
-  const bgTransitioningRef = useRef(false);
+  const bgCrossfadeInFlightRef = useRef(false);
+  const bgPendingRef = useRef<{ layer: 'base' | 'overlay'; index: number } | null>(null);
+  const bgPendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const backgroundBaseSource =
-    AUTH_SIGNIN_WALLPAPERS[bgBaseIndex % AUTH_SIGNIN_WALLPAPERS.length]?.source;
-  const backgroundOverlaySource =
-    AUTH_SIGNIN_WALLPAPERS[bgOverlayIndex % AUTH_SIGNIN_WALLPAPERS.length]?.source;
+  const fallbackWallpaperSource = useMemo(
+    () => AUTH_SIGNIN_WALLPAPERS[0]?.source,
+    []
+  );
+
+  const getWallpaperSource = (index: number) => {
+    const len = AUTH_SIGNIN_WALLPAPERS.length;
+    if (!len) return fallbackWallpaperSource;
+    const safeIndex = Number.isFinite(index) ? ((index % len) + len) % len : 0;
+    return AUTH_SIGNIN_WALLPAPERS[safeIndex]?.source ?? fallbackWallpaperSource;
+  };
+
+  const backgroundBaseSource = getWallpaperSource(bgBaseIndex);
+  const backgroundOverlaySource = getWallpaperSource(bgOverlayIndex);
 
   const handleSignIn = async (provider: 'apple' | 'google') => {
     if (busy) return;
@@ -119,9 +134,45 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   }, []);
 
   useEffect(() => {
+    // Subtle Ken Burns motion for wallpapers (disabled when Reduce Motion is enabled).
+    // Keep the translation small and scale slightly > 1 so we never reveal edges.
+    motionLoopRef.current?.stop();
+    motionLoopRef.current = null;
+
+    if (reduceMotion) {
+      motion.stopAnimation();
+      motion.setValue(0);
+      return;
+    }
+
+    motion.setValue(0);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(motion, {
+          toValue: 1,
+          duration: ROTATION_MS * 1.2,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(motion, {
+          toValue: 0,
+          duration: ROTATION_MS * 1.2,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    motionLoopRef.current = loop;
+    loop.start();
+
+    return () => {
+      loop.stop();
+      if (motionLoopRef.current === loop) motionLoopRef.current = null;
+    };
+  }, [motion, reduceMotion]);
+
+  useEffect(() => {
     const rotate = () => {
-      if (bgTransitioningRef.current) return;
-      
       const next = (messageIndexRef.current + 1) % CATCH_MESSAGES.length;
       messageIndexRef.current = next;
 
@@ -134,55 +185,25 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
         return;
       }
 
-      bgTransitioningRef.current = true;
+      // Background transition: only start a new one if we aren't already waiting for an image
+      // and no crossfade is currently running.
+      if (!bgCrossfadeInFlightRef.current && !bgPendingRef.current) {
+        const targetLayer: 'base' | 'overlay' =
+          activeLayerRef.current === 'base' ? 'overlay' : 'base';
 
-      if (activeLayerRef.current === 'base') {
-        // Overlay is hidden. Update it, then crossfade.
-        setBgOverlayIndex(next);
-        
-        // Give React a frame to update the image source before starting the animation
-        setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(overlayOpacity, {
-              toValue: 1,
-              duration: BG_CROSSFADE_MS,
-              useNativeDriver: true,
-            }),
-            Animated.timing(baseOpacity, {
-              toValue: 0,
-              duration: BG_CROSSFADE_MS,
-              useNativeDriver: true,
-            }),
-          ]).start(({ finished }) => {
-            if (finished) {
-              activeLayerRef.current = 'overlay';
-              bgTransitioningRef.current = false;
-            }
-          });
-        }, 32);
-      } else {
-        // Base is hidden. Update it, then crossfade.
-        setBgBaseIndex(next);
-        
-        setTimeout(() => {
-          Animated.parallel([
-            Animated.timing(baseOpacity, {
-              toValue: 1,
-              duration: BG_CROSSFADE_MS,
-              useNativeDriver: true,
-            }),
-            Animated.timing(overlayOpacity, {
-              toValue: 0,
-              duration: BG_CROSSFADE_MS,
-              useNativeDriver: true,
-            }),
-          ]).start(({ finished }) => {
-            if (finished) {
-              activeLayerRef.current = 'base';
-              bgTransitioningRef.current = false;
-            }
-          });
-        }, 32);
+        // Update the hidden layer's image source; keep the currently-visible layer on screen
+        // until the new image finishes decoding.
+        if (targetLayer === 'overlay') setBgOverlayIndex(next);
+        else setBgBaseIndex(next);
+
+        bgPendingRef.current = { layer: targetLayer, index: next };
+
+        if (bgPendingTimeoutRef.current) clearTimeout(bgPendingTimeoutRef.current);
+        bgPendingTimeoutRef.current = setTimeout(() => {
+          // If the new image never loads (decode failure / OOM), don't fade to blank.
+          bgPendingRef.current = null;
+          bgPendingTimeoutRef.current = null;
+        }, 1200);
       }
 
       // Text transition
@@ -208,10 +229,70 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
     return () => {
       clearInterval(interval);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (bgPendingTimeoutRef.current) clearTimeout(bgPendingTimeoutRef.current);
     };
   }, [reduceMotion]);
 
+  const maybeStartCrossfade = (layer: 'base' | 'overlay', layerIndex: number) => {
+    const pending = bgPendingRef.current;
+    if (!pending) return;
+    if (pending.layer !== layer || pending.index !== layerIndex) return;
+    if (bgCrossfadeInFlightRef.current) return;
+
+    if (bgPendingTimeoutRef.current) {
+      clearTimeout(bgPendingTimeoutRef.current);
+      bgPendingTimeoutRef.current = null;
+    }
+    bgPendingRef.current = null;
+    bgCrossfadeInFlightRef.current = true;
+
+    Animated.parallel([
+      Animated.timing(baseOpacity, {
+        toValue: layer === 'base' ? 1 : 0,
+        duration: BG_CROSSFADE_MS,
+        useNativeDriver: true,
+      }),
+      Animated.timing(overlayOpacity, {
+        toValue: layer === 'overlay' ? 1 : 0,
+        duration: BG_CROSSFADE_MS,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) {
+        activeLayerRef.current = layer;
+      }
+      bgCrossfadeInFlightRef.current = false;
+    });
+  };
+
   const backgroundStyle = StyleSheet.absoluteFillObject;
+  const dx = Math.max(8, Math.min(22, Math.round(windowWidth * 0.04)));
+  const dy = Math.max(8, Math.min(24, Math.round(windowHeight * 0.03)));
+  const wallpaperMotionStyle =
+    reduceMotion
+      ? null
+      : {
+          transform: [
+            {
+              translateX: motion.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-dx, dx],
+              }),
+            },
+            {
+              translateY: motion.interpolate({
+                inputRange: [0, 1],
+                outputRange: [dy, -dy],
+              }),
+            },
+            {
+              scale: motion.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1.06, 1.12],
+              }),
+            },
+          ],
+        };
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -222,13 +303,15 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
             <View pointerEvents="none" style={styles.backgroundLayer}>
               <Animated.Image
                 source={backgroundBaseSource}
-                style={[backgroundStyle, { opacity: baseOpacity }]}
+                style={[backgroundStyle, wallpaperMotionStyle, { opacity: baseOpacity }]}
                 resizeMode="cover"
+                onLoadEnd={() => maybeStartCrossfade('base', bgBaseIndex)}
               />
               <Animated.Image
                 source={backgroundOverlaySource}
-                style={[backgroundStyle, { opacity: overlayOpacity }]}
+                style={[backgroundStyle, wallpaperMotionStyle, { opacity: overlayOpacity }]}
                 resizeMode="cover"
+                onLoadEnd={() => maybeStartCrossfade('overlay', bgOverlayIndex)}
               />
               <LinearGradient
                 colors={['rgba(0,0,0,0.62)', 'rgba(0,0,0,0.28)', 'rgba(0,0,0,0.18)']}

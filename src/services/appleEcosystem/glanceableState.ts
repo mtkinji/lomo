@@ -66,6 +66,7 @@ export type GlanceableActivitiesWidgetRow = {
   title: string;
   scheduledAtMs?: number;
   status?: string;
+  meta?: string;
 };
 
 export type GlanceableActivitiesWidgetPayload = {

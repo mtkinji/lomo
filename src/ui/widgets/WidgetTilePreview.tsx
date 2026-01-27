@@ -13,16 +13,16 @@ type WidgetTilePreviewProps = {
 };
 
 const SAMPLE_ACTIVITIES = [
-  { time: 'Sat, Dec 20', title: 'Install the French cleat wall next to…' },
-  { time: '', title: 'Move the long stick wood storage…' },
-  { time: 'Fri, Dec 19', title: 'Exercise' },
-  { time: '', title: 'Put together an automotive toolkit' },
-  { time: '', title: 'Model a new workbench' },
-  { time: '', title: 'Prep the materials you need' },
-  { time: '', title: 'Tidy your workspace (5 min)' },
-  { time: '', title: 'Capture any loose thoughts' },
-  { time: '', title: 'Choose a single priority' },
-  { time: '', title: 'Review your Arc and pick one priority…' },
+  { time: '7:30 PM', title: 'Draft ExL Article 1: What is MSOR?', meta: 'New view' },
+  { time: '8:10 PM', title: 'Draft ExL Article 2: Blueprint of S…', meta: 'New view' },
+  { time: '', title: 'Put together an automotive toolkit', meta: 'Garage project' },
+  { time: '', title: 'Model a new workbench', meta: 'Garage project' },
+  { time: '', title: 'Tidy your workspace (5 min)', meta: 'Garage project' },
+  { time: '', title: 'Capture any loose thoughts', meta: 'Daily review' },
+  { time: '', title: 'Choose a single priority', meta: 'Daily review' },
+  { time: '', title: 'Review your Arc and pick one priority…', meta: 'Daily review' },
+  { time: '', title: 'Exercise', meta: 'Health' },
+  { time: '', title: 'Prep the materials you need', meta: 'Garage project' },
 ];
 
 export const WidgetTilePreview = memo(function WidgetTilePreview({ size }: WidgetTilePreviewProps) {
@@ -33,12 +33,26 @@ export const WidgetTilePreview = memo(function WidgetTilePreview({ size }: Widge
         <WidgetTileChrome label="Activities" iconName="checklist" />
         <VStack space="sm">
           {SAMPLE_ACTIVITIES.slice(0, listLimit).map((row) => (
-            <HStack key={`${row.time}-${row.title}`} space="sm" alignItems="center">
+            <HStack key={`${row.time}-${row.title}`} space="sm" alignItems="flex-start">
               <Text style={styles.badge}>○</Text>
-              <Text style={styles.rowTitle} numberOfLines={1}>
-                {row.title}
-              </Text>
-              {row.time ? <Text style={styles.timePill}>{row.time}</Text> : null}
+              <VStack space="xs" style={styles.rowTextBlock}>
+                <Text style={styles.rowTitle} numberOfLines={2}>
+                  {row.title}
+                </Text>
+                <HStack space={6} alignItems="center">
+                  {row.meta ? (
+                    <Text style={styles.rowMeta} numberOfLines={1}>
+                      {row.meta}
+                    </Text>
+                  ) : null}
+                  {row.time ? <Text style={styles.rowMetaDot}>•</Text> : null}
+                  {row.time ? (
+                    <Text style={styles.rowMetaTime} numberOfLines={1}>
+                      {row.time}
+                    </Text>
+                  ) : null}
+                </HStack>
+              </VStack>
             </HStack>
           ))}
         </VStack>
@@ -75,6 +89,21 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
     flex: 1,
+  },
+  rowTextBlock: {
+    flex: 1,
+  },
+  rowMeta: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+  },
+  rowMetaDot: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+  },
+  rowMetaTime: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
   },
   badge: {
     ...typography.bodyXs,

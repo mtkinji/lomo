@@ -75,10 +75,15 @@ export function startGlanceableStateSync(): void {
     }));
 
     const activitiesWidgetByViewId: Record<string, any> = {};
+    const goalTitleById = params.goals.reduce<Record<string, string>>((acc, g) => {
+      acc[g.id] = g.title;
+      return acc;
+    }, {});
     for (const view of params.activityViews ?? []) {
       const { rows, totalCount } = buildActivitiesWidgetRows({
         view,
         activities: params.activities,
+        goalsTitleById: goalTitleById,
         isPro,
         now,
         limit: 10,

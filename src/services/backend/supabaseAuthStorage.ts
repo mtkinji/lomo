@@ -13,6 +13,7 @@ export class SupabaseAuthStorage {
   private memory = new Map<string, string>();
   private didAttemptAuthTokenMigration = false;
   private pendingWrites = new Set<Promise<unknown>>();
+  private didClearAuthSessionKeys = false;
 
   /**
    * Supabase can kick off PKCE writes without awaiting our storage writes.
@@ -25,6 +26,75 @@ export class SupabaseAuthStorage {
     const pending = Array.from(this.pendingWrites);
     if (pending.length === 0) return;
     await Promise.allSettled(pending);
+  }
+
+  /**
+   * Clear persisted Supabase session keys (refresh/access token blob) so the app can recover
+   * from "Invalid Refresh Token" loops in dev/simulator environments.
+   *
+   * This is intentionally conservative: it removes our stable key plus any legacy Supabase keys
+   * that look like session JSON so they can't re-migrate on next launch.
+   */
+  async clearAuthSessionKeys(): Promise<void> {
+    if (this.didClearAuthSessionKeys) return;
+    this.didClearAuthSessionKeys = true;
+
+    let keys: string[] = [];
+    try {
+      const raw = await AsyncStorage.getAllKeys();
+      keys = Array.isArray(raw) ? (raw as any) : [];
+    } catch {
+      keys = [];
+    }
+
+    const targetKey = 'kwilt.supabase.auth';
+    const candidates = keys
+      .filter((k) => typeof k === 'string')
+      .filter((k) => {
+        const kk = String(k ?? '');
+        return (
+          kk === targetKey ||
+          kk.includes('auth-token') ||
+          kk.includes('supabase.auth') ||
+          (kk.startsWith('sb-') && kk.endsWith('-auth-token'))
+        );
+      });
+
+    const toRemove = new Set<string>();
+    // Always remove our stable key if present.
+    toRemove.add(targetKey);
+
+    // Remove legacy keys only if they look like session JSON (avoid deleting unrelated storage).
+    for (const k of candidates) {
+      if (k === targetKey) continue;
+      try {
+        const v = await AsyncStorage.getItem(k);
+        if (typeof v !== 'string' || v.length < 20) continue;
+        const looksLikeSession =
+          v.includes('"access_token"') && v.includes('"refresh_token"') && v.includes('"user"');
+        if (looksLikeSession) toRemove.add(k);
+      } catch {
+        // ignore
+      }
+    }
+
+    // Clear memory cache and AsyncStorage.
+    for (const k of Array.from(toRemove)) {
+      this.memory.delete(k);
+    }
+
+    // Best-effort: flush any pending writes first so we don't race with auth internals.
+    await this.flush().catch(() => undefined);
+
+    await Promise.allSettled(
+      Array.from(toRemove).map(async (k) => {
+        try {
+          await AsyncStorage.removeItem(k);
+        } catch {
+          // ignore
+        }
+      }),
+    );
   }
 
   private async maybeMigrateAuthToken(targetKey: string): Promise<string | null> {

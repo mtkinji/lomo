@@ -70,11 +70,15 @@ function buildSortConditions(params: { view: ActivityView; isPro: boolean }): So
 export function buildActivitiesWidgetRows(params: {
   view: ActivityView;
   activities: Activity[];
+  goalsTitleById: Record<string, string>;
   isPro: boolean;
   now: Date;
   limit: number;
-}): { rows: Array<{ activityId: string; title: string; scheduledAtMs?: number; status?: string }>; totalCount: number } {
-  const { view, activities, isPro, now, limit } = params;
+}): {
+  rows: Array<{ activityId: string; title: string; scheduledAtMs?: number; status?: string; meta?: string }>;
+  totalCount: number;
+} {
+  const { view, activities, goalsTitleById, isPro, now, limit } = params;
   const filterGroups = buildFilterGroups({ view, isPro });
   const groupLogic = view.filterGroupLogic ?? 'or';
   const sortConditions = buildSortConditions({ view, isPro });
@@ -109,6 +113,7 @@ export function buildActivitiesWidgetRows(params: {
     title: a.title,
     scheduledAtMs: toScheduledAtMs(a),
     status: a.status,
+    meta: a.goalId ? (goalsTitleById[a.goalId] ?? undefined) : undefined,
   }));
 
   return { rows, totalCount: ordered.length };

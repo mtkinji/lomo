@@ -574,9 +574,13 @@ RCT_EXTERN_METHOD(
 module.exports = function withAppleEcosystemIntegrations(config) {
   const enableAppGroups = String(process.env.KWILT_ENABLE_APP_GROUPS || '0') === '1';
   const enableWidgets = String(process.env.KWILT_ENABLE_WIDGETS || '0') === '1';
+  // Widgets require App Groups to exchange data with the host app.
+  // Make this implicit so local builds don't accidentally create a widget target
+  // that can never read any state.
+  const enableAppGroupsEffective = enableAppGroups || enableWidgets;
   const appGroupId = getAppGroupId(config);
   // 1) App Group entitlement (shared state for widgets/live activities later)
-  if (enableAppGroups) {
+  if (enableAppGroupsEffective) {
     config = withEntitlementsPlist(config, (config) => {
       const entitlements = config.modResults;
       const existing = entitlements['com.apple.security.application-groups'];
@@ -994,6 +998,20 @@ if userActivity.activityType == CSSearchableItemActionType,
 
     const widgetSwiftRel = `${targetSubfolder}/${targetSubfolder}.swift`;
     const widgetSwiftAbs = path.join(iosRoot, widgetSwiftRel);
+
+    // Copy a small, white Kwilt mark into the extension bundle so we can render it in the widget header.
+    // We keep it as a plain PNG resource (not an asset catalog) for simplicity.
+    const logoSourceAbs = path.join(config.modRequest.projectRoot, 'assets', 'logo-white.png');
+    const logoRel = `${targetSubfolder}/KwiltLogoWhite.png`;
+    const logoAbs = path.join(iosRoot, logoRel);
+    try {
+      if (fs.existsSync(logoSourceAbs)) {
+        fs.copyFileSync(logoSourceAbs, logoAbs);
+      }
+    } catch {
+      // best-effort
+    }
+
     fs.writeFileSync(
       widgetSwiftAbs,
       `import WidgetKit
@@ -1009,7 +1027,7 @@ import AppIntents
 struct GlanceableStateV1: Codable {
   struct WidgetItem: Codable {
     let activityId: String
-    let title: String
+  let title: String
     let scheduledAtMs: Double?
     let estimateMinutes: Double?
   }
@@ -1048,6 +1066,7 @@ struct GlanceableStateV1: Codable {
     let title: String
     let scheduledAtMs: Double?
     let status: String?
+    let meta: String?
   }
 
   struct ActivitiesWidgetPayload: Codable {
@@ -1133,7 +1152,7 @@ func isLockScreenFamily(_ family: WidgetFamily) -> Bool {
 func widgetContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
   if #available(iOS 17.0, *) {
     content().containerBackground(.fill.tertiary, for: .widget)
-  } else {
+    } else {
     content()
   }
 }
@@ -1236,21 +1255,29 @@ struct ActivitiesWidgetView: View {
 
     widgetContainer {
       VStack(alignment: .leading, spacing: 10) {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Image(systemName: "checklist")
-            .foregroundStyle(KwiltPalette.pine)
-          VStack(alignment: .leading, spacing: 2) {
+        // Kwilt-styled header (pine background + white logo mark).
+        HStack(spacing: 10) {
+          Image("KwiltLogoWhite")
+            .resizable()
+            .renderingMode(.original)
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 22, height: 22)
+          VStack(alignment: .leading, spacing: 1) {
             Text("Activities")
               .font(.headline)
-              .foregroundStyle(.primary)
+              .foregroundStyle(.white)
               .lineLimit(1)
             Text(entry.viewName)
               .font(.caption)
-              .foregroundStyle(.secondary)
+              .foregroundStyle(.white.opacity(0.85))
               .lineLimit(1)
           }
           Spacer()
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(KwiltPalette.pine)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
         if rows.isEmpty {
           Spacer()
@@ -1260,22 +1287,39 @@ struct ActivitiesWidgetView: View {
             .multilineTextAlignment(.leading)
           Spacer()
         } else {
-          VStack(alignment: .leading, spacing: 6) {
+          VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(rows.enumerated()), id: \\.offset) { _, row in
-              HStack(alignment: .firstTextBaseline, spacing: 8) {
+              HStack(alignment: .top, spacing: 10) {
                 Image(systemName: row.status == "done" ? "checkmark.circle.fill" : "circle")
                   .foregroundStyle(row.status == "done" ? KwiltPalette.pine : .secondary)
-                Text(row.title)
-                  .font(.subheadline)
-                  .foregroundStyle(.primary)
-                  .lineLimit(1)
-                Spacer()
-                if let ms = row.scheduledAtMs, let label = formatTimeLabel(ms: ms) {
-                  Text(label)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .lineLimit(1)
+                  .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 3) {
+                  Text(row.title)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+
+                  HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let meta = row.meta, !meta.isEmpty {
+                      Text(meta)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    }
+                    if let ms = row.scheduledAtMs, let label = formatTimeLabel(ms: ms) {
+                      if let meta = row.meta, !meta.isEmpty {
+                        Text("•")
+                          .font(.caption2)
+                          .foregroundStyle(.secondary)
+                      }
+                      Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+          .monospacedDigit()
+                        .lineLimit(1)
+                    }
+                  }
                 }
               }
             }
@@ -1426,6 +1470,16 @@ struct ${targetName}Bundle: WidgetBundle {
       project,
       targetUuid,
     });
+    // Include the Kwilt logo mark in the extension bundle.
+    if (fs.existsSync(logoAbs)) {
+      project = addResourceFileToGroup({
+        filepath: logoRel,
+        groupName: targetSubfolder,
+        isBuildFile: true,
+        project,
+        targetUuid,
+      });
+    }
     // Extra defensive cleanup: certain Xcodeproj mutation paths can still attach the widget
     // source file to the main app target. Ensure it is NOT compiled there.
     if (appTargetUuid) {

@@ -48,6 +48,7 @@ import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlight
 import { startDomainSync } from './src/services/sync/domainSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { Text } from './src/ui/primitives';
+import { resetSupabaseAuthStorage } from './src/services/backend/supabaseClient';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -102,6 +103,13 @@ export default function App() {
     // it's still hydrating from storage. Don't treat that as a real sign-out.
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
+      // If the client gets stuck with a stale refresh token, Supabase may emit refresh-failed events.
+      // Clear persisted auth state so the dev client doesn't keep surfacing runtime error banners.
+      if (event === 'TOKEN_REFRESH_FAILED') {
+        void resetSupabaseAuthStorage().catch(() => undefined);
+        clearAuthIdentity();
+        return;
+      }
       const identity = deriveAuthIdentityFromSession(session);
       if (identity) {
         setAuthIdentity(identity);
@@ -119,6 +127,12 @@ export default function App() {
       for (let i = 0; i < 3; i += 1) {
         try {
           const res = await supabase!.auth.getSession();
+          const errMsg = (res as any)?.error?.message;
+          if (typeof errMsg === 'string' && errMsg.toLowerCase().includes('invalid refresh token')) {
+            // Best-effort: clear stale auth state so we can render signed-out UI quietly.
+            await resetSupabaseAuthStorage().catch(() => undefined);
+            await supabase!.auth.signOut().catch(() => undefined);
+          }
           session = res?.data?.session ?? null;
         } catch {
           session = null;
