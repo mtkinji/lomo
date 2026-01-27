@@ -184,6 +184,57 @@ RCT_EXTERN_METHOD(
 @end
 `;
 
+const KWILT_WIDGET_CENTER_SWIFT = `import Foundation
+import React
+
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
+
+@objc(KwiltWidgetCenter)
+class KwiltWidgetCenter: NSObject {
+  @objc static func requiresMainQueueSetup() -> Bool {
+    return false
+  }
+
+  @objc(reloadTimelines:resolver:rejecter:)
+  func reloadTimelines(
+    _ kinds: [String],
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(WidgetKit)
+    if #available(iOS 14.0, *) {
+      if kinds.isEmpty {
+        WidgetCenter.shared.reloadAllTimelines()
+        resolve(true)
+        return
+      }
+      kinds.forEach { kind in
+        WidgetCenter.shared.reloadTimelines(ofKind: kind)
+      }
+      resolve(true)
+      return
+    }
+#endif
+    resolve(false)
+  }
+}
+`;
+
+const KWILT_WIDGET_CENTER_EXTERN = `#import <React/RCTBridgeModule.h>
+
+@interface RCT_EXTERN_MODULE(KwiltWidgetCenter, NSObject)
+
+RCT_EXTERN_METHOD(
+  reloadTimelines:(NSArray<NSString *> *)kinds
+  resolver:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+@end
+`;
+
 function buildAppIntentsSwift({ appGroupId }) {
   return `import Foundation
 
@@ -559,6 +610,16 @@ module.exports = function withAppleEcosystemIntegrations(config) {
     overwrite: false,
   });
   config = withBuildSourceFile(config, {
+    filePath: 'KwiltWidgetCenter.swift',
+    contents: KWILT_WIDGET_CENTER_SWIFT,
+    overwrite: false,
+  });
+  config = withBuildSourceFile(config, {
+    filePath: 'KwiltWidgetCenter.m',
+    contents: KWILT_WIDGET_CENTER_EXTERN,
+    overwrite: false,
+  });
+  config = withBuildSourceFile(config, {
     filePath: 'KwiltAppIntents.swift',
     contents: buildAppIntentsSwift({ appGroupId }),
     overwrite: true,
@@ -759,8 +820,8 @@ if userActivity.activityType == CSSearchableItemActionType,
     };
     ensureSwiftVersionForBundleId(targetBundleId, '5.0');
 
-    // Widgets use lock-screen accessory families which require iOS 16+.
-    // Set the widget extension's deployment target accordingly so Swift can compile those symbols.
+    // For v1 of widget configuration, we use AppIntentConfiguration which requires iOS 17+.
+    // Set the widget extension's deployment target accordingly.
     const ensureDeploymentTargetForBundleId = (bundleIdentifier, deploymentTarget = '16.0') => {
       const section = project.pbxXCBuildConfigurationSection?.() || {};
       Object.keys(section).forEach((key) => {
@@ -774,7 +835,32 @@ if userActivity.activityType == CSSearchableItemActionType,
         section[key] = cfg;
       });
     };
-    ensureDeploymentTargetForBundleId(targetBundleId, '16.0');
+    ensureDeploymentTargetForBundleId(targetBundleId, '17.0');
+
+    const ensureVersionForBundleId = (bundleIdentifier, version, buildNumber) => {
+      if (!version && !buildNumber) return;
+      const section = project.pbxXCBuildConfigurationSection?.() || {};
+      Object.keys(section).forEach((key) => {
+        const cfg = section[key];
+        if (!cfg || cfg.isa !== 'XCBuildConfiguration') return;
+        const buildSettings = cfg.buildSettings || {};
+        const prodBundle = String(buildSettings.PRODUCT_BUNDLE_IDENTIFIER || '').replace(/^"|"$/g, '');
+        if (prodBundle !== bundleIdentifier) return;
+        if (version) {
+          buildSettings.MARKETING_VERSION = `"${version}"`;
+        }
+        if (buildNumber) {
+          buildSettings.CURRENT_PROJECT_VERSION = `"${buildNumber}"`;
+        }
+        cfg.buildSettings = buildSettings;
+        section[key] = cfg;
+      });
+    };
+    const appVersion = typeof config?.version === 'string' ? config.version.trim() : '';
+    const buildNumberRaw = typeof config?.ios?.buildNumber === 'string' ? config.ios.buildNumber.trim() : '';
+    const appVersionFinal = appVersion || '1.0.0';
+    const buildNumberFinal = buildNumberRaw || '1';
+    ensureVersionForBundleId(targetBundleId, appVersionFinal, buildNumberFinal);
 
     // IMPORTANT:
     // `xcode.addTarget(..., 'app_extension', ...)` creates a target WITHOUT build phases.
@@ -833,6 +919,11 @@ if userActivity.activityType == CSSearchableItemActionType,
   <string>${targetName}</string>
   <key>NSExtension</key>
   <dict>
+    <key>NSExtensionAttributes</key>
+    <dict>
+      <key>WKAppBundleIdentifier</key>
+      <string>${bundleId}</string>
+    </dict>
     <key>NSExtensionPointIdentifier</key>
     <string>com.apple.widgetkit-extension</string>
   </dict>
@@ -854,8 +945,15 @@ if userActivity.activityType == CSSearchableItemActionType,
           `<dict>\\n  <key>${key}</key>\\n  <string>${value}</string>\\n`,
         );
       };
+      const ensureExtensionAttributes = (input, appBundleId) => {
+        if (input.includes('<key>NSExtensionAttributes</key>')) return input;
+        return input.replace(
+          /<key>NSExtension<\/key>\s*<dict>/m,
+          `<key>NSExtension</key>\n  <dict>\n    <key>NSExtensionAttributes</key>\n    <dict>\n      <key>WKAppBundleIdentifier</key>\n      <string>${appBundleId}</string>\n    </dict>`,
+        );
+      };
 
-      let patched = raw;
+      let patched = raw.replace(/\\n/g, '\n');
       patched = ensureKey(patched, 'CFBundleDevelopmentRegion', '$(DEVELOPMENT_LANGUAGE)');
       patched = ensureKey(patched, 'CFBundleExecutable', '$(EXECUTABLE_NAME)');
       patched = ensureKey(patched, 'CFBundleIdentifier', '$(PRODUCT_BUNDLE_IDENTIFIER)');
@@ -864,6 +962,12 @@ if userActivity.activityType == CSSearchableItemActionType,
       patched = ensureKey(patched, 'CFBundlePackageType', 'XPC!');
       patched = ensureKey(patched, 'CFBundleShortVersionString', '$(MARKETING_VERSION)');
       patched = ensureKey(patched, 'CFBundleVersion', '$(CURRENT_PROJECT_VERSION)');
+      patched = ensureExtensionAttributes(patched, bundleId);
+      // WidgetKit extensions should not declare NSExtensionPrincipalClass.
+      patched = patched.replace(
+        /\s*<key>NSExtensionPrincipalClass<\/key>\s*<string>[^<]*<\/string>\s*/m,
+        '\n    ',
+      );
 
       if (patched !== raw) fs.writeFileSync(infoPlistAbs, patched, 'utf8');
     } catch {
@@ -894,6 +998,9 @@ if userActivity.activityType == CSSearchableItemActionType,
       widgetSwiftAbs,
       `import WidgetKit
 import SwiftUI
+#if canImport(AppIntents)
+import AppIntents
+#endif
 
 // Widgets should preserve the app shell/canvas by deep-linking into existing screens.
 // We keep WidgetKit data minimal and read a single JSON blob from the App Group:
@@ -930,6 +1037,27 @@ struct GlanceableStateV1: Codable {
     let completedCount: Int
   }
 
+  struct ActivityViewSummary: Codable {
+    let id: String
+    let name: String
+    let isSystem: Bool?
+  }
+
+  struct ActivitiesWidgetRow: Codable {
+    let activityId: String
+    let title: String
+    let scheduledAtMs: Double?
+    let status: String?
+  }
+
+  struct ActivitiesWidgetPayload: Codable {
+    let viewId: String
+    let viewName: String
+    let totalCount: Int
+    let rows: [ActivitiesWidgetRow]
+    let updatedAtMs: Double
+  }
+
   let version: Int
   let updatedAtMs: Double
   let nextUp: NextUp?
@@ -937,6 +1065,8 @@ struct GlanceableStateV1: Codable {
   let suggested: Suggested?
   let schedule: Schedule?
   let momentum: Momentum?
+  let activityViews: [ActivityViewSummary]?
+  let activitiesWidgetByViewId: [String: ActivitiesWidgetPayload]?
 }
 
 func readGlanceableState() -> GlanceableStateV1? {
@@ -954,377 +1084,237 @@ func deepLinkActivity(_ activityId: String) -> URL? {
   return URL(string: "kwilt://activity/\\(activityId)?source=widget")
 }
 
+func deepLinkActivities(viewId: String?) -> URL? {
+  if let viewId = viewId, !viewId.isEmpty {
+    return URL(string: "kwilt://activities?viewId=\\(viewId)&source=widget")
+  }
+  return URL(string: "kwilt://activities?source=widget")
+}
+
+struct KwiltPalette {
+  static let pine: Color = Color(red: 49/255, green: 85/255, blue: 69/255)
+  static let pineSoft: Color = Color(red: 49/255, green: 85/255, blue: 69/255, opacity: 0.12)
+}
+
+struct WidgetFormatters {
+  static let time: DateFormatter = {
+    let df = DateFormatter()
+    df.locale = Locale.autoupdatingCurrent
+    df.dateStyle = .none
+    df.timeStyle = .short
+    return df
+  }()
+
+  static let relative: RelativeDateTimeFormatter = {
+    let rf = RelativeDateTimeFormatter()
+    rf.locale = Locale.autoupdatingCurrent
+    rf.unitsStyle = .abbreviated
+    return rf
+  }()
+}
+
 func formatTimeLabel(ms: Double?) -> String? {
   guard let ms = ms else { return nil }
   let date = Date(timeIntervalSince1970: ms / 1000.0)
-  let df = DateFormatter()
-  df.locale = Locale.autoupdatingCurrent
-  df.dateStyle = .none
-  df.timeStyle = .short
-  return df.string(from: date)
+  return WidgetFormatters.time.string(from: date)
 }
 
 func formatRelativeLabel(ms: Double?) -> String? {
   guard let ms = ms else { return nil }
   let date = Date(timeIntervalSince1970: ms / 1000.0)
-  let rf = RelativeDateTimeFormatter()
-  rf.locale = Locale.autoupdatingCurrent
-  rf.unitsStyle = .abbreviated
-  return rf.localizedString(for: date, relativeTo: Date())
+  return WidgetFormatters.relative.localizedString(for: date, relativeTo: Date())
 }
 
-struct GlanceableEntry: TimelineEntry {
+func isLockScreenFamily(_ family: WidgetFamily) -> Bool {
+  return family == .accessoryCircular || family == .accessoryRectangular || family == .accessoryInline
+}
+
+@ViewBuilder
+func widgetContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+  if #available(iOS 17.0, *) {
+    content().containerBackground(.fill.tertiary, for: .widget)
+  } else {
+    content()
+  }
+}
+
+// MARK: - Activities widget (single widget for v1)
+
+struct ActivitiesEntry: TimelineEntry {
   let date: Date
-  let state: GlanceableStateV1?
+  let viewId: String
+  let viewName: String
+  let rows: [GlanceableStateV1.ActivitiesWidgetRow]
+  let totalCount: Int
 }
 
-struct GlanceableProvider: TimelineProvider {
-  func placeholder(in context: Context) -> GlanceableEntry {
-    GlanceableEntry(date: Date(), state: nil)
-  }
+@available(iOS 16.0, *)
+struct ActivityViewEntity: AppEntity, Identifiable {
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Activity view"
+  static var defaultQuery = ActivityViewEntityQuery()
 
-  func getSnapshot(in context: Context, completion: @escaping (GlanceableEntry) -> Void) {
-    completion(GlanceableEntry(date: Date(), state: readGlanceableState()))
-  }
+  var id: String
+  var name: String
 
-  func getTimeline(in context: Context, completion: @escaping (Timeline<GlanceableEntry>) -> Void) {
-    let now = Date()
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: name))
+  }
+}
+
+@available(iOS 16.0, *)
+struct ActivityViewEntityQuery: EntityQuery {
+  func suggestedEntities() async throws -> [ActivityViewEntity] {
     let state = readGlanceableState()
-    let entry = GlanceableEntry(date: now, state: state)
-
-    // Keep updates conservative; iOS will throttle aggressively if we ask for too many refreshes.
-    // Default to 15 minutes, but if the next scheduled activity is sooner, refresh around that time.
-    var refresh = now.addingTimeInterval(15 * 60)
-    if let ms = state?.nextUp?.scheduledAtMs {
-      let next = Date(timeIntervalSince1970: ms / 1000.0)
-      if next > now && next < refresh {
-        refresh = next
-      }
-    }
-    completion(Timeline(entries: [entry], policy: .after(refresh)))
+    let views = state?.activityViews ?? []
+    return views.map { ActivityViewEntity(id: $0.id, name: $0.name) }
   }
-}
 
-struct KwiltTileChrome: View {
-  let label: String
-  let timeLabel: String?
-
-  var body: some View {
-    HStack(alignment: .firstTextBaseline) {
-      Text(label)
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-      Spacer()
-      if let timeLabel = timeLabel {
-        Text(timeLabel)
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
-      }
+  func entities(for identifiers: [String]) async throws -> [ActivityViewEntity] {
+    let state = readGlanceableState()
+    let views = state?.activityViews ?? []
+    let byId = Dictionary(uniqueKeysWithValues: views.map { ($0.id, $0.name) })
+    return identifiers.compactMap { id in
+      guard let name = byId[id] else { return nil }
+      return ActivityViewEntity(id: id, name: name)
     }
   }
 }
 
-struct KwiltQuickWidgetView: View {
-  let entry: GlanceableEntry
+@available(iOS 17.0, *)
+struct ActivitiesWidgetConfigurationIntent: WidgetConfigurationIntent {
+  static var title: LocalizedStringResource = "Activities"
+  static var description = IntentDescription("Show activities from any of your views.")
+
+  @Parameter(title: "List")
+  var view: ActivityViewEntity?
+}
+
+@available(iOS 17.0, *)
+struct ActivitiesWidgetProvider: AppIntentTimelineProvider {
+  typealias Intent = ActivitiesWidgetConfigurationIntent
+
+  func placeholder(in context: Context) -> ActivitiesEntry {
+    ActivitiesEntry(date: Date(), viewId: "default", viewName: "Default", rows: [], totalCount: 0)
+  }
+
+  func snapshot(for configuration: ActivitiesWidgetConfigurationIntent, in context: Context) async -> ActivitiesEntry {
+    return buildEntry(configuration: configuration)
+  }
+
+  func timeline(for configuration: ActivitiesWidgetConfigurationIntent, in context: Context) async -> Timeline<ActivitiesEntry> {
+    let entry = buildEntry(configuration: configuration)
+    let refresh = Date().addingTimeInterval(15 * 60)
+    return Timeline(entries: [entry], policy: .after(refresh))
+  }
+
+  private func buildEntry(configuration: ActivitiesWidgetConfigurationIntent) -> ActivitiesEntry {
+    let state = readGlanceableState()
+    let defaultView = state?.activityViews?.first?.id ?? "default"
+    let viewId = configuration.view?.id ?? defaultView
+    let viewName =
+      configuration.view?.name ??
+      state?.activityViews?.first(where: { $0.id == viewId })?.name ??
+      "Activities"
+
+    let payload = state?.activitiesWidgetByViewId?[viewId]
+    let rows = payload?.rows ?? []
+    let total = payload?.totalCount ?? rows.count
+
+    return ActivitiesEntry(date: Date(), viewId: viewId, viewName: viewName, rows: rows, totalCount: total)
+  }
+}
+
+struct ActivitiesWidgetView: View {
+  let entry: ActivitiesEntry
   @Environment(\\.widgetFamily) var family
 
   var body: some View {
-    let state = entry.state
-    let next = state?.nextUp
-    let title = next?.title ?? "Open Kwilt"
-    let url = next != nil ? deepLinkActivity(next!.activityId) : deepLinkToday()
-    let timeLabel = formatRelativeLabel(ms: next?.scheduledAtMs) ?? formatTimeLabel(ms: next?.scheduledAtMs)
+    let url = deepLinkActivities(viewId: entry.viewId)
+    let limit = family == .systemLarge ? 10 : 5
+    let rows = Array(entry.rows.prefix(limit))
+    let remaining = max(0, entry.totalCount - rows.count)
 
-    VStack(alignment: .leading, spacing: 8) {
-      KwiltTileChrome(label: "Next up", timeLabel: timeLabel)
-      Text(title)
-        .font(.headline)
-        .lineLimit(family == .accessoryCircular ? 1 : 3)
-      Spacer()
-      if family == .systemSmall {
-        Text("Tap to open Today")
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-          .lineLimit(1)
-      }
-    }
-    .widgetURL(url)
-    .padding()
-  }
-}
-
-struct KwiltSuggestedWidgetView: View {
-  let entry: GlanceableEntry
-  @Environment(\\.widgetFamily) var family
-
-  var body: some View {
-    let items = entry.state?.suggested?.items ?? []
-    let primary = items.first
-    let url = primary != nil ? deepLinkActivity(primary!.activityId) : deepLinkToday()
-
-    let limit: Int = {
-      switch family {
-      case .systemSmall: return 1
-      case .systemMedium: return 3
-      default: return 8
-      }
-    }()
-
-    VStack(alignment: .leading, spacing: 10) {
-      KwiltTileChrome(label: "Suggested next step", timeLabel: nil)
-
-      if let primary = primary, items.count > 0 {
-        if family == .systemSmall {
-          Text(primary.title).font(.headline).lineLimit(3)
-        } else {
-          VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(items.prefix(limit).enumerated()), id: \\.offset) { idx, item in
-              HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(idx == 0 ? "Next" : "Alt")
-                  .font(.caption2)
-                  .foregroundStyle(.secondary)
-                  .frame(width: 34, alignment: .leading)
-                Text(item.title)
-                  .font(.caption)
-                  .lineLimit(1)
-              }
-            }
-          }
-        }
-      } else {
-        Text("Open Today to pick your next step.")
-          .font(.headline)
-          .lineLimit(3)
-      }
-
-      Spacer()
-      Text("Tap to open Kwilt")
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-    }
-    .widgetURL(url)
-    .padding()
-  }
-}
-
-struct KwiltScheduleWidgetView: View {
-  let entry: GlanceableEntry
-  @Environment(\\.widgetFamily) var family
-
-  var body: some View {
-    let items = entry.state?.schedule?.items ?? []
-    let primary = items.first
-    let url = primary != nil ? deepLinkActivity(primary!.activityId) : deepLinkToday()
-    let timeLabel = formatTimeLabel(ms: primary?.scheduledAtMs) ?? (primary?.scheduledAtMs == nil ? "Anytime" : nil)
-
-    let limit: Int = {
-      switch family {
-      case .systemSmall: return 1
-      case .systemMedium: return 4
-      default: return 10
-      }
-    }()
-
-    VStack(alignment: .leading, spacing: 10) {
-      KwiltTileChrome(label: "Schedule", timeLabel: timeLabel)
-
-      if let primary = primary, items.count > 0 {
-        if family == .systemSmall {
-          Text(primary.title).font(.headline).lineLimit(3)
-        } else {
-          VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(items.prefix(limit).enumerated()), id: \\.offset) { _, item in
-              HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(formatTimeLabel(ms: item.scheduledAtMs) ?? "Anytime")
-                  .font(.caption2)
-                  .foregroundStyle(.secondary)
-                  .frame(width: 64, alignment: .leading)
-                  .lineLimit(1)
-                Text(item.title)
-                  .font(.caption)
-                  .lineLimit(1)
-              }
-            }
-          }
-        }
-      } else {
-        Text("Open Today to see your plan.")
-          .font(.headline)
-          .lineLimit(3)
-      }
-
-      Spacer()
-      Text("Tap to open your plan")
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-    }
-    .widgetURL(url)
-    .padding()
-  }
-}
-
-struct KwiltMomentumWidgetView: View {
-  let entry: GlanceableEntry
-  @Environment(\\.widgetFamily) var family
-
-  var body: some View {
-    let m = entry.state?.momentum
-    let url = deepLinkToday()
-
-    VStack(alignment: .leading, spacing: 10) {
-      KwiltTileChrome(label: "Momentum", timeLabel: nil)
-
-      if let m = m {
-        if family == .systemSmall {
-          Text("\\(m.completedToday) done today").font(.headline).lineLimit(1)
-          if let streak = m.showUpStreakDays {
-            Text("\\(streak)d show-up streak")
-              .font(.caption)
-              .foregroundStyle(.secondary)
+    widgetContainer {
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Image(systemName: "checklist")
+            .foregroundStyle(KwiltPalette.pine)
+          VStack(alignment: .leading, spacing: 2) {
+            Text("Activities")
+              .font(.headline)
+              .foregroundStyle(.primary)
               .lineLimit(1)
-          } else {
-            Text("\\(m.completedThisWeek) this week")
+            Text(entry.viewName)
               .font(.caption)
               .foregroundStyle(.secondary)
               .lineLimit(1)
           }
+          Spacer()
+        }
+
+        if rows.isEmpty {
+          Spacer()
+          Text("Open Kwilt to sync this widget.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+          Spacer()
         } else {
-          HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-              Text("Done today").font(.caption2).foregroundStyle(.secondary)
-              Text("\\(m.completedToday)").font(.title2).monospacedDigit()
-            }
-            VStack(alignment: .leading, spacing: 2) {
-              Text("This week").font(.caption2).foregroundStyle(.secondary)
-              Text("\\(m.completedThisWeek)").font(.title2).monospacedDigit()
-            }
-            VStack(alignment: .leading, spacing: 2) {
-              Text("Show up").font(.caption2).foregroundStyle(.secondary)
-              Text("\\((m.showUpStreakDays ?? 0))d").font(.title2).monospacedDigit()
+          VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(rows.enumerated()), id: \\.offset) { _, row in
+              HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: row.status == "done" ? "checkmark.circle.fill" : "circle")
+                  .foregroundStyle(row.status == "done" ? KwiltPalette.pine : .secondary)
+                Text(row.title)
+                  .font(.subheadline)
+                  .foregroundStyle(.primary)
+                  .lineLimit(1)
+                Spacer()
+                if let ms = row.scheduledAtMs, let label = formatTimeLabel(ms: ms) {
+                  Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                }
+              }
             }
           }
+          Spacer()
+          if remaining > 0 {
+            Text("\\(remaining) more")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          }
         }
-      } else {
-        Text("Open Kwilt to build momentum.")
-          .font(.headline)
-          .lineLimit(2)
       }
-
-      Spacer()
-      Text("Tap to open Today")
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-    }
-    .widgetURL(url)
-    .padding()
-  }
-}
-
-struct KwiltQuickWidget: Widget {
-  let kind: String = "${targetName}.quick"
-  var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
-      KwiltQuickWidgetView(entry: entry)
-    }
-    .configurationDisplayName("Next up")
-    .description("Open your next Activity or Today.")
-    .supportedFamilies([.accessoryRectangular, .accessoryCircular, .systemSmall])
-  }
-}
-
-struct KwiltSuggestedWidget: Widget {
-  let kind: String = "${targetName}.suggested"
-  var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
-      KwiltSuggestedWidgetView(entry: entry)
-    }
-    .configurationDisplayName("Suggested next step")
-    .description("A tiny next move to keep momentum.")
-    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
-  }
-}
-
-struct KwiltScheduleWidget: Widget {
-  let kind: String = "${targetName}.schedule"
-  var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
-      KwiltScheduleWidgetView(entry: entry)
-    }
-    .configurationDisplayName("Schedule")
-    .description("Timed work first, plus “anytime today” items.")
-    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
-  }
-}
-
-struct KwiltMomentumWidget: Widget {
-  let kind: String = "${targetName}.momentum"
-  var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: GlanceableProvider()) { entry in
-      KwiltMomentumWidgetView(entry: entry)
-    }
-    .configurationDisplayName("Momentum")
-    .description("Done today, this week, and your streaks.")
-    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
-  }
-}
-
-#if canImport(ActivityKit)
-import ActivityKit
-
-@available(iOS 16.1, *)
-struct KwiltFocusLiveActivityWidget: Widget {
-  var body: some WidgetConfiguration {
-    ActivityConfiguration(for: KwiltFocusAttributes.self) { context in
-      VStack(alignment: .leading, spacing: 6) {
-        Text("Focus").font(.caption).foregroundStyle(.secondary)
-        Text(context.state.title).font(.headline).lineLimit(1)
-        // Let SwiftUI handle the countdown rendering.
-        Text(Date(timeIntervalSince1970: TimeInterval(context.state.endAtMs) / 1000.0), style: .timer)
-          .font(.title3).monospacedDigit()
-      }
+      .widgetURL(url)
       .padding()
-    } dynamicIsland: { context in
-      DynamicIsland {
-        DynamicIslandExpandedRegion(.leading) {
-          Text("Focus").font(.caption)
-        }
-        DynamicIslandExpandedRegion(.center) {
-          Text(context.state.title).lineLimit(1)
-        }
-        DynamicIslandExpandedRegion(.trailing) {
-          Text(Date(timeIntervalSince1970: TimeInterval(context.state.endAtMs) / 1000.0), style: .timer)
-            .monospacedDigit()
-        }
-      } compactLeading: {
-        Text("F")
-      } compactTrailing: {
-        Text(Date(timeIntervalSince1970: TimeInterval(context.state.endAtMs) / 1000.0), style: .timer)
-          .monospacedDigit()
-      } minimal: {
-        Text("F")
-      }
     }
   }
 }
-#endif
+
+@available(iOS 17.0, *)
+struct KwiltActivitiesWidget: Widget {
+  let kind: String = "${targetName}.activities"
+
+  var body: some WidgetConfiguration {
+    AppIntentConfiguration(kind: kind, intent: ActivitiesWidgetConfigurationIntent.self, provider: ActivitiesWidgetProvider()) { entry in
+      ActivitiesWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Activities")
+    .description("Show activities from any of your views.")
+    .supportedFamilies([.systemMedium, .systemLarge])
+  }
+}
 
 @main
 struct ${targetName}Bundle: WidgetBundle {
   var body: some Widget {
-    KwiltQuickWidget()
-    KwiltSuggestedWidget()
-    KwiltScheduleWidget()
-    KwiltMomentumWidget()
-#if canImport(ActivityKit)
-    if #available(iOS 16.1, *) {
-      KwiltFocusLiveActivityWidget()
+    if #available(iOS 17.0, *) {
+      KwiltActivitiesWidget()
     }
-#endif
   }
 }
 `,

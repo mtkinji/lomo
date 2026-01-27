@@ -98,6 +98,20 @@ export type ActivitiesListRouteParams = {
   openSearch?: boolean;
 };
 
+export type ActivitiesWidgetRouteParams = {
+  /**
+   * Activity view id to select on open (saved view/system view).
+   * Passed by the Activities widget configuration.
+   */
+  viewId?: string;
+  /**
+   * Optional source tag for ecosystem-driven entrypoints.
+   *
+   * Example: `kwilt://activities?viewId=default&source=widget`
+   */
+  source?: string;
+};
+
 export type JoinSharedGoalRouteParams = {
   inviteCode: string;
 };

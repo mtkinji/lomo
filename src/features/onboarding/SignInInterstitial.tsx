@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
-  Easing,
   Linking,
   StyleSheet,
   View,
@@ -22,6 +21,7 @@ import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
 import { signInWithProvider, deriveAuthIdentityFromSession } from '../../services/backend/auth';
 import { checkUserHasSyncedData } from '../../services/sync/domainSync';
+import { AUTH_SIGNIN_WALLPAPERS } from '../../assets/authSignInWallpapers';
 
 export type SignInResult = {
   isReturningUser: boolean;
@@ -41,16 +41,6 @@ const CATCH_MESSAGES = [
   'Craft your path.\nLive with intention.',
   'Your potential,\nmapped out.',
   'Small steps lead to\nbig transformations.',
-] as const;
-
-const WALLPAPER_BACKGROUNDS = [
-  require('../../../assets/illustrations/welcome.png'),
-  require('../../../assets/illustrations/goal-set.png'),
-  require('../../../assets/illustrations/aspiration.png'),
-  require('../../../assets/illustrations/aspirations.png'),
-  require('../../../assets/illustrations/notifications.png'),
-  require('../../assets/arc-banners/banner1.png'),
-  require('../../assets/arc-banners/banner7.png'),
 ] as const;
 
 const ROTATION_MS = 14_000;
@@ -75,7 +65,6 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   const messageOpacity = useRef(new Animated.Value(1)).current;
   const baseOpacity = useRef(new Animated.Value(1)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const motion = useRef(new Animated.Value(0)).current;
 
   // Refs for timer-critical values to avoid closure staleness
   const messageIndexRef = useRef(0);
@@ -83,8 +72,10 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   const bgTransitioningRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const backgroundBaseSource = WALLPAPER_BACKGROUNDS[bgBaseIndex % WALLPAPER_BACKGROUNDS.length];
-  const backgroundOverlaySource = WALLPAPER_BACKGROUNDS[bgOverlayIndex % WALLPAPER_BACKGROUNDS.length];
+  const backgroundBaseSource =
+    AUTH_SIGNIN_WALLPAPERS[bgBaseIndex % AUTH_SIGNIN_WALLPAPERS.length]?.source;
+  const backgroundOverlaySource =
+    AUTH_SIGNIN_WALLPAPERS[bgOverlayIndex % AUTH_SIGNIN_WALLPAPERS.length]?.source;
 
   const handleSignIn = async (provider: 'apple' | 'google') => {
     if (busy) return;
@@ -128,26 +119,6 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   }, []);
 
   useEffect(() => {
-    // Start continuous oscillation for Ken Burns
-    if (!reduceMotion) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(motion, {
-            toValue: 1,
-            duration: ROTATION_MS * 1.5,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(motion, {
-            toValue: 0,
-            duration: ROTATION_MS * 1.5,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-
     const rotate = () => {
       if (bgTransitioningRef.current) return;
       
@@ -175,13 +146,11 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
             Animated.timing(overlayOpacity, {
               toValue: 1,
               duration: BG_CROSSFADE_MS,
-              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
             Animated.timing(baseOpacity, {
               toValue: 0,
               duration: BG_CROSSFADE_MS,
-              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
           ]).start(({ finished }) => {
@@ -200,13 +169,11 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
             Animated.timing(baseOpacity, {
               toValue: 1,
               duration: BG_CROSSFADE_MS,
-              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
             Animated.timing(overlayOpacity, {
               toValue: 0,
               duration: BG_CROSSFADE_MS,
-              easing: Easing.inOut(Easing.sin),
               useNativeDriver: true,
             }),
           ]).start(({ finished }) => {
@@ -222,7 +189,6 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
       Animated.timing(messageOpacity, {
         toValue: 0,
         duration: TEXT_FADE_OUT_MS,
-        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) {
@@ -231,7 +197,6 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
             Animated.timing(messageOpacity, {
               toValue: 1,
               duration: TEXT_FADE_IN_MS,
-              easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             }).start();
           }, 100);
@@ -246,42 +211,7 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
     };
   }, [reduceMotion]);
 
-  const getKenBurnsStyle = (progress: Animated.Value) => {
-    return {
-      transform: [
-        {
-          translateX: progress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-40, 40],
-          }),
-        },
-        {
-          translateY: progress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [30, -30],
-          }),
-        },
-        {
-          scale: progress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [1.02, 1.12],
-          }),
-        },
-      ],
-    };
-  };
-
-  const bgW = Math.max(1, Math.ceil(windowWidth * 1.4));
-  const bgH = Math.max(1, Math.ceil(windowHeight * 1.4));
-  const bgLeft = -Math.round((bgW - windowWidth) / 2);
-  const bgTop = -Math.round((bgH - windowHeight) / 2);
-  const backgroundStyle = {
-    position: 'absolute' as const,
-    width: bgW,
-    height: bgH,
-    left: bgLeft,
-    top: bgTop,
-  };
+  const backgroundStyle = StyleSheet.absoluteFillObject;
 
   return (
     <GestureHandlerRootView style={styles.root}>
@@ -292,12 +222,12 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
             <View pointerEvents="none" style={styles.backgroundLayer}>
               <Animated.Image
                 source={backgroundBaseSource}
-                style={[backgroundStyle, getKenBurnsStyle(motion), { opacity: baseOpacity }]}
+                style={[backgroundStyle, { opacity: baseOpacity }]}
                 resizeMode="cover"
               />
               <Animated.Image
                 source={backgroundOverlaySource}
-                style={[backgroundStyle, getKenBurnsStyle(motion), { opacity: overlayOpacity }]}
+                style={[backgroundStyle, { opacity: overlayOpacity }]}
                 resizeMode="cover"
               />
               <LinearGradient

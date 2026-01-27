@@ -40,7 +40,7 @@ export function WidgetsSettingsScreen() {
   const handleTryToday = async () => {
     // Show the payoff by routing into the same shell/canvas destinations the widget uses.
     // Note: keep this distinct from source=widget so we don't treat it as widget adoption.
-    await Linking.openURL('kwilt://today?source=widget_setup_try');
+    await Linking.openURL('kwilt://activities?source=widget_setup_try');
   };
 
   return (
@@ -57,40 +57,19 @@ export function WidgetsSettingsScreen() {
           <Card style={styles.card}>
             <VStack space="md">
               <HStack alignItems="center" space="sm">
-                <Icon name="today" size={18} color={colors.textPrimary} />
-                <Text style={styles.cardTitle}>Widgets you can add</Text>
+                <Icon name="activities" size={18} color={colors.textPrimary} />
+                <Text style={styles.cardTitle}>Widget you can add</Text>
               </HStack>
 
-              <VStack space="lg">
-                <VStack space="sm">
-                  <Text style={styles.widgetTitle}>Suggested next step</Text>
-                  <Text style={styles.previewHint}>A tiny next move picked from your backlog to keep momentum.</Text>
-                  <HStack space="md" alignItems="center">
-                    <WidgetTilePreview kind="suggested" size="small" />
-                    <WidgetTilePreview kind="suggested" size="medium" />
-                  </HStack>
-                  <WidgetTilePreview kind="suggested" size="large" />
-                </VStack>
-
-                <VStack space="sm">
-                  <Text style={styles.widgetTitle}>Schedule</Text>
-                  <Text style={styles.previewHint}>Time-bound work first, plus “anytime today” items when you have them.</Text>
-                  <HStack space="md" alignItems="center">
-                    <WidgetTilePreview kind="schedule" size="small" />
-                    <WidgetTilePreview kind="schedule" size="medium" />
-                  </HStack>
-                  <WidgetTilePreview kind="schedule" size="large" />
-                </VStack>
-
-                <VStack space="sm">
-                  <Text style={styles.widgetTitle}>Momentum</Text>
-                  <Text style={styles.previewHint}>Done today, this week, and streak signals that reinforce return behavior.</Text>
-                  <HStack space="md" alignItems="center">
-                    <WidgetTilePreview kind="momentum" size="small" />
-                    <WidgetTilePreview kind="momentum" size="medium" />
-                  </HStack>
-                  <WidgetTilePreview kind="momentum" size="large" />
-                </VStack>
+              <VStack space="sm">
+                <Text style={styles.widgetTitle}>Activities</Text>
+                <Text style={styles.previewHint}>
+                  Show activities from any of your saved views—then tap to open that list in Kwilt.
+                </Text>
+                <HStack space="md" alignItems="center">
+                  <WidgetTilePreview kind="activities" size="medium" />
+                </HStack>
+                <WidgetTilePreview kind="activities" size="large" />
               </VStack>
             </VStack>
           </Card>
@@ -121,7 +100,7 @@ export function WidgetsSettingsScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionBody}>
-              Tip: after you add the widget, tapping it should open Kwilt directly to Today or your next Activity.
+              Tip: after you add the widget, tapping it should open Kwilt directly to your Activities list view.
             </Text>
           </View>
         </ScrollView>

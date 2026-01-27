@@ -77,6 +77,7 @@ import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
   ActivitiesListRouteParams,
+  ActivitiesWidgetRouteParams,
   JoinSharedGoalRouteParams,
 } from './routeParams';
 
@@ -196,6 +197,7 @@ export type GoalsStackParamList = {
 
 export type ActivitiesStackParamList = {
   ActivitiesList: ActivitiesListRouteParams | undefined;
+  ActivitiesListFromWidget: ActivitiesWidgetRouteParams | undefined;
   ActivityDetail: ActivityDetailRouteParams;
 };
 
@@ -434,6 +436,14 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
                   parse: {
                     highlightSuggested: (v: string) => v === '1' || v === 'true',
                     contextGoalId: (v: string) => String(v),
+                    source: (v: string) => String(v),
+                  },
+                },
+                ActivitiesListFromWidget: {
+                  // Widget entrypoint for Activities list views.
+                  path: 'activities',
+                  parse: {
+                    viewId: (v: string) => String(v),
                     source: (v: string) => String(v),
                   },
                 },
@@ -733,6 +743,7 @@ function ActivitiesStackNavigator() {
   return (
     <ActivitiesStack.Navigator screenOptions={STACK_SCREEN_OPTIONS}>
       <ActivitiesStack.Screen name="ActivitiesList" component={ActivitiesScreen} />
+      <ActivitiesStack.Screen name="ActivitiesListFromWidget" component={ActivitiesScreen} />
       <ActivitiesStack.Screen
         name="ActivityDetail"
         component={ActivityDetailScreen}
