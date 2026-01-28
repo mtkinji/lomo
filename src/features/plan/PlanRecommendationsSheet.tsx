@@ -21,11 +21,25 @@ type PlanRecommendationsSheetProps = {
     arcTitle?: string | null;
     proposal: { startDate: string; endDate: string };
   }>;
-  emptyState: { title: string; description: string } | null;
+  emptyState:
+    | {
+        kind:
+          | 'rest_day'
+          | 'no_windows'
+          | 'nothing_to_recommend'
+          | 'choose_calendar'
+          | 'day_full'
+          | 'sign_in_required'
+          | 'calendar_access_expired';
+        title: string;
+        description: string;
+      }
+    | null;
   isLoading?: boolean;
   showAlreadyPlanned: boolean;
   entryPoint: 'manual' | 'kickoff';
   calendarStatus: 'unknown' | 'connected' | 'missing';
+  calendarAccessStatus?: 'idle' | 'refreshing' | 'expired' | 'ok';
   onOpenCalendarSettings: () => void;
   onReviewPlan: () => void;
   onRerun: () => void;
@@ -76,7 +90,7 @@ export function PlanRecommendationsSheet({
       <BottomDrawerHeader
         title={
           <Text style={styles.sheetTitle}>
-            Recommendations{Number.isFinite(recommendationCount) ? ` (${recommendationCount})` : ''}
+            Recommendations
           </Text>
         }
         variant="withClose"

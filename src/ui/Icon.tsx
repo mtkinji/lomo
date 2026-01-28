@@ -129,6 +129,9 @@ const iconMap: Record<string, IconEntry> = {
   // Editor history
   undo: { library: 'feather', name: 'rotate-ccw' },
   redo: { library: 'feather', name: 'rotate-cw' },
+  // Scheduling actions (distinct from generic undo/redo)
+  moveTime: { library: 'ion', name: 'time-outline' },
+  unschedule: { library: 'ion', name: 'calendar-clear-outline' },
   expand: { library: 'feather', name: 'maximize-2' },
   collapse: { library: 'feather', name: 'minimize-2' },
   externalLink: { library: 'feather', name: 'external-link' },

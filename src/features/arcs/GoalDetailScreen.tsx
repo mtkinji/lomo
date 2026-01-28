@@ -412,12 +412,18 @@ export function GoalDetailScreen() {
         goal_id: goalId,
       });
 
-      // After creating a new activity, scroll so it becomes visible (best-effort).
-      // Goal detail is a long scroll surface, so we jump to the bottom where the
-      // Activities section typically ends.
+      // After creating a new activity, scroll so the Activities list is in full view.
+      // (Hard-jumping to the bottom feels disorienting.)
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          scrollRef.current?.scrollTo({ y: 999999, animated: true });
+          const y = activitiesHeaderOffset;
+          if (typeof y === 'number' && Number.isFinite(y)) {
+            // `GoalHeader` overlays the scroll surface, so the "top of view" for content
+            // is actually *below* the header region. Compensate so the Activities title
+            // is visible (not tucked under the header).
+            const targetY = Math.max(0, y - (HEADER_BOTTOM_Y + spacing.sm));
+            scrollRef.current?.scrollTo({ y: targetY, animated: true });
+          }
         });
       });
     },
@@ -487,6 +493,8 @@ export function GoalDetailScreen() {
   }, [closeQuickAddToolDrawer, setQuickAddScheduledDate]);
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
   const pageContentRef = useRef<View | null>(null);
+  const activitiesHeaderRef = useRef<View | null>(null);
+  const [activitiesHeaderOffset, setActivitiesHeaderOffset] = useState<number | null>(null);
   const addActivitiesButtonRef = useRef<View>(null);
   const [isAddActivitiesButtonReady, setIsAddActivitiesButtonReady] = useState(false);
   const [addActivitiesButtonOffset, setAddActivitiesButtonOffset] = useState<number | null>(null);
@@ -945,6 +953,27 @@ export function GoalDetailScreen() {
     (shouldShowOnboardingActivitiesCoachmark || shouldShowPostGoalPlanCoachmark) &&
     !isAnyBottomGuideVisible &&
     addActivitiesButtonOffset != null;
+
+  const measureActivitiesHeaderOffset = useCallback(() => {
+    const node = activitiesHeaderRef.current;
+    const container = pageContentRef.current;
+    if (!node || !container) return;
+    const nodeHandle = findNodeHandle(node);
+    const containerHandle = findNodeHandle(container);
+    if (!nodeHandle || !containerHandle) return;
+    // Compute Y relative to the scroll content root (not the local parent layout),
+    // so we can scroll to the correct content-space offset.
+    UIManager.measureLayout(
+      nodeHandle,
+      containerHandle,
+      () => {},
+      (_x, y) => {
+        if (typeof y === 'number' && Number.isFinite(y)) {
+          setActivitiesHeaderOffset(y);
+        }
+      },
+    );
+  }, []);
 
   const measureAddActivitiesButtonOffset = useCallback(() => {
     const node = addActivitiesButtonRef.current;
@@ -2403,24 +2432,35 @@ export function GoalDetailScreen() {
                 {/* Activities-first section */}
                 <View style={styles.sectionDivider} />
                 <VStack space="md">
-                  <HStack alignItems="center" justifyContent="space-between">
-                    <Heading style={styles.sectionTitle}>Activities</Heading>
-                    {!isPlanEmpty ? (
-                      <View>
-                        <Button
-                          variant="ai"
-                          size="sm"
-                          onPress={handleOpenActivityCoach}
-                          accessibilityLabel="Plan activities with AI"
-                        >
-                          <HStack alignItems="center" space="xs">
-                            <Icon name="sparkles" size={14} color={colors.primaryForeground} />
-                            <Text style={styles.primaryCtaText}>Plan with AI</Text>
-                          </HStack>
-                        </Button>
-                      </View>
-                    ) : null}
-                  </HStack>
+                  <View
+                    ref={activitiesHeaderRef}
+                    collapsable={false}
+                    onLayout={() => {
+                      // Measure relative to the scroll content root; `layout.y` is only local to the parent.
+                      requestAnimationFrame(() => {
+                        measureActivitiesHeaderOffset();
+                      });
+                    }}
+                  >
+                    <HStack alignItems="center" justifyContent="space-between">
+                      <Heading style={styles.sectionTitle}>Activities</Heading>
+                      {!isPlanEmpty ? (
+                        <View>
+                          <Button
+                            variant="ai"
+                            size="sm"
+                            onPress={handleOpenActivityCoach}
+                            accessibilityLabel="Plan activities with AI"
+                          >
+                            <HStack alignItems="center" space="xs">
+                              <Icon name="sparkles" size={14} color={colors.primaryForeground} />
+                              <Text style={styles.primaryCtaText}>Plan with AI</Text>
+                            </HStack>
+                          </Button>
+                        </View>
+                      ) : null}
+                    </HStack>
+                  </View>
 
                   {isPlanEmpty ? (
                     <>

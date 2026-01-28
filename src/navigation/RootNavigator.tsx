@@ -761,10 +761,25 @@ function MainTabsNavigator() {
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => {
-        const focusedRouteName = getFocusedRouteNameFromRoute(route) ?? '';
+        const getDeepestFocusedNestedRouteNameFromState = (r: any): string | null => {
+          // Walk down the currently-focused child route until we hit a leaf.
+          // Only works when React Navigation has populated nested `route.state`.
+          if (!r?.state?.routes || typeof r.state.index !== 'number') return null;
+          let current: any = r.state.routes[r.state.index];
+          while (current?.state?.routes && typeof current.state.index === 'number') {
+            current = current.state.routes[current.state.index];
+          }
+          return current?.name ?? null;
+        };
+
+        // Prefer RN's helper (handles partial state via params), but keep a state-walk fallback.
+        const focusedRouteName =
+          getFocusedRouteNameFromRoute(route) ?? getDeepestFocusedNestedRouteNameFromState(route) ?? '';
+
         const hideTabBar =
-          (route.name === 'ActivitiesTab' && focusedRouteName === 'ActivityDetail') ||
-          (route.name === 'MoreTab' && focusedRouteName === 'MoreChapterDetail');
+          focusedRouteName === 'ActivityDetail' ||
+          focusedRouteName === 'ActivityDetailFromGoal' ||
+          focusedRouteName === 'MoreChapterDetail';
         return {
           headerShown: false,
           tabBarStyle: hideTabBar

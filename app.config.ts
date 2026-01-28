@@ -179,6 +179,9 @@ const config: ExpoConfig = {
     // Supabase project URL (safe to embed). Required for Supabase Auth + shared goals.
     // Example: https://<project-ref>.supabase.co
     supabaseUrl: process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL,
+    // Optional: brand domain used for the iOS OAuth confirmation sheet.
+    // Only used to rewrite the `/auth/v1/authorize` OAuth start URL host.
+    authBrandOrigin: process.env.AUTH_BRAND_ORIGIN ?? process.env.EXPO_PUBLIC_AUTH_BRAND_ORIGIN,
     giphyApiKey: process.env.GIPHY_API_KEY,
     // Unsplash Access Key (Client ID). Support a few common env var names so
     // local/dev setups don't silently break.

@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
+import { BottomDrawerFooter } from '../../ui/layout/BottomDrawerFooter';
 import { Icon } from '../../ui/Icon';
 import { Heading, Input, KeyboardAwareScrollView } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -676,11 +677,11 @@ export function ArcBannerSheet({
             </KeyboardAwareScrollView>
           </View>
 
-          <View style={styles.sheetFooter}>
+          <BottomDrawerFooter paddingTop={spacing.sm} paddingBottom={spacing.lg} backgroundColor={colors.canvas}>
             <Button variant="primary" onPress={onClose} style={styles.saveButton}>
               <Text style={styles.saveButtonLabel}>Save</Text>
             </Button>
-          </View>
+          </BottomDrawerFooter>
         </View>
       </View>
     </BottomDrawer>
@@ -806,10 +807,6 @@ const styles = StyleSheet.create({
   heroUnsplashSearchLabel: {
     ...typography.bodySm,
     color: colors.textPrimary,
-  },
-  sheetFooter: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
   },
   saveButton: {
     alignSelf: 'stretch',

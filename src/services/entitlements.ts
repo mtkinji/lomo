@@ -292,8 +292,22 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
         if (isAuthoritativeProStatus(status) && !status.isPro && proCodeOverride) {
           await setProCodeOverrideEnabled(false);
         }
-        const isPro = Boolean(isAuthoritativeProStatus(status) && status.isPro) || Boolean(proCodeOverride);
-        return await applyAdminOverride({ ...base, isPro, isProToolsTrial: false, source: isPro ? 'code' : base.source });
+        const authoritative = isAuthoritativeProStatus(status);
+        // Sticky last-known Pro: never downgrade due to non-authoritative status (401/500/etc).
+        const shouldStickyKeepPro = !authoritative && Boolean(base.isPro) && !proCodeOverride;
+        const isPro = Boolean(authoritative && status.isPro) || Boolean(proCodeOverride) || Boolean(shouldStickyKeepPro);
+        const error =
+          !authoritative
+            ? status?.errorMessage ?? 'Pro status check unavailable; using last-known tier'
+            : base.error;
+        return await applyAdminOverride({
+          ...base,
+          isPro,
+          isProToolsTrial: false,
+          source: authoritative && status.isPro ? 'code' : base.source,
+          isStale: Boolean(!authoritative || shouldStickyKeepPro || base.isStale),
+          error,
+        });
       } catch {
         if (proCodeOverride) {
           return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });

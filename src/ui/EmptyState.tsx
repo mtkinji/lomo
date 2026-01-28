@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Button } from './Button';
-import { HStack, VStack } from './Stack';
 import { ButtonLabel, Heading, Text } from './Typography';
 import { Icon, type IconName } from './Icon';
 
@@ -94,13 +93,13 @@ export function EmptyState({
 
   return (
     <View style={[styles.container, variant === 'screen' ? styles.containerScreen : styles.containerList, style]}>
-      <VStack space="sm" style={[styles.content, contentStyle]}>
+      <View style={[styles.content, contentStyle]}>
         {iconName ? (
           <View style={styles.iconWrapper} accessibilityElementsHidden accessibilityRole="none">
             <Icon
               name={iconName}
               size={iconSize}
-              color={colors.border}
+              color={colors.textSecondary}
             />
           </View>
         ) : showIllustration ? (
@@ -119,12 +118,12 @@ export function EmptyState({
         {actions ? (
           <View style={styles.actions}>{actions}</View>
         ) : primaryAction || secondaryAction ? (
-          <HStack style={styles.actions} space="sm" alignItems="center">
-            {renderAction(primaryAction, 'default')}
-            {renderAction(secondaryAction, 'outline')}
-          </HStack>
+          <View style={styles.actionRow}>
+            <View style={styles.actionItem}>{renderAction(primaryAction, 'default')}</View>
+            {secondaryAction ? <View style={styles.actionItem}>{renderAction(secondaryAction, 'outline')}</View> : null}
+          </View>
         ) : null}
-      </VStack>
+      </View>
     </View>
   );
 }
@@ -148,7 +147,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-    opacity: 0.5,
+    opacity: 0.9,
   },
   imageWrapper: {
     alignItems: 'center',
@@ -162,15 +161,27 @@ const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
     textAlign: 'center',
+    marginTop: spacing.xs,
   },
   instructions: {
     ...typography.bodySm,
     color: colors.muted,
     textAlign: 'center',
     maxWidth: 340,
+    marginTop: spacing.xs,
   },
   actions: {
     marginTop: spacing.sm,
+  },
+  actionRow: {
+    marginTop: spacing.sm,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    gap: spacing.sm,
+  },
+  actionItem: {
+    width: '100%',
   },
 });
 

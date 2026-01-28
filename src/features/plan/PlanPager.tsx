@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Linking,
   StyleSheet,
   View,
 } from 'react-native';
@@ -18,12 +19,15 @@ import {
   createCalendarEvent,
   getOrInitCalendarPreferences,
   listCalendars,
+  listCalendarsWithErrors,
   listCalendarEvents,
   listBusyIntervals,
+  startCalendarConnect,
   updateCalendarEvent,
   type CalendarEventRef,
   type CalendarEvent,
   type CalendarRef,
+  type CalendarProvider,
 } from '../../services/plan/calendarApi';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { getAvailabilityForDate, getWindowsForMode } from '../../services/plan/planAvailability';
@@ -41,6 +45,20 @@ import { moveManagedEvent } from '../../services/calendar/managedEvents';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
+export type PlanRecommendationsEmptyState =
+  | {
+      kind:
+        | 'rest_day'
+        | 'no_windows'
+        | 'nothing_to_recommend'
+        | 'choose_calendar'
+        | 'day_full'
+        | 'sign_in_required'
+        | 'calendar_access_expired';
+      title: string;
+      description: string;
+    }
+  | null;
 
 type PlanRecommendation = {
   activityId: string;
@@ -76,6 +94,8 @@ export function PlanPager({
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set());
   const [allowRerun, setAllowRerun] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [calendarAccessStatus, setCalendarAccessStatus] = useState<'idle' | 'refreshing' | 'expired' | 'ok'>('idle');
+  const [calendarAccessProvider, setCalendarAccessProvider] = useState<CalendarProvider | null>(null);
   const [readRefs, setReadRefs] = useState<CalendarRef[]>([]);
   const [writeRef, setWriteRef] = useState<CalendarRef | null>(null);
   const [externalBusyIntervals, setExternalBusyIntervals] = useState<BusyInterval[]>([]);
@@ -158,30 +178,51 @@ export function PlanPager({
     lastPreferencesRefreshRef.current = Date.now();
   }, []);
 
-  useEffect(() => {
-    if (!recommendationsDrawerVisible) return;
-    // Only refresh if preferences haven't been refreshed recently (within last 2 seconds).
-    // This prevents redundant refreshes when the drawer opens shortly after navigating to the screen.
-    const timeSinceLastRefresh = Date.now() - lastPreferencesRefreshRef.current;
-    if (timeSinceLastRefresh < 2000) return;
-
-    // Guardrail: if the user opens the recommendations drawer after changing calendar settings,
-    // ensure we aren't using stale prefs (PlanPager remains mounted across navigation).
-    let active = true;
-    (async () => {
-      try {
-        await refreshPreferences();
-      } catch (err: any) {
-        if (!active) return;
-        setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
-        setReadRefs([]);
-        setWriteRef(null);
+  const parseCalendarAccessIssue = useCallback(
+    (errors: string[]): { provider: CalendarProvider | null; code: string } | null => {
+      for (const raw of errors) {
+        const s = String(raw ?? '').trim();
+        if (!s) continue;
+        const firstColon = s.indexOf(':');
+        const providerRaw = firstColon >= 0 ? s.slice(0, firstColon) : '';
+        const detail = firstColon >= 0 ? s.slice(firstColon + 1) : s;
+        const provider: CalendarProvider | null =
+          providerRaw === 'google' || providerRaw === 'microsoft' ? providerRaw : null;
+        const normalized = detail.toLowerCase();
+        if (normalized.includes('refresh_failed') || normalized === 'token_unavailable') {
+          return { provider, code: normalized };
+        }
       }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [recommendationsDrawerVisible, refreshPreferences]);
+      return null;
+    },
+    [],
+  );
+
+  const refreshCalendarAccess = useCallback(async () => {
+    try {
+      const { errors } = await listCalendarsWithErrors();
+      const issue = parseCalendarAccessIssue(errors ?? []);
+      if (issue) {
+        setCalendarAccessStatus('expired');
+        setCalendarAccessProvider(issue.provider ?? null);
+        return false;
+      }
+      setCalendarAccessStatus('ok');
+      setCalendarAccessProvider(null);
+      return true;
+    } catch (err: any) {
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      if (msg.toLowerCase().includes('access token') || msg.toLowerCase().includes('unauthorized')) {
+        setCalendarAccessStatus('idle');
+        setCalendarAccessProvider(null);
+        setCalendarError(msg || 'missing access token');
+        return false;
+      }
+      setCalendarAccessStatus('expired');
+      setCalendarAccessProvider(null);
+      return false;
+    }
+  }, [parseCalendarAccessIssue]);
 
   // In the Plan tab (`insetMode="screen"`), the page is hosted inside `AppShell`,
   // which already applies the canonical horizontal gutters. In drawer contexts,
@@ -216,6 +257,37 @@ export function PlanPager({
       setCalendarColorByRefKey({});
     }
   }, []);
+
+  useEffect(() => {
+    if (!recommendationsDrawerVisible) return;
+    // Only refresh if preferences haven't been refreshed recently (within last 2 seconds).
+    // This prevents redundant refreshes when the drawer opens shortly after navigating to the screen.
+    const timeSinceLastRefresh = Date.now() - lastPreferencesRefreshRef.current;
+    if (timeSinceLastRefresh < 2000) return;
+
+    // Guardrail: if the user opens the recommendations drawer after changing calendar settings,
+    // ensure we aren't using stale prefs (PlanPager remains mounted across navigation).
+    let active = true;
+    (async () => {
+      try {
+        setCalendarAccessStatus('refreshing');
+        const accessOk = await refreshCalendarAccess();
+        if (!active) return;
+        if (accessOk) {
+          await refreshPreferences();
+          await refreshCalendarColors();
+        }
+      } catch (err: any) {
+        if (!active) return;
+        setCalendarError(typeof err?.message === 'string' ? err.message : 'calendar_unavailable');
+        setReadRefs([]);
+        setWriteRef(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [recommendationsDrawerVisible, refreshPreferences, refreshCalendarAccess, refreshCalendarColors]);
 
   useFocusEffect(
     useCallback(() => {
@@ -971,7 +1043,46 @@ export function PlanPager({
         updatedAt: timestamp,
       }));
     } catch {
-      Alert.alert('Unable to move', 'Please check calendar permissions and try again.');
+      const provider = binding.kind === 'device' ? null : binding.provider;
+      Alert.alert(
+        'Unable to move',
+        binding.kind === 'device'
+          ? 'Kwilt needs Calendar permission to update this event.'
+          : 'Kwilt needs refreshed calendar access to update this event.',
+        [
+          { text: 'OK' },
+          ...(binding.kind === 'device'
+            ? [
+                {
+                  text: 'Open Settings',
+                  onPress: () => {
+                    try {
+                      Linking.openSettings();
+                    } catch {
+                      // no-op
+                    }
+                  },
+                },
+              ]
+            : provider
+              ? [
+                  {
+                    text: 'Reconnect',
+                    onPress: async () => {
+                      try {
+                        setCalendarAccessStatus('refreshing');
+                        await ensureSignedInWithPrompt('plan');
+                        const { authUrl } = await startCalendarConnect(provider);
+                        await Linking.openURL(authUrl);
+                      } catch {
+                        setCalendarAccessStatus('expired');
+                      }
+                    },
+                  },
+                ]
+              : []),
+        ],
+      );
     }
   };
 
@@ -980,13 +1091,8 @@ export function PlanPager({
     if (!block) return;
     const activity = block.activity;
     const binding = activity.calendarBinding ?? null;
-    if (!binding) {
-      Alert.alert('Unable to unschedule', 'This block is not linked to a calendar event Kwilt can manage.');
-      return;
-    }
-    try {
-      await ensureSignedInWithPrompt('plan');
-      await deleteManagedEvent(binding);
+
+    const localUnschedule = () => {
       const timestamp = new Date().toISOString();
       updateActivity(activityId, (prev) => ({
         ...prev,
@@ -1001,10 +1107,66 @@ export function PlanPager({
       // Remove from the day’s commitment record (best-effort).
       const dayKey = activity.scheduledAt ? toLocalDateKey(new Date(activity.scheduledAt)) : dateKey;
       removeDailyPlanCommitment(dayKey, activityId);
-      showToast({ message: 'Unscheduling complete.', variant: 'light' });
+      showToast({ message: 'Removed from plan.', variant: 'light' });
       setPeekSelection(null);
+    };
+
+    // If there is no managed binding, we can still remove the block from the plan.
+    if (!binding) {
+      localUnschedule();
+      return;
+    }
+    try {
+      await ensureSignedInWithPrompt('plan');
+      await deleteManagedEvent(binding);
+      // If we successfully deleted the calendar event, also remove from the plan.
+      localUnschedule();
     } catch {
-      Alert.alert('Unable to unschedule', 'Please check calendar permissions and try again.');
+      const provider = binding.kind === 'device' ? null : binding.provider;
+      Alert.alert(
+        'Unable to unschedule',
+        binding.kind === 'device'
+          ? 'Kwilt needs Calendar permission to remove this event.'
+          : 'Kwilt needs refreshed calendar access to remove this event.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove from plan',
+            style: 'destructive',
+            onPress: localUnschedule,
+          },
+          ...(binding.kind === 'device'
+            ? [
+                {
+                  text: 'Open Settings',
+                  onPress: () => {
+                    try {
+                      Linking.openSettings();
+                    } catch {
+                      // no-op
+                    }
+                  },
+                },
+              ]
+            : provider
+              ? [
+                  {
+                    text: 'Reconnect',
+                    onPress: async () => {
+                      try {
+                        setCalendarAccessStatus('refreshing');
+                        await ensureSignedInWithPrompt('plan');
+                        const { authUrl } = await startCalendarConnect(provider);
+                        await Linking.openURL(authUrl);
+                      } catch {
+                        setCalendarAccessStatus('expired');
+                      }
+                    },
+                  },
+                ]
+              : []),
+        ],
+      );
     }
   };
 
@@ -1026,44 +1188,106 @@ export function PlanPager({
     setAllowRerun(true);
   };
 
-  const emptyState = useMemo(() => {
+  const handleReconnectCalendarAccess = useCallback(async () => {
+    if (!calendarAccessProvider) return;
+    try {
+      setCalendarAccessStatus('refreshing');
+      await ensureSignedInWithPrompt('plan');
+      const { authUrl } = await startCalendarConnect(calendarAccessProvider);
+      await Linking.openURL(authUrl);
+    } catch {
+      setCalendarAccessStatus('expired');
+    }
+  }, [calendarAccessProvider]);
+
+  useEffect(() => {
+    const sub = Linking.addEventListener('url', (evt) => {
+      if (!evt?.url?.includes('calendar-auth')) return;
+      let active = true;
+      (async () => {
+        setCalendarAccessStatus('refreshing');
+        const accessOk = await refreshCalendarAccess();
+        if (!active) return;
+        if (accessOk) {
+          await refreshPreferences();
+          await refreshCalendarColors();
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    });
+    return () => {
+      sub.remove();
+    };
+  }, [refreshCalendarAccess, refreshCalendarColors, refreshPreferences]);
+
+  const emptyState = useMemo<NonNullable<PlanRecommendationsEmptyState>>(() => {
+    if (calendarAccessStatus === 'refreshing') {
+      return {
+        kind: 'calendar_access_expired',
+        title: 'Refreshing calendar access',
+        description: 'Kwilt can’t read your busy time yet, so recommendations are paused while we refresh access.',
+      };
+    }
+    if (calendarAccessStatus === 'expired') {
+      return {
+        kind: 'calendar_access_expired',
+        title: 'Calendar access expired',
+        description: 'We need to refresh access before we can read your busy time and suggest a plan.',
+      };
+    }
     if (!dayAvailability.enabled) {
       return {
+        kind: 'rest_day',
         title: 'Rest day',
         description: 'Today is set as a rest day. Kwilt will suggest later.',
       };
     }
     if (!hasAvailabilityWindows) {
       return {
+        kind: 'no_windows',
         title: 'No available windows',
         description: 'Your availability has no windows for this day.',
       };
     }
     if (!hasEligibleActivities) {
       return {
+        kind: 'nothing_to_recommend',
         title: 'Nothing to recommend',
         description: 'Add more activities to see recommendations.',
       };
     }
     if (authRequired) {
       return {
+        kind: 'sign_in_required',
         title: 'Sign in to connect calendars',
         description: 'Sign in to connect your Google and Outlook calendars.',
       };
     }
     if (!hasCalendarConfigured) {
       return {
+        kind: 'choose_calendar',
         title: 'Choose a calendar',
         description: 'Select a write calendar in Settings to commit a plan.',
       };
     }
     return {
+      kind: 'day_full',
       title: 'Day is full',
       description: 'No free time remains in your availability windows.',
     };
-  }, [dayAvailability, hasAvailabilityWindows, hasEligibleActivities, hasCalendarConfigured, authRequired]);
+  }, [
+    calendarAccessStatus,
+    dayAvailability,
+    hasAvailabilityWindows,
+    hasEligibleActivities,
+    hasCalendarConfigured,
+    authRequired,
+  ]);
 
-  const isLoadingRecommendations = calendarStatus !== 'missing' && busyIntervalsStatus === 'loading';
+  const isLoadingRecommendations =
+    calendarStatus !== 'missing' && busyIntervalsStatus === 'loading' && calendarAccessStatus !== 'refreshing';
 
   // A day should only be considered "already set" when the user has committed at least one
   // block AND there are no remaining recommendations to show. Committing a single item
@@ -1269,6 +1493,15 @@ export function PlanPager({
                   showAlreadyPlanned,
                   entryPoint,
                   calendarStatus,
+                  calendarAccessStatus,
+                  onReconnectCalendarAccess:
+                    calendarAccessStatus === 'expired' && calendarAccessProvider ? handleReconnectCalendarAccess : undefined,
+                  calendarAccessProviderLabel:
+                    calendarAccessProvider === 'google'
+                      ? 'Google'
+                      : calendarAccessProvider === 'microsoft'
+                        ? 'Outlook'
+                        : null,
                   onOpenCalendarSettings: () => {
                     if (rootNavigationRef.isReady()) {
                       rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
@@ -1278,6 +1511,18 @@ export function PlanPager({
                     if (rootNavigationRef.isReady()) {
                       rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
                     }
+                  },
+                  onFindActivities: () => {
+                    // Close the sheet first so we don't leave a modal floating over another tab.
+                    setSheetSnapIndex(0);
+                    if (!rootNavigationRef.isReady()) return;
+                    rootNavigationRef.navigate('MainTabs', {
+                      screen: 'ActivitiesTab',
+                      params: {
+                        screen: 'ActivitiesList',
+                        params: { openSearch: true },
+                      },
+                    } as any);
                   },
                   onDismissForToday: handleDismissForToday,
                   onReviewPlan: () => setSheetSnapIndex(0),

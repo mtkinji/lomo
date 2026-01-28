@@ -8,7 +8,8 @@ export const FREE_MAX_ARCS_TOTAL = 1;
  *
  * Current definition (confirmed):
  * - "Active" means "not archived".
- * - Completed goals still count toward the Free cap unless archived.
+ * - Completed goals still count towards the limit unless archived.
+ * - Draft goals do not count (to avoid penalizing in-progress drafting).
  */
 export function isActiveGoalForLimit(goal: Goal): boolean {
   return goal.status !== 'archived' && goal.qualityState !== 'draft';

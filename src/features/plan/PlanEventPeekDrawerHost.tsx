@@ -26,13 +26,30 @@ type PlanRecommendationsModel = {
     arcTitle?: string | null;
     proposal: { startDate: string; endDate: string };
   }>;
-  emptyState: { title: string; description: string } | null;
+  emptyState:
+    | {
+        kind:
+          | 'rest_day'
+          | 'no_windows'
+          | 'nothing_to_recommend'
+          | 'choose_calendar'
+          | 'day_full'
+          | 'sign_in_required'
+          | 'calendar_access_expired';
+        title: string;
+        description: string;
+      }
+    | null;
   isLoading?: boolean;
   showAlreadyPlanned: boolean;
   entryPoint: 'manual' | 'kickoff';
   calendarStatus: 'unknown' | 'connected' | 'missing';
+  calendarAccessStatus?: 'idle' | 'refreshing' | 'expired' | 'ok';
+  onReconnectCalendarAccess?: () => void;
+  calendarAccessProviderLabel?: string | null;
   onOpenCalendarSettings: () => void;
   onOpenAvailabilitySettings?: () => void;
+  onFindActivities?: () => void;
   onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
   onRerun: () => void;
@@ -81,9 +98,6 @@ export function PlanEventPeekDrawerHost({
             title={
               <Text style={styles.sheetTitle}>
                 Recommendations
-                {Number.isFinite(recommendations.recommendationCount)
-                  ? ` (${recommendations.recommendationCount})`
-                  : ''}
               </Text>
             }
             variant="withClose"
@@ -101,8 +115,12 @@ export function PlanEventPeekDrawerHost({
             showAlreadyPlanned={recommendations.showAlreadyPlanned}
             entryPoint={recommendations.entryPoint}
             calendarStatus={recommendations.calendarStatus}
+            calendarAccessStatus={recommendations.calendarAccessStatus}
+            onReconnectCalendarAccess={recommendations.onReconnectCalendarAccess}
+            calendarAccessProviderLabel={recommendations.calendarAccessProviderLabel ?? null}
             onOpenCalendarSettings={recommendations.onOpenCalendarSettings}
             onOpenAvailabilitySettings={recommendations.onOpenAvailabilitySettings}
+            onFindActivities={recommendations.onFindActivities}
             onDismissForToday={recommendations.onDismissForToday}
             onReviewPlan={recommendations.onReviewPlan}
             onRerun={recommendations.onRerun}

@@ -19,6 +19,9 @@ export function PlanScreen() {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [recsSheetSnapIndex, setRecsSheetSnapIndex] = useState(0);
   const [recsCount, setRecsCount] = useState(0);
+  const [entryPoint, setEntryPoint] = useState<'manual' | 'kickoff'>(() =>
+    route?.params?.openRecommendations ? 'kickoff' : 'manual',
+  );
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
@@ -33,6 +36,7 @@ export function PlanScreen() {
   // If we were deep-linked here (e.g. kickoff guide CTA), open the recommendations sheet.
   React.useEffect(() => {
     if (route?.params?.openRecommendations) {
+      setEntryPoint('kickoff');
       setRecsSheetSnapIndex(1);
       // Clear the param so back/forward nav doesn't re-trigger.
       (navigation as any).setParams?.({ openRecommendations: undefined });
@@ -90,7 +94,7 @@ export function PlanScreen() {
       <PlanPager
         insetMode="screen"
         targetDate={selectedDate}
-        entryPoint="manual"
+        entryPoint={entryPoint}
         recommendationsSheetSnapIndex={recsSheetSnapIndex}
         onRecommendationsSheetSnapIndexChange={setRecsSheetSnapIndex}
         onRecommendationsCountChange={setRecsCount}

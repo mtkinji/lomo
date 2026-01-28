@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
@@ -47,13 +47,10 @@ export function ActivityEventPeek({
   const updateActivity = useAppStore((s) => s.updateActivity);
   const activities = useAppStore((s) => s.activities);
 
-  const finishMutationRef = useRef<{ completedAtStamp: string; stepIds: string[] } | null>(null);
-
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pendingMoveDate, setPendingMoveDate] = useState<Date | null>(null);
 
   const timeText = useMemo(() => formatTimeRange(start, end), [start, end]);
-  const isDone = activity?.status === 'done';
 
   const linkedActivityById = useMemo(() => {
     const byId: Record<string, (typeof activities)[number] | null> = {};
@@ -72,6 +69,12 @@ export function ActivityEventPeek({
   }, [activity?.steps, activities]);
 
   const handleMovePress = () => {
+    // Toggle behavior: if the move picker is already open, tapping Move again closes it.
+    if (pickerVisible) {
+      setPickerVisible(false);
+      setPendingMoveDate(null);
+      return;
+    }
     setPendingMoveDate(new Date(start));
     setPickerVisible(true);
   };
@@ -104,8 +107,6 @@ export function ActivityEventPeek({
 
   const handleToggleStepComplete = useCallback(
     (stepId: string) => {
-      // Any manual step toggle should clear "Finish" undo state.
-      finishMutationRef.current = null;
       const timestamp = new Date().toISOString();
       updateActivity(activityId, (prev) => {
         const currentSteps = prev.steps ?? [];
@@ -135,118 +136,6 @@ export function ActivityEventPeek({
     },
     [activityId, updateActivity],
   );
-
-  const handleToggleComplete = useCallback(() => {
-    const timestamp = new Date().toISOString();
-    const stepsNow = activity?.steps ?? [];
-    const hasSteps = stepsNow.length > 0;
-
-    // No steps: keep manual done toggle behavior.
-    if (!hasSteps) {
-      finishMutationRef.current = null;
-      updateActivity(activityId, (prev) => {
-        const nextIsDone = prev.status !== 'done';
-        return {
-          ...prev,
-          status: nextIsDone ? 'done' : 'planned',
-          completedAt: nextIsDone ? timestamp : null,
-          updatedAt: timestamp,
-        };
-      });
-      return;
-    }
-
-    // Steps exist: completion is driven by steps. The action is Finish / Undo finish (like detail screen).
-    const allStepsCompleteNow = stepsNow.length > 0 && stepsNow.every((s: any) => !!s.completedAt);
-
-    if (!allStepsCompleteNow) {
-      const stepIdsToComplete = stepsNow
-        .filter((s: any) => !s?.linkedActivityId)
-        .filter((s: any) => !s.completedAt)
-        .map((s: any) => s.id);
-      if (stepIdsToComplete.length === 0) return;
-      finishMutationRef.current = { completedAtStamp: timestamp, stepIds: stepIdsToComplete };
-      const idSet = new Set(stepIdsToComplete);
-      updateActivity(activityId, (prev) => {
-        const currentSteps = prev.steps ?? [];
-        const nextSteps = currentSteps.map((s: any) =>
-          idSet.has(s.id) && !s.completedAt ? { ...s, completedAt: timestamp } : s,
-        );
-        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps({
-          prevStatus: prev.status,
-          prevSteps: currentSteps as any,
-          nextSteps: nextSteps as any,
-          timestamp,
-          prevCompletedAt: prev.completedAt,
-        });
-        return {
-          ...prev,
-          steps: nextSteps as any,
-          status: nextStatus,
-          completedAt: nextCompletedAt,
-          updatedAt: timestamp,
-        };
-      });
-      return;
-    }
-
-    const mutation = finishMutationRef.current;
-    if (mutation && mutation.stepIds.length > 0) {
-      finishMutationRef.current = null;
-      const idSet = new Set(mutation.stepIds);
-      updateActivity(activityId, (prev) => {
-        const currentSteps = prev.steps ?? [];
-        const nextSteps = currentSteps.map((s: any) =>
-          idSet.has(s.id) && s.completedAt === mutation.completedAtStamp ? { ...s, completedAt: null } : s,
-        );
-        const { nextStatus, nextCompletedAt } = deriveStatusFromSteps({
-          prevStatus: prev.status,
-          prevSteps: currentSteps as any,
-          nextSteps: nextSteps as any,
-          timestamp,
-          prevCompletedAt: prev.completedAt,
-        });
-        return {
-          ...prev,
-          steps: nextSteps as any,
-          status: nextStatus,
-          completedAt: nextCompletedAt,
-          updatedAt: timestamp,
-        };
-      });
-      return;
-    }
-
-    // Manual completion toggle (keep steps as-is).
-    finishMutationRef.current = null;
-    updateActivity(activityId, (prev) => {
-      const nextIsDone = prev.status !== 'done';
-      return {
-        ...prev,
-        status: nextIsDone ? 'done' : 'in_progress',
-        completedAt: nextIsDone ? timestamp : null,
-        updatedAt: timestamp,
-      };
-    });
-  }, [activity?.steps, activityId, updateActivity]);
-
-  const doneActionLabel = useMemo(() => {
-    const stepsNow = activity?.steps ?? [];
-    if (stepsNow.length === 0) return isDone ? 'Undo' : 'Done';
-    const allStepsCompleteNow = stepsNow.length > 0 && stepsNow.every((s: any) => !!s.completedAt);
-    if (!allStepsCompleteNow) return 'Finish';
-    if (finishMutationRef.current) return 'Undo finish';
-    return isDone ? 'Undo' : 'Done';
-  }, [activity?.steps, isDone]);
-
-  const doneActionIcon = useMemo(() => {
-    const stepsNow = activity?.steps ?? [];
-    if (stepsNow.length === 0) return isDone ? 'undo' : 'checkCircle';
-    const allStepsCompleteNow = stepsNow.length > 0 && stepsNow.every((s: any) => !!s.completedAt);
-    if (!allStepsCompleteNow) return 'checkCircle';
-    if (finishMutationRef.current) return 'undo';
-    return isDone ? 'undo' : 'checkCircle';
-  }, [activity?.steps, isDone]);
 
   if (!activity) {
     return (
@@ -311,17 +200,19 @@ export function ActivityEventPeek({
               ? ([
                   {
                     id: 'move',
-                    icon: 'daily',
+                    icon: 'moveTime',
                     label: 'Move',
                     onPress: handleMovePress,
+                    accessibilityHint: 'Change the scheduled time for this activity.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
                   {
                     id: 'unschedule',
-                    icon: 'undo',
+                    icon: 'unschedule',
                     label: 'Unschedule',
                     onPress: () => onUnscheduleCommitment(activityId),
+                    accessibilityHint: 'Remove this activity from your plan.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -333,6 +224,7 @@ export function ActivityEventPeek({
                       onRequestClose();
                       onOpenFullActivity(activityId);
                     },
+                    accessibilityHint: 'Open the full activity details.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -346,34 +238,29 @@ export function ActivityEventPeek({
                       onRequestClose();
                       onOpenFullActivity(activityId);
                     },
+                    accessibilityHint: 'Open the full activity details.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
                   {
                     id: 'move',
-                    icon: 'daily',
+                    icon: 'moveTime',
                     label: 'Move',
                     onPress: handleMovePress,
+                    accessibilityHint: 'Change the scheduled time for this activity.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
                   {
                     id: 'unschedule',
-                    icon: 'undo',
+                    icon: 'unschedule',
                     label: 'Unschedule',
                     onPress: () => onUnscheduleCommitment(activityId),
+                    accessibilityHint: 'Remove this activity from your plan.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
                 ] as const)),
-            {
-              id: 'done',
-              icon: doneActionIcon,
-              label: doneActionLabel,
-              onPress: handleToggleComplete,
-              tileBackgroundColor: colors.canvas,
-              tileBorderColor: colors.border,
-            },
           ]}
         />
 
@@ -392,7 +279,16 @@ export function ActivityEventPeek({
 
         {pickerVisible && pendingMoveDate ? (
           <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Move to</Text>
+            <HStack alignItems="center" justifyContent="space-between" style={styles.pickerHeaderRow}>
+              <Text style={styles.pickerLabel}>Move to</Text>
+              <IconButton
+                accessibilityLabel="Close move picker"
+                onPress={handleMoveCancel}
+                variant="ghost"
+              >
+                <Icon name="close" size={18} color={colors.textPrimary} />
+              </IconButton>
+            </HStack>
             <DateTimePicker
               value={pendingMoveDate}
               mode="time"
@@ -459,6 +355,8 @@ const styles = StyleSheet.create({
   pickerLabel: {
     ...typography.label,
     color: colors.textSecondary,
+  },
+  pickerHeaderRow: {
     marginBottom: spacing.xs,
   },
   pickerActions: {

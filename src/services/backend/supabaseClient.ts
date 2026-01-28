@@ -55,16 +55,33 @@ export function getSupabaseClient(): SupabaseClient {
       storageKey: 'kwilt.supabase.auth',
       persistSession: true,
       // Expo Go is notably fragile around backgrounding/suspension during OAuth and reloads.
-      // Disable auto-refresh in Expo Go and in __DEV__ to avoid repeated "Invalid Refresh Token"
-      // runtime error banners when the simulator has stale auth state. We refresh explicitly at
-      // the points we require auth (see `ensureSignedInWithPrompt`).
-      autoRefreshToken: !isExpoGo && !__DEV__,
+      // IMPORTANT:
+      // We keep auto-refresh disabled at client construction time to avoid React Native LogBox
+      // banners on cold start when the simulator has stale auth state (e.g. "Invalid Refresh Token").
+      // The app enables/disables auto-refresh explicitly once hydration completes (see App.tsx).
+      autoRefreshToken: false,
       detectSessionInUrl: false,
       flowType: 'pkce',
     },
   });
 
   return _client;
+}
+
+/**
+ * Enable/disable Supabase's internal auto-refresh timer (best-effort).
+ * We start this only after we've confirmed we have a valid hydrated session to avoid
+ * noisy startup warnings in simulator/dev when stale refresh tokens are present.
+ */
+export function setSupabaseAutoRefreshEnabled(enabled: boolean): void {
+  const supabase = getSupabaseClient();
+  const authAny = supabase.auth as any;
+  try {
+    if (enabled) authAny?.startAutoRefresh?.();
+    else authAny?.stopAutoRefresh?.();
+  } catch {
+    // best-effort
+  }
 }
 
 

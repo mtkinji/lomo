@@ -70,6 +70,7 @@ export function PlanCalendarLensPage({
   const [pendingMoveDate, setPendingMoveDate] = useState<Date | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const [now, setNow] = useState<Date>(() => new Date());
+  const [eventsColumnWidth, setEventsColumnWidth] = useState(0);
 
   const dayStart = useMemo(() => {
     const d = new Date(targetDate);
@@ -444,6 +445,14 @@ export function PlanCalendarLensPage({
           </View>
 
           <Pressable style={styles.eventsColumn} onPress={handlePressEmptyTime}>
+            <View
+              style={styles.eventsColumnMeasure}
+              onLayout={(e) => {
+                const w = e?.nativeEvent?.layout?.width;
+                if (typeof w === 'number' && !Number.isNaN(w) && w > 0) setEventsColumnWidth(w);
+              }}
+              pointerEvents="none"
+            />
             {HOURS.map((h) => (
               <View key={h} style={styles.gridRow} />
             ))}
@@ -456,13 +465,19 @@ export function PlanCalendarLensPage({
             ) : null}
 
             {positionedItems.map((it) => {
-              const widthPct = 100 / Math.max(1, it.colCount);
+              const colCount = Math.max(1, it.colCount);
+              const widthPct = 100 / colCount;
               const leftPct = it.col * widthPct;
               const timeText = formatTimeRange(it.start, it.end);
               const isProposal = it.kind === 'proposal';
               const isExternal = it.kind === 'external';
               const backgroundColor = isExternal ? colors.card : it.color;
               const borderColor = it.borderColor ?? colors.border;
+              const available = Math.max(0, eventsColumnWidth - EVENTS_INSET * 2);
+              const colWidthPx =
+                colCount > 0 ? Math.max(0, (available - COLUMN_GUTTER * Math.max(0, colCount - 1)) / colCount) : 0;
+              const leftPx = EVENTS_INSET + it.col * (colWidthPx + COLUMN_GUTTER);
+              const usePxLayout = eventsColumnWidth > 0 && colWidthPx > 0;
               return (
                 <Pressable
                   key={it.id}
@@ -483,8 +498,8 @@ export function PlanCalendarLensPage({
                     {
                       top: it.top,
                       height: it.height,
-                      left: `${leftPct}%` as any,
-                      width: `${widthPct}%` as any,
+                      left: usePxLayout ? leftPx : (`${leftPct}%` as any),
+                      width: usePxLayout ? colWidthPx : (`${widthPct}%` as any),
                       backgroundColor,
                       borderColor,
                       borderStyle: isProposal ? 'dashed' : 'solid',
@@ -514,9 +529,39 @@ export function PlanCalendarLensPage({
             {isLoadingExternal && timedExternalEvents.length === 0 ? (
               <>
                 {/* Lightweight skeleton overlay: gives immediate feedback without blocking layout. */}
-                <View style={[styles.skeletonBlock, { top: 1.2 * HOUR_HEIGHT, height: 0.9 * HOUR_HEIGHT, left: '6%' as any, width: '72%' as any }]} />
-                <View style={[styles.skeletonBlock, { top: 3.6 * HOUR_HEIGHT, height: 1.1 * HOUR_HEIGHT, left: '10%' as any, width: '68%' as any }]} />
-                <View style={[styles.skeletonBlock, { top: 5.2 * HOUR_HEIGHT, height: 0.8 * HOUR_HEIGHT, left: '14%' as any, width: '62%' as any }]} />
+                <View
+                  style={[
+                    styles.skeletonBlock,
+                    {
+                      top: 1.2 * HOUR_HEIGHT,
+                      height: 0.9 * HOUR_HEIGHT,
+                      left: EVENTS_INSET + 10,
+                      right: EVENTS_INSET + 40,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonBlock,
+                    {
+                      top: 3.6 * HOUR_HEIGHT,
+                      height: 1.1 * HOUR_HEIGHT,
+                      left: EVENTS_INSET + 16,
+                      right: EVENTS_INSET + 48,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.skeletonBlock,
+                    {
+                      top: 5.2 * HOUR_HEIGHT,
+                      height: 0.8 * HOUR_HEIGHT,
+                      left: EVENTS_INSET + 22,
+                      right: EVENTS_INSET + 56,
+                    },
+                  ]}
+                />
               </>
             ) : null}
           </Pressable>
@@ -550,6 +595,8 @@ export function PlanCalendarLensPage({
 const HOUR_HEIGHT = 64;
 const MIN_EVENT_HEIGHT = 28;
 const HOURS = Array.from({ length: 24 }).map((_, i) => i);
+const EVENTS_INSET = spacing.xs;
+const COLUMN_GUTTER = 6;
 
 function formatHourLabel(h: number): string {
   const hour = ((h + 11) % 12) + 1;
@@ -648,7 +695,14 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderLeftWidth: 1,
     borderLeftColor: colors.border,
-    paddingLeft: spacing.xs,
+  },
+  eventsColumnMeasure: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    opacity: 0,
   },
   skeletonBlock: {
     position: 'absolute',
@@ -666,8 +720,8 @@ const styles = StyleSheet.create({
   },
   nowIndicator: {
     position: 'absolute',
-    left: spacing.xs,
-    right: 0,
+    left: EVENTS_INSET,
+    right: EVENTS_INSET,
     zIndex: 20,
   },
   nowLine: {
@@ -698,7 +752,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
-    marginRight: 2,
   },
   eventBlockTitle: {
     ...typography.bodySm,

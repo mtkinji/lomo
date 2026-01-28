@@ -572,7 +572,14 @@ const previewText = (value?: string) => {
 
 const calculateAgeFromBirthdate = (birthdate?: string): number | null => {
   if (!birthdate) return null;
-  const date = new Date(birthdate);
+  const parsedDateKey = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdate.trim());
+  const date = parsedDateKey
+    ? new Date(
+        Number.parseInt(parsedDateKey[1] ?? '', 10),
+        Number.parseInt(parsedDateKey[2] ?? '', 10) - 1,
+        Number.parseInt(parsedDateKey[3] ?? '', 10)
+      )
+    : new Date(birthdate);
   if (Number.isNaN(date.getTime())) return null;
   const today = new Date();
   let age = today.getFullYear() - date.getFullYear();
