@@ -1,5 +1,6 @@
 import type { Activity, Arc, Goal } from '../../domain/types';
 import { getAppGroupString, setAppGroupString } from './appGroup';
+import { scheduleWidgetReload } from './widgetCenter';
 import { getSuggestedActivitiesRanked } from '../recommendations/nextStep';
 
 export const KWILT_GLANCEABLE_STATE_KEY = 'kwilt_glanceable_state_v1';
@@ -54,6 +55,28 @@ export type GlanceableTodaySummary = {
   completedCount: number;
 };
 
+export type GlanceableActivityViewSummary = {
+  id: string;
+  name: string;
+  isSystem?: boolean;
+};
+
+export type GlanceableActivitiesWidgetRow = {
+  activityId: string;
+  title: string;
+  scheduledAtMs?: number;
+  status?: string;
+  meta?: string;
+};
+
+export type GlanceableActivitiesWidgetPayload = {
+  viewId: string;
+  viewName: string;
+  totalCount: number;
+  rows: GlanceableActivitiesWidgetRow[];
+  updatedAtMs: number;
+};
+
 export type GlanceableStateV1 = {
   version: 1;
   updatedAtMs: number;
@@ -63,6 +86,8 @@ export type GlanceableStateV1 = {
   suggested?: GlanceableSuggested | null;
   schedule?: GlanceableSchedule | null;
   momentum?: GlanceableMomentum | null;
+  activityViews?: GlanceableActivityViewSummary[] | null;
+  activitiesWidgetByViewId?: Record<string, GlanceableActivitiesWidgetPayload> | null;
 };
 
 function toLocalDateKey(date: Date): string {
@@ -96,9 +121,9 @@ export async function mergeGlanceableState(
   partial: Partial<Omit<GlanceableStateV1, 'version' | 'updatedAtMs'>>,
 ): Promise<void> {
   const prev = await readGlanceableState();
-  const merged: GlanceableStateV1 = {
+  const mergedBase: GlanceableStateV1 = {
     version: 1,
-    updatedAtMs: Date.now(),
+    updatedAtMs: prev?.updatedAtMs ?? 0,
     focusSession: prev?.focusSession ?? null,
     nextUp: prev?.nextUp ?? null,
     todaySummary: prev?.todaySummary ?? null,
@@ -107,7 +132,20 @@ export async function mergeGlanceableState(
     momentum: prev?.momentum ?? null,
     ...partial,
   };
-  await writeGlanceableState(merged);
+  const normalize = (state: GlanceableStateV1) =>
+    JSON.stringify({ ...state, updatedAtMs: 0 });
+  const prevNormalized = prev ? normalize(prev) : null;
+  const nextNormalized = normalize(mergedBase);
+  if (prevNormalized === nextNormalized) return;
+
+  const merged: GlanceableStateV1 = {
+    ...mergedBase,
+    updatedAtMs: Date.now(),
+  };
+  const ok = await writeGlanceableState(merged);
+  if (ok) {
+    scheduleWidgetReload();
+  }
 }
 
 export async function setGlanceableFocusSession(

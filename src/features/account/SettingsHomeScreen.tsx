@@ -552,8 +552,9 @@ export function SettingsHomeScreen() {
           {/* Streak Stats Card */}
           <View style={styles.streakCardSection}>
             <View style={styles.streakCard}>
-              <HStack alignItems="center" justifyContent="space-between" style={styles.streakCardHeader}>
-                <HStack alignItems="center" space="sm">
+              {/* Header is a 2-column row: left content wraps; right badge stays top-right. */}
+              <HStack alignItems="flex-start" justifyContent="space-between" style={styles.streakCardHeader}>
+                <HStack alignItems="flex-start" space="sm" style={styles.streakCardHeaderLeft}>
                   <Text style={styles.streakCardIcon}>🔥</Text>
                   <VStack space={0}>
                     <Text style={styles.streakCardTitle}>
@@ -579,7 +580,7 @@ export function SettingsHomeScreen() {
                           : styles.streakStatusLabelAtRisk,
                       ]}
                     >
-                      {streakStatus.status === 'active' ? '✓ Today' : '⚡ At Risk'}
+                      {streakStatus.status === 'active' ? 'Today' : 'At Risk'}
                     </Text>
                   </View>
                 )}
@@ -903,8 +904,23 @@ const styles = StyleSheet.create({
   streakCardHeader: {
     marginBottom: spacing.sm,
   },
+  streakCardHeaderLeft: {
+    // Constrain the left group so it wraps instead of pushing the status badge
+    // outside the card on narrow widths.
+    flex: 1,
+    minWidth: 0,
+    paddingRight: spacing.sm,
+  },
   streakCardIcon: {
     fontSize: 28,
+    // `Text` defaults to typography.bodySm (lineHeight 20). When we override
+    // fontSize for emoji, we must also override lineHeight or iOS will clip
+    // ascenders (the 🔥 top gets cut off).
+    lineHeight: 32,
+    // Android-only but safe cross-platform; keeps vertical centering consistent.
+    includeFontPadding: false,
+    // Nudge the emoji down slightly so its visual center aligns with the title baseline.
+    marginTop: 1,
   },
   streakCardTitle: {
     ...typography.body,
@@ -919,6 +935,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
     borderRadius: 999,
+    // Keep the pill anchored to the top-right of the header row.
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginLeft: spacing.sm,
   },
   streakStatusActive: {
     backgroundColor: colors.success + '20',
@@ -929,6 +949,9 @@ const styles = StyleSheet.create({
   streakStatusLabel: {
     ...typography.label,
     fontSize: 11,
+    // Keep emoji + text fully inside the pill (avoid glyph overflow/clipping).
+    lineHeight: 14,
+    includeFontPadding: false,
     letterSpacing: 0.5,
   },
   streakStatusLabelActive: {

@@ -1,5 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 import type { ActivityType } from '../../domain/types';
+import { ACTIVITY_FALLBACK_BANNERS } from '../../assets/imageSets';
 
 export type ActivityHeaderArtworkFamily = 'madder' | 'turmeric' | 'pine' | 'quiltBlue' | 'indigo';
 
@@ -11,15 +12,15 @@ export type ActivityHeaderArtworkFamily = 'madder' | 'turmeric' | 'pine' | 'quil
  */
 const FAMILY_TO_ARTWORK: Record<ActivityHeaderArtworkFamily, ImageSourcePropType> = {
   // Warm, earthy red (Tasks => Madder)
-  madder: require('../../../assets/illustrations/aspiration.png'),
+  madder: ACTIVITY_FALLBACK_BANNERS[0],
   // Warm gold/orange (planning / list-like)
-  turmeric: require('../../../assets/illustrations/goal-set.png'),
-  // Brand green
-  pine: require('../../../assets/illustrations/welcome.png'),
+  turmeric: ACTIVITY_FALLBACK_BANNERS[1],
+  // Brand green / earthy
+  pine: ACTIVITY_FALLBACK_BANNERS[2],
   // Cool quilt blue
-  quiltBlue: require('../../../assets/illustrations/notifications.png'),
+  quiltBlue: ACTIVITY_FALLBACK_BANNERS[3],
   // Deep indigo / night
-  indigo: require('../../../assets/illustrations/aspirations.png'),
+  indigo: ACTIVITY_FALLBACK_BANNERS[4],
 };
 
 export function getActivityHeaderArtworkFamily(activityType: ActivityType): ActivityHeaderArtworkFamily {

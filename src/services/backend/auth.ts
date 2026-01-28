@@ -3,7 +3,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import type { Session } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import { flushSupabaseAuthStorage, getSupabaseClient } from './supabaseClient';
+import { flushSupabaseAuthStorage, getSupabaseClient, resetSupabaseAuthStorage } from './supabaseClient';
 import { useAuthPromptStore } from '../../store/useAuthPromptStore';
 import { getSupabaseUrl } from '../../utils/getEnv';
 
@@ -25,9 +25,25 @@ let hasShownExpoGoOAuthUrlDebug = false;
 const shouldShowAuthDebugAlerts = (): boolean =>
   __DEV__ && (process.env.EXPO_PUBLIC_SHOW_AUTH_DEBUG_ALERTS ?? '').trim() === '1';
 
+function isInvalidRefreshTokenError(e: unknown): boolean {
+  const anyE = e as any;
+  const msg = (typeof anyE?.message === 'string' ? anyE.message : '').trim().toLowerCase();
+  if (!msg) return false;
+  return msg.includes('invalid refresh token') || (msg.includes('refresh token') && msg.includes('invalid'));
+}
+
 export async function getSession(): Promise<Session | null> {
   const supabase = getSupabaseClient();
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
+  if (error && isInvalidRefreshTokenError(error)) {
+    // Best-effort: clear persisted auth state so we don't get stuck in a refresh loop.
+    await resetSupabaseAuthStorage().catch(() => undefined);
+    try {
+      await (supabase.auth as any).signOut?.({ scope: 'local' });
+    } catch {
+      await supabase.auth.signOut().catch(() => undefined);
+    }
+  }
   return data.session ?? null;
 }
 
@@ -112,7 +128,17 @@ async function maybeRefreshSession(existing: Session): Promise<Session | null> {
 
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.auth.refreshSession();
-  if (error) return null;
+  if (error) {
+    if (isInvalidRefreshTokenError(error)) {
+      await resetSupabaseAuthStorage().catch(() => undefined);
+      try {
+        await (supabase.auth as any).signOut?.({ scope: 'local' });
+      } catch {
+        await supabase.auth.signOut().catch(() => undefined);
+      }
+    }
+    return null;
+  }
   return data.session ?? null;
 }
 

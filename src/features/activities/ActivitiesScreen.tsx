@@ -198,7 +198,9 @@ export function ActivitiesScreen() {
   useDrawerMenuEnabled();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'>>();
-  const route = useRoute<RouteProp<ActivitiesStackParamList, 'ActivitiesList'>>();
+  // This screen is used for both the canonical `today` entrypoint and widget-origin
+  // `activities?viewId=...` entrypoints. Keep route typing permissive.
+  const route = useRoute<RouteProp<ActivitiesStackParamList, any>>();
   const tabsNavigation = navigation.getParent<BottomTabNavigationProp<MainTabsParamList>>();
   const insets = useSafeAreaInsets();
   const { capture } = useAnalytics();
@@ -252,6 +254,16 @@ export function ActivitiesScreen() {
   const [viewEditorName, setViewEditorName] = React.useState('');
   const [viewEditorLayout, setViewEditorLayout] = React.useState<import('../../domain/types').ActivityViewLayout>('list');
   const [viewEditorKanbanGroupBy, setViewEditorKanbanGroupBy] = React.useState<import('../../domain/types').KanbanGroupBy>('status');
+
+  // Widget entrypoint: open the requested saved view (list) inside the existing app shell/canvas.
+  React.useEffect(() => {
+    const viewId = (route.params as any)?.viewId as string | undefined;
+    if (!viewId) return;
+    const exists = activityViews.some((v) => v.id === viewId);
+    if (!exists) return;
+    if (activeActivityViewId === viewId) return;
+    setActiveActivityViewId(viewId);
+  }, [route.params, activityViews, activeActivityViewId, setActiveActivityViewId]);
   
   // New inline view creator state
   const [viewCreatorVisible, setViewCreatorVisible] = React.useState(false);

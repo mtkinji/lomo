@@ -179,55 +179,6 @@ export const ARC_HERO_LIBRARY: ArcHeroImage[] = [
       brightness: 'light',
     },
   },
-  // Additional placeholder images for internal experimentation.
-  { id: 'arc-asset-image-01', uri: resolveBundledUri(require('../assets/arc-banners/image.png')), tags: {} },
-  { id: 'arc-asset-image-04', uri: resolveBundledUri(require('../assets/arc-banners/image4.png')), tags: {} },
-  { id: 'arc-asset-image-copy-01', uri: resolveBundledUri(require('../assets/arc-banners/image copy.png')), tags: {} },
-  {
-    id: 'arc-asset-image-copy-02',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 2.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-03',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 3.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-04',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 4.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-05',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 5.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-06',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 6.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-07',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 7.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-08',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 8.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-09',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 9.png')),
-    tags: {},
-  },
-  {
-    id: 'arc-asset-image-copy-10',
-    uri: resolveBundledUri(require('../assets/arc-banners/image copy 10.png')),
-    tags: {},
-  },
 ];
 
 const ARC_HERO_BY_ID: Record<string, ArcHeroImage> = Object.fromEntries(
