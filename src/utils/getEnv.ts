@@ -88,6 +88,40 @@ export function getSupabasePublishableKey(): string | undefined {
   );
 }
 
+/**
+ * iOS shows the domain of the OAuth *start URL* in the system "Wants to Use <domain> to Sign In" sheet.
+ *
+ * We sometimes want this to be a highly trusted, user-facing brand domain (e.g. `https://kwilt.app`)
+ * even if the actual Supabase base URL is a different custom domain (e.g. `https://auth.kwilt.app`).
+ *
+ * This value is used ONLY to rewrite the `/auth/v1/authorize` start URL host.
+ */
+export function getAuthBrandOrigin(): string | undefined {
+  const environment = (getEnvVar<string>('environment') ?? '').trim().toLowerCase();
+  const isProduction = environment === 'production';
+  const explicit =
+    getEnvVar<string>('authBrandOrigin') ??
+    getProcessEnvString('EXPO_PUBLIC_AUTH_BRAND_ORIGIN') ??
+    getProcessEnvString('AUTH_BRAND_ORIGIN');
+
+  if (explicit && typeof explicit === 'string') {
+    const trimmed = explicit.trim();
+    if (!trimmed) return undefined;
+    try {
+      const u = new URL(trimmed);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return undefined;
+      return u.origin;
+    } catch {
+      return undefined;
+    }
+  }
+
+  // Default: only set a brand origin in production builds, so local/dev remains flexible.
+  // If `kwilt.app` does not route `/auth/v1/authorize` to Supabase Auth, do NOT rely on this default;
+  // set AUTH_BRAND_ORIGIN to `https://auth.kwilt.app` instead.
+  return isProduction ? 'https://kwilt.app' : undefined;
+}
+
 export function getSupabaseUrl(): string | undefined {
   const environment = (getEnvVar<string>('environment') ?? '').trim().toLowerCase();
   const isProduction = environment === 'production';

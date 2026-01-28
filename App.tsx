@@ -23,7 +23,11 @@ import { useAppStore } from './src/store/useAppStore';
 import { useEntitlementsStore } from './src/store/useEntitlementsStore';
 import { NotificationService } from './src/services/NotificationService';
 import { HapticsService } from './src/services/HapticsService';
-import { getSupabaseClient } from './src/services/backend/supabaseClient';
+import {
+  getSupabaseClient,
+  resetSupabaseAuthStorage,
+  setSupabaseAutoRefreshEnabled,
+} from './src/services/backend/supabaseClient';
 import { deriveAuthIdentityFromSession } from './src/services/backend/auth';
 import { getAdminProCodesStatus } from './src/services/proCodes';
 import { clearAdminEntitlementsOverrideTier } from './src/services/entitlements';
@@ -48,7 +52,6 @@ import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlight
 import { startDomainSync } from './src/services/sync/domainSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { Text } from './src/ui/primitives';
-import { resetSupabaseAuthStorage } from './src/services/backend/supabaseClient';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -74,6 +77,7 @@ export default function App() {
   const setAuthIdentity = useAppStore((state) => state.setAuthIdentity);
   const clearAuthIdentity = useAppStore((state) => state.clearAuthIdentity);
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const didRunAppInitRef = useRef(false);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
@@ -107,15 +111,31 @@ export default function App() {
       // Clear persisted auth state so the dev client doesn't keep surfacing runtime error banners.
       if (String(event) === 'TOKEN_REFRESH_FAILED') {
         void resetSupabaseAuthStorage().catch(() => undefined);
+        setSupabaseAutoRefreshEnabled(false);
         clearAuthIdentity();
         return;
       }
       const identity = deriveAuthIdentityFromSession(session);
       if (identity) {
         setAuthIdentity(identity);
+        // Prefill local coaching profile fields from auth identity without overwriting
+        // anything the user has already entered in Profile settings.
+        updateUserProfile((current) => {
+          const nextName = (identity.name ?? '').trim();
+          const nextEmail = (identity.email ?? '').trim();
+          const nextAvatar = (identity.avatarUrl ?? '').trim();
+          return {
+            ...current,
+            fullName: current.fullName ?? (nextName ? nextName : undefined),
+            email: current.email ?? (nextEmail ? nextEmail : undefined),
+            avatarUrl: current.avatarUrl ?? (nextAvatar ? nextAvatar : undefined),
+          };
+        });
+        setSupabaseAutoRefreshEnabled(true);
         return;
       }
       if (event === 'SIGNED_OUT') {
+        setSupabaseAutoRefreshEnabled(false);
         clearAuthIdentity();
       }
     });
@@ -142,8 +162,25 @@ export default function App() {
       }
       if (cancelled) return;
       const identity = deriveAuthIdentityFromSession(session);
-      if (identity) setAuthIdentity(identity);
-      else clearAuthIdentity();
+      if (identity) {
+        setAuthIdentity(identity);
+        updateUserProfile((current) => {
+          const nextName = (identity.name ?? '').trim();
+          const nextEmail = (identity.email ?? '').trim();
+          const nextAvatar = (identity.avatarUrl ?? '').trim();
+          return {
+            ...current,
+            fullName: current.fullName ?? (nextName ? nextName : undefined),
+            email: current.email ?? (nextEmail ? nextEmail : undefined),
+            avatarUrl: current.avatarUrl ?? (nextAvatar ? nextAvatar : undefined),
+          };
+        });
+        // Only start auto-refresh once we've confirmed a hydrated session is valid.
+        setSupabaseAutoRefreshEnabled(true);
+      } else {
+        setSupabaseAutoRefreshEnabled(false);
+        clearAuthIdentity();
+      }
       setAuthHydrated(true);
       if (__DEV__) {
         // eslint-disable-next-line no-console
@@ -159,7 +196,7 @@ export default function App() {
       cancelled = true;
       data.subscription.unsubscribe();
     };
-  }, [setAuthIdentity, clearAuthIdentity]);
+  }, [setAuthIdentity, clearAuthIdentity, updateUserProfile]);
 
   useEffect(() => {
     // Safety: super-admin entitlements overrides should never persist across non-super-admin sessions.

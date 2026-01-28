@@ -5,7 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { flushSupabaseAuthStorage, getSupabaseClient, resetSupabaseAuthStorage } from './supabaseClient';
 import { useAuthPromptStore } from '../../store/useAuthPromptStore';
-import { getSupabaseUrl } from '../../utils/getEnv';
+import { getAuthBrandOrigin, getSupabaseUrl } from '../../utils/getEnv';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -105,6 +105,18 @@ export async function getAccessToken(): Promise<string | null> {
   return session?.access_token ?? null;
 }
 
+/**
+ * Best-effort access token getter that tries to silently refresh an expiring token
+ * without ever prompting the user. If refresh fails, returns the existing token (if any)
+ * so callers can still attempt requests and handle 401s.
+ */
+export async function getMaybeRefreshedAccessToken(): Promise<string | null> {
+  const existing = await getSession();
+  if (!existing) return null;
+  const refreshed = await maybeRefreshSession(existing).catch(() => null);
+  return (refreshed ?? existing)?.access_token ?? null;
+}
+
 function getSessionExpiresAtMs(session: Session | null): number | null {
   if (!session) return null;
   const anyS = session as any;
@@ -144,6 +156,34 @@ async function maybeRefreshSession(existing: Session): Promise<Session | null> {
 
 export async function signInWithProvider(provider: AuthProvider): Promise<Session> {
   const supabase = getSupabaseClient();
+
+  function getBrandedOAuthStartUrl(rawUrl: string): string {
+    // iOS uses the *start URL host* in the system "Wants to Use <domain> to Sign In" sheet.
+    // Supabase can sometimes return a canonical `*.supabase.co` host in `data.url` even when
+    // the client is configured with a custom domain (e.g. https://auth.kwilt.app). To keep
+    // the prompt on a Kwilt-owned domain, rewrite the start URL host to match our configured
+    // Supabase base URL origin.
+    const base = (getAuthBrandOrigin() ?? getSupabaseUrl() ?? '').trim();
+    if (!base) return rawUrl;
+    try {
+      const u = new URL(rawUrl);
+      // Only rewrite http(s) OAuth start URLs (defensive; should always be https).
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return rawUrl;
+      // Only rewrite Supabase Auth authorize endpoints; avoid touching unrelated URLs.
+      const path = (u.pathname ?? '').toLowerCase();
+      if (!path.startsWith('/auth/v1/authorize')) return rawUrl;
+
+      const b = new URL(base);
+      // If already branded, keep as-is.
+      if (u.origin === b.origin) return rawUrl;
+
+      u.protocol = b.protocol;
+      u.host = b.host;
+      return u.toString();
+    } catch {
+      return rawUrl;
+    }
+  }
 
   // Expo Go cannot register custom URL schemes for your app, so OAuth redirects
   // should use an Expo Go-compatible redirect URL. We intentionally avoid the
@@ -209,20 +249,22 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     throw new Error(error?.message ?? 'Unable to start sign-in');
   }
 
+  const oauthStartUrl = getBrandedOAuthStartUrl(data.url);
+
   if (__DEV__) {
     // eslint-disable-next-line no-console
-    console.log(`[auth] oauth start url (${isExpoGo ? 'expo-go' : 'native'}):`, data.url);
+    console.log(`[auth] oauth start url (${isExpoGo ? 'expo-go' : 'native'}):`, oauthStartUrl);
     if (shouldShowAuthDebugAlerts() && isExpoGo && !hasShownExpoGoOAuthUrlDebug) {
       hasShownExpoGoOAuthUrlDebug = true;
       let host = '(unknown)';
       try {
-        host = new URL(data.url).host || '(unknown)';
+        host = new URL(oauthStartUrl).host || '(unknown)';
       } catch {
         // ignore
       }
       Alert.alert(
         'OAuth start URL (Expo Go)',
-        `This is the URL opened in the system auth session.\n\nhost: ${host}\n\nurl:\n${data.url}`,
+        `This is the URL opened in the system auth session.\n\nhost: ${host}\n\nurl:\n${oauthStartUrl}`,
         [{ text: 'OK' }],
       );
     }
@@ -259,7 +301,7 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     }
   }
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  const result = await WebBrowser.openAuthSessionAsync(oauthStartUrl, redirectTo);
 
   if (result.type !== 'success' || !result.url) {
     throw new Error('Sign-in cancelled');

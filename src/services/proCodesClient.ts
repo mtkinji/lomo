@@ -1,6 +1,6 @@
 import { getEnvVar, getSupabaseUrl } from '../utils/getEnv';
 import { getInstallId } from './installId';
-import { getAccessToken, ensureSignedInWithPrompt } from './backend/auth';
+import { ensureSignedInWithPrompt, getAccessToken, getMaybeRefreshedAccessToken } from './backend/auth';
 
 function decodeBase64Url(input: string): string {
   // Convert base64url -> base64
@@ -110,7 +110,7 @@ export async function buildAuthedHeaders(args?: { promptReason?: 'admin' | 'sett
 }
 
 export async function buildMaybeAuthedHeaders(): Promise<Headers> {
-  const token = await getAccessToken().catch(() => null);
+  const token = await getMaybeRefreshedAccessToken().catch(() => null);
   const headers = await buildEdgeHeaders();
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);

@@ -8,6 +8,15 @@ export type KeyActionItem = {
   id: string;
   icon: IconName;
   label: string;
+  /**
+   * Optional extra context read by screen readers (not shown visually).
+   * Keep short and action-oriented.
+   */
+  accessibilityHint?: string;
+  /**
+   * Optional override for the accessibility label. Defaults to `label`.
+   */
+  accessibilityLabel?: string;
   onPress: () => void;
   /**
    * Tile (button) background. Defaults to the canvas (white) so these read as
@@ -46,17 +55,20 @@ type KeyActionsRowProps = {
 export function KeyActionsRow({ items, size = 'md', testIDPrefix }: KeyActionsRowProps) {
   const iconSize = size === 'lg' ? 24 : 20;
   const tileStyle = size === 'lg' ? styles.tileLg : styles.tile;
+  const shouldWrap = items.length >= 4;
   return (
-    <HStack space="sm" style={styles.row}>
+    <HStack space="sm" style={[styles.row, shouldWrap ? styles.rowWrap : null]}>
       {items.map((item) => (
         <Pressable
           key={item.id}
           testID={testIDPrefix ? `${testIDPrefix}.${item.id}` : undefined}
           onPress={item.onPress}
           accessibilityRole="button"
-          accessibilityLabel={item.label}
+          accessibilityLabel={item.accessibilityLabel ?? item.label}
+          accessibilityHint={item.accessibilityHint}
           style={({ pressed }) => [
             tileStyle,
+            shouldWrap ? styles.tileWrap : null,
             {
               backgroundColor: item.tileBackgroundColor ?? colors.canvas,
               borderColor: item.tileBorderColor ?? colors.border,
@@ -79,7 +91,7 @@ export function KeyActionsRow({ items, size = 'md', testIDPrefix }: KeyActionsRo
               styles.tileLabel,
               { color: item.tileLabelColor ?? colors.textPrimary },
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {item.label}
           </Text>
@@ -93,6 +105,14 @@ const styles = StyleSheet.create({
   row: {
     width: '100%',
   },
+  rowWrap: {
+    flexWrap: 'wrap',
+    rowGap: spacing.sm,
+  },
+  tileWrap: {
+    // Two-column grid for 4+ actions so labels can be read without truncation.
+    flexBasis: '48%',
+  },
   tile: {
     flex: 1,
     borderRadius: 16,
@@ -100,7 +120,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
@@ -116,7 +136,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,
@@ -133,6 +153,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flexShrink: 1,
     minWidth: 0,
+    textAlign: 'center',
   },
 });
 

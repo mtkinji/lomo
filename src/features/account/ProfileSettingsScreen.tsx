@@ -25,6 +25,25 @@ export function ProfileSettingsScreen() {
   const [birthdate, setBirthdate] = useState(userProfile?.birthdate ?? '');
   const [isBirthdatePickerVisible, setIsBirthdatePickerVisible] = useState(false);
 
+  const parseLocalDateKey = (key: string): Date | null => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key.trim());
+    if (!match) return null;
+    const y = Number.parseInt(match[1] ?? '', 10);
+    const m = Number.parseInt(match[2] ?? '', 10);
+    const d = Number.parseInt(match[3] ?? '', 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+    return new Date(y, m - 1, d);
+  };
+
+  const formatBirthdateForDisplay = (key: string): string => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key.trim());
+    if (!match) return key;
+    const y = match[1];
+    const m = match[2];
+    const d = match[3];
+    return `${m}-${d}-${y}`;
+  };
+
   const commitProfile = (override?: { birthdate?: string }) => {
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim();
@@ -57,10 +76,8 @@ export function ProfileSettingsScreen() {
 
   const getInitialBirthdateForPicker = () => {
     if (birthdate) {
-      const parsed = new Date(birthdate);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
+      const parsed = parseLocalDateKey(birthdate);
+      if (parsed) return parsed;
     }
     // Reasonable default if none is set: 25 years ago from today.
     const today = new Date();
@@ -111,8 +128,8 @@ export function ProfileSettingsScreen() {
             />
             <Input
               label="Birthday"
-              placeholder="YYYY-MM-DD"
-              value={birthdate}
+              placeholder="MM-DD-YYYY"
+              value={birthdate ? formatBirthdateForDisplay(birthdate) : ''}
               onChangeText={() => {}}
               onFocus={() => setIsBirthdatePickerVisible(true)}
               showSoftInputOnFocus={false}
@@ -133,7 +150,7 @@ export function ProfileSettingsScreen() {
             <View style={styles.datePickerContainer}>
               <DateTimePicker
                 mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 value={getInitialBirthdateForPicker()}
                 onChange={handleBirthdateChange}
                 maximumDate={new Date()}

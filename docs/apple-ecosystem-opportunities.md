@@ -10,6 +10,30 @@ Ecosystem surfaces should act as **entrypoints + glanceable mirrors** of state, 
 
 ---
 
+## Reality check (as implemented today)
+
+This doc includes aspirational recommendations. Here’s what the repo actually implements right now (so we don’t accidentally promise features we don’t ship yet):
+
+- **Widgets**
+  - ✅ **Home Screen widget exists**: “Activities” widget, configurable to show a saved view.
+  - ✅ **Supported sizes**: medium + large only.
+  - ⚠️ **iOS requirement**: the widget is currently implemented as an iOS 17+ widget (`AppIntentConfiguration`).
+  - ❌ **Lock Screen widgets**: not implemented / not supported today.
+- **Shortcuts / Siri (App Intents)**
+  - ✅ Implemented intents: Open Today, Open Next Up, Start Focus, End Focus (best-effort; opens the app).
+  - ❌ Not implemented from this doc: “toggle soundscape”, richer “start a specific Activity” UX beyond raw ID param, etc.
+- **Spotlight (Core Spotlight)**
+  - ✅ Activity indexing exists (IDs + titles only; deep-links into `kwilt://activity/:id`).
+  - ✅ Best-effort sync is wired from app startup.
+  - ❌ User-facing privacy controls/toggles (indexing on/off) are not described in-app here.
+- **Live Activities + Dynamic Island (ActivityKit)**
+  - 🟡 A native bridge exists to start/update/end a Focus Live Activity (best-effort).
+  - ❌ The widget extension does not yet include a visible `ActivityConfiguration` / Dynamic Island UI, so this is not “done” end-to-end.
+- **Focus Filters**
+  - ❌ Not implemented.
+
+---
+
 ## Why this matters (strategic importance)
 
 ### 1) Distribution of attention
@@ -44,13 +68,10 @@ This creates a compounding payoff for each action we formalize.
 ## The surfaces (what we can ship)
 
 ### Widgets (WidgetKit)
-- **Lock Screen widgets**: ultra-high leverage; single-tap entrypoints.
-- **Home Screen widgets**: glanceable planning surfaces (small/medium/large).
+- **Home Screen widgets**: glanceable planning surfaces.
 
 Recommended widget set (v1):
-- **Lock**: “Start Focus” / “Resume Focus” (if active)
-- **Small**: “Next up” (next scheduled Activity)
-- **Medium**: “Today snapshot” (top 2–3 items + quick action)
+- **Medium/Large**: “Activities view” (show Activities from a selected saved view; tap to open)
 
 Design principle: widgets show *state + one primary action*, then deep-link into the app canvas.
 
@@ -70,8 +91,6 @@ Canonical “action API” for iOS:
 - Start focus (duration preset, optional activity)
 - End focus
 - Open Today
-- Toggle soundscape
-- Start a specific Activity (optional)
 
 Intents should primarily deep-link into the app and let the app remain the source of truth.
 
@@ -166,9 +185,9 @@ This turns “ecosystem work” into measurable retention/activation improvement
 ---
 
 ## Definition of done (v1)
-- Users can start/resume/end Focus from Lock Screen via Live Activity and a Lock Screen widget.
-- Users can open Today or an Activity from a widget/Shortcut reliably (deep links).
-- Users can find Activities via Spotlight.
+- Users can open Activities from a Home Screen widget reliably (deep links preserve shell/canvas).
+- Users can open Today / Next Up / Start Focus / End Focus from Shortcuts reliably (deep links).
+- Users can find Activities via Spotlight (IDs + titles only).
 - All surfaces preserve the shell/canvas model by routing into existing screens.
 
 

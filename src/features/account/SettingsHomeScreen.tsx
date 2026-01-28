@@ -102,10 +102,10 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       {
         id: 'widgets',
         title: 'Widgets',
-        description: 'Add Kwilt to your Home Screen or Lock Screen.',
+        description: 'Keep your next step one tap away.',
         icon: 'home',
         route: 'SettingsWidgets',
-        tags: ['ios', 'home screen', 'lock screen'],
+        tags: ['ios', 'home screen'],
       },
       {
         id: 'haptics',
@@ -675,7 +675,9 @@ export function SettingsHomeScreen() {
               setAvatarSheetVisible(false);
             }
           }}
-          snapPoints={['45%']}
+          // This sheet should feel like a true action surface (not a half-height peek).
+          // Provide a larger max snap point; BottomDrawer opens to the largest snap by default.
+          snapPoints={['55%', '78%']}
         >
           <View style={styles.sheetContent}>
             <Heading style={styles.sheetTitle}>Update photo</Heading>
@@ -874,7 +876,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   sheetOptionDanger: {
-    borderColor: colors.accentRoseStrong,
+    borderColor: colors.destructive,
+    backgroundColor: colors.destructiveForeground,
   },
   sheetOptionTitle: {
     ...typography.body,
@@ -883,7 +886,7 @@ const styles = StyleSheet.create({
   },
   sheetOptionTitleDanger: {
     ...typography.body,
-    color: colors.accentRoseStrong,
+    color: colors.destructive,
     fontFamily: typography.titleSm.fontFamily,
   },
   sheetOptionDescription: {

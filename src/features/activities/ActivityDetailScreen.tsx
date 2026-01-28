@@ -68,6 +68,7 @@ import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { LongTextField } from '../../ui/LongTextField';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
+import { BottomDrawerFooter } from '../../ui/layout/BottomDrawerFooter';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
@@ -257,6 +258,12 @@ export function ActivityDetailScreen() {
   const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
   const soundscapeTrackId = useAppStore((state) => state.soundscapeTrackId);
   const setSoundscapeTrackId = useAppStore((state) => state.setSoundscapeTrackId);
+  const hasShownFocusSoundscapeVolumeHint = useAppStore(
+    (state) => state.hasShownFocusSoundscapeVolumeHint,
+  );
+  const setHasShownFocusSoundscapeVolumeHint = useAppStore(
+    (state) => state.setHasShownFocusSoundscapeVolumeHint,
+  );
   const currentFocusStreak = useAppStore((state) => state.currentFocusStreak);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const agentHostActions = useAppStore((state) => state.agentHostActions);
@@ -908,7 +915,6 @@ export function ActivityDetailScreen() {
   }, [activity, currentCoords, mapCenterOverride, previewLocation]);
 
   const mapRef = useRef<MapView | null>(null);
-  const mapCommitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const locationSearchAbortRef = useRef<AbortController | null>(null);
   const locationSearchCacheRef = useRef<
     Map<string, Array<{ id: string; label: string; latitude: number; longitude: number }>>
@@ -998,43 +1004,24 @@ export function ActivityDetailScreen() {
     locationRadiusMetersDraft,
   ]);
 
-  const commitLocation = useCallback(
-    (loc: { label: string; latitude: number; longitude: number }) => {
+  const applyLocationDraft = useCallback(() => {
       if (!activity?.id) return;
-      const safeRadiusM = getSafeLocationRadiusM();
       const timestamp = new Date().toISOString();
+    const safeRadiusM = getSafeLocationRadiusM();
       updateActivity(activity.id, (prev) => ({
         ...prev,
-        location: {
-          label: loc.label,
-          latitude: loc.latitude,
-          longitude: loc.longitude,
+      location: previewLocation
+        ? {
+            label: previewLocation.label,
+            latitude: previewLocation.latitude,
+            longitude: previewLocation.longitude,
           trigger: locationTriggerDraft,
           radiusM: safeRadiusM,
-        },
+          }
+        : null,
         updatedAt: timestamp,
       }));
-    },
-    [
-      activity?.id,
-      locationTriggerDraft,
-      updateActivity,
-      getSafeLocationRadiusM,
-    ],
-  );
-
-  const scheduleCommitLocation = useCallback(
-    (loc: { label: string; latitude: number; longitude: number }) => {
-      if (mapCommitTimeoutRef.current) {
-        clearTimeout(mapCommitTimeoutRef.current);
-      }
-      // Avoid spamming the global Activity store during active map gestures (pinch/pan).
-      mapCommitTimeoutRef.current = setTimeout(() => {
-        commitLocation(loc);
-      }, 420);
-    },
-    [commitLocation],
-  );
+  }, [activity?.id, getSafeLocationRadiusM, locationTriggerDraft, previewLocation, updateActivity]);
   const computeRegionForRadius = useCallback((center: { latitude: number; longitude: number }, radiusM: number): Region => {
     // Roughly fit ~3 radii to each edge of the viewport.
     const safeRadius = Math.max(10, Math.min(5000, radiusM));
@@ -1117,15 +1104,15 @@ export function ActivityDetailScreen() {
       onPanResponderRelease: () => {
         const center = mapCenterOverrideRef.current ?? resolvedLocationMapCenter;
         if (!center) return;
-        const loc = { label: 'Dropped pin', latitude: center.latitude, longitude: center.longitude };
+        const label = previewLocation?.label ?? ((activity as any)?.location?.label as string | undefined) ?? 'Dropped pin';
+        const loc = { label, latitude: center.latitude, longitude: center.longitude };
         setPreviewLocation(loc);
-        commitLocation(loc);
       },
       onPanResponderTerminate: () => {
         // no-op
       },
     });
-  }, [LOCATION_MAP_ZOOM, commitLocation, resolvedLocationMapCenter]);
+  }, [LOCATION_MAP_ZOOM, activity, previewLocation?.label, resolvedLocationMapCenter]);
 
   const clearLocationSelection = useCallback(() => {
     setLocationQuery('');
@@ -1136,46 +1123,53 @@ export function ActivityDetailScreen() {
     mapCenterOverrideRef.current = null;
     setLocationSelectedValue('');
     setIsLocationSearchOpen(false);
-    if (activity?.location) {
-      const timestamp = new Date().toISOString();
-      updateActivity(activity.id, (prev) => ({
-        ...prev,
-        location: null,
-        updatedAt: timestamp,
-      }));
-    }
-  }, [activity?.id, activity?.location, updateActivity]);
+  }, []);
 
-  // If a location is already attached, keep trigger/radius changes in sync immediately (no "Set" CTA).
-  useEffect(() => {
-    if (!locationSheetVisible) return;
-    if (!activity?.id) return;
+  const closeLocationSheet = useCallback(() => {
+    setActiveSheet(null);
+    setLocationQuery('');
+    setLocationResults([]);
+    setIsSearchingLocation(false);
+    setPreviewLocation(null);
+    setMapCenterOverride(null);
+    mapCenterOverrideRef.current = null;
+    setLocationSelectedValue('');
+    setIsLocationSearchOpen(false);
+    locationSearchAbortRef.current?.abort();
+  }, []);
+
+  const isLocationDraftDirty = useMemo(() => {
     const loc = (activity as any)?.location as any;
-    if (!loc || typeof loc.latitude !== 'number' || typeof loc.longitude !== 'number') return;
-    const safeRadiusM = Math.max(
-      MIN_LOCATION_RADIUS_FT * 0.3048,
-      Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048),
-    );
-    if (loc.trigger === locationTriggerDraft && Number(loc.radiusM) === Number(safeRadiusM)) return;
-    const timestamp = new Date().toISOString();
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      location: {
-        ...((prev as any).location ?? loc),
-        trigger: locationTriggerDraft,
-        radiusM: safeRadiusM,
-      },
-      updatedAt: timestamp,
-    }));
+    const hasSaved = Boolean(loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number');
+    const hasDraft = Boolean(previewLocation);
+    if (hasSaved !== hasDraft) return true;
+    if (!hasSaved && !hasDraft) return false;
+
+    const eqNum = (a: number, b: number) => Math.abs(a - b) <= 1e-6;
+    const savedLabel = String(loc?.label ?? '');
+    const draftLabel = String(previewLocation?.label ?? '');
+    if (savedLabel !== draftLabel) return true;
+    if (!eqNum(Number(loc.latitude), Number(previewLocation!.latitude))) return true;
+    if (!eqNum(Number(loc.longitude), Number(previewLocation!.longitude))) return true;
+
+    const safeRadiusM = getSafeLocationRadiusM();
+    const savedTrigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
+    const savedRadiusM =
+      typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
+        ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
+        : DEFAULT_RADIUS_FT * 0.3048;
+
+    if (savedTrigger !== locationTriggerDraft) return true;
+    if (!eqNum(Number(savedRadiusM), Number(safeRadiusM))) return true;
+    return false;
   }, [
     activity,
-    locationRadiusMetersDraft,
-    locationSheetVisible,
-    locationTriggerDraft,
-    updateActivity,
     DEFAULT_RADIUS_FT,
     MAX_LOCATION_RADIUS_FT,
     MIN_LOCATION_RADIUS_FT,
+    getSafeLocationRadiusM,
+    locationTriggerDraft,
+    previewLocation,
   ]);
 
   useEffect(() => {
@@ -1186,6 +1180,8 @@ export function ActivityDetailScreen() {
     setLocationSelectedValue('');
     // Initialize trigger/radius from current activity (or defaults).
     const loc = (activity as any)?.location as any;
+    const hasSavedLocation =
+      Boolean(loc) && typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number';
     const trigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
     const radiusM =
       typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
@@ -1193,7 +1189,7 @@ export function ActivityDetailScreen() {
         : DEFAULT_RADIUS_FT * 0.3048;
     setLocationTriggerDraft(trigger);
     setLocationRadiusMetersDraft(radiusM);
-    if (loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
+    if (hasSavedLocation) {
       setPreviewLocation({
         label: String(loc.label ?? 'Selected location'),
         latitude: loc.latitude,
@@ -1213,6 +1209,15 @@ export function ActivityDetailScreen() {
       const coords = await getCurrentLocationBestEffort();
       if (coords) {
         setCurrentCoords(coords);
+        // If there's no saved location, seed the draft with the user's current location so Save works immediately.
+        // Don't overwrite if the user has already picked/dragged a location while this async is resolving.
+        if (!hasSavedLocation) {
+          setPreviewLocation((prev) => prev ?? { label: 'Current location', latitude: coords.latitude, longitude: coords.longitude });
+          if (!mapCenterOverrideRef.current) {
+            setMapCenterOverride(coords);
+            mapCenterOverrideRef.current = coords;
+          }
+        }
       } else {
         const next = useAppStore.getState().locationOfferPreferences.osPermissionStatus;
         if (next === 'denied' || next === 'restricted') {
@@ -1946,10 +1951,26 @@ export function ActivityDetailScreen() {
     // Keep soundscape aligned with Focus session state (handles toggling + pause/resume).
     if (focusSession?.mode === 'running' && soundscapeEnabled) {
       startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
+      if (!hasShownFocusSoundscapeVolumeHint) {
+        showToast({
+          message: "If you don't hear Focus audio, turn up your device volume.",
+          variant: 'default',
+          durationMs: 2600,
+          behaviorDuringSuppression: 'queue',
+        });
+        setHasShownFocusSoundscapeVolumeHint(true);
+      }
       return;
     }
     stopSoundscapeLoop().catch(() => undefined);
-  }, [focusSession?.mode, soundscapeEnabled, soundscapeTrackId]);
+  }, [
+    focusSession?.mode,
+    soundscapeEnabled,
+    soundscapeTrackId,
+    hasShownFocusSoundscapeVolumeHint,
+    showToast,
+    setHasShownFocusSoundscapeVolumeHint,
+  ]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -4102,25 +4123,11 @@ export function ActivityDetailScreen() {
 
       <BottomDrawer
         visible={locationSheetVisible}
-        onClose={() => {
-          setActiveSheet(null);
-          setLocationQuery('');
-          setLocationResults([]);
-          setIsSearchingLocation(false);
-          setPreviewLocation(null);
-          setMapCenterOverride(null);
-          mapCenterOverrideRef.current = null;
-          setLocationSelectedValue('');
-          locationSearchAbortRef.current?.abort();
-          if (mapCommitTimeoutRef.current) {
-            clearTimeout(mapCommitTimeoutRef.current);
-            mapCommitTimeoutRef.current = null;
-          }
-        }}
+        onClose={closeLocationSheet}
         snapPoints={Platform.OS === 'ios' ? ['92%'] : ['82%']}
         scrimToken="pineSubtle"
       >
-        <View style={styles.sheetContent}>
+        <View style={{ flex: 1 }}>
           {/* Ensure dropdown menus can render above the BottomDrawer modal layer. */}
           {Platform.OS === 'ios' ? (
             <FullWindowOverlay>
@@ -4129,6 +4136,11 @@ export function ActivityDetailScreen() {
           ) : (
             <PortalHost name={LOCATION_SHEET_PORTAL_HOST} />
           )}
+          <BottomDrawerScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={[styles.sheetContent, { paddingBottom: spacing['2xl'] }]}
+            keyboardShouldPersistTaps="handled"
+          >
           <BottomDrawerHeader
             title="Location"
             variant="minimal"
@@ -4182,7 +4194,7 @@ export function ActivityDetailScreen() {
                               previewLocation?.label ??
                               ((activity as any)?.location?.label as string | undefined) ??
                               'Dropped pin';
-                            scheduleCommitLocation({ label, latitude: nextCenter.latitude, longitude: nextCenter.longitude });
+                            setPreviewLocation({ label, latitude: nextCenter.latitude, longitude: nextCenter.longitude });
                           }}
                         >
                           <Circle
@@ -4361,7 +4373,6 @@ export function ActivityDetailScreen() {
                         setPreviewLocation(loc);
                         setMapCenterOverride(coords);
                         mapCenterOverrideRef.current = coords;
-                        commitLocation(loc);
                         animateMapToCenter(coords, getSafeLocationRadiusM());
                         return;
                       }
@@ -4372,7 +4383,6 @@ export function ActivityDetailScreen() {
                       const coords = { latitude: found.latitude, longitude: found.longitude };
                       setMapCenterOverride(coords);
                       mapCenterOverrideRef.current = coords;
-                      commitLocation(loc);
                       animateMapToCenter(coords, getSafeLocationRadiusM());
                     }}
                     options={[
@@ -4475,6 +4485,26 @@ export function ActivityDetailScreen() {
           </View>
 
           {/* Results now render in the dropdown menu anchored to the "from" field. */}
+          </BottomDrawerScrollView>
+
+          <BottomDrawerFooter>
+            <HStack space="sm">
+              <Button variant="outline" style={{ flex: 1 }} onPress={closeLocationSheet}>
+                <Text style={styles.sheetRowLabel}>Cancel</Text>
+              </Button>
+              <Button
+                variant="primary"
+                style={{ flex: 1 }}
+                disabled={!isLocationDraftDirty}
+                onPress={() => {
+                  applyLocationDraft();
+                  closeLocationSheet();
+                }}
+              >
+                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Save</Text>
+              </Button>
+            </HStack>
+          </BottomDrawerFooter>
         </View>
       </BottomDrawer>
 

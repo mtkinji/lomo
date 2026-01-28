@@ -6,6 +6,7 @@ import {
   ViewStyle,
   Pressable,
   Platform,
+  Switch,
   TextInput,
   Image,
   ActivityIndicator,
@@ -22,6 +23,7 @@ import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
+import { menuItemTextProps } from '../../ui/menuStyles';
 import type { GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -84,7 +86,6 @@ import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
 import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
@@ -143,17 +144,18 @@ export function GoalsScreen() {
   }, {});
 
   const visibleGoals = React.useMemo(
-    () => goals.filter((goal) => goal.status !== 'archived'),
+    () => goals.filter((goal) => goal.status !== 'archived' && goal.status !== 'completed'),
     [goals],
   );
   const archivedGoals = React.useMemo(
-    () => goals.filter((goal) => goal.status === 'archived'),
+    () => goals.filter((goal) => goal.status === 'archived' || goal.status === 'completed'),
     [goals],
   );
   const hasGoals = visibleGoals.length > 0;
   const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
   const [goalsMasonryWidth, setGoalsMasonryWidth] = React.useState(0);
   const [showArchived, setShowArchived] = React.useState(true);
+  const [archivedExpanded, setArchivedExpanded] = React.useState(false);
 
   type GoalActivityStats = {
     total: number;
@@ -383,13 +385,30 @@ export function GoalsScreen() {
                 </IconButton>
               </View>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-              <DropdownMenuCheckboxItem
-                checked={showArchived}
-                onCheckedChange={(next) => setShowArchived(Boolean(next))}
+            <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 220 }}>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityLabel="Show archived goals"
+                accessibilityState={{ checked: showArchived }}
+                onPress={() => {
+                  const next = !showArchived;
+                  setShowArchived(next);
+                  if (!next) setArchivedExpanded(false);
+                }}
+                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
               >
-                <Text style={typography.bodySm}>Show archived</Text>
-              </DropdownMenuCheckboxItem>
+                <Text style={styles.menuItemText} {...menuItemTextProps}>
+                  Show archived
+                </Text>
+                <View style={styles.menuSwitch} pointerEvents="none">
+                  <Switch
+                    value={showArchived}
+                    onValueChange={() => {}}
+                    trackColor={{ false: colors.border, true: colors.accent }}
+                    thumbColor={colors.canvas}
+                  />
+                </View>
+              </Pressable>
             </DropdownMenuContent>
           </DropdownMenu>
         }
@@ -463,53 +482,70 @@ export function GoalsScreen() {
 
         {showArchived && archivedGoals.length > 0 && (
           <VStack space="xs" style={styles.archivedSection}>
-            <Text style={styles.archivedTitle}>Archived</Text>
-            <Text style={styles.archivedHint}>
-              Archived goals stay in your history, but won’t count toward your active goal limit.
-            </Text>
-            <View
-              style={[styles.masonryOuter, { marginTop: spacing.sm }]}
-              onLayout={(event) => {
-                const width = event.nativeEvent.layout.width;
-                if (Number.isFinite(width) && width > 0 && width !== goalsMasonryWidth) {
-                  setGoalsMasonryWidth(width);
-                }
-              }}
+            <Pressable
+              onPress={() => setArchivedExpanded((current) => !current)}
+              style={styles.archivedToggle}
+              accessibilityRole="button"
+              accessibilityLabel={
+                archivedExpanded ? 'Hide archived and completed goals' : 'Show archived and completed goals'
+              }
             >
-              <MasonryTwoColumn
-                items={archivedGoalMasonryItems}
-                containerWidth={goalsMasonryWidth}
-                keyExtractor={(item) => item.goal.id}
-                columnGap={spacing.sm}
-                rowGap={spacing.sm}
-                estimateItemHeight={(item, { columnWidth }) =>
-                  estimateGoalMasonryTileHeight({
-                    columnWidth,
-                    aspectBucket: item.aspectBucket,
-                    hasImage: item.hasImage,
-                  })
-                }
-                renderItem={(item, { columnWidth }) => (
-                  <GoalMasonryTile
-                    goal={item.goal}
-                    parentArc={item.parentArc}
-                    activityCount={item.activityCount}
-                    doneCount={item.doneCount}
-                    nextScheduledLabel={item.nextScheduledLabel}
-                    hasUnscheduledIncomplete={item.hasUnscheduledIncomplete}
-                    thumbnailStyles={thumbnailStyles}
-                    columnWidth={columnWidth}
-                    aspectBucket={item.aspectBucket}
-                    onPress={() =>
-                      navigation.push('GoalDetail', {
-                        goalId: item.goal.id,
-                        entryPoint: 'goalsTab',
-                      })
-                    }
-                  />
-                )}
-              />
-            </View>
+              <HStack alignItems="center" space="xs">
+                <Text style={styles.archivedToggleLabel}>Archived</Text>
+                <Icon
+                  name={archivedExpanded ? 'chevronDown' : 'chevronRight'}
+                  size={14}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.archivedCountLabel}>({archivedGoals.length})</Text>
+              </HStack>
+            </Pressable>
+
+            {archivedExpanded && (
+              <View
+                style={[styles.masonryOuter, { marginTop: spacing.sm }]}
+                onLayout={(event) => {
+                  const width = event.nativeEvent.layout.width;
+                  if (Number.isFinite(width) && width > 0 && width !== goalsMasonryWidth) {
+                    setGoalsMasonryWidth(width);
+                  }
+                }}
+              >
+                <MasonryTwoColumn
+                  items={archivedGoalMasonryItems}
+                  containerWidth={goalsMasonryWidth}
+                  keyExtractor={(item) => item.goal.id}
+                  columnGap={spacing.sm}
+                  rowGap={spacing.sm}
+                  estimateItemHeight={(item, { columnWidth }) =>
+                    estimateGoalMasonryTileHeight({
+                      columnWidth,
+                      aspectBucket: item.aspectBucket,
+                      hasImage: item.hasImage,
+                    })
+                  }
+                  renderItem={(item, { columnWidth }) => (
+                    <GoalMasonryTile
+                      goal={item.goal}
+                      parentArc={item.parentArc}
+                      activityCount={item.activityCount}
+                      doneCount={item.doneCount}
+                      nextScheduledLabel={item.nextScheduledLabel}
+                      hasUnscheduledIncomplete={item.hasUnscheduledIncomplete}
+                      thumbnailStyles={thumbnailStyles}
+                      columnWidth={columnWidth}
+                      aspectBucket={item.aspectBucket}
+                      onPress={() =>
+                        navigation.push('GoalDetail', {
+                          goalId: item.goal.id,
+                          entryPoint: 'goalsTab',
+                        })
+                      }
+                    />
+                  )}
+                />
+              </View>
+            )}
           </VStack>
         )}
 
@@ -1496,14 +1532,39 @@ const styles = StyleSheet.create({
   archivedSection: {
     marginTop: spacing.xl,
   },
-  archivedTitle: {
+  archivedToggle: {
+    paddingVertical: spacing.xs,
+  },
+  archivedToggleLabel: {
     ...typography.titleSm,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
-  archivedHint: {
+  archivedCountLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+  },
+  menuItemPressed: {
+    backgroundColor: colors.gray100,
+  },
+  menuItemText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flexShrink: 1,
+    minWidth: 0,
+    marginRight: spacing.sm,
+  },
+  menuSwitch: {
+    marginLeft: 'auto',
+    transform: [{ scale: 0.85 }],
   },
   emptyTitle: {
     ...typography.titleSm,

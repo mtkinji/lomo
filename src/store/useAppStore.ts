@@ -431,6 +431,11 @@ interface AppState {
    */
   soundscapeEnabled: boolean;
   /**
+   * One-time hint: we can't reliably detect system volume in Expo-managed JS, so show a gentle
+   * "turn up your volume if you don't hear it" toast once when Focus audio starts.
+   */
+  hasShownFocusSoundscapeVolumeHint: boolean;
+  /**
    * Whether in-app haptics are enabled (semantic haptics layer).
    * Default: true.
    */
@@ -749,6 +754,7 @@ interface AppState {
   ) => void;
   setLastFocusMinutes: (minutes: number) => void;
   setSoundscapeEnabled: (enabled: boolean) => void;
+  setHasShownFocusSoundscapeVolumeHint: (shown: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setSoundscapeTrackId: (trackId: SoundscapeId) => void;
   setFocusContextGoalId: (goalId: string | null) => void;
@@ -1016,7 +1022,8 @@ export const useAppStore = create<AppState>()(
         defaultCooldownMs: 2 * 60 * 60 * 1000,
       },
       lastFocusMinutes: null,
-      soundscapeEnabled: false,
+      soundscapeEnabled: true,
+      hasShownFocusSoundscapeVolumeHint: false,
       hapticsEnabled: true,
       soundscapeTrackId: 'default',
       activitySearchIncludeCompleted: false,
@@ -1841,6 +1848,10 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           soundscapeEnabled: Boolean(enabled),
         })),
+      setHasShownFocusSoundscapeVolumeHint: (shown) =>
+        set(() => ({
+          hasShownFocusSoundscapeVolumeHint: Boolean(shown),
+        })),
       setHapticsEnabled: (enabled) =>
         set(() => ({
           hapticsEnabled: Boolean(enabled),
@@ -2135,7 +2146,8 @@ export const useAppStore = create<AppState>()(
           activeActivityViewId: 'default',
           focusContextGoalId: null,
           lastFocusMinutes: null,
-          soundscapeEnabled: false,
+          soundscapeEnabled: true,
+          hasShownFocusSoundscapeVolumeHint: false,
           hapticsEnabled: true,
           lastOnboardingArcId: null,
           lastOnboardingGoalId: null,
@@ -2219,6 +2231,28 @@ export const useAppStore = create<AppState>()(
         // Backward-compatible: older persisted stores won't have hapticsEnabled.
         if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
           anyState.hapticsEnabled = true;
+        }
+        // Backward-compatible: one-time Focus soundscape volume hint flag.
+        if (
+          !('hasShownFocusSoundscapeVolumeHint' in anyState) ||
+          typeof anyState.hasShownFocusSoundscapeVolumeHint !== 'boolean'
+        ) {
+          (state as any).hasShownFocusSoundscapeVolumeHint = false;
+        }
+        // Migration: Focus soundscape should be ON by default.
+        // If the user has never started a Focus session (lastFocusMinutes is null) and their stored
+        // preference is still the old default "false", flip it to true.
+        try {
+          const hasUsedFocus = typeof (state as any).lastFocusMinutes === 'number' && Number.isFinite((state as any).lastFocusMinutes);
+          const stored = (state as any).soundscapeEnabled;
+          if (!hasUsedFocus && stored === false) {
+            (state as any).soundscapeEnabled = true;
+          }
+          if (!('soundscapeEnabled' in anyState) || typeof stored !== 'boolean') {
+            (state as any).soundscapeEnabled = true;
+          }
+        } catch {
+          // best-effort
         }
         // Backward-compatible: older persisted stores won't have lifecycle counters / widget nudge state.
         if (!('appOpenCount' in anyState) || typeof anyState.appOpenCount !== 'number') {

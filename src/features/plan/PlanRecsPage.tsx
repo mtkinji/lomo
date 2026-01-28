@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import { ActivityIndicator, Alert, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
@@ -29,13 +29,30 @@ type PlanRecsPageProps = {
     arcTitle?: string | null;
   }>;
   recommendations: PlanRecommendation[];
-  emptyState: { title: string; description: string } | null;
+  emptyState:
+    | {
+        kind:
+          | 'rest_day'
+          | 'no_windows'
+          | 'nothing_to_recommend'
+          | 'choose_calendar'
+          | 'day_full'
+          | 'sign_in_required'
+          | 'calendar_access_expired';
+        title: string;
+        description: string;
+      }
+    | null;
   isLoading?: boolean;
   showAlreadyPlanned: boolean;
   entryPoint: 'manual' | 'kickoff';
   calendarStatus: 'unknown' | 'connected' | 'missing';
+  calendarAccessStatus?: 'idle' | 'refreshing' | 'expired' | 'ok';
+  onReconnectCalendarAccess?: () => void;
+  calendarAccessProviderLabel?: string | null;
   onOpenCalendarSettings: () => void;
   onOpenAvailabilitySettings?: () => void;
+  onFindActivities?: () => void;
   onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
   onRerun: () => void;
@@ -59,8 +76,12 @@ export function PlanRecsPage({
   showAlreadyPlanned,
   entryPoint,
   calendarStatus,
+  calendarAccessStatus,
+  onReconnectCalendarAccess,
+  calendarAccessProviderLabel,
   onOpenCalendarSettings,
   onOpenAvailabilitySettings,
+  onFindActivities,
   onDismissForToday,
   onReviewPlan,
   onRerun,
@@ -123,10 +144,16 @@ export function PlanRecsPage({
           <EmptyState
             title="Connect calendars"
             instructions="Connect Google or Outlook calendars to plan your day and commit time blocks."
+            variant="screen"
+            iconName="sendToCalendar"
+            style={{ marginTop: 0 }}
+            primaryAction={{
+              label: 'Manage calendars',
+              onPress: onOpenCalendarSettings,
+              fullWidth: true,
+              variant: 'default',
+            }}
           />
-          <Button variant="primary" fullWidth onPress={onOpenCalendarSettings} style={styles.cta}>
-            Open Calendar Settings
-          </Button>
         </View>
       </View>
     );
@@ -167,16 +194,99 @@ export function PlanRecsPage({
   }
 
   if (recommendations.length === 0 && emptyState) {
-    const showSettingsCta = emptyState.title === 'Choose a calendar';
+    if (emptyState.kind === 'calendar_access_expired') {
+      const providerLabel = calendarAccessProviderLabel ?? 'your calendar';
+      const isRefreshingAccess = calendarAccessStatus === 'refreshing';
+      const title = isRefreshingAccess
+        ? 'Refreshing calendar access…'
+        : calendarAccessProviderLabel
+          ? `Reconnect ${calendarAccessProviderLabel} to plan your day`
+          : 'Reconnect calendars to plan your day';
+      const body = isRefreshingAccess
+        ? `Checking ${providerLabel} so we can read your busy time.`
+        : 'Kwilt needs access to your busy time to suggest open slots. Reconnect once to continue.';
+      const ctaLabel = calendarAccessProviderLabel ? `Reconnect ${calendarAccessProviderLabel}` : 'Reconnect calendars';
+      return (
+        <View style={[styles.emptyContainer, { padding: contentPadding }]}>
+          <View style={styles.emptyContent}>
+            <View style={styles.planEmptyIconWrap} accessibilityElementsHidden accessibilityRole="none">
+              {isRefreshingAccess ? (
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              ) : (
+                <Icon name="refresh" size={32} color={colors.textSecondary} />
+              )}
+            </View>
+            <Text style={styles.planEmptyTitle}>{title}</Text>
+            <Text style={styles.planEmptyBody}>{body}</Text>
+            {!isRefreshingAccess ? (
+              onReconnectCalendarAccess ? (
+                <Button variant="cta" fullWidth onPress={onReconnectCalendarAccess} style={styles.cta}>
+                  {ctaLabel}
+                </Button>
+              ) : (
+                <Button variant="cta" fullWidth onPress={onOpenCalendarSettings} style={styles.cta}>
+                  Manage calendars
+                </Button>
+              )
+            ) : null}
+            {!isRefreshingAccess ? (
+              <View style={styles.planEmptyFooter}>
+                <Text style={styles.planEmptyFootnote}>Takes about 10 seconds.</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Why we need calendar access"
+                  onPress={() => {
+                    Alert.alert(
+                      'Why reconnect?',
+                      'Kwilt needs permission to read your busy time so it can suggest open slots and avoid conflicts. We only use this to help plan your day.',
+                    );
+                  }}
+                >
+                  <Text style={styles.planEmptyLink}>Why do I need this?</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      );
+    }
+
+    const resolvePrimaryAction = (): React.ComponentProps<typeof EmptyState>['primaryAction'] | null => {
+      switch (emptyState.kind) {
+        case 'nothing_to_recommend':
+          return onFindActivities
+            ? { label: 'Find activities', onPress: onFindActivities, fullWidth: true }
+            : null;
+        case 'choose_calendar':
+        case 'sign_in_required':
+          return { label: 'Manage calendars', onPress: onOpenCalendarSettings, fullWidth: true };
+        case 'no_windows':
+        case 'rest_day':
+          return onOpenAvailabilitySettings
+            ? { label: 'Adjust availability', onPress: onOpenAvailabilitySettings, fullWidth: true }
+            : { label: 'Back to day view', onPress: onReviewPlan, fullWidth: true, variant: 'outline' };
+        case 'day_full':
+          // "Day is full" can be driven by which calendars are being read (not just availability),
+          // so bias the single CTA toward calendar configuration.
+          return { label: 'Manage calendars', onPress: onOpenCalendarSettings, fullWidth: true };
+        default:
+          return { label: 'Back to day view', onPress: onReviewPlan, fullWidth: true, variant: 'outline' };
+      }
+    };
+
+    const primaryAction = resolvePrimaryAction();
+    const emptyIconName = 'box';
     return (
       <View style={[styles.emptyContainer, { padding: contentPadding }]}>
         <View style={styles.emptyContent}>
-          <EmptyState title={emptyState.title} instructions={emptyState.description} />
-          {showSettingsCta ? (
-            <Button variant="primary" fullWidth onPress={onOpenCalendarSettings} style={styles.cta}>
-              Open Calendar Settings
-            </Button>
-          ) : null}
+          <EmptyState
+            title={emptyState.title}
+            instructions={emptyState.description}
+            variant="screen"
+            iconName={emptyIconName}
+            style={{ marginTop: 0 }}
+            primaryAction={primaryAction ?? undefined}
+          />
         </View>
       </View>
     );
@@ -504,6 +614,43 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     width: '100%',
     maxWidth: 420,
+  },
+  planEmptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  planEmptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  planEmptyBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    maxWidth: 340,
+    marginTop: spacing.xs,
+  },
+  planEmptyFooter: {
+    marginTop: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  planEmptyFootnote: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  planEmptyLink: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    textDecorationLine: 'underline',
   },
   inlinePickerContainer: {
     marginTop: spacing.sm,
