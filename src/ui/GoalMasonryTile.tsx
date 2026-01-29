@@ -15,6 +15,7 @@ import {
   getArcMosaicCell,
   pickThumbnailStyle,
 } from '../features/arcs/thumbnailVisuals';
+import { useHeroImageUrl } from './hooks/useHeroImageUrl';
 
 type GoalMasonryTileProps = {
   goal: Goal;
@@ -109,7 +110,9 @@ export function GoalMasonryTile({
 }: GoalMasonryTileProps) {
   const bucket = aspectBucket ?? stableBucketFromId(goal.id);
   const [imageAspectRatio, setImageAspectRatio] = React.useState<number | null>(null);
-  const imageUri = goal.thumbnailUrl || parentArc?.thumbnailUrl || null;
+  const goalThumbUri = useHeroImageUrl(goal);
+  const arcThumbUri = useHeroImageUrl(parentArc ?? null);
+  const imageUri = goalThumbUri || arcThumbUri || null;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -151,7 +154,7 @@ export function GoalMasonryTile({
   const thumbnailStyle =
     effectiveThumbnailStyles.length > 0 ? pickThumbnailStyle(seed, effectiveThumbnailStyles) : null;
 
-  const hasCustomThumbnail = Boolean(goal.thumbnailUrl || parentArc?.thumbnailUrl);
+  const hasCustomThumbnail = Boolean(goalThumbUri || arcThumbUri);
   const shouldShowGeoMosaic = thumbnailStyle === 'geoMosaic' && !hasCustomThumbnail;
 
   const finishBy = React.useMemo(() => {

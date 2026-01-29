@@ -1,0 +1,172 @@
+name: E2E (Maestro)
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  maestro-smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Boot iOS simulator
+        run: |
+          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone (15|14|13)/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
+          if [ -z "$SIMULATOR_NAME" ]; then
+            echo "No iPhone simulator found."
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
+          xcrun simctl boot "$SIMULATOR_NAME" || true
+          xcrun simctl bootstatus "$SIMULATOR_NAME" -b
+
+      - name: Build iOS debug
+        run: |
+          xcodebuild \
+            -workspace ios/Kwilt.xcworkspace \
+            -scheme Kwilt \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+            -derivedDataPath ios/build \
+            build
+
+      - name: Install app on simulator
+        run: |
+          APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "App build not found."
+            exit 1
+          fi
+          xcrun simctl install "$SIMULATOR_NAME" "$APP_PATH"
+
+      - name: Run Maestro smoke suite (iOS simulator)
+        run: |
+          maestro test \
+            e2e/maestro/smoke-devtools.yaml \
+            e2e/maestro/bottomdrawer-touch-regression.yaml \
+            e2e/maestro/keyboard-harness.yaml \
+            e2e/maestro/agent-workspace-smoke.yaml
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL not set; skipping Slack notification."
+            exit 0
+          fi
+          payload=$(jq -n \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg ref "$GITHUB_REF_NAME" \
+            --arg sha "$GITHUB_SHA" \
+            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{text: ("Maestro smoke failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+  maestro-full:
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Boot iOS simulator
+        run: |
+          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone (15|14|13)/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
+          if [ -z "$SIMULATOR_NAME" ]; then
+            echo "No iPhone simulator found."
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
+          xcrun simctl boot "$SIMULATOR_NAME" || true
+          xcrun simctl bootstatus "$SIMULATOR_NAME" -b
+
+      - name: Build iOS debug
+        run: |
+          xcodebuild \
+            -workspace ios/Kwilt.xcworkspace \
+            -scheme Kwilt \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+            -derivedDataPath ios/build \
+            build
+
+      - name: Install app on simulator
+        run: |
+          APP_PATH=$(find ios/build/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "App build not found."
+            exit 1
+          fi
+          xcrun simctl install "$SIMULATOR_NAME" "$APP_PATH"
+
+      - name: Run Maestro full suite (iOS simulator)
+        run: maestro test e2e/maestro
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL not set; skipping Slack notification."
+            exit 0
+          fi
+          payload=$(jq -n \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg ref "$GITHUB_REF_NAME" \
+            --arg sha "$GITHUB_SHA" \
+            --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{text: ("Maestro full suite failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+

@@ -20,8 +20,12 @@ appId: com.andrewwatanabe.kwilt
 - tapOn:
     id: "e2e.openBottomDrawer"
 
+- takeScreenshot: "bottomdrawer-open"
+
 - tapOn:
     id: "e2e.closeBottomDrawer"
+
+- takeScreenshot: "bottomdrawer-closed"
 
 # If an invisible overlay is still intercepting touches, this tap won't register.
 - tapOn:

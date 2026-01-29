@@ -196,7 +196,10 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
           style={StyleSheet.absoluteFillObject}
         />
       </View>
-      <View pointerEvents="box-none" style={[styles.container, { bottom: KWILT_BOTTOM_BAR_BOTTOM_OFFSET_PX }]}>
+      <View
+        pointerEvents="box-none"
+        style={[styles.container, { bottom: KWILT_BOTTOM_BAR_BOTTOM_OFFSET_PX }]}
+      >
         <View style={styles.barRow}>
           <View style={styles.placeZone}>
             {indicatorReady.current ? (
@@ -253,6 +256,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
                   key={route.key}
                   onPress={onPress}
                   onLongPress={onLongPress}
+                  hitSlop={10}
                   accessibilityRole="button"
                   accessibilityState={isFocused ? { selected: true } : {}}
                   accessibilityLabel={
@@ -323,7 +327,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     backgroundColor: 'transparent',
-    zIndex: 10,
+    // Ensure bottom nav stays above any absolute-positioned screen overlays so taps
+    // don't get intercepted (observed on physical iOS builds).
+    zIndex: 1000,
+    // Android: make zIndex participate in stacking.
+    elevation: 1000,
   },
   barRow: {
     width: '100%',

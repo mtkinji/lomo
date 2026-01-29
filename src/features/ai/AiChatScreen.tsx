@@ -19,8 +19,6 @@ import {
   Keyboard,
   InteractionManager,
   Modal,
-  NativeEventEmitter,
-  NativeModules,
   Platform,
   Pressable,
   ScrollView,
@@ -85,67 +83,6 @@ type ChatDraft = {
   messages: ChatMessage[];
   input: string;
   updatedAt: string;
-};
-
-type DictationState = 'idle' | 'requesting' | 'starting' | 'recording' | 'stopping' | 'unavailable';
-
-type SpeechAuthorizationResult = {
-  speechAuthorization: 'authorized' | 'denied' | 'restricted' | 'notDetermined';
-  microphonePermission: 'granted' | 'denied';
-  onDeviceSupported: boolean;
-};
-
-type NativeSpeechTranscriptionModule = {
-  requestAuthorization: () => Promise<SpeechAuthorizationResult>;
-  start: (options?: { locale?: string }) => Promise<void>;
-  stop: () => Promise<void>;
-  cancel: () => Promise<void>;
-};
-
-type SpeechResultEvent = {
-  text?: string;
-  isFinal?: boolean;
-};
-
-type SpeechErrorEvent = {
-  code?: string;
-  message?: string;
-};
-
-type SpeechStateEvent = {
-  state?: DictationState;
-};
-
-type SpeechAvailabilityEvent = {
-  isAvailable?: boolean;
-};
-
-const iosSpeechModule: NativeSpeechTranscriptionModule | undefined =
-  Platform.OS === 'ios'
-    ? (NativeModules.SpeechTranscriptionModule as NativeSpeechTranscriptionModule | undefined)
-    : undefined;
-
-const iosSpeechEventEmitter = iosSpeechModule
-  ? new NativeEventEmitter(NativeModules.SpeechTranscriptionModule)
-  : null;
-
-const mergeDictationText = (base: string, transcript: string) => {
-  if (!base) {
-    return transcript;
-  }
-  if (!transcript) {
-    return base;
-  }
-  const needsSpace = !/\s$/.test(base);
-  return `${needsSpace ? `${base} ` : base}${transcript}`;
-};
-
-const getPreferredLocale = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().locale || 'en-US';
-  } catch {
-    return 'en-US';
-  }
 };
 
 const ARC_CREATION_DRAFT_STORAGE_KEY = 'kwilt-coach-draft:arcCreation:v1';
@@ -1478,7 +1415,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const messagesRef = useRef<ChatMessage[]>(initialMessages);
   const inputRef = useRef<TextInput | null>(null);
   const expandedInputRef = useRef<TextInput | null>(null);
-  const dictationBaseRef = useRef('');
   const typingControllerRef = useRef<{ skip: () => void } | null>(null);
   const goalProposalPostNoteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasShownGoalProposalRef = useRef(false);
@@ -1486,11 +1422,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const pendingGoalProposalAnchorMessageIdRef = useRef<string | null>(null);
   const pendingGoalProposalSkeletonTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalizedGoalProposalAnchorIdsRef = useRef<Set<string>>(new Set());
-  const [dictationState, setDictationState] = useState<DictationState>(
-    iosSpeechModule ? 'idle' : 'unavailable'
-  );
-  const [dictationError, setDictationError] = useState<string | null>(null);
-  const [isDictationAvailable, setIsDictationAvailable] = useState(Boolean(iosSpeechModule));
   const [hasTransportError, setHasTransportError] = useState(false);
   const [agentOffers, setAgentOffers] = useState<AgentOffer[] | null>(null);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
@@ -1658,69 +1589,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
     });
   };
 
-  const isDictationActive = dictationState === 'recording' || dictationState === 'starting';
-  const voiceButtonLabel = isDictationActive ? 'Stop voice input' : 'Start voice input';
-  const isDictationBusy = dictationState === 'requesting' || dictationState === 'stopping';
-  const voiceButtonIconColor = isDictationActive ? CHAT_COLORS.userBubbleText : colors.canvas;
-  const shouldShowDictationStatus = Boolean(dictationError || isDictationActive);
-  const dictationStatusMessage = dictationError ?? 'Listening… tap the mic to stop';
-
-  useEffect(() => {
-    if (!iosSpeechModule || !iosSpeechEventEmitter) {
-      return;
-    }
-
-    const resultSub = iosSpeechEventEmitter.addListener(
-      'SpeechTranscriptionResult',
-      (event: SpeechResultEvent) => {
-        const transcript = event?.text ?? '';
-        setInput(mergeDictationText(dictationBaseRef.current, transcript));
-        if (event?.isFinal) {
-          dictationBaseRef.current = '';
-          setDictationState('idle');
-        }
-      }
-    );
-
-    const errorSub = iosSpeechEventEmitter.addListener(
-      'SpeechTranscriptionError',
-      (event: SpeechErrorEvent) => {
-        setDictationError(event?.message ?? 'Dictation stopped unexpectedly.');
-        dictationBaseRef.current = '';
-        setDictationState('idle');
-      }
-    );
-
-    const availabilitySub = iosSpeechEventEmitter.addListener(
-      'SpeechTranscriptionAvailability',
-      (event: SpeechAvailabilityEvent) => {
-        if (typeof event?.isAvailable === 'boolean') {
-          setIsDictationAvailable(event.isAvailable);
-        }
-      }
-    );
-
-    const stateSub = iosSpeechEventEmitter.addListener(
-      'SpeechTranscriptionState',
-      (event: SpeechStateEvent) => {
-        if (!event?.state) {
-          return;
-        }
-        setDictationState(event.state);
-        if (event.state === 'idle') {
-          dictationBaseRef.current = '';
-        }
-      }
-    );
-
-    return () => {
-      resultSub.remove();
-      errorSub.remove();
-      availabilitySub.remove();
-      stateSub.remove();
-    };
-  }, []);
-
   useEffect(() => {
     if (!goalProposal) {
       if (goalProposalPostNoteTimeoutRef.current) {
@@ -1754,85 +1622,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
       }
     };
   }, [goalProposal]);
-
-  useEffect(() => {
-    if (!dictationError) {
-      return;
-    }
-    const timeout = setTimeout(() => setDictationError(null), 5000);
-    return () => clearTimeout(timeout);
-  }, [dictationError]);
-
-  useEffect(() => {
-    return () => {
-      if (!iosSpeechModule?.cancel) {
-        return;
-      }
-      iosSpeechModule.cancel().catch(() => undefined);
-    };
-  }, []);
-
-  const stopDictation = async () => {
-    if (!iosSpeechModule) {
-      return;
-    }
-    setDictationState('stopping');
-    try {
-      await iosSpeechModule.stop();
-    } catch (err) {
-      console.warn('Failed to stop dictation', err);
-      setDictationState('idle');
-      dictationBaseRef.current = '';
-    }
-  };
-
-  const handleStartDictation = async () => {
-    if (!iosSpeechModule || dictationState === 'unavailable' || !isDictationAvailable) {
-      inputRef.current?.focus();
-      return;
-    }
-
-    if (dictationState === 'recording' || dictationState === 'starting' || dictationState === 'requesting') {
-      await stopDictation();
-      return;
-    }
-
-    dictationBaseRef.current = input.trimEnd();
-    setDictationError(null);
-
-    try {
-      setDictationState('requesting');
-      const permissions = await iosSpeechModule.requestAuthorization();
-
-      if (permissions.speechAuthorization !== 'authorized') {
-        setDictationError('Enable speech recognition in Settings to use dictation.');
-        setDictationState('idle');
-        return;
-      }
-
-      if (permissions.microphonePermission !== 'granted') {
-        setDictationError('Microphone access is required for dictation.');
-        setDictationState('idle');
-        return;
-      }
-
-      if (!permissions.onDeviceSupported) {
-        setDictationError('On-device transcription is not supported on this device.');
-        setDictationState('idle');
-        return;
-      }
-
-      Keyboard.dismiss();
-      await iosSpeechModule.start({ locale: getPreferredLocale() });
-      setDictationState('starting');
-    } catch (err) {
-      console.warn('Failed to start dictation', err);
-      setDictationError(
-        err instanceof Error ? err.message : 'Unable to start dictation. Try again in a moment.'
-      );
-      setDictationState('idle');
-    }
-  };
 
   const handleSelectAgeRange = (range: AgeRange) => {
     const option = AGE_RANGE_OPTIONS.find((entry) => entry.value === range);
@@ -4464,64 +4253,25 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           />
                         </View>
 
-                        {hasInput ? (
-                          <TouchableOpacity
-                            testID="agent.composer.send"
-                            style={[
-                              styles.sendButton,
-                              (sending || !canSend) && styles.sendButtonInactive,
-                            ]}
-                            onPress={handleSend}
-                            accessibilityRole="button"
-                            accessibilityLabel="Send message"
-                            disabled={sending || !canSend}
-                            activeOpacity={0.85}
-                          >
-                            {sending ? (
-                              <ActivityIndicator color={colors.canvas} />
-                            ) : (
-                              <Icon name="arrowUp" color={colors.canvas} size={16} />
-                            )}
-                          </TouchableOpacity>
-                        ) : (
-                          <TouchableOpacity
-                            style={[styles.voiceButton, isDictationActive && styles.voiceButtonActive]}
-                            onPress={handleStartDictation}
-                            accessibilityLabel={voiceButtonLabel}
-                            accessibilityHint="Uses on-device transcription to capture your voice"
-                            accessibilityState={{ busy: isDictationActive }}
-                            disabled={isDictationBusy}
-                            activeOpacity={0.85}
-                          >
-                            {isDictationBusy ? (
-                              <ActivityIndicator color={voiceButtonIconColor} size="small" />
-                            ) : (
-                              <Icon name="mic" color={voiceButtonIconColor} size={16} />
-                            )}
-                          </TouchableOpacity>
-                        )}
+                        <TouchableOpacity
+                          testID="agent.composer.send"
+                          style={[
+                            styles.sendButton,
+                            (sending || !canSend) && styles.sendButtonInactive,
+                          ]}
+                          onPress={handleSend}
+                          accessibilityRole="button"
+                          accessibilityLabel="Send message"
+                          disabled={sending || !canSend}
+                          activeOpacity={0.85}
+                        >
+                          {sending ? (
+                            <ActivityIndicator color={colors.canvas} />
+                          ) : (
+                            <Icon name="arrowUp" color={colors.canvas} size={16} />
+                          )}
+                        </TouchableOpacity>
                       </View>
-                      {shouldShowDictationStatus && (
-                        <View style={styles.dictationStatusRow}>
-                          <View
-                            style={[
-                              styles.dictationStatusDot,
-                              dictationError
-                                ? styles.dictationStatusDotError
-                                : styles.dictationStatusDotActive,
-                            ]}
-                          />
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.dictationStatusLabel,
-                              dictationError && styles.dictationStatusLabelError,
-                            ]}
-                          >
-                            {dictationStatusMessage}
-                          </Text>
-                        </View>
-                      )}
                     </Pressable>
                   </View>
                 </View>
@@ -4784,20 +4534,326 @@ export function AiChatScreen() {
   // itself to app chrome or workflow orchestration.
   const { AppShell } = require('../../ui/layout/AppShell') as typeof import('../../ui/layout/AppShell');
   const { AgentWorkspace } = require('./AgentWorkspace') as typeof import('./AgentWorkspace');
+  const { getWorkflowLaunchConfig } = require('./workflowRegistry') as typeof import('./workflowRegistry');
+  const { useShareIntentStore } = require('../../store/useShareIntentStore') as typeof import('../../store/useShareIntentStore');
+  const { buildArcCoachLaunchContext, buildActivityCoachLaunchContext } =
+    require('./workspaceSnapshots') as typeof import('./workspaceSnapshots');
+  const { useAppStore, defaultForceLevels } = require('../../store/useAppStore') as typeof import('../../store/useAppStore');
+  const { HapticsService } = require('../../services/HapticsService') as typeof import('../../services/HapticsService');
+  const { AnalyticsEvent } = require('../../services/analytics/events') as typeof import('../../services/analytics/events');
+  const { useAnalytics } = require('../../services/analytics/useAnalytics') as typeof import('../../services/analytics/useAnalytics');
+  const { suggestTagsFromText } = require('../../utils/tags') as typeof import('../../utils/tags');
+  const { geocodePlaceBestEffort } = require('../../services/locationOffers/geocodePlace') as typeof import('../../services/locationOffers/geocodePlace');
 
-  return (
-    <AppShell>
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const sharePayload = useShareIntentStore((s: any) => s.payload) as any;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const clearSharePayload = useShareIntentStore((s: any) => s.clear) as () => void;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { capture } = useAnalytics();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const arcs = useAppStore((s: any) => s.arcs) as any[];
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const goals = useAppStore((s: any) => s.goals) as any[];
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const activities = useAppStore((s: any) => s.activities) as any[];
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const addArc = useAppStore((s: any) => s.addArc) as (arc: any) => void;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const addActivity = useAppStore((s: any) => s.addActivity) as (activity: any) => void;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const updateActivity = useAppStore((s: any) => s.updateActivity) as (id: string, updater: (prev: any) => any) => void;
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const React = require('react') as typeof import('react');
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [flow, setFlow] = React.useState<
+    | { stage: 'shareIntake' }
+    | { stage: 'arc'; plan: Array<'arc' | 'goal' | 'activity'> }
+    | { stage: 'goal'; plan: Array<'arc' | 'goal' | 'activity'>; arcId?: string | null }
+    | { stage: 'activity'; plan: Array<'arc' | 'goal' | 'activity'>; goalId?: string | null }
+  >({ stage: 'shareIntake' });
+
+  const shareContextText = React.useMemo(() => {
+    if (!sharePayload?.items?.length) return undefined;
+    const lines: string[] = [];
+    lines.push('SHARED CONTENT (from iOS Share Sheet):');
+    sharePayload.items.slice(0, 6).forEach((item: any, idx: number) => {
+      const v = typeof item?.value === 'string' ? item.value.trim() : '';
+      if (!v) return;
+      const clipped = v.length > 400 ? `${v.slice(0, 397)}…` : v;
+      lines.push(`${idx + 1}. (${item.type ?? 'unknown'}) ${clipped}`);
+    });
+    if (sharePayload.items.length > 6) {
+      lines.push(`…and ${sharePayload.items.length - 6} more.`);
+    }
+    return lines.join('\n');
+  }, [sharePayload]);
+
+  const shareWorkspaceSnapshotBase = React.useMemo(() => {
+    const base = buildArcCoachLaunchContext(arcs ?? [], goals ?? []);
+    if (!shareContextText) return base;
+    if (!base) return shareContextText;
+    return `${shareContextText}\n\n${base}`;
+  }, [arcs, buildArcCoachLaunchContext, goals, shareContextText]);
+
+  const shareActivitySnapshotBase = React.useMemo(() => {
+    const base = buildActivityCoachLaunchContext(goals ?? [], activities ?? [], undefined, arcs ?? []);
+    if (!shareContextText) return base;
+    if (!base) return shareContextText;
+    return `${shareContextText}\n\n${base}`;
+  }, [activities, arcs, buildActivityCoachLaunchContext, goals, shareContextText]);
+
+  const shareIntakeWorkflow = React.useMemo(() => getWorkflowLaunchConfig('shareIntake'), [getWorkflowLaunchConfig]);
+  const arcWorkflow = React.useMemo(() => getWorkflowLaunchConfig('arcCreation'), [getWorkflowLaunchConfig]);
+  const goalWorkflow = React.useMemo(() => getWorkflowLaunchConfig('goalCreation'), [getWorkflowLaunchConfig]);
+  const activityWorkflow = React.useMemo(() => getWorkflowLaunchConfig('activityCreation'), [getWorkflowLaunchConfig]);
+
+  const handleAdoptActivitySuggestion = React.useCallback(
+    (suggestion: any, goalIdOverride?: string | null) => {
+      const timestamp = new Date().toISOString();
+      const baseIndex = (activities ?? []).length;
+      const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const steps =
+        suggestion.steps?.map((step: any, index: number) => ({
+          id: `step-${id}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+          title: step.title,
+          isOptional: step.isOptional ?? false,
+          completedAt: null,
+          orderIndex: index,
+        })) ?? [];
+
+      const title = (suggestion.title ?? '').trim() || 'New activity';
+      const goalId = goalIdOverride ?? null;
+      const activity = {
+        id,
+        goalId,
+        title,
+        type: suggestion.type ?? 'task',
+        tags:
+          Array.isArray(suggestion.tags) && suggestion.tags.length > 0
+            ? suggestion.tags
+            : suggestTagsFromText(title, suggestion.why ?? null),
+        notes: suggestion.why,
+        steps,
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+        creationSource: 'ai',
+        planGroupId: null,
+        scheduledDate: null,
+        repeatRule: undefined,
+        orderIndex: baseIndex + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        aiPlanning:
+          suggestion.timeEstimateMinutes || suggestion.energyLevel
+            ? {
+                estimateMinutes: suggestion.timeEstimateMinutes ?? null,
+                difficulty:
+                  suggestion.energyLevel === 'light'
+                    ? 'easy'
+                    : suggestion.energyLevel === 'focused'
+                      ? 'hard'
+                      : undefined,
+                lastUpdatedAt: timestamp,
+                source: 'full_context',
+              }
+            : undefined,
+        forceActual: defaultForceLevels(0),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      addActivity(activity);
+
+      // Best-effort: attach location offers.
+      const locOffer = suggestion.locationOffer;
+      if (locOffer?.placeQuery && typeof locOffer.placeQuery === 'string') {
+        const query = locOffer.placeQuery.trim();
+        if (query.length > 0) {
+          const trigger = locOffer.trigger === 'arrive' || locOffer.trigger === 'leave' ? locOffer.trigger : 'leave';
+          const radiusM =
+            typeof locOffer.radiusM === 'number' && Number.isFinite(locOffer.radiusM) ? locOffer.radiusM : undefined;
+          void (async () => {
+            const place = await geocodePlaceBestEffort({ query });
+            if (!place) return;
+            const nextAt = new Date().toISOString();
+            updateActivity(id, (prev: any) => ({
+              ...prev,
+              location: {
+                label:
+                  typeof locOffer.label === 'string' && locOffer.label.trim().length > 0
+                    ? locOffer.label.trim()
+                    : place.label,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                trigger,
+                ...(typeof radiusM === 'number' ? { radiusM } : null),
+              },
+              updatedAt: nextAt,
+            }));
+          })();
+        }
+      }
+
+      void HapticsService.trigger('outcome.success');
+      capture(AnalyticsEvent.ActivityCreated, {
+        source: 'ai_suggestion',
+        activity_id: id,
+        goal_id: goalId,
+        has_steps: Boolean(activity.steps && activity.steps.length > 0),
+        has_estimate: Boolean(activity.estimateMinutes),
+      });
+    },
+    [
+      activities,
+      addActivity,
+      capture,
+      defaultForceLevels,
+      geocodePlaceBestEffort,
+      suggestTagsFromText,
+      updateActivity,
+    ],
+  );
+
+  const renderAgentWorkspace = () => {
+    if (flow.stage === 'shareIntake') {
+      return (
+        <AgentWorkspace
+          mode={shareIntakeWorkflow.mode}
+          workflowDefinitionId={shareIntakeWorkflow.workflowDefinitionId}
+          launchContext={{ source: 'shareExtension', intent: 'shareIntake' }}
+          workspaceSnapshot={shareWorkspaceSnapshotBase}
+          resumeDraft={false}
+          onComplete={(outcome: any) => {
+            const kindsRaw = Array.isArray(outcome?.createKinds) ? outcome.createKinds : [];
+            const kinds = kindsRaw.filter((k: any) => k === 'arc' || k === 'goal' || k === 'activity');
+            if (kinds.length === 0) return;
+            setFlow({ stage: kinds.includes('arc') ? 'arc' : kinds.includes('goal') ? 'goal' : 'activity', plan: kinds });
+          }}
+        />
+      );
+    }
+
+    if (flow.stage === 'arc') {
+      return (
+        <AgentWorkspace
+          mode={arcWorkflow.mode}
+          workflowDefinitionId={arcWorkflow.workflowDefinitionId}
+          launchContext={{ source: 'shareExtension', intent: 'arcCreation' }}
+          workspaceSnapshot={shareWorkspaceSnapshotBase}
+          resumeDraft={false}
+          hidePromptSuggestions
+          onConfirmArc={(proposal: any) => {
+            const timestamp = new Date().toISOString();
+            const id = `arc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const arc = {
+              id,
+              name: String(proposal?.name ?? 'New Arc').trim(),
+              narrative: proposal?.narrative,
+              status: proposal?.status ?? 'active',
+              startDate: timestamp,
+              endDate: null,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            };
+            addArc(arc);
+            void HapticsService.trigger('outcome.success');
+            capture(AnalyticsEvent.ArcCreated, { source: 'ai', arc_id: arc.id });
+            if (flow.plan.includes('goal')) {
+              setFlow({ stage: 'goal', plan: flow.plan, arcId: arc.id });
+              return;
+            }
+            if (flow.plan.includes('activity')) {
+              setFlow({ stage: 'activity', plan: flow.plan, goalId: null });
+              return;
+            }
+            clearSharePayload();
+          }}
+        />
+      );
+    }
+
+    if (flow.stage === 'goal') {
+      const focusArcId = flow.arcId ?? null;
+      return (
+        <AgentWorkspace
+          mode={goalWorkflow.mode}
+          workflowDefinitionId={goalWorkflow.workflowDefinitionId}
+          launchContext={{
+            source: 'shareExtension',
+            intent: 'goalCreation',
+            ...(focusArcId ? { objectType: 'arc', objectId: focusArcId } : null),
+          }}
+          workspaceSnapshot={shareWorkspaceSnapshotBase}
+          resumeDraft={false}
+          onGoalCreated={(goalId: string) => {
+            if (flow.plan.includes('activity')) {
+              setFlow({ stage: 'activity', plan: flow.plan, goalId });
+              return;
+            }
+            clearSharePayload();
+          }}
+        />
+      );
+    }
+
+    // flow.stage === 'activity'
+    const focusGoalId = flow.goalId ?? null;
+    const activitySnapshot =
+      focusGoalId
+        ? (() => {
+            const base = buildActivityCoachLaunchContext(goals ?? [], activities ?? [], focusGoalId, arcs ?? []);
+            if (!shareContextText) return base;
+            if (!base) return shareContextText;
+            return `${shareContextText}\n\n${base}`;
+          })()
+        : shareActivitySnapshotBase;
+
+    return (
       <AgentWorkspace
-        // Standalone coach screen defaults to free-form coaching without a
-        // specific workflow attached.
-        mode={undefined}
+        mode={activityWorkflow.mode}
+        workflowDefinitionId={activityWorkflow.workflowDefinitionId}
         launchContext={{
-          source: 'standaloneCoach',
-          intent: 'freeCoach',
+          source: 'shareExtension',
+          intent: 'activityCreation',
+          ...(focusGoalId ? { objectType: 'goal', objectId: focusGoalId } : null),
+        }}
+        workspaceSnapshot={activitySnapshot}
+        resumeDraft={false}
+        hidePromptSuggestions
+        onAdoptActivitySuggestion={(suggestion: any) => handleAdoptActivitySuggestion(suggestion, focusGoalId)}
+        onComplete={() => {
+          // Completion can happen with or without adopting suggestions; treat as end of share workflow.
+          clearSharePayload();
+        }}
+        onDismiss={() => {
+          clearSharePayload();
         }}
       />
-    </AppShell>
-  );
+    );
+  };
+
+  // Default: if no share payload, behave like the legacy standalone coach.
+  if (!sharePayload) {
+    return (
+      <AppShell>
+        <AgentWorkspace
+          mode={undefined}
+          launchContext={{
+            source: 'standaloneCoach',
+            intent: 'freeCoach',
+          }}
+        />
+      </AppShell>
+    );
+  }
+
+  return <AppShell>{renderAgentWorkspace()}</AppShell>;
 }
 
 function UserMessageBubble({ content }: { content: string }) {
@@ -5294,44 +5350,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  voiceButton: {
-    backgroundColor: '#18181B',
-    borderRadius: 999,
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  voiceButtonActive: {
-    backgroundColor: CHAT_COLORS.accent,
-  },
-  dictationStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  dictationStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: CHAT_COLORS.textSecondary,
-  },
-  dictationStatusDotActive: {
-    backgroundColor: CHAT_COLORS.accent,
-  },
-  dictationStatusDotError: {
-    backgroundColor: '#F87171',
-  },
-  dictationStatusLabel: {
-    ...typography.bodySm,
-    fontSize: 12,
-    lineHeight: 16,
-    color: CHAT_COLORS.textSecondary,
-  },
-  dictationStatusLabelError: {
-    color: '#F87171',
   },
   expandedHeaderTitle: {
     ...typography.body,

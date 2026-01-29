@@ -8,6 +8,7 @@ import type { Arc } from '../domain/types';
 import { buildArcThumbnailSeed, getArcGradient } from '../features/arcs/thumbnailVisuals';
 import { HStack, Text } from './primitives';
 import { richTextToPlainText } from './richText';
+import { useHeroImageUrl } from './hooks/useHeroImageUrl';
 
 type ArcListCardProps = {
   arc: Arc;
@@ -50,6 +51,7 @@ export function ArcListCard({
   const { colors: gradientColors, direction } = getArcGradient(seed);
 
   const isHeroHidden = arc.heroHidden;
+  const heroUri = useHeroImageUrl(arc);
 
   const showStatusPill = arc.status !== 'active';
   const statusLabel =
@@ -69,9 +71,9 @@ export function ArcListCard({
       <View style={styles.heroInner}>
         {isHeroHidden ? (
           <View style={styles.heroMinimal} />
-        ) : arc.thumbnailUrl ? (
+        ) : heroUri ? (
           <Image
-            source={{ uri: arc.thumbnailUrl }}
+            source={{ uri: heroUri }}
             style={styles.heroImage}
             resizeMode="cover"
           />

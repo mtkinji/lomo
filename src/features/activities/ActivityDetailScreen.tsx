@@ -32,7 +32,7 @@ import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
-import { persistImageUri } from '../../utils/persistImageUri';
+import { initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { useToastStore } from '../../store/useToastStore';
@@ -59,7 +59,7 @@ import { Picker } from '@react-native-picker/picker';
 import { SOUND_SCAPES, preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
-import { Icon } from '../../ui/Icon';
+import { Icon, type IconName } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
@@ -155,7 +155,7 @@ import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
-import { getEffectiveThumbnailUrl } from '../../domain/getEffectiveThumbnailUrl';
+import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
@@ -301,7 +301,8 @@ export function ActivityDetailScreen() {
     }
   }, [activity]);
 
-  const displayThumbnailUrlForSheet = (activity ? getEffectiveThumbnailUrl(activity) : undefined) ?? defaultHeroUrl;
+  const resolvedHeroUrl = useHeroImageUrl(activity);
+  const displayThumbnailUrlForSheet = resolvedHeroUrl ?? defaultHeroUrl;
 
   const handleUploadActivityThumbnail = useCallback(async () => {
     if (!activity) return;
@@ -318,19 +319,25 @@ export function ActivityDetailScreen() {
       const asset = result.assets[0];
       if (!asset.uri) return;
 
-      const stableUri = await persistImageUri({
-        uri: asset.uri,
-        subdir: 'hero-images',
-        namePrefix: `activity-${activity.id}-hero`,
+      const { storagePath, uploadSignedUrl } = await initHeroImageUpload({
+        entityType: 'activity',
+        entityId: activity.id,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
+      });
+      await uploadHeroImageToSignedUrl({
+        signedUrl: uploadSignedUrl,
+        fileUri: asset.uri,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
       });
       const nowIso = new Date().toISOString();
       updateActivity(activity.id, (prev: any) => ({
         ...prev,
-        thumbnailUrl: stableUri,
+        thumbnailUrl: undefined,
         heroImageMeta: {
           source: 'upload',
           prompt: prev.heroImageMeta?.prompt,
           createdAt: nowIso,
+          uploadStoragePath: storagePath,
         },
         updatedAt: nowIso,
       }));
@@ -1490,6 +1497,22 @@ export function ActivityDetailScreen() {
     return combined.length > 140 ? combined.slice(0, 140) : combined;
   }, [activity]);
 
+  const supportedSendToDestinations = useMemo(() => {
+    const type = (activity?.type ?? 'task') as any;
+    return installedDestinations
+      .filter((t) => Boolean(t.is_enabled))
+      .filter((t) => getDestinationSupportedActivityTypes(t.kind as any).includes(type));
+  }, [activity?.type, installedDestinations]);
+
+  const hasRetailerSendToOptions =
+    activity?.type === 'shopping_list' &&
+    Boolean(
+      (enabledSendToDestinations?.amazon ?? false) ||
+        (enabledSendToDestinations?.home_depot ?? false) ||
+        (enabledSendToDestinations?.instacart ?? false) ||
+        (enabledSendToDestinations?.doordash ?? false)
+    );
+
   const openExternalUrl = useCallback(async (url: string) => {
     try {
       await Linking.openURL(url);
@@ -1510,12 +1533,25 @@ export function ActivityDetailScreen() {
   }, [activityExportText]);
 
   const handleSendToShare = useCallback(async () => {
+    const text = activityExportText;
+    if (!text) return;
+
+    // iOS can fail to present the system share sheet if we attempt to open it while
+    // another overlay (e.g. our BottomDrawer/DropdownMenu) is dismissing. Deferring
+    // to the next interaction makes the presentation reliable.
+    await new Promise<void>((resolve) => {
+      InteractionManager.runAfterInteractions(() => resolve());
+    });
+    // Give modal overlays a moment to unmount before presenting the native share sheet.
+    // This avoids an iOS edge-case where `Share.share()` no-ops if called while a Modal is
+    // still being dismissed in the same tick.
+    await new Promise<void>((resolve) => setTimeout(resolve, Platform.OS === 'ios' ? 300 : 0));
+
     try {
-      const text = activityExportText;
-      if (!text) return;
       await Share.share({ message: text });
-    } catch {
-      // No-op: Share sheets can be dismissed or unavailable on some platforms.
+    } catch (error) {
+      console.warn('[ActivityDetailScreen] Share failed', error);
+      Alert.alert('Could not share', 'Something went wrong while opening the share sheet.');
     }
   }, [activityExportText]);
 
@@ -4730,7 +4766,8 @@ export function ActivityDetailScreen() {
               <View>
                 <BottomDrawerHeader
                   title="Focus mode"
-                  variant="minimal"
+                  variant="withClose"
+                  onClose={() => setActiveSheet(null)}
                   containerStyle={styles.sheetHeader}
                   titleStyle={styles.sheetTitle}
                 />
@@ -4858,28 +4895,18 @@ export function ActivityDetailScreen() {
           </BottomDrawerScrollView>
 
           <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
-            <HStack space="sm">
-              <Button
-                variant="outline"
-                style={{ flex: 1 }}
-                testID="e2e.activityDetail.focus.cancel"
-                onPress={() => setActiveSheet(null)}
-              >
-                <Text style={styles.sheetRowLabel}>Cancel</Text>
-              </Button>
-              <Button
-                variant="primary"
-                style={{ flex: 1 }}
-                testID="e2e.activityDetail.focus.start"
-                onPress={() => {
-                  startFocusSession().catch(() => undefined);
-                }}
-              >
-                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                  Start
-                </Text>
-              </Button>
-            </HStack>
+            <Button
+              variant="primary"
+              fullWidth
+              testID="e2e.activityDetail.focus.start"
+              onPress={() => {
+                startFocusSession().catch(() => undefined);
+              }}
+            >
+              <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                Start
+              </Text>
+            </Button>
           </View>
         </View>
       </BottomDrawer>
@@ -5166,7 +5193,7 @@ export function ActivityDetailScreen() {
           );
         }}
         heroSeed={heroSeed}
-        hasHero={Boolean(activity ? getEffectiveThumbnailUrl(activity) : undefined)}
+        hasHero={Boolean(resolvedHeroUrl)}
         loading={heroImageLoading}
         error={heroImageError}
         thumbnailUrl={displayThumbnailUrlForSheet}
@@ -5483,49 +5510,43 @@ export function ActivityDetailScreen() {
         <View style={styles.sheetContent}>
           <BottomDrawerHeader
             title="Send to…"
-            variant="minimal"
+            variant="withClose"
+            onClose={() => setActiveSheet(null)}
             containerStyle={styles.sheetHeader}
             titleStyle={styles.sheetTitle}
           />
-          {(() => {
-            const type = (activity?.type ?? 'task') as any;
-            const supported = installedDestinations
-              .filter((t) => Boolean(t.is_enabled))
-              .filter((t) => getDestinationSupportedActivityTypes(t.kind as any).includes(type));
-            if (supported.length === 0) return null;
-            return (
-              <>
-                {supported.map((t) => (
-                  <SheetOption
-                    key={t.id}
-                    testID={`e2e.activityDetail.sendTo.destination.${t.id}`}
-                    label={t.display_name || t.kind}
-                    subtext="Destination"
-                    onPress={() => {
-                      capture(AnalyticsEvent.ActivityActionInvoked, {
-                        activityId: activity.id,
-                        action: 'sendToDestination',
-                        destinationKind: t.kind,
-                      } as any);
-                      setActiveSheet(null);
-                      handoffActivityToExecutionTarget({ activityId: activity.id, executionTargetId: t.id })
-                        .then((res) => {
-                          if (res.ok) {
-                            showToast({ message: `Sent to ${t.display_name || 'destination'}.` });
-                          } else {
-                            Alert.alert('Unable to send', res.message);
-                          }
-                        })
-                        .catch(() => {
-                          Alert.alert('Unable to send', 'Something went wrong. Please try again.');
-                        });
-                    }}
-                  />
-                ))}
-                <View style={styles.cardSectionDivider} />
-              </>
-            );
-          })()}
+          {supportedSendToDestinations.length > 0 ? (
+            <>
+              {supportedSendToDestinations.map((t) => (
+                <SheetOption
+                  key={t.id}
+                  testID={`e2e.activityDetail.sendTo.destination.${t.id}`}
+                  label={t.display_name || t.kind}
+                  subtext="Destination"
+                  onPress={() => {
+                    capture(AnalyticsEvent.ActivityActionInvoked, {
+                      activityId: activity.id,
+                      action: 'sendToDestination',
+                      destinationKind: t.kind,
+                    } as any);
+                    setActiveSheet(null);
+                    handoffActivityToExecutionTarget({ activityId: activity.id, executionTargetId: t.id })
+                      .then((res) => {
+                        if (res.ok) {
+                          showToast({ message: `Sent to ${t.display_name || 'destination'}.` });
+                        } else {
+                          Alert.alert('Unable to send', res.message);
+                        }
+                      })
+                      .catch(() => {
+                        Alert.alert('Unable to send', 'Something went wrong. Please try again.');
+                      });
+                  }}
+                />
+              ))}
+              <View style={styles.cardSectionDivider} />
+            </>
+          ) : null}
           {activity.type === 'shopping_list' && (enabledSendToDestinations?.amazon ?? false) ? (
             <SheetOption
             testID="e2e.activityDetail.sendTo.amazon"
@@ -5578,9 +5599,12 @@ export function ActivityDetailScreen() {
             }}
           />
           ) : null}
-          <View style={styles.cardSectionDivider} />
+          {supportedSendToDestinations.length > 0 || hasRetailerSendToOptions ? (
+            <View style={styles.cardSectionDivider} />
+          ) : null}
           <SheetOption
             testID="e2e.activityDetail.sendTo.copy"
+            iconName="clipboard"
             label="Copy details"
             disabled={!activityExportText}
             subtext={!activityExportText ? 'Add some details to copy.' : undefined}
@@ -5592,6 +5616,7 @@ export function ActivityDetailScreen() {
           />
           <SheetOption
             testID="e2e.activityDetail.sendTo.share"
+            iconName="share"
             label="Share…"
             disabled={!activityExportText}
             subtext={!activityExportText ? 'Add some details to share.' : undefined}
@@ -5601,8 +5626,6 @@ export function ActivityDetailScreen() {
               handleSendToShare().catch(() => undefined);
             }}
           />
-          <View style={styles.cardSectionDivider} />
-          <SheetOption testID="e2e.activityDetail.sendTo.cancel" label="Cancel" onPress={() => setActiveSheet(null)} />
         </View>
       </BottomDrawer>
     </AppShell>
@@ -5622,9 +5645,10 @@ type SheetOptionProps = {
   testID?: string;
   disabled?: boolean;
   subtext?: string;
+  iconName?: IconName;
 };
 
-function SheetOption({ label, onPress, testID, disabled, subtext }: SheetOptionProps) {
+function SheetOption({ label, onPress, testID, disabled, subtext, iconName }: SheetOptionProps) {
   return (
     <Pressable
       testID={testID}
@@ -5636,10 +5660,23 @@ function SheetOption({ label, onPress, testID, disabled, subtext }: SheetOptionP
         onPress();
       }}
     >
-      <Text style={[styles.sheetRowLabel, disabled ? { color: colors.textSecondary } : null]}>
-        {label}
-      </Text>
-      {subtext ? <Text style={styles.sheetRowSubtext}>{subtext}</Text> : null}
+      <HStack alignItems="flex-start" space="sm" style={styles.sheetRowInner}>
+        {iconName ? (
+          <View style={styles.sheetRowIcon}>
+            <Icon
+              name={iconName}
+              size={18}
+              color={disabled ? colors.textSecondary : colors.textPrimary}
+            />
+          </View>
+        ) : null}
+        <View style={styles.sheetRowTextBlock}>
+          <Text style={[styles.sheetRowLabel, disabled ? { color: colors.textSecondary } : null]}>
+            {label}
+          </Text>
+          {subtext ? <Text style={styles.sheetRowSubtext}>{subtext}</Text> : null}
+        </View>
+      </HStack>
     </Pressable>
   );
 }

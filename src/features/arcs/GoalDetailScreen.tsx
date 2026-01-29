@@ -62,7 +62,7 @@ import { enrichActivityWithAI } from '../../services/ai';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { suggestTagsFromText } from '../../utils/tags';
 import { shareUrlWithPreview } from '../../utils/share';
-import { persistImageUri } from '../../utils/persistImageUri';
+import { initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
   ARC_MOSAIC_COLS,
@@ -96,6 +96,7 @@ import { GoalProgressSignalsRow, type GoalProgressSignal } from '../../ui/GoalPr
 import { ArcBannerSheet } from './ArcBannerSheet';
 import type { ArcHeroImage } from './arcHeroLibrary';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
+import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import {
   ObjectPageHeader,
   HeaderActionPill,
@@ -1258,10 +1259,12 @@ export function GoalDetailScreen() {
     effectiveThumbnailStyles.length > 0 ? pickThumbnailStyle(heroSeed, effectiveThumbnailStyles) : null;
   const showTopography = false;
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
-  const hasCustomThumbnail = Boolean(goal?.thumbnailUrl);
+  const goalHeroUri = useHeroImageUrl(goal);
+  const arcHeroUri = useHeroImageUrl(arc);
+  const hasCustomThumbnail = Boolean(goalHeroUri);
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
-  const displayThumbnailUrl = goal?.thumbnailUrl ?? arc?.thumbnailUrl;
-  const heroAttributionMeta = goal?.thumbnailUrl ? goal?.heroImageMeta : arc?.heroImageMeta;
+  const displayThumbnailUrl = goalHeroUri ?? arcHeroUri;
+  const heroAttributionMeta = goalHeroUri ? goal?.heroImageMeta : arc?.heroImageMeta;
 
   if (!goal) {
     if (!domainHydrated) {
@@ -1578,20 +1581,25 @@ export function GoalDetailScreen() {
       }
       const asset = result.assets[0];
       if (!asset.uri) return;
-
-      const stableUri = await persistImageUri({
-        uri: asset.uri,
-        subdir: 'hero-images',
-        namePrefix: `goal-${goal.id}-hero`,
+      const { storagePath, uploadSignedUrl } = await initHeroImageUpload({
+        entityType: 'goal',
+        entityId: goal.id,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
+      });
+      await uploadHeroImageToSignedUrl({
+        signedUrl: uploadSignedUrl,
+        fileUri: asset.uri,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
       });
       const nowIso = new Date().toISOString();
       updateGoal(goal.id, (prev) => ({
         ...prev,
-        thumbnailUrl: stableUri,
+        thumbnailUrl: undefined,
         heroImageMeta: {
           source: 'upload',
           prompt: prev.heroImageMeta?.prompt,
           createdAt: nowIso,
+          uploadStoragePath: storagePath,
         },
         updatedAt: nowIso,
       }));
@@ -3417,10 +3425,10 @@ export function GoalDetailScreen() {
           setTimeout(() => openPaywallPurchaseEntry(), 360);
         }}
         heroSeed={heroSeed}
-        hasHero={Boolean(goal.thumbnailUrl)}
+        hasHero={Boolean(goalHeroUri)}
         loading={heroImageLoading}
         error={heroImageError}
-        thumbnailUrl={displayThumbnailUrl}
+        thumbnailUrl={displayThumbnailUrl ?? undefined}
         heroGradientColors={heroGradientColors}
         heroGradientDirection={heroGradientDirection}
         heroTopoSizes={heroTopoSizes}

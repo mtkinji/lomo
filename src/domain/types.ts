@@ -64,6 +64,12 @@ export interface Arc {
     unsplashAuthorName?: string;
     unsplashAuthorLink?: string;
     unsplashLink?: string;
+    /**
+     * For user-uploaded hero images, a private Supabase Storage path in bucket `hero_images`.
+     * This survives reinstalls; the app should fetch a signed download URL at render time.
+     * Example: `<userId>/goal/<goalId>.jpg`
+     */
+    uploadStoragePath?: string;
   };
   /**
    * When true, hide the visual hero banner for this Arc and render a minimal
@@ -172,6 +178,10 @@ export interface Goal {
     unsplashAuthorName?: string;
     unsplashAuthorLink?: string;
     unsplashLink?: string;
+    /**
+     * For user-uploaded hero images, a private Supabase Storage path in bucket `hero_images`.
+     */
+    uploadStoragePath?: string;
   };
   status: 'planned' | 'in_progress' | 'completed' | 'archived';
   /**
@@ -466,6 +476,10 @@ export interface Activity {
     unsplashAuthorName?: string;
     unsplashAuthorLink?: string;
     unsplashLink?: string;
+    /**
+     * For user-uploaded hero images, a private Supabase Storage path in bucket `hero_images`.
+     */
+    uploadStoragePath?: string;
   };
   /**
    * Optional provenance so Activities created from other objects can link back to their origin.

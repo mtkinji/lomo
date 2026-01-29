@@ -19,6 +19,7 @@ import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { formatActivityTypeLabel, getDestinationSupportedActivityTypes } from '../../domain/destinationCapabilities';
 import { OOTB_DESTINATIONS } from '../../domain/ootbDestinations';
 import { Icon } from '../../ui/Icon';
+import { FloatingActionButton } from '../../ui/FloatingActionButton';
 import { useAppStore } from '../../store/useAppStore';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsExecutionTargets'>;
@@ -53,7 +54,11 @@ export function ExecutionTargetsSettingsScreen() {
 
   // Load definitions in the background so “Library” can show a hint if it’s empty.
   const definitionsCount = useMemo(() => definitions.length, [definitions.length]);
-  const hasDestinations = targets.length > 0;
+  const installedBuiltInDestinations = useMemo(() => {
+    const enabled = enabledSendToDestinations ?? {};
+    return OOTB_DESTINATIONS.filter((d) => d.kind !== 'cursor_repo').filter((d) => Boolean((enabled as any)[String(d.kind)]));
+  }, [enabledSendToDestinations]);
+  const hasInstalledDestinations = targets.length > 0 || installedBuiltInDestinations.length > 0;
   const installedDefinitionIds = useMemo(() => new Set(targets.map((t) => String(t.definition_id ?? ''))), [targets]);
   const cursorDefinition = useMemo(
     () => definitions.find((d) => String(d.kind) === 'cursor_repo') ?? null,
@@ -74,15 +79,38 @@ export function ExecutionTargetsSettingsScreen() {
   }, [definitions, libraryQuery]);
 
   const openLibrary = () => setLibraryVisible(true);
+  const afterSelectFromLibrary = () => setLibraryVisible(false);
 
   const renderInstalledTargets = () => {
-    if (targets.length === 0) {
+    if (targets.length === 0 && installedBuiltInDestinations.length === 0) {
       // When empty, the offer card above serves as the single empty-state surface.
       return null;
     }
 
     return (
-      <VStack space="sm">
+      <VStack space={spacing.xs / 2}>
+        {installedBuiltInDestinations.map((d) => {
+          const kind = String(d.kind);
+          return (
+            <Card key={`installed:ootb:${kind}`} style={styles.card}>
+              <HStack justifyContent="space-between" alignItems="center" space="sm">
+                <VStack flex={1} space="xs">
+                  <Text style={styles.itemTitle}>{d.displayName}</Text>
+                  <Text style={styles.subtle}>
+                    {kind} • Enabled
+                  </Text>
+                </VStack>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => navigation.navigate('SettingsBuiltInDestinationDetail', { kind: kind as any })}
+                  label="Manage"
+                  disabled={loading}
+                />
+              </HStack>
+            </Card>
+          );
+        })}
         {targets.map((t) => {
           const isEnabled = Boolean(t.is_enabled);
           const label = t.display_name || t.kind;
@@ -109,24 +137,206 @@ export function ExecutionTargetsSettingsScreen() {
     );
   };
 
+  const renderDestinationInventory = (opts: { mode: 'inline' | 'drawer' }) => {
+    const onAfterSelect = opts.mode === 'drawer' ? afterSelectFromLibrary : () => undefined;
+
+    const filteredOotb = OOTB_DESTINATIONS.filter((d) => {
+      const q = libraryQuery.trim().toLowerCase();
+      if (!q) return true;
+      const hay = `${d.displayName} ${d.description} ${d.kind}`.toLowerCase();
+      return hay.includes(q);
+    });
+
+    // Curated definitions: already filtered by `filteredDefinitions`, but avoid duplicating Cursor
+    // because it's listed as an OOTB destination.
+    const curated = filteredDefinitions.filter((d) => String(d.kind) !== 'cursor_repo');
+    const showNoMatches = filteredOotb.length === 0 && curated.length === 0 && definitions.length > 0;
+
+    const list = (
+      <>
+        {showNoMatches ? (
+          <Card style={styles.card}>
+            <VStack space="xs">
+              <Text style={styles.itemTitle}>No matches</Text>
+              <Text style={styles.subtle}>Try a different search.</Text>
+            </VStack>
+          </Card>
+        ) : (
+          <VStack space={spacing.xs / 2}>
+            {/* OOTB destinations (retailers + Cursor). */}
+            {filteredOotb.map((d) => {
+              const supported = d.supportedTypes;
+              const isCursor = d.kind === 'cursor_repo';
+              const canInstallCursor = isCursor && Boolean(cursorDefinition);
+              const alreadyInstalledCursor =
+                isCursor && Boolean(cursorDefinition) && installedDefinitionIds.has(String(cursorDefinition?.id ?? ''));
+              const isBuiltInRetailer = !isCursor;
+              const builtInKind = isBuiltInRetailer ? String(d.kind) : null;
+              const isInstalledBuiltIn = builtInKind ? Boolean((enabledSendToDestinations ?? {})[builtInKind]) : false;
+
+              return (
+                <Card key={`ootb:${d.kind}`} padding="sm" style={styles.libraryCard}>
+                  <Pressable
+                    disabled={loading}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${d.displayName} destination`}
+                    onPress={() => {
+                      if (isCursor) return;
+                      if (!builtInKind) return;
+                      onAfterSelect();
+                      navigation.navigate('SettingsBuiltInDestinationDetail', { kind: builtInKind as any });
+                    }}
+                    style={styles.libraryCardInner}
+                  >
+                    <VStack space={spacing.xs}>
+                      <HStack justifyContent="space-between" alignItems="center" space="xs">
+                        <HStack alignItems="center" space="xs" style={{ flex: 1, paddingRight: spacing.sm }}>
+                          <Text style={styles.itemTitle}>{d.displayName}</Text>
+                          {isCursor ? null : isInstalledBuiltIn ? (
+                            <Icon name="checkCircle" size={16} color={colors.accent} />
+                          ) : null}
+                        </HStack>
+                        <Button
+                          variant={
+                            isCursor
+                              ? alreadyInstalledCursor
+                                ? 'secondary'
+                                : 'cta'
+                              : isInstalledBuiltIn
+                                ? 'secondary'
+                                : 'cta'
+                          }
+                          size="xs"
+                          disabled={loading || (isCursor && !canInstallCursor)}
+                          label={
+                            isCursor
+                              ? alreadyInstalledCursor
+                                ? 'Manage'
+                                : canInstallCursor
+                                  ? 'Install'
+                                  : 'Unavailable'
+                              : isInstalledBuiltIn
+                                ? 'Installed'
+                                : 'Install'
+                          }
+                          onPress={() => {
+                            onAfterSelect();
+                            if (isCursor) {
+                              if (!cursorDefinition) return;
+                              if (alreadyInstalledCursor && installedCursorTarget) {
+                                navigation.navigate('SettingsDestinationDetail', {
+                                  mode: 'edit',
+                                  targetId: installedCursorTarget.id,
+                                });
+                                return;
+                              }
+                              navigation.navigate('SettingsDestinationDetail', {
+                                mode: 'create',
+                                definitionId: cursorDefinition.id,
+                              });
+                              return;
+                            }
+                            if (!builtInKind) return;
+                            navigation.navigate('SettingsBuiltInDestinationDetail', { kind: builtInKind as any });
+                          }}
+                        />
+                      </HStack>
+
+                      <Text style={styles.subtle} numberOfLines={1}>
+                        {d.description}
+                      </Text>
+
+                      <HStack space="xs" alignItems="center" style={styles.typeBadgeWrap}>
+                        {supported.slice(0, 1).map((t) => (
+                          <Badge key={`ootb:${d.kind}:${String(t)}`} variant="secondary">
+                            {formatActivityTypeLabel(t)}
+                          </Badge>
+                        ))}
+                      </HStack>
+                    </VStack>
+                  </Pressable>
+                </Card>
+              );
+            })}
+
+            {/* Curated (server) destinations. */}
+            {curated.map((d) => {
+              const isInstalled = installedDefinitionIds.has(String(d.id));
+              const supported = getDestinationSupportedActivityTypes(d.kind as any);
+              const installedTarget =
+                isInstalled ? targets.find((t) => String(t.definition_id ?? '') === String(d.id)) ?? null : null;
+              return (
+                <Card key={d.id} padding="sm" style={styles.libraryCard}>
+                  <View style={styles.libraryCardInner}>
+                    {isInstalled ? (
+                      <View style={styles.selectionIcon} pointerEvents="none">
+                        <Icon name="checkCircle" size={18} color={colors.accent} />
+                      </View>
+                    ) : null}
+
+                    <HStack justifyContent="space-between" alignItems="center" space="sm">
+                      <VStack flex={1} space="xs" style={{ paddingRight: spacing.sm }}>
+                        <HStack justifyContent="space-between" alignItems="center" space="xs">
+                          <HStack alignItems="center" space="xs" style={{ flex: 1, paddingRight: spacing.sm }}>
+                            <Text style={styles.itemTitle}>{d.display_name}</Text>
+                            {isInstalled ? <Icon name="checkCircle" size={16} color={colors.accent} /> : null}
+                          </HStack>
+                        </HStack>
+                        <Text style={styles.subtle} numberOfLines={1}>
+                          {d.description ?? d.kind}
+                        </Text>
+                        <HStack space="xs" alignItems="center" style={styles.typeBadgeWrap}>
+                          {supported.slice(0, 1).map((t) => (
+                            <Badge key={`${d.id}:${String(t)}`} variant="secondary">
+                              {formatActivityTypeLabel(t)}
+                            </Badge>
+                          ))}
+                        </HStack>
+                      </VStack>
+
+                      <Button
+                        variant={isInstalled ? 'secondary' : 'cta'}
+                        size="xs"
+                        disabled={loading}
+                        label={isInstalled ? 'Manage' : 'Install'}
+                        onPress={() => {
+                          onAfterSelect();
+                          if (isInstalled && installedTarget) {
+                            navigation.navigate('SettingsDestinationDetail', {
+                              mode: 'edit',
+                              targetId: installedTarget.id,
+                            });
+                            return;
+                          }
+                          navigation.navigate('SettingsDestinationDetail', {
+                            mode: 'create',
+                            definitionId: d.id,
+                          });
+                        }}
+                      />
+                    </HStack>
+                  </View>
+                </Card>
+              );
+            })}
+          </VStack>
+        )}
+      </>
+    );
+
+    if (opts.mode === 'drawer') {
+      return <BottomDrawerScrollView contentContainerStyle={styles.libraryContent}>{list}</BottomDrawerScrollView>;
+    }
+
+    return <View style={styles.libraryInlineWrap}>{list}</View>;
+  };
+
   return (
     <AppShell>
       <View style={styles.screen}>
         <PageHeader
           title="Destinations"
           onPressBack={() => navigation.goBack()}
-          rightElement={
-            hasDestinations ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onPress={openLibrary}
-                label="Add"
-                accessibilityLabel="Add destination"
-                disabled={loading}
-              />
-            ) : null
-          }
         />
         <KeyboardAwareScrollView
           style={styles.scroll}
@@ -135,39 +345,55 @@ export function ExecutionTargetsSettingsScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
         >
-          {!hasDestinations ? (
-            <View style={styles.offerWrap}>
-              <LinearGradient
-                colors={[colors.aiGradientStart, colors.aiGradientMid, colors.aiGradientEnd]}
-                start={{ x: 0, y: 0.1 }}
-                end={{ x: 1, y: 0.9 }}
-                style={styles.offerGradient}
-              >
-                <VStack space="sm">
-                  <Text style={styles.offerKicker}>Destinations</Text>
-                  <Text style={styles.offerTitle}>Continue Anywhere</Text>
-                  <Text style={styles.offerBody}>
-                    Work doesn’t stop where capture ends. Install a destination (like Cursor) so you can continue where
-                    real execution happens—without starting over.
-                  </Text>
+          {!hasInstalledDestinations ? (
+            <>
+              <View style={styles.offerWrap}>
+                <LinearGradient
+                  colors={[colors.aiGradientStart, colors.aiGradientMid, colors.aiGradientEnd]}
+                  start={{ x: 0, y: 0.1 }}
+                  end={{ x: 1, y: 0.9 }}
+                  style={styles.offerGradient}
+                >
+                  <VStack space="sm">
+                    <Text style={styles.offerKicker}>Destinations</Text>
+                    <Text style={styles.offerTitle}>Continue Anywhere</Text>
+                    <Text style={styles.offerBody}>
+                      Work doesn’t stop where capture ends. Install a destination (like Cursor) so you can continue
+                      where real execution happens—without starting over.
+                    </Text>
+                  </VStack>
+                </LinearGradient>
+              </View>
 
-                  <Button
-                    variant="inverse"
-                    size="sm"
-                    fullWidth
-                    onPress={openLibrary}
-                    label="Add a destination"
-                    accessibilityLabel="Add a destination"
-                    disabled={loading}
-                  />
-                </VStack>
-              </LinearGradient>
-            </View>
+              <View style={styles.libraryHeader}>
+                <Heading variant="sm">Destination library</Heading>
+                <Text style={styles.subtle}>Install a destination to enable “Send to…” handoff.</Text>
+                <Input
+                  value={libraryQuery}
+                  onChangeText={setLibraryQuery}
+                  placeholder="Search destinations"
+                  leadingIcon="search"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  containerStyle={styles.librarySearch}
+                />
+              </View>
+
+              {renderDestinationInventory({ mode: 'inline' })}
+            </>
           ) : null}
 
           {renderInstalledTargets()}
         </KeyboardAwareScrollView>
       </View>
+
+      {hasInstalledDestinations ? (
+        <FloatingActionButton
+          onPress={openLibrary}
+          accessibilityLabel="Add destination"
+          icon={<Icon name="plus" size={22} color={colors.primaryForeground} />}
+        />
+      ) : null}
 
       <BottomDrawer
         visible={libraryVisible}
@@ -190,168 +416,7 @@ export function ExecutionTargetsSettingsScreen() {
           />
         </View>
 
-        <BottomDrawerScrollView contentContainerStyle={styles.libraryContent}>
-          {filteredDefinitions.length === 0 && definitions.length > 0 ? (
-            <Card style={styles.card}>
-              <VStack space="xs">
-                <Text style={styles.itemTitle}>No matches</Text>
-                <Text style={styles.subtle}>Try a different search.</Text>
-              </VStack>
-            </Card>
-          ) : (
-            <VStack space={spacing.xs / 2}>
-              {/* OOTB destinations (retailers + Cursor). */}
-              {OOTB_DESTINATIONS.filter((d) => {
-                const q = libraryQuery.trim().toLowerCase();
-                if (!q) return true;
-                const hay = `${d.displayName} ${d.description} ${d.kind}`.toLowerCase();
-                return hay.includes(q);
-              }).map((d) => {
-                const supported = d.supportedTypes;
-                const isCursor = d.kind === 'cursor_repo';
-                const canInstallCursor = isCursor && Boolean(cursorDefinition);
-                const alreadyInstalledCursor =
-                  isCursor && Boolean(cursorDefinition) && installedDefinitionIds.has(String(cursorDefinition?.id ?? ''));
-                const isBuiltInRetailer = !isCursor;
-                const builtInKind = isBuiltInRetailer ? String(d.kind) : null;
-                const isInstalledBuiltIn = builtInKind ? Boolean((enabledSendToDestinations ?? {})[builtInKind]) : false;
-
-                return (
-                  <Card key={`ootb:${d.kind}`} padding="sm" style={styles.libraryCard}>
-                    <Pressable
-                      disabled={loading}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${d.displayName} destination`}
-                      onPress={() => {
-                        if (isCursor) return;
-                        if (!builtInKind) return;
-                        setLibraryVisible(false);
-                        navigation.navigate('SettingsBuiltInDestinationDetail', { kind: builtInKind as any });
-                      }}
-                      style={styles.libraryCardInner}
-                    >
-                      <VStack space={spacing.xs}>
-                        <HStack justifyContent="space-between" alignItems="center" space="xs">
-                          <HStack alignItems="center" space="xs" style={{ flex: 1, paddingRight: spacing.sm }}>
-                            <Text style={styles.itemTitle}>{d.displayName}</Text>
-                            {isCursor ? null : isInstalledBuiltIn ? (
-                              <Icon name="checkCircle" size={16} color={colors.accent} />
-                            ) : null}
-                          </HStack>
-                          <Button
-                            variant={isCursor ? (alreadyInstalledCursor ? 'secondary' : 'cta') : isInstalledBuiltIn ? 'secondary' : 'cta'}
-                            size="xs"
-                            disabled={loading || (isCursor && !canInstallCursor)}
-                            label={
-                              isCursor
-                                ? alreadyInstalledCursor
-                                  ? 'Manage'
-                                  : canInstallCursor
-                                    ? 'Install'
-                                    : 'Unavailable'
-                                : isInstalledBuiltIn
-                                  ? 'Installed'
-                                  : 'Install'
-                            }
-                            onPress={() => {
-                              setLibraryVisible(false);
-                              if (isCursor) {
-                                if (!cursorDefinition) return;
-                                if (alreadyInstalledCursor && installedCursorTarget) {
-                                  navigation.navigate('SettingsDestinationDetail', { mode: 'edit', targetId: installedCursorTarget.id });
-                                  return;
-                                }
-                                navigation.navigate('SettingsDestinationDetail', { mode: 'create', definitionId: cursorDefinition.id });
-                                return;
-                              }
-                              if (!builtInKind) return;
-                              navigation.navigate('SettingsBuiltInDestinationDetail', { kind: builtInKind as any });
-                            }}
-                          />
-                        </HStack>
-
-                        <Text style={styles.subtle} numberOfLines={1}>
-                          {d.description}
-                        </Text>
-
-                        <HStack space="xs" alignItems="center" style={styles.typeBadgeWrap}>
-                          {supported.slice(0, 1).map((t) => (
-                            <Badge key={`ootb:${d.kind}:${String(t)}`} variant="secondary">
-                              {formatActivityTypeLabel(t)}
-                            </Badge>
-                          ))}
-                        </HStack>
-                      </VStack>
-                    </Pressable>
-                  </Card>
-                );
-              })}
-
-              {/* Curated (server) destinations. */}
-              {filteredDefinitions.map((d) => {
-                // Avoid duplicating Cursor since it's already listed as an OOTB destination.
-                if (String(d.kind) === 'cursor_repo') return null;
-                const isInstalled = installedDefinitionIds.has(String(d.id));
-                const supported = getDestinationSupportedActivityTypes(d.kind as any);
-                const installedTarget =
-                  isInstalled ? targets.find((t) => String(t.definition_id ?? '') === String(d.id)) ?? null : null;
-                return (
-                  <Card key={d.id} padding="sm" style={styles.libraryCard}>
-                    <View style={styles.libraryCardInner}>
-                      {isInstalled ? (
-                        <View style={styles.selectionIcon} pointerEvents="none">
-                          <Icon name="checkCircle" size={18} color={colors.accent} />
-                        </View>
-                      ) : null}
-
-                      <HStack justifyContent="space-between" alignItems="center" space="sm">
-                        <VStack flex={1} space="xs" style={{ paddingRight: spacing.sm }}>
-                          <HStack justifyContent="space-between" alignItems="center" space="xs">
-                            <HStack alignItems="center" space="xs" style={{ flex: 1, paddingRight: spacing.sm }}>
-                              <Text style={styles.itemTitle}>{d.display_name}</Text>
-                              {isInstalled ? <Icon name="checkCircle" size={16} color={colors.accent} /> : null}
-                            </HStack>
-                          </HStack>
-                          <Text style={styles.subtle} numberOfLines={1}>
-                            {d.description ?? d.kind}
-                          </Text>
-                          <HStack space="xs" alignItems="center" style={styles.typeBadgeWrap}>
-                            {supported.slice(0, 1).map((t) => (
-                              <Badge key={`${d.id}:${String(t)}`} variant="secondary">
-                                {formatActivityTypeLabel(t)}
-                              </Badge>
-                            ))}
-                          </HStack>
-                        </VStack>
-
-                        <Button
-                          variant={isInstalled ? 'secondary' : 'cta'}
-                          size="xs"
-                          disabled={loading}
-                          label={isInstalled ? 'Manage' : 'Install'}
-                          onPress={() => {
-                            setLibraryVisible(false);
-                            if (isInstalled && installedTarget) {
-                              navigation.navigate('SettingsDestinationDetail', {
-                                mode: 'edit',
-                                targetId: installedTarget.id,
-                              });
-                              return;
-                            }
-                            navigation.navigate('SettingsDestinationDetail', {
-                              mode: 'create',
-                              definitionId: d.id,
-                            });
-                          }}
-                        />
-                      </HStack>
-                    </View>
-                  </Card>
-                );
-              })}
-            </VStack>
-          )}
-        </BottomDrawerScrollView>
+        {renderDestinationInventory({ mode: 'drawer' })}
       </BottomDrawer>
     </AppShell>
   );
@@ -429,6 +494,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   libraryContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing['3xl'],
+  },
+  libraryInlineWrap: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
   },

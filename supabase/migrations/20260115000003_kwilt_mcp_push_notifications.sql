@@ -66,3 +66,4 @@ create policy "kwilt_mcp_notification_log_service_only"
   with check (false);
 
 
+

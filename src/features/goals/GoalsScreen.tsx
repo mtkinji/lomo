@@ -52,7 +52,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { openPaywallPurchaseEntry } from '../../services/paywall';
-import { persistImageUri } from '../../utils/persistImageUri';
+import { getHeroImageSignedUrl, initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import { PaywallContent } from '../paywall/PaywallDrawer';
 import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
@@ -97,6 +97,11 @@ type GoalDraftEntry = {
 };
 
 type GoalCreationDraft = GoalDraft & {
+  /**
+   * Optional stable id used when we need to create durable side-effects (like hero image uploads)
+   * before the Goal object is committed.
+   */
+  id?: string;
   /**
    * Optional Arc this draft will be attached to once created. When unset, the
    * goal starts as a standalone goal and can be connected later from the
@@ -919,7 +924,7 @@ export function GoalCoachDrawer({
   const manualShowGeoMosaic = goalThumbnailStyle === 'geoMosaic';
   const manualShowContourRings = goalThumbnailStyle === 'contourRings';
   const manualShowPixelBlocks = goalThumbnailStyle === 'pixelBlocks';
-  const manualHasCustomThumbnail = Boolean(draft.thumbnailUrl);
+  const manualHasCustomThumbnail = Boolean(draft.thumbnailUrl || draft.heroImageMeta?.uploadStoragePath);
 
   const handleShuffleThumbnail = React.useCallback(() => {
     setDraft((current) => ({
@@ -944,19 +949,32 @@ export function GoalCoachDrawer({
       const asset = result.assets[0];
       if (!asset.uri) return;
 
-      const stableUri = await persistImageUri({
-        uri: asset.uri,
-        subdir: 'hero-images',
-        namePrefix: 'goal-draft-hero',
+      const draftId =
+        typeof draft.id === 'string' && draft.id.trim()
+          ? draft.id.trim()
+          : `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const { storagePath, uploadSignedUrl } = await initHeroImageUpload({
+        entityType: 'goal',
+        entityId: draftId,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
       });
+      await uploadHeroImageToSignedUrl({
+        signedUrl: uploadSignedUrl,
+        fileUri: asset.uri,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
+      });
+      // Best-effort: fetch a signed URL immediately so the draft UI can show the image.
+      const signedUrl = await getHeroImageSignedUrl(storagePath).catch(() => null);
       const nowIso = new Date().toISOString();
       setDraft((current) => ({
         ...current,
-        thumbnailUrl: stableUri,
+        id: draftId,
+        thumbnailUrl: signedUrl ?? undefined,
         heroImageMeta: {
           source: 'upload',
           prompt: undefined,
           createdAt: nowIso,
+          uploadStoragePath: storagePath,
         },
       }));
       // Mirror Arc behavior: close the sheet after successful upload so the user
@@ -967,7 +985,7 @@ export function GoalCoachDrawer({
     } finally {
       setHeroImageLoading(false);
     }
-  }, []);
+  }, [draft.id]);
 
   const handleClearThumbnail = React.useCallback(() => {
     setDraft((current) => ({
@@ -1040,7 +1058,10 @@ export function GoalCoachDrawer({
     }
 
     const timestamp = new Date().toISOString();
-    const id = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const id =
+      typeof draft.id === 'string' && draft.id.trim()
+        ? draft.id.trim()
+        : `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
     const goal: Goal = {
       id,
@@ -1055,7 +1076,7 @@ export function GoalCoachDrawer({
       metrics: [],
       createdAt: timestamp,
       updatedAt: timestamp,
-      thumbnailUrl: draft.thumbnailUrl,
+      thumbnailUrl: draft.heroImageMeta?.source === 'upload' ? undefined : draft.thumbnailUrl,
       thumbnailVariant: draft.thumbnailVariant ?? undefined,
       heroImageMeta: draft.heroImageMeta,
     };
