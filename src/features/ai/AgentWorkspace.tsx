@@ -39,6 +39,7 @@ import { Dialog, Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import { useArcDraftClaimStore } from '../../store/useArcDraftClaimStore';
 import { ArcDraftContinueFlow } from '../arcs/ArcDraftContinueFlow';
+import { ShareIntakeFlow } from './ShareIntakeFlow';
 
 export type AgentWorkspaceProps = {
   mode?: ChatMode;
@@ -590,6 +591,10 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           autoRecommendOnMount={launchContext.intent === 'goalCreation'}
         />
       );
+    }
+
+    if (workflowDefinition.chatMode === 'shareIntake') {
+      return <ShareIntakeFlow />;
     }
 
     return undefined;

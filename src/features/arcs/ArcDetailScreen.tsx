@@ -34,7 +34,7 @@ import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
-import { persistImageUri } from '../../utils/persistImageUri';
+import { initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import type { ThumbnailStyle } from '../../domain/types';
 import { Button, IconButton } from '../../ui/Button';
@@ -83,6 +83,7 @@ import {
 } from './thumbnailVisuals';
 import { type ArcHeroImage } from './arcHeroLibrary';
 import { trackUnsplashDownload, withUnsplashReferral, type UnsplashPhoto } from '../../services/unsplash';
+import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
 import { ArcBannerSheet } from './ArcBannerSheet';
@@ -146,6 +147,7 @@ export function ArcDetailScreen() {
   );
 
   const arc = useMemo(() => arcs.find((item) => item.id === arcId), [arcs, arcId]);
+  const arcHeroUri = useHeroImageUrl(arc);
 
   const handleShareArc = useCallback(async () => {
     try {
@@ -592,20 +594,25 @@ export function ArcDetailScreen() {
       }
       const asset = result.assets[0];
       if (!asset.uri) return;
-
-      const stableUri = await persistImageUri({
-        uri: asset.uri,
-        subdir: 'hero-images',
-        namePrefix: `arc-${arc.id}-hero`,
+      const { storagePath, uploadSignedUrl } = await initHeroImageUpload({
+        entityType: 'arc',
+        entityId: arc.id,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
+      });
+      await uploadHeroImageToSignedUrl({
+        signedUrl: uploadSignedUrl,
+        fileUri: asset.uri,
+        mimeType: typeof (asset as any)?.mimeType === 'string' ? ((asset as any).mimeType as string) : null,
       });
       const nowIso = new Date().toISOString();
       updateArc(arc.id, (current) => ({
         ...current,
-        thumbnailUrl: stableUri,
+        thumbnailUrl: undefined,
         heroImageMeta: {
           source: 'upload',
           prompt: current.heroImageMeta?.prompt,
           createdAt: nowIso,
+          uploadStoragePath: storagePath,
         },
         heroHidden: false,
         updatedAt: nowIso,
@@ -987,9 +994,9 @@ export function ArcDetailScreen() {
                       accessibilityLabel="Edit Arc banner"
                       activeOpacity={0.95}
                     >
-                      {arc.thumbnailUrl ? (
+                      {arcHeroUri ? (
                         <Image
-                          source={{ uri: arc.thumbnailUrl }}
+                          source={{ uri: arcHeroUri }}
                           style={styles.heroFullBleedImage}
                           resizeMode="cover"
                         />
@@ -1289,10 +1296,10 @@ export function ArcDetailScreen() {
           heroSeed ??
           buildArcThumbnailSeed(arc.id, arc.name, arc.thumbnailVariant)
         }
-        hasHero={Boolean(arc.thumbnailUrl)}
+        hasHero={Boolean(arcHeroUri)}
         loading={heroImageLoading}
         error={heroImageError}
-        thumbnailUrl={arc.thumbnailUrl}
+        thumbnailUrl={arcHeroUri ?? undefined}
         heroGradientColors={headerGradientColors}
         heroGradientDirection={headerGradientDirection}
         heroTopoSizes={heroTopoSizes}

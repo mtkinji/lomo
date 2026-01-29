@@ -31,6 +31,8 @@ appId: com.andrewwatanabe.kwilt
       id: "e2e.activityDetail.keyAction.focusMode"
     direction: DOWN
 
+- takeScreenshot: "activity-detail-key-actions"
+
 - tapOn:
     id: "e2e.activityDetail.keyAction.focusMode"
 

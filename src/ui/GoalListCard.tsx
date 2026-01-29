@@ -17,6 +17,7 @@ import {
 } from '../features/arcs/thumbnailVisuals';
 import { VStack, HStack, Heading, Text } from './primitives';
 import { getGoalStatusAppearance } from './goalStatusAppearance';
+import { useHeroImageUrl } from './hooks/useHeroImageUrl';
 
 type GoalListCardProps = {
   goal: Goal;
@@ -127,7 +128,9 @@ export function GoalListCard({
   const showGeoMosaic = thumbnailStyle === 'geoMosaic';
   const showContourRings = thumbnailStyle === 'contourRings';
   const showPixelBlocks = thumbnailStyle === 'pixelBlocks';
-  const hasCustomThumbnail = Boolean(goal.thumbnailUrl || parentArc?.thumbnailUrl);
+  const goalThumbUri = useHeroImageUrl(goal);
+  const arcThumbUri = useHeroImageUrl(parentArc ?? null);
+  const hasCustomThumbnail = Boolean(goalThumbUri || arcThumbUri);
   const shouldShowGeoMosaic = showGeoMosaic && !hasCustomThumbnail;
   const shouldShowContourRings = showContourRings && !hasCustomThumbnail;
   const shouldShowPixelBlocks = showPixelBlocks && !hasCustomThumbnail;
@@ -149,15 +152,15 @@ export function GoalListCard({
           {showThumbnail && (
             <View style={[styles.goalThumbnailWrapper, isDense && styles.goalThumbnailWrapperDense]}>
               <View style={[styles.goalThumbnailInner, isDense && styles.goalThumbnailInnerDense]}>
-                {goal.thumbnailUrl ? (
+                {goalThumbUri ? (
                   <Image
-                    source={{ uri: goal.thumbnailUrl }}
+                    source={{ uri: goalThumbUri }}
                     style={styles.goalThumbnail}
                     resizeMode="cover"
                   />
-                ) : parentArc?.thumbnailUrl ? (
+                ) : arcThumbUri ? (
                   <Image
-                    source={{ uri: parentArc.thumbnailUrl }}
+                    source={{ uri: arcThumbUri }}
                     style={styles.goalThumbnail}
                     resizeMode="cover"
                   />

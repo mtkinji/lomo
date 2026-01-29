@@ -7,6 +7,7 @@ import { arcCreationWorkflow } from './workflows/arcCreationWorkflow';
 import { activityCreationWorkflow } from './workflows/activityCreationWorkflow';
 import { activityGuidanceWorkflow } from './workflows/activityGuidanceWorkflow';
 import { firstTimeOnboardingWorkflow } from './workflows/firstTimeOnboardingWorkflow';
+import { shareIntakeWorkflow } from './workflows/shareIntakeWorkflow';
 
 /**
  * High-level modes that describe what job the AI chat is doing.
@@ -17,7 +18,8 @@ export type ChatMode =
   | 'firstTimeOnboarding'
   | 'goalCreation'
   | 'activityCreation'
-  | 'activityGuidance';
+  | 'activityGuidance'
+  | 'shareIntake';
 
 /**
  * Logical identifiers for tools the AI can call.
@@ -105,6 +107,7 @@ validateWorkflowDefinition(arcCreationWorkflow);
 validateWorkflowDefinition(activityCreationWorkflow);
 validateWorkflowDefinition(activityGuidanceWorkflow);
 validateWorkflowDefinition(firstTimeOnboardingWorkflow);
+validateWorkflowDefinition(shareIntakeWorkflow);
 
 /**
  * Registry of all available workflows, keyed by ChatMode.
@@ -117,6 +120,7 @@ export const WORKFLOW_REGISTRY: Record<ChatMode, WorkflowDefinition> = {
   activityCreation: activityCreationWorkflow,
   activityGuidance: activityGuidanceWorkflow,
   firstTimeOnboarding: firstTimeOnboardingWorkflow,
+  shareIntake: shareIntakeWorkflow,
 };
 
 /**

@@ -56,6 +56,7 @@ import { PlanKickoffDrawerHost } from '../features/plan/PlanKickoffDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { handleIncomingInviteUrl } from '../services/invites';
 import { handleIncomingArcDraftUrl } from '../services/arcDrafts';
+import { handleIncomingShareUrl } from '../services/appleEcosystem/shareExtension';
 import { pingInstall } from '../services/installPing';
 import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
@@ -365,6 +366,8 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
     const handleUrl = async (url: string) => {
       if (!mounted) return;
+      const didHandleShare = await handleIncomingShareUrl(url);
+      if (didHandleShare) return;
       try {
         const didHandleArcDraft = await handleIncomingArcDraftUrl(url, capture);
         if (didHandleArcDraft) return;
@@ -602,6 +605,15 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           component={MainTabsNavigator}
           options={{
             title: 'Home',
+            drawerItemStyle: { display: 'none' },
+          }}
+        />
+        <Drawer.Screen
+          name="Agent"
+          component={AiChatScreen}
+          options={{
+            title: 'Agent',
+            // Hidden: this route exists for deep links + programmatic launches.
             drawerItemStyle: { display: 'none' },
           }}
         />

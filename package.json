@@ -1,6 +1,6 @@
 {
   "name": "kwilt",
-  "version": "1.0.21",
+  "version": "1.0.23",
   "main": "index.ts",
   "workspaces": [
     "packages/*"
@@ -17,7 +17,11 @@
     "ios:testflight:no-widgets": "eas build --platform ios --profile production --non-interactive --auto-submit",
     "lint": "tsc --noEmit",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage",
+    "visual:collect": "node scripts/visual-regression/collect.js",
+    "visual:compare": "node scripts/visual-regression/compare.js",
+    "visual:update": "node scripts/visual-regression/compare.js --update"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -91,6 +95,8 @@
     "jest": "^29.7.0",
     "jest-expo": "^54.0.16",
     "jsonwebtoken": "^9.0.3",
+    "pixelmatch": "^6.0.2",
+    "pngjs": "^7.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

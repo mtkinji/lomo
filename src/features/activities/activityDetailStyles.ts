@@ -682,6 +682,20 @@ export const styles = StyleSheet.create({
   sheetRow: {
     paddingVertical: spacing.sm,
   },
+  sheetRowInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  sheetRowIcon: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 2,
+  },
+  sheetRowTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
   sheetRowLabel: {
     ...typography.body,
     color: colors.textPrimary,

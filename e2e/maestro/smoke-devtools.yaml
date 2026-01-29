@@ -19,4 +19,6 @@ appId: com.andrewwatanabe.kwilt
 - assertVisible:
     id: "e2e.openBottomDrawer"
 
+- takeScreenshot: "devtools-gallery"
+
 

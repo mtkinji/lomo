@@ -222,6 +222,36 @@ You currently don’t have `.github/workflows/*`. When you add CI:
 
 ---
 
+## Visual regression (UI changes + layout drift)
+
+Behavioral E2E will catch "broken taps" and keyboard regressions, but it can miss
+"looks weird" changes unless they break a flow. Visual regression adds a safety
+net by taking deterministic screenshots and diffing them in CI.
+
+### What we snapshot
+
+- App shell + canvas margins (root surfaces)
+- BottomDrawer open/close states
+- Keyboard harness screen with keyboard open
+- Activity detail key actions surface
+
+### Baseline workflow (one-time, then as-needed)
+
+1. Run the visual Maestro flows locally.
+2. Collect screenshots:
+   - `npm run visual:collect`
+3. Update the baseline:
+   - `npm run visual:update`
+4. Commit the images under `e2e/visual-baseline/`.
+
+### When a visual diff fails in CI
+
+- Inspect the `visual-regression-artifacts` uploaded by the workflow.
+- If the change is expected, update the baseline locally and re-commit.
+- If the change is unexpected, fix the UI and rerun CI.
+
+---
+
 ## Tooling quickstart (Maestro)
 
 Maestro isn’t installed in this repo yet; keep it as a local tool.

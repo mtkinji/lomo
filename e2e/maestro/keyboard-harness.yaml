@@ -28,6 +28,8 @@ appId: com.andrewwatanabe.kwilt
 
 - inputText: "hello"
 
+- takeScreenshot: "keyboard-long-form"
+
 # Prove taps still work while keyboard is open.
 - tapOn:
     id: "e2e.keyboard.tapWhileOpen"
@@ -59,6 +61,8 @@ appId: com.andrewwatanabe.kwilt
     id: "e2e.keyboard.sheetInput"
 
 - inputText: "sheet"
+
+- takeScreenshot: "keyboard-sheet-open"
 
 - tapOn:
     id: "e2e.keyboard.sheetSubmit"

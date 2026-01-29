@@ -13,7 +13,8 @@ export type LaunchSource =
   | 'activityDetail'
   | 'chapterDetail'
   | 'devTools'
-  | 'standaloneCoach';
+  | 'standaloneCoach'
+  | 'shareExtension';
 
 export type LaunchIntent =
   | 'firstTimeOnboarding'
@@ -24,7 +25,8 @@ export type LaunchIntent =
   | 'arcEditing'
   | 'goalEditing'
   | 'activityEditing'
-  | 'editField';
+  | 'editField'
+  | 'shareIntake';
 
 export type LaunchContextEntityRef =
   | { type: 'arc'; id: string }
