@@ -627,7 +627,12 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             <Drawer.Screen
               name="DevTools"
               component={DevToolsScreen}
-              options={{ title: 'Dev Mode' }}
+              options={{
+                title: 'Developer tools',
+                // Keep the route available for deep links and programmatic navigation,
+                // but move the entry point into Settings (dev-only).
+                drawerItemStyle: { display: 'none' },
+              }}
             />
             <Drawer.Screen
               name="DevArcTestingResults"
@@ -951,7 +956,6 @@ function KwiltDrawerContent(props: any) {
   const activeRoute = props.state.routes[props.state.index];
   const activeRouteName = activeRoute?.name as keyof RootDrawerParamList | undefined;
 
-  const devToolsRoute = props.state.routes.find((route: { name: string }) => route.name === 'DevTools');
   const mainRoutes = props.state.routes.filter(
     (route: { name: string }) =>
       route.name !== 'MainTabs' &&
@@ -1094,24 +1098,6 @@ function KwiltDrawerContent(props: any) {
         </View>
 
         <View style={styles.drawerBottom}>
-          {!!devToolsRoute && (
-            <DrawerItem
-              testID="nav.drawer.item.DevTools"
-              label={getDrawerLabel(devToolsRoute)}
-              focused={activeRouteName === 'DevTools'}
-              onPress={() => navigateFromDrawer('DevTools')}
-              icon={({ color, size }) => (
-                <Icon name={getDrawerIcon('DevTools')} color={color} size={DRAWER_ICON_SIZE ?? size ?? 20} />
-              )}
-              activeTintColor={colors.parchment}
-              inactiveTintColor={colors.textSecondary}
-              activeBackgroundColor={colors.pine700}
-              inactiveBackgroundColor="transparent"
-              labelStyle={styles.drawerLabel}
-              style={styles.drawerItem}
-            />
-          )}
-
           <Pressable
             style={styles.profileRow}
             accessibilityRole="button"

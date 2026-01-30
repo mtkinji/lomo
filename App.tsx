@@ -73,6 +73,10 @@ export default function App() {
   const isFirstTimeFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
+  const isPro = useEntitlementsStore((state) => state.isPro);
+  const llmModel = useAppStore((state) => state.llmModel);
+  const hasCustomizedLlmModel = useAppStore((state) => state.hasCustomizedLlmModel);
+  const setLlmModelSystem = useAppStore((state) => state.setLlmModelSystem);
   const hapticsEnabled = useAppStore((state) => state.hapticsEnabled);
   const setAuthIdentity = useAppStore((state) => state.setAuthIdentity);
   const clearAuthIdentity = useAppStore((state) => state.clearAuthIdentity);
@@ -303,6 +307,22 @@ export default function App() {
     // Partner progress alerts for shared goals (checks on foreground).
     startPartnerProgressService();
   }, [refreshEntitlements]);
+
+  useEffect(() => {
+    // Pro tier default model upgrade: move Pro users onto GPT‑5.2 without overriding
+    // explicit speed/latency preferences (e.g. if they chose 4o/4o-mini).
+    if (!isPro) return;
+    if (llmModel === 'gpt-5.2') return;
+    // Always upgrade older "top" model to the latest.
+    if (llmModel === 'gpt-5.1') {
+      setLlmModelSystem('gpt-5.2');
+      return;
+    }
+    // For everyone else, only switch defaults if the user hasn't explicitly chosen a model.
+    if (!hasCustomizedLlmModel) {
+      setLlmModelSystem('gpt-5.2');
+    }
+  }, [hasCustomizedLlmModel, isPro, llmModel, setLlmModelSystem]);
 
   useEffect(() => {
     const shouldRunFtue = !hasCompletedFirstTimeOnboarding && !isFirstTimeFlowActive;

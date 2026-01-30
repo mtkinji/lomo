@@ -57,7 +57,14 @@ type Params = {
   /**
    * Optional: start enrichment after create.
    */
-  enrichActivityWithAI?: (params: { title: string; goalId: string | null }) => Promise<any>;
+  enrichActivityWithAI?: (params: {
+    activityId?: string;
+    title: string;
+    goalId: string | null;
+    activityType?: string;
+    existingNotes?: string;
+    existingTags?: string[];
+  }) => Promise<any>;
   markActivityEnrichment?: (activityId: string, enriching: boolean) => void;
   /**
    * When true (default), re-focus the input after creating an activity to enable rapid entry.
@@ -235,9 +242,15 @@ export function useQuickAddDockController(params: Params) {
       });
     }
 
-    if (enrichActivityWithAI && updateActivity && markActivityEnrichment) {
-      markActivityEnrichment(activity.id, true);
-      enrichActivityWithAI({ title: trimmed, goalId: goalId ?? null })
+    if (enrichActivityWithAI && updateActivity) {
+      markActivityEnrichment?.(activity.id, true);
+      enrichActivityWithAI({
+        activityId: activity.id,
+        title: trimmed,
+        goalId: goalId ?? null,
+        activityType: resolvedType,
+        existingTags: resolvedTags,
+      })
         .then((enrichment) => {
           if (!enrichment) return;
           const ts = new Date().toISOString();
@@ -276,7 +289,7 @@ export function useQuickAddDockController(params: Params) {
         })
         .catch(() => undefined)
         .finally(() => {
-          markActivityEnrichment(activity.id, false);
+          markActivityEnrichment?.(activity.id, false);
         });
     }
   }, [
