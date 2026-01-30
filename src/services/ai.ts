@@ -13,6 +13,7 @@ import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { useCreditsInterstitialStore } from '../store/useCreditsInterstitialStore';
 import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import { getInstallId } from './installId';
+import { getMaybeRefreshedAccessToken } from './backend/auth';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
@@ -384,6 +385,21 @@ export class KwiltAiQuotaExceededError extends Error {
     super(params?.message ?? 'AI quota exceeded');
     this.name = 'KwiltAiQuotaExceededError';
     this.retryAt = params?.retryAt;
+  }
+}
+
+export class KwiltAiProxyError extends Error {
+  status: number;
+  code?: string;
+  retryAt?: string;
+  requestId?: string;
+  constructor(params: { message: string; status: number; code?: string; retryAt?: string; requestId?: string }) {
+    super(params.message);
+    this.name = 'KwiltAiProxyError';
+    this.status = params.status;
+    this.code = params.code;
+    this.retryAt = params.retryAt;
+    this.requestId = params.requestId;
   }
 }
 
@@ -1650,10 +1666,9 @@ export async function judgeArcRubric(
     '- confidence: 0–1 (how confident you are in the scoring given the inputs).',
   ].join('\n');
 
-  const body = {
+  const body: Record<string, unknown> = {
     model,
     temperature: 0.1,
-    max_tokens: 450,
     response_format: {
       type: 'json_schema',
       json_schema: {
@@ -1700,6 +1715,11 @@ export async function judgeArcRubric(
       { role: 'user' as const, content: truncateMessageContent(userPrompt) },
     ],
   };
+  if (usesMaxCompletionTokens(model)) {
+    body.max_completion_tokens = 450;
+  } else {
+    body.max_tokens = 450;
+  }
   
   // Check quota right before making the request (in case flag was set by parallel requests)
   if (isAiQuotaBlocked()) {
@@ -1837,10 +1857,9 @@ export async function judgeArcComparisonRubric(
     'Return JSON only.',
   ].join('\n');
 
-  const body = {
+  const body: Record<string, unknown> = {
     model,
     temperature: 0.1,
-    max_tokens: 900,
     response_format: {
       type: 'json_schema',
       json_schema: {
@@ -1908,6 +1927,11 @@ export async function judgeArcComparisonRubric(
       { role: 'user' as const, content: truncateMessageContent(userPrompt) },
     ],
   };
+  if (usesMaxCompletionTokens(model)) {
+    body.max_completion_tokens = 900;
+  } else {
+    body.max_tokens = 900;
+  }
   
   // Check quota right before making the request (in case flag was set by parallel requests)
   if (isAiQuotaBlocked()) {
@@ -2688,6 +2712,7 @@ export async function sendCoachChat(
   if (!response.ok) {
     const errorText = await response.text();
     const error = parseOpenAiError(errorText);
+    const proxy = parseKwiltProxyError(errorText);
     
     if (markOpenAiQuotaExceeded('coachChat', response.status, errorText, apiKey)) {
       // In development, degrade gracefully to mock replies so the app can still be exercised
@@ -2738,7 +2763,13 @@ export async function sendCoachChat(
       errorCode: error.code,
       fullResponse: error.raw,
     });
-    throw new Error(`Unable to reach kwilt Coach: ${error.message}`);
+    throw new KwiltAiProxyError({
+      message: `Unable to reach kwilt Coach: ${error.message}`,
+      status: response.status,
+      code: proxy?.code ?? error.code ?? error.type,
+      retryAt: proxy?.retryAt,
+      requestId: responseRequestId ?? undefined,
+    });
   }
 
   const data = await response.json();
@@ -3091,11 +3122,23 @@ async function fetchWithTimeout(
       const headers = new Headers(options.headers ?? undefined);
       // Strip any accidental Authorization headers (we never ship an OpenAI key).
       headers.delete('Authorization');
+      headers.delete('authorization');
       // Supabase Edge Functions gateway: include the project's publishable/anon key if configured.
       // This keeps the proxy callable even if "verify JWT" is enabled on the function.
       const supabaseKey = getEnvVar<string>('supabasePublishableKey')?.trim();
       if (supabaseKey) {
         headers.set('apikey', supabaseKey);
+      }
+      // Best-effort: attach the current Supabase user access token so environments
+      // with "verify JWT" enabled can still call the AI proxy while signed in.
+      // (This does NOT contain any OpenAI secret; it's just the user's session token.)
+      try {
+        const token = (await getMaybeRefreshedAccessToken())?.trim();
+        if (token) {
+          headers.set('Authorization', `Bearer ${token}`);
+        }
+      } catch {
+        // best-effort
       }
       try {
         const installId = await getInstallId();
@@ -3184,6 +3227,10 @@ function resolveChatModel(): LlmModel {
   return 'gpt-4o-mini';
 }
 
+function usesMaxCompletionTokens(model: string): boolean {
+  return typeof model === 'string' && model.startsWith('gpt-5');
+}
+
 /**
  * Lightweight activity enrichment used by quick-add and manual creation flows.
  *
@@ -3260,10 +3307,10 @@ export async function enrichActivityWithAI(
         : 'Other existing activities on this goal: (none)',
     ].join('\n');
 
-    const body = {
-      model: resolveChatModel(),
+    const model = resolveChatModel();
+    const body: Record<string, unknown> = {
+      model,
       temperature: 0.4,
-      max_tokens: 350,
       response_format: {
         type: 'json_schema',
         json_schema: {
@@ -3299,6 +3346,11 @@ export async function enrichActivityWithAI(
         { role: 'user' as const, content: truncateMessageContent(userPrompt) },
       ],
     };
+    if (usesMaxCompletionTokens(model)) {
+      body.max_completion_tokens = 350;
+    } else {
+      body.max_tokens = 350;
+    }
 
     const response = await fetchWithTimeout(
       OPENAI_COMPLETIONS_URL,
@@ -3393,10 +3445,10 @@ export async function inferActivitySchedulingDomainWithAI(params: {
         : 'Goal context: (none)',
     ].join('\n');
 
-    const body = {
-      model: resolveChatModel(),
+    const model = resolveChatModel();
+    const body: Record<string, unknown> = {
+      model,
       temperature: 0.1,
-      max_tokens: 120,
       response_format: {
         type: 'json_schema',
         json_schema: {
@@ -3419,6 +3471,11 @@ export async function inferActivitySchedulingDomainWithAI(params: {
         { role: 'user' as const, content: truncateMessageContent(userPrompt) },
       ],
     };
+    if (usesMaxCompletionTokens(model)) {
+      body.max_completion_tokens = 120;
+    } else {
+      body.max_tokens = 120;
+    }
 
     const response = await fetchWithTimeout(
       OPENAI_COMPLETIONS_URL,
@@ -3646,15 +3703,20 @@ export async function refineWritingWithAI(params: RefineWritingParams): Promise<
       safeText,
     ].join('\n');
 
-    const body = {
-      model: resolveChatModel(),
+    const model = resolveChatModel();
+    const body: Record<string, unknown> = {
+      model,
       temperature: 0.35,
-      max_tokens: 900,
       messages: [
         { role: 'system' as const, content: systemPrompt },
         { role: 'user' as const, content: userPrompt },
       ],
     };
+    if (usesMaxCompletionTokens(model)) {
+      body.max_completion_tokens = 900;
+    } else {
+      body.max_tokens = 900;
+    }
 
     const response = await fetchWithTimeout(
       OPENAI_COMPLETIONS_URL,

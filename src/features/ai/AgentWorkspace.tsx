@@ -472,8 +472,25 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           throw error;
         }
 
+        // More targeted errors for proxy/auth failures (otherwise users get a generic "connection" message).
+        const anyErr = error as any;
+        const status = typeof anyErr?.status === 'number' ? anyErr.status : null;
+        const code = typeof anyErr?.code === 'string' ? anyErr.code : '';
+        const looksLikeMissingInstallId =
+          lower.includes('missing x-kwilt-install-id') ||
+          (status === 400 && code.toLowerCase() === 'bad_request' && lower.includes('install-id'));
+        const looksLikeProviderUnavailable =
+          status === 503 || lower.includes('provider_unavailable') || lower.includes('ai provider unavailable');
+        const looksLikeAuthExpired = status === 401 || status === 403;
+
         controller.streamAssistantReplyFromWorkflow(
-          'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
+          looksLikeMissingInstallId
+            ? 'kwilt couldn’t restore a device ID for AI requests. Please fully close and reopen the app, then try again.'
+            : looksLikeAuthExpired
+              ? 'Your session may have expired. Try signing out and signing back in.'
+              : looksLikeProviderUnavailable
+                ? 'AI is temporarily unavailable. Please try again in a moment.'
+                : 'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
           'assistant-error-workflow'
         );
         props.onTransportError?.();

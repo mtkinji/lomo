@@ -14,15 +14,24 @@ function generateUuidV4Fallback(): string {
 }
 
 export async function getInstallId(): Promise<string> {
-  const existing = await AsyncStorage.getItem(INSTALL_ID_STORAGE_KEY);
-  if (existing && existing.trim().length > 0) return existing.trim();
+  try {
+    const existing = await AsyncStorage.getItem(INSTALL_ID_STORAGE_KEY);
+    if (existing && existing.trim().length > 0) return existing.trim();
+  } catch {
+    // If storage is temporarily unavailable/corrupted, fall back to an ephemeral ID.
+    // Callers (like AI proxy) require *some* install id; persistence is best-effort.
+  }
 
   const generated =
     typeof globalThis.crypto?.randomUUID === 'function'
       ? globalThis.crypto.randomUUID()
       : generateUuidV4Fallback();
 
-  await AsyncStorage.setItem(INSTALL_ID_STORAGE_KEY, generated);
+  try {
+    await AsyncStorage.setItem(INSTALL_ID_STORAGE_KEY, generated);
+  } catch {
+    // best-effort only
+  }
   return generated;
 }
 

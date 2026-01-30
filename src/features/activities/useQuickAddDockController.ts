@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { RefObject } from 'react';
-import { Keyboard } from 'react-native';
+import { Keyboard, Platform } from 'react-native';
 import type { Activity } from '../../domain/types';
 import type { ActivityRepeatRule } from '../../domain/types';
 import { spacing } from '../../theme';
@@ -91,9 +91,42 @@ export function useQuickAddDockController(params: Params) {
     focusAfterSubmit = true,
   } = params;
 
-  const [value, setValue] = React.useState('');
+  const [value, setValueBase] = React.useState('');
   const inputRef = React.useRef<any>(null) as RefObject<any>;
   const [isFocused, setIsFocused] = React.useState(false);
+
+  const normalizeForDedup = React.useCallback((raw: string) => {
+    return (raw ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }, []);
+
+  // iOS dictation (native mic) can fire multiple events in quick succession when stopping:
+  // - Sometimes it triggers submit-like events more than once.
+  // - Sometimes it emits a "late" final transcription after we've already cleared the field.
+  //
+  // These guards prevent duplicate activity creation and the confusing "text pops back in" effect.
+  const lastSubmitRef = React.useRef<{ atMs: number; key: string } | null>(null);
+  const lastClearRef = React.useRef<{ atMs: number; key: string } | null>(null);
+
+  const setValue = React.useCallback(
+    (next: string) => {
+      // Ignore late iOS dictation updates that try to re-apply the exact text we just submitted.
+      if (Platform.OS === 'ios') {
+        const lastClear = lastClearRef.current;
+        if (lastClear) {
+          const now = Date.now();
+          // Keep the window small; we only want to filter the immediate post-submit dictation tail.
+          if (now - lastClear.atMs < 900) {
+            const nextKey = normalizeForDedup(next);
+            if (nextKey && nextKey === lastClear.key) {
+              return;
+            }
+          }
+        }
+      }
+      setValueBase(next);
+    },
+    [normalizeForDedup],
+  );
 
   const [reminderAt, setReminderAt] = React.useState<string | null>(null);
   const [scheduledDate, setScheduledDate] = React.useState<string | null>(null);
@@ -148,6 +181,15 @@ export function useQuickAddDockController(params: Params) {
   const submit = React.useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed) return;
+
+    // Guard against duplicate submit fires (common with iOS dictation stop / some keyboards).
+    const nowMs = Date.now();
+    const key = normalizeForDedup(trimmed);
+    const last = lastSubmitRef.current;
+    if (last && key && last.key === key && nowMs - last.atMs < 1200) {
+      return;
+    }
+    lastSubmitRef.current = { atMs: nowMs, key };
 
     const timestamp = new Date().toISOString();
     const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -229,7 +271,10 @@ export function useQuickAddDockController(params: Params) {
     });
     void HapticsService.trigger('outcome.success');
 
-    setValue('');
+    // Clear the input. On iOS dictation, a late final transcription can arrive after this;
+    // track what we cleared so `setValue` can ignore that tail event.
+    lastClearRef.current = { atMs: nowMs, key };
+    setValueBase('');
     setReminderAt(null);
     setScheduledDate(null);
     setRepeatRule(undefined);
@@ -301,6 +346,7 @@ export function useQuickAddDockController(params: Params) {
     goalId,
     enrichActivityWithAI,
     markActivityEnrichment,
+    normalizeForDedup,
     onCreated,
     recordShowUp,
     reminderAt,

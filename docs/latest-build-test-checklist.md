@@ -1,6 +1,6 @@
 # Latest build testing checklist (TestFlight)
 
-Build under test: **iOS 1.0.21 (build 41)**
+Build under test: **iOS 1.0.25 (build 45)**
 
 ## Paste-ready TestFlight notes (short)
 

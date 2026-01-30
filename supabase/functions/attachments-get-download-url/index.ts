@@ -10,6 +10,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { verifyAndSyncRevenueCatPro } from '../_shared/revenuecat.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -113,6 +114,12 @@ async function requirePro(req: Request, admin: any, userId: string): Promise<
     const installStatus = await isProForQuotaKey(admin, installKey);
     if (installStatus.isPro) return { ok: true };
   }
+
+  const rc = await verifyAndSyncRevenueCatPro({ admin, installId, userId });
+  if (!rc.ok && rc.error) {
+    console.warn('RevenueCat verify failed', rc.error, rc.status ?? '');
+  }
+  if (rc.ok && rc.isPro) return { ok: true };
 
   if (trustClient && clientIsPro) return { ok: true };
 

@@ -83,6 +83,7 @@ export default function App() {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const didRunAppInitRef = useRef(false);
+  const lastTokenRefreshFailedAtRef = useRef(0);
 
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
@@ -114,9 +115,68 @@ export default function App() {
       // If the client gets stuck with a stale refresh token, Supabase may emit refresh-failed events.
       // Clear persisted auth state so the dev client doesn't keep surfacing runtime error banners.
       if (String(event) === 'TOKEN_REFRESH_FAILED') {
-        void resetSupabaseAuthStorage().catch(() => undefined);
-        setSupabaseAutoRefreshEnabled(false);
-        clearAuthIdentity();
+        // Avoid forcing a full sign-out on transient failures (network hiccups, brief outages).
+        // Instead, attempt a best-effort refresh; only clear auth if the refresh token is invalid.
+        const now = Date.now();
+        if (now - lastTokenRefreshFailedAtRef.current < 5_000) {
+          return;
+        }
+        lastTokenRefreshFailedAtRef.current = now;
+        void (async () => {
+          try {
+            const res = await supabase!.auth.refreshSession();
+            if (cancelled) return;
+            const nextSession = res?.data?.session ?? null;
+            const errMsg = (res as any)?.error?.message;
+            if (nextSession) {
+              const identity = deriveAuthIdentityFromSession(nextSession);
+              if (identity) {
+                setAuthIdentity(identity);
+                setSupabaseAutoRefreshEnabled(true);
+                return;
+              }
+            }
+
+            const lower = (typeof errMsg === 'string' ? errMsg : '').trim().toLowerCase();
+            const looksLikeInvalidRefreshToken =
+              lower.includes('invalid refresh token') || (lower.includes('refresh token') && lower.includes('invalid'));
+            if (looksLikeInvalidRefreshToken) {
+              // Best-effort: clear persisted auth state so we don't loop on startup.
+              await resetSupabaseAuthStorage().catch(() => undefined);
+              try {
+                await (supabase!.auth as any).signOut?.({ scope: 'local' });
+              } catch {
+                await supabase!.auth.signOut().catch(() => undefined);
+              }
+              setSupabaseAutoRefreshEnabled(false);
+              clearAuthIdentity();
+              return;
+            }
+
+            // Transient failure: pause auto-refresh briefly and retry soon.
+            setSupabaseAutoRefreshEnabled(false);
+            setTimeout(() => {
+              if (cancelled) return;
+              try {
+                setSupabaseAutoRefreshEnabled(true);
+              } catch {
+                // best-effort
+              }
+            }, 10_000);
+          } catch {
+            if (cancelled) return;
+            // Treat unknown refresh failures as transient; avoid forcing sign-out.
+            setSupabaseAutoRefreshEnabled(false);
+            setTimeout(() => {
+              if (cancelled) return;
+              try {
+                setSupabaseAutoRefreshEnabled(true);
+              } catch {
+                // best-effort
+              }
+            }, 10_000);
+          }
+        })();
         return;
       }
       const identity = deriveAuthIdentityFromSession(session);

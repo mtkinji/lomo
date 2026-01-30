@@ -562,13 +562,33 @@ serve(async (req) => {
     return json(200, { ok: true, actionsCost });
   }
 
-  // Clamp max_tokens for chat requests (safety even under actions-only quotas).
+  // Clamp output token limit for chat requests (safety even under actions-only quotas).
+  // NOTE: GPT-5 tier models reject `max_tokens` and require `max_completion_tokens`.
   if (route === '/v1/chat/completions') {
     const maxOut = getMaxOutputTokens(route);
-    if (typeof parsedBody.max_tokens === 'number') {
-      parsedBody.max_tokens = Math.min(parsedBody.max_tokens, maxOut);
-    } else if (maxOut > 0) {
-      parsedBody.max_tokens = maxOut;
+    const requestedModel = typeof parsedBody?.model === 'string' ? String(parsedBody.model).trim() : '';
+    const isGpt5 = requestedModel.startsWith('gpt-5');
+
+    if (isGpt5) {
+      // Translate any incoming `max_tokens` -> `max_completion_tokens` for GPT-5.
+      if (typeof parsedBody.max_tokens === 'number' && typeof parsedBody.max_completion_tokens !== 'number') {
+        parsedBody.max_completion_tokens = parsedBody.max_tokens;
+      }
+      // Remove `max_tokens` to avoid OpenAI "unsupported_parameter" errors.
+      if (typeof parsedBody.max_tokens !== 'undefined') {
+        delete parsedBody.max_tokens;
+      }
+      if (typeof parsedBody.max_completion_tokens === 'number') {
+        parsedBody.max_completion_tokens = Math.min(parsedBody.max_completion_tokens, maxOut);
+      } else if (maxOut > 0) {
+        parsedBody.max_completion_tokens = maxOut;
+      }
+    } else {
+      if (typeof parsedBody.max_tokens === 'number') {
+        parsedBody.max_tokens = Math.min(parsedBody.max_tokens, maxOut);
+      } else if (maxOut > 0) {
+        parsedBody.max_tokens = maxOut;
+      }
     }
   }
 
@@ -581,20 +601,63 @@ serve(async (req) => {
     }
   }
 
+  function looksLikeModelUnavailable(status: number, text: string): boolean {
+    if (!(status === 400 || status === 404)) return false;
+    try {
+      const parsed = JSON.parse(text);
+      const err = parsed?.error;
+      const code = typeof err?.code === 'string' ? String(err.code).toLowerCase() : '';
+      const message = typeof err?.message === 'string' ? String(err.message).toLowerCase() : '';
+      // OpenAI commonly uses `model_not_found` or "The model ... does not exist / you do not have access"
+      if (code.includes('model_not_found')) return true;
+      if (message.includes('model') && (message.includes('does not exist') || message.includes('not found'))) return true;
+      if (message.includes('model') && message.includes('do not have access')) return true;
+      return false;
+    } catch {
+      const lower = (text ?? '').toLowerCase();
+      return lower.includes('model') && (lower.includes('not found') || lower.includes('does not exist'));
+    }
+  }
+
   const upstreamUrl = `https://api.openai.com${route}`;
   const startedAt = Date.now();
 
-  const upstreamResp = await fetch(upstreamUrl, {
+  const upstreamRequestInit = {
     method: 'POST',
     headers: {
       'Content-Type': contentType,
       Authorization: `Bearer ${openAiKey}`,
       Accept: 'application/json',
     },
-    body: JSON.stringify(parsedBody),
-  });
+  } as const;
 
-  const upstreamText = await upstreamResp.text();
+  const dispatchUpstream = async (body: any) =>
+    await fetch(upstreamUrl, {
+      ...upstreamRequestInit,
+      body: JSON.stringify(body),
+    });
+
+  let upstreamResp = await dispatchUpstream(parsedBody);
+  let upstreamText = await upstreamResp.text();
+
+  // Compatibility shim: if GPT‑5 tier models are not available on this OpenAI key
+  // (or the endpoint requires a different API), fall back to a supported chat model.
+  //
+  // This prevents a Pro default-model bump (e.g. gpt‑5.2) from hard-breaking AI.
+  if (route === '/v1/chat/completions' && !upstreamResp.ok && typeof parsedBody?.model === 'string') {
+    const requested = String(parsedBody.model).trim();
+    const isGpt5 = requested === 'gpt-5.2' || requested === 'gpt-5.1' || requested.startsWith('gpt-5');
+    if (isGpt5 && looksLikeModelUnavailable(upstreamResp.status, upstreamText)) {
+      const fallbackModel = isPro ? 'gpt-4o' : 'gpt-4o-mini';
+      // Only retry if we'd actually change the model.
+      if (requested !== fallbackModel) {
+        parsedBody.model = fallbackModel;
+        model = fallbackModel;
+        upstreamResp = await dispatchUpstream(parsedBody);
+        upstreamText = await upstreamResp.text();
+      }
+    }
+  }
   const durationMs = Date.now() - startedAt;
 
   // Token telemetry (best-effort): for chat completions OpenAI returns `usage`.

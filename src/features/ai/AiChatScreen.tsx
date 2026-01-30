@@ -2912,10 +2912,33 @@ export const AiChatPane = forwardRef(function AiChatPane(
         setHasTransportError(false);
         return;
       }
+
+      // High-signal proxy / auth failures: surface something actionable.
+      let userFacing = '';
+      try {
+        const anyErr = err as any;
+        const status = typeof anyErr?.status === 'number' ? anyErr.status : null;
+        const code = typeof anyErr?.code === 'string' ? anyErr.code : '';
+        if (
+          lower.includes('missing x-kwilt-install-id') ||
+          (status === 400 && code.toLowerCase() === 'bad_request' && lower.includes('install-id'))
+        ) {
+          userFacing =
+            'kwilt couldn’t restore a device ID for AI requests. Please fully close and reopen the app, then try again.';
+        } else if (status === 401 || status === 403) {
+          userFacing = 'Your session may have expired. Try signing out and signing back in.';
+        } else if (status === 503 || lower.includes('provider_unavailable') || lower.includes('ai provider unavailable')) {
+          userFacing = 'AI is temporarily unavailable. Please try again in a moment.';
+        }
+      } catch {
+        // ignore (fallback below)
+      }
+
       const errorMessage: ChatMessage = {
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
         content:
+          userFacing ||
           'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
       };
       setMessages((prev) => {
