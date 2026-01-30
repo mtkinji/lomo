@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View, Pressable, Platform, Switch } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, View, Pressable, Platform, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -10,6 +10,7 @@ import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Text, VStack } from '../../ui/primitives';
 import { NotificationService } from '../../services/NotificationService';
+import { LocationPermissionService } from '../../services/LocationPermissionService';
 import {
   DEFAULT_DAILY_FOCUS_TIME,
   DEFAULT_DAILY_SHOW_UP_TIME,
@@ -25,6 +26,8 @@ export function NotificationsSettingsScreen() {
   const navigation = useNavigation<NotificationsSettingsNavigationProp>();
   const preferences = useAppStore((state) => state.notificationPreferences);
   const setPreferences = useAppStore((state) => state.setNotificationPreferences);
+  const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
+  const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
   const [timePickerTarget, setTimePickerTarget] = useState<'dailyShowUp' | 'dailyFocus' | 'goalNudge'>(
     'dailyShowUp',
@@ -68,6 +71,28 @@ export function NotificationsSettingsScreen() {
     }
   }, [preferences.osPermissionStatus]);
 
+  const locationOsStatusLabel = useMemo(() => {
+    switch (locationOfferPreferences.osPermissionStatus) {
+      case 'authorized':
+        return 'Allowed in system settings';
+      case 'denied':
+      case 'restricted':
+        return 'Blocked in system settings';
+      case 'unavailable':
+        return 'Not available in this build';
+      case 'notRequested':
+      default:
+        return 'Not requested yet';
+    }
+  }, [locationOfferPreferences.osPermissionStatus]);
+
+  useEffect(() => {
+    // Best-effort: keep system permission labels fresh when opening this screen.
+    // (Permissions can change in Settings while the app is in the background.)
+    void NotificationService.syncOsPermissionStatus();
+    void LocationPermissionService.syncOsPermissionStatus();
+  }, []);
+
   const handleToggleGlobal = async () => {
     if (!preferences.notificationsEnabled) {
       const granted = await NotificationService.ensurePermissionWithRationale('activity');
@@ -82,6 +107,26 @@ export function NotificationsSettingsScreen() {
       allowActivityReminders: !preferences.notificationsEnabled ? true : false,
     };
     await NotificationService.applySettings(next);
+  };
+
+  const handleToggleLocationOffers = async () => {
+    const currentlyEnabled = Boolean(locationOfferPreferences.enabled);
+    const nextEnabled = !currentlyEnabled;
+
+    // Feature gate: persist the product-layer preference immediately.
+    setLocationOfferPreferences((current) => ({ ...current, enabled: nextEnabled }));
+
+    // If turning on, ensure OS permission is requested (includes "Always" on iOS when available).
+    if (nextEnabled) {
+      await LocationPermissionService.ensurePermissionWithRationale('location_offers');
+      const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable');
+      if (nextStatus === 'unavailable') {
+        Alert.alert(
+          'Location not available',
+          'Location services aren’t available in this build. Use a development build (or update/reinstall) and try again.',
+        );
+      }
+    }
   };
 
   const handleToggleActivityReminders = async () => {
@@ -275,6 +320,41 @@ export function NotificationsSettingsScreen() {
                   thumbColor={colors.canvas}
                 />
               </View>
+            </VStack>
+          </View>
+
+          <View style={styles.card}>
+            <VStack space="md">
+              <VStack space="xs">
+                <Text style={styles.sectionTitle}>Location-based prompts</Text>
+                <Text style={styles.helperText}>{locationOsStatusLabel}</Text>
+              </VStack>
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle location-based prompts"
+                  onPress={handleToggleLocationOffers}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Allow location-based prompts</Text>
+                    <Text style={styles.rowSubtitle}>
+                      Get a gentle nudge when you arrive or leave a place attached to an Activity.
+                    </Text>
+                  </VStack>
+                </Pressable>
+                <Switch
+                  value={Boolean(locationOfferPreferences.enabled)}
+                  onValueChange={() => {
+                    void handleToggleLocationOffers();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
+              <Text style={styles.helperText}>
+                Requires “Always” location permission for reliable background triggers.
+              </Text>
             </VStack>
           </View>
 

@@ -61,7 +61,7 @@ To use the custom domain, set:
   - (or `EXPO_PUBLIC_SUPABASE_URL` / `extra.supabaseUrl` depending on environment)
 
 Optionally (recommended for iOS polish), set a separate “brand origin” used ONLY for the OAuth start URL host:
-- `AUTH_BRAND_ORIGIN=https://kwilt.app`
+- `AUTH_BRAND_ORIGIN=https://auth.kwilt.app`
 
 Keep the key the same:
 - `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY` stays unchanged.
@@ -74,7 +74,7 @@ Important: in this app, the Supabase URL is a **single base URL** used by `@supa
 
 - **Expo Go vs dev build/prod**: the system prompt can show `Expo` in Expo Go. In a dev build / prod build, it will show the real app name (Kwilt).
 - Validation checklist after setup:
-  - **Auth URL host**: the OAuth URL opened in the system auth session should be on `kwilt.app` (this is what drives the iOS prompt domain). Note: Supabase may sometimes return a canonical `*.supabase.co` host in the OAuth URL even when the client is configured with a custom domain; the app rewrites the start URL host to `AUTH_BRAND_ORIGIN` (or falls back to the Supabase base URL origin) to keep the prompt branded.
+  - **Auth URL host**: the OAuth URL opened in the system auth session should be on `auth.kwilt.app` (this is what drives the iOS prompt domain). Note: Supabase may sometimes return a canonical `*.supabase.co` host in the OAuth URL even when the client is configured with a custom domain; the app rewrites the start URL host to `AUTH_BRAND_ORIGIN` (or falls back to the Supabase base URL origin) to keep the prompt branded.
   - **Non-auth endpoints still work**: basic Supabase calls (REST queries, storage, etc.) still succeed with `SUPABASE_URL=https://auth.kwilt.app`.
 
 ---

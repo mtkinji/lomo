@@ -117,9 +117,14 @@ export function getAuthBrandOrigin(): string | undefined {
   }
 
   // Default: only set a brand origin in production builds, so local/dev remains flexible.
-  // If `kwilt.app` does not route `/auth/v1/authorize` to Supabase Auth, do NOT rely on this default;
-  // set AUTH_BRAND_ORIGIN to `https://auth.kwilt.app` instead.
-  return isProduction ? 'https://kwilt.app' : undefined;
+  // IMPORTANT:
+  // - This MUST be a host that serves/proxies Supabase Auth endpoints like `/auth/v1/authorize`.
+  // - `kwilt.app` is a marketing/landing domain and may not route auth paths (which would yield a 404).
+  // - Our Supabase custom auth domain *does* serve these routes.
+  //
+  // If you ever want the iOS system prompt to show a different domain, set AUTH_BRAND_ORIGIN explicitly
+  // and ensure that domain routes `/auth/v1/*` to Supabase Auth.
+  return isProduction ? 'https://auth.kwilt.app' : undefined;
 }
 
 export function getSupabaseUrl(): string | undefined {

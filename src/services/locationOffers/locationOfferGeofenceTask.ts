@@ -97,7 +97,21 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
     (typeof (payload as any)?.regionIdentifier === 'string' && (payload as any).regionIdentifier) ||
     (typeof (payload as any)?.identifier === 'string' && (payload as any).identifier) ||
     null;
-  if (!event || !activityId) return;
+  if (!event || !activityId) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[locationOffers] geofence task ignored (missing event/activityId)', {
+        hasEvent: Boolean(event),
+        activityId,
+        rawEventType,
+      });
+    }
+    return;
+  }
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[locationOffers] geofence event received', { activityId, event });
+  }
 
   // In headless/background task contexts, the zustand store may not have hydrated yet.
   // Prefer reading persisted snapshots to decide gating + find the Activity payload.
@@ -106,19 +120,60 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
   const prefs = (persisted.notificationPreferences ?? inMemory.notificationPreferences) as any;
   const locPrefs = (persisted.locationOfferPreferences ?? inMemory.locationOfferPreferences) as any;
 
-  if (!prefs?.notificationsEnabled || prefs?.osPermissionStatus !== 'authorized') return;
-  if (!locPrefs?.enabled || locPrefs?.osPermissionStatus !== 'authorized') return;
+  if (!prefs?.notificationsEnabled || prefs?.osPermissionStatus !== 'authorized') {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[locationOffers] geofence blocked by notification prefs', {
+        notificationsEnabled: Boolean(prefs?.notificationsEnabled),
+        osPermissionStatus: prefs?.osPermissionStatus,
+      });
+    }
+    return;
+  }
+  if (!locPrefs?.enabled || locPrefs?.osPermissionStatus !== 'authorized') {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[locationOffers] geofence blocked by location-offer prefs', {
+        enabled: Boolean(locPrefs?.enabled),
+        osPermissionStatus: locPrefs?.osPermissionStatus,
+      });
+    }
+    return;
+  }
 
   const activity =
     inMemory.activities.find((a) => a.id === activityId) ??
     (await loadPersistedActivity({ activityId })) ??
     null;
   const loc = (activity as any)?.location as any;
-  if (!activity || !loc) return;
+  if (!activity || !loc) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[locationOffers] geofence ignored (activity not found / missing location)', {
+        activityId,
+        foundActivity: Boolean(activity),
+        hasLocation: Boolean(loc),
+      });
+    }
+    return;
+  }
   if (activity.status === 'done' || activity.status === 'cancelled') return;
-  const configuredTrigger: 'arrive' | 'leave' =
-    loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
-  if (!shouldNotifyForTrigger({ configuredTrigger, event })) return;
+  // Trigger semantics:
+  // - If the activity has an explicit trigger, only notify for the matching event.
+  // - If the trigger is missing (older data / AI-created items), allow BOTH enter+exit.
+  const configuredTrigger: 'arrive' | 'leave' | null =
+    loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : null;
+  if (configuredTrigger && !shouldNotifyForTrigger({ configuredTrigger, event })) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log('[locationOffers] geofence ignored (trigger mismatch)', {
+        activityId,
+        event,
+        configuredTrigger,
+      });
+    }
+    return;
+  }
 
   const nowIso = new Date().toISOString();
   const shouldFire = await shouldFireLocationOffer({
@@ -146,6 +201,15 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
     }
     return null;
   });
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[locationOffers] notification scheduled from geofence', {
+      activityId,
+      event,
+      scheduled: Boolean(scheduledId),
+      scheduledId,
+    });
+  }
 
   // Only record as "fired" if we successfully scheduled; otherwise we'd suppress retries
   // even though the user never saw the offer.
