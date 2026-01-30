@@ -12,6 +12,7 @@ import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Text, VStack, Textarea, Button, KeyboardAwareScrollView } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { buildUserProfileSummary } from '../../services/ai';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 
 type AiModelSettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -45,8 +46,8 @@ const MODEL_OPTIONS: ModelOption[] = [
     latencyHint: 'A bit slower, more nuanced.',
   },
   {
-    value: 'gpt-5.1',
-    label: 'GPT‑5.1',
+    value: 'gpt-5.2',
+    label: 'GPT‑5.2',
     description:
       'Deepest reasoning for multi-step planning.',
     latencyHint: 'Slowest and most costly, but most capable.',
@@ -57,6 +58,7 @@ export function AiModelSettingsScreen() {
   const navigation = useNavigation<AiModelSettingsNavigationProp>();
   const llmModel = useAppStore((state) => state.llmModel);
   const setLlmModel = useAppStore((state) => state.setLlmModel);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const identitySummary = useAppStore(
     (state) => state.userProfile?.identitySummary ?? '',
   );
@@ -66,9 +68,15 @@ export function AiModelSettingsScreen() {
   const [hasCopiedPrompt, setHasCopiedPrompt] = useState(false);
 
   const currentLabel = useMemo(() => {
-    const active = MODEL_OPTIONS.find((option) => option.value === llmModel);
+    const resolvedModel: LlmModel =
+      !isPro && (llmModel === 'gpt-5.1' || llmModel === 'gpt-5.2')
+        ? 'gpt-4o-mini'
+        : llmModel === 'gpt-5.1'
+          ? 'gpt-5.2'
+          : llmModel;
+    const active = MODEL_OPTIONS.find((option) => option.value === resolvedModel);
     return active?.label ?? 'GPT‑4o mini';
-  }, [llmModel]);
+  }, [isPro, llmModel]);
 
   const inferredSummary = useMemo(() => {
     const summary = buildUserProfileSummary();
@@ -212,18 +220,33 @@ export function AiModelSettingsScreen() {
 
               <VStack space="md">
                 {MODEL_OPTIONS.map((option) => {
-                  const isSelected = option.value === llmModel;
+                  const resolvedModel: LlmModel =
+                    !isPro && (llmModel === 'gpt-5.1' || llmModel === 'gpt-5.2')
+                      ? 'gpt-4o-mini'
+                      : llmModel === 'gpt-5.1'
+                        ? 'gpt-5.2'
+                        : llmModel;
+                  const isSelected = option.value === resolvedModel;
+                  const isLocked = option.value === 'gpt-5.2' && !isPro;
                   return (
                     <Pressable
                       key={option.value}
-                      onPress={() => setLlmModel(option.value)}
+                      disabled={isLocked}
+                      onPress={() => {
+                        if (isLocked) {
+                          Alert.alert('Kwilt Pro required', 'GPT‑5.2 is available for Pro tier users.');
+                          return;
+                        }
+                        setLlmModel(option.value);
+                      }}
                       accessibilityRole="button"
-                      accessibilityState={{ selected: isSelected }}
+                      accessibilityState={{ selected: isSelected, disabled: isLocked }}
                     >
                       <View
                         style={[
                           styles.optionCard,
                           isSelected && styles.optionCardSelected,
+                          isLocked && styles.optionCardDisabled,
                         ]}
                       >
                         <HStack justifyContent="space-between" alignItems="center" space="md">
@@ -295,6 +318,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  optionCardDisabled: {
+    opacity: 0.45,
   },
   optionCardSelected: {
     borderColor: colors.accent,

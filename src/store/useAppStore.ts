@@ -33,7 +33,7 @@ import type { SoundscapeId } from '../services/soundscape';
 import { useToastStore } from './useToastStore';
 import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
 
-export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1';
+export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 
 type Updater<T> = (item: T) => T;
 
@@ -537,6 +537,11 @@ interface AppState {
   userProfile: UserProfile | null;
   llmModel: LlmModel;
   /**
+   * Whether the user explicitly selected an AI model (vs app default/migrations).
+   * Used to avoid clobbering user preferences during tier upgrades.
+   */
+  hasCustomizedLlmModel: boolean;
+  /**
    * Local-first "generative credits" ledger (monthly, no rollover).
    * Used as a UX/cost-safety layer until the AI proxy + quotas backend exists.
    */
@@ -804,6 +809,7 @@ interface AppState {
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
   clearUserProfile: () => void;
   setLlmModel: (model: LlmModel) => void;
+  setLlmModelSystem: (model: LlmModel) => void;
   tryConsumeGenerativeCredit: (params: {
     tier: 'free' | 'pro';
   }) => { ok: boolean; remaining: number; limit: number };
@@ -1174,6 +1180,7 @@ export const useAppStore = create<AppState>()(
       authIdentity: null,
       userProfile: buildDefaultUserProfile(),
       llmModel: 'gpt-4o-mini',
+      hasCustomizedLlmModel: false,
       generativeCredits: {
         monthKey: getMonthKey(new Date()),
         usedThisMonth: 0,
@@ -1727,7 +1734,8 @@ export const useAppStore = create<AppState>()(
           };
         }),
       clearUserProfile: () => set({ userProfile: null }),
-      setLlmModel: (model) => set({ llmModel: model }),
+      setLlmModel: (model) => set({ llmModel: model, hasCustomizedLlmModel: true }),
+      setLlmModelSystem: (model) => set({ llmModel: model }),
       tryConsumeGenerativeCredit: ({ tier }) => {
         const baseLimit =
           tier === 'pro' ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
@@ -2231,6 +2239,11 @@ export const useAppStore = create<AppState>()(
         // Backward-compatible: older persisted stores won't have hapticsEnabled.
         if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
           anyState.hapticsEnabled = true;
+        }
+        // Backward-compatible: older persisted stores won't have model customization flag.
+        if (!('hasCustomizedLlmModel' in anyState) || typeof anyState.hasCustomizedLlmModel !== 'boolean') {
+          const storedModel = typeof anyState.llmModel === 'string' ? anyState.llmModel : 'gpt-4o-mini';
+          anyState.hasCustomizedLlmModel = storedModel !== 'gpt-4o-mini';
         }
         // Backward-compatible: one-time Focus soundscape volume hint flag.
         if (

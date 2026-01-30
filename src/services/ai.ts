@@ -35,8 +35,14 @@ export type ActivityAiEnrichment = {
 };
 
 export type EnrichActivityWithAiParams = {
+  /**
+   * Optional: the id of the activity being enriched (so we can exclude it from
+   * dedupe context when we look at existing activities in the store).
+   */
+  activityId?: string;
   title: string;
   goalId: string | null;
+  activityType?: string;
   existingNotes?: string;
   existingTags?: string[];
 };
@@ -3164,8 +3170,14 @@ function resolveOpenAiApiKey(): string | undefined {
 function resolveChatModel(): LlmModel {
   const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
   const model = state?.llmModel;
+  const isPro = Boolean(useEntitlementsStore.getState?.().isPro);
 
-  if (model === 'gpt-4o' || model === 'gpt-4o-mini' || model === 'gpt-5.1') {
+  // Safety: non-Pro users should never use GPT-5 tier models (cost control + plan differentiation).
+  if (!isPro && (model === 'gpt-5.1' || model === 'gpt-5.2')) {
+    return 'gpt-4o-mini';
+  }
+
+  if (model === 'gpt-4o' || model === 'gpt-4o-mini' || model === 'gpt-5.1' || model === 'gpt-5.2') {
     return model;
   }
 
@@ -3191,16 +3203,26 @@ export async function enrichActivityWithAI(
     if (!title) return null;
 
     const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
-    const goalTitle =
-      params.goalId && state?.goals
-        ? state.goals.find((g) => g.id === params.goalId)?.title ?? null
-        : null;
-    const goalDescription =
-      params.goalId && state?.goals
-        ? state.goals.find((g) => g.id === params.goalId)?.description ?? null
-        : null;
+    const goal =
+      params.goalId && state?.goals ? state.goals.find((g) => g.id === params.goalId) ?? null : null;
+    const goalTitle = goal?.title ?? null;
+    const goalDescription = goal?.description ?? null;
     const goalDescriptionPlain = goalDescription ? richTextToPlainText(goalDescription) : null;
     const existingNotesPlain = params.existingNotes ? richTextToPlainText(params.existingNotes).trim() : '';
+
+    const arc =
+      goal?.arcId && state?.arcs ? state.arcs.find((a) => a.id === goal.arcId) ?? null : null;
+    const arcNarrativePlain = arc?.narrative ? richTextToPlainText(arc.narrative) : null;
+
+    const siblingActivitiesOnGoal =
+      params.goalId && state?.activities
+        ? state.activities
+            .filter((a) => a.goalId === params.goalId)
+            .filter((a) => (params.activityId ? a.id !== params.activityId : true))
+            // Best-effort: avoid echoing the same title as the newly created activity in the "avoid duplicates" list.
+            .filter((a) => (a.title ?? '').trim().toLowerCase() !== title.toLowerCase())
+            .slice(0, 14)
+        : [];
 
     const systemPrompt =
       'You enrich a single task/activity with helpful supporting details.\n' +
@@ -3211,18 +3233,31 @@ export async function enrichActivityWithAI(
       '- estimateMinutes: integer minutes (5–180) if reasonable.\n' +
       '- priority: 1 (highest) to 3 if obvious, otherwise omit.\n' +
       '- difficulty: one of very_easy|easy|medium|hard|very_hard if obvious.\n' +
+      'Important: avoid duplication.\n' +
+      '- Do NOT repeat the user-provided notes.\n' +
+      '- Do NOT propose tags that are already present in Existing tags.\n' +
+      '- If provided a list of existing goal activities, avoid producing steps/notes that substantially duplicate those items.\n' +
       'Do not include any PII and do not invent constraints the user did not imply.';
 
     const userPrompt = [
       `Activity title: ${title}`,
+      params.activityType ? `Activity type: ${String(params.activityType).trim()}` : 'Activity type: (unknown)',
       goalTitle ? `Goal: ${goalTitle}` : 'Goal: (none)',
       goalDescriptionPlain ? `Goal context: ${goalDescriptionPlain}` : 'Goal context: (none)',
+      arc?.name ? `Arc: ${arc.name}` : 'Arc: (none)',
+      arcNarrativePlain ? `Arc narrative: ${arcNarrativePlain}` : 'Arc narrative: (none)',
       existingNotesPlain
         ? `Existing notes (do not repeat, only augment if useful): ${existingNotesPlain}`
         : 'Existing notes: (none)',
       Array.isArray(params.existingTags) && params.existingTags.length > 0
         ? `Existing tags (avoid duplicates): ${params.existingTags.join(', ')}`
         : 'Existing tags: (none)',
+      siblingActivitiesOnGoal.length > 0
+        ? [
+            'Other existing activities on this goal (avoid duplicating these; make this activity complementary):',
+            ...siblingActivitiesOnGoal.map((a) => `- ${String(a.title ?? '').trim()} (status: ${String(a.status ?? '')})`),
+          ].join('\n')
+        : 'Other existing activities on this goal: (none)',
     ].join('\n');
 
     const body = {

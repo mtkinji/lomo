@@ -370,6 +370,30 @@ serve(async (req) => {
     return json(400, { error: { message: shape.message, code: 'bad_request' } });
   }
 
+  // Enforce plan-based model access (route-aware).
+  // - Chat: Pro can use GPT-5 tier; Free is clamped to a safe default.
+  // - Images: allow the image model.
+  if (typeof parsedBody?.model === 'string') {
+    const requested = String(parsedBody.model).trim();
+    if (route === '/v1/images/generations') {
+      const allowed = new Set(['gpt-image-1']);
+      if (!allowed.has(requested)) {
+        const clamped = 'gpt-image-1';
+        parsedBody.model = clamped;
+        model = clamped;
+      }
+    } else if (route === '/v1/chat/completions') {
+      const proAllowed = new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-5.1', 'gpt-5.2']);
+      const freeAllowed = new Set(['gpt-4o-mini', 'gpt-4o']);
+      const allowed = isPro ? proAllowed : freeAllowed;
+      if (!allowed.has(requested)) {
+        const clamped = isPro ? 'gpt-5.2' : 'gpt-4o-mini';
+        parsedBody.model = clamped;
+        model = clamped;
+      }
+    }
+  }
+
   // Determine action cost: 1 per chat completion call; higher for image generation.
   const actionsCost =
     route === '/v1/images/generations'

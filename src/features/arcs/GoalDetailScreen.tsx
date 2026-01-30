@@ -403,6 +403,7 @@ export function GoalDetailScreen() {
     updateActivity,
     recordShowUp,
     showToast,
+    enrichActivityWithAI,
     initialReservedHeightPx: quickAddInitialReservedHeightPx,
     toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
     focusAfterSubmit: false,
@@ -412,6 +413,10 @@ export function GoalDetailScreen() {
         activity_id: activity.id,
         goal_id: goalId,
       });
+
+      // Bring the user straight into the "form" so AI-filled details (notes/steps/tags/estimates)
+      // are immediately visible and editable.
+      handleOpenActivityDetail(activity.id);
 
       // After creating a new activity, scroll so the Activities list is in full view.
       // (Hard-jumping to the bottom feels disorienting.)
@@ -1820,9 +1825,12 @@ export function GoalDetailScreen() {
 
     // Enrich activity with AI details asynchronously
     enrichActivityWithAI({
+      activityId: nextActivity.id,
       title: trimmedTitle,
       goalId: goal.id,
+      activityType: values.type,
       existingNotes: values.notes?.trim(),
+      existingTags: [],
     })
       .then((enrichment) => {
         if (!enrichment) return;

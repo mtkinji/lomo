@@ -495,6 +495,22 @@ export function SettingsHomeScreen() {
       : []),
   ];
 
+  const devToolsRows: RowAction[] = __DEV__
+    ? ([
+        {
+          id: 'devTools',
+          title: 'Developer tools',
+          icon: 'dev',
+          onPress: () => {
+            // DevTools is a root-level route; we intentionally surface the entry point here
+            // (Settings) instead of the nav drawer.
+            (rootNavigation?.navigate as any)?.('DevTools');
+          },
+          showChevron: true,
+        },
+      ] satisfies RowAction[])
+    : [];
+
   const superAdminRows: RowAction[] = (showSuperAdmin || isDevKnownSuperAdminEmail)
     ? ([
         {
@@ -508,7 +524,13 @@ export function SettingsHomeScreen() {
       ] satisfies RowAction[])
     : [];
 
-  const allRows: RowAction[] = [...accountRows, ...personalizationRows, ...utilityRows, ...superAdminRows];
+  const allRows: RowAction[] = [
+    ...accountRows,
+    ...personalizationRows,
+    ...utilityRows,
+    ...devToolsRows,
+    ...superAdminRows,
+  ];
 
   return (
     <AppShell>
