@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  AppState,
+  type AppStateStatus,
   BackHandler,
   Easing,
   Image,
@@ -126,6 +128,21 @@ export function FirstTimeUxFlow() {
     setLastOnboardingArcId,
     setLastOnboardingGoalId,
   ]);
+
+  // Backstop: if the user bounces to Settings (or permissions get into a weird state),
+  // ensure we never leave the CTA stuck in an "Enabling…" state.
+  useEffect(() => {
+    if (!isVisible) return;
+    const handler = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      setIsRequestingNotifications(false);
+      setIsRequestingLocation(false);
+      void NotificationService.syncOsPermissionStatus();
+      void LocationPermissionService.syncOsPermissionStatus();
+    };
+    const sub = AppState.addEventListener('change', handler);
+    return () => sub.remove();
+  }, [isVisible]);
 
   const requestNotificationsFromFtue = useCallback(async () => {
     if (isRequestingNotifications) return;
@@ -431,12 +448,14 @@ export function FirstTimeUxFlow() {
     const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
     const locationUnavailable = locationStatus === 'unavailable';
 
-    type PrimaryAction = 'openSettings' | 'enableNotifications' | 'enableLocation' | 'continue';
+    const anyBlocked = notificationsBlocked || locationBlocked;
+
+    type PrimaryAction = 'enableNotifications' | 'enableLocation' | 'continue';
     const primaryAction: PrimaryAction =
       ftueStep !== 'notifications'
         ? 'continue'
-        : notificationsBlocked || locationBlocked
-          ? 'openSettings'
+        : anyBlocked
+          ? 'continue'
           : !notificationsAuthorized
             ? 'enableNotifications'
             : !locationAuthorized && !locationUnavailable
@@ -446,8 +465,8 @@ export function FirstTimeUxFlow() {
     const primaryCtaLabel =
       ftueStep !== 'notifications'
         ? ctaLabel
-        : primaryAction === 'openSettings'
-          ? 'Open settings'
+        : anyBlocked
+          ? ctaLabel
           : primaryAction === 'enableNotifications'
             ? 'Enable notifications'
             : primaryAction === 'enableLocation'
@@ -562,10 +581,6 @@ export function FirstTimeUxFlow() {
                   ]}
                   onPress={() => {
                     if (ftueStep === 'notifications') {
-                      if (primaryAction === 'openSettings') {
-                        void Linking.openSettings();
-                        return;
-                      }
                       if (primaryAction === 'enableNotifications') {
                         void requestNotificationsFromFtue();
                         return;
@@ -594,13 +609,18 @@ export function FirstTimeUxFlow() {
                     variant="ghost"
                     fullWidth
                     onPress={() => {
+                      if (anyBlocked) {
+                        void Linking.openSettings();
+                        return;
+                      }
+                      // User intentionally proceeds without enabling.
                       setIsRequestingNotifications(false);
                       setIsRequestingLocation(false);
                       handleAdvanceStep(nextStep);
                     }}
                   >
                     <Text style={[styles.ftueSecondaryButtonLabel, { color: stepTheme.secondaryText }]}>
-                      Not now
+                      {anyBlocked ? 'Open settings' : 'Not now'}
                     </Text>
                   </Button>
                 ) : (

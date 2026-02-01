@@ -94,6 +94,8 @@ export function ManageSubscriptionScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
   const route = useRoute<RouteProp<SettingsStackParamList, 'SettingsManageSubscription'>>();
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const activeProPlan = useEntitlementsStore((state) => state.activeProPlan);
+  const activeProCadence = useEntitlementsStore((state) => state.activeProCadence);
   const isRefreshing = useEntitlementsStore((state) => state.isRefreshing);
   const purchase = useEntitlementsStore((state) => state.purchase);
   const restore = useEntitlementsStore((state) => state.restore);
@@ -104,6 +106,13 @@ export function ManageSubscriptionScreen() {
   const bonusGenerativeCredits = useAppStore((state) => state.bonusGenerativeCredits);
   const [pricingDrawerVisible, setPricingDrawerVisible] = React.useState(false);
   const [skuPricing, setSkuPricing] = React.useState<Record<string, { priceString?: string }> | null>(null);
+  const canOpenPricingDrawer = !isPro || __DEV__;
+
+  const proPlanLabel =
+    activeProPlan === 'family' ? 'Family' : activeProPlan === 'individual' ? 'Individual' : null;
+  const proCadenceLabel =
+    activeProCadence === 'annual' ? 'Annual' : activeProCadence === 'monthly' ? 'Monthly' : null;
+  const proDescriptor = proPlanLabel && proCadenceLabel ? `${proPlanLabel} · ${proCadenceLabel}` : proPlanLabel ?? null;
 
   // Habit-formation optimized defaults: lower-commitment entry point.
   const [billingCadence, setBillingCadence] = React.useState<BillingCadence>('monthly');
@@ -187,6 +196,7 @@ export function ManageSubscriptionScreen() {
                 <LinearGradient colors={paywallTheme.gradientColors} style={styles.planGradient}>
                   <VStack space="xs">
                     <Heading style={styles.planTitle}>Kwilt Pro</Heading>
+                    {proDescriptor ? <Text style={styles.planPill}>{proDescriptor}</Text> : null}
                     <Text style={styles.planSubtitle}>
                       Unlimited arcs + goals. Manage billing and plan changes in the App Store.
                     </Text>
@@ -249,7 +259,7 @@ export function ManageSubscriptionScreen() {
                       <RNText style={styles.creditsValueRemaining}>{remainingCredits}</RNText>
                       <RNText style={styles.creditsValueTotal}>{` / ${monthlyLimit}`}</RNText>
                     </Heading>
-                    <Text style={styles.creditsSubtitle}>Pro monthly budget • resets monthly</Text>
+                    <Text style={styles.creditsSubtitle}>AI credits budget • resets monthly</Text>
                     {usedThisMonth > 0 ? (
                       <Text style={styles.creditsFootnote}>{`Used this month: ${usedThisMonth}`}</Text>
                     ) : null}
@@ -302,11 +312,15 @@ export function ManageSubscriptionScreen() {
                     variant="outline"
                     disabled={isRefreshing}
                     onPress={() => {
+                      // In production, plan changes are managed in the App Store.
+                      // In dev (especially simulator StoreKit testing), allow opening the in-app
+                      // plan picker so we can validate purchase flows without a real Apple login.
+                      if (__DEV__) {
+                        setPricingDrawerVisible(true);
+                        return;
+                      }
                       openManageSubscription().catch(() => {
-                        Alert.alert(
-                          'Unable to open',
-                          'Please open Apple subscription settings to change your plan.',
-                        );
+                        Alert.alert('Unable to open', 'Please open Apple subscription settings to change your plan.');
                       });
                     }}
                   >
@@ -349,7 +363,7 @@ export function ManageSubscriptionScreen() {
 
       {/* Pricing + plan picker in a drawer (Free only). */}
       <BottomDrawer
-        visible={!isPro && pricingDrawerVisible}
+        visible={canOpenPricingDrawer && pricingDrawerVisible}
         onClose={() => setPricingDrawerVisible(false)}
         snapPoints={['90%']}
         enableContentPanningGesture
@@ -484,6 +498,15 @@ const styles = StyleSheet.create({
   planTitle: {
     ...typography.titleLg,
     color: paywallTheme.foreground,
+  },
+  planPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    color: paywallTheme.foreground,
+    ...typography.bodySm,
   },
   planSubtitle: {
     ...typography.bodySm,

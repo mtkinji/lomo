@@ -608,11 +608,11 @@ export function SettingsHomeScreen() {
                 )}
               </HStack>
               {/* Grace info */}
-              {(streakGrace?.graceDaysUsed ?? 0) > 0 && (
+              {(streakGrace?.graceDaysUsedThisWeek ?? 0) > 0 && (
                 <View style={styles.streakGraceInfo}>
                   <Text style={styles.streakGraceText}>
-                    🛡️ Streak saved! Used {streakGrace?.graceDaysUsed} grace day
-                    {(streakGrace?.graceDaysUsed ?? 0) > 1 ? 's' : ''} this week.
+                    🛡️ Streak saved! Used {streakGrace?.graceDaysUsedThisWeek} grace day
+                    {(streakGrace?.graceDaysUsedThisWeek ?? 0) > 1 ? 's' : ''} this week.
                   </Text>
                 </View>
               )}

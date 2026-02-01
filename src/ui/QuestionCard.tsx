@@ -9,7 +9,7 @@ type QuestionCardProps = {
   /** e.g. "1 of 10" */
   stepLabel?: string;
   /** Main question string. For richer content, compose children instead. */
-  title: ReactNode;
+  title?: ReactNode;
   /** Optional trailing inline element next to the title, e.g. ⓘ info trigger. */
   titleAccessory?: ReactNode;
   /** Body content: options, inputs, etc. */
@@ -31,6 +31,7 @@ export function QuestionCard({
   padding = 'sm',
   elevation = 'raised',
 }: QuestionCardProps) {
+  const hasHeader = Boolean(title || titleAccessory);
   return (
     <Card padding={padding} elevation={elevation} style={style}>
       <VStack space="sm">
@@ -40,14 +41,18 @@ export function QuestionCard({
           </Text>
         ) : null}
 
-        <HStack alignItems="center" style={styles.headerRow}>
-          <Heading variant="sm" style={styles.title}>
-            {title}
-          </Heading>
-          {titleAccessory ? (
-            <View style={styles.titleAccessory}>{titleAccessory}</View>
-          ) : null}
-        </HStack>
+        {hasHeader ? (
+          <HStack alignItems="center" style={styles.headerRow}>
+            {title ? (
+              <Heading variant="sm" style={styles.title}>
+                {title}
+              </Heading>
+            ) : null}
+            {titleAccessory ? (
+              <View style={styles.titleAccessory}>{titleAccessory}</View>
+            ) : null}
+          </HStack>
+        ) : null}
 
         {children}
       </VStack>

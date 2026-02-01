@@ -96,6 +96,11 @@ export default function App() {
   const [isReturningUser, setIsReturningUser] = useState<boolean | null>(null);
   const [showReturningUserFlow, setShowReturningUserFlow] = useState(false);
 
+  // Dev-only escape hatch: allow bypassing the global sign-in wall for simulator/dev testing.
+  // This is intentionally gated behind an explicit env var so it can't accidentally ship.
+  const devSkipSignInWall =
+    __DEV__ && (process.env.EXPO_PUBLIC_SKIP_SIGNIN_WALL ?? '').trim() === '1';
+
   useEffect(() => {
     let supabase: ReturnType<typeof getSupabaseClient> | null = null;
     try {
@@ -455,7 +460,7 @@ export default function App() {
       <Logo size={64} />
       <Text style={styles.authHydrationText}>Restoring your session…</Text>
     </View>
-  ) : !authIdentity ? (
+  ) : !authIdentity && !devSkipSignInWall ? (
     // Require sign-in for all users (including legacy users who onboarded before auth was required).
     // Their local data will automatically sync to their account once they authenticate.
     <SignInInterstitial onSignInComplete={handleSignInComplete} />

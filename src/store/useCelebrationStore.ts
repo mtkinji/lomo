@@ -9,6 +9,8 @@ import {
   isShowUpStreakMilestone,
   isFocusStreakMilestone,
 } from '../services/milestones';
+import { toLocalDateKey } from '../services/plan/planDates';
+import { getDailyUnitProgress, getNextOpportunity } from '../services/engagement/dailyOpportunities';
 
 export type CelebrationMoment = {
   /** Unique key for this celebration instance to prevent duplicates */
@@ -19,8 +21,18 @@ export type CelebrationMoment = {
   headline: string;
   /** Supporting message under the headline */
   subheadline?: string;
+  /** Optional primary metric (big number) to emphasize the moment */
+  primaryMetric?: { value: string; label?: string };
   /** Optional custom CTA label (defaults to "Continue") */
   ctaLabel?: string;
+  /** Optional CTA handler (e.g., navigate to next step) */
+  ctaAction?: () => void;
+  /** Presentation mode for the interstitial UI */
+  presentation?: 'full' | 'lite';
+  /** Optional theme override for background + effects */
+  theme?: 'default' | 'gold';
+  /** Optional confetti density override */
+  confettiCount?: number;
   /** Called when user dismisses the celebration */
   onDismiss?: () => void;
   /** Auto-dismiss after N ms (0 = manual dismiss only) */
@@ -474,6 +486,11 @@ export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
 
   const { headline, subheadline, isSpecial } = getStreakMessage(days);
 
+  const chainedDismiss = () => {
+    onDismiss?.();
+    celebrateNextOpportunity();
+  };
+
   store.celebrate({
     id: celebrationId,
     kind: 'dailyStreak',
@@ -483,7 +500,7 @@ export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
     // Regular days: low priority (drops during conflicts), auto-dismiss
     priority: isSpecial ? 'high' : 'low',
     autoDismissMs: isSpecial ? undefined : DAILY_STREAK_AUTO_DISMISS_MS,
-    onDismiss,
+    onDismiss: chainedDismiss,
   });
 }
 
@@ -500,6 +517,48 @@ export function celebrateAllActivitiesDone(onDismiss?: () => void) {
     priority: 'low', // Low priority - drop if conflicts exist
     onDismiss,
   });
+}
+
+/**
+ * Celebrate when the user completes their Daily 3 (3 units).
+ */
+export function celebrateDaily3Complete(onDismiss?: () => void) {
+  const store = useCelebrationStore.getState();
+  const todayKey = toLocalDateKey(new Date());
+  const celebrationId = `daily-3-complete-${todayKey}`;
+
+  if (store.hasBeenShown(celebrationId)) {
+    return;
+  }
+
+  store.celebrate({
+    id: celebrationId,
+    kind: 'daily3Complete',
+    headline: 'Daily 3 Complete! 🏆',
+    subheadline: "Three units in a day — that's elite momentum. Keep riding it.",
+    primaryMetric: {
+      value: '3',
+      label: 'daily units',
+    },
+    theme: 'gold',
+    confettiCount: 48,
+    autoDismissMs: 0,
+    priority: 'high',
+    onDismiss,
+  });
+}
+
+export function celebrateDaily3CompleteIfReady() {
+  const appState = useAppStore.getState();
+  const progress = getDailyUnitProgress({
+    activities: appState.activities,
+    now: new Date(),
+    lastCompletedFocusSessionDate: appState.lastCompletedFocusSessionDate,
+  });
+
+  if (progress.unitsCompleted >= progress.unitsTarget) {
+    celebrateDaily3Complete();
+  }
 }
 
 /**
@@ -524,27 +583,75 @@ export function celebrateStreakSaved(
   const graceDescription =
     graceDaysUsed === 1 ? '1 grace day' : `${graceDaysUsed} grace days`;
 
-  let subheadline = `You missed ${graceDaysUsed === 1 ? 'a day' : `${graceDaysUsed} days`}, but we've got your back! Your ${streakDays}-day streak lives on.`;
+  let subheadline = `We covered ${graceDescription} for you — your streak stays intact.`;
 
   // Add info about remaining grace
   const totalRemaining = remainingFreeGrace + remainingShields;
   if (totalRemaining === 0) {
-    subheadline += " ⚠️ You're out of grace days until next week - don't miss tomorrow!";
+    subheadline += ' No grace days left until next week.';
   } else if (totalRemaining === 1) {
     subheadline += ' You have 1 grace day left this week.';
   } else {
     subheadline += ` You have ${totalRemaining} grace days remaining.`;
   }
 
+  const chainedDismiss = () => {
+    onDismiss?.();
+    celebrateNextOpportunity();
+  };
+
   store.celebrate({
     id: celebrationId,
     kind: 'streakSaved',
-    headline: 'Streak Saved! 🛡️',
+    headline: 'Streak secured 🛡️',
     subheadline,
+    primaryMetric: {
+      value: String(streakDays),
+      label: 'day streak',
+    },
     ctaLabel: "I'm back!",
     autoDismissMs: 0, // Require tap to dismiss - this is educational
     priority: 'high', // Important to inform user about grace usage
-    onDismiss,
+    onDismiss: chainedDismiss,
+  });
+}
+
+/**
+ * Follow-up interstitial that nudges the user toward today's next win.
+ */
+export function celebrateNextOpportunity() {
+  const store = useCelebrationStore.getState();
+  const appState = useAppStore.getState();
+  const todayKey = toLocalDateKey(new Date());
+  const celebrationId = `next-opportunity-${todayKey}`;
+
+  if (store.hasBeenShown(celebrationId)) {
+    return;
+  }
+
+  const opportunity = getNextOpportunity({
+    activities: appState.activities,
+    goals: appState.goals,
+    arcs: appState.arcs,
+    now: new Date(),
+    lastCompletedFocusSessionDate: appState.lastCompletedFocusSessionDate,
+  });
+
+  if (!opportunity) {
+    return;
+  }
+
+  store.celebrate({
+    id: celebrationId,
+    kind: 'nextOpportunity',
+    headline: opportunity.headline,
+    subheadline: opportunity.subheadline,
+    primaryMetric: opportunity.primaryMetric,
+    ctaLabel: opportunity.ctaLabel,
+    ctaAction: opportunity.ctaAction,
+    presentation: 'lite',
+    autoDismissMs: 0,
+    priority: 'normal',
   });
 }
 
@@ -564,6 +671,8 @@ export function recordShowUpWithCelebration() {
     lastFreeResetWeek: null,
     shieldsAvailable: 0,
     graceDaysUsed: 0,
+    graceDaysUsedThisWeek: 0,
+    lastGraceUseDateKey: null,
   };
 
   // Record the show-up
@@ -577,8 +686,11 @@ export function recordShowUpWithCelebration() {
 
   // Only celebrate if the date changed (i.e., this is a new day)
   if (prevDate !== nextDate) {
+    const graceUsedToday =
+      nextGrace.lastGraceUseDateKey === nextDate &&
+      prevGrace.lastGraceUseDateKey !== nextGrace.lastGraceUseDateKey;
     // Check if grace was used to save the streak
-    if (nextGrace.graceDaysUsed > 0 && nextStreak > 1) {
+    if (graceUsedToday && nextStreak > 1) {
       // Grace was used! Show the "streak saved" celebration first
       setTimeout(() => {
         celebrateStreakSaved(
@@ -594,6 +706,11 @@ export function recordShowUpWithCelebration() {
         celebrateDailyStreak(nextStreak);
       }, 500);
     }
+
+    // Check for Daily 3 completion after show-up processing
+    setTimeout(() => {
+      celebrateDaily3CompleteIfReady();
+    }, 650);
 
     // Record milestone to server if this is a significant threshold
     // This is async/fire-and-forget - failures don't block the celebration
@@ -624,4 +741,9 @@ export function recordCompletedFocusSessionWithMilestone(params?: { completedAtM
   if (nextStreak > prevStreak && isFocusStreakMilestone(nextStreak)) {
     void recordFocusStreakMilestone(nextStreak);
   }
+
+  // Focus can complete a Daily 3 unit; check for completion.
+  setTimeout(() => {
+    celebrateDaily3CompleteIfReady();
+  }, 650);
 }

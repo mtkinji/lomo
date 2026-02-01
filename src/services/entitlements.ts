@@ -23,6 +23,13 @@ export type EntitlementsSnapshot = {
    * This should NOT be treated as full Pro for Arc/Goal limits.
    */
   isProToolsTrial: boolean;
+  /**
+   * Best-effort active Pro SKU inferred from RevenueCat customer info.
+   * This is optional and may be null when Pro is granted via code/admin, or when RC is unavailable.
+   */
+  activeProSku?: string | null;
+  activeProPlan?: ProPlan | null;
+  activeProCadence?: BillingCadence | null;
   checkedAt: string;
   source: 'revenuecat' | 'cache' | 'none' | 'dev' | 'code' | 'admin';
   isStale?: boolean;
@@ -57,6 +64,8 @@ type RevenueCatCustomerInfo = {
   entitlements?: {
     active?: Record<string, unknown>;
   };
+  activeSubscriptions?: string[];
+  allPurchasedProductIdentifiers?: string[];
 };
 
 type RevenueCatPurchasesLike = {
@@ -70,6 +79,13 @@ type RevenueCatPurchasesLike = {
 };
 
 const nowIso = () => new Date().toISOString();
+
+const PRO_SKU_META: Record<string, { plan: ProPlan; cadence: BillingCadence }> = Object.freeze({
+  [PRO_SKUS.individual.monthly]: { plan: 'individual', cadence: 'monthly' },
+  [PRO_SKUS.individual.annual]: { plan: 'individual', cadence: 'annual' },
+  [PRO_SKUS.family.monthly]: { plan: 'family', cadence: 'monthly' },
+  [PRO_SKUS.family.annual]: { plan: 'family', cadence: 'annual' },
+});
 
 function isAuthoritativeProStatus(status: ProStatus | null | undefined): boolean {
   // `getProStatus()` returns { isPro: false } for many non-200 cases (401/500/etc).
@@ -172,6 +188,44 @@ function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): 
 function extractIsProToolsTrial(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
   const active = customerInfo?.entitlements?.active ?? {};
   return Boolean((active as any).pro_tools_trial);
+}
+
+function extractActiveProSku(
+  customerInfo: RevenueCatCustomerInfo | null | undefined,
+): { sku: string; plan: ProPlan; cadence: BillingCadence } | null {
+  if (!customerInfo) return null;
+
+  const candidates: string[] = [];
+
+  // Primary: RevenueCat entitlement metadata often includes product identifier.
+  const ent = (customerInfo?.entitlements?.active as any)?.pro as any;
+  const entSku =
+    (typeof ent?.productIdentifier === 'string' && ent.productIdentifier.trim()) ||
+    (typeof ent?.product_identifier === 'string' && ent.product_identifier.trim()) ||
+    (typeof ent?.product_id === 'string' && ent.product_id.trim()) ||
+    '';
+  if (entSku) candidates.push(entSku);
+
+  // Secondary: active subscriptions list (RevenueCat standard field).
+  if (Array.isArray((customerInfo as any).activeSubscriptions)) {
+    for (const v of (customerInfo as any).activeSubscriptions as any[]) {
+      if (typeof v === 'string' && v.trim()) candidates.push(v.trim());
+    }
+  }
+
+  // Tertiary: any purchased product identifiers (less precise).
+  if (Array.isArray((customerInfo as any).allPurchasedProductIdentifiers)) {
+    for (const v of (customerInfo as any).allPurchasedProductIdentifiers as any[]) {
+      if (typeof v === 'string' && v.trim()) candidates.push(v.trim());
+    }
+  }
+
+  for (const sku of candidates) {
+    const meta = (PRO_SKU_META as any)[sku] as { plan: ProPlan; cadence: BillingCadence } | undefined;
+    if (meta) return { sku, plan: meta.plan, cadence: meta.cadence };
+  }
+
+  return null;
 }
 
 async function configureRevenueCatIfNeeded(purchases: RevenueCatPurchasesLike): Promise<void> {
@@ -348,6 +402,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     const info = await purchases.getCustomerInfo?.();
     const rcIsPro = extractIsPro(info);
     const rcIsTrial = extractIsProToolsTrial(info);
+    const rcActiveSku = rcIsPro ? extractActiveProSku(info) : null;
     let serverIsPro: boolean | null = false;
     let serverError: string | undefined;
     if (!rcIsPro) {
@@ -378,6 +433,9 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     const snapshot: EntitlementsSnapshot = {
       isPro,
       isProToolsTrial,
+      activeProSku: rcActiveSku?.sku ?? null,
+      activeProPlan: rcActiveSku?.plan ?? null,
+      activeProCadence: rcActiveSku?.cadence ?? null,
       checkedAt: nowIso(),
       source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
       isStale: Boolean(serverIsPro == null || shouldStickyKeepPro),
@@ -440,9 +498,13 @@ export async function restorePurchases(): Promise<EntitlementsSnapshot> {
 
   await configureRevenueCatIfNeeded(purchases);
   const info = await purchases.restorePurchases();
+  const activeSku = extractIsPro(info) ? extractActiveProSku(info) : null;
   const snapshot: EntitlementsSnapshot = {
     isPro: extractIsPro(info),
     isProToolsTrial: extractIsProToolsTrial(info),
+    activeProSku: activeSku?.sku ?? null,
+    activeProPlan: activeSku?.plan ?? null,
+    activeProCadence: activeSku?.cadence ?? null,
     checkedAt: nowIso(),
     source: 'revenuecat',
     isStale: false,
@@ -515,9 +577,13 @@ export async function purchaseProSku(params: {
   }
 
   const result = await purchases.purchasePackage(selectedPackage);
+  const activeSku = extractIsPro(result?.customerInfo) ? extractActiveProSku(result?.customerInfo) : null;
   const snapshot: EntitlementsSnapshot = {
     isPro: extractIsPro(result?.customerInfo),
     isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
+    activeProSku: activeSku?.sku ?? getProSku(params.plan, params.cadence),
+    activeProPlan: activeSku?.plan ?? params.plan,
+    activeProCadence: activeSku?.cadence ?? params.cadence,
     checkedAt: nowIso(),
     source: 'revenuecat',
     isStale: false,

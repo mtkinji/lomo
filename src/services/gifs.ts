@@ -22,7 +22,9 @@ export type CelebrationKind =
   | 'weeklyStreak'
   | 'dailyStreak'
   | 'allActivitiesDone'
-  | 'streakSaved'; // Grace was used to save the streak
+  | 'streakSaved' // Grace was used to save the streak
+  | 'nextOpportunity' // Follow-up encouragement for next celebration
+  | 'daily3Complete'; // Daily 3 target achieved
 
 export type CelebrationStylePreference = 'cute' | 'minimal' | 'surprise';
 
@@ -127,8 +129,14 @@ function buildGiphyQuery(params: FetchCelebrationGifParams): string {
   if (role === 'celebration' && kind === 'allActivitiesDone') {
     return 'finished done mic drop completed checklist';
   }
+  if (role === 'celebration' && kind === 'nextOpportunity') {
+    return 'keep going next up momentum you got this';
+  }
+  if (role === 'celebration' && kind === 'daily3Complete') {
+    return 'big win celebration confetti crowd cheering trophy';
+  }
   if (role === 'celebration' && kind === 'streakSaved') {
-    return 'close call phew saved relief narrow escape';
+    return 'shield protected streak safe momentum keep going';
   }
 
   let base = 'celebration';

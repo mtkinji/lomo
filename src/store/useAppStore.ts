@@ -483,6 +483,10 @@ interface AppState {
     shieldsAvailable: number;
     /** Days "covered" by grace since last show-up (for UI messaging) */
     graceDaysUsed: number;
+    /** Total grace days used this week (for weekly UI messaging) */
+    graceDaysUsedThisWeek: number;
+    /** Local date key (YYYY-MM-DD) when grace was last consumed */
+    lastGraceUseDateKey: string | null;
   };
   /**
    * Lightweight lifecycle counters used for post-activation nudges (e.g. widgets).
@@ -1044,6 +1048,8 @@ export const useAppStore = create<AppState>()(
         lastFreeResetWeek: null,
         shieldsAvailable: 0,
         graceDaysUsed: 0,
+        graceDaysUsedThisWeek: 0,
+        lastGraceUseDateKey: null,
       },
       appOpenCount: 0,
       firstOpenedAtMs: null,
@@ -1914,6 +1920,8 @@ export const useAppStore = create<AppState>()(
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
             graceDaysUsed: 0,
+            graceDaysUsedThisWeek: 0,
+            lastGraceUseDateKey: null,
           };
 
           // Reset free grace days if new week started
@@ -1923,6 +1931,7 @@ export const useAppStore = create<AppState>()(
               ...nextGrace,
               freeDaysRemaining: 1, // Everyone gets 1 free grace day per week
               lastFreeResetWeek: currentWeekKey,
+              graceDaysUsedThisWeek: 0,
             };
           }
 
@@ -1956,6 +1965,10 @@ export const useAppStore = create<AppState>()(
               if (diffDays === 1) {
                 // Consecutive day - streak continues normally
                 nextStreak = prevStreak + 1;
+                nextGrace = {
+                  ...nextGrace,
+                  graceDaysUsed: 0,
+                };
               } else if (diffDays > 1) {
                 // Missed days - try to use grace
                 const missedDays = diffDays - 1; // Days between last show-up and today
@@ -1977,6 +1990,8 @@ export const useAppStore = create<AppState>()(
                     freeDaysRemaining: nextGrace.freeDaysRemaining - freeUsed,
                     shieldsAvailable: nextGrace.shieldsAvailable - shieldsUsed,
                     graceDaysUsed: graceDaysUsed,
+                    graceDaysUsedThisWeek: nextGrace.graceDaysUsedThisWeek + graceDaysUsed,
+                    lastGraceUseDateKey: todayKey,
                   };
                 } else {
                   // Not enough grace - streak resets
@@ -1984,6 +1999,7 @@ export const useAppStore = create<AppState>()(
                   nextGrace = {
                     ...nextGrace,
                     graceDaysUsed: 0, // Reset since streak reset
+                    lastGraceUseDateKey: null,
                   };
                 }
               }
@@ -2077,6 +2093,7 @@ export const useAppStore = create<AppState>()(
           streakGrace: {
             ...state.streakGrace,
             graceDaysUsed: 0,
+            lastGraceUseDateKey: null,
           },
         })),
       resetFocusStreak: () =>
@@ -2094,6 +2111,8 @@ export const useAppStore = create<AppState>()(
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
             graceDaysUsed: 0,
+            graceDaysUsedThisWeek: 0,
+            lastGraceUseDateKey: null,
           };
           const MAX_SHIELDS = 3;
           return {
@@ -2184,6 +2203,8 @@ export const useAppStore = create<AppState>()(
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
             graceDaysUsed: 0,
+            graceDaysUsedThisWeek: 0,
+            lastGraceUseDateKey: null,
           },
           lastCompletedFocusSessionDate: null,
           lastCompletedFocusSessionAtIso: null,

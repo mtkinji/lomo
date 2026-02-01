@@ -1251,6 +1251,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const currentWorkflowStep = workflowRuntime?.definition?.steps.find(
     (step) => step.id === currentWorkflowStepId
   );
+  // IMPORTANT: `workflowRuntime` is provided via context and its object identity
+  // can change every render (Provider value is often an inline object). Only
+  // depend on stable primitive fields to avoid effect dependency loops.
+  const workflowDefinitionId = workflowRuntime?.definition?.id;
+  const workflowInstanceId = workflowRuntime?.instance?.id;
+  const workflowStepId = workflowRuntime?.instance?.currentStepId;
 
   const shouldHideComposerForWorkflowStep =
     Boolean(workflowRuntime && currentWorkflowStep?.hideFreeformChatInput);
@@ -1376,9 +1382,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [composerHeight, setComposerHeight] = useState(0);
   const [composerInputHeight, setComposerInputHeight] = useState(INPUT_MIN_HEIGHT);
   const [bootstrapped, setBootstrapped] = useState(false);
-  // In React 18 dev (StrictMode), mount effects can run twice.
-  // Guard bootstrap so we never start multiple concurrent “first reply” fetches.
-  const bootstrapStartedRef = useRef(false);
+  // Used to invalidate in-flight bootstraps (covers React 18 StrictMode effect re-runs
+  // and quick dismiss/reopen without leaving `thinking` stuck true).
+  const bootstrapRequestIdRef = useRef(0);
   const [arcProposal, setArcProposal] = useState<GeneratedArc | null>(null);
   const [goalProposal, setGoalProposal] = useState<ProposedGoalDraft | null>(null);
   const [goalDraftTitle, setGoalDraftTitle] = useState('');
@@ -1425,6 +1431,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const [hasTransportError, setHasTransportError] = useState(false);
   const [agentOffers, setAgentOffers] = useState<AgentOffer[] | null>(null);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+  const [activityGuidanceIntroComplete, setActivityGuidanceIntroComplete] = useState(false);
+  const activityGuidanceOffersReadyRef = useRef(false);
 
   const hasVisibleMessages = (messages ?? []).some((message) => message.role !== 'system');
 
@@ -2557,24 +2565,75 @@ export const AiChatPane = forwardRef(function AiChatPane(
       return;
     }
 
-    if (bootstrapStartedRef.current) {
-      return;
-    }
-    bootstrapStartedRef.current = true;
+    const requestId = ++bootstrapRequestIdRef.current;
 
-    let cancelled = false;
+    // Reset any prior one-shot guidance state when we are about to bootstrap.
+    setAgentOffers(null);
+    setActivityGuidanceIntroComplete(false);
+    activityGuidanceOffersReadyRef.current = false;
 
     const bootstrapConversation = async () => {
       try {
         setHasTransportError(false);
-
-        setThinking(true);
         const history: CoachChatTurn[] = messagesRef.current.map((m) => ({
           role: m.role,
           content: m.content,
         }));
         const coachOptions: CoachChatOptions = buildCoachOptions();
+        // Special-case activityGuidance: we type a local intro first, then
+        // reveal the selectable offers card (no header) after the intro finishes.
+        if (mode === 'activityGuidance') {
+          const activityTitle = focusedActivityTitle?.trim();
+          const intro = activityTitle
+            ? `How can I help you with **${activityTitle}**?`
+            : 'How can I help you with this activity?';
+
+          // Stream the intro immediately (no thinking dots up front).
+          streamAssistantReply(intro, 'assistant-activity-guidance-intro', {
+            onDone: () => {
+              // Ignore stale completions (StrictMode effect re-runs / quick dismiss).
+              if (bootstrapRequestIdRef.current !== requestId) return;
+              setActivityGuidanceIntroComplete(true);
+              // If offers are still loading, show the dots *after* the intro finishes.
+              if (!activityGuidanceOffersReadyRef.current) {
+                setThinking(true);
+              }
+            },
+          });
+
+          // Fetch offers in parallel.
+          const offerOnlyInstruction: CoachChatTurn = {
+            role: 'system',
+            content:
+              'Return ONLY an AGENT_OFFERS_JSON block and nothing else.\n' +
+              'Format:\n' +
+              'AGENT_OFFERS_JSON:\n' +
+              '[{"id":"...","title":"...","userMessage":"..."}, ...]\n' +
+              'Rules:\n' +
+              '- 3–5 offers.\n' +
+              '- Always include an offer for breaking the activity into smaller scheduled chunks.\n' +
+              '- No code fences. No extra prose.',
+          };
+
+          const reply = await sendCoachChat([...history, offerOnlyInstruction], coachOptions);
+          if (bootstrapRequestIdRef.current !== requestId) return;
+
+          const offersParsed = extractAgentOffersFromAssistantMessage(reply);
+          const offers = offersParsed.offers;
+          activityGuidanceOffersReadyRef.current = true;
+
+          // If the intro is still typing, keep offers pending and let the render gate
+          // reveal them after typing completes. If the intro already finished, show now.
+          setAgentOffers(offers);
+          setBootstrapped(true);
+          setThinking(false);
+          return;
+        }
+
+        // Default bootstrap behavior for other auto-bootstrap modes.
+        setThinking(true);
         const reply = await sendCoachChat(history, coachOptions);
+        if (bootstrapRequestIdRef.current !== requestId) return;
 
         const offersParsed = extractAgentOffersFromAssistantMessage(reply);
         setAgentOffers(offersParsed.offers);
@@ -2589,7 +2648,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
         const goalParsed = extractGoalProposalFromAssistantMessage(arcParsed.displayContent);
         const bootGoalProposal = goalParsed.goalProposal ?? null;
-        if (cancelled) return;
+        if (bootstrapRequestIdRef.current !== requestId) return;
         const bootLeadIn =
           bootGoalProposal && (!goalParsed.displayContent || goalParsed.displayContent.trim().length === 0)
             ? 'Draft ready.'
@@ -2603,10 +2662,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 commitGoalProposal(bootGoalProposal);
               }
             }
-            if (!cancelled) {
-              setBootstrapped(true);
-              setThinking(false);
-            }
+            if (bootstrapRequestIdRef.current !== requestId) return;
+            setBootstrapped(true);
+            setThinking(false);
           },
         });
       } catch (err) {
@@ -2626,7 +2684,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
           lower.includes('insufficient_quota') ||
           lower.includes('exceeded your current quota') ||
           lower.includes('quota exceeded');
-        if (!cancelled) {
+        if (bootstrapRequestIdRef.current === requestId) {
           // If we hit an AI credit/quota gate, the paywall interstitial should be the
           // primary UI. Avoid showing a scary transport error message in the canvas.
           if (isQuotaLike) {
@@ -2648,24 +2706,26 @@ export const AiChatPane = forwardRef(function AiChatPane(
           onTransportError?.();
         }
       } finally {
-        if (!cancelled) {
-          // In error cases we still mark as bootstrapped so we don’t loop.
-          setBootstrapped(true);
-          setThinking(false);
-        }
+        if (bootstrapRequestIdRef.current !== requestId) return;
+        // In error cases we still mark as bootstrapped so we don’t loop.
+        setBootstrapped(true);
+        setThinking(false);
       }
     };
 
     bootstrapConversation();
 
     return () => {
-      cancelled = true;
+      // Invalidate any in-flight bootstrap work so stale completions are ignored.
+      bootstrapRequestIdRef.current += 1;
     };
   }, [
     mode,
     bootstrapped,
     shouldBootstrapAssistant,
-    workflowRuntime,
+    workflowDefinitionId,
+    workflowInstanceId,
+    workflowStepId,
     launchContext,
     appendGoalProposalTimelineItem,
   ]);
@@ -2713,9 +2773,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const buildCoachOptions = useCallback((): CoachChatOptions => {
     return {
       mode,
-      workflowDefinitionId: workflowRuntime?.definition?.id,
-      workflowInstanceId: workflowRuntime?.instance?.id,
-      workflowStepId: workflowRuntime?.instance?.currentStepId,
+      workflowDefinitionId,
+      workflowInstanceId,
+      workflowStepId,
       launchContextSummary: launchContext,
       paywallSource:
         mode === 'activityCreation'
@@ -2724,7 +2784,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
           ? 'goals_create_ai'
           : 'unknown',
     };
-  }, [launchContext, mode, workflowRuntime]);
+  }, [launchContext, mode, workflowDefinitionId, workflowInstanceId, workflowStepId]);
 
   const sendMessageWithContent = async (rawContent: string) => {
     const trimmed = rawContent.trim();
@@ -4156,9 +4216,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
               {/* Workflow-specific UI enters the chat as an inline card. The
                   `stepCard` prop is a generic React node (often composed from
                   Card, QuestionCard, etc.), not a special StepCard class. */}
-              {mode === 'activityGuidance' && agentOffers && agentOffers.length > 0 && (
+              {mode === 'activityGuidance' &&
+                agentOffers &&
+                agentOffers.length > 0 &&
+                activityGuidanceIntroComplete &&
+                !isAssistantTyping && (
                 <View style={styles.stepCardHost}>
-                  <QuestionCard title="How can I help?">
+                  <QuestionCard>
                     <VStack space="xs">
                       {agentOffers.map((offer) => (
                         <Button

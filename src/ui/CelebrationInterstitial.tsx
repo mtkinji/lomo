@@ -19,6 +19,40 @@ import { useToastStore } from '../store/useToastStore';
 import { HapticsService } from '../services/HapticsService';
 
 const CONFETTI_COUNT = 24;
+const GOLD_CONFETTI_COLORS = [
+  colors.turmeric200,
+  colors.turmeric300,
+  colors.turmeric400,
+  colors.turmeric500,
+  colors.turmeric600,
+  colors.parchment,
+  colors.accentRose,
+];
+
+function getCelebrationGradient(theme: 'default' | 'gold' | undefined): string[] {
+  if (theme === 'gold') {
+    return [colors.turmeric700, colors.turmeric800, colors.sumi900];
+  }
+  return [colors.pine700, colors.pine800, colors.sumi900];
+}
+
+function getConfettiPalette(theme: 'default' | 'gold' | undefined): string[] {
+  if (theme === 'gold') {
+    return GOLD_CONFETTI_COLORS;
+  }
+  return [
+    colors.turmeric400,
+    colors.turmeric500,
+    colors.pine400,
+    colors.pine500,
+    colors.madder400,
+    colors.quiltBlue400,
+    colors.accentRose,
+    '#FFD93D', // bright yellow
+    '#6BCB77', // fresh green
+    '#4D96FF', // sky blue
+  ];
+}
 
 /**
  * A single confetti piece that falls and rotates
@@ -109,21 +143,14 @@ function ConfettiPiece({
 /**
  * Confetti burst animation layer
  */
-function ConfettiBurst() {
-  const confettiColors = [
-    colors.turmeric400,
-    colors.turmeric500,
-    colors.pine400,
-    colors.pine500,
-    colors.madder400,
-    colors.quiltBlue400,
-    colors.accentRose,
-    '#FFD93D', // bright yellow
-    '#6BCB77', // fresh green
-    '#4D96FF', // sky blue
-  ];
-
-  const pieces = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+function ConfettiBurst({
+  count = CONFETTI_COUNT,
+  colors: confettiColors,
+}: {
+  count?: number;
+  colors: string[];
+}) {
+  const pieces = Array.from({ length: count }, (_, i) => ({
     id: i,
     delay: Math.random() * 400,
     startX: Math.random() * 100 + '%',
@@ -259,7 +286,15 @@ function CelebrationInterstitialContent({
     });
   };
 
+  const handleCtaPress = () => {
+    celebration.ctaAction?.();
+    handleDismiss();
+  };
+
   const ageRange = useAppStore((s) => s.userProfile?.ageRange);
+  const confettiColors = getConfettiPalette(celebration.theme);
+  const confettiCount = celebration.confettiCount ?? CONFETTI_COUNT;
+  const backgroundGradient = getCelebrationGradient(celebration.theme);
 
   return (
     <Portal name="celebration-interstitial">
@@ -270,13 +305,10 @@ function CelebrationInterstitialContent({
         ]}
       >
         {/* Background gradient */}
-        <LinearGradient
-          colors={[colors.pine700, colors.pine800, colors.sumi900]}
-          style={StyleSheet.absoluteFill}
-        />
+        <LinearGradient colors={backgroundGradient} style={StyleSheet.absoluteFill} />
 
         {/* Confetti layer */}
-        <ConfettiBurst />
+        <ConfettiBurst count={confettiCount} colors={confettiColors} />
 
         {/* Content - use Pressable as full-screen tap target for auto-dismiss */}
         <Pressable
@@ -298,21 +330,40 @@ function CelebrationInterstitialContent({
               },
             ]}
           >
-            {/* GIF Section */}
-            <View style={styles.gifContainer}>
-              <CelebrationGif
-                role="celebration"
-                kind={celebration.kind}
-                ageRange={ageRange}
-                size="md"
-                showControls={true}
-                variant="dark"
-                maxHeight={220}
-              />
-            </View>
+            {/* GIF Section (skip for lite presentations) */}
+            {celebration.presentation !== 'lite' ? (
+              <View style={styles.gifContainer}>
+                <CelebrationGif
+                  role="celebration"
+                  kind={celebration.kind}
+                  ageRange={ageRange}
+                  size="md"
+                  showControls={true}
+                  variant="dark"
+                  maxHeight={220}
+                />
+              </View>
+            ) : null}
 
             {/* Text Section */}
-            <View style={styles.textContainer}>
+            <View
+              style={[
+                styles.textContainer,
+                celebration.presentation === 'lite' ? styles.textContainerLite : null,
+              ]}
+            >
+              {celebration.primaryMetric ? (
+                <View style={styles.metricContainer}>
+                  <Heading variant="xl" style={styles.metricValue}>
+                    {celebration.primaryMetric.value}
+                  </Heading>
+                  {celebration.primaryMetric.label ? (
+                    <Text style={styles.metricLabel}>
+                      {celebration.primaryMetric.label}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
               <Heading variant="lg" style={styles.headline}>
                 {celebration.headline}
               </Heading>
@@ -333,7 +384,7 @@ function CelebrationInterstitialContent({
                 <Button
                   variant="turmeric"
                   size="lg"
-                  onPress={handleDismiss}
+                  onPress={celebration.ctaAction ? handleCtaPress : handleDismiss}
                   style={styles.ctaButton}
                 >
                   <Text style={styles.ctaLabel}>
@@ -383,6 +434,26 @@ const styles = StyleSheet.create({
   textContainer: {
     alignItems: 'center',
     marginBottom: spacing['2xl'],
+  },
+  textContainerLite: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  metricContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  metricValue: {
+    color: colors.parchment,
+    textAlign: 'center',
+  },
+  metricLabel: {
+    ...typography.label,
+    color: colors.pine200,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   headline: {
     color: colors.parchment,

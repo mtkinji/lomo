@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  AppState,
+  type AppStateStatus,
   BackHandler,
   Easing,
   Image,
@@ -73,6 +75,21 @@ export function ReturningUserPermissionsFlow({
     if (!visible) return;
     void NotificationService.syncOsPermissionStatus();
     void LocationPermissionService.syncOsPermissionStatus();
+  }, [visible]);
+
+  // Backstop: if the user bounces to Settings (or permissions get into a weird state),
+  // ensure we never leave the CTA stuck in an "Enabling…" state.
+  useEffect(() => {
+    if (!visible) return;
+    const handler = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      setIsRequestingNotifications(false);
+      setIsRequestingLocation(false);
+      void NotificationService.syncOsPermissionStatus();
+      void LocationPermissionService.syncOsPermissionStatus();
+    };
+    const sub = AppState.addEventListener('change', handler);
+    return () => sub.remove();
   }, [visible]);
 
   const requestNotifications = useCallback(async () => {
@@ -154,10 +171,12 @@ export function ReturningUserPermissionsFlow({
   const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
   const locationUnavailable = locationStatus === 'unavailable';
 
-  type PrimaryAction = 'openSettings' | 'enableNotifications' | 'enableLocation' | 'continue';
+  const anyBlocked = notificationsBlocked || locationBlocked;
+
+  type PrimaryAction = 'enableNotifications' | 'enableLocation' | 'continue';
   const primaryAction: PrimaryAction =
-    notificationsBlocked || locationBlocked
-      ? 'openSettings'
+    anyBlocked
+      ? 'continue'
       : !notificationsAuthorized
         ? 'enableNotifications'
         : !locationAuthorized && !locationUnavailable
@@ -165,8 +184,8 @@ export function ReturningUserPermissionsFlow({
           : 'continue';
 
   const primaryCtaLabel =
-    primaryAction === 'openSettings'
-      ? 'Open settings'
+    anyBlocked
+      ? 'Continue to Kwilt'
       : primaryAction === 'enableNotifications'
         ? 'Enable notifications'
         : primaryAction === 'enableLocation'
@@ -251,10 +270,6 @@ export function ReturningUserPermissionsFlow({
                 disabled={isRequestingNotifications || isRequestingLocation}
                 style={styles.primaryButton}
                 onPress={() => {
-                  if (primaryAction === 'openSettings') {
-                    void Linking.openSettings();
-                    return;
-                  }
                   if (primaryAction === 'enableNotifications') {
                     void requestNotifications();
                     return;
@@ -276,9 +291,15 @@ export function ReturningUserPermissionsFlow({
               <Button
                 variant="ghost"
                 fullWidth
-                onPress={handleComplete}
+                onPress={() => {
+                  if (anyBlocked) {
+                    void Linking.openSettings();
+                    return;
+                  }
+                  handleComplete();
+                }}
               >
-                <Text style={styles.secondaryButtonLabel}>Skip for now</Text>
+                <Text style={styles.secondaryButtonLabel}>{anyBlocked ? 'Open settings' : 'Skip for now'}</Text>
               </Button>
             </View>
           </View>
