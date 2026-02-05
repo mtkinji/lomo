@@ -4281,13 +4281,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
         </View>
       </View>
 
-      {hasWorkflowContextMeta && (
-        <Modal
-          visible={isWorkflowInfoVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsWorkflowInfoVisible(false)}
-        >
+      {hasWorkflowContextMeta && isWorkflowInfoVisible ? (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setIsWorkflowInfoVisible(false)}>
           <View style={styles.arcInfoOverlay}>
             <View style={styles.arcInfoCard}>
               <View style={styles.arcInfoHeaderRow}>
@@ -4398,55 +4393,57 @@ export const AiChatPane = forwardRef(function AiChatPane(
             </View>
           </View>
         </Modal>
-      )}
+      ) : null}
 
-      <Modal visible={isComposerExpanded} animationType="slide" onRequestClose={closeExpandedComposer}>
-        <EditorSurface
-          header={
-            <EditorHeader
-              left={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onPress={closeExpandedComposer}
-                  accessibilityLabel="Close expanded composer"
-                >
-                  <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
-                </Button>
-              }
-              center={<Text style={styles.expandedHeaderTitle}>Message</Text>}
-              right={
-                <Button
-                  variant="ghost"
-                  onPress={handleSend}
-                  accessibilityLabel="Send message"
-                  disabled={sending || !canSend}
-                >
-                  <Text style={styles.expandedHeaderAction}>Send</Text>
-                </Button>
-              }
-            />
-          }
-          bodyTopPadding={spacing.lg}
-          bodyBottomPadding={spacing.lg}
-        >
-          <View style={styles.expandedBody}>
-            <TextInput
-              ref={expandedInputRef}
-              style={styles.expandedInput}
-              placeholder={composerPlaceholder}
-              placeholderTextColor={colors.muted}
-              value={input}
-              onChangeText={setInput}
-              multiline
-              textAlignVertical="top"
-              autoFocus
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-            />
-          </View>
-        </EditorSurface>
-      </Modal>
+      {isComposerExpanded ? (
+        <Modal visible animationType="slide" onRequestClose={closeExpandedComposer}>
+          <EditorSurface
+            header={
+              <EditorHeader
+                left={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onPress={closeExpandedComposer}
+                    accessibilityLabel="Close expanded composer"
+                  >
+                    <Icon name="close" size={18} color={CHAT_COLORS.textSecondary} />
+                  </Button>
+                }
+                center={<Text style={styles.expandedHeaderTitle}>Message</Text>}
+                right={
+                  <Button
+                    variant="ghost"
+                    onPress={handleSend}
+                    accessibilityLabel="Send message"
+                    disabled={sending || !canSend}
+                  >
+                    <Text style={styles.expandedHeaderAction}>Send</Text>
+                  </Button>
+                }
+              />
+            }
+            bodyTopPadding={spacing.lg}
+            bodyBottomPadding={spacing.lg}
+          >
+            <View style={styles.expandedBody}>
+              <TextInput
+                ref={expandedInputRef}
+                style={styles.expandedInput}
+                placeholder={composerPlaceholder}
+                placeholderTextColor={colors.muted}
+                value={input}
+                onChangeText={setInput}
+                multiline
+                textAlignVertical="top"
+                autoFocus
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+              />
+            </View>
+          </EditorSurface>
+        </Modal>
+      ) : null}
 
   </>
   );

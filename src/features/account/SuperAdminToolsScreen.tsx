@@ -1129,77 +1129,79 @@ export function SuperAdminToolsScreen() {
         </KeyboardAwareScrollView>
 
         {/* Full-screen modal for User Hotspots map */}
-        <Modal
-          visible={hotspotsMapModalVisible}
-          animationType="slide"
-          presentationStyle="fullScreen"
-          onRequestClose={() => setHotspotsMapModalVisible(false)}
-        >
-          <SafeAreaView style={styles.hotspotsModalContainer}>
-            <PageHeader
-              title="User Hotspots"
-              onPressBack={() => setHotspotsMapModalVisible(false)}
-            />
-            {(() => {
-              const locations = metricsData?.userLocations ?? [];
-              if (locations.length === 0) {
+        {hotspotsMapModalVisible ? (
+          <Modal
+            visible
+            animationType="slide"
+            presentationStyle="fullScreen"
+            onRequestClose={() => setHotspotsMapModalVisible(false)}
+          >
+            <SafeAreaView style={styles.hotspotsModalContainer}>
+              <PageHeader
+                title="User Hotspots"
+                onPressBack={() => setHotspotsMapModalVisible(false)}
+              />
+              {(() => {
+                const locations = metricsData?.userLocations ?? [];
+                if (locations.length === 0) {
+                  return (
+                    <View style={styles.hotspotsModalPlaceholder}>
+                      <Text style={styles.metricsMapPlaceholderText}>No location data available</Text>
+                    </View>
+                  );
+                }
+
+                const lats = locations.map((l) => l.lat);
+                const lons = locations.map((l) => l.lon);
+                const minLat = Math.min(...lats);
+                const maxLat = Math.max(...lats);
+                const minLon = Math.min(...lons);
+                const maxLon = Math.max(...lons);
+                const centerLat = (minLat + maxLat) / 2;
+                const centerLon = (minLon + maxLon) / 2;
+                const latDelta = Math.max(0.1, (maxLat - minLat) * 1.5);
+                const lonDelta = Math.max(0.1, (maxLon - minLon) * 1.5);
+                const maxCount = Math.max(...locations.map((l) => l.count));
+
                 return (
-                  <View style={styles.hotspotsModalPlaceholder}>
-                    <Text style={styles.metricsMapPlaceholderText}>No location data available</Text>
-                  </View>
+                  <MapView
+                    style={styles.hotspotsModalMap}
+                    mapType="standard"
+                    initialRegion={{
+                      latitude: centerLat,
+                      longitude: centerLon,
+                      latitudeDelta: latDelta,
+                      longitudeDelta: lonDelta,
+                    }}
+                    scrollEnabled={true}
+                    zoomEnabled={true}
+                    rotateEnabled={false}
+                    pitchEnabled={false}
+                  >
+                    {locations.map((loc, idx) => {
+                      const radiusM = 5000 + (loc.count / maxCount) * 20000;
+                      return (
+                        <Circle
+                          key={`${loc.lat}-${loc.lon}-${idx}`}
+                          center={{ latitude: loc.lat, longitude: loc.lon }}
+                          radius={radiusM}
+                          strokeWidth={2}
+                          strokeColor={colors.accent}
+                          fillColor="rgba(49,85,69,0.25)"
+                        />
+                      );
+                    })}
+                  </MapView>
                 );
-              }
-
-              const lats = locations.map((l) => l.lat);
-              const lons = locations.map((l) => l.lon);
-              const minLat = Math.min(...lats);
-              const maxLat = Math.max(...lats);
-              const minLon = Math.min(...lons);
-              const maxLon = Math.max(...lons);
-              const centerLat = (minLat + maxLat) / 2;
-              const centerLon = (minLon + maxLon) / 2;
-              const latDelta = Math.max(0.1, (maxLat - minLat) * 1.5);
-              const lonDelta = Math.max(0.1, (maxLon - minLon) * 1.5);
-              const maxCount = Math.max(...locations.map((l) => l.count));
-
-              return (
-                <MapView
-                  style={styles.hotspotsModalMap}
-                  mapType="standard"
-                  initialRegion={{
-                    latitude: centerLat,
-                    longitude: centerLon,
-                    latitudeDelta: latDelta,
-                    longitudeDelta: lonDelta,
-                  }}
-                  scrollEnabled={true}
-                  zoomEnabled={true}
-                  rotateEnabled={false}
-                  pitchEnabled={false}
-                >
-                  {locations.map((loc, idx) => {
-                    const radiusM = 5000 + (loc.count / maxCount) * 20000;
-                    return (
-                      <Circle
-                        key={`${loc.lat}-${loc.lon}-${idx}`}
-                        center={{ latitude: loc.lat, longitude: loc.lon }}
-                        radius={radiusM}
-                        strokeWidth={2}
-                        strokeColor={colors.accent}
-                        fillColor="rgba(49,85,69,0.25)"
-                      />
-                    );
-                  })}
-                </MapView>
-              );
-            })()}
-            <View style={styles.hotspotsModalLegend}>
-              <Text style={styles.metricsMapLegend}>
-                {(metricsData?.userLocations ?? []).length} location{(metricsData?.userLocations ?? []).length !== 1 ? 's' : ''} • {(metricsData?.userLocations ?? []).reduce((sum, l) => sum + l.count, 0)} activities
-              </Text>
-            </View>
-          </SafeAreaView>
-        </Modal>
+              })()}
+              <View style={styles.hotspotsModalLegend}>
+                <Text style={styles.metricsMapLegend}>
+                  {(metricsData?.userLocations ?? []).length} location{(metricsData?.userLocations ?? []).length !== 1 ? 's' : ''} • {(metricsData?.userLocations ?? []).reduce((sum, l) => sum + l.count, 0)} activities
+                </Text>
+              </View>
+            </SafeAreaView>
+          </Modal>
+        ) : null}
 
         <BottomDrawer
           visible={codeDrawerVisible}

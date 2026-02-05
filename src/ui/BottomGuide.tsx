@@ -10,6 +10,14 @@ import { useToastStore } from '../store/useToastStore';
 interface BottomGuideProps {
   visible: boolean;
   /**
+   * When true (default), the guide will lift above the keyboard via BottomDrawer's
+   * KeyboardAvoidingView wrapper.
+   *
+   * Set to false when the guide implements its own keyboard strategy (e.g. custom
+   * snap points + internal padding) to avoid double offsets / awkward jumps.
+   */
+  keyboardAvoidanceEnabled?: boolean;
+  /**
    * Optional snap points override when a guide needs more vertical space.
    * Defaults to a compact 35% guide height.
    */
@@ -58,6 +66,7 @@ interface BottomGuideProps {
  */
 export function BottomGuide({
   visible,
+  keyboardAvoidanceEnabled = true,
   snapPoints,
   scrim = 'none',
   layout = 'inset',
@@ -114,6 +123,7 @@ export function BottomGuide({
       <BottomDrawer
         visible={visible}
         onClose={onClose ?? (() => {})}
+        keyboardAvoidanceEnabled={keyboardAvoidanceEnabled}
         // Let content define its own height so the guide feels like a compact,
         // anchored panel instead of a full-height sheet. Use a modest percentage
         // height so the guide remains compact and non-modal.

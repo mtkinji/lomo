@@ -481,7 +481,10 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           // eslint-disable-next-line no-console
           console.error('[workflow] Failed to invoke agent step', stepId, error);
         }
-        throw error;
+        // Important: non-quota transport errors should not crash the host surface
+        // (redbox / unhandled promise rejection). We stream a user-visible message
+        // and keep the workflow on the current step so the user can retry.
+        return;
       }
     },
     [launchContextText, props.onTransportError, workflowDefinition, workflowInstance]

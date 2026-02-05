@@ -201,6 +201,11 @@ export function ArcDetailScreen() {
   const [showOnboardingArcHandoff, setShowOnboardingArcHandoff] = useState(
     Boolean(showCelebrationFromRoute && !hasSeenFirstArcCelebration),
   );
+  // When the user chooses "Explore first" we should still *suggest* the next step,
+  // but we must not trap them (lock scroll / remove dismissal affordances).
+  const [onboardingGoalCoachmarkMode, setOnboardingGoalCoachmarkMode] = useState<
+    'guided' | 'explore'
+  >('guided');
   const onboardingArcHandoffHapticPlayedRef = useRef(false);
   const hasConsumedRouteCelebrationRef = useRef(false);
   const [goalsSectionOffset, setGoalsSectionOffset] = useState<number | null>(null);
@@ -355,6 +360,11 @@ export function ArcDetailScreen() {
       navigation.setParams({ showFirstArcCelebration: false });
     }
   }, [navigation, setHasSeenFirstArcCelebration, showCelebrationFromRoute]);
+
+  const handleExploreFirst = useCallback(() => {
+    setOnboardingGoalCoachmarkMode('explore');
+    handleDismissOnboardingArcHandoff();
+  }, [handleDismissOnboardingArcHandoff]);
 
   useEffect(() => {
     // If the navigation explicitly requested the celebration (for example,
@@ -817,7 +827,7 @@ export function ArcDetailScreen() {
     <AppShell fullBleedCanvas>
       <BottomGuide
         visible={showOnboardingArcHandoff}
-        onClose={handleDismissOnboardingArcHandoff}
+        onClose={handleExploreFirst}
         scrim="light"
       >
         <Heading variant="sm">🚀 Your first Arc is ready</Heading>
@@ -828,7 +838,7 @@ export function ArcDetailScreen() {
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
             variant="outline"
-            onPress={handleDismissOnboardingArcHandoff}
+            onPress={handleExploreFirst}
           >
             <Text style={styles.onboardingGuideSecondaryLabel}>Explore first</Text>
           </Button>
@@ -838,6 +848,7 @@ export function ArcDetailScreen() {
               // Dismiss the celebration guide
               setShowOnboardingArcHandoff(false);
               setHasSeenFirstArcCelebration(true);
+              setOnboardingGoalCoachmarkMode('guided');
               if (showCelebrationFromRoute && !hasConsumedRouteCelebrationRef.current) {
                 hasConsumedRouteCelebrationRef.current = true;
                 navigation.setParams({ showFirstArcCelebration: false });
@@ -952,7 +963,11 @@ export function ArcDetailScreen() {
               },
             ]}
             showsVerticalScrollIndicator={false}
-            scrollEnabled={onboardingGoalCoachmarkHost.scrollEnabled}
+            scrollEnabled={
+              onboardingGoalCoachmarkHost.coachmarkVisible && onboardingGoalCoachmarkMode === 'explore'
+                ? true
+                : onboardingGoalCoachmarkHost.scrollEnabled
+            }
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
             keyboardShouldPersistTaps="handled"
             onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -1356,7 +1371,9 @@ export function ArcDetailScreen() {
             Tap “Create goal" to add your first goal.
           </Text>
         }
-        actions={[]}
+        // "Explore first" should not trap the user: allow dismissal affordance.
+        // "Go to Goals" keeps the stricter "tap the target" guidance.
+        actions={onboardingGoalCoachmarkMode === 'explore' ? undefined : []}
         onDismiss={() => setHasDismissedOnboardingGoalGuide(true)}
         placement="above"
       />

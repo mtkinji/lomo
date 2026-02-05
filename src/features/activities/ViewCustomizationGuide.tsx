@@ -36,17 +36,32 @@ export type ViewPreset = {
 export const VIEW_PRESETS: ViewPreset[] = [
   {
     id: 'preset-today',
-    label: 'Due today or overdue',
+    label: '📅 Due today',
     icon: 'today',
     filters: [
       {
         logic: 'and',
         conditions: [
-          { id: 'due-today', field: 'scheduledDate', operator: 'lte', value: 'today' },
+          { id: 'due-today', field: 'scheduledDate', operator: 'eq', value: 'today' },
         ],
       },
     ],
     sorts: [{ field: 'priority', direction: 'desc' }],
+    showCompleted: false,
+  },
+  {
+    id: 'preset-past-due',
+    label: '⚠️ Past due',
+    icon: 'today',
+    filters: [
+      {
+        logic: 'and',
+        conditions: [
+          { id: 'past-due', field: 'scheduledDate', operator: 'lt', value: 'today' },
+        ],
+      },
+    ],
+    sorts: [{ field: 'scheduledDate', direction: 'asc' }],
     showCompleted: false,
   },
   {
@@ -174,6 +189,9 @@ export function ViewCustomizationGuide({
     <BottomGuide
       visible={visible}
       onClose={onClose}
+      // This guide manages keyboard space via snap points + internal padding.
+      // Avoid BottomDrawer's keyboard avoidance to prevent double lifting.
+      keyboardAvoidanceEnabled={false}
       snapPoints={adjustedKeyboardHeight > 0 ? ['92%'] : ['75%']}
       scrim="light"
     >

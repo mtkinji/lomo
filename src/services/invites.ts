@@ -5,7 +5,7 @@ import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getEnvVar } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { ensureSignedInWithPrompt, getAccessToken } from './backend/auth';
-import { rootNavigationRef } from '../navigation/rootNavigationRef';
+import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { useToastStore } from '../store/useToastStore';
 import { useAppStore } from '../store/useAppStore';
 import { useJoinSharedGoalDrawerStore } from '../store/useJoinSharedGoalDrawerStore';
@@ -424,7 +424,7 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
             variant: 'success',
             durationMs: 2200,
           });
-          rootNavigationRef.navigate('MainTabs', {
+          navigateWhenReady('MainTabs', {
             screen: 'GoalsTab',
             params: {
               screen: 'GoalDetail',
@@ -441,7 +441,7 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
             const accepted = await acceptGoalInvite(code);
             const acceptedGoalId = accepted?.goalId?.trim();
             if (acceptedGoalId) {
-              rootNavigationRef.navigate('MainTabs', {
+              navigateWhenReady('MainTabs', {
                 screen: 'GoalsTab',
                 params: {
                   screen: 'GoalDetail',

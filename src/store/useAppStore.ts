@@ -977,18 +977,48 @@ const initialActivities: Activity[] = [];
 const initialActivityViews: ActivityView[] = [
   {
     id: 'default',
-    name: 'Default view',
+    name: '🗂️ All activities',
     filterMode: 'all',
     sortMode: 'manual',
     showCompleted: true,
     isSystem: true,
   },
   {
-    id: 'priorityFocus',
-    name: 'Starred',
-    filterMode: 'priority1',
-    sortMode: 'priority',
-    showCompleted: true,
+    id: 'dueToday',
+    name: '📅 Due today',
+    filterMode: 'all',
+    sortMode: 'manual',
+    filters: [
+      {
+        logic: 'and',
+        conditions: [
+          { id: 'due-today', field: 'scheduledDate', operator: 'eq', value: 'today' },
+          { id: 'not-done', field: 'status', operator: 'neq', value: 'done' },
+          { id: 'not-cancelled', field: 'status', operator: 'neq', value: 'cancelled' },
+          { id: 'not-skipped', field: 'status', operator: 'neq', value: 'skipped' },
+        ],
+      },
+    ],
+    showCompleted: false,
+    isSystem: true,
+  },
+  {
+    id: 'pastDue',
+    name: '⚠️ Past due',
+    filterMode: 'all',
+    sortMode: 'manual',
+    filters: [
+      {
+        logic: 'and',
+        conditions: [
+          { id: 'past-due', field: 'scheduledDate', operator: 'lt', value: 'today' },
+          { id: 'not-done', field: 'status', operator: 'neq', value: 'done' },
+          { id: 'not-cancelled', field: 'status', operator: 'neq', value: 'cancelled' },
+          { id: 'not-skipped', field: 'status', operator: 'neq', value: 'skipped' },
+        ],
+      },
+    ],
+    showCompleted: false,
     isSystem: true,
   },
 ];
@@ -2231,6 +2261,25 @@ export const useAppStore = create<AppState>()(
         }
         if (!Array.isArray(anyState.activityViews) || anyState.activityViews.length === 0) {
           anyState.activityViews = initialActivityViews;
+        }
+        // Migration: keep a stable, shared set of system Activity views for everyone.
+        // - Custom (non-system) views are preserved.
+        // - System views are overwritten to match the current OOTB set.
+        try {
+          const requiredSystemViews = initialActivityViews;
+          const requiredIds = new Set(requiredSystemViews.map((v) => v.id));
+          const existingViews = Array.isArray(anyState.activityViews) ? anyState.activityViews : [];
+          const customViews = existingViews.filter((v: any) => v && v.isSystem !== true);
+          const dedupedCustomViews = customViews.filter((v: any) => !requiredIds.has(v?.id));
+          anyState.activityViews = [...requiredSystemViews, ...dedupedCustomViews];
+
+          const activeId = anyState.activeActivityViewId;
+          const allowedIds = new Set((anyState.activityViews ?? []).map((v: any) => v?.id).filter(Boolean));
+          if (typeof activeId !== 'string' || !allowedIds.has(activeId)) {
+            anyState.activeActivityViewId = 'default';
+          }
+        } catch {
+          // best-effort
         }
 
         // Domain objects are loaded asynchronously from a separate key.

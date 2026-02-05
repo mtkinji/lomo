@@ -2,7 +2,7 @@ import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Activity } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
-import { rootNavigationRef } from '../navigation/rootNavigationRef';
+import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { posthogClient } from './analytics/posthogClient';
 import { track } from './analytics/analytics';
 import { AnalyticsEvent } from './analytics/events';
@@ -1355,36 +1355,27 @@ function attachNotificationResponseListener() {
 
     switch (data.type) {
       case 'activityReminder': {
-        if (!rootNavigationRef.isReady()) {
-          return;
-        }
         const activityId = (data as { activityId?: string }).activityId;
         if (!activityId) return;
-        rootNavigationRef.navigate('MainTabs', {
+        navigateWhenReady('MainTabs', {
           screen: 'ActivitiesTab',
           params: { screen: 'ActivityDetail', params: { activityId } },
         });
         break;
       }
       case 'locationOffer': {
-        if (!rootNavigationRef.isReady()) {
-          return;
-        }
         const activityId = (data as { activityId?: string }).activityId;
         if (!activityId) return;
-        rootNavigationRef.navigate('MainTabs', {
+        navigateWhenReady('MainTabs', {
           screen: 'ActivitiesTab',
           params: { screen: 'ActivityDetail', params: { activityId } },
         });
         break;
       }
       case 'goalNudge': {
-        if (!rootNavigationRef.isReady()) {
-          return;
-        }
         const goalId = (data as { goalId?: string }).goalId;
         if (!goalId) return;
-        rootNavigationRef.navigate('MainTabs', {
+        navigateWhenReady('MainTabs', {
           screen: 'GoalsTab',
           params: {
             screen: 'GoalDetail',
@@ -1401,21 +1392,15 @@ function attachNotificationResponseListener() {
         if (state.lastShowUpDate === todayKey) {
           return;
         }
-        if (!rootNavigationRef.isReady()) {
-          return;
-        }
         // Plan owns the primary "choose your next step" flow; open recommendations.
-        rootNavigationRef.navigate('MainTabs', {
+        navigateWhenReady('MainTabs', {
           screen: 'PlanTab',
           params: { openRecommendations: true },
         });
         break;
       }
       case 'setupNextStep': {
-        if (!rootNavigationRef.isReady()) {
-          return;
-        }
-        rootNavigationRef.navigate('MainTabs', {
+        navigateWhenReady('MainTabs', {
           screen: 'PlanTab',
           params: { openRecommendations: true },
         });
@@ -1427,10 +1412,7 @@ function attachNotificationResponseListener() {
         if (state.lastCompletedFocusSessionDate === todayKey) {
           return;
         }
-        if (!rootNavigationRef.isReady()) {
-          return;
-        }
-        rootNavigationRef.navigate('MainTabs', {
+        navigateWhenReady('MainTabs', {
           screen: 'ActivitiesTab',
           params: { screen: 'ActivitiesList' },
         });
@@ -1438,10 +1420,7 @@ function attachNotificationResponseListener() {
       }
       case 'streak':
       case 'reactivation': {
-        if (!rootNavigationRef.isReady()) {
-          return;
-        }
-        rootNavigationRef.navigate('MainTabs', {
+        navigateWhenReady('MainTabs', {
           screen: 'ActivitiesTab',
           params: { screen: 'ActivitiesList' },
         });

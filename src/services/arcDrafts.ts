@@ -1,7 +1,7 @@
 import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { ensureSignedInWithPrompt } from './backend/auth';
-import { rootNavigationRef } from '../navigation/rootNavigationRef';
+import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { useArcDraftClaimStore } from '../store/useArcDraftClaimStore';
 import type { ArcDraftPayload } from '@kwilt/arc-survey';
 import { AnalyticsEvent, type AnalyticsEventName } from './analytics/events';
@@ -151,7 +151,7 @@ export async function handleIncomingArcDraftUrl(
     capture?.(AnalyticsEvent.ArcDraftClaimSucceeded, { draft_id: draftId, version: payload.version });
 
     // Route into the Arcs canvas flow that continues Arc creation from the claimed draft.
-    rootNavigationRef.navigate('MainTabs', {
+    navigateWhenReady('MainTabs', {
       screen: 'MoreTab',
       params: { screen: 'MoreArcs', params: { screen: 'ArcDraftContinue' } },
     });

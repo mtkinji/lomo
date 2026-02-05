@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Portal } from '@rn-primitives/portal';
 import { colors, scrims, spacing, type ScrimToken } from '../theme';
 
 export type BottomDrawerSnapPoint = number | `${number}%`;
@@ -186,6 +187,7 @@ export function BottomDrawer({
 }: BottomDrawerProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const portalNameRef = useRef(`bottom-drawer-${Math.random().toString(36).slice(2)}-${Date.now()}`);
 
   // Available height excludes the top safe-area so a 100% snap doesn't tuck under the notch.
   const availableHeight = Math.max(windowHeight - insets.top, 0);
@@ -611,7 +613,9 @@ export function BottomDrawer({
   );
 
   if (presentation === 'inline') {
-    return body;
+    // Render inline drawers through a Portal so they can reliably layer above
+    // navigator-managed surfaces like the bottom tab bar.
+    return <Portal name={portalNameRef.current}>{body}</Portal>;
   }
 
   return (
@@ -700,8 +704,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     // Inline drawers must win stacking against the rest of the canvas.
     // `Modal` presentation doesn't rely on zIndex, but keeping this here is harmless.
-    zIndex: 999,
-    elevation: 999,
+    // Note: `KwiltBottomBar` uses a very high zIndex/elevation (1000) so it stays tappable
+    // above absolute-positioned screen overlays. BottomDrawer must sit above the bar whenever
+    // both are present so drawer CTAs are never obscured by the bottom bar.
+    zIndex: 2000,
+    elevation: 2000,
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,

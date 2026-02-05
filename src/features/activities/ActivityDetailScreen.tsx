@@ -5090,93 +5090,95 @@ export function ActivityDetailScreen() {
         </View>
       </BottomDrawer>
 
-      <Modal
-        visible={Boolean(focusSession)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          endFocusSession().catch(() => undefined);
-        }}
-      >
-        <View
-          style={[
-            styles.focusOverlay,
-            { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
-          ]}
+      {focusSession ? (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            endFocusSession().catch(() => undefined);
+          }}
         >
-          <View style={styles.focusTopBar}>
-            <BrandLockup
-              logoSize={28}
-              wordmarkSize="sm"
-              logoVariant="parchment"
-              color={colors.parchment}
-            />
-            <Pressable
-              onPress={() => setSoundscapeEnabled(!soundscapeEnabled)}
-              style={({ pressed }) => [
-                styles.focusSoundToggle,
-                soundscapeEnabled ? styles.focusSoundToggleOn : styles.focusSoundToggleOff,
-                pressed && styles.focusSoundTogglePressed,
-              ]}
-              accessibilityRole="switch"
-              accessibilityLabel="Focus soundscape"
-              accessibilityState={{ checked: soundscapeEnabled }}
-              accessibilityHint={soundscapeEnabled ? 'Double tap to turn audio off' : 'Double tap to turn audio on'}
-            >
-              <HStack space="xs" alignItems="center">
-                <Icon
-                  name={soundscapeEnabled ? 'sound' : 'soundOff'}
-                  size={18}
-                  color={soundscapeEnabled ? colors.pine800 : colors.parchment}
-                />
-                <Text
-                  style={[
-                    styles.focusSoundToggleLabel,
-                    soundscapeEnabled ? styles.focusSoundToggleLabelOn : styles.focusSoundToggleLabelOff,
-                  ]}
-                >
-                  {soundscapeEnabled ? 'Audio on' : 'Audio off'}
-                </Text>
-              </HStack>
-            </Pressable>
-          </View>
-
-          <View style={styles.focusCenter}>
-            <Text style={styles.focusTimer}>{formatMsAsTimer(remainingFocusMs)}</Text>
-            <Text style={styles.focusActivityTitle} numberOfLines={2}>
-              {activity.title}
-            </Text>
-            <Text style={styles.focusStreakOverlayLabel}>
-              Streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
-            </Text>
-          </View>
-
-          <HStack space="sm" style={styles.focusBottomBar}>
-            <HeaderActionPill
-              size={56}
-              accessibilityLabel="End focus session"
-              style={styles.focusActionIconButton}
-              onPress={() => endFocusSession().catch(() => undefined)}
-            >
-              <Icon name="stop" size={22} color={colors.parchment} />
-            </HeaderActionPill>
-            <HeaderActionPill
-              size={56}
-              accessibilityLabel={
-                focusSession?.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'
-              }
-              style={styles.focusActionIconButton}
-              onPress={() => togglePauseFocusSession().catch(() => undefined)}
-            >
-              <Icon
-                name={focusSession?.mode === 'paused' ? 'play' : 'pause'}
-                size={22}
+          <View
+            style={[
+              styles.focusOverlay,
+              { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
+            ]}
+          >
+            <View style={styles.focusTopBar}>
+              <BrandLockup
+                logoSize={28}
+                wordmarkSize="sm"
+                logoVariant="parchment"
                 color={colors.parchment}
               />
-            </HeaderActionPill>
-          </HStack>
-        </View>
-      </Modal>
+              <Pressable
+                onPress={() => setSoundscapeEnabled(!soundscapeEnabled)}
+                style={({ pressed }) => [
+                  styles.focusSoundToggle,
+                  soundscapeEnabled ? styles.focusSoundToggleOn : styles.focusSoundToggleOff,
+                  pressed && styles.focusSoundTogglePressed,
+                ]}
+                accessibilityRole="switch"
+                accessibilityLabel="Focus soundscape"
+                accessibilityState={{ checked: soundscapeEnabled }}
+                accessibilityHint={soundscapeEnabled ? 'Double tap to turn audio off' : 'Double tap to turn audio on'}
+              >
+                <HStack space="xs" alignItems="center">
+                  <Icon
+                    name={soundscapeEnabled ? 'sound' : 'soundOff'}
+                    size={18}
+                    color={soundscapeEnabled ? colors.pine800 : colors.parchment}
+                  />
+                  <Text
+                    style={[
+                      styles.focusSoundToggleLabel,
+                      soundscapeEnabled ? styles.focusSoundToggleLabelOn : styles.focusSoundToggleLabelOff,
+                    ]}
+                  >
+                    {soundscapeEnabled ? 'Audio on' : 'Audio off'}
+                  </Text>
+                </HStack>
+              </Pressable>
+            </View>
+
+            <View style={styles.focusCenter}>
+              <Text style={styles.focusTimer}>{formatMsAsTimer(remainingFocusMs)}</Text>
+              <Text style={styles.focusActivityTitle} numberOfLines={2}>
+                {activity.title}
+              </Text>
+              <Text style={styles.focusStreakOverlayLabel}>
+                Streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
+              </Text>
+            </View>
+
+            <HStack space="sm" style={styles.focusBottomBar}>
+              <HeaderActionPill
+                size={56}
+                accessibilityLabel="End focus session"
+                style={styles.focusActionIconButton}
+                onPress={() => endFocusSession().catch(() => undefined)}
+              >
+                <Icon name="stop" size={22} color={colors.parchment} />
+              </HeaderActionPill>
+              <HeaderActionPill
+                size={56}
+                accessibilityLabel={
+                  focusSession?.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'
+                }
+                style={styles.focusActionIconButton}
+                onPress={() => togglePauseFocusSession().catch(() => undefined)}
+              >
+                <Icon
+                  name={focusSession?.mode === 'paused' ? 'play' : 'pause'}
+                  size={22}
+                  color={colors.parchment}
+                />
+              </HeaderActionPill>
+            </HStack>
+          </View>
+        </Modal>
+      ) : null}
 
       <ArcBannerSheet
         visible={thumbnailSheetVisible}

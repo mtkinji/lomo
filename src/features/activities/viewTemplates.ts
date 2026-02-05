@@ -71,7 +71,7 @@ export function templateToView(
 export const LIST_TEMPLATES: ViewTemplate[] = [
   {
     id: 'template-list-all',
-    label: 'All Activities',
+    label: '🗂️ All activities',
     description: 'Everything in one place',
     icon: 'viewList',
     layout: 'list',
@@ -80,8 +80,8 @@ export const LIST_TEMPLATES: ViewTemplate[] = [
   },
   {
     id: 'template-list-today',
-    label: 'Today',
-    description: 'Due today or earlier',
+    label: '📅 Due today',
+    description: 'Scheduled for today',
     icon: 'today',
     layout: 'list',
     category: 'list',
@@ -92,19 +92,72 @@ export const LIST_TEMPLATES: ViewTemplate[] = [
           {
             id: 'due-today',
             field: 'scheduledDate',
-            operator: 'lte',
+            operator: 'eq',
             value: 'today', // Runtime should interpret this as today's date
           },
           {
-            id: 'not-completed',
+            id: 'not-done',
             field: 'status',
             operator: 'neq',
-            value: 'completed',
+            value: 'done',
+          },
+          {
+            id: 'not-cancelled',
+            field: 'status',
+            operator: 'neq',
+            value: 'cancelled',
+          },
+          {
+            id: 'not-skipped',
+            field: 'status',
+            operator: 'neq',
+            value: 'skipped',
           },
         ],
       },
     ],
     sorts: [{ field: 'priority', direction: 'desc' }],
+    showCompleted: false,
+  },
+  {
+    id: 'template-list-past-due',
+    label: '⚠️ Past due',
+    description: 'Overdue activities',
+    icon: 'today',
+    layout: 'list',
+    category: 'list',
+    filters: [
+      {
+        logic: 'and',
+        conditions: [
+          {
+            id: 'past-due',
+            field: 'scheduledDate',
+            operator: 'lt',
+            value: 'today',
+          },
+          {
+            id: 'not-done',
+            field: 'status',
+            operator: 'neq',
+            value: 'done',
+          },
+          {
+            id: 'not-cancelled',
+            field: 'status',
+            operator: 'neq',
+            value: 'cancelled',
+          },
+          {
+            id: 'not-skipped',
+            field: 'status',
+            operator: 'neq',
+            value: 'skipped',
+          },
+        ],
+      },
+    ],
+    sorts: [{ field: 'scheduledDate', direction: 'asc' }],
     showCompleted: false,
   },
   {

@@ -1,7 +1,7 @@
 import type { ReactNode, RefObject } from 'react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portal } from '@rn-primitives/portal';
@@ -9,6 +9,7 @@ import Svg, { Defs, Mask, Rect as SvgRect } from 'react-native-svg';
 import { colors, scrims, spacing, type ScrimToken } from '../theme';
 import { Button } from './Button';
 import { Text } from './Typography';
+import { useKeyboardHeight } from './hooks/useKeyboardHeight';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -175,6 +176,7 @@ export function Coachmark({
 }: CoachmarkProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { keyboardHeight } = useKeyboardHeight();
   const suppressionKeyRef = React.useRef(
     `coachmark-${Math.random().toString(36).slice(2)}-${Date.now()}`,
   );
@@ -247,6 +249,12 @@ export function Coachmark({
     measureTarget();
   }, [visible, measureTarget, windowWidth, windowHeight]);
 
+  useEffect(() => {
+    if (!visible) return;
+    // If the keyboard changes frame, the target can shift (e.g. inputs). Re-measure.
+    measureTarget();
+  }, [keyboardHeight, measureTarget, visible]);
+
   const handleBubbleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     if (!Number.isFinite(width) || !Number.isFinite(height)) return;
@@ -258,7 +266,10 @@ export function Coachmark({
 
     const sidePadding = spacing.lg;
     const topLimit = insets.top + spacing.lg;
-    const bottomLimit = windowHeight - insets.bottom - spacing.lg;
+    // Keep coachmarks usable when the keyboard is open: treat the keyboard as a hard bottom boundary.
+    // iOS keyboard heights typically include the bottom safe-area inset.
+    const keyboardInset = Platform.OS === 'ios' ? Math.max(0, keyboardHeight - insets.bottom) : keyboardHeight;
+    const bottomLimit = windowHeight - insets.bottom - spacing.lg - keyboardInset;
 
     const bubbleWidth = Math.min(bubbleSize.width, maxWidth);
     const bubbleHeight = bubbleSize.height;
@@ -306,7 +317,19 @@ export function Coachmark({
     const arrowLeft = clampNumber(anchorX - left - 10, 16, bubbleWidth - 16);
 
     return { left, top, resolvedPlacement, arrowLeft, bubbleWidth };
-  }, [visible, targetRect, bubbleSize, insets.bottom, insets.top, maxWidth, offset, placement, windowHeight, windowWidth]);
+  }, [
+    visible,
+    targetRect,
+    bubbleSize,
+    insets.bottom,
+    insets.top,
+    maxWidth,
+    offset,
+    placement,
+    windowHeight,
+    windowWidth,
+    keyboardHeight,
+  ]);
 
   const footerActions = useMemo(() => {
     const baseActions =
