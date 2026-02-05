@@ -174,6 +174,9 @@ export function ViewCustomizationGuide({
     <BottomGuide
       visible={visible}
       onClose={onClose}
+      // This guide manages keyboard space via snap points + internal padding.
+      // Avoid BottomDrawer's keyboard avoidance to prevent double lifting.
+      keyboardAvoidanceEnabled={false}
       snapPoints={adjustedKeyboardHeight > 0 ? ['92%'] : ['75%']}
       scrim="light"
     >
