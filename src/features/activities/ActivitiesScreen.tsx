@@ -407,7 +407,15 @@ export function ActivitiesScreen() {
     }
   }, [isPro, viewEditorVisible]);
 
-  const effectiveActiveViewId = isPro ? activeActivityViewId : 'default';
+  const systemViews = React.useMemo(() => activityViews.filter((v) => v.isSystem), [activityViews]);
+  const systemViewIdSet = React.useMemo(() => new Set(systemViews.map((v) => v.id)), [systemViews]);
+
+  const effectiveActiveViewId = React.useMemo(() => {
+    if (isPro) return activeActivityViewId;
+    // Free users can switch between system views, but not custom views.
+    const activeId = activeActivityViewId ?? 'default';
+    return systemViewIdSet.has(activeId) ? activeId : 'default';
+  }, [activeActivityViewId, isPro, systemViewIdSet]);
 
   const activeView: ActivityView | undefined = React.useMemo(() => {
     const targetId = effectiveActiveViewId ?? 'default';
@@ -504,11 +512,11 @@ export function ActivitiesScreen() {
       .filter(Boolean) as Array<(typeof KANBAN_CARD_FIELDS)[number]>;
   }, [kanbanCardFieldOrder]);
 
-  // Views + filtering/sorting are Pro Tools. Free users should see the baseline list,
-  // even if they previously customized system views while Pro.
+  // Custom views + editing are Pro Tools. System views are available to everyone.
   const filterMode = isPro ? (activeView?.filterMode ?? 'all') : 'all';
   const sortMode = isPro ? (activeView?.sortMode ?? 'manual') : 'manual';
-  const showCompleted = isPro ? (activeView?.showCompleted ?? true) : true;
+  const showCompleted =
+    isPro || activeView?.isSystem ? (activeView?.showCompleted ?? true) : true;
 
   const goalTitleById = React.useMemo(
     () =>
@@ -816,42 +824,191 @@ export function ActivitiesScreen() {
     // We keep this conservative and only apply unambiguous equality-based constraints.
     if (!filterGroups || filterGroups.length !== 1) return {};
     const group = filterGroups[0];
-    if (!group || group.logic !== 'and') return {};
+    if (!group || (group.logic !== 'and' && group.logic !== 'or')) return {};
+
+    const toLocalDateKey = (date: Date): string => {
+      const y = String(date.getFullYear());
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const addLocalDays = (date: Date, deltaDays: number): Date => {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      d.setDate(d.getDate() + deltaDays);
+      return d;
+    };
+
+    const parseLocalDateKey = (key: string): Date | null => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key.trim());
+      if (!match) return null;
+      const y = Number.parseInt(match[1] ?? '', 10);
+      const m = Number.parseInt(match[2] ?? '', 10);
+      const d = Number.parseInt(match[3] ?? '', 10);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      return new Date(y, m - 1, d);
+    };
+
+    const resolveRelativeDateTokenToDateKey = (raw: string, now = new Date()): string | null => {
+      const s = String(raw ?? '').trim().toLowerCase();
+      if (!s) return null;
+      if (s === 'today') return toLocalDateKey(now);
+      if (s === 'tomorrow') return toLocalDateKey(addLocalDays(now, 1));
+      if (s === 'yesterday') return toLocalDateKey(addLocalDays(now, -1));
+
+      const m = s.match(/^([+-])\s*(\d+)\s*(day|days|week|weeks)$/i);
+      if (!m) return null;
+      const sign = m[1] === '-' ? -1 : 1;
+      const count = Number.parseInt(m[2] ?? '', 10);
+      const unit = (m[3] ?? '').toLowerCase();
+      if (!Number.isFinite(count)) return null;
+      const n = Math.max(0, Math.floor(count));
+      const deltaDays = unit.startsWith('week') ? sign * n * 7 : sign * n;
+      return toLocalDateKey(addLocalDays(now, deltaDays));
+    };
+
+    const normalizeDateLikeFilterValueToDateKey = (value: unknown): string | null => {
+      if (typeof value !== 'string') return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+      return resolveRelativeDateTokenToDateKey(trimmed);
+    };
+
+    const chooseBestDateKey = (keys: string[], now = new Date()): string | null => {
+      if (!keys || keys.length === 0) return null;
+      const todayKey = toLocalDateKey(now);
+      const today = parseLocalDateKey(todayKey);
+      if (!today) return keys[0] ?? null;
+
+      const unique = Array.from(new Set(keys.filter((k) => typeof k === 'string' && k.trim().length > 0)));
+      const dated = unique
+        .map((k) => ({ k, d: parseLocalDateKey(k) }))
+        .filter((x): x is { k: string; d: Date } => Boolean(x.d));
+
+      // Prefer the soonest date >= today; else, pick the closest date < today.
+      const futureOrToday = dated
+        .map((x) => ({ ...x, delta: x.d.getTime() - today.getTime() }))
+        .filter((x) => x.delta >= 0)
+        .sort((a, b) => a.delta - b.delta);
+      if (futureOrToday.length > 0) return futureOrToday[0].k;
+
+      const past = dated
+        .map((x) => ({ ...x, delta: x.d.getTime() - today.getTime() }))
+        .filter((x) => x.delta < 0)
+        .sort((a, b) => b.delta - a.delta); // closer to today (less negative) first
+      if (past.length > 0) return past[0].k;
+
+      return unique[0] ?? null;
+    };
 
     const defaults: Partial<Activity> = {};
     const tagDefaults: string[] = [];
+
+    // For OR groups, we can safely apply multiple compatible defaults (setting more fields never
+    // invalidates an OR). But for any given field, we still must pick a single value.
+    const candidatesByField: Partial<Record<string, any[]>> | null = group.logic === 'or' ? {} : null;
 
     for (const c of group.conditions ?? []) {
       if (!c) continue;
       switch (c.field) {
         case 'goalId':
-          if (c.operator === 'eq' && typeof c.value === 'string') defaults.goalId = c.value;
+          if (c.operator === 'eq' && typeof c.value === 'string') {
+            if (candidatesByField) {
+              (candidatesByField.goalId ??= []).push(c.value);
+            } else {
+              defaults.goalId = c.value;
+            }
+          }
           break;
         case 'priority':
           if (c.operator === 'eq' && typeof c.value === 'number' && (c.value === 1 || c.value === 2 || c.value === 3)) {
-            defaults.priority = c.value as any;
+            if (candidatesByField) {
+              (candidatesByField.priority ??= []).push(c.value);
+            } else {
+              defaults.priority = c.value as any;
+            }
           }
           break;
         case 'status':
           if (c.operator === 'eq' && typeof c.value === 'string') {
             // Only apply "planning-safe" statuses for quick add.
-            if (c.value === 'planned' || c.value === 'in_progress') defaults.status = c.value as any;
+            if (c.value === 'planned' || c.value === 'in_progress') {
+              if (candidatesByField) {
+                (candidatesByField.status ??= []).push(c.value);
+              } else {
+                defaults.status = c.value as any;
+              }
+            }
           }
           break;
         case 'scheduledDate':
-          if (c.operator === 'eq' && typeof c.value === 'string') defaults.scheduledDate = c.value;
+          // Due date filters may be absolute (YYYY-MM-DD) or relative tokens ("today", "+7days").
+          // Normalize to a date key so creation is stable and matches the view.
+          if (c.operator === 'eq') {
+            const key = normalizeDateLikeFilterValueToDateKey(c.value);
+            if (key) {
+              if (candidatesByField) {
+                (candidatesByField.scheduledDate ??= []).push(key);
+              } else {
+                defaults.scheduledDate = key;
+              }
+            }
+          } else if (c.operator === 'lt' || c.operator === 'gt') {
+            const boundaryKey = normalizeDateLikeFilterValueToDateKey(c.value);
+            const boundaryDate = boundaryKey ? parseLocalDateKey(boundaryKey) : null;
+            if (boundaryDate) {
+              const chosen = toLocalDateKey(addLocalDays(boundaryDate, c.operator === 'lt' ? -1 : 1));
+              if (candidatesByField) {
+                (candidatesByField.scheduledDate ??= []).push(chosen);
+              } else {
+                defaults.scheduledDate = chosen;
+              }
+            }
+          }
           break;
         case 'reminderAt':
-          if (c.operator === 'eq' && typeof c.value === 'string') defaults.reminderAt = c.value;
+          // Reminder timestamps are ISO strings in Activities. Only inherit when the filter
+          // value is already an ISO datetime (or a YYYY-MM-DD key, which some callers may use).
+          if (c.operator === 'eq' && typeof c.value === 'string') {
+            const trimmed = c.value.trim();
+            const isIso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed);
+            const isKey = /^\d{4}-\d{2}-\d{2}$/.test(trimmed);
+            if (isIso || isKey) {
+              if (candidatesByField) {
+                (candidatesByField.reminderAt ??= []).push(trimmed);
+              } else {
+                defaults.reminderAt = trimmed;
+              }
+            }
+          }
           break;
         case 'type':
-          if (c.operator === 'eq' && typeof c.value === 'string') defaults.type = c.value as any;
+          if (c.operator === 'eq' && typeof c.value === 'string') {
+            if (candidatesByField) {
+              (candidatesByField.type ??= []).push(c.value);
+            } else {
+              defaults.type = c.value as any;
+            }
+          }
           break;
         case 'difficulty':
-          if (c.operator === 'eq' && typeof c.value === 'string') defaults.difficulty = c.value as any;
+          if (c.operator === 'eq' && typeof c.value === 'string') {
+            if (candidatesByField) {
+              (candidatesByField.difficulty ??= []).push(c.value);
+            } else {
+              defaults.difficulty = c.value as any;
+            }
+          }
           break;
         case 'estimateMinutes':
-          if (c.operator === 'eq' && typeof c.value === 'number') defaults.estimateMinutes = c.value;
+          if (c.operator === 'eq' && typeof c.value === 'number') {
+            if (candidatesByField) {
+              (candidatesByField.estimateMinutes ??= []).push(c.value);
+            } else {
+              defaults.estimateMinutes = c.value;
+            }
+          }
           break;
         case 'tags':
           // Tag filters are expressed via `in` (value is an array). If the user is filtering by tags,
@@ -864,6 +1021,44 @@ export function ActivitiesScreen() {
           break;
         default:
           break;
+      }
+    }
+
+    if (candidatesByField) {
+      // Pick a single value per field (deterministic, conservative).
+      if (Array.isArray(candidatesByField.goalId) && candidatesByField.goalId.length > 0) {
+        const v = candidatesByField.goalId.find((x) => typeof x === 'string' && x.trim().length > 0);
+        if (v) defaults.goalId = v;
+      }
+      if (Array.isArray(candidatesByField.status) && candidatesByField.status.length > 0) {
+        // Prefer planned if present.
+        const list = candidatesByField.status.filter((x) => x === 'planned' || x === 'in_progress');
+        if (list.includes('planned')) defaults.status = 'planned' as any;
+        else if (list.includes('in_progress')) defaults.status = 'in_progress' as any;
+      }
+      if (Array.isArray(candidatesByField.priority) && candidatesByField.priority.length > 0) {
+        const nums = candidatesByField.priority.filter((x) => x === 1 || x === 2 || x === 3) as number[];
+        if (nums.length > 0) defaults.priority = (Math.min(...nums) as any);
+      }
+      if (Array.isArray(candidatesByField.scheduledDate) && candidatesByField.scheduledDate.length > 0) {
+        const key = chooseBestDateKey(candidatesByField.scheduledDate as string[]);
+        if (key) defaults.scheduledDate = key;
+      }
+      if (Array.isArray(candidatesByField.reminderAt) && candidatesByField.reminderAt.length > 0) {
+        const v = candidatesByField.reminderAt.find((x) => typeof x === 'string' && x.trim().length > 0);
+        if (v) defaults.reminderAt = v;
+      }
+      if (Array.isArray(candidatesByField.type) && candidatesByField.type.length > 0) {
+        const v = candidatesByField.type.find((x) => typeof x === 'string' && x.trim().length > 0);
+        if (v) defaults.type = v as any;
+      }
+      if (Array.isArray(candidatesByField.difficulty) && candidatesByField.difficulty.length > 0) {
+        const v = candidatesByField.difficulty.find((x) => typeof x === 'string' && x.trim().length > 0);
+        if (v) defaults.difficulty = v as any;
+      }
+      if (Array.isArray(candidatesByField.estimateMinutes) && candidatesByField.estimateMinutes.length > 0) {
+        const v = candidatesByField.estimateMinutes.find((x) => typeof x === 'number' && Number.isFinite(x));
+        if (typeof v === 'number') defaults.estimateMinutes = v;
       }
     }
 
@@ -1570,7 +1765,9 @@ export function ActivitiesScreen() {
 
   const applyView = React.useCallback(
     (viewId: string) => {
-      if (!isPro) {
+      const target = activityViews.find((v) => v.id === viewId);
+      const isSystem = target?.isSystem === true;
+      if (!isPro && !isSystem) {
         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' });
         return;
       }
@@ -1580,7 +1777,7 @@ export function ActivitiesScreen() {
       }
       setActiveActivityViewId(viewId);
     },
-    [activeActivityViewId, isPro, setActiveActivityViewId],
+    [activeActivityViewId, activityViews, isPro, setActiveActivityViewId],
   );
 
   // Handle reorder - called immediately when user drops an item
@@ -2035,7 +2232,7 @@ export function ActivitiesScreen() {
                         <HStack alignItems="center" space="xs">
                           <Icon name="panelLeft" size={14} color={colors.textPrimary} />
                           <Text style={styles.toolbarButtonLabel}>
-                            {activeView?.name ?? 'Default view'}
+                            {activeView?.name ?? '🗂️ All activities'}
                           </Text>
                         </HStack>
                       </Button>
@@ -2065,29 +2262,42 @@ export function ActivitiesScreen() {
                     )}
                   </DropdownMenu>
                 ) : (
-                  <Pressable
-                    testID="e2e.activities.toolbar.views"
-                    accessibilityRole="button"
-                    accessibilityLabel="Views (Pro)"
-                    onPress={() =>
-                      openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_views' })
-                    }
-                  >
-                    <Button
-                      ref={viewsButtonRef}
-                      collapsable={false}
-                      variant="outline"
-                      size="small"
-                      pointerEvents="none"
-                      accessible={false}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      testID="e2e.activities.toolbar.views"
+                      accessibilityRole="button"
+                      accessibilityLabel="Views"
                     >
-                      <HStack alignItems="center" space="xs">
-                        <Icon name="panelLeft" size={14} color={colors.textPrimary} />
-                        <Text style={styles.toolbarButtonLabel}>Default view</Text>
-                        <Icon name="lock" size={12} color={colors.textSecondary} />
-                      </HStack>
-                    </Button>
-                  </Pressable>
+                      <Button
+                        ref={viewsButtonRef}
+                        collapsable={false}
+                        variant="outline"
+                        size="small"
+                        pointerEvents="none"
+                        accessible={false}
+                      >
+                        <HStack alignItems="center" space="xs">
+                          <Icon name="panelLeft" size={14} color={colors.textPrimary} />
+                          <Text style={styles.toolbarButtonLabel}>
+                            {activeView?.name ?? '🗂️ All activities'}
+                          </Text>
+                        </HStack>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    {!viewEditorVisible && (
+                      <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                        {systemViews.map((view) => (
+                          <DropdownMenuItem key={view.id} onPress={() => applyView(view.id)}>
+                            <HStack alignItems="center" space="xs">
+                              <Text style={styles.menuItemText} {...menuItemTextProps}>
+                                {view.name}
+                              </Text>
+                            </HStack>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    )}
+                  </DropdownMenu>
                 )}
               </View>
 

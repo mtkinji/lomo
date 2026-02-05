@@ -38,6 +38,12 @@ export function Dialog({
   size = 'sm',
   showHeaderDivider = false,
 }: DialogProps) {
+  // Safety: When `visible` is false, don't render a `Modal` at all.
+  // We've seen rare RN/iOS edge-cases where rapidly stacking/dismissing overlays can
+  // leave an "invisible" modal layer that still intercepts touches. Returning `null`
+  // ensures the dialog cannot block input unless it is explicitly visible.
+  if (!visible) return null;
+
   // Prefer a simple, reliable Modal-based implementation so dialogs always
   // render as a centered card with a dimmed backdrop on top of the current
   // app canvas.

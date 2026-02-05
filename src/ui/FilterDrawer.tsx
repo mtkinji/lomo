@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { BottomDrawer } from './BottomDrawer';
 import { Card } from './Card';
 import { VStack, HStack } from './Stack';
@@ -11,6 +11,8 @@ import { ObjectPicker, ObjectPickerOption } from './ObjectPicker';
 import { Input } from './Input';
 import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 import { SegmentedControl } from './SegmentedControl';
+import { Dialog } from './Dialog';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -23,6 +25,52 @@ import {
   ActivityFilterableField,
 } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
+
+type UiFilterOperator = FilterOperator | 'past_due';
+
+function isPastDueCondition(condition: Pick<FilterCondition, 'field' | 'operator' | 'value'>): boolean {
+  return (
+    condition.field === 'scheduledDate' &&
+    condition.operator === 'lt' &&
+    typeof condition.value === 'string' &&
+    condition.value.trim().toLowerCase() === 'today'
+  );
+}
+
+type RelativeDateUiOperator =
+  | 'rel_today'
+  | 'rel_tomorrow'
+  | 'rel_yesterday'
+  | 'rel_in_7_days'
+  | 'rel_in_30_days';
+
+type UiFilterOperatorWithRelative = UiFilterOperator | RelativeDateUiOperator;
+
+function isRelativeEqTokenCondition(condition: Pick<FilterCondition, 'operator' | 'value'>): boolean {
+  if (condition.operator !== 'eq') return false;
+  if (typeof condition.value !== 'string') return false;
+  const v = condition.value.trim().toLowerCase();
+  return v === 'today' || v === 'tomorrow' || v === 'yesterday' || v === '+7days' || v === '+30days';
+}
+
+function getRelativeEqUiOperator(condition: Pick<FilterCondition, 'operator' | 'value'>): RelativeDateUiOperator | null {
+  if (!isRelativeEqTokenCondition(condition)) return null;
+  const v = String(condition.value).trim().toLowerCase();
+  switch (v) {
+    case 'today':
+      return 'rel_today';
+    case 'tomorrow':
+      return 'rel_tomorrow';
+    case 'yesterday':
+      return 'rel_yesterday';
+    case '+7days':
+      return 'rel_in_7_days';
+    case '+30days':
+      return 'rel_in_30_days';
+    default:
+      return null;
+  }
+}
 
 interface Props {
   visible: boolean;
@@ -153,6 +201,36 @@ function getOperatorOptions(fieldType: string): ObjectPickerOption[] {
     label: op.label,
     leftElement: getOperatorSymbol(op.value),
   }));
+}
+
+function getOperatorOptionsForCondition(condition: Pick<FilterCondition, 'field' | 'operator' | 'value'>): ObjectPickerOption[] {
+  const fieldType = FIELD_TYPE_MAP[condition.field] || 'string';
+  const base = getOperatorOptions(fieldType);
+  if (fieldType === 'date') {
+    // Special UI sugar: pickable relative dates that avoid needing a third "value" row.
+    const relative: ObjectPickerOption[] = [
+      { value: 'rel_today', label: 'Today', leftElement: getOperatorSymbol('eq') },
+      { value: 'rel_tomorrow', label: 'Tomorrow', leftElement: getOperatorSymbol('eq') },
+      { value: 'rel_yesterday', label: 'Yesterday', leftElement: getOperatorSymbol('eq') },
+      { value: 'rel_in_7_days', label: 'In 7 days', leftElement: getOperatorSymbol('eq') },
+      { value: 'rel_in_30_days', label: 'In 30 days', leftElement: getOperatorSymbol('eq') },
+    ];
+
+    // Extra scheduledDate-only preset: Past due (= before today).
+    const pastDue: ObjectPickerOption[] =
+      condition.field === 'scheduledDate'
+        ? [
+            {
+              value: 'past_due',
+              label: 'Past due',
+              leftElement: getOperatorSymbol('lt'),
+            },
+          ]
+        : [];
+
+    return [...pastDue, ...relative, ...base];
+  }
+  return base;
 }
 
 const STATUS_OPTIONS: ObjectPickerOption[] = [
@@ -344,20 +422,56 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
                           {/* Operator row */}
                           <ObjectPicker
                             size="compact"
-                            options={getOperatorOptions(FIELD_TYPE_MAP[condition.field] || 'string')}
-                            value={condition.operator}
-                            onValueChange={(val) => handleUpdateCondition(groupIndex, condIndex, { operator: val as FilterOperator })}
+                            options={getOperatorOptionsForCondition(condition)}
+                            value={(
+                              isPastDueCondition(condition)
+                                ? 'past_due'
+                                : getRelativeEqUiOperator(condition) ?? condition.operator
+                            ) as string}
+                            onValueChange={(val) => {
+                              if (val === 'past_due') {
+                                // Store as underlying lt + today so the query engine doesn't need a new operator.
+                                handleUpdateCondition(groupIndex, condIndex, { operator: 'lt', value: 'today' });
+                                return;
+                              }
+                              if (val === 'rel_today') {
+                                handleUpdateCondition(groupIndex, condIndex, { operator: 'eq', value: 'today' });
+                                return;
+                              }
+                              if (val === 'rel_tomorrow') {
+                                handleUpdateCondition(groupIndex, condIndex, { operator: 'eq', value: 'tomorrow' });
+                                return;
+                              }
+                              if (val === 'rel_yesterday') {
+                                handleUpdateCondition(groupIndex, condIndex, { operator: 'eq', value: 'yesterday' });
+                                return;
+                              }
+                              if (val === 'rel_in_7_days') {
+                                handleUpdateCondition(groupIndex, condIndex, { operator: 'eq', value: '+7days' });
+                                return;
+                              }
+                              if (val === 'rel_in_30_days') {
+                                handleUpdateCondition(groupIndex, condIndex, { operator: 'eq', value: '+30days' });
+                                return;
+                              }
+                              handleUpdateCondition(groupIndex, condIndex, { operator: val as FilterOperator });
+                            }}
                             accessibilityLabel="Select operator"
                             placeholder="Operator"
                             presentation="popover"
                             showSearch={false}
                           />
                           {/* Value row */}
-                          {condition.operator !== 'exists' && condition.operator !== 'nexists' && (
+                          {condition.operator !== 'exists' &&
+                            condition.operator !== 'nexists' &&
+                            !isPastDueCondition(condition) &&
+                            !isRelativeEqTokenCondition(condition) && (
                             <ValueInput
                               field={condition.field}
+                              operator={condition.operator}
                               value={condition.value}
                               onChange={(val) => handleUpdateCondition(groupIndex, condIndex, { value: val })}
+                              onChangeOperator={(op) => handleUpdateCondition(groupIndex, condIndex, { operator: op })}
                               goalOptions={goalOptions}
                             />
                           )}
@@ -422,10 +536,12 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
   );
 }
 
-function ValueInput({ field, value, onChange, goalOptions }: {
+function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOptions }: {
   field: ActivityFilterableField;
+  operator: FilterOperator;
   value: any;
   onChange: (val: any) => void;
+  onChangeOperator?: (op: FilterOperator) => void;
   goalOptions: ObjectPickerOption[];
 }) {
   const fieldType = FIELD_TYPE_MAP[field] || 'string';
@@ -496,14 +612,13 @@ function ValueInput({ field, value, onChange, goalOptions }: {
         />
       );
     case 'date':
-      // Simplified: just a text input for ISO date for now, ideally a DatePicker
       return (
-        <Input
-          size="sm"
-          returnKeyType="done"
-          value={String(value || '')}
-          onChangeText={onChange}
-          placeholder="YYYY-MM-DD"
+        <DateValueInput
+          field={field}
+          operator={operator}
+          value={value}
+          onChange={onChange}
+          onChangeOperator={onChangeOperator}
         />
       );
     case 'string':
@@ -516,9 +631,176 @@ function ValueInput({ field, value, onChange, goalOptions }: {
           value={String(value || '')}
           onChangeText={onChange}
           placeholder="Value..."
+          helperText={operator === 'contains' ? 'Tip: use * as a wildcard (e.g. meet* or *tax*)' : undefined}
         />
       );
   }
+}
+
+function parseLocalDateKey(key: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key.trim());
+  if (!match) return null;
+  const y = Number.parseInt(match[1] ?? '', 10);
+  const m = Number.parseInt(match[2] ?? '', 10);
+  const d = Number.parseInt(match[3] ?? '', 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(y, m - 1, d);
+}
+
+function toLocalDateKey(date: Date): string {
+  const y = String(date.getFullYear());
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addLocalDays(date: Date, deltaDays: number): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() + deltaDays);
+  return d;
+}
+
+function resolveRelativeDateTokenToDateKey(raw: string, now = new Date()): string | null {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'today') return toLocalDateKey(now);
+  if (s === 'tomorrow') return toLocalDateKey(addLocalDays(now, 1));
+  if (s === 'yesterday') return toLocalDateKey(addLocalDays(now, -1));
+
+  const m = s.match(/^([+-])\s*(\d+)\s*(day|days|week|weeks)$/i);
+  if (!m) return null;
+  const sign = m[1] === '-' ? -1 : 1;
+  const count = Number.parseInt(m[2] ?? '', 10);
+  const unit = (m[3] ?? '').toLowerCase();
+  if (!Number.isFinite(count)) return null;
+  const n = Math.max(0, Math.floor(count));
+  const deltaDays = unit.startsWith('week') ? sign * n * 7 : sign * n;
+  return toLocalDateKey(addLocalDays(now, deltaDays));
+}
+
+function formatRelativeTokenLabel(raw: string): string | null {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'today') return 'Today';
+  if (s === 'tomorrow') return 'Tomorrow';
+  if (s === 'yesterday') return 'Yesterday';
+  if (s === '+7days') return 'In 7 days';
+  if (s === '+30days') return 'In 30 days';
+
+  const m = s.match(/^([+-])\s*(\d+)\s*(day|days|week|weeks)$/i);
+  if (!m) return null;
+  const sign = m[1] === '-' ? '-' : '+';
+  const count = Number.parseInt(m[2] ?? '', 10);
+  const unit = (m[3] ?? '').toLowerCase().startsWith('week') ? 'week' : 'day';
+  if (!Number.isFinite(count)) return null;
+  const n = Math.max(0, Math.floor(count));
+  const plural = n === 1 ? '' : 's';
+  const unitLabel = `${unit}${plural}`;
+  return sign === '+' ? `In ${n} ${unitLabel}` : `${n} ${unitLabel} ago`;
+}
+
+function DateValueInput({ field, operator, value, onChange, onChangeOperator }: {
+  field: ActivityFilterableField;
+  operator: FilterOperator;
+  value: any;
+  onChange: (val: any) => void;
+  onChangeOperator?: (op: FilterOperator) => void;
+}) {
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
+
+  const currentKey =
+    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+      ? value.trim()
+      : null;
+
+  const currentRelativeLabel = typeof value === 'string' ? formatRelativeTokenLabel(value) : null;
+
+  const isPastDue =
+    field === 'scheduledDate' &&
+    operator === 'lt' &&
+    typeof value === 'string' &&
+    value.trim().toLowerCase() === 'today';
+
+  const displayValue =
+    (isPastDue ? 'Past due' : null) ?? currentRelativeLabel ?? currentKey ?? (typeof value === 'string' ? value : '');
+
+  const getInitialDate = (): Date => {
+    if (currentKey) {
+      const parsed = parseLocalDateKey(currentKey);
+      if (parsed) return parsed;
+    }
+    if (typeof value === 'string') {
+      const resolvedKey = resolveRelativeDateTokenToDateKey(value);
+      if (resolvedKey) {
+        const parsed = parseLocalDateKey(resolvedKey);
+        if (parsed) return parsed;
+      }
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = new Date(value);
+      if (Number.isFinite(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  };
+
+  const commitDate = (date: Date) => {
+    // Store local date keys so the filter matches calendar dates (no timezone surprises).
+    onChange(toLocalDateKey(date));
+  };
+
+  const handlePickerChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== 'ios') {
+      setIsPickerVisible(false);
+    }
+    if (!date || event.type === 'dismissed') return;
+    commitDate(date);
+  };
+
+  return (
+    <>
+      <Input
+        size="sm"
+        value={displayValue}
+        placeholder={field === 'reminderAt' ? 'Select reminder date…' : 'Select due date…'}
+        onChangeText={() => {}}
+        onFocus={() => setIsPickerVisible(true)}
+        showSoftInputOnFocus={false}
+        trailingIcon="today"
+        onPressTrailingIcon={() => setIsPickerVisible(true)}
+      />
+
+      <Dialog
+        visible={isPickerVisible}
+        onClose={() => setIsPickerVisible(false)}
+        title={field === 'reminderAt' ? 'Choose reminder date' : 'Choose due date'}
+        size="sm"
+      >
+        <VStack space="md">
+          <DateTimePicker
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            value={getInitialDate()}
+            onChange={handlePickerChange}
+          />
+          <HStack justifyContent="space-between" alignItems="center">
+            <Button
+              variant="ghost"
+              onPress={() => {
+                onChange(undefined);
+                setIsPickerVisible(false);
+              }}
+              accessibilityLabel="Clear date"
+            >
+              <ButtonLabel size="md">Clear</ButtonLabel>
+            </Button>
+            <Button onPress={() => setIsPickerVisible(false)} accessibilityLabel="Done picking date">
+              <ButtonLabel size="md" tone="inverse">Done</ButtonLabel>
+            </Button>
+          </HStack>
+        </VStack>
+      </Dialog>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

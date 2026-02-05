@@ -31,6 +31,29 @@ export class QueryService {
     return `${y}-${m}-${d}`;
   }
 
+  private static tryParseDate(input: unknown): Date | null {
+    if (input instanceof Date && Number.isFinite(input.getTime())) return input;
+    if (typeof input !== 'string') return null;
+    const raw = input.trim();
+    if (!raw) return null;
+    // Accept ISO datetime strings and coerce to Date.
+    if (this.isIsoDateTimeString(raw)) {
+      const d = new Date(raw);
+      return Number.isFinite(d.getTime()) ? d : null;
+    }
+    // Accept local date key (YYYY-MM-DD) and treat it as a local calendar date.
+    if (this.isDateKeyString(raw)) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+      if (!match) return null;
+      const y = Number.parseInt(match[1] ?? '', 10);
+      const m = Number.parseInt(match[2] ?? '', 10);
+      const d = Number.parseInt(match[3] ?? '', 10);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      return new Date(y, m - 1, d);
+    }
+    return null;
+  }
+
   private static addLocalDays(date: Date, deltaDays: number): Date {
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     d.setDate(d.getDate() + deltaDays);
@@ -65,17 +88,34 @@ export class QueryService {
   }
 
   /**
-   * Normalize user-supplied filter values for `scheduledDate`.
+   * Normalize user-supplied filter values for date-like fields.
    * Supports absolute keys ("YYYY-MM-DD") as well as relative tokens ("today", "+7days", "-1week").
    */
-  private static normalizeScheduledDateFilterValueToDateKey(value: unknown): string | null {
+  private static normalizeDateFilterValueToDateKey(value: unknown): string | null {
     if (value === null || value === undefined) return null;
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
     if (!trimmed) return null;
     if (this.isDateKeyString(trimmed)) return trimmed;
-    const rel = this.resolveRelativeDateTokenToDateKey(trimmed);
-    return rel;
+    return this.resolveRelativeDateTokenToDateKey(trimmed);
+  }
+
+  /**
+   * Normalize user-supplied filter values for `scheduledDate`.
+   * Supports absolute keys ("YYYY-MM-DD") as well as relative tokens ("today", "+7days", "-1week").
+   */
+  private static normalizeScheduledDateFilterValueToDateKey(value: unknown): string | null {
+    return this.normalizeDateFilterValueToDateKey(value);
+  }
+
+  /**
+   * Normalize `reminderAt` values to a local date key (YYYY-MM-DD) so filters like
+   * "On/Before/After" behave as calendar-date comparisons rather than strict timestamp compares.
+   */
+  private static normalizeReminderAtToDateKey(value: unknown): string | null {
+    const d = this.tryParseDate(value);
+    if (!d) return null;
+    return this.toLocalDateKey(d);
   }
 
   private static hasWildcardPattern(value: string): boolean {
@@ -164,16 +204,30 @@ export class QueryService {
     switch (operator) {
       case 'eq':
         if (field === 'scheduledDate') {
-          const left = this.normalizeScheduledDateFilterValueToDateKey(activityValue) ?? (this.isDateKeyString(activityValue) ? activityValue : null);
+          const left =
+            this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
+            (this.isDateKeyString(activityValue) ? activityValue : null);
           const right = this.normalizeScheduledDateFilterValueToDateKey(value);
           // If the filter value is a relative token/date key, compare on normalized date keys.
+          if (right !== null) return left === right;
+        }
+        if (field === 'reminderAt') {
+          const left = this.normalizeReminderAtToDateKey(activityValue);
+          const right = this.normalizeDateFilterValueToDateKey(value);
           if (right !== null) return left === right;
         }
         return activityValue === value;
       case 'neq':
         if (field === 'scheduledDate') {
-          const left = this.normalizeScheduledDateFilterValueToDateKey(activityValue) ?? (this.isDateKeyString(activityValue) ? activityValue : null);
+          const left =
+            this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
+            (this.isDateKeyString(activityValue) ? activityValue : null);
           const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          if (right !== null) return left !== right;
+        }
+        if (field === 'reminderAt') {
+          const left = this.normalizeReminderAtToDateKey(activityValue);
+          const right = this.normalizeDateFilterValueToDateKey(value);
           if (right !== null) return left !== right;
         }
         return activityValue !== value;
@@ -201,7 +255,9 @@ export class QueryService {
         return false;
       case 'gt':
         if (field === 'scheduledDate') {
-          const left = this.normalizeScheduledDateFilterValueToDateKey(activityValue) ?? (this.isDateKeyString(activityValue) ? activityValue : null);
+          const left =
+            this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
+            (this.isDateKeyString(activityValue) ? activityValue : null);
           const right = this.normalizeScheduledDateFilterValueToDateKey(value);
           if (right !== null) {
             // Missing due dates should never satisfy comparisons like "before/after".
@@ -209,11 +265,29 @@ export class QueryService {
             return left > right;
           }
         }
+        if (field === 'reminderAt') {
+          const left = this.normalizeReminderAtToDateKey(activityValue);
+          const right = this.normalizeDateFilterValueToDateKey(value);
+          if (right !== null) {
+            if (left === null) return false;
+            return left > right;
+          }
+        }
         return this.compare(activityValue, value) > 0;
       case 'lt':
         if (field === 'scheduledDate') {
-          const left = this.normalizeScheduledDateFilterValueToDateKey(activityValue) ?? (this.isDateKeyString(activityValue) ? activityValue : null);
+          const left =
+            this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
+            (this.isDateKeyString(activityValue) ? activityValue : null);
           const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          if (right !== null) {
+            if (left === null) return false;
+            return left < right;
+          }
+        }
+        if (field === 'reminderAt') {
+          const left = this.normalizeReminderAtToDateKey(activityValue);
+          const right = this.normalizeDateFilterValueToDateKey(value);
           if (right !== null) {
             if (left === null) return false;
             return left < right;
@@ -222,8 +296,18 @@ export class QueryService {
         return this.compare(activityValue, value) < 0;
       case 'gte':
         if (field === 'scheduledDate') {
-          const left = this.normalizeScheduledDateFilterValueToDateKey(activityValue) ?? (this.isDateKeyString(activityValue) ? activityValue : null);
+          const left =
+            this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
+            (this.isDateKeyString(activityValue) ? activityValue : null);
           const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          if (right !== null) {
+            if (left === null) return false;
+            return left >= right;
+          }
+        }
+        if (field === 'reminderAt') {
+          const left = this.normalizeReminderAtToDateKey(activityValue);
+          const right = this.normalizeDateFilterValueToDateKey(value);
           if (right !== null) {
             if (left === null) return false;
             return left >= right;
@@ -232,8 +316,18 @@ export class QueryService {
         return this.compare(activityValue, value) >= 0;
       case 'lte':
         if (field === 'scheduledDate') {
-          const left = this.normalizeScheduledDateFilterValueToDateKey(activityValue) ?? (this.isDateKeyString(activityValue) ? activityValue : null);
+          const left =
+            this.normalizeScheduledDateFilterValueToDateKey(activityValue) ??
+            (this.isDateKeyString(activityValue) ? activityValue : null);
           const right = this.normalizeScheduledDateFilterValueToDateKey(value);
+          if (right !== null) {
+            if (left === null) return false;
+            return left <= right;
+          }
+        }
+        if (field === 'reminderAt') {
+          const left = this.normalizeReminderAtToDateKey(activityValue);
+          const right = this.normalizeDateFilterValueToDateKey(value);
           if (right !== null) {
             if (left === null) return false;
             return left <= right;

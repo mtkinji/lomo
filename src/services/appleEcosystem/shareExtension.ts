@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { useToastStore } from '../../store/useToastStore';
 import { getAppGroupString, setAppGroupString } from './appGroup';
 import { useShareIntentStore } from '../../store/useShareIntentStore';
-import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { navigateWhenReady } from '../../navigation/rootNavigationRef';
 
 export const KWILT_SHARE_PAYLOAD_KEY = 'kwilt_share_payload_v1';
 
@@ -88,11 +88,7 @@ export async function handleIncomingShareUrl(url: string): Promise<boolean> {
 
     // Route the user into the Agent workspace to decide what to create.
     // This preserves the app shell/canvas and avoids forcing a particular tab.
-    try {
-      rootNavigationRef.navigate('Agent' as never);
-    } catch {
-      // Best-effort: don't block share completion if navigation isn't ready yet.
-    }
+    navigateWhenReady('Agent' as never);
 
     const first = payload.items.find((i) => typeof i?.value === 'string' && i.value.trim().length > 0);
     const count = payload.items.length;

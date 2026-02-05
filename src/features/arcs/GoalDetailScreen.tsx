@@ -1387,6 +1387,10 @@ export function GoalDetailScreen() {
       setPendingOnboardingSharePrompt(false);
       return;
     }
+    // Only show this prompt when this screen is actively focused. GoalDetailScreen can remain
+    // mounted underneath other stack screens (e.g. Activity detail), and showing a Modal while
+    // unfocused can feel like the UI has become "untappable".
+    if (!isFocused) return;
     // Wait until the plan-ready handoff has been dismissed so we don't stack guidance.
     if (shouldShowOnboardingPlanReadyGuide) return;
     if (showFirstGoalCelebration) return;
@@ -1398,9 +1402,21 @@ export function GoalDetailScreen() {
     pendingOnboardingSharePrompt,
     hasSeenOnboardingSharePrompt,
     setHasSeenOnboardingSharePrompt,
+    isFocused,
     shouldShowOnboardingPlanReadyGuide,
     showFirstGoalCelebration,
   ]);
+
+  useEffect(() => {
+    // Safety valve: never allow a queued onboarding prompt to linger indefinitely.
+    // If something goes wrong with the plan-ready handoff dismissal (or a modal stack hiccup),
+    // leaving this true can repeatedly re-run effects and contribute to "stuck" reports.
+    if (!pendingOnboardingSharePrompt) return;
+    const timeoutId = setTimeout(() => {
+      setPendingOnboardingSharePrompt(false);
+    }, 15000);
+    return () => clearTimeout(timeoutId);
+  }, [pendingOnboardingSharePrompt]);
 
   useEffect(() => {
     if (!shouldShowOnboardingPlanReadyGuide) {

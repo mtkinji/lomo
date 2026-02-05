@@ -12,7 +12,7 @@ function buildFilterGroups(params: { view: ActivityView; isPro: boolean }): Filt
   const { view, isPro } = params;
   const filterMode = isPro ? (view.filterMode ?? 'all') : 'all';
 
-  if (isPro && view.filters && view.filters.length > 0) return view.filters;
+  if ((isPro || view.isSystem) && view.filters && view.filters.length > 0) return view.filters;
 
   switch (filterMode) {
     case 'priority1':
@@ -82,7 +82,7 @@ export function buildActivitiesWidgetRows(params: {
   const filterGroups = buildFilterGroups({ view, isPro });
   const groupLogic = view.filterGroupLogic ?? 'or';
   const sortConditions = buildSortConditions({ view, isPro });
-  const showCompleted = isPro ? (view.showCompleted ?? true) : true;
+  const showCompleted = isPro || view.isSystem ? (view.showCompleted ?? true) : true;
 
   const base = activities.filter((a) => a.status !== 'cancelled' && a.status !== 'skipped');
   const filtered =

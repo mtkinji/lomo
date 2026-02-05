@@ -17,7 +17,7 @@ import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { useAppStore } from '../../store/useAppStore';
-import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { navigateWhenReady } from '../../navigation/rootNavigationRef';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { AppShell } from '../../ui/layout/AppShell';
 import { Button } from '../../ui/Button';
@@ -248,52 +248,41 @@ export function FirstTimeUxFlow() {
         created_goal: Boolean(goalId),
       });
 
-      const navigateToOutcome = (attempt = 0) => {
-        if (!rootNavigationRef.isReady()) {
-          if (attempt < 25) {
-            setTimeout(() => navigateToOutcome(attempt + 1), 50);
-          }
-          return;
-        }
-
-        if (arcId) {
-          rootNavigationRef.navigate('MainTabs', {
-            screen: 'MoreTab',
-            params: {
-              screen: 'MoreArcs',
-              params: {
-                screen: 'ArcDetail',
-                params: {
-                  arcId,
-                  showFirstArcCelebration: true,
-                },
-              },
-            },
-          });
-          return;
-        }
-
-        if (goalId) {
-          rootNavigationRef.navigate('MainTabs', {
-            screen: 'MoreTab',
-            params: {
-              screen: 'MoreArcs',
-              params: {
-                screen: 'GoalDetail',
-                params: { goalId, entryPoint: 'arcsStack' },
-              },
-            },
-          });
-          return;
-        }
-
-        rootNavigationRef.navigate('MainTabs', {
+      if (arcId) {
+        navigateWhenReady('MainTabs', {
           screen: 'MoreTab',
-          params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+          params: {
+            screen: 'MoreArcs',
+            params: {
+              screen: 'ArcDetail',
+              params: {
+                arcId,
+                showFirstArcCelebration: true,
+              },
+            },
+          },
         });
-      };
+        return outcome;
+      }
 
-      navigateToOutcome();
+      if (goalId) {
+        navigateWhenReady('MainTabs', {
+          screen: 'MoreTab',
+          params: {
+            screen: 'MoreArcs',
+            params: {
+              screen: 'GoalDetail',
+              params: { goalId, entryPoint: 'arcsStack' },
+            },
+          },
+        });
+        return outcome;
+      }
+
+      navigateWhenReady('MainTabs', {
+        screen: 'MoreTab',
+        params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+      });
       return outcome;
     },
     [capture, completeFlow, dismissFlow, setHasCompletedFirstTimeOnboarding, triggerCount],
