@@ -141,9 +141,11 @@ export function searchActivities({ activities, query, goalTitleById }: SearchArg
       const goalTitle = activity.goalId ? goalTitleById?.[activity.goalId] : undefined;
       const matchScore = scoreQueryMatch({ activity, query: q, goalTitle });
       const tiebreaker = getRecencyScore(activity);
-      return { activity, score: matchScore + tiebreaker * 0.25 };
+      // Important: The tiebreaker should only affect ordering among *matches*,
+      // never whether something is included in results.
+      return { activity, matchScore, score: matchScore + tiebreaker * 0.25 };
     })
-    .filter((row) => row.score > 0)
+    .filter((row) => row.matchScore > 0)
     .sort((a, b) => b.score - a.score)
     .map((row) => row.activity);
 }
