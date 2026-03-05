@@ -169,6 +169,29 @@ describe('useAppStore object lifecycles', () => {
       limit: 3,
     });
   });
+
+  it('recordAppOpen updates lifecycle counters without logging to the console', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const before = useAppStore.getState();
+      const previousCount = before.appOpenCount;
+      const previousFirstOpenedAtMs = before.firstOpenedAtMs;
+      const previousLastOpenedAtMs = before.lastOpenedAtMs;
+
+      useAppStore.getState().recordAppOpen('foreground');
+
+      const after = useAppStore.getState();
+      expect(after.appOpenCount).toBe(previousCount + 1);
+      expect(typeof after.firstOpenedAtMs).toBe('number');
+      expect(typeof after.lastOpenedAtMs).toBe('number');
+      expect(after.firstOpenedAtMs).toBe(previousFirstOpenedAtMs ?? after.lastOpenedAtMs);
+      expect((after.lastOpenedAtMs ?? 0) >= (previousLastOpenedAtMs ?? 0)).toBe(true);
+      expect(logSpy).not.toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
 });
 
 

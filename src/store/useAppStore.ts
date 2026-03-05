@@ -1132,10 +1132,6 @@ export const useAppStore = create<AppState>()(
           firstOpenedAtMs: state.firstOpenedAtMs ?? nowMs,
           lastOpenedAtMs: nowMs,
         }));
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.log('[lifecycle] recordAppOpen', reason);
-        }
       },
       markWidgetPromptShown: (surface) => {
         const nowMs = Date.now();

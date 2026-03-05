@@ -186,10 +186,6 @@ export default function App() {
         clearAuthIdentity();
       }
       setAuthHydrated(true);
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[auth] hydrate complete:', identity ? 'signed_in' : 'signed_out');
-      }
     })().catch(() => {
       if (cancelled) return;
       // Be conservative: if hydration fails, don't force-clear here.
