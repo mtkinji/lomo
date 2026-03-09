@@ -26,7 +26,13 @@ type PersistedNotificationPreferences = {
 
 type PersistedLocationOfferPreferences = {
   enabled?: boolean;
-  osPermissionStatus?: 'notRequested' | 'authorized' | 'denied' | 'restricted' | 'unavailable';
+  osPermissionStatus?:
+    | 'notRequested'
+    | 'authorized'
+    | 'denied'
+    | 'restricted'
+    | 'foregroundOnly'
+    | 'unavailable';
 };
 
 async function loadPersistedPreferences(): Promise<{

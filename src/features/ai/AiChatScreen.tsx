@@ -1255,11 +1255,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const shouldHideComposerForWorkflowStep =
     Boolean(workflowRuntime && currentWorkflowStep?.hideFreeformChatInput);
 
-  // During first-time onboarding, all user input is collected via structured
-  // step cards (tap-only questions plus one inline free-response field), so
-  // the global chat composer should remain hidden for the entire workflow.
+  // During first-time onboarding, input is usually collected via structured
+  // step cards. If a host fails to provide a step card, keep the composer
+  // visible so we never strand the user on an empty white canvas.
   const shouldShowComposer =
-    !shouldHideComposerForWorkflowStep && mode !== 'activityCreation' && !isOnboardingMode;
+    !shouldHideComposerForWorkflowStep &&
+    mode !== 'activityCreation' &&
+    (!isOnboardingMode || !hasStepCard);
 
   const composerPlaceholder =
     mode === 'goalCreation' ? 'Your goal (and when)…' : 'Ask, Search or Chat…';

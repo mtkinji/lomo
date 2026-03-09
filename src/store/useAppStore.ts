@@ -407,7 +407,13 @@ interface AppState {
    */
   locationOfferPreferences: {
     enabled: boolean;
-    osPermissionStatus: 'notRequested' | 'authorized' | 'denied' | 'restricted' | 'unavailable';
+    osPermissionStatus:
+      | 'notRequested'
+      | 'authorized'
+      | 'denied'
+      | 'restricted'
+      | 'foregroundOnly'
+      | 'unavailable';
     dailyCap: number;
     globalMinSpacingMs: number;
     defaultCooldownMs: number;
@@ -2488,6 +2494,7 @@ export const useAppStore = create<AppState>()(
             locationPrefs.osPermissionStatus !== 'authorized' &&
             locationPrefs.osPermissionStatus !== 'denied' &&
             locationPrefs.osPermissionStatus !== 'restricted' &&
+            locationPrefs.osPermissionStatus !== 'foregroundOnly' &&
             locationPrefs.osPermissionStatus !== 'notRequested' &&
             locationPrefs.osPermissionStatus !== 'unavailable'
           ) {

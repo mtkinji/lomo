@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AppState,
   Animated,
   BackHandler,
   Easing,
@@ -75,6 +76,17 @@ export function ReturningUserPermissionsFlow({
     void LocationPermissionService.syncOsPermissionStatus();
   }, [visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      if (isRequestingNotifications || isRequestingLocation) return;
+      void NotificationService.syncOsPermissionStatus();
+      void LocationPermissionService.syncOsPermissionStatus();
+    });
+    return () => sub.remove();
+  }, [isRequestingLocation, isRequestingNotifications, visible]);
+
   const requestNotifications = useCallback(async () => {
     if (isRequestingNotifications) return;
     setIsRequestingNotifications(true);
@@ -115,10 +127,14 @@ export function ReturningUserPermissionsFlow({
 
   const requestLocation = useCallback(async () => {
     if (isRequestingLocation) return;
-    setLocationOfferPreferences((current) => ({ ...current, enabled: true }));
     setIsRequestingLocation(true);
     try {
       await LocationPermissionService.ensurePermissionWithRationale('ftue');
+      const syncedStatus = await LocationPermissionService.syncOsPermissionStatus();
+      setLocationOfferPreferences((current) => ({
+        ...current,
+        enabled: syncedStatus === 'authorized',
+      }));
     } finally {
       setIsRequestingLocation(false);
     }
@@ -152,22 +168,22 @@ export function ReturningUserPermissionsFlow({
   const notificationsBlocked = notificationStatus === 'denied' || notificationStatus === 'restricted';
   const locationAuthorized = locationStatus === 'authorized';
   const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
+  const locationNeedsAlways = locationStatus === 'foregroundOnly';
   const locationUnavailable = locationStatus === 'unavailable';
+  const locationNeedsPrompt =
+    !locationAuthorized && !locationUnavailable && !locationBlocked && !locationNeedsAlways;
+  const requiresSettingsAction = notificationsBlocked || locationBlocked || locationNeedsAlways;
 
-  type PrimaryAction = 'openSettings' | 'enableNotifications' | 'enableLocation' | 'continue';
+  type PrimaryAction = 'enableNotifications' | 'enableLocation' | 'continue';
   const primaryAction: PrimaryAction =
-    notificationsBlocked || locationBlocked
-      ? 'openSettings'
-      : !notificationsAuthorized
+    !notificationsAuthorized && !notificationsBlocked
         ? 'enableNotifications'
-        : !locationAuthorized && !locationUnavailable
+        : locationNeedsPrompt
           ? 'enableLocation'
           : 'continue';
 
   const primaryCtaLabel =
-    primaryAction === 'openSettings'
-      ? 'Open settings'
-      : primaryAction === 'enableNotifications'
+    primaryAction === 'enableNotifications'
         ? 'Enable notifications'
         : primaryAction === 'enableLocation'
           ? 'Enable location'
@@ -238,6 +254,8 @@ export function ReturningUserPermissionsFlow({
                       ? 'Enabled'
                       : locationUnavailable
                         ? 'Unavailable'
+                        : locationNeedsAlways
+                          ? 'Allow Always'
                         : locationBlocked
                           ? 'Blocked'
                           : 'Not enabled'}
@@ -251,10 +269,6 @@ export function ReturningUserPermissionsFlow({
                 disabled={isRequestingNotifications || isRequestingLocation}
                 style={styles.primaryButton}
                 onPress={() => {
-                  if (primaryAction === 'openSettings') {
-                    void Linking.openSettings();
-                    return;
-                  }
                   if (primaryAction === 'enableNotifications') {
                     void requestNotifications();
                     return;
@@ -272,6 +286,12 @@ export function ReturningUserPermissionsFlow({
                     : primaryCtaLabel}
                 </Text>
               </Button>
+
+              {requiresSettingsAction ? (
+                <Button variant="ghost" fullWidth onPress={() => void Linking.openSettings()}>
+                  <Text style={[styles.secondaryButtonLabel, styles.settingsButtonLabel]}>Open settings</Text>
+                </Button>
+              ) : null}
 
               <Button
                 variant="ghost"
@@ -366,6 +386,9 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.sumi,
     fontWeight: '600',
+  },
+  settingsButtonLabel: {
+    opacity: 0.78,
   },
 });
 

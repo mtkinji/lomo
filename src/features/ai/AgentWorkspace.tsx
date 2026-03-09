@@ -20,7 +20,6 @@ import { WorkflowRuntimeContext, type InvokeAgentStepParams } from './WorkflowRu
 import { IdentityAspirationFlow } from '../onboarding/IdentityAspirationFlow';
 import { ArcCreationFlow } from '../arcs/ArcCreationFlow';
 import { GoalCreationFlow } from '../goals/GoalCreationFlow';
-import { FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID } from '../../domain/workflows';
 import { getOpenAiQuotaExceededStatus, sendCoachChat } from '../../services/ai';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -548,23 +547,17 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       return undefined;
     }
 
-    // Any workflow that uses the firstTimeOnboarding chatMode is hosted by a
-    // shared onboarding presenter. For the v2 identity-Arc FTUE we use a
-    // dedicated, tap-first flow rendered by IdentityAspirationFlow.
+    // Any workflow that uses firstTimeOnboarding chatMode is hosted by the
+    // shared identity-aspiration presenter.
     if (workflowDefinition.chatMode === 'firstTimeOnboarding') {
-      // FTUE v2 – identity Arc / aspiration. This is the only active
-      // first-time onboarding workflow; legacy guided flows have been
-      // retired in favour of this presenter.
-      if (workflowDefinition.id === FIRST_TIME_ONBOARDING_WORKFLOW_V2_ID) {
-        return (
-          <IdentityAspirationFlow
-            onComplete={() => {
-              onComplete?.(workflowInstance?.collectedData ?? {});
-            }}
-            chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
-          />
-        );
-      }
+      return (
+        <IdentityAspirationFlow
+          onComplete={() => {
+            onComplete?.(workflowInstance?.collectedData ?? {});
+          }}
+          chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
+        />
+      );
     }
 
     // Arc creation uses a lightweight presenter for the initial context step so
