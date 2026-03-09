@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View, Pressable, Platform, Switch } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, AppState, ScrollView, StyleSheet, View, Pressable, Platform, Switch } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -75,6 +75,8 @@ export function NotificationsSettingsScreen() {
     switch (locationOfferPreferences.osPermissionStatus) {
       case 'authorized':
         return 'Allowed in system settings';
+      case 'foregroundOnly':
+        return 'Allow Always in system settings';
       case 'denied':
       case 'restricted':
         return 'Blocked in system settings';
@@ -86,12 +88,22 @@ export function NotificationsSettingsScreen() {
     }
   }, [locationOfferPreferences.osPermissionStatus]);
 
-  useEffect(() => {
-    // Best-effort: keep system permission labels fresh when opening this screen.
-    // (Permissions can change in Settings while the app is in the background.)
+  const syncPermissionLabels = useCallback(() => {
     void NotificationService.syncOsPermissionStatus();
     void LocationPermissionService.syncOsPermissionStatus();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Keep system permission labels fresh when this screen gains focus.
+      syncPermissionLabels();
+      const sub = AppState.addEventListener('change', (nextState) => {
+        if (nextState !== 'active') return;
+        syncPermissionLabels();
+      });
+      return () => sub.remove();
+    }, [syncPermissionLabels]),
+  );
 
   const handleToggleGlobal = async () => {
     if (!preferences.notificationsEnabled) {
@@ -112,21 +124,24 @@ export function NotificationsSettingsScreen() {
   const handleToggleLocationOffers = async () => {
     const currentlyEnabled = Boolean(locationOfferPreferences.enabled);
     const nextEnabled = !currentlyEnabled;
-
-    // Feature gate: persist the product-layer preference immediately.
-    setLocationOfferPreferences((current) => ({ ...current, enabled: nextEnabled }));
-
-    // If turning on, ensure OS permission is requested (includes "Always" on iOS when available).
-    if (nextEnabled) {
-      await LocationPermissionService.ensurePermissionWithRationale('location_offers');
-      const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable');
-      if (nextStatus === 'unavailable') {
-        Alert.alert(
-          'Location not available',
-          'Location services aren’t available in this build. Use a development build (or update/reinstall) and try again.',
-        );
-      }
+    if (!nextEnabled) {
+      setLocationOfferPreferences((current) => ({ ...current, enabled: false }));
+      return;
     }
+
+    // If turning on, only persist enabled when "Always" access is actually granted.
+    await LocationPermissionService.ensurePermissionWithRationale('location_offers');
+    const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable');
+    if (nextStatus === 'unavailable') {
+      Alert.alert(
+        'Location not available',
+        'Location services aren’t available in this build. Use a development build (or update/reinstall) and try again.',
+      );
+    }
+    setLocationOfferPreferences((current) => ({
+      ...current,
+      enabled: nextStatus === 'authorized',
+    }));
   };
 
   const handleToggleActivityReminders = async () => {

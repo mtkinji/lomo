@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AppState,
   Animated,
   BackHandler,
   Easing,
@@ -185,13 +186,28 @@ export function FirstTimeUxFlow() {
     void NotificationService.syncOsPermissionStatus();
   }, [ftueStep, isVisible]);
 
+  useEffect(() => {
+    if (!isVisible) return;
+    if (ftueStep !== 'notifications') return;
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      if (isRequestingLocation || isRequestingNotifications) return;
+      void NotificationService.syncOsPermissionStatus();
+      void LocationPermissionService.syncOsPermissionStatus();
+    });
+    return () => sub.remove();
+  }, [ftueStep, isRequestingLocation, isRequestingNotifications, isVisible]);
+
   const requestLocationFromFtue = useCallback(async () => {
     if (isRequestingLocation) return;
-    // User opted in at the product layer regardless of OS permission outcome.
-    setLocationOfferPreferences((current) => ({ ...current, enabled: true }));
     setIsRequestingLocation(true);
     try {
       await LocationPermissionService.ensurePermissionWithRationale('ftue');
+      const syncedStatus = await LocationPermissionService.syncOsPermissionStatus();
+      setLocationOfferPreferences((current) => ({
+        ...current,
+        enabled: syncedStatus === 'authorized',
+      }));
     } finally {
       setIsRequestingLocation(false);
     }
@@ -418,26 +434,26 @@ export function FirstTimeUxFlow() {
     const notificationsBlocked = notificationStatus === 'denied' || notificationStatus === 'restricted';
     const locationAuthorized = locationStatus === 'authorized';
     const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
+    const locationNeedsAlways = locationStatus === 'foregroundOnly';
     const locationUnavailable = locationStatus === 'unavailable';
+    const locationNeedsPrompt =
+      !locationAuthorized && !locationUnavailable && !locationBlocked && !locationNeedsAlways;
+    const requiresSettingsAction = notificationsBlocked || locationBlocked || locationNeedsAlways;
 
-    type PrimaryAction = 'openSettings' | 'enableNotifications' | 'enableLocation' | 'continue';
+    type PrimaryAction = 'enableNotifications' | 'enableLocation' | 'continue';
     const primaryAction: PrimaryAction =
       ftueStep !== 'notifications'
         ? 'continue'
-        : notificationsBlocked || locationBlocked
-          ? 'openSettings'
-          : !notificationsAuthorized
+        : !notificationsAuthorized && !notificationsBlocked
             ? 'enableNotifications'
-            : !locationAuthorized && !locationUnavailable
+            : locationNeedsPrompt
               ? 'enableLocation'
               : 'continue';
 
     const primaryCtaLabel =
       ftueStep !== 'notifications'
         ? ctaLabel
-        : primaryAction === 'openSettings'
-          ? 'Open settings'
-          : primaryAction === 'enableNotifications'
+        : primaryAction === 'enableNotifications'
             ? 'Enable notifications'
             : primaryAction === 'enableLocation'
               ? 'Enable location'
@@ -528,6 +544,8 @@ export function FirstTimeUxFlow() {
                         ? 'Enabled'
                         : locationUnavailable
                           ? 'Unavailable'
+                          : locationNeedsAlways
+                            ? 'Allow Always'
                           : locationBlocked
                             ? 'Blocked'
                             : 'Not enabled'}
@@ -551,10 +569,6 @@ export function FirstTimeUxFlow() {
                   ]}
                   onPress={() => {
                     if (ftueStep === 'notifications') {
-                      if (primaryAction === 'openSettings') {
-                        void Linking.openSettings();
-                        return;
-                      }
                       if (primaryAction === 'enableNotifications') {
                         void requestNotificationsFromFtue();
                         return;
@@ -579,19 +593,34 @@ export function FirstTimeUxFlow() {
 
               <View style={styles.ftueSecondarySlot}>
                 {ftueStep === 'notifications' ? (
-                  <Button
-                    variant="ghost"
-                    fullWidth
-                    onPress={() => {
-                      setIsRequestingNotifications(false);
-                      setIsRequestingLocation(false);
-                      handleAdvanceStep(nextStep);
-                    }}
-                  >
-                    <Text style={[styles.ftueSecondaryButtonLabel, { color: stepTheme.secondaryText }]}>
-                      Not now
-                    </Text>
-                  </Button>
+                  <>
+                    {requiresSettingsAction ? (
+                      <Button variant="ghost" fullWidth onPress={() => void Linking.openSettings()}>
+                        <Text
+                          style={[
+                            styles.ftueSecondaryButtonLabel,
+                            styles.ftueSettingsButtonLabel,
+                            { color: stepTheme.secondaryText },
+                          ]}
+                        >
+                          Open settings
+                        </Text>
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      fullWidth
+                      onPress={() => {
+                        setIsRequestingNotifications(false);
+                        setIsRequestingLocation(false);
+                        handleAdvanceStep(nextStep);
+                      }}
+                    >
+                      <Text style={[styles.ftueSecondaryButtonLabel, { color: stepTheme.secondaryText }]}>
+                        Not now
+                      </Text>
+                    </Button>
+                  </>
                 ) : (
                   <View style={styles.ftueSecondaryPlaceholder} />
                 )}
@@ -850,6 +879,9 @@ const styles = StyleSheet.create({
   ftueSecondaryButtonLabel: {
     ...typography.body,
     fontWeight: '600',
+  },
+  ftueSettingsButtonLabel: {
+    opacity: 0.78,
   },
   ftuePrimarySlot: {},
   ftueSecondarySlot: {},

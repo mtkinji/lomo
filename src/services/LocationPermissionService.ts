@@ -2,7 +2,13 @@ import { Alert, Linking } from 'react-native';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { useAppStore } from '../store/useAppStore';
 
-type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted' | 'unavailable';
+type OsPermissionStatus =
+  | 'notRequested'
+  | 'authorized'
+  | 'denied'
+  | 'restricted'
+  | 'foregroundOnly'
+  | 'unavailable';
 
 type ExpoLocationPermissionsResponse = {
   status?: 'granted' | 'denied' | 'undetermined';
@@ -68,6 +74,41 @@ function showLocationBlockedAlert(reason: 'ftue' | 'attach_place' | 'location_of
   }, 1500);
 }
 
+function showLocationNeedsAlwaysAlert() {
+  if (locationBlockedAlertActive) return;
+  locationBlockedAlertActive = true;
+
+  Alert.alert(
+    'Allow Always Location',
+    'Location is currently enabled only while using the app. To use arrive/leave prompts, allow "Always" in system settings.',
+    [
+      {
+        text: 'Not now',
+        style: 'cancel',
+        onPress: () => {
+          locationBlockedAlertActive = false;
+        },
+      },
+      {
+        text: 'Open settings',
+        onPress: () => {
+          locationBlockedAlertActive = false;
+          void Linking.openSettings();
+        },
+      },
+    ],
+    {
+      onDismiss: () => {
+        locationBlockedAlertActive = false;
+      },
+    },
+  );
+
+  setTimeout(() => {
+    locationBlockedAlertActive = false;
+  }, 1500);
+}
+
 function mapExpoPermissionToOsStatus(resp: ExpoLocationPermissionsResponse | null | undefined): OsPermissionStatus {
   if (!resp) return 'unavailable';
   if (resp.granted === true || resp.status === 'granted') return 'authorized';
@@ -82,6 +123,31 @@ function getNativeModule(): ExpoLocationNativeModule | null {
   return requireOptionalNativeModule<ExpoLocationNativeModule>('ExpoLocation');
 }
 
+function deriveLocationOfferPermissionStatus(params: {
+  foreground: ExpoLocationPermissionsResponse | null | undefined;
+  background: ExpoLocationPermissionsResponse | null | undefined;
+  checksBackgroundPermission: boolean;
+}): OsPermissionStatus {
+  const fgStatus = mapExpoPermissionToOsStatus(params.foreground);
+  if (fgStatus !== 'authorized') {
+    return fgStatus;
+  }
+
+  // If this platform/runtime cannot check background permissions, treat foreground
+  // authorization as sufficient.
+  if (!params.checksBackgroundPermission) {
+    return 'authorized';
+  }
+
+  const bgStatus = mapExpoPermissionToOsStatus(params.background);
+  if (bgStatus === 'authorized') {
+    return 'authorized';
+  }
+
+  // iOS can return foreground authorization while background/"Always" is still missing.
+  return 'foregroundOnly';
+}
+
 async function syncOsPermissionStatusInternal(): Promise<OsPermissionStatus> {
   const mod = getNativeModule();
   if (!mod?.getForegroundPermissionsAsync) {
@@ -93,7 +159,11 @@ async function syncOsPermissionStatusInternal(): Promise<OsPermissionStatus> {
     // For location offers (geofences), we need background permission. If the module
     // supports background permission checks, treat that as the source of truth.
     const bg = mod.getBackgroundPermissionsAsync ? await mod.getBackgroundPermissionsAsync() : null;
-    const status = mapExpoPermissionToOsStatus(bg ?? fg);
+    const status = deriveLocationOfferPermissionStatus({
+      foreground: fg,
+      background: bg,
+      checksBackgroundPermission: Boolean(mod.getBackgroundPermissionsAsync),
+    });
     setOsPermissionStatus(status);
     return status;
   } catch {
@@ -118,21 +188,18 @@ async function requestOsPermissionInternal(): Promise<boolean> {
     if (fgStatus === 'authorized' && mod.requestBackgroundPermissionsAsync) {
       try {
         const bg = await mod.requestBackgroundPermissionsAsync();
-        const bgStatus = mapExpoPermissionToOsStatus(bg);
+        const resolvedStatus = deriveLocationOfferPermissionStatus({
+          foreground: fg,
+          background: bg,
+          checksBackgroundPermission: true,
+        });
         // If background permission is granted, we're fully authorized
-        if (bgStatus === 'authorized') {
-          setOsPermissionStatus('authorized');
-          return true;
-        }
-        // If background permission was denied but foreground is granted,
-        // sync the actual status from the system to get the accurate state.
-        // This handles the "Allow Once" case where foreground is granted but background is not.
+        setOsPermissionStatus(resolvedStatus);
+        return resolvedStatus === 'authorized';
+      } catch {
+        // If the background request path throws, sync to capture real OS state.
         const syncedStatus = await syncOsPermissionStatusInternal();
         return syncedStatus === 'authorized';
-      } catch {
-        // If background permission request fails, fall back to foreground status
-        setOsPermissionStatus(fgStatus);
-        return fgStatus === 'authorized';
       }
     }
     
@@ -150,6 +217,12 @@ async function ensurePermissionWithRationaleInternal(
 ): Promise<boolean> {
   const current = await syncOsPermissionStatusInternal();
   if (current === 'authorized') return true;
+  if (current === 'foregroundOnly') {
+    if (reason === 'attach_place') return true;
+    if (reason === 'ftue') return false;
+    showLocationNeedsAlwaysAlert();
+    return false;
+  }
 
   // If we can't even check/request, tell the user what's going on and let them continue.
   if (current === 'unavailable') {
@@ -168,6 +241,12 @@ async function ensurePermissionWithRationaleInternal(
     const finalStatus = await syncOsPermissionStatusInternal();
     if (finalStatus === 'authorized') {
       return true;
+    }
+    if (finalStatus === 'foregroundOnly') {
+      if (reason === 'attach_place') return true;
+      if (reason === 'ftue') return false;
+      showLocationNeedsAlwaysAlert();
+      return false;
     }
 
     // Important: in FTUE, don't immediately show a "blocked" alert after the OS prompt,

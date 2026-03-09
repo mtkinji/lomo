@@ -1229,6 +1229,8 @@ export function ActivityDetailScreen() {
         const next = useAppStore.getState().locationOfferPreferences.osPermissionStatus;
         if (next === 'denied' || next === 'restricted') {
           setLocationStatusHint('Location is blocked in system settings. Search still works.');
+        } else if (next === 'foregroundOnly') {
+          setLocationStatusHint('Location is enabled while using the app. Search still works.');
         } else if (next === 'unavailable') {
           setLocationStatusHint('Location isn’t available in this build yet. Search still works.');
         } else {

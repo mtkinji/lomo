@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useAppStore } from '../../store/useAppStore';
+import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { VStack, Text, HStack } from '../../ui/primitives';
 import { Button } from '../../ui/Button';
@@ -11,6 +12,8 @@ export function PlanKickoffDrawerHost() {
   const [visible, setVisible] = useState(false);
   const lastKickoffShownDateKey = useAppStore((s) => s.lastKickoffShownDateKey);
   const setLastKickoffShownDateKey = useAppStore((s) => s.setLastKickoffShownDateKey);
+  const hasCompletedFirstTimeOnboarding = useAppStore((s) => s.hasCompletedFirstTimeOnboarding);
+  const isFirstTimeFlowActive = useFirstTimeUxStore((s) => s.isFlowActive);
 
   const todayKey = useMemo(() => {
     const now = new Date();
@@ -21,6 +24,14 @@ export function PlanKickoffDrawerHost() {
   }, []);
 
   const checkAndShow = () => {
+    // Keep the generic daily kickoff out of onboarding surfaces.
+    // We intentionally do not mark "shown today" while suppressed so it can
+    // still appear later after onboarding is complete.
+    if (!hasCompletedFirstTimeOnboarding || isFirstTimeFlowActive) {
+      setVisible(false);
+      return;
+    }
+
     // We use ISO date (YYYY-MM-DD) in local time as the key.
     const now = new Date();
     const year = now.getFullYear();
@@ -45,7 +56,7 @@ export function PlanKickoffDrawerHost() {
     return () => {
       subscription.remove();
     };
-  }, [lastKickoffShownDateKey]);
+  }, [hasCompletedFirstTimeOnboarding, isFirstTimeFlowActive, lastKickoffShownDateKey]);
 
   const handleDismissForToday = () => {
     const now = new Date();

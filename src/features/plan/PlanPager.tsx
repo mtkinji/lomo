@@ -1503,11 +1503,13 @@ export function PlanPager({
                         ? 'Outlook'
                         : null,
                   onOpenCalendarSettings: () => {
+                    setSheetSnapIndex(0);
                     if (rootNavigationRef.isReady()) {
                       rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
                     }
                   },
                   onOpenAvailabilitySettings: () => {
+                    setSheetSnapIndex(0);
                     if (rootNavigationRef.isReady()) {
                       rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
                     }

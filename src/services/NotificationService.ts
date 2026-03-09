@@ -73,12 +73,34 @@ let responseSubscription:
   | null = null;
 let receivedSubscription: Notifications.Subscription | null = null;
 
+// Serialize schedule/cancel operations per logical notification group to avoid races
+// (e.g. store subscription + background reconcile calling into scheduling concurrently).
+const inFlightByKey = new Map<string, Promise<unknown>>();
+function runExclusive<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = inFlightByKey.get(key) ?? Promise.resolve();
+  const next = prev
+    .catch(() => undefined)
+    .then(fn);
+  inFlightByKey.set(
+    key,
+    next.finally(() => {
+      if (inFlightByKey.get(key) === next) {
+        inFlightByKey.delete(key);
+      }
+    }),
+  );
+  return next;
+}
+
 /**
  * Configure the base notification handler so local notifications show as alerts
  * without playing sounds or setting badges by default.
  */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
+    // Cross-platform / pre-iOS 17 behavior.
+    shouldShowAlert: true,
+    // iOS 17+ finer-grained presentation (safe no-ops on other platforms).
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: false,
@@ -140,6 +162,59 @@ async function hydrateScheduledNotifications() {
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to hydrate scheduled notifications', error);
+    }
+  }
+}
+
+function triggerDateMs(trigger: unknown): number | null {
+  const raw = trigger && typeof trigger === 'object' ? (trigger as any).date : null;
+  if (!raw) return null;
+  const d = raw instanceof Date ? raw : new Date(raw);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+async function cleanupDuplicateSystemSchedules(): Promise<void> {
+  // Best-effort cleanup for devices that already accumulated duplicates due to prior races.
+  // We only touch "system" one-shot schedules where at-most-one should exist.
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const nowMs = Date.now();
+
+    const byType = (type: NotificationData['type']) =>
+      scheduled.filter((req) => (req.content.data as any)?.type === type);
+
+    const cancelAllButOne = async (reqs: Notifications.NotificationRequest[]) => {
+      if (reqs.length <= 1) return;
+      const sorted = [...reqs].sort((a, b) => {
+        const am = triggerDateMs(a.trigger);
+        const bm = triggerDateMs(b.trigger);
+        if (am == null && bm == null) return 0;
+        if (am == null) return 1;
+        if (bm == null) return -1;
+        return am - bm;
+      });
+
+      const future = sorted.filter((r) => {
+        const ms = triggerDateMs(r.trigger);
+        return ms != null && ms >= nowMs - 60_000;
+      });
+      const keep = (future[0] ?? sorted[0])?.identifier;
+      if (!keep) return;
+      const toCancel = sorted.filter((r) => r.identifier !== keep);
+      await Promise.all(
+        toCancel.map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier).catch(() => undefined)),
+      );
+    };
+
+    // Morning nudge: keep at most one between dailyShowUp + setupNextStep.
+    await cancelAllButOne([...byType('dailyShowUp'), ...byType('setupNextStep')]);
+    // Other system nudges.
+    await cancelAllButOne(byType('dailyFocus'));
+    await cancelAllButOne(byType('goalNudge'));
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] duplicate schedule cleanup failed', error);
     }
   }
 }
@@ -1190,6 +1265,15 @@ function attachStoreSubscription() {
   }
   hasAttachedStoreSubscription = true;
 
+  let goalNudgeDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+  const scheduleGoalNudgeDebounced = (prefs: NotificationPreferences) => {
+    if (goalNudgeDebounceTimeout) clearTimeout(goalNudgeDebounceTimeout);
+    goalNudgeDebounceTimeout = setTimeout(() => {
+      goalNudgeDebounceTimeout = null;
+      void runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(prefs));
+    }, 600);
+  };
+
   let prevActivities: ActivitySnapshotExtended[] = useAppStore
     .getState()
     .activities.map((activity) => ({
@@ -1260,7 +1344,7 @@ function attachStoreSubscription() {
       prefs.allowGoalNudges &&
       prefs.osPermissionStatus === 'authorized'
     ) {
-      void scheduleGoalNudgeInternal(prefs);
+      scheduleGoalNudgeDebounced(prefs);
     }
 
     const prevById = new Map(prevActivities.map((a) => [a.id, a]));
@@ -1300,15 +1384,15 @@ function attachStoreSubscription() {
 
     // Handle removals: cancel any notifications for deleted activities.
     changed.removedIds.forEach((id) => {
-      void cancelActivityReminderInternal(id);
+      void runExclusive(`activity:${id}`, async () => cancelActivityReminderInternal(id));
     });
 
     // Handle adds/updates.
     changed.addedOrUpdated.forEach((snapshot) => {
       if (!snapshot.reminderAt || snapshot.status === 'done') {
-        void cancelActivityReminderInternal(snapshot.id);
+        void runExclusive(`activity:${snapshot.id}`, async () => cancelActivityReminderInternal(snapshot.id));
       } else {
-        void scheduleActivityReminderInternal(snapshot, prefs);
+        void runExclusive(`activity:${snapshot.id}`, async () => scheduleActivityReminderInternal(snapshot, prefs));
       }
     });
 
@@ -1528,12 +1612,13 @@ export const NotificationService = {
     if (isInitialized) return;
     isInitialized = true;
     await syncOsPermissionStatus();
+    await cleanupDuplicateSystemSchedules();
     await hydrateScheduledNotifications();
     // Ensure daily focus is scheduled (one-shot) on launch as a fallback in case
     // the previous day's notification already fired and background fetch didn't run.
     const prefs = getPreferences();
     if (prefs.notificationsEnabled && prefs.allowDailyFocus && prefs.dailyFocusTime) {
-      await scheduleDailyFocusInternal(prefs.dailyFocusTime, prefs);
+      await runExclusive('dailyFocus', async () => scheduleDailyFocusInternal(prefs.dailyFocusTime!, prefs));
     }
     attachStoreSubscription();
     attachNotificationReceivedListener();
@@ -1589,34 +1674,36 @@ export const NotificationService = {
       reminderAt: activity.reminderAt ?? null,
       status: activity.status,
     };
-    await scheduleActivityReminderInternal(snapshot, state.notificationPreferences);
+    await runExclusive(`activity:${activityId}`, async () =>
+      scheduleActivityReminderInternal(snapshot, state.notificationPreferences),
+    );
   },
 
   async cancelActivityReminder(activityId: string) {
-    await cancelActivityReminderInternal(activityId);
+    await runExclusive(`activity:${activityId}`, async () => cancelActivityReminderInternal(activityId));
   },
 
   async scheduleDailyShowUp(time: string) {
     const prefs = getPreferences();
-    await scheduleDailyShowUpInternal(time, prefs);
+    await runExclusive('morningNudge', async () => scheduleDailyShowUpInternal(time, prefs));
   },
 
   async cancelDailyShowUp() {
-    await cancelDailyShowUpInternal();
+    await runExclusive('morningNudge', async () => cancelDailyShowUpInternal());
   },
 
   async scheduleDailyFocus(time: string) {
     const prefs = getPreferences();
-    await scheduleDailyFocusInternal(time, prefs);
+    await runExclusive('dailyFocus', async () => scheduleDailyFocusInternal(time, prefs));
   },
 
   async cancelDailyFocus() {
-    await cancelDailyFocusInternal();
+    await runExclusive('dailyFocus', async () => cancelDailyFocusInternal());
   },
 
   async scheduleGoalNudge() {
     const prefs = getPreferences();
-    await scheduleGoalNudgeInternal(prefs);
+    await runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(prefs));
   },
 
   /**
@@ -1630,17 +1717,17 @@ export const NotificationService = {
     // If notifications are globally disabled, cancel everything we know about.
     if (!next.notificationsEnabled) {
       const ids = Array.from(activityNotificationIds.keys());
-      await Promise.all(ids.map((id) => cancelActivityReminderInternal(id)));
-      await cancelDailyShowUpInternal();
-      await cancelDailyFocusInternal();
-      await cancelGoalNudgeInternal();
+      await Promise.all(ids.map((id) => runExclusive(`activity:${id}`, async () => cancelActivityReminderInternal(id))));
+      await runExclusive('morningNudge', async () => cancelDailyShowUpInternal());
+      await runExclusive('dailyFocus', async () => cancelDailyFocusInternal());
+      await runExclusive('goalNudge', async () => cancelGoalNudgeInternal());
       return;
     }
 
     // Activity reminders
     if (!next.allowActivityReminders) {
       const ids = Array.from(activityNotificationIds.keys());
-      await Promise.all(ids.map((id) => cancelActivityReminderInternal(id)));
+      await Promise.all(ids.map((id) => runExclusive(`activity:${id}`, async () => cancelActivityReminderInternal(id))));
     } else {
       const state = useAppStore.getState();
       const snapshots: ActivitySnapshotExtended[] = state.activities.map((activity) => ({
@@ -1651,29 +1738,31 @@ export const NotificationService = {
         status: activity.status,
       }));
       await Promise.all(
-        snapshots.map((snapshot) => scheduleActivityReminderInternal(snapshot, next)),
+        snapshots.map((snapshot) =>
+          runExclusive(`activity:${snapshot.id}`, async () => scheduleActivityReminderInternal(snapshot, next)),
+        ),
       );
     }
 
     // Daily show-up
     if (!next.allowDailyShowUp || !next.dailyShowUpTime) {
-      await cancelDailyShowUpInternal();
+      await runExclusive('morningNudge', async () => cancelDailyShowUpInternal());
     } else {
-      await scheduleDailyShowUpInternal(next.dailyShowUpTime, next);
+      await runExclusive('morningNudge', async () => scheduleDailyShowUpInternal(next.dailyShowUpTime!, next));
     }
 
     // Daily focus
     if (!next.allowDailyFocus || !next.dailyFocusTime) {
-      await cancelDailyFocusInternal();
+      await runExclusive('dailyFocus', async () => cancelDailyFocusInternal());
     } else {
-      await scheduleDailyFocusInternal(next.dailyFocusTime, next);
+      await runExclusive('dailyFocus', async () => scheduleDailyFocusInternal(next.dailyFocusTime!, next));
     }
 
     // Goal nudges (system nudge)
     if (!next.allowGoalNudges) {
-      await cancelGoalNudgeInternal();
+      await runExclusive('goalNudge', async () => cancelGoalNudgeInternal());
     } else {
-      await scheduleGoalNudgeInternal(next);
+      await runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(next));
     }
   },
 
