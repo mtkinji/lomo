@@ -55,6 +55,15 @@ type SettingsGroup = {
   items: SettingsItem[];
 };
 
+// Production-ready settings IA: keep incomplete surfaces implemented but out of the
+// primary Settings menu until they form a complete, trustworthy value unit.
+const HIDDEN_SETTINGS_ITEM_IDS = new Set([
+  'execution_targets',
+  'widgets',
+  'haptics',
+  'inviteFriend',
+]);
+
 const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'planning',
@@ -142,7 +151,11 @@ export function SettingsHomeScreen() {
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
   const [showSuperAdmin, setShowSuperAdmin] = useState(false);
 
-  const settingsItems = useMemo(() => SETTINGS_GROUPS.flatMap((group) => group.items), []);
+  const settingsItems = useMemo(
+    () =>
+      SETTINGS_GROUPS.flatMap((group) => group.items).filter((item) => !HIDDEN_SETTINGS_ITEM_IDS.has(item.id)),
+    []
+  );
 
   useEffect(() => {
     // Best-effort: only show Admin entry if the signed-in user is allowlisted server-side.
@@ -395,30 +408,34 @@ export function SettingsHomeScreen() {
       },
       showChevron: true,
     },
-    {
-      id: 'inviteFriend',
-      title: 'Invite a friend',
-      icon: 'share',
-      onPress: async () => {
-        try {
-          const code = await createReferralCode();
-          const url = `https://go.kwilt.app/r/${encodeURIComponent(code)}`;
-          const message = `Try Kwilt — it’s helping me turn motivation into a real plan.`;
-          await shareUrlWithPreview({
-            url,
-            message,
-            subject: 'Try Kwilt',
-            androidDialogTitle: 'Invite a friend',
-          });
-        } catch (err: any) {
-          Alert.alert(
-            'Unable to create invite',
-            typeof err?.message === 'string' ? err.message : 'Please try again in a moment.',
-          );
-        }
-      },
-      showChevron: true,
-    },
+    ...(!HIDDEN_SETTINGS_ITEM_IDS.has('inviteFriend')
+      ? ([
+          {
+            id: 'inviteFriend',
+            title: 'Invite a friend',
+            icon: 'share',
+            onPress: async () => {
+              try {
+                const code = await createReferralCode();
+                const url = `https://go.kwilt.app/r/${encodeURIComponent(code)}`;
+                const message = `Try Kwilt — it’s helping me turn motivation into a real plan.`;
+                await shareUrlWithPreview({
+                  url,
+                  message,
+                  subject: 'Try Kwilt',
+                  androidDialogTitle: 'Invite a friend',
+                });
+              } catch (err: any) {
+                Alert.alert(
+                  'Unable to create invite',
+                  typeof err?.message === 'string' ? err.message : 'Please try again in a moment.',
+                );
+              }
+            },
+            showChevron: true,
+          },
+        ] satisfies RowAction[])
+      : []),
   ];
 
   const personalizationRows: RowAction[] = settingsItems.map((item) => ({
