@@ -390,6 +390,13 @@ interface AppState {
     allowActivityReminders: boolean;
     allowDailyShowUp: boolean;
     dailyShowUpTime: string | null;
+    allowPlanKickoff: boolean;
+    planKickoffCadence?: 'daily' | 'weekdays' | 'weekly';
+    /**
+     * Local weekday index for weekly kickoff prompts.
+     * 0 = Sunday ... 6 = Saturday
+     */
+    planKickoffWeeklyDay?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
     allowDailyFocus: boolean;
     dailyFocusTime: string | null;
     /**
@@ -1048,6 +1055,9 @@ export const useAppStore = create<AppState>()(
         allowActivityReminders: false,
         allowDailyShowUp: false,
         dailyShowUpTime: null,
+        allowPlanKickoff: true,
+        planKickoffCadence: 'daily',
+        planKickoffWeeklyDay: 1,
         allowDailyFocus: false,
         dailyFocusTime: null,
         dailyFocusTimeMode: 'auto',
@@ -2407,6 +2417,33 @@ export const useAppStore = create<AppState>()(
         // Default to a high-engagement "afternoon momentum" time.
         const prefs = state.notificationPreferences as any;
         if (prefs && typeof prefs === 'object') {
+          if (typeof prefs.allowPlanKickoff !== 'boolean') {
+            state.notificationPreferences = {
+              ...state.notificationPreferences,
+              allowPlanKickoff: true,
+            };
+          }
+          if (
+            prefs.planKickoffCadence !== 'daily' &&
+            prefs.planKickoffCadence !== 'weekdays' &&
+            prefs.planKickoffCadence !== 'weekly'
+          ) {
+            state.notificationPreferences = {
+              ...state.notificationPreferences,
+              planKickoffCadence: 'daily',
+            };
+          }
+          if (
+            typeof prefs.planKickoffWeeklyDay !== 'number' ||
+            !Number.isFinite(prefs.planKickoffWeeklyDay) ||
+            prefs.planKickoffWeeklyDay < 0 ||
+            prefs.planKickoffWeeklyDay > 6
+          ) {
+            state.notificationPreferences = {
+              ...state.notificationPreferences,
+              planKickoffWeeklyDay: 1,
+            };
+          }
           if (!('goalNudgeTime' in prefs) || typeof prefs.goalNudgeTime !== 'string') {
             state.notificationPreferences = {
               ...state.notificationPreferences,

@@ -3,11 +3,14 @@ import { Alert, AppState, ScrollView, StyleSheet, View, Pressable, Platform, Swi
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { AppShell } from '../../ui/layout/AppShell';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { Button } from '../../ui/Button';
 import { HStack, Text, VStack } from '../../ui/primitives';
 import { NotificationService } from '../../services/NotificationService';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
@@ -22,16 +25,34 @@ type NotificationsSettingsNavigationProp = NativeStackNavigationProp<
   'SettingsNotifications'
 >;
 
+type PlanKickoffCadence = 'daily' | 'weekdays' | 'weekly';
+
+const PLAN_KICKOFF_CADENCE_OPTIONS: Array<{ value: PlanKickoffCadence; label: string }> = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekdays', label: 'Weekdays' },
+  { value: 'weekly', label: 'Weekly' },
+];
+
+const WEEKDAY_OPTIONS: Array<{ value: 0 | 1 | 2 | 3 | 4 | 5 | 6; label: string }> = [
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+  { value: 0, label: 'Sunday' },
+];
+
+type TimePickerTarget = 'dailyShowUp' | 'dailyFocus' | 'goalNudge';
+
 export function NotificationsSettingsScreen() {
   const navigation = useNavigation<NotificationsSettingsNavigationProp>();
   const preferences = useAppStore((state) => state.notificationPreferences);
   const setPreferences = useAppStore((state) => state.setNotificationPreferences);
   const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
-  const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
-  const [timePickerTarget, setTimePickerTarget] = useState<'dailyShowUp' | 'dailyFocus' | 'goalNudge'>(
-    'dailyShowUp',
-  );
+  const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
+  const [timePickerDraft, setTimePickerDraft] = useState<Date>(() => new Date());
 
   const formatTimeLabel = (timeHHmm: string) => {
     const [hourString, minuteString] = timeHHmm.split(':');
@@ -57,6 +78,29 @@ export function NotificationsSettingsScreen() {
     const raw = (preferences as any).goalNudgeTime as string | null | undefined;
     return formatTimeLabel(raw ?? DEFAULT_GOAL_NUDGE_TIME);
   }, [(preferences as any).goalNudgeTime]);
+
+  const planKickoffCadence: PlanKickoffCadence = useMemo(() => {
+    if (
+      preferences.planKickoffCadence === 'daily' ||
+      preferences.planKickoffCadence === 'weekdays' ||
+      preferences.planKickoffCadence === 'weekly'
+    ) {
+      return preferences.planKickoffCadence;
+    }
+    return 'daily';
+  }, [preferences.planKickoffCadence]);
+
+  const planKickoffWeeklyDay: 0 | 1 | 2 | 3 | 4 | 5 | 6 = useMemo(() => {
+    const raw = preferences.planKickoffWeeklyDay;
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 && raw <= 6) {
+      return raw as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+    }
+    return 1;
+  }, [preferences.planKickoffWeeklyDay]);
+
+  const planKickoffWeeklyDayLabel = useMemo(() => {
+    return WEEKDAY_OPTIONS.find((option) => option.value === planKickoffWeeklyDay)?.label ?? 'Monday';
+  }, [planKickoffWeeklyDay]);
 
   const osStatusLabel = useMemo(() => {
     switch (preferences.osPermissionStatus) {
@@ -87,6 +131,21 @@ export function NotificationsSettingsScreen() {
         return 'Not requested yet';
     }
   }, [locationOfferPreferences.osPermissionStatus]);
+
+  const remindersEnabled = preferences.notificationsEnabled;
+  const activityRemindersEnabled = remindersEnabled && preferences.allowActivityReminders;
+  const dailyShowUpEnabled = remindersEnabled && preferences.allowDailyShowUp;
+  const dailyFocusEnabled = remindersEnabled && preferences.allowDailyFocus;
+  const goalNudgesEnabled = remindersEnabled && preferences.allowGoalNudges;
+  const locationPromptsEnabled = Boolean(locationOfferPreferences.enabled);
+  const planKickoffEnabled = preferences.allowPlanKickoff !== false;
+
+  const planKickoffSummary = useMemo(() => {
+    if (!planKickoffEnabled) return 'Off';
+    if (planKickoffCadence === 'weekdays') return 'Weekdays';
+    if (planKickoffCadence === 'weekly') return `Weekly · ${planKickoffWeeklyDayLabel}`;
+    return 'Daily';
+  }, [planKickoffCadence, planKickoffEnabled, planKickoffWeeklyDayLabel]);
 
   const syncPermissionLabels = useCallback(() => {
     void NotificationService.syncOsPermissionStatus();
@@ -221,11 +280,55 @@ export function NotificationsSettingsScreen() {
     await NotificationService.applySettings(next);
   };
 
-  const getInitialTimeForPicker = () => {
+  const handleTogglePlanKickoff = () => {
+    setPreferences((current) => ({
+      ...current,
+      allowPlanKickoff: !current.allowPlanKickoff,
+      planKickoffCadence:
+        current.planKickoffCadence === 'daily' ||
+        current.planKickoffCadence === 'weekdays' ||
+        current.planKickoffCadence === 'weekly'
+          ? current.planKickoffCadence
+          : 'daily',
+      planKickoffWeeklyDay:
+        typeof current.planKickoffWeeklyDay === 'number' &&
+        Number.isFinite(current.planKickoffWeeklyDay) &&
+        current.planKickoffWeeklyDay >= 0 &&
+        current.planKickoffWeeklyDay <= 6
+          ? current.planKickoffWeeklyDay
+          : 1,
+    }));
+  };
+
+  const handleSetPlanKickoffCadence = (cadence: PlanKickoffCadence) => {
+    setPreferences((current) => ({
+      ...current,
+      allowPlanKickoff: true,
+      planKickoffCadence: cadence,
+      planKickoffWeeklyDay:
+        typeof current.planKickoffWeeklyDay === 'number' &&
+        Number.isFinite(current.planKickoffWeeklyDay) &&
+        current.planKickoffWeeklyDay >= 0 &&
+        current.planKickoffWeeklyDay <= 6
+          ? current.planKickoffWeeklyDay
+          : 1,
+    }));
+  };
+
+  const handleSetPlanKickoffWeeklyDay = (weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6) => {
+    setPreferences((current) => ({
+      ...current,
+      allowPlanKickoff: true,
+      planKickoffCadence: 'weekly',
+      planKickoffWeeklyDay: weekday,
+    }));
+  };
+
+  const getPickerDateForTarget = (target: TimePickerTarget) => {
     const raw =
-      timePickerTarget === 'dailyFocus'
+      target === 'dailyFocus'
         ? preferences.dailyFocusTime
-        : timePickerTarget === 'goalNudge'
+        : target === 'goalNudge'
           ? ((preferences as any).goalNudgeTime as string | null | undefined)
           : preferences.dailyShowUpTime;
     if (raw) {
@@ -237,9 +340,9 @@ export function NotificationsSettingsScreen() {
       return date;
     }
     const fallback =
-      timePickerTarget === 'dailyFocus'
+      target === 'dailyFocus'
         ? DEFAULT_DAILY_FOCUS_TIME
-        : timePickerTarget === 'goalNudge'
+        : target === 'goalNudge'
           ? DEFAULT_GOAL_NUDGE_TIME
           : DEFAULT_DAILY_SHOW_UP_TIME;
     const date = new Date();
@@ -248,15 +351,35 @@ export function NotificationsSettingsScreen() {
     return date;
   };
 
-  const handleTimeChange = async (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setIsTimePickerVisible(false);
-    }
+  const openTimePicker = (target: TimePickerTarget) => {
+    setTimePickerTarget(target);
+    setTimePickerDraft(getPickerDateForTarget(target));
+  };
+
+  const closeTimePicker = () => {
+    setTimePickerTarget(null);
+  };
+
+  const timePickerTitle = useMemo(() => {
+    if (timePickerTarget === 'dailyFocus') return 'Daily focus time';
+    if (timePickerTarget === 'goalNudge') return 'Goal nudges time';
+    return 'Daily show-up time';
+  }, [timePickerTarget]);
+
+  const handleTimeChange = (event: DateTimePickerEvent, date?: Date) => {
     if (!date || event.type === 'dismissed') {
+      if (Platform.OS !== 'ios') {
+        closeTimePicker();
+      }
       return;
     }
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
+    setTimePickerDraft(date);
+  };
+
+  const handleSaveTimePicker = async () => {
+    if (!timePickerTarget) return;
+    const hours = timePickerDraft.getHours().toString().padStart(2, '0');
+    const minutes = timePickerDraft.getMinutes().toString().padStart(2, '0');
     const time = `${hours}:${minutes}`;
     const next =
       timePickerTarget === 'dailyFocus'
@@ -281,6 +404,7 @@ export function NotificationsSettingsScreen() {
             dailyShowUpTime: time,
           };
     await NotificationService.applySettings(next);
+    closeTimePicker();
   };
 
   const handleNavigateBack = () => {
@@ -299,19 +423,9 @@ export function NotificationsSettingsScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.section}>
-            <Text style={styles.sectionBody}>
-              Kwilt can send gentle, identity-aware reminders so tiny steps on your Activities don&apos;t
-              slip through the cracks.
-            </Text>
-          </View>
-
           <View style={styles.card}>
-            <VStack space="md">
-              <VStack space="xs">
-                <Text style={styles.sectionTitle}>System notifications</Text>
-                <Text style={styles.helperText}>{osStatusLabel}</Text>
-              </VStack>
+            <VStack space="sm">
+              <Text style={styles.sectionTitle}>Notifications</Text>
               <View style={styles.row}>
                 <Pressable
                   style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
@@ -320,10 +434,8 @@ export function NotificationsSettingsScreen() {
                   onPress={handleToggleGlobal}
                 >
                   <VStack>
-                    <Text style={styles.rowTitle}>Allow notifications from Kwilt</Text>
-                    <Text style={styles.rowSubtitle}>
-                      Control whether Kwilt can schedule any reminders on this device.
-                    </Text>
+                    <Text style={styles.rowTitle}>Notifications from Kwilt</Text>
+                    <Text style={styles.rowSubtitle}>{osStatusLabel}</Text>
                   </VStack>
                 </Pressable>
                 <Switch
@@ -339,43 +451,8 @@ export function NotificationsSettingsScreen() {
           </View>
 
           <View style={styles.card}>
-            <VStack space="md">
-              <VStack space="xs">
-                <Text style={styles.sectionTitle}>Location-based prompts</Text>
-                <Text style={styles.helperText}>{locationOsStatusLabel}</Text>
-              </VStack>
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle location-based prompts"
-                  onPress={handleToggleLocationOffers}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Allow location-based prompts</Text>
-                    <Text style={styles.rowSubtitle}>
-                      Get a gentle nudge when you arrive or leave a place attached to an Activity.
-                    </Text>
-                  </VStack>
-                </Pressable>
-                <Switch
-                  value={Boolean(locationOfferPreferences.enabled)}
-                  onValueChange={() => {
-                    void handleToggleLocationOffers();
-                  }}
-                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                  thumbColor={colors.canvas}
-                />
-              </View>
-              <Text style={styles.helperText}>
-                Requires “Always” location permission for reliable background triggers.
-              </Text>
-            </VStack>
-          </View>
-
-          <View style={styles.card}>
-            <VStack space="md">
-              <Text style={styles.sectionTitle}>Reminder types</Text>
+            <VStack space="sm">
+              <Text style={styles.sectionTitle}>Reminders</Text>
 
               <View style={styles.row}>
                 <Pressable
@@ -386,13 +463,11 @@ export function NotificationsSettingsScreen() {
                 >
                   <VStack>
                     <Text style={styles.rowTitle}>Activity reminders</Text>
-                    <Text style={styles.rowSubtitle}>
-                      Use reminders you set on Activities to schedule local notifications.
-                    </Text>
+                    {!activityRemindersEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
                   </VStack>
                 </Pressable>
                 <Switch
-                  value={preferences.notificationsEnabled && preferences.allowActivityReminders}
+                  value={activityRemindersEnabled}
                   onValueChange={() => {
                     void handleToggleActivityReminders();
                   }}
@@ -410,17 +485,14 @@ export function NotificationsSettingsScreen() {
                     onPress={handleToggleDailyShowUp}
                   >
                     <VStack>
-                      <Text style={styles.rowTitle}>Daily show-up reminder</Text>
-                      <Text style={styles.rowSubtitle}>
-                        Get a gentle nudge once a day to review Today and choose one tiny step.
-                      </Text>
+                      <Text style={styles.rowTitle}>Daily show-up</Text>
+                      {!dailyShowUpEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
                     </VStack>
                   </Pressable>
-                  {preferences.notificationsEnabled && preferences.allowDailyShowUp && (
+                  {dailyShowUpEnabled && (
                     <Pressable
                       onPress={() => {
-                        setTimePickerTarget('dailyShowUp');
-                        setIsTimePickerVisible(true);
+                        openTimePicker('dailyShowUp');
                       }}
                       accessibilityRole="button"
                       accessibilityLabel="Change daily reminder time"
@@ -431,7 +503,7 @@ export function NotificationsSettingsScreen() {
                   )}
                 </View>
                 <Switch
-                  value={preferences.notificationsEnabled && preferences.allowDailyShowUp}
+                  value={dailyShowUpEnabled}
                   onValueChange={() => {
                     void handleToggleDailyShowUp();
                   }}
@@ -449,17 +521,14 @@ export function NotificationsSettingsScreen() {
                     onPress={handleToggleDailyFocus}
                   >
                     <VStack>
-                      <Text style={styles.rowTitle}>Daily focus session</Text>
-                      <Text style={styles.rowSubtitle}>
-                        A once-a-day nudge to finish one full Focus timer (clarity + momentum).
-                      </Text>
+                      <Text style={styles.rowTitle}>Daily focus</Text>
+                      {!dailyFocusEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
                     </VStack>
                   </Pressable>
-                  {preferences.notificationsEnabled && preferences.allowDailyFocus && (
+                  {dailyFocusEnabled && (
                     <Pressable
                       onPress={() => {
-                        setTimePickerTarget('dailyFocus');
-                        setIsTimePickerVisible(true);
+                        openTimePicker('dailyFocus');
                       }}
                       accessibilityRole="button"
                       accessibilityLabel="Change daily focus reminder time"
@@ -470,7 +539,7 @@ export function NotificationsSettingsScreen() {
                   )}
                 </View>
                 <Switch
-                  value={preferences.notificationsEnabled && preferences.allowDailyFocus}
+                  value={dailyFocusEnabled}
                   onValueChange={() => {
                     void handleToggleDailyFocus();
                   }}
@@ -480,21 +549,33 @@ export function NotificationsSettingsScreen() {
               </View>
 
               <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle goal nudges"
-                  onPress={handleToggleGoalNudges}
-                >
-                  <VStack>
-                    <Text style={styles.rowTitle}>Goal nudges</Text>
-                    <Text style={styles.rowSubtitle}>
-                      A gentle daily nudge to take one tiny step when you have Goals with incomplete Activities.
-                    </Text>
-                  </VStack>
-                </Pressable>
+                <View style={styles.rowPressable}>
+                  <Pressable
+                    style={({ pressed }) => [pressed && styles.rowPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Toggle goal nudges"
+                    onPress={handleToggleGoalNudges}
+                  >
+                    <VStack>
+                      <Text style={styles.rowTitle}>Goal nudges</Text>
+                      {!goalNudgesEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
+                    </VStack>
+                  </Pressable>
+                  {goalNudgesEnabled ? (
+                    <Pressable
+                      onPress={() => {
+                        openTimePicker('goalNudge');
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change goal nudge time"
+                      hitSlop={8}
+                    >
+                      <Text style={styles.timeLabel}>Time · {goalNudgeTimeLabel}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
                 <Switch
-                  value={preferences.notificationsEnabled && preferences.allowGoalNudges}
+                  value={goalNudgesEnabled}
                   onValueChange={() => {
                     void handleToggleGoalNudges();
                   }}
@@ -502,37 +583,132 @@ export function NotificationsSettingsScreen() {
                   thumbColor={colors.canvas}
                 />
               </View>
-              {preferences.notificationsEnabled && preferences.allowGoalNudges && (
-                <Pressable
-                  onPress={() => {
-                    setTimePickerTarget('goalNudge');
-                    setIsTimePickerVisible(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Change goal nudge time"
-                  hitSlop={8}
-                >
-                  <Text style={styles.timeLabel}>Time · {goalNudgeTimeLabel}</Text>
-                </Pressable>
-              )}
-
-              <Text style={styles.helperText}>
-                Streak nudges and reactivation flows will be added here as they roll out.
-              </Text>
             </VStack>
           </View>
 
-          {isTimePickerVisible && (
+          <View style={styles.card}>
+            <VStack space="sm">
+              <Text style={styles.sectionTitle}>Prompts</Text>
+
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle plan your day prompts"
+                  onPress={handleTogglePlanKickoff}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Plan your day prompts</Text>
+                    <Text style={styles.rowSubtitle}>{planKickoffSummary}</Text>
+                  </VStack>
+                </Pressable>
+                <Switch
+                  value={planKickoffEnabled}
+                  onValueChange={handleTogglePlanKickoff}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
+
+              {planKickoffEnabled ? (
+                <VStack space="sm">
+                  <View style={styles.optionWrap}>
+                    {PLAN_KICKOFF_CADENCE_OPTIONS.map((option) => {
+                      const selected = planKickoffCadence === option.value;
+                      return (
+                        <Pressable
+                          key={option.value}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Set plan kickoff frequency to ${option.label}`}
+                          onPress={() => handleSetPlanKickoffCadence(option.value)}
+                          style={[styles.optionChip, selected && styles.optionChipSelected]}
+                        >
+                          <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {planKickoffCadence === 'weekly' ? (
+                    <VStack space="xs">
+                      <View style={styles.optionWrap}>
+                        {WEEKDAY_OPTIONS.map((option) => {
+                          const selected = planKickoffWeeklyDay === option.value;
+                          return (
+                            <Pressable
+                              key={option.value}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Set weekly plan kickoff day to ${option.label}`}
+                              onPress={() => handleSetPlanKickoffWeeklyDay(option.value)}
+                              style={[styles.optionChip, selected && styles.optionChipSelected]}
+                            >
+                              <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>
+                                {option.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </VStack>
+                  ) : null}
+                </VStack>
+              ) : null}
+
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle location prompts"
+                  onPress={handleToggleLocationOffers}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Location prompts</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {locationPromptsEnabled ? locationOsStatusLabel : 'Off'}
+                    </Text>
+                  </VStack>
+                </Pressable>
+                <Switch
+                  value={locationPromptsEnabled}
+                  onValueChange={() => {
+                    void handleToggleLocationOffers();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
+              <Text style={styles.helperText}>Plan your day prompts appear in app, not as push notifications.</Text>
+            </VStack>
+          </View>
+        </ScrollView>
+
+        <BottomDrawer
+          visible={timePickerTarget !== null}
+          onClose={closeTimePicker}
+          snapPoints={Platform.OS === 'ios' ? ['48%'] : ['42%']}
+          keyboardAvoidanceEnabled={false}
+          dynamicSizing
+        >
+          <BottomDrawerHeader title={timePickerTitle} variant="withClose" onClose={closeTimePicker} />
+          <VStack space="md" style={styles.timePickerSheetContent}>
+            <Text style={styles.helperText}>Choose when this reminder should appear.</Text>
             <View style={styles.timePickerContainer}>
               <DateTimePicker
                 mode="time"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                value={getInitialTimeForPicker()}
+                value={timePickerDraft}
                 onChange={handleTimeChange}
               />
             </View>
-          )}
-        </ScrollView>
+            <HStack space="sm" style={styles.timePickerActions}>
+              <Button variant="ghost" fullWidth onPress={closeTimePicker}>
+                Cancel
+              </Button>
+              <Button variant="primary" fullWidth onPress={() => void handleSaveTimePicker()}>
+                Done
+              </Button>
+            </HStack>
+          </VStack>
+        </BottomDrawer>
       </View>
     </AppShell>
   );
@@ -548,34 +724,27 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingBottom: spacing['2xl'],
-    gap: spacing.lg,
-  },
-  section: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   sectionTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  sectionBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
+    fontFamily: typography.bodySm.fontFamily,
   },
   card: {
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.canvas,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   rowPressable: {
     flex: 1,
@@ -601,16 +770,46 @@ const styles = StyleSheet.create({
   timeLabel: {
     ...typography.bodySm,
     color: colors.accent,
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
   timePickerContainer: {
-    marginTop: spacing.sm,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.canvas,
+  },
+  timePickerSheetContent: {
+    paddingBottom: spacing.lg,
+  },
+  timePickerActions: {
+    justifyContent: 'space-between',
+  },
+  optionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  optionChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  optionChipSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.shellAlt,
+  },
+  optionChipText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  optionChipTextSelected: {
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
   },
   toggle: {
     width: 42,
