@@ -26,15 +26,21 @@ let resumeAttempts = 0;
 let lastResumeAttemptMs = 0;
 let playbackListenerAttached = false;
 
-export type SoundscapeId = 'default';
+export type SoundscapeId = 'default' | 'focusFlowState' | 'midnightStudySession' | 'copacabanaFocus';
 
 // Bundled soundscapes (offline, no ads). Keep the default always available.
 const SOUNDSCAPE_SOURCES: Record<SoundscapeId, any> = {
   default: require('../../assets/audio/soundscapes/Sleep Music No. 1 - Chris Haugen.mp3'),
+  copacabanaFocus: require('../../assets/audio/soundscapes/Copacabana Focus.mp3'),
+  focusFlowState: require('../../assets/audio/soundscapes/Focus Flow State.mp3'),
+  midnightStudySession: require('../../assets/audio/soundscapes/Midnight Study Session.mp3'),
 };
 
 export const SOUND_SCAPES: Array<{ id: SoundscapeId; title: string }> = [
-  { id: 'default', title: 'Sleep Music No. 1' },
+  { id: 'default', title: 'Deep Work Drift' },
+  { id: 'copacabanaFocus', title: 'Copacabana Focus' },
+  { id: 'focusFlowState', title: 'Focus Tunnel' },
+  { id: 'midnightStudySession', title: 'Midnight Study Session' },
 ];
 
 let currentSoundscapeId: SoundscapeId = 'default';
@@ -202,7 +208,10 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
   }
 
   if (!sound) {
+    // Nothing is currently loaded, so there is no in-flight playback to stop.
+    // Clear the pending flag so a later first start can proceed normally.
     status = unload ? 'stopped' : 'idle';
+    pendingStop = false;
     return;
   }
 
