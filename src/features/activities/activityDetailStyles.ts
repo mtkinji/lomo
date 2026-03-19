@@ -1095,12 +1095,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
-  focusStreakOverlayLabel: {
-    ...typography.body,
-    color: colors.parchment,
-    opacity: 0.9,
-    marginTop: spacing.sm,
-  },
   focusStreakSheetLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,

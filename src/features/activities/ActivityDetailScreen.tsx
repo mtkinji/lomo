@@ -264,7 +264,6 @@ export function ActivityDetailScreen() {
   const setHasShownFocusSoundscapeVolumeHint = useAppStore(
     (state) => state.setHasShownFocusSoundscapeVolumeHint,
   );
-  const currentFocusStreak = useAppStore((state) => state.currentFocusStreak);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const agentHostActions = useAppStore((state) => state.agentHostActions);
   const consumeAgentHostActions = useAppStore((state) => state.consumeAgentHostActions);
@@ -5148,9 +5147,6 @@ export function ActivityDetailScreen() {
               <Text style={styles.focusTimer}>{formatMsAsTimer(remainingFocusMs)}</Text>
               <Text style={styles.focusActivityTitle} numberOfLines={2}>
                 {activity.title}
-              </Text>
-              <Text style={styles.focusStreakOverlayLabel}>
-                Streak: {currentFocusStreak} day{currentFocusStreak === 1 ? '' : 's'}
               </Text>
             </View>
 
