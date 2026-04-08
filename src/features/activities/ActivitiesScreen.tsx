@@ -240,6 +240,7 @@ export function ActivitiesScreen() {
   const setHasDismissedActivitiesListGuide = useAppStore(
     (state) => state.setHasDismissedActivitiesListGuide,
   );
+  const isPlanKickoffVisible = useAppStore((state) => state.isPlanKickoffVisible);
   const focusContextGoalId = useAppStore((state) => state.focusContextGoalId);
   const setFocusContextGoalId = useAppStore((state) => state.setFocusContextGoalId);
   const appOpenCount = useAppStore((state) => state.appOpenCount);
@@ -1202,7 +1203,11 @@ export function ActivitiesScreen() {
   const guideVariant = activities.length > 0 ? 'full' : 'empty';
   const guideTotalSteps = guideVariant === 'full' ? 3 : 1;
   const shouldShowActivitiesListGuide =
-    isFocused && !hasDismissedActivitiesListGuide && !activityCoachVisible && !viewEditorVisible;
+    isFocused &&
+    !hasDismissedActivitiesListGuide &&
+    !activityCoachVisible &&
+    !viewEditorVisible &&
+    !isPlanKickoffVisible;
 
   const dismissActivitiesListGuide = React.useCallback(() => {
     setHasDismissedActivitiesListGuide(true);

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { useWindowDimensions, View, StyleSheet, Platform, Text, Pressable, Linking } from 'react-native';
+import {
+  useWindowDimensions,
+  View,
+  StyleSheet,
+  Platform,
+  Text,
+  Pressable,
+  Linking,
+  ActivityIndicator,
+} from 'react-native';
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
 import {
@@ -404,8 +413,13 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   }, []);
 
   if (!isNavReady) {
-    // Let the app shell/font loading in App.tsx handle the visible loading state.
-    return null;
+    // Avoid a blank shell while restoring persisted navigation state.
+    return (
+      <View style={styles.navRestoreScreen}>
+        <ActivityIndicator size="small" color={colors.accent} />
+        <Text style={styles.navRestoreText}>Opening your workspace...</Text>
+      </View>
+    );
   }
 
   // Deep links embedded in calendar events and share surfaces.
@@ -1156,6 +1170,19 @@ function KwiltDrawerContent(props: any) {
 }
 
 const styles = StyleSheet.create({
+  navRestoreScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.shell,
+    paddingHorizontal: spacing.lg,
+  },
+  navRestoreText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   drawerContentContainer: {
     // DrawerContentScrollView uses contentContainerStyle; `flexGrow` is the
     // reliable way to make the content fill the viewport height.

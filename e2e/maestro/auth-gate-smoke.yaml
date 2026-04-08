@@ -1,0 +1,12 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Auth smoke (CI-safe): fresh launch lands on sign-in interstitial.
+# This intentionally avoids provider login automation.
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Continue with Apple"
+- assertVisible: "Continue with Google"
+
+- takeScreenshot: "auth-gate-smoke"

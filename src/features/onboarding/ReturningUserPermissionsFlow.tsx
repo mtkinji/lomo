@@ -48,6 +48,9 @@ export function ReturningUserPermissionsFlow({
   const setHasCompletedFirstTimeOnboarding = useAppStore(
     (state) => state.setHasCompletedFirstTimeOnboarding
   );
+  const setHasDismissedActivitiesListGuide = useAppStore(
+    (state) => state.setHasDismissedActivitiesListGuide
+  );
   const [isRequestingNotifications, setIsRequestingNotifications] = useState(false);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const { capture } = useAnalytics();
@@ -142,6 +145,8 @@ export function ReturningUserPermissionsFlow({
 
   const handleComplete = useCallback(() => {
     setHasCompletedFirstTimeOnboarding(true);
+    // Returning users on a fresh install don't need the first-run Activities explainer again.
+    setHasDismissedActivitiesListGuide(true);
     capture(AnalyticsEvent.FtueCompleted, {
       trigger_count: 1,
       created_arc: false,
@@ -149,7 +154,7 @@ export function ReturningUserPermissionsFlow({
       returning_user: true,
     });
     onComplete();
-  }, [capture, onComplete, setHasCompletedFirstTimeOnboarding]);
+  }, [capture, onComplete, setHasCompletedFirstTimeOnboarding, setHasDismissedActivitiesListGuide]);
 
   if (!visible) return null;
 

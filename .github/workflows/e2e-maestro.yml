@@ -69,6 +69,7 @@ jobs:
       - name: Run Maestro smoke suite (iOS simulator)
         run: |
           maestro test \
+            e2e/maestro/auth-gate-smoke.yaml \
             e2e/maestro/smoke-devtools.yaml \
             e2e/maestro/bottomdrawer-touch-regression.yaml \
             e2e/maestro/keyboard-harness.yaml \
