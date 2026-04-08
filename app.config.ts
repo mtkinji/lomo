@@ -5,6 +5,7 @@ import path from 'path';
 
 const NODE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
 const projectRoot = __dirname;
+const widgetsEnabled = (process.env.KWILT_ENABLE_WIDGETS ?? '').trim() === '1';
 
 // Silence noisy dotenv tips when loading multiple files.
 if (!process.env.DOTENV_CONFIG_QUIET) {
@@ -63,17 +64,19 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '48',
-    // iOS app extensions (WidgetKit) are created at prebuild time via `withAppleEcosystemIntegrations`.
-    // We declare the extension bundle id here so EAS credentials/build can provision/sign it too.
+    buildNumber: '50',
+    // iOS app extensions (WidgetKit) are only declared for widget-enabled profiles.
+    // This prevents non-widget production builds from requiring widget target credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
     // @ts-expect-error - `appExtensions` isn't typed in ExpoConfig yet, but is consumed by EAS tooling.
-    appExtensions: [
-      {
-        targetName: 'KwiltWidgets',
-        bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
-      },
-    ],
+    appExtensions: widgetsEnabled
+      ? [
+          {
+            targetName: 'KwiltWidgets',
+            bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
+          },
+        ]
+      : undefined,
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `apple-app-site-association` to be served from those domains.
     associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
@@ -102,7 +105,7 @@ const config: ExpoConfig = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 48,
+    versionCode: 50,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -146,17 +149,19 @@ const config: ExpoConfig = {
     eas: {
       // Linked EAS project for the kwilt app (added manually for dynamic config).
       projectId: '7717f04d-8327-47a9-8bb4-84c21dc8214f',
-      // Experimental: declare iOS app extension targets so EAS can provision/sign them.
-      // EAS CLI (currently) reads this from `extra.eas.build.experimental.ios.appExtensions`.
+      // Experimental: declare iOS app extension targets only for widget-enabled builds
+      // so production (non-widgets) doesn't request widget provisioning.
       build: {
         experimental: {
           ios: {
-            appExtensions: [
-              {
-                targetName: 'KwiltWidgets',
-                bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
-              },
-            ],
+            appExtensions: widgetsEnabled
+              ? [
+                  {
+                    targetName: 'KwiltWidgets',
+                    bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
+                  },
+                ]
+              : undefined,
           },
         },
       },
