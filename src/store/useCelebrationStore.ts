@@ -9,6 +9,7 @@ import {
   isShowUpStreakMilestone,
   isFocusStreakMilestone,
 } from '../services/milestones';
+import { localDateKey } from './streakProtection';
 
 export type CelebrationMoment = {
   /** Unique key for this celebration instance to prevent duplicates */
@@ -87,6 +88,13 @@ let deferredRetryTimer: ReturnType<typeof setTimeout> | null = null;
 const DAILY_STREAK_AUTO_DISMISS_MS = 4000;
 const ACTIVITY_COMPLETED_AUTO_DISMISS_MS = 4500;
 const ALL_ACTIVITIES_DONE_AUTO_DISMISS_MS = 5000;
+
+const areDailyHeroActionsComplete = (actions: {
+  completedTaskOrStep?: boolean;
+  createdSomething?: boolean;
+  completedFocusSession?: boolean;
+} | null | undefined) =>
+  Boolean(actions?.completedTaskOrStep && actions?.createdSomething && actions?.completedFocusSession);
 
 function scheduleDeferredRetry() {
   if (deferredRetryTimer) return;
@@ -226,6 +234,26 @@ if (typeof window !== 'undefined') {
       }, 500);
     }
   });
+
+  // Watch daily hero actions and celebrate once all 3 are complete for the day.
+  useAppStore.subscribe(
+    (state) => state.dailyHeroActions,
+    (next, prev) => {
+      const nextComplete = areDailyHeroActionsComplete(next);
+      const prevComplete = areDailyHeroActionsComplete(prev);
+      if (!nextComplete || prevComplete) {
+        return;
+      }
+      const { lastHeroActionsCelebratedDateKey } = useAppStore.getState();
+      if (next.dateKey === lastHeroActionsCelebratedDateKey) {
+        return;
+      }
+      useAppStore.setState({ lastHeroActionsCelebratedDateKey: next.dateKey });
+      setTimeout(() => {
+        celebrateDailyHeroActionsDay(next.dateKey);
+      }, 500);
+    },
+  );
 }
 
 // ============================================================================
@@ -466,7 +494,9 @@ export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
   }
 
   const store = useCelebrationStore.getState();
-  const celebrationId = `daily-streak-${days}`;
+  // Include the local date so the first action of each day can always trigger
+  // a visible streak celebration, even if the streak count repeats later.
+  const celebrationId = `daily-streak-${localDateKey(new Date())}-${days}`;
 
   if (store.hasBeenShown(celebrationId)) {
     return;
@@ -480,8 +510,9 @@ export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
     headline,
     subheadline,
     // Special milestones: high priority, manual dismiss
-    // Regular days: low priority (drops during conflicts), auto-dismiss
-    priority: isSpecial ? 'high' : 'low',
+    // Regular days: normal priority so they defer/queue during conflicts
+    // instead of being dropped.
+    priority: isSpecial ? 'high' : 'normal',
     autoDismissMs: isSpecial ? undefined : DAILY_STREAK_AUTO_DISMISS_MS,
     onDismiss,
   });
@@ -498,6 +529,29 @@ export function celebrateAllActivitiesDone(onDismiss?: () => void) {
     subheadline: "You knocked out everything on your list. Time to plan what's next!",
     autoDismissMs: ALL_ACTIVITIES_DONE_AUTO_DISMISS_MS,
     priority: 'low', // Low priority - drop if conflicts exist
+    onDismiss,
+  });
+}
+
+/**
+ * Celebrate completing all three daily hero actions:
+ * - Complete a task/step
+ * - Create something new
+ * - Complete a focus session
+ */
+export function celebrateDailyHeroActionsDay(dateKey: string, onDismiss?: () => void) {
+  const store = useCelebrationStore.getState();
+  const celebrationId = `daily-hero-actions-${dateKey}`;
+  if (store.hasBeenShown(celebrationId)) {
+    return;
+  }
+  store.celebrate({
+    id: celebrationId,
+    kind: 'milestone',
+    headline: 'Hero Day Complete! ⚡',
+    subheadline: 'You completed work, created something new, and finished a focus session today.',
+    ctaLabel: 'Keep Going',
+    priority: 'high',
     onDismiss,
   });
 }

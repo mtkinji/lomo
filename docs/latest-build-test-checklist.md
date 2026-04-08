@@ -8,6 +8,7 @@ Please focus testing on:
 - **Archive/restore** for Arcs + Goals (toasts + navigation + archived sections).
 - **Notifications** (daily show-up, daily focus, goal nudges): scheduling, deep links, suppression after “show up”, and avoiding duplicates.
 - **AI credits**: credits decrement, low-credit warning toast, and paywall/upgrade messaging when credits are exhausted.
+- **Authentication parity**: sign-in, relaunch persistence, sign-out, and stale-token recovery in both local dev-client and TestFlight lanes.
 
 Also do a quick **app-shell regression**: primary nav/drawer works and every screen stays within the usual margins/canvas (no full-bleed weirdness).
 
@@ -19,6 +20,17 @@ If you hit issues, include: device + iOS version, timezone, whether notification
 - **Drawer/menu**: open/close from top-left, navigate between **Arcs / Goals / Activities / Settings**.
 - **App shell preserved**: each screen keeps the normal shell (primary nav + margins) and the **canvas** content doesn’t overlap headers or clip at the bottom.
 - **Cold start**: kill app, reopen, verify you land cleanly and data renders.
+
+### 0.5) Authentication stability + parity
+- **Fresh install**: launch app from a clean install; verify auth gate loads deterministically (no black/blank/flicker loop).
+- **Sign in success**:
+  - Continue with Apple succeeds.
+  - Continue with Google succeeds.
+  - Expected: app transitions into the main shell without bouncing back to sign-in.
+- **Cancel path**: cancel provider auth once; expected to remain on sign-in interstitial with controls responsive.
+- **Relaunch persistence**: kill app and relaunch; expected to restore signed-in session without re-prompt.
+- **Sign out**: sign out from settings path; expected to return to sign-in cleanly.
+- **Stale token recovery**: if refresh token is invalid/revoked, expected behavior is a clean fallback to signed-out state (no spinner loops).
 
 ### 1) Archive / restore (Arcs + Goals)
 
@@ -102,5 +114,8 @@ Preconditions:
 - When credits hit 0:
   - Expected: AI entry points show an upgrade/paywall message instead of silently failing.
   - Expected: no negative credit counts; app stays usable in manual flows.
+
+## Local vs production parity note
+- Follow `docs/auth-parity-runbook.md` before release sign-off so local auth checks mirror production config assumptions.
 
 

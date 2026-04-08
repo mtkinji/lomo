@@ -1,5 +1,5 @@
 import { getSupabaseUrl } from '../utils/getEnv';
-import { buildMaybeAuthedHeaders, getProCodesBaseUrl } from './proCodesClient';
+import { buildMaybeAuthedHeaders, getProCodesBaseUrlForHeaders } from './proCodesClient';
 import { getSupabaseClient } from './backend/supabaseClient';
 
 export type ProStatus = {
@@ -14,15 +14,17 @@ export type ProStatus = {
 };
 
 export async function getProStatus(): Promise<ProStatus> {
-  const base = getProCodesBaseUrl();
-  if (!base) {
-    throw new Error('Pro codes service not configured');
-  }
-
-  const debugProCodesBaseUrl = __DEV__ ? base : undefined;
+  let debugProCodesBaseUrl: string | undefined;
   const debugSupabaseUrl = __DEV__ ? (getSupabaseUrl()?.trim() ?? '') : undefined;
 
   const doFetch = async (headers: Headers) => {
+    const base = getProCodesBaseUrlForHeaders(headers);
+    if (!base) {
+      throw new Error('Pro codes service not configured');
+    }
+    if (__DEV__) {
+      debugProCodesBaseUrl = base;
+    }
     const res = await fetch(`${base}/status`, {
       method: 'POST',
       headers,

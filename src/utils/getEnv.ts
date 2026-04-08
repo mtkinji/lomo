@@ -3,9 +3,9 @@ import Constants from 'expo-constants';
 type ExtraStore = Record<string, any> | undefined;
 
 function getExtra(): ExtraStore {
-  const expoConfigExtra = Constants.expoConfig?.extra;
-  const manifestExtra = (Constants.manifest as any)?.extra;
-  const manifest2Extra = (Constants.manifest2 as any)?.extra;
+  const expoConfigExtra = (Constants as any)?.expoConfig?.extra;
+  const manifestExtra = (Constants as any)?.manifest?.extra;
+  const manifest2Extra = (Constants as any)?.manifest2?.extra;
   return expoConfigExtra ?? manifestExtra ?? manifest2Extra ?? {};
 }
 
@@ -162,7 +162,7 @@ export function getSupabaseUrl(): string | undefined {
   // Only Expo Go should attempt inference; standalone/dev/prod builds should be explicitly configured.
   // (Silent inference in production can accidentally fall back to https://<project-ref>.supabase.co,
   // which defeats custom auth domains like https://auth.kwilt.app.)
-  if (Constants.appOwnership !== 'expo') return undefined;
+  if ((Constants as any)?.appOwnership !== 'expo') return undefined;
 
   const ai =
     getEnvVar<string>('aiProxyBaseUrl') ??
@@ -174,6 +174,60 @@ export function getSupabaseUrl(): string | undefined {
 
 export function getAmazonAssociatesTag(): string | undefined {
   return getEnvVar<string>('amazonAssociatesTag');
+}
+
+export type AuthRuntimeDiagnostics = {
+  appOwnership: string;
+  environment: string;
+  easBuildProfile?: string;
+  authBrandOrigin?: string;
+  supabaseUrl?: string;
+  redirectScheme?: string;
+  warnings: string[];
+};
+
+export function getAuthRuntimeDiagnostics(): AuthRuntimeDiagnostics {
+  const appOwnership = String((Constants as any)?.appOwnership ?? 'unknown');
+  const environment = String((getEnvVar<string>('environment') ?? 'development').trim().toLowerCase());
+  const easBuildProfileRaw = (getEnvVar<string>('easBuildProfile') ?? '').trim();
+  const easBuildProfile = easBuildProfileRaw || undefined;
+  const authBrandOrigin = getAuthBrandOrigin();
+  const supabaseUrl = getSupabaseUrl();
+  const redirectScheme = (((Constants as any)?.expoConfig as any)?.scheme ?? ((Constants as any)?.manifest2 as any)?.extra?.scheme ?? 'kwilt')
+    ?.toString?.()
+    ?.trim?.() || 'kwilt';
+  const warnings: string[] = [];
+
+  if (!supabaseUrl) {
+    warnings.push('SUPABASE_URL is unresolved at runtime.');
+  }
+
+  if (environment === 'production') {
+    if (!supabaseUrl || !supabaseUrl.includes('auth.kwilt.app')) {
+      warnings.push('Production build should use https://auth.kwilt.app as SUPABASE_URL.');
+    }
+    if (!authBrandOrigin || !authBrandOrigin.includes('auth.kwilt.app')) {
+      warnings.push('Production build should set AUTH_BRAND_ORIGIN to https://auth.kwilt.app.');
+    }
+  }
+
+  if (appOwnership === 'expo') {
+    warnings.push('Running in Expo Go can make OAuth redirects less stable than dev/release builds.');
+  }
+
+  if (redirectScheme !== 'kwilt') {
+    warnings.push(`Unexpected redirect scheme "${redirectScheme}". Expected "kwilt".`);
+  }
+
+  return {
+    appOwnership,
+    environment,
+    easBuildProfile,
+    authBrandOrigin,
+    supabaseUrl,
+    redirectScheme,
+    warnings,
+  };
 }
 
 

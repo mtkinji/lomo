@@ -25,11 +25,33 @@ let hasShownExpoGoOAuthUrlDebug = false;
 const shouldShowAuthDebugAlerts = (): boolean =>
   __DEV__ && (process.env.EXPO_PUBLIC_SHOW_AUTH_DEBUG_ALERTS ?? '').trim() === '1';
 
-function isInvalidRefreshTokenError(e: unknown): boolean {
+let invalidRefreshRecoveryInFlight: Promise<void> | null = null;
+
+export function isInvalidRefreshTokenError(e: unknown): boolean {
   const anyE = e as any;
   const msg = (typeof anyE?.message === 'string' ? anyE.message : '').trim().toLowerCase();
   if (!msg) return false;
   return msg.includes('invalid refresh token') || (msg.includes('refresh token') && msg.includes('invalid'));
+}
+
+async function recoverFromInvalidRefreshToken(supabase: ReturnType<typeof getSupabaseClient>): Promise<void> {
+  if (invalidRefreshRecoveryInFlight) {
+    await invalidRefreshRecoveryInFlight;
+    return;
+  }
+  invalidRefreshRecoveryInFlight = (async () => {
+    await resetSupabaseAuthStorage().catch(() => undefined);
+    try {
+      await (supabase.auth as any).signOut?.({ scope: 'local' });
+    } catch {
+      await supabase.auth.signOut().catch(() => undefined);
+    }
+  })();
+  try {
+    await invalidRefreshRecoveryInFlight;
+  } finally {
+    invalidRefreshRecoveryInFlight = null;
+  }
 }
 
 export async function getSession(): Promise<Session | null> {
@@ -37,12 +59,7 @@ export async function getSession(): Promise<Session | null> {
   const { data, error } = await supabase.auth.getSession();
   if (error && isInvalidRefreshTokenError(error)) {
     // Best-effort: clear persisted auth state so we don't get stuck in a refresh loop.
-    await resetSupabaseAuthStorage().catch(() => undefined);
-    try {
-      await (supabase.auth as any).signOut?.({ scope: 'local' });
-    } catch {
-      await supabase.auth.signOut().catch(() => undefined);
-    }
+    await recoverFromInvalidRefreshToken(supabase).catch(() => undefined);
   }
   return data.session ?? null;
 }
@@ -142,12 +159,7 @@ async function maybeRefreshSession(existing: Session): Promise<Session | null> {
   const { data, error } = await supabase.auth.refreshSession();
   if (error) {
     if (isInvalidRefreshTokenError(error)) {
-      await resetSupabaseAuthStorage().catch(() => undefined);
-      try {
-        await (supabase.auth as any).signOut?.({ scope: 'local' });
-      } catch {
-        await supabase.auth.signOut().catch(() => undefined);
-      }
+      await recoverFromInvalidRefreshToken(supabase).catch(() => undefined);
     }
     return null;
   }

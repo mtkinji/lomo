@@ -49,9 +49,12 @@ import { SignInInterstitial, type SignInResult } from './src/features/onboarding
 import { ReturningUserPermissionsFlow } from './src/features/onboarding/ReturningUserPermissionsFlow';
 import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
-import { startDomainSync } from './src/services/sync/domainSync';
+import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/domainSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { Text } from './src/ui/primitives';
+import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
+
+type AuthStartupState = 'boot' | 'hydratingAuth' | 'signedOut' | 'signedIn';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -72,6 +75,7 @@ export default function App() {
   );
   const isFirstTimeFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
+  const dismissFirstTimeFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const llmModel = useAppStore((state) => state.llmModel);
@@ -88,12 +92,15 @@ export default function App() {
   // between the native splash and the main navigation shell.
   const [isBootstrapped, setIsBootstrapped] = useState(false);
   const [bootError, setBootError] = useState<Error | null>(null);
-  const [authHydrated, setAuthHydrated] = useState(false);
+  const [authStartupState, setAuthStartupState] = useState<AuthStartupState>('boot');
+  const authHydrationGenerationRef = useRef(0);
+  const authHydrationDoneRef = useRef(false);
   
   // Track if user is returning (has existing synced data) vs new after sign-in.
   // null = not yet determined, true = returning user, false = new user
   const [isReturningUser, setIsReturningUser] = useState<boolean | null>(null);
   const [showReturningUserFlow, setShowReturningUserFlow] = useState(false);
+  const returningUserProbeRef = useRef<string | null>(null);
 
   useEffect(() => {
     let supabase: ReturnType<typeof getSupabaseClient> | null = null;
@@ -104,43 +111,79 @@ export default function App() {
       return;
     }
     let cancelled = false;
-    setAuthHydrated(false);
+    const generation = authHydrationGenerationRef.current + 1;
+    authHydrationGenerationRef.current = generation;
+    authHydrationDoneRef.current = false;
+    setAuthStartupState('hydratingAuth');
+
+    const isStaleRun = () => cancelled || authHydrationGenerationRef.current !== generation;
+
+    const applySignedOutState = (reason: string) => {
+      if (isStaleRun()) return;
+      setSupabaseAutoRefreshEnabled(false);
+      clearAuthIdentity();
+      setAuthStartupState('signedOut');
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(`[auth] signed_out (${reason})`);
+      }
+    };
+
+    const applySignedInState = (identity: NonNullable<ReturnType<typeof deriveAuthIdentityFromSession>>, reason: string) => {
+      if (isStaleRun()) return;
+      setAuthIdentity(identity);
+      // Prefill local coaching profile fields from auth identity without overwriting
+      // anything the user has already entered in Profile settings.
+      updateUserProfile((current) => {
+        const nextName = (identity.name ?? '').trim();
+        const nextEmail = (identity.email ?? '').trim();
+        const nextAvatar = (identity.avatarUrl ?? '').trim();
+        return {
+          ...current,
+          fullName: current.fullName ?? (nextName ? nextName : undefined),
+          email: current.email ?? (nextEmail ? nextEmail : undefined),
+          avatarUrl: current.avatarUrl ?? (nextAvatar ? nextAvatar : undefined),
+        };
+      });
+      setSupabaseAutoRefreshEnabled(true);
+      setAuthStartupState('signedIn');
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log(`[auth] signed_in (${reason})`);
+      }
+    };
 
     // Keep in sync as auth changes.
     // Important: Supabase can emit an INITIAL_SESSION event with a null session while
     // it's still hydrating from storage. Don't treat that as a real sign-out.
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (cancelled) return;
+      if (isStaleRun()) return;
       // If the client gets stuck with a stale refresh token, Supabase may emit refresh-failed events.
       // Clear persisted auth state so the dev client doesn't keep surfacing runtime error banners.
       if (String(event) === 'TOKEN_REFRESH_FAILED') {
         void resetSupabaseAuthStorage().catch(() => undefined);
-        setSupabaseAutoRefreshEnabled(false);
-        clearAuthIdentity();
+        applySignedOutState('token_refresh_failed');
         return;
       }
+
       const identity = deriveAuthIdentityFromSession(session);
       if (identity) {
-        setAuthIdentity(identity);
-        // Prefill local coaching profile fields from auth identity without overwriting
-        // anything the user has already entered in Profile settings.
-        updateUserProfile((current) => {
-          const nextName = (identity.name ?? '').trim();
-          const nextEmail = (identity.email ?? '').trim();
-          const nextAvatar = (identity.avatarUrl ?? '').trim();
-          return {
-            ...current,
-            fullName: current.fullName ?? (nextName ? nextName : undefined),
-            email: current.email ?? (nextEmail ? nextEmail : undefined),
-            avatarUrl: current.avatarUrl ?? (nextAvatar ? nextAvatar : undefined),
-          };
-        });
-        setSupabaseAutoRefreshEnabled(true);
+        applySignedInState(identity, `auth_event:${String(event)}`);
         return;
       }
+
+      // During initial hydration we only treat explicit sign-outs as terminal signed-out state.
+      // Ignore null-session INITIAL_SESSION races so we don't flap signed-in users.
+      if (!authHydrationDoneRef.current && event !== 'SIGNED_OUT') {
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.log(`[auth] ignored null-session event during hydrate: ${String(event)}`);
+        }
+        return;
+      }
+
       if (event === 'SIGNED_OUT') {
-        setSupabaseAutoRefreshEnabled(false);
-        clearAuthIdentity();
+        applySignedOutState('auth_event:signed_out');
       }
     });
 
@@ -164,36 +207,23 @@ export default function App() {
         if (session) break;
         await new Promise((r) => setTimeout(r, 150 * (i + 1)));
       }
-      if (cancelled) return;
+      if (isStaleRun()) return;
       const identity = deriveAuthIdentityFromSession(session);
       if (identity) {
-        setAuthIdentity(identity);
-        updateUserProfile((current) => {
-          const nextName = (identity.name ?? '').trim();
-          const nextEmail = (identity.email ?? '').trim();
-          const nextAvatar = (identity.avatarUrl ?? '').trim();
-          return {
-            ...current,
-            fullName: current.fullName ?? (nextName ? nextName : undefined),
-            email: current.email ?? (nextEmail ? nextEmail : undefined),
-            avatarUrl: current.avatarUrl ?? (nextAvatar ? nextAvatar : undefined),
-          };
-        });
-        // Only start auto-refresh once we've confirmed a hydrated session is valid.
-        setSupabaseAutoRefreshEnabled(true);
+        applySignedInState(identity, 'hydrate:get_session');
       } else {
-        setSupabaseAutoRefreshEnabled(false);
-        clearAuthIdentity();
+        applySignedOutState('hydrate:no_session');
       }
-      setAuthHydrated(true);
+      authHydrationDoneRef.current = true;
       if (__DEV__) {
         // eslint-disable-next-line no-console
         console.log('[auth] hydrate complete:', identity ? 'signed_in' : 'signed_out');
       }
     })().catch(() => {
-      if (cancelled) return;
+      if (isStaleRun()) return;
+      authHydrationDoneRef.current = true;
       // Be conservative: if hydration fails, don't force-clear here.
-      setAuthHydrated(true);
+      setAuthStartupState((current) => (current === 'signedIn' ? 'signedIn' : 'signedOut'));
     });
 
     return () => {
@@ -243,6 +273,18 @@ export default function App() {
     // legitimately change identity and we do NOT want to re-run side-effectful init.
     if (didRunAppInitRef.current) return;
     didRunAppInitRef.current = true;
+
+    if (__DEV__) {
+      const diagnostics = getAuthRuntimeDiagnostics();
+      // eslint-disable-next-line no-console
+      console.log('[auth][diagnostics]', diagnostics);
+      if (diagnostics.warnings.length > 0) {
+        diagnostics.warnings.forEach((warning) => {
+          // eslint-disable-next-line no-console
+          console.warn('[auth][diagnostics] warning:', warning);
+        });
+      }
+    }
 
     // Ensure remote feature flags / experiments are available as early as possible.
     // Safe no-op when PostHog is disabled or the client isn't initialized.
@@ -325,11 +367,66 @@ export default function App() {
   }, [hasCustomizedLlmModel, isPro, llmModel, setLlmModelSystem]);
 
   useEffect(() => {
-    const shouldRunFtue = !hasCompletedFirstTimeOnboarding && !isFirstTimeFlowActive;
+    const shouldRunFtue =
+      authStartupState === 'signedIn' &&
+      !hasCompletedFirstTimeOnboarding &&
+      !isFirstTimeFlowActive &&
+      isReturningUser === false &&
+      !showReturningUserFlow;
     if (shouldRunFtue) {
       startFirstTimeFlow();
     }
-  }, [hasCompletedFirstTimeOnboarding, isFirstTimeFlowActive, startFirstTimeFlow]);
+  }, [
+    authStartupState,
+    hasCompletedFirstTimeOnboarding,
+    isFirstTimeFlowActive,
+    isReturningUser,
+    showReturningUserFlow,
+    startFirstTimeFlow,
+  ]);
+
+  useEffect(() => {
+    if (authStartupState !== 'signedIn' || !authIdentity?.userId || hasCompletedFirstTimeOnboarding) {
+      returningUserProbeRef.current = null;
+      setShowReturningUserFlow(false);
+      setIsReturningUser(null);
+      return;
+    }
+    if (showReturningUserFlow) return;
+    if (returningUserProbeRef.current === authIdentity.userId) return;
+    returningUserProbeRef.current = authIdentity.userId;
+
+    let cancelled = false;
+    (async () => {
+      for (let i = 0; i < 3; i += 1) {
+        const hasSyncedData = await checkUserHasSyncedData(authIdentity.userId);
+        if (cancelled) return;
+        if (hasSyncedData) {
+          setIsReturningUser(true);
+          // If FTUE briefly started due earlier assumptions, close it before permissions flow.
+          dismissFirstTimeFlow();
+          setShowReturningUserFlow(true);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250 * (i + 1)));
+      }
+      if (cancelled) return;
+      setIsReturningUser(false);
+    })().catch(() => {
+      if (cancelled) return;
+      setIsReturningUser(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    authStartupState,
+    authIdentity?.userId,
+    dismissFirstTimeFlow,
+    hasCompletedFirstTimeOnboarding,
+    showReturningUserFlow,
+  ]);
 
   useEffect(() => {
     HapticsService.setEnabled(Boolean(hapticsEnabled));
@@ -388,6 +485,15 @@ export default function App() {
     );
   }
 
+  const authHydrated = authStartupState !== 'boot' && authStartupState !== 'hydratingAuth';
+  const isResolvingReturningUserSetup =
+    authHydrated &&
+    authStartupState === 'signedIn' &&
+    Boolean(authIdentity?.userId) &&
+    !hasCompletedFirstTimeOnboarding &&
+    isReturningUser === null &&
+    !showReturningUserFlow;
+
   // Always render app surfaces under SafeAreaProvider so any top-level interstitials
   // (sign-in, returning-user flows, etc.) can safely call `useSafeAreaInsets()`.
   const content = !authHydrated ? (
@@ -395,7 +501,12 @@ export default function App() {
       <Logo size={64} />
       <Text style={styles.authHydrationText}>Restoring your session…</Text>
     </View>
-  ) : !authIdentity ? (
+  ) : isResolvingReturningUserSetup ? (
+    <View style={styles.authHydrationScreen}>
+      <Logo size={64} />
+      <Text style={styles.authHydrationText}>Setting up your account…</Text>
+    </View>
+  ) : authStartupState === 'signedOut' || !authIdentity ? (
     // Require sign-in for all users (including legacy users who onboarded before auth was required).
     // Their local data will automatically sync to their account once they authenticate.
     <SignInInterstitial onSignInComplete={handleSignInComplete} />

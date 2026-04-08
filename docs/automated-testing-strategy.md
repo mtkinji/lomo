@@ -90,6 +90,13 @@ Keep this suite small (5–10 tests), high-signal, and run it often.
 - Open the drawer, navigate between **Arcs / Goals / Activities / Settings**
 - Verify screens stay within the normal shell margins/canvas (no overlap/clipping)
 
+### A.1) Authentication gate integrity (smoke)
+
+- Fresh app launch reaches a stable auth gate (no blank/black screen loops)
+- Sign-in interstitial controls are visible and tappable
+- Cancelling provider auth returns to a usable sign-in gate
+- Relaunch after sign-in keeps session unless explicitly signed out
+
 ### B) Drawer touchability regression (your “dead taps” bug)
 
 Create a deterministic harness and assert:
@@ -161,6 +168,7 @@ These should be driven via DevTools “seed” actions so tests don’t depend o
 ## Current Maestro suite mapping
 
 - **Smoke (DevTools reachable)**: `e2e/maestro/smoke-devtools.yaml`
+- **Auth gate smoke (signed-out launch + interstitial visible)**: `e2e/maestro/auth-gate-smoke.yaml`
 - **Bottom drawer tap-through regression**: `e2e/maestro/bottomdrawer-touch-regression.yaml`
 - **Keyboard harness (form + sheet)**: `e2e/maestro/keyboard-harness.yaml`
 - **Agent workspace smoke (composer + close)**: `e2e/maestro/agent-workspace-smoke.yaml`
@@ -213,12 +221,16 @@ Only add E2E coverage for flows that:
 
 ## CI guidance (when you’re ready)
 
-You currently don’t have `.github/workflows/*`. When you add CI:
+Current CI already runs:
+
+- PR smoke lane via `.github/workflows/e2e-maestro.yml` (small Maestro subset)
+- scheduled/manual full Maestro lane via the same workflow
+
+Recommended baseline remains:
 
 - Run **typecheck + Jest unit tests** on every PR.
-- Run **E2E**:
-  - on main nightly (full suite),
-  - and a tiny smoke subset on PRs (optional, depending on runtime).
+- Keep a tiny PR E2E smoke subset (including auth gate smoke).
+- Run full E2E nightly/manual.
 
 ---
 

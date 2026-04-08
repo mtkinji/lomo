@@ -59,6 +59,7 @@ export function PlanKickoffDrawerHost() {
   const [visible, setVisible] = useState(false);
   const lastKickoffShownDateKey = useAppStore((s) => s.lastKickoffShownDateKey);
   const setLastKickoffShownDateKey = useAppStore((s) => s.setLastKickoffShownDateKey);
+  const setPlanKickoffVisible = useAppStore((s) => s.setPlanKickoffVisible);
   const notificationPreferences = useAppStore((s) => s.notificationPreferences);
   const setNotificationPreferences = useAppStore((s) => s.setNotificationPreferences);
   const hasCompletedFirstTimeOnboarding = useAppStore((s) => s.hasCompletedFirstTimeOnboarding);
@@ -91,6 +92,13 @@ export function PlanKickoffDrawerHost() {
       subscription.remove();
     };
   }, [hasCompletedFirstTimeOnboarding, isFirstTimeFlowActive, lastKickoffShownDateKey, notificationPreferences]);
+
+  useEffect(() => {
+    setPlanKickoffVisible(visible);
+    return () => {
+      setPlanKickoffVisible(false);
+    };
+  }, [setPlanKickoffVisible, visible]);
 
   const handleDismissForToday = () => {
     setLastKickoffShownDateKey(toLocalDateKey(new Date()));

@@ -48,6 +48,7 @@ const ROTATION_MS = 14_000;
 const BG_CROSSFADE_MS = 2000; // Slower crossfade for smoothness
 const TEXT_FADE_OUT_MS = 650;
 const TEXT_FADE_IN_MS = 750;
+const RETURNING_ACCOUNT_AGE_MS = 30 * 60 * 1000;
 
 export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps) {
   const insets = useSafeAreaInsets();
@@ -76,6 +77,8 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   const bgPendingRef = useRef<{ layer: 'base' | 'overlay'; index: number } | null>(null);
   const bgPendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  const didCompleteSignInRef = useRef(false);
 
   const fallbackWallpaperSource = useMemo(
     () => AUTH_SIGNIN_WALLPAPERS[0]?.source,
@@ -92,23 +95,41 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   const backgroundBaseSource = getWallpaperSource(bgBaseIndex);
   const backgroundOverlaySource = getWallpaperSource(bgOverlayIndex);
 
+  const looksLikeExistingAuthAccount = (session: any): boolean => {
+    const createdAtRaw = (session as any)?.user?.created_at;
+    if (typeof createdAtRaw !== 'string' || !createdAtRaw.trim()) return false;
+    const createdAtMs = Date.parse(createdAtRaw);
+    if (!Number.isFinite(createdAtMs)) return false;
+    return Date.now() - createdAtMs > RETURNING_ACCOUNT_AGE_MS;
+  };
+
   const handleSignIn = async (provider: 'apple' | 'google') => {
-    if (busy) return;
+    if (busy || didCompleteSignInRef.current) return;
     setLoadingProvider(provider);
     setError(null);
     try {
       const session = await signInWithProvider(provider);
+      if (!mountedRef.current || didCompleteSignInRef.current) return;
       const identity = deriveAuthIdentityFromSession(session);
       let isReturningUser = false;
       if (identity?.userId) {
-        try {
-          isReturningUser = await checkUserHasSyncedData(identity.userId);
-        } catch {
-          isReturningUser = false;
+        // Primary signal: existing synced domain objects.
+        // Fallback: account age heuristic for legacy users whose rows may not be visible yet.
+        isReturningUser = await checkUserHasSyncedData(identity.userId);
+        if (!isReturningUser && looksLikeExistingAuthAccount(session)) {
+          isReturningUser = true;
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.log('[auth] returning-user fallback: account age heuristic');
+          }
         }
       }
+      if (!mountedRef.current || didCompleteSignInRef.current) return;
+      didCompleteSignInRef.current = true;
+      setLoadingProvider(null);
       onSignInComplete({ isReturningUser });
     } catch (err: any) {
+      if (!mountedRef.current || didCompleteSignInRef.current) return;
       const message = err?.message ?? 'Unable to sign in';
       if (!message.toLowerCase().includes('cancel')) {
         setError(message);
@@ -127,10 +148,14 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
 
   useEffect(() => {
     let mounted = true;
+    mountedRef.current = true;
     AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
       if (mounted) setReduceMotion(Boolean(enabled));
     });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      mountedRef.current = false;
+    };
   }, []);
 
   useEffect(() => {

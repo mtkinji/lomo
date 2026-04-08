@@ -532,6 +532,15 @@ interface AppState {
   currentFocusStreak: number;
   bestFocusStreak: number;
   /**
+   * Tracks completion of the three daily "hero actions":
+   * 1) complete a task/step, 2) create something new, 3) complete focus session.
+   */
+  dailyHeroActions: DailyHeroActions;
+  /**
+   * Date key for the last day where the daily hero celebration was shown.
+   */
+  lastHeroActionsCelebratedDateKey: string | null;
+  /**
    * When set, this is the goal that was most recently created by the
    * first-time onboarding flow so we can land the user directly on it.
    */
@@ -601,6 +610,11 @@ interface AppState {
    * Local date key (YYYY-MM-DD) of when the daily Plan kickoff drawer was last shown.
    */
   lastKickoffShownDateKey: string | null;
+  /**
+   * Runtime-only visibility flag for the Plan kickoff drawer so other overlays can
+   * defer while it owns attention.
+   */
+  isPlanKickoffVisible: boolean;
   /**
    * Per-day planning records for the Plan surface.
    */
@@ -839,6 +853,7 @@ interface AppState {
   setLastOnboardingGoalId: (goalId: string | null) => void;
   setHasSeenFirstGoalCelebration: (seen: boolean) => void;
   setLastKickoffShownDateKey: (dateKey: string | null) => void;
+  setPlanKickoffVisible: (visible: boolean) => void;
   setLastSchedulingApply: (record: SchedulingApplyUndoRecord | null) => void;
   setDailyPlanRecord: (dateKey: string, record: DailyPlanRecord | null) => void;
   addDailyPlanCommitment: (dateKey: string, activityId: string) => void;
@@ -893,6 +908,51 @@ const parseLocalDateKey = (key: string) => {
   const [y, m, d] = parts;
   if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
   return new Date(y, m - 1, d);
+};
+
+export type DailyHeroActionType =
+  | 'complete_task_or_step'
+  | 'create_something'
+  | 'complete_focus_session';
+
+export type DailyHeroActions = {
+  dateKey: string;
+  completedTaskOrStep: boolean;
+  createdSomething: boolean;
+  completedFocusSession: boolean;
+  completedAtIso: string | null;
+};
+
+const createDailyHeroActions = (date = new Date()): DailyHeroActions => ({
+  dateKey: localDateKey(date),
+  completedTaskOrStep: false,
+  createdSomething: false,
+  completedFocusSession: false,
+  completedAtIso: null,
+});
+
+const isDailyHeroActionsComplete = (actions: DailyHeroActions) =>
+  actions.completedTaskOrStep && actions.createdSomething && actions.completedFocusSession;
+
+const markDailyHeroAction = (
+  current: DailyHeroActions | undefined,
+  action: DailyHeroActionType,
+  atDate: Date,
+): DailyHeroActions => {
+  const dateKey = localDateKey(atDate);
+  const base = !current || current.dateKey !== dateKey ? createDailyHeroActions(atDate) : current;
+  let next: DailyHeroActions;
+  if (action === 'complete_task_or_step') {
+    next = base.completedTaskOrStep ? base : { ...base, completedTaskOrStep: true };
+  } else if (action === 'create_something') {
+    next = base.createdSomething ? base : { ...base, createdSomething: true };
+  } else {
+    next = base.completedFocusSession ? base : { ...base, completedFocusSession: true };
+  }
+  if (!next.completedAtIso && isDailyHeroActionsComplete(next)) {
+    return { ...next, completedAtIso: atDate.toISOString() };
+  }
+  return next;
 };
 
 // Prefer the explicit `environment` value wired through `app.config.ts`. When that
@@ -1108,6 +1168,8 @@ export const useAppStore = create<AppState>()(
       lastCompletedFocusSessionAtIso: null,
       currentFocusStreak: 0,
       bestFocusStreak: 0,
+      dailyHeroActions: createDailyHeroActions(new Date()),
+      lastHeroActionsCelebratedDateKey: null,
       activityViews: initialActivityViews,
       activeActivityViewId: 'default',
       focusContextGoalId: null,
@@ -1242,6 +1304,7 @@ export const useAppStore = create<AppState>()(
       hasSeenFirstArcCelebration: false,
       hasSeenFirstGoalCelebration: false,
       lastKickoffShownDateKey: null,
+      isPlanKickoffVisible: false,
       dailyPlanHistory: {},
       dailyActivityResolutions: {},
       lastSchedulingApply: null,
@@ -1262,7 +1325,11 @@ export const useAppStore = create<AppState>()(
       activityDetailPlanExpanded: false,
       activityDetailDetailsExpanded: false,
       hasDismissedArcExploreGuide: false,
-      addArc: (arc) => set((state) => ({ arcs: [...state.arcs, arc] })),
+      addArc: (arc) =>
+        set((state) => ({
+          arcs: [...state.arcs, arc],
+          dailyHeroActions: markDailyHeroAction(state.dailyHeroActions, 'create_something', new Date()),
+        })),
       updateArc: (arcId, updater) =>
         set((state) => ({
           arcs: withUpdate(state.arcs, arcId, updater),
@@ -1295,6 +1362,7 @@ export const useAppStore = create<AppState>()(
 
           return {
             goals: [...state.goals, goal],
+            dailyHeroActions: markDailyHeroAction(state.dailyHeroActions, 'create_something', new Date()),
             pendingPostGoalPlanGuideGoalId: shouldTriggerPostGoalGuide
               ? goal.id
               : state.pendingPostGoalPlanGuideGoalId,
@@ -1346,6 +1414,7 @@ export const useAppStore = create<AppState>()(
             return {
               activities: nextActivities,
               activityTagHistory: nextTagHistory,
+              dailyHeroActions: markDailyHeroAction(state.dailyHeroActions, 'create_something', new Date()),
             };
           }
 
@@ -1366,6 +1435,7 @@ export const useAppStore = create<AppState>()(
           return {
             activities: nextActivities,
             activityTagHistory: nextTagHistory,
+            dailyHeroActions: markDailyHeroAction(state.dailyHeroActions, 'create_something', new Date()),
             generativeCredits: nextCredits,
             hasReceivedOnboardingCompletionReward: true,
           };
@@ -1403,6 +1473,15 @@ export const useAppStore = create<AppState>()(
             (!tagsEqualForCompare(prev.tags, next.tags) ||
               prev.title !== next.title ||
               prev.type !== next.type);
+          const didCompleteTaskOrStep = (() => {
+            if (!prev || !next) return false;
+            const prevStepsComplete = countCompletedSteps(prev.steps);
+            const nextStepsComplete = countCompletedSteps(next.steps);
+            const didCompleteMoreSteps = nextStepsComplete > prevStepsComplete;
+            const didMarkDoneNow = prev.status !== 'done' && next.status === 'done';
+            const didSetCompletedAtNow = !prev.completedAt && Boolean(next.completedAt);
+            return didCompleteMoreSteps || didMarkDoneNow || didSetCompletedAtNow;
+          })();
 
           return {
             activities: nextActivities,
@@ -1417,6 +1496,9 @@ export const useAppStore = create<AppState>()(
             activityTagHistory: shouldRecordUsage && next
               ? recordTagUsageForActivity(state.activityTagHistory, next, atIso)
               : state.activityTagHistory,
+            dailyHeroActions: didCompleteTaskOrStep
+              ? markDailyHeroAction(state.dailyHeroActions, 'complete_task_or_step', new Date())
+              : state.dailyHeroActions,
           };
         }),
       reorderActivities: (orderedIds) =>
@@ -1529,6 +1611,10 @@ export const useAppStore = create<AppState>()(
       setLastKickoffShownDateKey: (dateKey) =>
         set(() => ({
           lastKickoffShownDateKey: dateKey,
+        })),
+      setPlanKickoffVisible: (visible) =>
+        set(() => ({
+          isPlanKickoffVisible: visible,
         })),
       updateLastKickoffShownDateKey: (dateKey) =>
         set(() => ({
@@ -2077,6 +2163,11 @@ export const useAppStore = create<AppState>()(
               notificationPreferences: nextNotificationPreferences,
               lastCompletedFocusSessionAtIso: nowDate.toISOString(),
               lastActiveDate: state.lastActiveDate ?? nowDate.toISOString(),
+              dailyHeroActions: markDailyHeroAction(
+                state.dailyHeroActions,
+                'complete_focus_session',
+                nowDate,
+              ),
             };
           }
 
@@ -2113,6 +2204,11 @@ export const useAppStore = create<AppState>()(
             bestFocusStreak,
             notificationPreferences: nextNotificationPreferences,
             lastActiveDate: nowDate.toISOString(),
+            dailyHeroActions: markDailyHeroAction(
+              state.dailyHeroActions,
+              'complete_focus_session',
+              nowDate,
+            ),
           };
         }),
       resetShowUpStreak: () =>
@@ -2235,6 +2331,8 @@ export const useAppStore = create<AppState>()(
           lastCompletedFocusSessionAtIso: null,
           currentFocusStreak: 0,
           bestFocusStreak: 0,
+          dailyHeroActions: createDailyHeroActions(new Date()),
+          lastHeroActionsCelebratedDateKey: null,
           locationOfferPreferences: {
             enabled: false,
             osPermissionStatus: 'notRequested',
@@ -2259,7 +2357,16 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => {
         // `domainHydrated` is runtime-only. Persisting it can briefly flip it "true" during
         // startup rehydrate, which risks overwriting `DOMAIN_STORAGE_KEY` with an empty snapshot.
-        const { arcs, goals, activities, activityTagHistory, domainHydrated, authIdentity, ...rest } = state as any;
+        const {
+          arcs,
+          goals,
+          activities,
+          activityTagHistory,
+          domainHydrated,
+          authIdentity,
+          isPlanKickoffVisible,
+          ...rest
+        } = state as any;
         return rest;
       },
       onRehydrateStorage: () => (state) => {
@@ -2562,6 +2669,31 @@ export const useAppStore = create<AppState>()(
             typeof anyState.lastCompletedFocusSessionAtIso !== 'string')
         ) {
           (state as any).lastCompletedFocusSessionAtIso = null;
+        }
+        if (
+          !('dailyHeroActions' in anyState) ||
+          !anyState.dailyHeroActions ||
+          typeof anyState.dailyHeroActions !== 'object'
+        ) {
+          (state as any).dailyHeroActions = createDailyHeroActions(new Date());
+        } else {
+          const d = (anyState.dailyHeroActions ?? {}) as any;
+          const today = localDateKey(new Date());
+          const dateKey = typeof d.dateKey === 'string' && d.dateKey.length > 0 ? d.dateKey : today;
+          (state as any).dailyHeroActions = {
+            dateKey,
+            completedTaskOrStep: d.completedTaskOrStep === true,
+            createdSomething: d.createdSomething === true,
+            completedFocusSession: d.completedFocusSession === true,
+            completedAtIso: typeof d.completedAtIso === 'string' ? d.completedAtIso : null,
+          };
+        }
+        if (
+          !('lastHeroActionsCelebratedDateKey' in anyState) ||
+          (anyState.lastHeroActionsCelebratedDateKey !== null &&
+            typeof anyState.lastHeroActionsCelebratedDateKey !== 'string')
+        ) {
+          (state as any).lastHeroActionsCelebratedDateKey = null;
         }
         if (state.forces.length === 0) {
           state.forces = canonicalForces;

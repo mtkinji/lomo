@@ -13,7 +13,7 @@ export class SupabaseAuthStorage {
   private memory = new Map<string, string>();
   private didAttemptAuthTokenMigration = false;
   private pendingWrites = new Set<Promise<unknown>>();
-  private didClearAuthSessionKeys = false;
+  private clearAuthSessionKeysInFlight: Promise<void> | null = null;
 
   /**
    * Supabase can kick off PKCE writes without awaiting our storage writes.
@@ -36,9 +36,20 @@ export class SupabaseAuthStorage {
    * that look like session JSON so they can't re-migrate on next launch.
    */
   async clearAuthSessionKeys(): Promise<void> {
-    if (this.didClearAuthSessionKeys) return;
-    this.didClearAuthSessionKeys = true;
+    if (this.clearAuthSessionKeysInFlight) {
+      await this.clearAuthSessionKeysInFlight;
+      return;
+    }
 
+    this.clearAuthSessionKeysInFlight = this.clearAuthSessionKeysImpl();
+    try {
+      await this.clearAuthSessionKeysInFlight;
+    } finally {
+      this.clearAuthSessionKeysInFlight = null;
+    }
+  }
+
+  private async clearAuthSessionKeysImpl(): Promise<void> {
     let keys: string[] = [];
     try {
       const raw = await AsyncStorage.getAllKeys();
