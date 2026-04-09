@@ -133,6 +133,7 @@ export function ArcDetailScreen() {
   const addGoal = useAppStore((state) => state.addGoal);
   const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
+  const setPendingGoalCelebrationId = useAppStore((state) => state.setPendingGoalCelebrationId);
   const hasSeenFirstArcCelebration = useAppStore(
     (state) => state.hasSeenFirstArcCelebration
   );
@@ -363,8 +364,9 @@ export function ArcDetailScreen() {
 
   const handleExploreFirst = useCallback(() => {
     setOnboardingGoalCoachmarkMode('explore');
+    setHasDismissedOnboardingGoalGuide(true);
     handleDismissOnboardingArcHandoff();
-  }, [handleDismissOnboardingArcHandoff]);
+  }, [handleDismissOnboardingArcHandoff, setHasDismissedOnboardingGoalGuide]);
 
   useEffect(() => {
     // If the navigation explicitly requested the celebration (for example,
@@ -1336,15 +1338,14 @@ export function ArcDetailScreen() {
         launchFromArcId={arc.id}
         navigateToGoalDetailOnCreate={false}
         onGoalCreated={(goalId) => {
-          setLastOnboardingGoalId(goalId);
-          // During onboarding, immediately route into the new Goal canvas so the
-          // user can add Activities and reach minimum value quickly.
           if (arc.id === lastOnboardingArcId) {
-            navigation.navigate('GoalDetail', {
-              goalId,
-              entryPoint: 'arcsStack',
-            });
+            setLastOnboardingGoalId(goalId);
           }
+          setPendingGoalCelebrationId(goalId);
+          navigation.navigate('GoalDetail', {
+            goalId,
+            entryPoint: 'arcsStack',
+          });
         }}
       />
       {/* Agent FAB entry for Arc detail is temporarily disabled for MVP.

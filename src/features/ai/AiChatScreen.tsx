@@ -3666,17 +3666,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
                               ? 'Added to Activities.'
                               : `${adoptedActivityCount} activities added so far.`}
                           </Text>
-                          {onDismiss && (
-                            <Button
-                              variant="ghost"
-                              size="small"
-                              onPress={onDismiss}
-                            >
-                              <Text style={styles.activityInlineConfirmationDismissLabel}>
-                                Close Activities AI
-                              </Text>
-                            </Button>
-                          )}
                         </View>
                       )}
                       <VStack space="xs">
@@ -3842,16 +3831,43 @@ export const AiChatPane = forwardRef(function AiChatPane(
                             </HStack>
                           </Button>
                           {activitySuggestions ? (
-                            <Button
-                              variant="primary"
-                              size="md"
-                              onPress={handleAcceptAllSuggestions}
-                              disabled={activitySuggestions.length === 0}
-                            >
-                              <ButtonLabel size="md" tone="inverse">
-                                Add all
-                              </ButtonLabel>
-                            </Button>
+                            adoptedActivityCount > 0 ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="md"
+                                  onPress={handleAcceptAllSuggestions}
+                                  disabled={activitySuggestions.length === 0}
+                                >
+                                  <ButtonLabel size="md">Add all</ButtonLabel>
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="md"
+                                  onPress={() => {
+                                    setActivitySuggestions(null);
+                                    setEditingActivitySuggestionId(null);
+                                    setActivitySuggestionEdits({});
+                                    setShowActivitySummary(true);
+                                  }}
+                                >
+                                  <ButtonLabel size="md" tone="inverse">
+                                    Done
+                                  </ButtonLabel>
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="primary"
+                                size="md"
+                                onPress={handleAcceptAllSuggestions}
+                                disabled={activitySuggestions.length === 0}
+                              >
+                                <ButtonLabel size="md" tone="inverse">
+                                  Add all
+                                </ButtonLabel>
+                              </Button>
+                            )
                           ) : (
                             <View
                               style={[
@@ -3897,11 +3913,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   showActivitySummary &&
                   adoptedActivityCount > 0 && (
                     <View style={styles.activitySummaryCard}>
-                      <Text style={styles.activitySummaryTitle}>Activities added</Text>
                       <Text style={styles.activitySummaryBody}>
                         {adoptedActivityCount === 1
-                          ? '1 activity was added to your list.'
-                          : `${adoptedActivityCount} activities were added to your list.`}
+                          ? "Nice — I added 1 activity to your list. You can always come back for more ideas."
+                          : `Nice — I added ${adoptedActivityCount} activities to your list. You can always come back for more ideas.`}
                       </Text>
                       <View style={styles.activitySummaryActionsRow}>
                         <Button

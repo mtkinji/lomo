@@ -32,6 +32,8 @@ import type { CelebrationKind, MediaRole } from '../services/gifs';
 import type { SoundscapeId } from '../services/soundscape';
 import { useToastStore } from './useToastStore';
 import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
+import { useCheckinNudgeStore } from './useCheckinNudgeStore';
+import { useMilestoneSharePromptStore } from './useMilestoneSharePromptStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 
@@ -39,30 +41,35 @@ type Updater<T> = (item: T) => T;
 
 type DomainState = Pick<AppState, 'arcs' | 'goals' | 'activities' | 'activityTagHistory'>;
 
-const DOMAIN_STORAGE_KEY = 'kwilt-domain-v1';
+export const DOMAIN_STORAGE_KEY_LEGACY = 'kwilt-domain-v1';
+export const getDomainStorageKey = (userId: string): string => `kwilt-domain-v1:${userId}`;
+
 // In dev, JS reloads can interrupt scheduled persistence; keep the debounce short and avoid
 // InteractionManager deferrals so domain objects survive quick reloads.
 const DOMAIN_PERSIST_DEBOUNCE_MS = __DEV__ ? 250 : 3000;
 
+let activeDomainUserId: string | null = null;
+let switchDomainGeneration = 0;
 let domainPersistTimeout: ReturnType<typeof setTimeout> | null = null;
 let domainPersistInFlight = false;
 let domainPersistQueued: DomainState | null = null;
 
 const persistDomainStateNow = async (snapshot: DomainState): Promise<void> => {
+  if (!activeDomainUserId) return;
   const serialized = JSON.stringify(snapshot);
-  await AsyncStorage.setItem(DOMAIN_STORAGE_KEY, serialized);
+  await AsyncStorage.setItem(getDomainStorageKey(activeDomainUserId), serialized);
 };
 
 const schedulePersistDomainState = (domain: DomainState) => {
   domainPersistQueued = domain;
 
-  // Critical safety: never write to `DOMAIN_STORAGE_KEY` until the domain has hydrated.
+  // Critical safety: never write until the domain has hydrated and we have an active user.
   // This prevents unrelated startup store writes (notifications, entitlements, etc.) from
   // overwriting the user's domain snapshot with the initial empty arrays on refresh.
   //
   // We still keep the latest snapshot queued so early user actions are persisted as soon
   // as hydration completes (see the `domainHydrated` subscription near the bottom).
-  if (useAppStore.getState().domainHydrated !== true) {
+  if (!activeDomainUserId || useAppStore.getState().domainHydrated !== true) {
     return;
   }
 
@@ -108,9 +115,10 @@ const schedulePersistDomainState = (domain: DomainState) => {
 };
 
 const flushPersistDomainState = () => {
+  if (!activeDomainUserId) return;
   const state = useAppStore.getState();
   // Critical safety: during cold start, domain objects are loaded asynchronously from
-  // `DOMAIN_STORAGE_KEY`. Do NOT flush an empty snapshot before hydration completes,
+  // the user-scoped domain key. Do NOT flush an empty snapshot before hydration completes,
   // otherwise a transient "empty store" moment can overwrite the user's saved domain.
   //
   // If we *do* have a queued domain snapshot (i.e. real mutations occurred), allow flush.
@@ -138,6 +146,179 @@ const flushPersistDomainState = () => {
     }
   });
 };
+
+/**
+ * Normalize hero image URLs and activity fields on domain objects loaded from storage.
+ * Extracted so both `switchDomainUser` and legacy hydration paths share the same logic.
+ */
+function normalizeDomainSnapshot(raw: Partial<DomainState>): Partial<DomainState> {
+  const normalizeHero = <T extends { thumbnailUrl?: any; heroImageMeta?: any }>(obj: T): T => {
+    const rawUrl = typeof obj?.thumbnailUrl === 'string' ? obj.thumbnailUrl.trim() : '';
+    const normalizeHttp = (url: string) =>
+      url.startsWith('http://') ? `https://${url.slice('http://'.length)}` : url;
+    if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
+      return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
+    }
+    return obj;
+  };
+
+  const next: Partial<DomainState> = {};
+  if (Array.isArray(raw.arcs)) next.arcs = (raw.arcs as any[]).map(normalizeHero) as any;
+  if (Array.isArray(raw.goals)) next.goals = (raw.goals as any[]).map(normalizeHero) as any;
+  if (Array.isArray(raw.activities)) {
+    const nowIso = new Date().toISOString();
+    next.activities = (raw.activities as any[])
+      .map(normalizeHero)
+      .map((activity) => normalizeActivity({ activity: activity as any, nowIso })) as any;
+  }
+  if (raw.activityTagHistory && typeof raw.activityTagHistory === 'object') {
+    next.activityTagHistory = raw.activityTagHistory as any;
+  }
+  return next;
+}
+
+/**
+ * Switch the active domain storage namespace to a different user.
+ *
+ * - Flushes the outgoing user's domain to their scoped AsyncStorage key.
+ * - Clears in-memory domain state.
+ * - Loads the incoming user's domain from their scoped key (with legacy migration).
+ * - Sets `domainHydrated: true` when complete.
+ *
+ * Called from domainSync on every auth identity transition.
+ *
+ * Returns `true` if local cached data was found and applied, `false` if the
+ * user has no local cache (caller should await a backend pull before unblocking UI).
+ */
+export async function switchDomainUser(userId: string | null): Promise<boolean> {
+  const gen = ++switchDomainGeneration;
+
+  // 1. Flush outgoing user's domain to their scoped key.
+  if (activeDomainUserId) {
+    flushPersistDomainState();
+  }
+
+  // 2. Clear in-memory domain and mark as not hydrated.
+  useAppStore.setState(
+    {
+      arcs: [],
+      goals: [],
+      activities: [],
+      activityTagHistory: {},
+      domainHydrated: false,
+    } as any,
+    false,
+  );
+
+  // 3. Update the active user for persistence routing.
+  activeDomainUserId = userId;
+
+  // 4. Load the incoming user's domain (or set empty for signed-out state).
+  if (!userId) {
+    if (gen === switchDomainGeneration) {
+      useAppStore.setState({ domainHydrated: true } as any);
+    }
+    return false;
+  }
+
+  try {
+    // Try user-scoped key first.
+    let raw = await AsyncStorage.getItem(getDomainStorageKey(userId));
+
+    // A newer switchDomainUser call superseded this one while we were reading storage.
+    if (gen !== switchDomainGeneration) return false;
+
+    // Legacy migration: if no scoped key exists, check the old unscoped key.
+    let didMigrateLegacy = false;
+    if (!raw) {
+      const legacyRaw = await AsyncStorage.getItem(DOMAIN_STORAGE_KEY_LEGACY);
+      if (gen !== switchDomainGeneration) return false;
+      if (legacyRaw) {
+        raw = legacyRaw;
+        didMigrateLegacy = true;
+      }
+    }
+
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<DomainState>;
+      const next = normalizeDomainSnapshot(parsed);
+
+      if (Object.keys(next).length > 0) {
+        useAppStore.setState({ ...(next as any), domainHydrated: true } as any);
+      } else {
+        useAppStore.setState({ domainHydrated: true } as any);
+      }
+
+      if (didMigrateLegacy) {
+        await AsyncStorage.setItem(getDomainStorageKey(userId), raw);
+        await AsyncStorage.removeItem(DOMAIN_STORAGE_KEY_LEGACY);
+      }
+      return true;
+    } else {
+      // No local data for this user. Leave domainHydrated = false so the UI
+      // shows a loading indicator until the backend pull completes.
+      return false;
+    }
+  } catch (error) {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn('[store] switchDomainUser failed', error);
+    }
+    if (gen === switchDomainGeneration) {
+      useAppStore.setState({ domainHydrated: true } as any);
+    }
+    return false;
+  }
+}
+
+/**
+ * Reset user-specific state fields that should not leak between accounts.
+ * Preserves device-level settings (haptics, notifications, location, focus prefs).
+ */
+export function resetUserSpecificState(): void {
+  const currentMonthKey = getMonthKey(new Date());
+  useAppStore.setState({
+    userProfile: buildDefaultUserProfile(),
+    hasCompletedFirstTimeOnboarding: false,
+    hasReceivedOnboardingCompletionReward: false,
+    lastOnboardingArcId: null,
+    lastOnboardingGoalId: null,
+    hasSeenFirstArcCelebration: false,
+    hasSeenFirstGoalCelebration: false,
+    generativeCredits: { monthKey: currentMonthKey, usedThisMonth: 0 },
+    bonusGenerativeCredits: { monthKey: currentMonthKey, bonusThisMonth: 0 },
+    goalRecommendations: {},
+    planRecommendationsCount: 0,
+    arcFeedback: [],
+    redeemedReferralCodes: {},
+    dailyPlanHistory: {},
+    dailyActivityResolutions: {},
+    lastSchedulingApply: null,
+    lastKickoffShownDateKey: null,
+    hasSeenOnboardingSharePrompt: false,
+    hasSeenShareSignInHero: false,
+    hasSeenCreditsEducationInterstitial: false,
+    hasSeenRefineUndoCoachmark: false,
+    hasDismissedOnboardingGoalGuide: false,
+    hasDismissedOnboardingActivitiesGuide: false,
+    hasDismissedOnboardingPlanReadyGuide: false,
+    pendingGoalCelebrationId: null,
+    pendingPostGoalPlanGuideGoalId: null,
+    dismissedPostGoalPlanGuideGoalIds: {},
+    hasSeenPostGoalPlanCoachmark: false,
+    hasDismissedGoalVectorsGuide: false,
+    hasDismissedActivitiesListGuide: false,
+    hasDismissedActivityDetailGuide: false,
+    hasDismissedArcExploreGuide: false,
+    blockedCelebrationGifIds: [],
+    likedCelebrationGifs: [],
+    agentHostActions: [],
+  } as any);
+
+  // Clear user-specific external persisted stores.
+  useCheckinNudgeStore.getState().reset();
+  useMilestoneSharePromptStore.getState().reset();
+}
 
 export type ActivityTagUsage = {
   activityId: string;
@@ -360,8 +541,8 @@ interface AppState {
    */
   activityTagHistory: ActivityTagHistoryIndex;
   /**
-   * Domain objects (arcs/goals/activities/tag history) are persisted separately under
-   * `DOMAIN_STORAGE_KEY` for performance. This flag indicates that the domain snapshot
+   * Domain objects (arcs/goals/activities/tag history) are persisted separately per-user under
+   * the per-user domain storage key for performance. This flag indicates that the domain snapshot
    * has finished loading (or we have definitively decided there's nothing to load yet).
    *
    * Screens that depend on domain objects should avoid showing scary "not found" empty
@@ -654,6 +835,12 @@ interface AppState {
    * we land the user on the Goal's Plan tab and show a one-time guide inviting them
    * to create a plan (activities) with AI.
    */
+  /**
+   * Transient: when a goal is created from an Arc, holds the new goal's ID so
+   * GoalDetailScreen can fire the celebration interstitial immediately.
+   * Cleared after the celebration is dismissed.
+   */
+  pendingGoalCelebrationId: string | null;
   pendingPostGoalPlanGuideGoalId: string | null;
   /**
    * Per-goal dismissal state for the post-goal "create a plan" guide so it only
@@ -873,6 +1060,7 @@ interface AppState {
   setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingActivitiesGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingPlanReadyGuide: (dismissed: boolean) => void;
+  setPendingGoalCelebrationId: (goalId: string | null) => void;
   setPendingPostGoalPlanGuideGoalId: (goalId: string | null) => void;
   dismissPostGoalPlanGuideForGoal: (goalId: string) => void;
   setHasDismissedGoalVectorsGuide: (dismissed: boolean) => void;
@@ -1323,6 +1511,7 @@ export const useAppStore = create<AppState>()(
       hasDismissedOnboardingGoalGuide: false,
       hasDismissedOnboardingActivitiesGuide: false,
       hasDismissedOnboardingPlanReadyGuide: false,
+      pendingGoalCelebrationId: null,
       pendingPostGoalPlanGuideGoalId: null,
       dismissedPostGoalPlanGuideGoalIds: {},
       hasSeenPostGoalPlanCoachmark: false,
@@ -1361,10 +1550,7 @@ export const useAppStore = create<AppState>()(
       addGoal: (goal) =>
         set((state) => {
           const shouldTriggerPostGoalGuide =
-            state.hasCompletedFirstTimeOnboarding &&
             Boolean(goal?.id) &&
-            // Don't interfere with the dedicated onboarding-created goal handoffs.
-            state.lastOnboardingGoalId !== goal.id &&
             !(state.dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id];
 
           return {
@@ -1727,6 +1913,10 @@ export const useAppStore = create<AppState>()(
       setHasDismissedOnboardingPlanReadyGuide: (dismissed) =>
         set(() => ({
           hasDismissedOnboardingPlanReadyGuide: dismissed,
+        })),
+      setPendingGoalCelebrationId: (goalId) =>
+        set(() => ({
+          pendingGoalCelebrationId: goalId,
         })),
       setPendingPostGoalPlanGuideGoalId: (goalId) =>
         set(() => ({
@@ -2321,6 +2511,7 @@ export const useAppStore = create<AppState>()(
           hasDismissedOnboardingGoalGuide: false,
           hasDismissedOnboardingActivitiesGuide: false,
           hasDismissedOnboardingPlanReadyGuide: false,
+          pendingGoalCelebrationId: null,
           hasDismissedGoalVectorsGuide: false,
           hasDismissedActivitiesListGuide: false,
           hasDismissedActivityDetailGuide: false,
@@ -2366,10 +2557,10 @@ export const useAppStore = create<AppState>()(
       name: 'kwilt-store',
       storage: createJSONStorage(() => AsyncStorage),
       // Performance: don't persist huge domain object graphs (Activities/Goals/Arcs/tag history)
-      // alongside lightweight UI prefs. Those are persisted separately via DOMAIN_STORAGE_KEY.
+      // alongside lightweight UI prefs. Those are persisted separately per-user via getDomainStorageKey.
       partialize: (state) => {
         // `domainHydrated` is runtime-only. Persisting it can briefly flip it "true" during
-        // startup rehydrate, which risks overwriting `DOMAIN_STORAGE_KEY` with an empty snapshot.
+        // startup rehydrate, which risks overwriting the user's domain storage with an empty snapshot.
         const {
           arcs,
           goals,
@@ -2418,7 +2609,7 @@ export const useAppStore = create<AppState>()(
           // best-effort
         }
 
-        // Domain objects are loaded asynchronously from a separate key.
+        // Domain objects are loaded per-user via switchDomainUser.
         // Ensure the runtime flag starts false each launch so screens can gate their empty states.
         anyState.domainHydrated = false;
         // Backward-compatible: older persisted stores won't have hapticsEnabled.
@@ -2895,69 +3086,35 @@ export const useAppStore = create<AppState>()(
           state.redeemedReferralCodes = {};
         }
 
-        // Migrate/hydrate domain objects from separate storage key to keep UI interactions fast.
+        // Domain objects are now loaded per-user via `switchDomainUser()`, called by
+        // domainSync when auth identity resolves. Do not eagerly load here.
+        // `domainHydrated` stays false until switchDomainUser completes.
+        //
+        // Legacy monolithic-store migration: if the current rehydrated state contains
+        // domain objects from an older build (before separate domain storage), seed them
+        // into the legacy key so switchDomainUser's migration path can pick them up.
         void (async () => {
           try {
-            const raw = await AsyncStorage.getItem(DOMAIN_STORAGE_KEY);
-            if (raw) {
-              const parsed = JSON.parse(raw) as Partial<DomainState>;
-              const next: Partial<DomainState> = {};
-              if (Array.isArray(parsed.arcs)) next.arcs = parsed.arcs as any;
-              if (Array.isArray(parsed.goals)) next.goals = parsed.goals as any;
-              if (Array.isArray(parsed.activities)) next.activities = parsed.activities as any;
-              if (parsed.activityTagHistory && typeof parsed.activityTagHistory === 'object') {
-                next.activityTagHistory = parsed.activityTagHistory as any;
-              }
-              // Resiliency: hero image URIs can go stale across updates.
-              // - Curated heroes: bundled asset URIs can change across builds → re-resolve from curatedId.
-              // - Unsplash heroes: older builds may have stored a transient local file URI → reconstruct from photo id.
-              // - Generic: if a URL uses http://, prefer https:// (ATS blocks insecure loads by default).
-              const normalizeHero = <T extends { thumbnailUrl?: any; heroImageMeta?: any }>(obj: T): T => {
-                const meta = obj?.heroImageMeta;
-                const source = typeof meta?.source === 'string' ? meta.source : '';
-                const rawUrl = typeof obj?.thumbnailUrl === 'string' ? obj.thumbnailUrl.trim() : '';
-
-                const normalizeHttp = (url: string) => (url.startsWith('http://') ? `https://${url.slice('http://'.length)}` : url);
-
-                // IMPORTANT: Do not rewrite hero URLs during hydration.
-                // We rely on `heroImageMeta` at render-time to reconstruct stable display URLs when needed.
-                // Hydration-time rewrites can accidentally overwrite previously distinct thumbnails across
-                // many objects if upstream metadata is corrupted or incomplete.
-                void source;
-
-                // Generic normalization for any other remote URL.
-                if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
-                  return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
-                }
-                return obj;
-              };
-
-              if (Array.isArray(next.arcs)) next.arcs = (next.arcs as any[]).map(normalizeHero) as any;
-              if (Array.isArray(next.goals)) next.goals = (next.goals as any[]).map(normalizeHero) as any;
-              if (Array.isArray(next.activities)) {
-                const nowIso = now();
-                next.activities = (next.activities as any[])
-                  .map(normalizeHero)
-                  .map((activity) => normalizeActivity({ activity: activity as any, nowIso })) as any;
-              }
-              if (Object.keys(next).length > 0) {
-                useAppStore.setState({ ...(next as any), domainHydrated: true } as any);
-                return;
+            const hasLegacyKey = await AsyncStorage.getItem(DOMAIN_STORAGE_KEY_LEGACY);
+            if (!hasLegacyKey) {
+              const legacyArcs = (state as any).arcs ?? [];
+              const legacyGoals = (state as any).goals ?? [];
+              const legacyActivities = (state as any).activities ?? [];
+              const legacyTagHistory = (state as any).activityTagHistory ?? {};
+              const hasMonolithicData =
+                legacyArcs.length > 0 || legacyGoals.length > 0 || legacyActivities.length > 0;
+              if (hasMonolithicData) {
+                const snapshot: DomainState = {
+                  arcs: legacyArcs,
+                  goals: legacyGoals,
+                  activities: legacyActivities,
+                  activityTagHistory: legacyTagHistory,
+                };
+                await AsyncStorage.setItem(DOMAIN_STORAGE_KEY_LEGACY, JSON.stringify(snapshot));
               }
             }
-
-            // If no domain snapshot exists yet, seed it from the currently hydrated state.
-            // (This preserves existing users upgrading from the prior monolithic persisted store.)
-            schedulePersistDomainState({
-              arcs: (state as any).arcs ?? [],
-              goals: (state as any).goals ?? [],
-              activities: (state as any).activities ?? [],
-              activityTagHistory: (state as any).activityTagHistory ?? {},
-            });
-            useAppStore.setState({ domainHydrated: true } as any);
-          } catch (error) {
-            // best-effort only; still unblock UI so screens don't hang in "loading".
-            useAppStore.setState({ domainHydrated: true } as any);
+          } catch {
+            // best-effort; switchDomainUser will handle the empty-state fallback.
           }
         })();
       },
@@ -2965,7 +3122,7 @@ export const useAppStore = create<AppState>()(
   )
 );
 
-// Persist domain objects separately so lightweight UI changes don't serialize giant graphs.
+// Persist domain objects per-user so lightweight UI changes don't serialize giant graphs.
 useAppStore.subscribe((state, prevState) => {
   // Only persist when the domain slice references actually change.
   // This avoids persisting on unrelated startup store writes (notifications, entitlements, etc.).

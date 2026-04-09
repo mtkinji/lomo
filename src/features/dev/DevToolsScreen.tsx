@@ -97,9 +97,6 @@ export function DevToolsScreen() {
   );
   const setActivityDetailPlanExpanded = useAppStore((state) => state.setActivityDetailPlanExpanded);
   const setActivityDetailDetailsExpanded = useAppStore((state) => state.setActivityDetailDetailsExpanded);
-  const setHasDismissedOnboardingActivitiesGuide = useAppStore(
-    (state) => state.setHasDismissedOnboardingActivitiesGuide,
-  );
   const setHasDismissedOnboardingPlanReadyGuide = useAppStore(
     (state) => state.setHasDismissedOnboardingPlanReadyGuide,
   );
@@ -107,6 +104,8 @@ export function DevToolsScreen() {
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
   );
+  const setPendingGoalCelebrationId = useAppStore((state) => state.setPendingGoalCelebrationId);
+  const setPendingPostGoalPlanGuideGoalId = useAppStore((state) => state.setPendingPostGoalPlanGuideGoalId);
   const devBreadcrumbsEnabled = useAppStore((state) => state.devBreadcrumbsEnabled);
   const setDevBreadcrumbsEnabled = useAppStore((state) => state.setDevBreadcrumbsEnabled);
   const devObjectDetailHeaderV2Enabled = useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
@@ -417,7 +416,8 @@ export function DevToolsScreen() {
     // target and that the one-time flags do not suppress the overlay/guides.
     setLastOnboardingGoalId(targetGoalId);
     setHasSeenFirstGoalCelebration(false);
-    setHasDismissedOnboardingActivitiesGuide(false);
+    setPendingGoalCelebrationId(targetGoalId);
+    setPendingPostGoalPlanGuideGoalId(targetGoalId);
     setHasDismissedOnboardingPlanReadyGuide(false);
 
     navigation.navigate('MainTabs', {
