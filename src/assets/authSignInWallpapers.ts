@@ -25,15 +25,12 @@ export const AUTH_SIGNIN_WALLPAPERS: readonly AuthSignInWallpaper[] = [
   { id: 'hiking', source: require('../../assets/auth-wallpapers/hiking.png') },
   { id: 'island', source: require('../../assets/auth-wallpapers/island.png') },
   { id: 'japanese-lake', source: require('../../assets/auth-wallpapers/japanese lake.png') },
-  { id: 'mountain-lake', source: require('../../assets/auth-wallpapers/mountain lake.png') },
   { id: 'night-train', source: require('../../assets/auth-wallpapers/night train.png') },
   { id: 'pacific-coast', source: require('../../assets/auth-wallpapers/pacific coast.png') },
   { id: 'rice-paddies', source: require('../../assets/auth-wallpapers/rice paddies.png') },
   { id: 'riverside-train', source: require('../../assets/auth-wallpapers/riverside train.png') },
   { id: 'sailing', source: require('../../assets/auth-wallpapers/sailing.png') },
   { id: 'sunset-highway', source: require('../../assets/auth-wallpapers/sunset highway.png') },
-  { id: 'train', source: require('../../assets/auth-wallpapers/train.png') },
-  { id: 'japan', source: require('../../assets/auth-wallpapers/Japan.png') },
 ] as const;
 
 

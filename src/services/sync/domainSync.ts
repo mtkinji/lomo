@@ -1,6 +1,6 @@
 import { InteractionManager } from 'react-native';
 import { getSupabaseClient } from '../backend/supabaseClient';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, switchDomainUser } from '../../store/useAppStore';
 import type { Activity, Arc, Goal } from '../../domain/types';
 import { normalizeActivity } from '../../domain/normalizeActivity';
 
@@ -26,9 +26,17 @@ let pushInFlight = false;
 let suppressNextPush = false;
 let disabledReason: string | null = null;
 
+let enableGeneration = 0;
+
 let prevArcIds = new Set<string>();
 let prevGoalIds = new Set<string>();
 let prevActivityIds = new Set<string>();
+
+export function resetPrevIds(): void {
+  prevArcIds = new Set<string>();
+  prevGoalIds = new Set<string>();
+  prevActivityIds = new Set<string>();
+}
 
 const PUSH_DEBOUNCE_MS = 1200;
 
@@ -161,6 +169,18 @@ async function pullAndMerge(user: SyncUser): Promise<void> {
     fetchRemoteTable('kwilt_activities', user.userId),
   ]);
 
+  if (__DEV__) {
+    const alive = (rows: RemoteRow[]) => rows.filter((r) => !r.is_deleted).length;
+    const dead = (rows: RemoteRow[]) => rows.filter((r) => r.is_deleted).length;
+    // eslint-disable-next-line no-console
+    console.log(
+      `[domainSync] pullAndMerge for ${user.userId.slice(0, 8)}… — ` +
+      `arcs: ${alive(arcs)} alive / ${dead(arcs)} tombstoned, ` +
+      `goals: ${alive(goals)} alive / ${dead(goals)} tombstoned, ` +
+      `activities: ${alive(activities)} alive / ${dead(activities)} tombstoned`,
+    );
+  }
+
   applyRemoteMerge({ arcs, goals, activities });
 }
 
@@ -257,19 +277,48 @@ function schedulePush(): void {
   }, PUSH_DEBOUNCE_MS);
 }
 
-function enableForUser(user: SyncUser) {
+async function enableForUser(user: SyncUser): Promise<void> {
+  const gen = ++enableGeneration;
+
+  // Stop any in-flight sync for the previous user.
+  disable();
+
+  // Load the new user's domain from their scoped AsyncStorage key.
+  // Returns true if local cached data was found; false means no cache (fresh user on this device).
+  const hadLocalCache = await switchDomainUser(user.userId);
+
+  // Guard against a newer enableForUser call that superseded this one.
+  if (gen !== enableGeneration) return;
+
   activeUser = user;
 
-  // Initialize previous sets from current state so first diff doesn't tombstone everything.
-  const state = useAppStore.getState();
-  prevArcIds = new Set((state.arcs ?? []).map((a) => a.id));
-  prevGoalIds = new Set((state.goals ?? []).map((g) => g.id));
-  prevActivityIds = new Set((state.activities ?? []).map((a) => a.id));
+  // Initialize previous sets from the now-loaded state so first diff doesn't tombstone everything.
+  const seedPrevIds = () => {
+    const s = useAppStore.getState();
+    prevArcIds = new Set((s.arcs ?? []).map((a) => a.id));
+    prevGoalIds = new Set((s.goals ?? []).map((g) => g.id));
+    prevActivityIds = new Set((s.activities ?? []).map((a) => a.id));
+  };
+  seedPrevIds();
 
-  // Pull-on-enable; defer until after interactions so startup stays snappy.
-  InteractionManager.runAfterInteractions(() => {
-    void pullAndMerge(user).catch(() => undefined);
-  });
+  if (hadLocalCache) {
+    // User has cached data -- show it immediately and refresh from backend in the background.
+    InteractionManager.runAfterInteractions(() => {
+      if (gen !== enableGeneration) return;
+      void pullAndMerge(user).catch(() => undefined);
+    });
+  } else {
+    // No local cache (e.g. fresh install or second account). Await the backend pull
+    // so the UI stays on a loading indicator instead of flashing an empty state.
+    try {
+      await pullAndMerge(user);
+    } catch {
+      // Network failure -- still unblock UI.
+    }
+    if (gen !== enableGeneration) return;
+    seedPrevIds();
+    useAppStore.setState({ domainHydrated: true } as any);
+  }
 
   // Subscribe to domain slice changes and push debounced.
   stopDomainSub?.();
@@ -303,6 +352,7 @@ function disable(): void {
     clearTimeout(pushTimeout);
     pushTimeout = null;
   }
+  resetPrevIds();
 }
 
 export function startDomainSync(): void {
@@ -315,10 +365,21 @@ export function startDomainSync(): void {
     (identity) => {
       const userId = identity?.userId?.trim() ?? '';
       if (!userId) {
+        // Flush outgoing user's domain, then clear local state.
+        void switchDomainUser(null).catch(() => undefined);
         disable();
         return;
       }
-      enableForUser({ userId });
+      void (async () => {
+        try {
+          await enableForUser({ userId });
+        } catch (e) {
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.warn('[domainSync] enableForUser failed', e);
+          }
+        }
+      })();
     },
     { fireImmediately: true } as any,
   );

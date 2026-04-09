@@ -37,11 +37,14 @@ const PRIVACY_URL = 'https://kwilt.app/privacy';
 
 const CATCH_MESSAGES = [
   'See the “you” you’re\nbuilding.',
-  'Turn a vague vision\ninto clear goals.',
+  'Your vision, sharpened\ninto clear goals.',
   'From dream to direction.\nOne step at a time.',
   'Craft your path.\nLive with intention.',
   'Your potential,\nmapped out.',
   'Small steps lead to\nbig transformations.',
+  'Design the life\nyou keep imagining.',
+  'Every great journey\nstarts with a plan.',
+  'Build momentum.\nSee it compound.',
 ] as const;
 
 const ROTATION_MS = 14_000;
@@ -58,8 +61,9 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   const [error, setError] = useState<string | null>(null);
   
   // State for which image is in which slot
-  const [bgBaseIndex, setBgBaseIndex] = useState(0);
-  const [bgOverlayIndex, setBgOverlayIndex] = useState(0);
+  const bgIndexRef = useRef(Math.floor(Math.random() * AUTH_SIGNIN_WALLPAPERS.length));
+  const [bgBaseIndex, setBgBaseIndex] = useState(bgIndexRef.current);
+  const [bgOverlayIndex, setBgOverlayIndex] = useState(bgIndexRef.current);
   const [messageIndex, setMessageIndex] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -198,13 +202,16 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
 
   useEffect(() => {
     const rotate = () => {
-      const next = (messageIndexRef.current + 1) % CATCH_MESSAGES.length;
-      messageIndexRef.current = next;
+      const nextMsg = (messageIndexRef.current + 1) % CATCH_MESSAGES.length;
+      messageIndexRef.current = nextMsg;
+
+      const nextBg = (bgIndexRef.current + 1) % AUTH_SIGNIN_WALLPAPERS.length;
+      bgIndexRef.current = nextBg;
 
       if (reduceMotion) {
-        setMessageIndex(next);
-        setBgBaseIndex(next);
-        setBgOverlayIndex(next);
+        setMessageIndex(nextMsg);
+        setBgBaseIndex(nextBg);
+        setBgOverlayIndex(nextBg);
         baseOpacity.setValue(1);
         overlayOpacity.setValue(0);
         return;
@@ -216,16 +223,13 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
         const targetLayer: 'base' | 'overlay' =
           activeLayerRef.current === 'base' ? 'overlay' : 'base';
 
-        // Update the hidden layer's image source; keep the currently-visible layer on screen
-        // until the new image finishes decoding.
-        if (targetLayer === 'overlay') setBgOverlayIndex(next);
-        else setBgBaseIndex(next);
+        if (targetLayer === 'overlay') setBgOverlayIndex(nextBg);
+        else setBgBaseIndex(nextBg);
 
-        bgPendingRef.current = { layer: targetLayer, index: next };
+        bgPendingRef.current = { layer: targetLayer, index: nextBg };
 
         if (bgPendingTimeoutRef.current) clearTimeout(bgPendingTimeoutRef.current);
         bgPendingTimeoutRef.current = setTimeout(() => {
-          // If the new image never loads (decode failure / OOM), don't fade to blank.
           bgPendingRef.current = null;
           bgPendingTimeoutRef.current = null;
         }, 1200);
@@ -238,7 +242,7 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) {
-          setMessageIndex(next);
+          setMessageIndex(nextMsg);
           timeoutRef.current = setTimeout(() => {
             Animated.timing(messageOpacity, {
               toValue: 1,
@@ -293,6 +297,13 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
   const backgroundStyle = StyleSheet.absoluteFillObject;
   const dx = Math.max(8, Math.min(22, Math.round(windowWidth * 0.04)));
   const dy = Math.max(8, Math.min(24, Math.round(windowHeight * 0.03)));
+  // Scale must be large enough that translated edges never reveal the background.
+  // Required: (scale - 1) * dimension / 2 > translate + safetyBuffer
+  const safetyPx = 12;
+  const minScale =
+    1 + 2 * Math.max((dx + safetyPx) / windowWidth, (dy + safetyPx) / windowHeight);
+  const scaleFrom = Math.max(1.06, minScale);
+  const scaleTo = scaleFrom + 0.06;
   const wallpaperMotionStyle =
     reduceMotion
       ? null
@@ -313,7 +324,7 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
             {
               scale: motion.interpolate({
                 inputRange: [0, 1],
-                outputRange: [1.06, 1.12],
+                outputRange: [scaleFrom, scaleTo],
               }),
             },
           ],

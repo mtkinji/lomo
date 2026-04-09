@@ -51,6 +51,7 @@ import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceab
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/domainSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
+import { resetUserSpecificState } from './src/store/useAppStore';
 import { Text } from './src/ui/primitives';
 import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
 
@@ -131,6 +132,12 @@ export default function App() {
 
     const applySignedInState = (identity: NonNullable<ReturnType<typeof deriveAuthIdentityFromSession>>, reason: string) => {
       if (isStaleRun()) return;
+      // When switching between different accounts, reset user-specific local state
+      // (onboarding flags, profile, credits, etc.) so the new user starts clean.
+      const prevUserId = useAppStore.getState().authIdentity?.userId;
+      if (prevUserId && prevUserId !== identity.userId) {
+        resetUserSpecificState();
+      }
       setAuthIdentity(identity);
       // Prefill local coaching profile fields from auth identity without overwriting
       // anything the user has already entered in Profile settings.

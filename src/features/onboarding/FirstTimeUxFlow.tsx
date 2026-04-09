@@ -58,6 +58,7 @@ export function FirstTimeUxFlow() {
   const setHasCompletedFirstTimeOnboarding = useAppStore(
     (state) => state.setHasCompletedFirstTimeOnboarding
   );
+  const setLastKickoffShownDateKey = useAppStore((state) => state.setLastKickoffShownDateKey);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
@@ -256,6 +257,13 @@ export function FirstTimeUxFlow() {
       completeFlow();
       dismissFlow();
       setHasCompletedFirstTimeOnboarding(true);
+
+      // Suppress "Plan your day" for today -- the user just finished onboarding
+      // and has nothing to plan yet.
+      const d = new Date();
+      const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      setLastKickoffShownDateKey(todayKey);
+
       const { lastOnboardingArcId: arcId, lastOnboardingGoalId: goalId } = useAppStore.getState();
 
       capture(AnalyticsEvent.FtueCompleted, {
@@ -301,7 +309,7 @@ export function FirstTimeUxFlow() {
       });
       return outcome;
     },
-    [capture, completeFlow, dismissFlow, setHasCompletedFirstTimeOnboarding, triggerCount],
+    [capture, completeFlow, dismissFlow, setHasCompletedFirstTimeOnboarding, setLastKickoffShownDateKey, triggerCount],
   );
 
   const handleWorkflowComplete = useCallback(

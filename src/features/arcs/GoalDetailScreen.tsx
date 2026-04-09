@@ -160,7 +160,6 @@ export function GoalDetailScreen() {
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
   const domainHydrated = useAppStore((state) => state.domainHydrated);
-  const hasCompletedFirstTimeOnboarding = useAppStore((state) => state.hasCompletedFirstTimeOnboarding);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const pendingPostGoalPlanGuideGoalId = useAppStore((state) => state.pendingPostGoalPlanGuideGoalId);
   const dismissedPostGoalPlanGuideGoalIds = useAppStore(
@@ -172,12 +171,6 @@ export function GoalDetailScreen() {
   const hasSeenOnboardingSharePrompt = useAppStore((state) => state.hasSeenOnboardingSharePrompt);
   const setHasSeenOnboardingSharePrompt = useAppStore(
     (state) => state.setHasSeenOnboardingSharePrompt
-  );
-  const hasDismissedOnboardingActivitiesGuide = useAppStore(
-    (state) => state.hasDismissedOnboardingActivitiesGuide
-  );
-  const setHasDismissedOnboardingActivitiesGuide = useAppStore(
-    (state) => state.setHasDismissedOnboardingActivitiesGuide
   );
   const hasDismissedOnboardingPlanReadyGuide = useAppStore(
     (state) => state.hasDismissedOnboardingPlanReadyGuide
@@ -191,6 +184,8 @@ export function GoalDetailScreen() {
   const setHasSeenFirstGoalCelebration = useAppStore(
     (state) => state.setHasSeenFirstGoalCelebration
   );
+  const pendingGoalCelebrationId = useAppStore((state) => state.pendingGoalCelebrationId);
+  const setPendingGoalCelebrationId = useAppStore((state) => state.setPendingGoalCelebrationId);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
@@ -511,7 +506,6 @@ export function GoalDetailScreen() {
    * the onboarding handoff (mirrors the Arc → Goals coachmark pattern).
    */
   const [shouldPromptAddActivity, setShouldPromptAddActivity] = useState(false);
-  const [hasTransitionedFromActivitiesGuide, setHasTransitionedFromActivitiesGuide] = useState(false);
   const [hasTransitionedFromPostGoalPlanGuide, setHasTransitionedFromPostGoalPlanGuide] = useState(false);
 
   const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
@@ -851,7 +845,6 @@ export function GoalDetailScreen() {
   useEffect(() => {
     // Reset local handoff state when navigating between goals (or replaying onboarding)
     // so the "Your new Goal is ready" guide can show again when eligible.
-    setHasTransitionedFromActivitiesGuide(false);
     setShouldPromptAddActivity(false);
     setHasTransitionedFromPostGoalPlanGuide(false);
   }, [goalId]);
@@ -873,22 +866,6 @@ export function GoalDetailScreen() {
     [activities, goalId]
   );
   const isPlanEmpty = goalActivities.length === 0;
-  const isOnboardingActivitiesHandoffEligible =
-    goal?.id === lastOnboardingGoalId &&
-    goalActivities.length === 0 &&
-    !showFirstGoalCelebration &&
-    !hasDismissedOnboardingActivitiesGuide;
-
-  const shouldShowOnboardingActivitiesGuide =
-    isOnboardingActivitiesHandoffEligible && !hasTransitionedFromActivitiesGuide;
-
-  const shouldShowOnboardingActivitiesCoachmark =
-    isOnboardingActivitiesHandoffEligible &&
-    hasTransitionedFromActivitiesGuide &&
-    isAddActivitiesButtonReady &&
-    shouldPromptAddActivity &&
-    !activityCoachVisible &&
-    !activityComposerVisible;
   const shouldShowOnboardingPlanReadyGuide =
     goal?.id === lastOnboardingGoalId &&
     goalActivities.length > 0 &&
@@ -899,36 +876,27 @@ export function GoalDetailScreen() {
     !activityComposerVisible;
 
   const shouldShowPostGoalPlanGuide =
-    hasCompletedFirstTimeOnboarding &&
     goal?.id != null &&
     goal.id === pendingPostGoalPlanGuideGoalId &&
     !(dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id] &&
     isPlanEmpty &&
+    !showFirstGoalCelebration &&
     !activityCoachVisible &&
     !activityComposerVisible;
 
   useEffect(() => {
     if (!goal?.id) return;
-    if (!hasCompletedFirstTimeOnboarding) return;
     if (goal.id !== pendingPostGoalPlanGuideGoalId) return;
     if (hasAutoSwitchedToPlanRef.current) return;
     hasAutoSwitchedToPlanRef.current = true;
     setShouldPromptAddActivity(true);
-  }, [goal?.id, hasCompletedFirstTimeOnboarding, pendingPostGoalPlanGuideGoalId]);
+  }, [goal?.id, pendingPostGoalPlanGuideGoalId]);
 
   const isAnyBottomGuideVisible =
-    shouldShowOnboardingActivitiesGuide ||
     shouldShowPostGoalPlanGuide ||
     shouldShowOnboardingPlanReadyGuide;
 
   const handleOpenActivityCoach = useCallback(() => {
-    // Once the user taps into the Activities creation surface, consider the
-    // onboarding "add activities" handoff complete so it doesn't re-appear.
-    if (isOnboardingActivitiesHandoffEligible) {
-      setHasDismissedOnboardingActivitiesGuide(true);
-    }
-    // Also permanently dismiss the post-goal "create a plan" guide the first time
-    // the user enters the Activities creation surface from this goal.
     if (goal?.id && goal.id === pendingPostGoalPlanGuideGoalId) {
       dismissPostGoalPlanGuideForGoal(goal.id);
     }
@@ -939,16 +907,13 @@ export function GoalDetailScreen() {
   }, [
     dismissPostGoalPlanGuideForGoal,
     goal?.id,
-    isOnboardingActivitiesHandoffEligible,
     pendingPostGoalPlanGuideGoalId,
-    setHasDismissedOnboardingActivitiesGuide,
     setHasSeenPostGoalPlanCoachmark,
   ]);
 
   const shouldShowPostGoalPlanCoachmark =
     hasTransitionedFromPostGoalPlanGuide &&
     !hasSeenPostGoalPlanCoachmark &&
-    hasCompletedFirstTimeOnboarding &&
     isPlanEmpty &&
     isAddActivitiesButtonReady &&
     shouldPromptAddActivity &&
@@ -956,7 +921,7 @@ export function GoalDetailScreen() {
     !activityComposerVisible;
 
   const shouldShowAddActivitiesCoachmark =
-    (shouldShowOnboardingActivitiesCoachmark || shouldShowPostGoalPlanCoachmark) &&
+    shouldShowPostGoalPlanCoachmark &&
     !isAnyBottomGuideVisible &&
     addActivitiesButtonOffset != null;
 
@@ -1006,14 +971,13 @@ export function GoalDetailScreen() {
     // If the target is ready and we intend to show a coachmark, re-measure once
     // to get a stable content-relative Y.
     if (!isAddActivitiesButtonReady) return;
-    if (!shouldShowOnboardingActivitiesCoachmark && !shouldShowPostGoalPlanCoachmark) return;
+    if (!shouldShowPostGoalPlanCoachmark) return;
     requestAnimationFrame(() => {
       measureAddActivitiesButtonOffset();
     });
   }, [
     isAddActivitiesButtonReady,
     measureAddActivitiesButtonOffset,
-    shouldShowOnboardingActivitiesCoachmark,
     shouldShowPostGoalPlanCoachmark,
   ]);
 
@@ -1033,7 +997,7 @@ export function GoalDetailScreen() {
 
   const addActivitiesCoachmarkHost = useCoachmarkHost({
     active: shouldShowAddActivitiesCoachmark,
-    stepKey: shouldShowOnboardingActivitiesCoachmark ? 'onboardingActivities' : 'postGoalPlanActivities',
+    stepKey: 'postGoalPlanActivities',
     targetScrollY,
     scrollTo: (args) => scrollRef.current?.scrollTo(args),
   });
@@ -1429,15 +1393,14 @@ export function GoalDetailScreen() {
   }, [shouldShowOnboardingPlanReadyGuide]);
 
   useEffect(() => {
-    if (
-      goal &&
-      lastOnboardingGoalId &&
-      goal.id === lastOnboardingGoalId &&
-      !hasSeenFirstGoalCelebration
-    ) {
+    if (!goal) return;
+    const isOnboardingGoal =
+      lastOnboardingGoalId && goal.id === lastOnboardingGoalId && !hasSeenFirstGoalCelebration;
+    const isPendingCelebration = pendingGoalCelebrationId && goal.id === pendingGoalCelebrationId;
+    if (isOnboardingGoal || isPendingCelebration) {
       setShowFirstGoalCelebration(true);
     }
-  }, [goal, lastOnboardingGoalId, hasSeenFirstGoalCelebration]);
+  }, [goal, lastOnboardingGoalId, hasSeenFirstGoalCelebration, pendingGoalCelebrationId]);
 
   const startDateLabel = goal.startDate
     ? new Date(goal.startDate).toLocaleDateString(undefined, {
@@ -1688,13 +1651,13 @@ export function GoalDetailScreen() {
   const handleDismissFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);
     setHasSeenFirstGoalCelebration(true);
+    setPendingGoalCelebrationId(null);
   };
 
   const handleContinueFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);
     setHasSeenFirstGoalCelebration(true);
-    // Keep the user on the Goal canvas so the onboarding guide can explain
-    // where Activities live before we open any AI/creation surfaces.
+    setPendingGoalCelebrationId(null);
     setShouldPromptAddActivity(true);
   };
 
@@ -2063,47 +2026,18 @@ export function GoalDetailScreen() {
         </Text>
       </Dialog>
       <BottomGuide
-        visible={shouldShowOnboardingActivitiesGuide}
-        onClose={() => setHasDismissedOnboardingActivitiesGuide(true)}
-        scrim="light"
-      >
-        <Heading variant="sm">Your new Goal is ready</Heading>
-        <Text style={styles.onboardingGuideBody}>
-          Next, we’ll add 1–3 Activities so you always know what to work on next — and we’ll use AI to help
-          plan them out (or you can switch to Manual).
-        </Text>
-        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
-          <Button
-            variant="outline"
-            onPress={() => setHasDismissedOnboardingActivitiesGuide(true)}
-          >
-            <Text style={styles.onboardingGuideSecondaryLabel}>Not now</Text>
-          </Button>
-          <Button
-            variant="turmeric"
-            onPress={() => {
-              // Mirror the first Arc handoff pattern: take the user to *where* the
-              // Activities CTA lives, then coachmark that CTA (no confirmation button).
-              setHasTransitionedFromActivitiesGuide(true);
-              setShouldPromptAddActivity(true);
-            }}
-          >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
-          </Button>
-        </HStack>
-      </BottomGuide>
-      <BottomGuide
         visible={shouldShowPostGoalPlanGuide}
         onClose={() => {
           if (goal?.id) {
             dismissPostGoalPlanGuideForGoal(goal.id);
           }
         }}
-        scrim="light"
+        scrim="none"
       >
-        <Heading variant="sm">Add activities</Heading>
+        <Heading variant="sm">Your new Goal is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Want help picking your next few Activities? Tap below to generate a starter plan with AI.
+          Next, add a couple of Activities so you always know what to work on. We can use AI to help plan them
+          out (or you can switch to Manual).
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
@@ -2114,7 +2048,7 @@ export function GoalDetailScreen() {
               }
             }}
           >
-            <Text style={styles.onboardingGuideSecondaryLabel}>Not now</Text>
+            <Text style={styles.onboardingGuideSecondaryLabel}>Explore first</Text>
           </Button>
           <Button
             variant="turmeric"
@@ -2184,11 +2118,6 @@ export function GoalDetailScreen() {
         }
         actions={[]}
         onDismiss={() => {
-          // Coachmarks with `actions={[]}` are typically dismissed by completing the intended action.
-          // Still provide a safe fallback in case the component adds dismiss affordances later.
-          if (isOnboardingActivitiesHandoffEligible) {
-            setHasDismissedOnboardingActivitiesGuide(true);
-          }
           setHasSeenPostGoalPlanCoachmark(true);
           setHasTransitionedFromPostGoalPlanGuide(false);
           setShouldPromptAddActivity(false);

@@ -1,4 +1,4 @@
-import { useAppStore } from './useAppStore';
+import { useAppStore, resetUserSpecificState } from './useAppStore';
 import { canCreateArc, canCreateGoalInArc, countActiveGoalsForArc } from '../domain/limits';
 import type { Activity, Arc, Goal } from '../domain/types';
 
@@ -168,6 +168,66 @@ describe('useAppStore object lifecycles', () => {
       activeCount: 3,
       limit: 3,
     });
+  });
+});
+
+describe('resetUserSpecificState', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('clears user-scoped fields', () => {
+    // Set some user-specific state.
+    useAppStore.setState({
+      hasCompletedFirstTimeOnboarding: true,
+      hasSeenFirstArcCelebration: true,
+      hasSeenFirstGoalCelebration: true,
+      lastOnboardingArcId: 'arc-123',
+      lastOnboardingGoalId: 'goal-123',
+      hasDismissedOnboardingGoalGuide: true,
+      hasDismissedOnboardingActivitiesGuide: true,
+      hasDismissedOnboardingPlanReadyGuide: true,
+    } as any);
+
+    resetUserSpecificState();
+
+    const state = useAppStore.getState();
+    expect(state.hasCompletedFirstTimeOnboarding).toBe(false);
+    expect(state.hasSeenFirstArcCelebration).toBe(false);
+    expect(state.hasSeenFirstGoalCelebration).toBe(false);
+    expect(state.lastOnboardingArcId).toBeNull();
+    expect(state.lastOnboardingGoalId).toBeNull();
+    expect(state.hasDismissedOnboardingGoalGuide).toBe(false);
+    expect(state.hasDismissedOnboardingActivitiesGuide).toBe(false);
+    expect(state.hasDismissedOnboardingPlanReadyGuide).toBe(false);
+  });
+
+  it('preserves device-level settings', () => {
+    // Configure device-level prefs.
+    useAppStore.setState({
+      hapticsEnabled: false,
+      soundscapeEnabled: false,
+      focusOverlayColorIndex: 3,
+      notificationPreferences: {
+        ...useAppStore.getState().notificationPreferences,
+        notificationsEnabled: true,
+        allowDailyFocus: true,
+      },
+      // Also set something user-specific to verify it resets.
+      hasCompletedFirstTimeOnboarding: true,
+    } as any);
+
+    resetUserSpecificState();
+
+    const state = useAppStore.getState();
+    // Device settings should be preserved.
+    expect(state.hapticsEnabled).toBe(false);
+    expect((state as any).soundscapeEnabled).toBe(false);
+    expect((state as any).focusOverlayColorIndex).toBe(3);
+    expect(state.notificationPreferences.notificationsEnabled).toBe(true);
+    expect(state.notificationPreferences.allowDailyFocus).toBe(true);
+    // User-specific should be reset.
+    expect(state.hasCompletedFirstTimeOnboarding).toBe(false);
   });
 });
 

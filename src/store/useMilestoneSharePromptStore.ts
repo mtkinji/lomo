@@ -35,6 +35,7 @@ type MilestoneSharePromptState = {
   setPeopleGraphEstablished: (established: boolean) => void;
   canAutoPromptNow: (params?: { now?: Date }) => AutoPromptCheck;
   markAutoPromptShown: (params?: { now?: Date }) => void;
+  reset: () => void;
 };
 
 export const useMilestoneSharePromptStore = create<MilestoneSharePromptState>()(
@@ -80,6 +81,14 @@ export const useMilestoneSharePromptStore = create<MilestoneSharePromptState>()(
           hasPromptedThisSession: true,
         });
       },
+
+      reset: () =>
+        set({
+          lastAutoPromptAtMs: null,
+          lastAutoPromptDayKey: null,
+          hasPromptedThisSession: false,
+          peopleGraphEstablished: false,
+        }),
     }),
     {
       name: 'kwilt-milestone-share-prompt-v1',
