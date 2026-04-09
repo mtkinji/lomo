@@ -440,6 +440,11 @@ interface AppState {
    */
   lastFocusMinutes: number | null;
   /**
+   * Persisted Focus overlay color index (for tap-to-cycle background).
+   * Defaults to pine green.
+   */
+  focusOverlayColorIndex: number;
+  /**
    * Whether the in-app soundscape should play during Focus sessions.
    */
   soundscapeEnabled: boolean;
@@ -785,6 +790,7 @@ interface AppState {
       | AppState['locationOfferPreferences'],
   ) => void;
   setLastFocusMinutes: (minutes: number) => void;
+  setFocusOverlayColorIndex: (index: number) => void;
   setSoundscapeEnabled: (enabled: boolean) => void;
   setHasShownFocusSoundscapeVolumeHint: (shown: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
@@ -1134,6 +1140,7 @@ export const useAppStore = create<AppState>()(
         defaultCooldownMs: 2 * 60 * 60 * 1000,
       },
       lastFocusMinutes: null,
+      focusOverlayColorIndex: 0,
       soundscapeEnabled: true,
       hasShownFocusSoundscapeVolumeHint: false,
       hapticsEnabled: true,
@@ -1984,6 +1991,11 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           lastFocusMinutes: Number.isFinite(minutes) ? Math.max(1, Math.round(minutes)) : null,
         })),
+      setFocusOverlayColorIndex: (index) =>
+        set(() => ({
+          focusOverlayColorIndex:
+            Number.isFinite(index) && index >= 0 ? Math.floor(index) : 0,
+        })),
       setSoundscapeEnabled: (enabled) =>
         set(() => ({
           soundscapeEnabled: Boolean(enabled),
@@ -2296,6 +2308,7 @@ export const useAppStore = create<AppState>()(
           activeActivityViewId: 'default',
           focusContextGoalId: null,
           lastFocusMinutes: null,
+          focusOverlayColorIndex: 0,
           soundscapeEnabled: true,
           hasShownFocusSoundscapeVolumeHint: false,
           hapticsEnabled: true,
@@ -2438,6 +2451,17 @@ export const useAppStore = create<AppState>()(
           }
         } catch {
           // best-effort
+        }
+        // Backward-compatible: persisted Focus overlay color index.
+        if (
+          !('focusOverlayColorIndex' in anyState) ||
+          typeof anyState.focusOverlayColorIndex !== 'number' ||
+          !Number.isFinite(anyState.focusOverlayColorIndex) ||
+          anyState.focusOverlayColorIndex < 0
+        ) {
+          (state as any).focusOverlayColorIndex = 0;
+        } else {
+          (state as any).focusOverlayColorIndex = Math.floor(anyState.focusOverlayColorIndex);
         }
         // Backward-compatible: older persisted stores won't have lifecycle counters / widget nudge state.
         if (!('appOpenCount' in anyState) || typeof anyState.appOpenCount !== 'number') {

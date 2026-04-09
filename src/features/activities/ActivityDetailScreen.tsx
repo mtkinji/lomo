@@ -19,6 +19,7 @@ import {
   Linking,
   useWindowDimensions,
   Animated,
+  Easing,
   PanResponder,
   findNodeHandle,
   UIManager,
@@ -254,6 +255,8 @@ export function ActivityDetailScreen() {
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const lastFocusMinutes = useAppStore((state) => state.lastFocusMinutes);
   const setLastFocusMinutes = useAppStore((state) => state.setLastFocusMinutes);
+  const focusOverlayColorIndex = useAppStore((state) => state.focusOverlayColorIndex);
+  const setFocusOverlayColorIndex = useAppStore((state) => state.setFocusOverlayColorIndex);
   const soundscapeEnabled = useAppStore((state) => state.soundscapeEnabled);
   const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
   const soundscapeTrackId = useAppStore((state) => state.soundscapeTrackId);
@@ -664,6 +667,30 @@ export function ActivityDetailScreen() {
   const [focusCustomExpanded, setFocusCustomExpanded] = useState(false);
   const [focusSession, setFocusSession] = useState<FocusSessionState | null>(null);
   const [focusTickMs, setFocusTickMs] = useState(() => Date.now());
+  const [focusSoundscapeMenuOpen, setFocusSoundscapeMenuOpen] = useState(false);
+  const [focusSoundscapeMenuVisible, setFocusSoundscapeMenuVisible] = useState(false);
+  const suppressNextFocusAudioTapRef = useRef(false);
+  const focusSoundscapeMenuAnim = useRef(new Animated.Value(0)).current;
+  const focusOverlayColors = useMemo(
+    () => [
+      colors.pine700,        // Default: G
+      colors.madder700,      // R
+      colors.orange700,      // O
+      colors.turmeric700,    // Y
+      colors.quiltBlue600,   // B
+      colors.indigo900,      // I (deepest premium indigo)
+      colors.violet700,      // V
+    ],
+    [],
+  );
+  const normalizedFocusOverlayColorIndex = useMemo(() => {
+    if (!Number.isFinite(focusOverlayColorIndex) || focusOverlayColorIndex < 0) return 0;
+    if (focusOverlayColors.length <= 0) return 0;
+    return Math.floor(focusOverlayColorIndex) % focusOverlayColors.length;
+  }, [focusOverlayColorIndex, focusOverlayColors.length]);
+  const focusOverlayColorStep = useRef(new Animated.Value(normalizedFocusOverlayColorIndex)).current;
+  const focusOverlayColorStepRef = useRef(normalizedFocusOverlayColorIndex);
+  const focusOverlayAnimatingRef = useRef(false);
   const focusEndNotificationIdRef = useRef<string | null>(null);
   const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -683,6 +710,100 @@ export function ActivityDetailScreen() {
     Math.max(1, Math.floor(Number(focusMinutesDraft) || 1)),
   );
   const focusIsCustomValue = !focusPresetValues.includes(focusDraftMinutes);
+  const focusOverlayBackgroundColor = focusOverlayColorStep.interpolate({
+    inputRange: Array.from({ length: focusOverlayColors.length + 1 }, (_, idx) => idx),
+    outputRange: [...focusOverlayColors, focusOverlayColors[0] ?? colors.pine700],
+  });
+
+  const handleFocusOverlayTap = useCallback(() => {
+    if (focusSoundscapeMenuOpen) {
+      setFocusSoundscapeMenuOpen(false);
+      return;
+    }
+    if (focusOverlayAnimatingRef.current) return;
+    const paletteSize = focusOverlayColors.length;
+    let currentStep = focusOverlayColorStepRef.current;
+    if (currentStep >= paletteSize) {
+      currentStep = currentStep % paletteSize;
+      focusOverlayColorStepRef.current = currentStep;
+      focusOverlayColorStep.stopAnimation();
+      focusOverlayColorStep.setValue(currentStep);
+    }
+    const toStep = currentStep + 1;
+    focusOverlayAnimatingRef.current = true;
+    Animated.timing(focusOverlayColorStep, {
+      toValue: toStep,
+      duration: 520,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      focusOverlayAnimatingRef.current = false;
+      if (!finished) return;
+      if (toStep >= paletteSize) {
+        focusOverlayColorStepRef.current = 0;
+        setFocusOverlayColorIndex(0);
+        focusOverlayColorStep.setValue(0);
+        return;
+      }
+      focusOverlayColorStepRef.current = toStep;
+      setFocusOverlayColorIndex(toStep);
+    });
+  }, [focusOverlayColorStep, focusOverlayColors, setFocusOverlayColorIndex, focusSoundscapeMenuOpen]);
+
+  const handlePressFocusAudio = useCallback(() => {
+    if (suppressNextFocusAudioTapRef.current) {
+      suppressNextFocusAudioTapRef.current = false;
+      return;
+    }
+    setFocusSoundscapeMenuOpen(false);
+    setSoundscapeEnabled(!soundscapeEnabled);
+  }, [setSoundscapeEnabled, soundscapeEnabled]);
+
+  const handleLongPressFocusAudio = useCallback(() => {
+    suppressNextFocusAudioTapRef.current = true;
+    setFocusSoundscapeMenuOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (focusOverlayAnimatingRef.current) return;
+    focusOverlayColorStepRef.current = normalizedFocusOverlayColorIndex;
+    focusOverlayColorStep.stopAnimation();
+    focusOverlayColorStep.setValue(normalizedFocusOverlayColorIndex);
+  }, [normalizedFocusOverlayColorIndex, focusOverlayColorStep]);
+
+  useEffect(() => {
+    if (!focusSession) return;
+    focusOverlayAnimatingRef.current = false;
+    focusOverlayColorStepRef.current = normalizedFocusOverlayColorIndex;
+    focusOverlayColorStep.stopAnimation();
+    focusOverlayColorStep.setValue(normalizedFocusOverlayColorIndex);
+  }, [focusSession?.startedAtMs, focusOverlayColorStep, normalizedFocusOverlayColorIndex]);
+
+  useEffect(() => {
+    if (focusSession) return;
+    setFocusSoundscapeMenuOpen(false);
+  }, [focusSession]);
+
+  useEffect(() => {
+    if (focusSoundscapeMenuOpen) {
+      setFocusSoundscapeMenuVisible(true);
+      Animated.timing(focusSoundscapeMenuAnim, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+    Animated.timing(focusSoundscapeMenuAnim, {
+      toValue: 0,
+      duration: 130,
+      easing: Easing.in(Easing.quad),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setFocusSoundscapeMenuVisible(false);
+    });
+  }, [focusSoundscapeMenuOpen, focusSoundscapeMenuAnim]);
 
   const focusSheetSnapPoints = useMemo(() => {
     // Ensure the sheet can show the full preset row + optional custom wheel + soundscape + CTA buttons
@@ -5100,9 +5221,17 @@ export function ActivityDetailScreen() {
             endFocusSession().catch(() => undefined);
           }}
         >
-          <View
+          <Pressable
+            onPress={handleFocusOverlayTap}
+            accessibilityRole="button"
+            accessibilityLabel="Focus color"
+            accessibilityHint="Double tap to shift focus background color"
+            style={{ flex: 1 }}
+          >
+          <Animated.View
             style={[
               styles.focusOverlay,
+              { backgroundColor: focusOverlayBackgroundColor },
               { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
             ]}
           >
@@ -5113,34 +5242,6 @@ export function ActivityDetailScreen() {
                 logoVariant="parchment"
                 color={colors.parchment}
               />
-              <Pressable
-                onPress={() => setSoundscapeEnabled(!soundscapeEnabled)}
-                style={({ pressed }) => [
-                  styles.focusSoundToggle,
-                  soundscapeEnabled ? styles.focusSoundToggleOn : styles.focusSoundToggleOff,
-                  pressed && styles.focusSoundTogglePressed,
-                ]}
-                accessibilityRole="switch"
-                accessibilityLabel="Focus soundscape"
-                accessibilityState={{ checked: soundscapeEnabled }}
-                accessibilityHint={soundscapeEnabled ? 'Double tap to turn audio off' : 'Double tap to turn audio on'}
-              >
-                <HStack space="xs" alignItems="center">
-                  <Icon
-                    name={soundscapeEnabled ? 'sound' : 'soundOff'}
-                    size={18}
-                    color={soundscapeEnabled ? colors.pine800 : colors.parchment}
-                  />
-                  <Text
-                    style={[
-                      styles.focusSoundToggleLabel,
-                      soundscapeEnabled ? styles.focusSoundToggleLabelOn : styles.focusSoundToggleLabelOff,
-                    ]}
-                  >
-                    {soundscapeEnabled ? 'Audio on' : 'Audio off'}
-                  </Text>
-                </HStack>
-              </Pressable>
             </View>
 
             <View style={styles.focusCenter}>
@@ -5173,8 +5274,69 @@ export function ActivityDetailScreen() {
                   color={colors.parchment}
                 />
               </HeaderActionPill>
+              <View style={styles.focusAudioControlWrap}>
+                {focusSoundscapeMenuVisible ? (
+                  <Animated.View
+                    style={[
+                      styles.focusSoundscapeQuickMenu,
+                      {
+                        opacity: focusSoundscapeMenuAnim,
+                        transform: [
+                          {
+                            translateY: focusSoundscapeMenuAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [8, 0],
+                            }),
+                          },
+                          {
+                            scale: focusSoundscapeMenuAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.98, 1],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    {SOUND_SCAPES.map((s) => {
+                      const selected = s.id === soundscapeTrackId;
+                      return (
+                        <Pressable
+                          key={s.id}
+                          onPress={() => {
+                            setSoundscapeTrackId(s.id);
+                            setFocusSoundscapeMenuOpen(false);
+                          }}
+                          style={({ pressed }) => [
+                            styles.focusSoundscapeQuickMenuItem,
+                            selected && styles.focusSoundscapeQuickMenuItemActive,
+                            pressed && styles.focusSoundscapeQuickMenuItemPressed,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select ${s.title} soundscape`}
+                        >
+                          <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>
+                            {s.title}
+                          </Text>
+                          {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </Animated.View>
+                ) : null}
+                <HeaderActionPill
+                  size={56}
+                  accessibilityLabel="Focus soundscape"
+                  style={styles.focusActionIconButton}
+                  onPress={handlePressFocusAudio}
+                  onLongPress={handleLongPressFocusAudio}
+                >
+                  <Icon name={soundscapeEnabled ? 'sound' : 'soundOff'} size={22} color={colors.parchment} />
+                </HeaderActionPill>
+              </View>
             </HStack>
-          </View>
+          </Animated.View>
+          </Pressable>
         </Modal>
       ) : null}
 

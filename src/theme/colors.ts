@@ -168,6 +168,10 @@ export const colors = {
   madder800: '#7A3D32',
   madder900: '#5A2B24',
   madder: '#B35F4C', // alias for the legacy/base madder
+  // Deep orange companion for rainbow-like moment palettes on dark surfaces.
+  orange700: '#8A4E1A',
+  // Deep violet companion for ROYGBIV-like moments in dark, premium surfaces.
+  violet700: '#4E3F74',
   quiltBlue: '#6C8AA6', // Woad / weathered quilt blue, cool but worn-in
   clay: '#D9C8B8', // Clay Slip – neutral, grounding, unbleached-cotton/ceramic slip
   moss: '#4F5D47', // Moss Iron – vegetal green cut with soil
