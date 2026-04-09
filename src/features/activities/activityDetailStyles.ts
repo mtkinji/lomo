@@ -1041,8 +1041,8 @@ export const styles = StyleSheet.create({
   },
   focusTopBar: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.md,
   },
   focusSoundToggle: {
@@ -1114,7 +1114,7 @@ export const styles = StyleSheet.create({
   focusActivityTitle: {
     ...typography.body,
     fontFamily: fonts.semibold,
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.64)',
     textAlign: 'center',
     marginTop: spacing.md,
   },
@@ -1122,6 +1122,42 @@ export const styles = StyleSheet.create({
     marginTop: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  focusAudioControlWrap: {
+    position: 'relative',
+  },
+  focusSoundscapeQuickMenu: {
+    position: 'absolute',
+    right: 0,
+    bottom: 64,
+    minWidth: 220,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  focusSoundscapeQuickMenuItem: {
+    minHeight: 40,
+    borderRadius: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  focusSoundscapeQuickMenuItemPressed: {
+    backgroundColor: colors.shellAlt,
+  },
+  focusSoundscapeQuickMenuItemActive: {
+    backgroundColor: colors.fieldFill,
+  },
+  focusSoundscapeQuickMenuItemText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+    flexShrink: 1,
   },
   focusActionIconButton: {
     borderWidth: 1,

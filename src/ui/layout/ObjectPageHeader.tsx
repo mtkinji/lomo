@@ -203,6 +203,7 @@ export function ObjectPageHeader({
 export type HeaderActionPillProps = {
   children: React.ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
   accessibilityLabel: string;
   /**
    * Which material token to use for the frosted background.
@@ -235,6 +236,7 @@ export type HeaderActionPillProps = {
 export function HeaderActionPill({
   children,
   onPress,
+  onLongPress,
   accessibilityLabel,
   materialVariant = 'default',
   size = 36,
@@ -256,6 +258,7 @@ export function HeaderActionPill({
         style,
       ]}
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={disabled ? { disabled: true } : undefined}
