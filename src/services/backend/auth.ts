@@ -215,6 +215,10 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     // to the device itself and fail. Even on simulators it can mask real issues.
     preferLocalhost: false,
   });
+  // iOS can occasionally receive slight callback URL shape variants from the provider chain
+  // (e.g. host/path normalization differences). Matching only the app scheme for native builds
+  // avoids Safari trying to open the deep link directly and showing "address is invalid".
+  const authSessionReturnUrl = isExpoGo ? redirectTo : 'kwilt://';
 
   if (__DEV__) {
     // Helps diagnose Supabase "redirect URL not allowed" issues.
@@ -249,6 +253,15 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
       redirectTo,
       // Required for React Native: we will open the returned URL ourselves.
       skipBrowserRedirect: true,
+      // Google account switch UX: when a user signs out and signs back in, force
+      // the account chooser instead of silently reusing the last Google account.
+      ...(provider === 'google'
+        ? ({
+            queryParams: {
+              prompt: 'select_account',
+            },
+          } as const)
+        : {}),
       // Apple defaults to `form_post` in some contexts, which doesn't round-trip
       // reliably through deep links / Expo Go. For PKCE we need `state` returned
       // in the callback URL so Supabase can validate the flow.
@@ -313,7 +326,7 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     }
   }
 
-  const result = await WebBrowser.openAuthSessionAsync(oauthStartUrl, redirectTo);
+  const result = await WebBrowser.openAuthSessionAsync(oauthStartUrl, authSessionReturnUrl);
 
   if (result.type !== 'success' || !result.url) {
     throw new Error('Sign-in cancelled');
