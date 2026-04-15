@@ -5,9 +5,7 @@ import { useFirstTimeUxStore } from './useFirstTimeUxStore';
 import { useToastStore } from './useToastStore';
 import {
   recordShowUpStreakMilestone,
-  recordFocusStreakMilestone,
   isShowUpStreakMilestone,
-  isFocusStreakMilestone,
 } from '../services/milestones';
 import { localDateKey } from './streakProtection';
 
@@ -657,25 +655,3 @@ export function recordShowUpWithCelebration() {
   }
 }
 
-/**
- * Record a completed focus session and track milestones to the server.
- *
- * Call this instead of the raw store action when completing a focus session
- * to also record significant milestones to the server for future friend celebrations.
- */
-export function recordCompletedFocusSessionWithMilestone(params?: { completedAtMs?: number }) {
-  const appStore = useAppStore.getState();
-  const prevStreak = appStore.currentFocusStreak ?? 0;
-
-  // Record the focus session
-  appStore.recordCompletedFocusSession(params);
-
-  // Get updated state
-  const nextState = useAppStore.getState();
-  const nextStreak = nextState.currentFocusStreak ?? 0;
-
-  // Only record milestone if streak actually increased
-  if (nextStreak > prevStreak && isFocusStreakMilestone(nextStreak)) {
-    void recordFocusStreakMilestone(nextStreak);
-  }
-}

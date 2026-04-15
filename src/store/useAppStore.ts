@@ -705,10 +705,8 @@ interface AppState {
     completedSource: string | null;
   };
   /**
-   * Focus mode streak: counts days where the user completes at least one *full*
-   * Focus session (timer reaches zero). This is independent from "show up".
-   *
-   * Dates are stored as local calendar keys: YYYY-MM-DD (local time).
+   * Local calendar key (YYYY-MM-DD) of the last day a focus session was completed.
+   * Used by notification scheduling to know if focus was already done today.
    */
   lastCompletedFocusSessionDate: string | null;
   /**
@@ -716,8 +714,6 @@ interface AppState {
    * Used for auto-tuning daily focus reminder time-of-day.
    */
   lastCompletedFocusSessionAtIso: string | null;
-  currentFocusStreak: number;
-  bestFocusStreak: number;
   /**
    * Tracks completion of the three daily "hero actions":
    * 1) complete a task/step, 2) create something new, 3) complete focus session.
@@ -993,14 +989,13 @@ interface AppState {
   recordShowUp: () => void;
   /**
    * Record that the user completed a full Focus session (timer reached 0).
-   * Updates the daily Focus streak (at most once per calendar day).
+   * Updates `lastCompletedFocusSessionDate/AtIso`, notification prefs, and daily hero actions.
    */
   recordCompletedFocusSession: (params?: { completedAtMs?: number }) => void;
   /**
    * Explicitly reset the show-up streak (used by future engagement flows).
    */
   resetShowUpStreak: () => void;
-  resetFocusStreak: () => void;
   /**
    * Award streak shields to the user (Pro feature, max 3 shields at a time).
    * Shields protect the streak when you miss a day (consumed after free grace).
@@ -1365,8 +1360,6 @@ export const useAppStore = create<AppState>()(
       },
       lastCompletedFocusSessionDate: null,
       lastCompletedFocusSessionAtIso: null,
-      currentFocusStreak: 0,
-      bestFocusStreak: 0,
       dailyHeroActions: createDailyHeroActions(new Date()),
       lastHeroActionsCelebratedDateKey: null,
       activityViews: initialActivityViews,
@@ -2351,8 +2344,6 @@ export const useAppStore = create<AppState>()(
               : new Date();
 
           const todayKey = localDateKey(nowDate);
-          const prevKey = state.lastCompletedFocusSessionDate;
-          const prevStreak = state.currentFocusStreak ?? 0;
 
           const isDailyFocusAuto =
             state.notificationPreferences?.allowDailyFocus === true &&
@@ -2368,52 +2359,10 @@ export const useAppStore = create<AppState>()(
               }
             : state.notificationPreferences;
 
-          if (prevKey === todayKey) {
-            // Already counted today.
-            return {
-              ...state,
-              notificationPreferences: nextNotificationPreferences,
-              lastCompletedFocusSessionAtIso: nowDate.toISOString(),
-              lastActiveDate: state.lastActiveDate ?? nowDate.toISOString(),
-              dailyHeroActions: markDailyHeroAction(
-                state.dailyHeroActions,
-                'complete_focus_session',
-                nowDate,
-              ),
-            };
-          }
-
-          let nextStreak = 1;
-          if (prevKey) {
-            const prevDate = parseLocalDateKey(prevKey);
-            if (prevDate) {
-              const startOfPrev = new Date(
-                prevDate.getFullYear(),
-                prevDate.getMonth(),
-                prevDate.getDate(),
-              );
-              const startOfToday = new Date(
-                nowDate.getFullYear(),
-                nowDate.getMonth(),
-                nowDate.getDate(),
-              );
-              const diffMs = startOfToday.getTime() - startOfPrev.getTime();
-              const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
-              if (diffDays === 1) {
-                nextStreak = prevStreak + 1;
-              }
-            }
-          }
-
-          const prevBest = state.bestFocusStreak ?? 0;
-          const bestFocusStreak = Math.max(prevBest, nextStreak);
-
           return {
             ...state,
             lastCompletedFocusSessionDate: todayKey,
             lastCompletedFocusSessionAtIso: nowDate.toISOString(),
-            currentFocusStreak: nextStreak,
-            bestFocusStreak,
             notificationPreferences: nextNotificationPreferences,
             lastActiveDate: nowDate.toISOString(),
             dailyHeroActions: markDailyHeroAction(
@@ -2432,14 +2381,6 @@ export const useAppStore = create<AppState>()(
             ...state.streakGrace,
             graceDaysUsed: 0,
           },
-        })),
-      resetFocusStreak: () =>
-        set((state) => ({
-          ...state,
-          lastCompletedFocusSessionDate: null,
-          lastCompletedFocusSessionAtIso: null,
-          currentFocusStreak: 0,
-          bestFocusStreak: 0,
         })),
       addStreakShields: (count) =>
         set((state) => {
@@ -2545,8 +2486,6 @@ export const useAppStore = create<AppState>()(
           },
           lastCompletedFocusSessionDate: null,
           lastCompletedFocusSessionAtIso: null,
-          currentFocusStreak: 0,
-          bestFocusStreak: 0,
           dailyHeroActions: createDailyHeroActions(new Date()),
           lastHeroActionsCelebratedDateKey: null,
           locationOfferPreferences: {

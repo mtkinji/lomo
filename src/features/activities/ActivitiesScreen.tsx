@@ -50,6 +50,7 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useShowedUpToday } from '../../store/useShowedUpToday';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
@@ -228,6 +229,9 @@ export function ActivitiesScreen() {
   const activityViews = useAppStore((state) => state.activityViews);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
 
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
@@ -2110,6 +2114,8 @@ export function ActivitiesScreen() {
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
         rightElement={
           isQuickAddFocused ? (
             <Button

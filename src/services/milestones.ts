@@ -35,13 +35,6 @@ export type MilestoneType =
   | 'streak_200'
   | 'streak_365'
   | 'streak_1000'
-  // Focus streaks
-  | 'focus_streak_3'
-  | 'focus_streak_7'
-  | 'focus_streak_14'
-  | 'focus_streak_30'
-  | 'focus_streak_50'
-  | 'focus_streak_100'
   // Goal completions
   | 'goal_completed'
   // Custom milestones (yearly anniversaries, etc.)
@@ -84,11 +77,6 @@ export type RecordMilestoneParams = {
 export const SHOWUP_STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 75, 100, 150, 200, 365, 1000];
 
 /**
- * Focus streak thresholds that trigger milestone recording.
- */
-export const FOCUS_STREAK_MILESTONES = [3, 7, 14, 30, 50, 100];
-
-/**
  * Get the milestone type for a given show-up streak value.
  */
 export function getShowUpStreakMilestoneType(days: number): MilestoneType | null {
@@ -107,27 +95,10 @@ export function getShowUpStreakMilestoneType(days: number): MilestoneType | null
 }
 
 /**
- * Get the milestone type for a given focus streak value.
- */
-export function getFocusStreakMilestoneType(days: number): MilestoneType | null {
-  if (FOCUS_STREAK_MILESTONES.includes(days)) {
-    return `focus_streak_${days}` as MilestoneType;
-  }
-  return null;
-}
-
-/**
  * Check if a show-up streak value is a recordable milestone.
  */
 export function isShowUpStreakMilestone(days: number): boolean {
   return getShowUpStreakMilestoneType(days) !== null;
-}
-
-/**
- * Check if a focus streak value is a recordable milestone.
- */
-export function isFocusStreakMilestone(days: number): boolean {
-  return getFocusStreakMilestoneType(days) !== null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -208,27 +179,6 @@ export async function recordShowUpStreakMilestone(days: number): Promise<boolean
     milestoneValue: days,
     payload: {
       streakType: 'showup',
-    },
-  });
-}
-
-/**
- * Record a focus streak milestone.
- *
- * Call this when the user's focus streak reaches a milestone value.
- * Only records if the value is a recognized milestone threshold.
- */
-export async function recordFocusStreakMilestone(days: number): Promise<boolean> {
-  const milestoneType = getFocusStreakMilestoneType(days);
-  if (!milestoneType) {
-    return false;
-  }
-
-  return recordMilestone({
-    milestoneType,
-    milestoneValue: days,
-    payload: {
-      streakType: 'focus',
     },
   });
 }

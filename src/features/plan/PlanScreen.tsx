@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { MainTabsParamList } from '../../navigation/RootNavigator';
 import { PlanDateStrip } from './PlanDateStrip';
 import { useAppStore } from '../../store/useAppStore';
+import { useShowedUpToday } from '../../store/useShowedUpToday';
 export function PlanScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
@@ -26,6 +27,9 @@ export function PlanScreen() {
   const userProfile = useAppStore((state) => state.userProfile);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
 
   const shiftDays = (deltaDays: number) => {
     const next = new Date(selectedDate);
@@ -50,6 +54,8 @@ export function PlanScreen() {
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
         rightElement={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

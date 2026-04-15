@@ -26,6 +26,7 @@ import { colors, spacing, typography } from '../../theme';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import type { GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useShowedUpToday } from '../../store/useShowedUpToday';
 import { useToastStore } from '../../store/useToastStore';
 import { usePaywallStore } from '../../store/usePaywallStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../domain/types';
@@ -142,6 +143,9 @@ export function GoalsScreen() {
 
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
 
   const arcLookup = arcs.reduce<Record<string, string>>((acc, arc) => {
     acc[arc.id] = arc.name;
@@ -375,7 +379,8 @@ export function GoalsScreen() {
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
-        //Add this to the page header if you want to wrap the title in a large badge with the icon
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
         // boxedTitle
         rightElement={
           <DropdownMenu>

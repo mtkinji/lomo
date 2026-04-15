@@ -6,6 +6,7 @@ import { IconButton } from '../Button';
 import { ObjectTypeIconBadge } from '../ObjectTypeIconBadge';
 import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objectTypeBadges';
 import { ProfileAvatar } from '../ProfileAvatar';
+import { StreakCapsule } from '../StreakCapsule';
 
 type PageHeaderProps = {
   title: string;
@@ -76,6 +77,15 @@ type PageHeaderProps = {
    */
   children?: ReactNode;
   /**
+   * When provided, the avatar slot upgrades to a StreakCapsule showing
+   * the user's current streak count alongside their avatar.
+   */
+  streakCount?: number;
+  /**
+   * Whether the user has already showed up today (controls flame color).
+   */
+  streakShowedUpToday?: boolean;
+  /**
    * Optional container style overrides (e.g. adjust top padding for specific screens).
    */
   containerStyle?: StyleProp<ViewStyle>;
@@ -96,6 +106,8 @@ export function PageHeader({
   rightElement,
   boxedTitle = false,
   children,
+  streakCount,
+  streakShowedUpToday = false,
   containerStyle,
 }: PageHeaderProps) {
   const headerActionSize = 44;
@@ -134,6 +146,14 @@ export function PageHeader({
             >
               <MenuToggleIcon open={menuOpen} />
             </IconButton>
+          ) : onPressAvatar && typeof streakCount === 'number' ? (
+            <StreakCapsule
+              avatarName={avatarName}
+              avatarUrl={avatarUrl}
+              streakCount={streakCount}
+              showedUpToday={streakShowedUpToday}
+              onPress={onPressAvatar}
+            />
           ) : onPressAvatar ? (
             <Pressable
               accessibilityRole="button"

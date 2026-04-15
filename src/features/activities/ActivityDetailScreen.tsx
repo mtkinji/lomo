@@ -121,7 +121,6 @@ import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
 import {
   recordShowUpWithCelebration,
-  recordCompletedFocusSessionWithMilestone,
 } from '../../store/useCelebrationStore';
 import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import {
@@ -2171,7 +2170,7 @@ export function ActivityDetailScreen() {
     // Session completed
     void HapticsService.trigger('outcome.success');
     recordShowUpWithCelebration();
-    recordCompletedFocusSessionWithMilestone({ completedAtMs: Date.now() });
+    useAppStore.getState().recordCompletedFocusSession({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
 
     // Check-in nudge for activities under shared goals

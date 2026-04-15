@@ -24,7 +24,6 @@ export type GlanceableMomentum = {
   completedToday: number;
   completedThisWeek: number;
   showUpStreakDays?: number;
-  focusStreakDays?: number;
 };
 
 export type GlanceableFocusSession = {
@@ -336,9 +335,8 @@ export function buildMomentumSnapshot(params: {
   activities: Activity[];
   now: Date;
   showUpStreakDays?: number | null;
-  focusStreakDays?: number | null;
 }): GlanceableMomentum {
-  const { activities, now, showUpStreakDays, focusStreakDays } = params;
+  const { activities, now, showUpStreakDays } = params;
   const todayKey = toLocalDateKey(now);
 
   const completedToday = activities.filter((a) => {
@@ -363,7 +361,6 @@ export function buildMomentumSnapshot(params: {
     completedToday,
     completedThisWeek,
     showUpStreakDays: typeof showUpStreakDays === 'number' ? showUpStreakDays : undefined,
-    focusStreakDays: typeof focusStreakDays === 'number' ? focusStreakDays : undefined,
   };
 }
 
