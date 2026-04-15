@@ -107,6 +107,12 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
         subtitle:
           'Pro Tools helps you schedule activities into your life so progress doesn’t depend on willpower or perfect timing.',
       };
+    case 'pro_only_streak_shields':
+      return {
+        title: 'Pro shields would have saved your streak',
+        subtitle:
+          'Upgrade now and we\u2019ll restore your streak instantly. Plus, you\u2019ll get Streak Shields that protect your progress when life gets in the way.',
+      };
     default:
       return {
         title: 'Build a system you’ll actually stick with',
@@ -182,10 +188,39 @@ export function PaywallContent(props: {
         <View style={styles.heroCard}>
           <VStack space="xs">
             <Heading style={styles.title}>{copy.title}</Heading>
-            {reason === 'generative_quota_exceeded' ? (
+            {reason === 'generative_quota_exceeded' && !isPro ? (
+              <>
+                <View style={styles.creditExhaustionBlock}>
+                  <View style={styles.creditProgressRow}>
+                    <View style={styles.creditProgressBarBg}>
+                      <View style={[styles.creditProgressBarFill, { width: '100%' }]} />
+                    </View>
+                    <Text style={styles.creditProgressLabel}>{quotaSubtitle}</Text>
+                  </View>
+                  <View style={styles.creditComparisonRow}>
+                    <View style={styles.creditComparisonItem}>
+                      <Text style={styles.creditComparisonValue}>
+                        {(() => {
+                          const currentKey = getMonthKey(new Date());
+                          const usedRaw = generativeCredits?.monthKey === currentKey
+                            ? Number((generativeCredits as any).usedThisMonth ?? 0) : 0;
+                          return Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
+                        })()}
+                      </Text>
+                      <Text style={styles.creditComparisonLabel}>AI interactions{'\n'}this month</Text>
+                    </View>
+                    <View style={styles.creditComparisonDivider} />
+                    <View style={styles.creditComparisonItem}>
+                      <Text style={styles.creditComparisonValuePro}>{PRO_GENERATIVE_CREDITS_PER_MONTH.toLocaleString()}</Text>
+                      <Text style={styles.creditComparisonLabel}>credits/month{'\n'}with Pro</Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.subtitle}>{copy.subtitle}</Text>
+              </>
+            ) : reason === 'generative_quota_exceeded' ? (
               <>
                 <Text style={styles.subtitle}>{quotaSubtitle}</Text>
-                {!isPro ? <Text style={styles.subtitle}>{copy.subtitle}</Text> : null}
               </>
             ) : (
               <Text style={styles.subtitle}>{copy.subtitle}</Text>
@@ -438,6 +473,66 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontFamily: fonts.semibold,
     color: colors.textPrimary,
+  },
+  creditExhaustionBlock: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    gap: spacing.md,
+  },
+  creditProgressRow: {
+    gap: 6,
+  },
+  creditProgressBarBg: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    overflow: 'hidden',
+  },
+  creditProgressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: paywallTheme.ctaBackground,
+  },
+  creditProgressLabel: {
+    ...typography.bodySm,
+    color: paywallTheme.foreground,
+    opacity: 0.85,
+  },
+  creditComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  creditComparisonItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  creditComparisonValue: {
+    ...typography.titleLg,
+    fontFamily: fonts.bold,
+    color: paywallTheme.foreground,
+  },
+  creditComparisonValuePro: {
+    ...typography.titleLg,
+    fontFamily: fonts.bold,
+    color: paywallTheme.ctaBackground,
+  },
+  creditComparisonLabel: {
+    ...typography.caption,
+    color: paywallTheme.foreground,
+    opacity: 0.75,
+    textAlign: 'center',
+  },
+  creditComparisonDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
 });
 

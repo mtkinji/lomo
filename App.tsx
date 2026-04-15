@@ -51,6 +51,8 @@ import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceab
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/domainSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
+import { fireResendSignupEvent } from './src/services/resendSignupEvent';
+import { startPushTokenSync } from './src/services/pushTokenService';
 import { resetUserSpecificState } from './src/store/useAppStore';
 import { Text } from './src/ui/primitives';
 import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
@@ -358,6 +360,8 @@ export default function App() {
     startSpotlightIndexSync();
     // Best-effort domain sync (Arcs/Goals/Activities) when authenticated.
     startDomainSync();
+    // Register/unregister push token based on auth state.
+    startPushTokenSync();
     // Partner progress alerts for shared goals (checks on foreground).
     startPartnerProgressService();
   }, [refreshEntitlements]);
@@ -451,10 +455,11 @@ export default function App() {
   const handleSignInComplete = (result: SignInResult) => {
     setIsReturningUser(result.isReturningUser);
     if (result.isReturningUser && !hasCompletedFirstTimeOnboarding) {
-      // Show permissions-only flow for returning users who haven't finished onboarding on this device
       setShowReturningUserFlow(true);
+    } else if (!result.isReturningUser) {
+      // New user — fire Resend event to trigger the welcome drip automation
+      fireResendSignupEvent();
     }
-    // For new users, normal FTUE will start automatically via the effect
   };
 
   const handleReturningUserFlowComplete = () => {

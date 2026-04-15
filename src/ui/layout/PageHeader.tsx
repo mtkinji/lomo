@@ -6,6 +6,7 @@ import { IconButton } from '../Button';
 import { ObjectTypeIconBadge } from '../ObjectTypeIconBadge';
 import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objectTypeBadges';
 import { ProfileAvatar } from '../ProfileAvatar';
+import { StreakCapsule } from '../StreakCapsule';
 
 type PageHeaderProps = {
   title: string;
@@ -37,9 +38,8 @@ type PageHeaderProps = {
    */
   onPressBack?: () => void;
   /**
-   * Optional avatar handler; when provided (and `onPressBack`/`onPressMenu` are not),
-   * shows the user's avatar in the top-left slot. Intended for top-level canvases
-   * where the avatar opens Settings.
+   * Optional avatar handler; when provided, the avatar (or StreakCapsule) appears
+   * on the right side. Intended for top-level canvases where the avatar opens Settings.
    */
   onPressAvatar?: () => void;
   /**
@@ -76,6 +76,28 @@ type PageHeaderProps = {
    */
   children?: ReactNode;
   /**
+   * When provided, the avatar slot upgrades to a StreakCapsule showing
+   * the user's current streak count alongside their avatar.
+   */
+  streakCount?: number;
+  /**
+   * Whether the user has already showed up today (controls flame color).
+   */
+  streakShowedUpToday?: boolean;
+  /**
+   * Total shields/grace days available (free day + Pro shields).
+   */
+  shieldCount?: number;
+  /**
+   * Whether the streak repair window is currently active (amber pulse).
+   */
+  repairWindowActive?: boolean;
+  /**
+   * Optional overflow/more menu rendered inline next to the page title.
+   * Pass a fully composed DropdownMenu (or any node) here.
+   */
+  moreMenu?: ReactNode;
+  /**
    * Optional container style overrides (e.g. adjust top padding for specific screens).
    */
   containerStyle?: StyleProp<ViewStyle>;
@@ -96,6 +118,11 @@ export function PageHeader({
   rightElement,
   boxedTitle = false,
   children,
+  streakCount,
+  streakShowedUpToday = false,
+  shieldCount,
+  repairWindowActive = false,
+  moreMenu,
   containerStyle,
 }: PageHeaderProps) {
   const headerActionSize = 44;
@@ -103,16 +130,20 @@ export function PageHeader({
   const headerBadgeRadius = Math.round(headerBadgeSize * 0.32);
   const badgeColors = getObjectTypeBadgeColors(iconTone);
 
-  // Header icons should be neutral (not CTA), so default to ink on white canvas.
-  // Inverse headers (on dark/gradient surfaces) keep a bright foreground.
   const iconColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
   const titleColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
+
+  const hasBack = !!onPressBack;
+  const hasMenu = !!onPressMenu;
+  const hasAvatar = !!onPressAvatar;
+  const hasStreakCapsule = hasAvatar && typeof streakCount === 'number';
 
   return (
     <View style={[styles.container, containerStyle]}>
       <View style={styles.topRow}>
-        <View style={styles.sideColumn}>
-          {onPressBack ? (
+        {/* Left side: back/menu button + title */}
+        <View style={styles.leftGroup}>
+          {hasBack ? (
             <IconButton
               accessibilityLabel={`Go back from ${title}`}
               onPress={onPressBack}
@@ -121,7 +152,7 @@ export function PageHeader({
             >
               <Icon name="arrowLeft" size={20} color={iconColor} />
             </IconButton>
-          ) : onPressMenu ? (
+          ) : hasMenu ? (
             <IconButton
               accessibilityLabel="Open navigation menu"
               testID="nav.drawer.toggle"
@@ -134,29 +165,8 @@ export function PageHeader({
             >
               <MenuToggleIcon open={menuOpen} />
             </IconButton>
-          ) : onPressAvatar ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open settings"
-              testID="nav.header.avatar"
-              onPress={onPressAvatar}
-              style={({ pressed }) => [
-                styles.headerAvatarButton,
-                { width: headerActionSize, height: headerActionSize },
-                pressed ? styles.headerAvatarButtonPressed : null,
-              ]}
-            >
-              <ProfileAvatar
-                name={avatarName}
-                avatarUrl={avatarUrl}
-                size={32}
-                borderRadius={16}
-              />
-            </Pressable>
           ) : null}
-        </View>
 
-        <View style={styles.centerColumn}>
           <View style={styles.titleRow}>
             {iconName && boxedTitle ? (
               <View
@@ -203,11 +213,42 @@ export function PageHeader({
                 <Icon name="info" size={20} color={iconColor} />
               </IconButton>
             ) : null}
+            {moreMenu ?? null}
           </View>
         </View>
 
-        <View style={styles.sideColumnRight}>
+        {/* Right side: rightElement/more → streak pill → avatar */}
+        <View style={styles.rightGroup}>
           {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
+          {hasStreakCapsule ? (
+            <StreakCapsule
+              streakCount={streakCount}
+              showedUpToday={streakShowedUpToday}
+              shieldCount={shieldCount}
+              repairWindowActive={repairWindowActive}
+              onPress={onPressAvatar}
+            />
+          ) : null}
+          {hasAvatar ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+              testID="nav.header.avatar"
+              onPress={onPressAvatar}
+              style={({ pressed }) => [
+                styles.headerAvatarButton,
+                { width: headerActionSize, height: headerActionSize },
+                pressed ? styles.headerAvatarButtonPressed : null,
+              ]}
+            >
+              <ProfileAvatar
+                name={avatarName}
+                avatarUrl={avatarUrl}
+                size={32}
+                borderRadius={16}
+              />
+            </Pressable>
+          ) : null}
         </View>
       </View>
       {children ? <View style={styles.childrenContainer}>{children}</View> : null}
@@ -219,13 +260,13 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.xs,
     paddingBottom: spacing.md,
+    paddingLeft: spacing.sm,
   },
   headerIconButton: {
     width: 44,
     height: 44,
   },
   headerIconButtonGhost: {
-    // Menu toggle should appear as a bare icon (no filled background).
     backgroundColor: 'transparent',
   },
   headerAvatarButton: {
@@ -244,6 +285,17 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  rightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   title: {
     ...typography.titleMd,
@@ -258,8 +310,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   titleInBadge: {
-    // Badge height is constrained; keep the title visually centered and prevent
-    // extra vertical space from changing header height.
     lineHeight: typography.titleMd.lineHeight,
   },
   iconContainer: {
@@ -269,23 +319,8 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     columnGap: spacing.sm,
-  },
-  centerColumn: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sideColumn: {
-    flex: 1,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  sideColumnRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    flexShrink: 1,
   },
   rightElement: {},
   menuIconBox: {
@@ -357,5 +392,3 @@ function MenuToggleIcon({ open }: { open: boolean }) {
     </View>
   );
 }
-
-

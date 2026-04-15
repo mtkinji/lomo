@@ -2,6 +2,7 @@ import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Activity } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
+import { useToastStore } from '../store/useToastStore';
 import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { posthogClient } from './analytics/posthogClient';
 import { track } from './analytics/analytics';
@@ -54,6 +55,8 @@ let dailyShowUpNotificationId: string | null = null;
 let dailyFocusNotificationId: string | null = null;
 let goalNudgeNotificationId: string | null = null;
 let setupNextStepNotificationId: string | null = null;
+let streakAtRiskNotificationId: string | null = null;
+let reactivationNotificationId: string | null = null;
 
 let isInitialized = false;
 let hasAttachedStoreSubscription = false;
@@ -63,7 +66,12 @@ const SYSTEM_NUDGE_TYPES: Array<NotificationData['type']> = [
   'setupNextStep',
   'dailyFocus',
   'goalNudge',
+  'streak',
+  'reactivation',
 ];
+
+const DEFAULT_STREAK_AT_RISK_HOUR = 19;
+const REACTIVATION_DELAY_DAYS = 3;
 const SYSTEM_NUDGE_DAILY_CAP = 2;
 const SYSTEM_NUDGE_MIN_SPACING_MS = 6 * 60 * 60 * 1000;
 const SYSTEM_NUDGE_SUPPRESS_UPCOMING_ACTIVITY_REMINDER_MS = 3 * 60 * 60 * 1000;
@@ -107,6 +115,41 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// Action identifiers for iOS notification categories.
+const ACTION_START_FOCUS = 'START_FOCUS';
+const ACTION_SNOOZE_1H = 'SNOOZE_1H';
+const ACTION_SHOW_UP_NOW = 'SHOW_UP_NOW';
+
+const CATEGORY_ACTIVITY_REMINDER = 'activityReminder';
+const CATEGORY_STREAK_AT_RISK = 'streakAtRisk';
+
+async function registerNotificationCategories(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await Notifications.setNotificationCategoryAsync(CATEGORY_ACTIVITY_REMINDER, [
+      {
+        identifier: ACTION_START_FOCUS,
+        buttonTitle: 'Start Focus',
+        options: { opensAppToForeground: true },
+      },
+      {
+        identifier: ACTION_SNOOZE_1H,
+        buttonTitle: 'Snooze 1h',
+        options: { opensAppToForeground: false },
+      },
+    ]);
+    await Notifications.setNotificationCategoryAsync(CATEGORY_STREAK_AT_RISK, [
+      {
+        identifier: ACTION_SHOW_UP_NOW,
+        buttonTitle: 'Show up now',
+        options: { opensAppToForeground: true },
+      },
+    ]);
+  } catch {
+    // Best-effort; categories failing shouldn't block init.
+  }
+}
 
 function getPreferences(): NotificationPreferences {
   return useAppStore.getState().notificationPreferences;
@@ -157,6 +200,12 @@ async function hydrateScheduledNotifications() {
       }
       if (data && data.type === 'setupNextStep') {
         setupNextStepNotificationId = request.identifier;
+      }
+      if (data && data.type === 'streak') {
+        streakAtRiskNotificationId = request.identifier;
+      }
+      if (data && data.type === 'reactivation') {
+        reactivationNotificationId = request.identifier;
       }
     });
   } catch (error) {
@@ -640,7 +689,9 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
     const arc = goal?.arcId ? state.arcs.find((a) => a.id === goal.arcId) : null;
     const goalTitle = goal?.title?.trim() ?? '';
     const arcName = arc?.name?.trim() ?? '';
-    const title = activity.title?.trim() ? activity.title.trim() : 'Activity reminder';
+    const streak = state.currentShowUpStreak ?? 0;
+    const rawTitle = activity.title?.trim() ? activity.title.trim() : 'Activity reminder';
+    const title = streak >= 2 ? `${rawTitle} — day ${streak + 1}` : rawTitle;
     const body =
       goalTitle.length > 0
         ? arcName.length > 0 && arcName.length <= 26
@@ -651,6 +702,7 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
     const content: Notifications.NotificationContentInput = {
       title,
       body,
+      categoryIdentifier: CATEGORY_ACTIVITY_REMINDER,
       data: {
         type: 'activityReminder',
         activityId: activity.id,
@@ -848,13 +900,48 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   const isSetup =
     suggested?.kind === 'setup' ? suggested : null;
 
+  // Adaptive timing: if the user's actual show-up pattern diverges significantly
+  // from their configured reminder time, suggest an adjustment (one-time per day).
+  const appState = useAppStore.getState();
+  const completionHours = appState.activityCompletionHours ?? [];
+  if (completionHours.length >= 5) {
+    const hourCounts = new Map<number, number>();
+    for (const h of completionHours) {
+      hourCounts.set(h, (hourCounts.get(h) ?? 0) + 1);
+    }
+    let typicalHour = hour;
+    let maxCount = 0;
+    for (const [h, count] of hourCounts) {
+      if (count > maxCount) {
+        maxCount = count;
+        typicalHour = h;
+      }
+    }
+    const lastSuggestionKey = appState.lastAdaptiveTimingSuggestionDateKey;
+    const todayKeyForSuggestion = localDateKey(now);
+    if (
+      Math.abs(typicalHour - hour) > 2 &&
+      lastSuggestionKey !== todayKeyForSuggestion
+    ) {
+      useAppStore.setState({ lastAdaptiveTimingSuggestionDateKey: todayKeyForSuggestion });
+      const formattedHour = typicalHour <= 12 ? `${typicalHour || 12} AM` : `${typicalHour - 12} PM`;
+      setTimeout(() => {
+        useToastStore.getState().showToast({
+          message: `You usually show up around ${formattedHour}. Want to adjust your reminder?`,
+          variant: 'default',
+          durationMs: 6000,
+        });
+      }, 1000);
+    }
+  }
+
   // Convert daily show-up to a one-shot schedule (we reschedule daily).
   // This enables suppression/caps/backoff (repeating schedules can't be stopped reliably).
   let fireAt = new Date(now);
   fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
 
   // If the user already "showed up" today, schedule tomorrow.
-  const state = useAppStore.getState();
+  const state = appState;
   if (state.lastShowUpDate === todayKey || fireAt.getTime() <= now.getTime()) {
     fireAt.setDate(fireAt.getDate() + 1);
   }
@@ -917,6 +1004,8 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
 
   try {
     const type: NotificationData['type'] = isSetup ? 'setupNextStep' : 'dailyShowUp';
+    const streak = state.currentShowUpStreak ?? 0;
+    const streakSuffix = streak >= 2 ? ` — day ${streak + 1}` : '';
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
         title:
@@ -924,7 +1013,7 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
             ? isSetup?.reason === 'no_goals'
               ? 'Start your first goal'
               : 'Add one tiny step'
-            : 'Align your day with your arcs',
+            : `Align your day with your arcs${streakSuffix}`,
         body:
           type === 'setupNextStep'
             ? isSetup?.reason === 'no_goals'
@@ -1259,6 +1348,223 @@ async function scheduleGoalNudgeInternal(prefs: NotificationPreferences) {
   });
 }
 
+async function cancelAllScheduledStreakAtRisk(reason: 'reschedule' | 'explicit_cancel') {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(data && data.type === 'streak');
+    });
+    if (matches.length === 0) {
+      streakAtRiskNotificationId = null;
+      return;
+    }
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'streak',
+        notification_id: req.identifier,
+        reason,
+      });
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to cancel streak-at-risk notification(s)', { error });
+    }
+  } finally {
+    streakAtRiskNotificationId = null;
+  }
+}
+
+async function cancelAllScheduledReactivation(reason: 'reschedule' | 'explicit_cancel') {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(data && data.type === 'reactivation');
+    });
+    if (matches.length === 0) {
+      reactivationNotificationId = null;
+      return;
+    }
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'reactivation',
+        notification_id: req.identifier,
+        reason,
+      });
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to cancel reactivation notification(s)', { error });
+    }
+  } finally {
+    reactivationNotificationId = null;
+  }
+}
+
+async function scheduleStreakAtRiskInternal(prefs: NotificationPreferences) {
+  if (!prefs.notificationsEnabled || !prefs.allowStreakAndReactivation) {
+    return;
+  }
+  if (prefs.osPermissionStatus !== 'authorized') {
+    return;
+  }
+
+  const state = useAppStore.getState();
+  const now = new Date();
+  const todayKey = localDateKey(now);
+  const streak = state.currentShowUpStreak ?? 0;
+
+  // Only schedule when there's a streak worth protecting and user hasn't showed up today.
+  if (streak <= 0 || state.lastShowUpDate === todayKey) {
+    await cancelAllScheduledStreakAtRisk('explicit_cancel');
+    return;
+  }
+
+  const systemLedger = await loadSystemNudgeLedger();
+
+  // Backoff: if 2 consecutive streak notifications were ignored, skip.
+  const noOpenCount = systemLedger.consecutiveNoOpenByType?.streak ?? 0;
+  if (noOpenCount >= 2) {
+    await cancelAllScheduledStreakAtRisk('explicit_cancel');
+    return;
+  }
+
+  let fireAt = new Date(now);
+  fireAt.setHours(DEFAULT_STREAK_AT_RISK_HOUR, 0, 0, 0);
+
+  // If 7 PM has already passed, we can't save today's streak — don't schedule.
+  if (fireAt.getTime() <= now.getTime()) {
+    await cancelAllScheduledStreakAtRisk('explicit_cancel');
+    return;
+  }
+
+  fireAt = await applyGlobalSystemNudgeGuards({ fireAt, type: 'streak', ledger: systemLedger });
+
+  // If guards pushed it past today, skip — a streak-at-risk notification for tomorrow is meaningless.
+  if (localDateKey(fireAt) !== todayKey) {
+    await cancelAllScheduledStreakAtRisk('explicit_cancel');
+    return;
+  }
+
+  await cancelAllScheduledStreakAtRisk('reschedule');
+
+  try {
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Your ${streak}-day streak is at risk`,
+        body: 'Show up before midnight — one tiny step keeps it alive.',
+        categoryIdentifier: CATEGORY_STREAK_AT_RISK,
+        data: { type: 'streak' } satisfies NotificationData,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireAt,
+      },
+    });
+    streakAtRiskNotificationId = identifier;
+    track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+      notification_type: 'streak',
+      notification_id: identifier,
+      scheduled_for: fireAt.toISOString(),
+      streak_length: streak,
+    });
+    await recordSystemNudgeScheduled({
+      dateKey: localDateKey(fireAt),
+      type: 'streak',
+      notificationId: identifier,
+      scheduledForIso: fireAt.toISOString(),
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to schedule streak-at-risk notification', { error });
+    }
+  }
+}
+
+async function scheduleReactivationInternal(prefs: NotificationPreferences) {
+  if (!prefs.notificationsEnabled || !prefs.allowStreakAndReactivation) {
+    return;
+  }
+  if (prefs.osPermissionStatus !== 'authorized') {
+    return;
+  }
+
+  const state = useAppStore.getState();
+  const now = new Date();
+  const streak = state.currentShowUpStreak ?? 0;
+
+  const systemLedger = await loadSystemNudgeLedger();
+
+  // Backoff: if 2 consecutive reactivation notifications were ignored, stop until next show-up.
+  const noOpenCount = systemLedger.consecutiveNoOpenByType?.reactivation ?? 0;
+  if (noOpenCount >= 2) {
+    await cancelAllScheduledReactivation('explicit_cancel');
+    return;
+  }
+
+  // Schedule for REACTIVATION_DELAY_DAYS out, at the user's daily show-up time (or 09:00).
+  const showUpTime = prefs.dailyShowUpTime ?? '09:00';
+  const [hourString, minuteString] = showUpTime.split(':');
+  const hour = Number.parseInt(hourString ?? '9', 10);
+  const minute = Number.parseInt(minuteString ?? '0', 10);
+
+  const fireAt = addLocalDays(now, REACTIVATION_DELAY_DAYS);
+  fireAt.setHours(Number.isNaN(hour) ? 9 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
+
+  await cancelAllScheduledReactivation('reschedule');
+
+  try {
+    const title =
+      streak > 1
+        ? `You had a ${streak}-day streak going`
+        : 'Your goals are waiting';
+    const body =
+      streak > 1
+        ? 'Come back and start building again — one tiny step is all it takes.'
+        : "It's been a few days. Ready for one tiny step?";
+
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: { type: 'reactivation' } satisfies NotificationData,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireAt,
+      },
+    });
+    reactivationNotificationId = identifier;
+    track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+      notification_type: 'reactivation',
+      notification_id: identifier,
+      scheduled_for: fireAt.toISOString(),
+      streak_length: streak,
+    });
+    await recordSystemNudgeScheduled({
+      dateKey: localDateKey(fireAt),
+      type: 'reactivation',
+      notificationId: identifier,
+      scheduledForIso: fireAt.toISOString(),
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to schedule reactivation notification', { error });
+    }
+  }
+}
+
 function attachStoreSubscription() {
   if (hasAttachedStoreSubscription) {
     return;
@@ -1294,6 +1600,8 @@ function attachStoreSubscription() {
     dailyFocusTime: initial.notificationPreferences.dailyFocusTime,
     osPermissionStatus: initial.notificationPreferences.osPermissionStatus,
   });
+  let prevLastShowUpDate = initial.lastShowUpDate;
+  let prevStreakAndReactivationEnabled = initial.notificationPreferences.allowStreakAndReactivation;
 
   useAppStore.subscribe((state) => {
     const nextActivities: ActivitySnapshotExtended[] = state.activities.map((activity) => ({
@@ -1345,6 +1653,31 @@ function attachStoreSubscription() {
       prefs.osPermissionStatus === 'authorized'
     ) {
       scheduleGoalNudgeDebounced(prefs);
+    }
+
+    // Streak-at-risk + reactivation: react to show-up changes and preference changes.
+    const showUpDateChanged = prevLastShowUpDate !== state.lastShowUpDate;
+    const streakPrefChanged = prevStreakAndReactivationEnabled !== prefs.allowStreakAndReactivation;
+    if (showUpDateChanged || streakPrefChanged) {
+      prevLastShowUpDate = state.lastShowUpDate;
+      prevStreakAndReactivationEnabled = prefs.allowStreakAndReactivation;
+
+      if (
+        prefs.notificationsEnabled &&
+        prefs.allowStreakAndReactivation &&
+        prefs.osPermissionStatus === 'authorized'
+      ) {
+        // User showed up → cancel streak-at-risk (they're safe) and reschedule reactivation (rolling window).
+        if (showUpDateChanged && state.lastShowUpDate === localDateKey(new Date())) {
+          void runExclusive('streakAtRisk', async () => cancelAllScheduledStreakAtRisk('explicit_cancel'));
+        } else {
+          void runExclusive('streakAtRisk', async () => scheduleStreakAtRiskInternal(prefs));
+        }
+        void runExclusive('reactivation', async () => scheduleReactivationInternal(prefs));
+      } else {
+        void runExclusive('streakAtRisk', async () => cancelAllScheduledStreakAtRisk('explicit_cancel'));
+        void runExclusive('reactivation', async () => cancelAllScheduledReactivation('explicit_cancel'));
+      }
     }
 
     const prevById = new Map(prevActivities.map((a) => [a.id, a]));
@@ -1437,13 +1770,42 @@ function attachNotificationResponseListener() {
       });
     }
 
+    const actionId = response.actionIdentifier;
+
+    // Handle "Snooze 1h" inline action (background — doesn't open app).
+    if (actionId === ACTION_SNOOZE_1H && data.type === 'activityReminder') {
+      const activityId = (data as { activityId?: string }).activityId;
+      if (activityId) {
+        const orig = response.notification.request.content;
+        const snoozeAt = new Date(Date.now() + 60 * 60 * 1000);
+        void Notifications.scheduleNotificationAsync({
+          content: {
+            title: orig.title ?? undefined,
+            body: orig.body ?? undefined,
+            data: orig.data ?? {},
+            categoryIdentifier: CATEGORY_ACTIVITY_REMINDER,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: snoozeAt,
+          },
+        }).catch(() => {});
+      }
+      return;
+    }
+
     switch (data.type) {
       case 'activityReminder': {
         const activityId = (data as { activityId?: string }).activityId;
         if (!activityId) return;
+        // "Start Focus" action → open activity with auto-start focus
+        const autoStartFocus = actionId === ACTION_START_FOCUS;
         navigateWhenReady('MainTabs', {
           screen: 'ActivitiesTab',
-          params: { screen: 'ActivityDetail', params: { activityId } },
+          params: {
+            screen: 'ActivityDetail',
+            params: { activityId, ...(autoStartFocus ? { autoStartFocus: true } : {}) },
+          },
         });
         break;
       }
@@ -1611,6 +1973,7 @@ export const NotificationService = {
   async init() {
     if (isInitialized) return;
     isInitialized = true;
+    await registerNotificationCategories();
     await syncOsPermissionStatus();
     await cleanupDuplicateSystemSchedules();
     await hydrateScheduledNotifications();
@@ -1619,6 +1982,10 @@ export const NotificationService = {
     const prefs = getPreferences();
     if (prefs.notificationsEnabled && prefs.allowDailyFocus && prefs.dailyFocusTime) {
       await runExclusive('dailyFocus', async () => scheduleDailyFocusInternal(prefs.dailyFocusTime!, prefs));
+    }
+    if (prefs.notificationsEnabled && prefs.allowStreakAndReactivation) {
+      await runExclusive('streakAtRisk', async () => scheduleStreakAtRiskInternal(prefs));
+      await runExclusive('reactivation', async () => scheduleReactivationInternal(prefs));
     }
     attachStoreSubscription();
     attachNotificationReceivedListener();
@@ -1706,6 +2073,24 @@ export const NotificationService = {
     await runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(prefs));
   },
 
+  async scheduleStreakAtRisk() {
+    const prefs = getPreferences();
+    await runExclusive('streakAtRisk', async () => scheduleStreakAtRiskInternal(prefs));
+  },
+
+  async cancelStreakAtRisk() {
+    await runExclusive('streakAtRisk', async () => cancelAllScheduledStreakAtRisk('explicit_cancel'));
+  },
+
+  async scheduleReactivation() {
+    const prefs = getPreferences();
+    await runExclusive('reactivation', async () => scheduleReactivationInternal(prefs));
+  },
+
+  async cancelReactivation() {
+    await runExclusive('reactivation', async () => cancelAllScheduledReactivation('explicit_cancel'));
+  },
+
   /**
    * Apply new notification preferences. This is intended to be called from
    * settings screens. It updates the store and cleans up any scheduled
@@ -1721,6 +2106,8 @@ export const NotificationService = {
       await runExclusive('morningNudge', async () => cancelDailyShowUpInternal());
       await runExclusive('dailyFocus', async () => cancelDailyFocusInternal());
       await runExclusive('goalNudge', async () => cancelGoalNudgeInternal());
+      await runExclusive('streakAtRisk', async () => cancelAllScheduledStreakAtRisk('explicit_cancel'));
+      await runExclusive('reactivation', async () => cancelAllScheduledReactivation('explicit_cancel'));
       return;
     }
 
@@ -1763,6 +2150,15 @@ export const NotificationService = {
       await runExclusive('goalNudge', async () => cancelGoalNudgeInternal());
     } else {
       await runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(next));
+    }
+
+    // Streak-at-risk + reactivation
+    if (!next.allowStreakAndReactivation) {
+      await runExclusive('streakAtRisk', async () => cancelAllScheduledStreakAtRisk('explicit_cancel'));
+      await runExclusive('reactivation', async () => cancelAllScheduledReactivation('explicit_cancel'));
+    } else {
+      await runExclusive('streakAtRisk', async () => scheduleStreakAtRiskInternal(next));
+      await runExclusive('reactivation', async () => scheduleReactivationInternal(next));
     }
   },
 

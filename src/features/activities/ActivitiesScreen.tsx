@@ -50,7 +50,8 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
+import { useCanUseProTools } from '../../store/proToolsAccess';
 import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -224,10 +225,17 @@ export function ActivitiesScreen() {
   // Manual order remains supported via Activity.orderIndex and the existing sorting logic.
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
-  const isPro = useEntitlementsStore((state) => state.isPro);
+  const isPro = useCanUseProTools('saved_views');
   const activityViews = useAppStore((state) => state.activityViews);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
+  const streakBreakState = useAppStore((state) => state.streakBreakState);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+  const repairWindowActive = useRepairWindowActive(streakBreakState);
 
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
@@ -2110,6 +2118,10 @@ export function ActivitiesScreen() {
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
+        shieldCount={shieldCount}
+        repairWindowActive={repairWindowActive}
         rightElement={
           isQuickAddFocused ? (
             <Button

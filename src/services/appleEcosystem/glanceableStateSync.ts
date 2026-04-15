@@ -19,7 +19,6 @@ let pendingParams:
       arcs: ReturnType<typeof useAppStore.getState>['arcs'];
       contextGoalId: string | null;
       currentShowUpStreak: number;
-      currentFocusStreak: number;
       activityViews: ReturnType<typeof useAppStore.getState>['activityViews'];
     }
   | null = null;
@@ -40,7 +39,6 @@ export function startGlanceableStateSync(): void {
     arcs: ReturnType<typeof useAppStore.getState>['arcs'];
     contextGoalId: string | null;
     currentShowUpStreak: number;
-    currentFocusStreak: number;
     activityViews: ReturnType<typeof useAppStore.getState>['activityViews'];
   }) => {
     const now = new Date();
@@ -65,7 +63,6 @@ export function startGlanceableStateSync(): void {
       activities: params.activities,
       now,
       showUpStreakDays: params.currentShowUpStreak,
-      focusStreakDays: params.currentFocusStreak,
     });
 
     const activityViews = (params.activityViews ?? []).map((v) => ({
@@ -114,7 +111,6 @@ export function startGlanceableStateSync(): void {
     arcs: ReturnType<typeof useAppStore.getState>['arcs'];
     contextGoalId: string | null;
     currentShowUpStreak: number;
-    currentFocusStreak: number;
     activityViews: ReturnType<typeof useAppStore.getState>['activityViews'];
   }) => {
     pendingParams = params;
@@ -142,7 +138,6 @@ export function startGlanceableStateSync(): void {
       arcs: s.arcs,
       contextGoalId: s.focusContextGoalId,
       currentShowUpStreak: s.currentShowUpStreak,
-      currentFocusStreak: s.currentFocusStreak,
       activityViews: s.activityViews,
     }),
     (next) => {
@@ -152,7 +147,6 @@ export function startGlanceableStateSync(): void {
         arcs: next.arcs,
         contextGoalId: next.contextGoalId ?? null,
         currentShowUpStreak: next.currentShowUpStreak ?? 0,
-        currentFocusStreak: next.currentFocusStreak ?? 0,
         activityViews: next.activityViews,
       });
     },

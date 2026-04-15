@@ -30,6 +30,7 @@ export const AnalyticsEvent = {
   WidgetSetupViewed: 'widget_setup_viewed',
   WidgetSetupHelpOpened: 'widget_setup_help_opened',
   AppOpenedFromWidget: 'app_opened_from_widget',
+  WidgetAssistedShowUp: 'widget_assisted_show_up',
 
   // Monetization / paywall (MVP)
   PaywallViewed: 'paywall_viewed',
@@ -39,6 +40,7 @@ export const AnalyticsEvent = {
   RestoreStarted: 'restore_started',
   RestoreSucceeded: 'restore_succeeded',
   RestoreFailed: 'restore_failed',
+  FreeTrialStarted: 'free_trial_started',
 
   // Social sharing (goals)
   ShareGoalDrawerOpened: 'share_goal_drawer_opened',
@@ -74,6 +76,10 @@ export const AnalyticsEvent = {
   // Server-side milestones
   MilestoneRecorded: 'milestone_recorded',
   MilestoneRecordFailed: 'milestone_record_failed',
+
+  // Pro preview (streak-based)
+  ProPreviewGranted: 'pro_preview_granted',
+  ProPreviewExpired: 'pro_preview_expired',
 
   // Friends
   FriendInviteCreated: 'friend_invite_created',

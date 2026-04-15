@@ -26,6 +26,7 @@ import { colors, spacing, typography } from '../../theme';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import type { GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useToastStore } from '../../store/useToastStore';
 import { usePaywallStore } from '../../store/usePaywallStore';
 import type { Arc, Goal, GoalDraft, ThumbnailStyle, ForceLevel } from '../../domain/types';
@@ -58,6 +59,7 @@ import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useCanUseProTools } from '../../store/proToolsAccess';
 import { blurs } from '../../theme/overlays';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
@@ -142,6 +144,13 @@ export function GoalsScreen() {
 
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
+  const streakBreakState = useAppStore((state) => state.streakBreakState);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+  const repairWindowActive = useRepairWindowActive(streakBreakState);
 
   const arcLookup = arcs.reduce<Record<string, string>>((acc, arc) => {
     acc[arc.id] = arc.name;
@@ -375,9 +384,11 @@ export function GoalsScreen() {
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
-        //Add this to the page header if you want to wrap the title in a large badge with the icon
-        // boxedTitle
-        rightElement={
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
+        shieldCount={shieldCount}
+        repairWindowActive={repairWindowActive}
+        moreMenu={
           <DropdownMenu>
             <DropdownMenuTrigger accessibilityLabel="Goal list options">
               <View pointerEvents="none">
@@ -390,7 +401,7 @@ export function GoalsScreen() {
                 </IconButton>
               </View>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 220 }}>
+            <DropdownMenuContent side="bottom" sideOffset={6} align="start" style={{ minWidth: 220 }}>
               <Pressable
                 accessibilityRole="switch"
                 accessibilityLabel="Show archived goals"
@@ -743,6 +754,7 @@ export function GoalCoachDrawer({
   const addGoal = useAppStore((state) => state.addGoal);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const canUseUnsplash = useCanUseProTools('unsplash_banners');
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
@@ -1502,7 +1514,7 @@ export function GoalCoachDrawer({
         arcName={draft.title || 'New goal'}
         arcNarrative={draft.description}
         arcGoalTitles={undefined}
-        canUseUnsplash={isPro}
+        canUseUnsplash={canUseUnsplash}
         onRequestUpgrade={() => {
           setThumbnailSheetVisible(false);
           openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' });

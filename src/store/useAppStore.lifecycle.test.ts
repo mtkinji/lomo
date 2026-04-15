@@ -1,4 +1,5 @@
 import { useAppStore, resetUserSpecificState } from './useAppStore';
+import { useEntitlementsStore } from './useEntitlementsStore';
 import { canCreateArc, canCreateGoalInArc, countActiveGoalsForArc } from '../domain/limits';
 import type { Activity, Arc, Goal } from '../domain/types';
 
@@ -320,6 +321,353 @@ describe('resetUserSpecificState', () => {
     expect(state.notificationPreferences.allowDailyFocus).toBe(true);
     // User-specific should be reset.
     expect(state.hasCompletedFirstTimeOnboarding).toBe(false);
+  });
+});
+
+describe('recordShowUp shield earning', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function setStreakState(overrides: {
+    lastShowUpDate?: string;
+    currentShowUpStreak?: number;
+    streakGrace?: {
+      freeDaysRemaining: number;
+      lastFreeResetWeek: string | null;
+      shieldsAvailable: number;
+      lastShieldEarnedWeekKey: string | null;
+      graceDaysUsed: number;
+    };
+  }) {
+    useAppStore.setState(overrides as any);
+  }
+
+  it('awards 1 shield when Pro user hits a 7-day streak milestone', () => {
+    // User at day 6, about to become day 7.
+    setStreakState({
+      lastShowUpDate: '2026-01-06',
+      currentShowUpStreak: 6,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W02',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 7, 10, 0, 0)); // Jan 7
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(7);
+    expect(state.streakGrace?.shieldsAvailable).toBe(1);
+    expect(state.streakGrace?.lastShieldEarnedWeekKey).not.toBeNull();
+  });
+
+  it('does not award a shield to free users', () => {
+    setStreakState({
+      lastShowUpDate: '2026-01-06',
+      currentShowUpStreak: 6,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W02',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: false });
+    jest.setSystemTime(new Date(2026, 0, 7, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(7);
+    expect(state.streakGrace?.shieldsAvailable).toBe(0);
+  });
+
+  it('does not exceed the cap of 3 shields', () => {
+    setStreakState({
+      lastShowUpDate: '2026-01-13',
+      currentShowUpStreak: 13,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W03',
+        shieldsAvailable: 3,
+        lastShieldEarnedWeekKey: '2026-W02',
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 14, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(14);
+    expect(state.streakGrace?.shieldsAvailable).toBe(3);
+  });
+
+  it('does not award more than 1 shield per week', () => {
+    // Simulate a scenario where streak hits 14 (second multiple of 7)
+    // but shield was already earned this week.
+    const weekKey = '2026-W03';
+    setStreakState({
+      lastShowUpDate: '2026-01-13',
+      currentShowUpStreak: 13,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: weekKey,
+        shieldsAvailable: 1,
+        lastShieldEarnedWeekKey: weekKey,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 14, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(14);
+    expect(state.streakGrace?.shieldsAvailable).toBe(1);
+  });
+
+  it('does not award on non-multiple-of-7 streaks', () => {
+    setStreakState({
+      lastShowUpDate: '2026-01-05',
+      currentShowUpStreak: 5,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W01',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 6, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(6);
+    expect(state.streakGrace?.shieldsAvailable).toBe(0);
+  });
+});
+
+describe('recordShowUp streak repair window', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function setStreakState(overrides: Record<string, unknown>) {
+    useAppStore.setState(overrides as any);
+  }
+
+  const REPAIR_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+  it('sets break state with 48h repair window when streak resets', () => {
+    setStreakState({
+      lastShowUpDate: '2026-04-12',
+      currentShowUpStreak: 10,
+      streakGrace: {
+        freeDaysRemaining: 0,
+        lastFreeResetWeek: '2026-W16',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    const now = new Date(2026, 3, 15, 10, 0, 0);
+    jest.setSystemTime(now);
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(1);
+    expect(state.streakBreakState.brokenAtDateKey).toBe('2026-04-15');
+    expect(state.streakBreakState.brokenStreakLength).toBe(10);
+    expect(state.streakBreakState.eligibleRepairUntilMs).toBe(now.getTime() + REPAIR_WINDOW_MS);
+    expect(state.streakBreakState.repairedAtMs).toBeNull();
+  });
+
+  it('restores streak when user returns within the repair window', () => {
+    const breakTime = new Date(2026, 3, 15, 10, 0, 0);
+    setStreakState({
+      lastShowUpDate: '2026-04-15',
+      currentShowUpStreak: 1,
+      streakBreakState: {
+        brokenAtDateKey: '2026-04-15',
+        brokenStreakLength: 10,
+        eligibleRepairUntilMs: breakTime.getTime() + REPAIR_WINDOW_MS,
+        repairedAtMs: null,
+      },
+    });
+
+    // Return the next day (within 48h window)
+    const repairTime = new Date(2026, 3, 16, 8, 0, 0);
+    jest.setSystemTime(repairTime);
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(11); // 10 + 1 (restored)
+    expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+    expect(state.streakBreakState.repairedAtMs).toBe(repairTime.getTime());
+  });
+
+  it('does NOT restore streak when repair window has expired', () => {
+    const breakTime = new Date(2026, 3, 13, 10, 0, 0);
+    setStreakState({
+      lastShowUpDate: '2026-04-13',
+      currentShowUpStreak: 1,
+      streakBreakState: {
+        brokenAtDateKey: '2026-04-13',
+        brokenStreakLength: 10,
+        eligibleRepairUntilMs: breakTime.getTime() + REPAIR_WINDOW_MS, // expires April 15 10:00
+        repairedAtMs: null,
+      },
+    });
+
+    // Return after the window expired
+    const lateReturn = new Date(2026, 3, 16, 12, 0, 0);
+    jest.setSystemTime(lateReturn);
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(1); // stays at 1 (no repair)
+    expect(state.streakBreakState.repairedAtMs).toBeNull();
+  });
+
+  it('clears break state on resetShowUpStreak', () => {
+    setStreakState({
+      streakBreakState: {
+        brokenAtDateKey: '2026-04-15',
+        brokenStreakLength: 5,
+        eligibleRepairUntilMs: Date.now() + REPAIR_WINDOW_MS,
+        repairedAtMs: null,
+      },
+    });
+
+    useAppStore.getState().resetShowUpStreak();
+
+    const state = useAppStore.getState();
+    expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+    expect(state.streakBreakState.brokenStreakLength).toBeNull();
+  });
+
+  it('does not set break state when prevStreak is 0 (fresh start)', () => {
+    setStreakState({
+      lastShowUpDate: null,
+      currentShowUpStreak: 0,
+    });
+
+    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(1);
+    expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+  });
+});
+
+describe('proPreview store actions', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('setProPreview sets the preview and clearProPreview clears it', () => {
+    expect(useAppStore.getState().proPreview).toBeNull();
+
+    useAppStore.getState().setProPreview({ feature: 'focus_mode', expiresAtMs: Date.now() + 86400000 });
+    expect(useAppStore.getState().proPreview).toEqual({
+      feature: 'focus_mode',
+      expiresAtMs: expect.any(Number),
+    });
+
+    useAppStore.getState().clearProPreview();
+    expect(useAppStore.getState().proPreview).toBeNull();
+  });
+
+  it('setProPreview replaces any existing preview', () => {
+    useAppStore.getState().setProPreview({ feature: 'focus_mode', expiresAtMs: Date.now() + 86400000 });
+    useAppStore.getState().setProPreview({ feature: 'saved_views', expiresAtMs: Date.now() + 259200000 });
+
+    const preview = useAppStore.getState().proPreview;
+    expect(preview?.feature).toBe('saved_views');
+  });
+});
+
+describe('activityCompletionHours tracking', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('recordShowUp appends the current hour to activityCompletionHours', () => {
+    jest.setSystemTime(new Date(2026, 3, 15, 14, 30, 0)); // 2:30 PM
+    useAppStore.getState().recordShowUp();
+
+    const hours = useAppStore.getState().activityCompletionHours;
+    expect(hours).toContain(14);
+  });
+
+  it('caps activityCompletionHours at 14 entries', () => {
+    useAppStore.setState({
+      activityCompletionHours: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+    } as any);
+
+    jest.setSystemTime(new Date(2026, 3, 15, 7, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const hours = useAppStore.getState().activityCompletionHours;
+    expect(hours.length).toBe(14);
+    expect(hours[hours.length - 1]).toBe(7);
+    expect(hours[0]).toBe(9); // first entry (8) was dropped
+  });
+
+  it('does not duplicate hours when showing up twice on the same day', () => {
+    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const hoursAfterFirst = useAppStore.getState().activityCompletionHours.length;
+
+    jest.setSystemTime(new Date(2026, 3, 15, 14, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    // Second call on the same day should not add another entry
+    expect(useAppStore.getState().activityCompletionHours.length).toBe(hoursAfterFirst);
+  });
+});
+
+describe('weekly recap dismiss', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('dismissWeeklyRecap persists the week key', () => {
+    expect(useAppStore.getState().lastWeeklyRecapDismissedWeekKey).toBeNull();
+
+    useAppStore.getState().dismissWeeklyRecap('2026-W16');
+
+    expect(useAppStore.getState().lastWeeklyRecapDismissedWeekKey).toBe('2026-W16');
   });
 });
 

@@ -34,6 +34,7 @@ import { useToastStore } from './useToastStore';
 import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
 import { useCheckinNudgeStore } from './useCheckinNudgeStore';
 import { useMilestoneSharePromptStore } from './useMilestoneSharePromptStore';
+import { useEntitlementsStore } from './useEntitlementsStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 
@@ -681,9 +682,41 @@ interface AppState {
     lastFreeResetWeek: string | null;
     /** Streak Shields: Pro users can earn these, stackable up to 3 */
     shieldsAvailable: number;
+    /** ISO week key (YYYY-Www) when a shield was last earned via the weekly earning rule */
+    lastShieldEarnedWeekKey: string | null;
     /** Days "covered" by grace since last show-up (for UI messaging) */
     graceDaysUsed: number;
   };
+  /**
+   * Streak break + repair window state.
+   * When a streak breaks, the user gets a 48h window to return and restore it.
+   */
+  streakBreakState: {
+    brokenAtDateKey: string | null;
+    brokenStreakLength: number | null;
+    eligibleRepairUntilMs: number | null;
+    repairedAtMs: number | null;
+  };
+  /**
+   * Time-limited Pro feature preview earned via streak milestones.
+   * Grants temporary access to a single Pro Tools feature (e.g. focus_mode,
+   * saved_views) without full Pro. Checked by `canUseProTools()`.
+   */
+  proPreview: { feature: string; expiresAtMs: number } | null;
+  /**
+   * Rolling buffer of hour-of-day values when the user showed up (last 14).
+   * Used by adaptive notification timing to suggest better reminder times.
+   */
+  activityCompletionHours: number[];
+  /**
+   * Date key when we last suggested adjusting the daily show-up time.
+   * Prevents repeating the adaptive timing suggestion too often.
+   */
+  lastAdaptiveTimingSuggestionDateKey: string | null;
+  /**
+   * ISO week key of the last dismissed weekly recap card.
+   */
+  lastWeeklyRecapDismissedWeekKey: string | null;
   /**
    * Lightweight lifecycle counters used for post-activation nudges (e.g. widgets).
    * Best-effort only; do not use for billing/security.
@@ -705,10 +738,8 @@ interface AppState {
     completedSource: string | null;
   };
   /**
-   * Focus mode streak: counts days where the user completes at least one *full*
-   * Focus session (timer reaches zero). This is independent from "show up".
-   *
-   * Dates are stored as local calendar keys: YYYY-MM-DD (local time).
+   * Local calendar key (YYYY-MM-DD) of the last day a focus session was completed.
+   * Used by notification scheduling to know if focus was already done today.
    */
   lastCompletedFocusSessionDate: string | null;
   /**
@@ -716,8 +747,6 @@ interface AppState {
    * Used for auto-tuning daily focus reminder time-of-day.
    */
   lastCompletedFocusSessionAtIso: string | null;
-  currentFocusStreak: number;
-  bestFocusStreak: number;
   /**
    * Tracks completion of the three daily "hero actions":
    * 1) complete a task/step, 2) create something new, 3) complete focus session.
@@ -993,14 +1022,16 @@ interface AppState {
   recordShowUp: () => void;
   /**
    * Record that the user completed a full Focus session (timer reached 0).
-   * Updates the daily Focus streak (at most once per calendar day).
+   * Updates `lastCompletedFocusSessionDate/AtIso`, notification prefs, and daily hero actions.
    */
   recordCompletedFocusSession: (params?: { completedAtMs?: number }) => void;
   /**
    * Explicitly reset the show-up streak (used by future engagement flows).
    */
   resetShowUpStreak: () => void;
-  resetFocusStreak: () => void;
+  setProPreview: (preview: { feature: string; expiresAtMs: number }) => void;
+  clearProPreview: () => void;
+  dismissWeeklyRecap: (weekKey: string) => void;
   /**
    * Award streak shields to the user (Pro feature, max 3 shields at a time).
    * Shields protect the streak when you miss a day (consumed after free grace).
@@ -1322,7 +1353,7 @@ export const useAppStore = create<AppState>()(
         // System nudge: default ON once notifications are enabled (user can toggle off).
         allowGoalNudges: true,
         goalNudgeTime: null,
-        allowStreakAndReactivation: false,
+        allowStreakAndReactivation: true,
       },
       locationOfferPreferences: {
         enabled: false,
@@ -1348,8 +1379,19 @@ export const useAppStore = create<AppState>()(
         freeDaysRemaining: 1,
         lastFreeResetWeek: null,
         shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
         graceDaysUsed: 0,
       },
+      streakBreakState: {
+        brokenAtDateKey: null,
+        brokenStreakLength: null,
+        eligibleRepairUntilMs: null,
+        repairedAtMs: null,
+      },
+      proPreview: null,
+      activityCompletionHours: [],
+      lastAdaptiveTimingSuggestionDateKey: null,
+      lastWeeklyRecapDismissedWeekKey: null,
       appOpenCount: 0,
       firstOpenedAtMs: null,
       lastOpenedAtMs: null,
@@ -1365,8 +1407,6 @@ export const useAppStore = create<AppState>()(
       },
       lastCompletedFocusSessionDate: null,
       lastCompletedFocusSessionAtIso: null,
-      currentFocusStreak: 0,
-      bestFocusStreak: 0,
       dailyHeroActions: createDailyHeroActions(new Date()),
       lastHeroActionsCelebratedDateKey: null,
       activityViews: initialActivityViews,
@@ -2230,17 +2270,21 @@ export const useAppStore = create<AppState>()(
         })),
       recordShowUp: () =>
         set((state) => {
+          const REPAIR_WINDOW_MS = 48 * 60 * 60 * 1000;
           const nowDate = new Date();
-          // Use local calendar days (not UTC) so streaks match user intuition.
           const todayKey = localDateKey(nowDate);
           const prevKey = state.lastShowUpDate;
           const prevStreak = state.currentShowUpStreak ?? 0;
+          const breakState = state.streakBreakState ?? {
+            brokenAtDateKey: null,
+            brokenStreakLength: null,
+            eligibleRepairUntilMs: null,
+            repairedAtMs: null,
+          };
 
-          // Get ISO week key (YYYY-Www) for grace reset tracking
           const getIsoWeekKey = (date: Date): string => {
             const d = new Date(date.getTime());
             d.setHours(0, 0, 0, 0);
-            // Thursday in current week decides the year
             d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
             const week1 = new Date(d.getFullYear(), 0, 4);
             const weekNum =
@@ -2256,21 +2300,20 @@ export const useAppStore = create<AppState>()(
             freeDaysRemaining: 1,
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
+            lastShieldEarnedWeekKey: null,
             graceDaysUsed: 0,
           };
 
-          // Reset free grace days if new week started
           let nextGrace = { ...grace };
           if (grace.lastFreeResetWeek !== currentWeekKey) {
             nextGrace = {
               ...nextGrace,
-              freeDaysRemaining: 1, // Everyone gets 1 free grace day per week
+              freeDaysRemaining: 1,
               lastFreeResetWeek: currentWeekKey,
             };
           }
 
           if (prevKey === todayKey) {
-            // Already counted today.
             return {
               ...state,
               streakGrace: nextGrace,
@@ -2278,8 +2321,58 @@ export const useAppStore = create<AppState>()(
             };
           }
 
+          // Check if we're returning during an active repair window
+          if (
+            breakState.brokenAtDateKey &&
+            typeof breakState.eligibleRepairUntilMs === 'number' &&
+            nowDate.getTime() < breakState.eligibleRepairUntilMs &&
+            typeof breakState.brokenStreakLength === 'number' &&
+            breakState.brokenStreakLength > 0 &&
+            breakState.repairedAtMs === null
+          ) {
+            const repairedStreak = breakState.brokenStreakLength + 1;
+            const nextBreakState = {
+              brokenAtDateKey: null,
+              brokenStreakLength: null,
+              eligibleRepairUntilMs: null,
+              repairedAtMs: nowDate.getTime(),
+            };
+
+            const MAX_SHIELDS = 3;
+            if (
+              repairedStreak > 1 &&
+              repairedStreak % 7 === 0 &&
+              useEntitlementsStore.getState().isPro &&
+              nextGrace.shieldsAvailable < MAX_SHIELDS &&
+              nextGrace.lastShieldEarnedWeekKey !== currentWeekKey
+            ) {
+              nextGrace = {
+                ...nextGrace,
+                shieldsAvailable: Math.min(MAX_SHIELDS, nextGrace.shieldsAvailable + 1),
+                lastShieldEarnedWeekKey: currentWeekKey,
+              };
+            }
+
+            const prevHours = Array.isArray(state.activityCompletionHours) ? state.activityCompletionHours : [];
+            return {
+              ...state,
+              lastShowUpDate: todayKey,
+              currentShowUpStreak: repairedStreak,
+              streakGrace: { ...nextGrace, graceDaysUsed: 0 },
+              streakBreakState: nextBreakState,
+              lastActiveDate: nowDate.toISOString(),
+              activityCompletionHours: [...prevHours, nowDate.getHours()].slice(-14),
+            };
+          }
+
           let nextStreak = 1;
           let graceDaysUsed = 0;
+          let nextBreakState = {
+            brokenAtDateKey: null as string | null,
+            brokenStreakLength: null as number | null,
+            eligibleRepairUntilMs: null as number | null,
+            repairedAtMs: null as number | null,
+          };
 
           if (prevKey) {
             const prevDate = parseLocalDateKey(prevKey);
@@ -2297,24 +2390,20 @@ export const useAppStore = create<AppState>()(
               const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
 
               if (diffDays === 1) {
-                // Consecutive day - streak continues normally
                 nextStreak = prevStreak + 1;
                 nextGrace = { ...nextGrace, graceDaysUsed: 0 };
               } else if (diffDays > 1) {
-                // Missed days - try to use grace
-                const missedDays = diffDays - 1; // Days between last show-up and today
-                let graceAvailable = nextGrace.freeDaysRemaining + nextGrace.shieldsAvailable;
+                const missedDays = diffDays - 1;
+                const graceAvailable = nextGrace.freeDaysRemaining + nextGrace.shieldsAvailable;
 
                 if (graceAvailable >= missedDays) {
-                  // Can cover all missed days with grace!
                   graceDaysUsed = missedDays;
-                  nextStreak = prevStreak + 1; // Streak continues
+                  nextStreak = prevStreak + 1;
 
-                  // Consume grace: free days first, then shields
                   let remaining = missedDays;
                   const freeUsed = Math.min(remaining, nextGrace.freeDaysRemaining);
                   remaining -= freeUsed;
-                  const shieldsUsed = remaining; // Whatever's left comes from shields
+                  const shieldsUsed = remaining;
 
                   nextGrace = {
                     ...nextGrace,
@@ -2323,23 +2412,46 @@ export const useAppStore = create<AppState>()(
                     graceDaysUsed: graceDaysUsed,
                   };
                 } else {
-                  // Not enough grace - streak resets
+                  // Not enough grace — enter repair window instead of immediately resetting
                   nextStreak = 1;
-                  nextGrace = {
-                    ...nextGrace,
-                    graceDaysUsed: 0, // Reset since streak reset
-                  };
+                  nextGrace = { ...nextGrace, graceDaysUsed: 0 };
+                  if (prevStreak > 0) {
+                    nextBreakState = {
+                      brokenAtDateKey: todayKey,
+                      brokenStreakLength: prevStreak,
+                      eligibleRepairUntilMs: nowDate.getTime() + REPAIR_WINDOW_MS,
+                      repairedAtMs: null,
+                    };
+                  }
                 }
               }
             }
           }
 
+          const MAX_SHIELDS = 3;
+          if (
+            nextStreak > 1 &&
+            nextStreak % 7 === 0 &&
+            useEntitlementsStore.getState().isPro &&
+            nextGrace.shieldsAvailable < MAX_SHIELDS &&
+            nextGrace.lastShieldEarnedWeekKey !== currentWeekKey
+          ) {
+            nextGrace = {
+              ...nextGrace,
+              shieldsAvailable: Math.min(MAX_SHIELDS, nextGrace.shieldsAvailable + 1),
+              lastShieldEarnedWeekKey: currentWeekKey,
+            };
+          }
+
+          const prevHours = Array.isArray(state.activityCompletionHours) ? state.activityCompletionHours : [];
           return {
             ...state,
             lastShowUpDate: todayKey,
             currentShowUpStreak: nextStreak,
             streakGrace: nextGrace,
+            streakBreakState: nextBreakState,
             lastActiveDate: nowDate.toISOString(),
+            activityCompletionHours: [...prevHours, nowDate.getHours()].slice(-14),
           };
         }),
       recordCompletedFocusSession: (params) =>
@@ -2351,8 +2463,6 @@ export const useAppStore = create<AppState>()(
               : new Date();
 
           const todayKey = localDateKey(nowDate);
-          const prevKey = state.lastCompletedFocusSessionDate;
-          const prevStreak = state.currentFocusStreak ?? 0;
 
           const isDailyFocusAuto =
             state.notificationPreferences?.allowDailyFocus === true &&
@@ -2368,52 +2478,10 @@ export const useAppStore = create<AppState>()(
               }
             : state.notificationPreferences;
 
-          if (prevKey === todayKey) {
-            // Already counted today.
-            return {
-              ...state,
-              notificationPreferences: nextNotificationPreferences,
-              lastCompletedFocusSessionAtIso: nowDate.toISOString(),
-              lastActiveDate: state.lastActiveDate ?? nowDate.toISOString(),
-              dailyHeroActions: markDailyHeroAction(
-                state.dailyHeroActions,
-                'complete_focus_session',
-                nowDate,
-              ),
-            };
-          }
-
-          let nextStreak = 1;
-          if (prevKey) {
-            const prevDate = parseLocalDateKey(prevKey);
-            if (prevDate) {
-              const startOfPrev = new Date(
-                prevDate.getFullYear(),
-                prevDate.getMonth(),
-                prevDate.getDate(),
-              );
-              const startOfToday = new Date(
-                nowDate.getFullYear(),
-                nowDate.getMonth(),
-                nowDate.getDate(),
-              );
-              const diffMs = startOfToday.getTime() - startOfPrev.getTime();
-              const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
-              if (diffDays === 1) {
-                nextStreak = prevStreak + 1;
-              }
-            }
-          }
-
-          const prevBest = state.bestFocusStreak ?? 0;
-          const bestFocusStreak = Math.max(prevBest, nextStreak);
-
           return {
             ...state,
             lastCompletedFocusSessionDate: todayKey,
             lastCompletedFocusSessionAtIso: nowDate.toISOString(),
-            currentFocusStreak: nextStreak,
-            bestFocusStreak,
             notificationPreferences: nextNotificationPreferences,
             lastActiveDate: nowDate.toISOString(),
             dailyHeroActions: markDailyHeroAction(
@@ -2432,21 +2500,23 @@ export const useAppStore = create<AppState>()(
             ...state.streakGrace,
             graceDaysUsed: 0,
           },
+          streakBreakState: {
+            brokenAtDateKey: null,
+            brokenStreakLength: null,
+            eligibleRepairUntilMs: null,
+            repairedAtMs: null,
+          },
         })),
-      resetFocusStreak: () =>
-        set((state) => ({
-          ...state,
-          lastCompletedFocusSessionDate: null,
-          lastCompletedFocusSessionAtIso: null,
-          currentFocusStreak: 0,
-          bestFocusStreak: 0,
-        })),
+      setProPreview: (preview) => set({ proPreview: preview }),
+      clearProPreview: () => set({ proPreview: null }),
+      dismissWeeklyRecap: (weekKey) => set({ lastWeeklyRecapDismissedWeekKey: weekKey }),
       addStreakShields: (count) =>
         set((state) => {
           const grace = state.streakGrace ?? {
             freeDaysRemaining: 1,
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
+            lastShieldEarnedWeekKey: null,
             graceDaysUsed: 0,
           };
           const MAX_SHIELDS = 3;
@@ -2541,12 +2611,17 @@ export const useAppStore = create<AppState>()(
             freeDaysRemaining: 1,
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
+            lastShieldEarnedWeekKey: null,
             graceDaysUsed: 0,
+          },
+          streakBreakState: {
+            brokenAtDateKey: null,
+            brokenStreakLength: null,
+            eligibleRepairUntilMs: null,
+            repairedAtMs: null,
           },
           lastCompletedFocusSessionDate: null,
           lastCompletedFocusSessionAtIso: null,
-          currentFocusStreak: 0,
-          bestFocusStreak: 0,
           dailyHeroActions: createDailyHeroActions(new Date()),
           lastHeroActionsCelebratedDateKey: null,
           locationOfferPreferences: {

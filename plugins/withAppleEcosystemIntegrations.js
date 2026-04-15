@@ -1039,7 +1039,6 @@ struct GlanceableStateV1: Codable {
     let completedToday: Int
     let completedThisWeek: Int
     let showUpStreakDays: Int?
-    let focusStreakDays: Int?
   }
 
   struct NextUp: Codable {

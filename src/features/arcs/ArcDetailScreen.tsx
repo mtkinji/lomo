@@ -32,7 +32,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useCanUseProTools } from '../../store/proToolsAccess';
 import { useToastStore } from '../../store/useToastStore';
 import { initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
@@ -161,7 +161,7 @@ export function ArcDetailScreen() {
     }
   }, [arc]);
 
-  const isPro = useEntitlementsStore((state) => state.isPro);
+  const canUseUnsplash = useCanUseProTools('unsplash_banners');
   const arcGoals = useMemo(() => goals.filter((goal) => goal.arcId === arcId), [goals, arcId]);
   const completedArcGoals = useMemo(
     () => arcGoals.filter((goal) => goal.status === 'completed'),
@@ -1307,7 +1307,7 @@ export function ArcDetailScreen() {
         arcName={arc.name}
         arcNarrative={arc.narrative}
         arcGoalTitles={arcGoals.map((goal) => goal.title)}
-        canUseUnsplash={isPro}
+        canUseUnsplash={canUseUnsplash}
         onRequestUpgrade={() =>
           openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' })
         }

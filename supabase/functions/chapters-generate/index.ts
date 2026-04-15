@@ -15,11 +15,10 @@
 //
 // Notes:
 // - AI generation is performed directly from this function using OPENAI_API_KEY.
-// - Email delivery is wired in later phases (see docs/chapters-build-plan.md).
-
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { DateTime } from 'npm:luxon@3.5.0';
 import { getSupabaseAdmin, json, requireUserId } from '../_shared/calendarUtils.ts';
+import { buildChapterDigestEmail } from '../_shared/emailTemplates.ts';
 
 type Cadence = 'weekly' | 'monthly' | 'yearly' | 'manual';
 type TemplateKind = 'reflection' | 'report';
@@ -1349,7 +1348,7 @@ async function upsertChapter(
   }
 ) {
   const nowIso = new Date().toISOString();
-  const { error } = await admin.from('kwilt_chapters').upsert(
+  const { data, error } = await admin.from('kwilt_chapters').upsert(
     {
       user_id: params.template.user_id,
       template_id: params.template.id,
@@ -1364,8 +1363,9 @@ async function upsertChapter(
       updated_at: nowIso,
     },
     { onConflict: 'user_id,template_id,period_key' }
-  );
-  return { ok: !error, error: error ?? null };
+  ).select('id').maybeSingle();
+  const chapterId = typeof (data as any)?.id === 'string' ? String((data as any).id) : null;
+  return { ok: !error, error: error ?? null, chapterId };
 }
 
 type ManualBody = {
@@ -1694,6 +1694,57 @@ serve(async (req) => {
       continue;
     }
 
+    // Email delivery: send a digest email if the template opts in and the chapter succeeded.
+    let emailed = false;
+    if (finalOk && t.email_enabled && t.email_recipient) {
+      try {
+        const { data: emailPrefs } = await admin
+          .from('kwilt_email_preferences')
+          .select('chapter_digest')
+          .eq('user_id', t.user_id)
+          .maybeSingle();
+        const digestOptedOut = emailPrefs && (emailPrefs as any).chapter_digest === false;
+        if (!digestOptedOut) {
+          const chapterTitle = typeof outputJson?.title === 'string' ? outputJson.title : (t.name ?? 'Your chapter');
+          const narrative = typeof outputJson?.narrative === 'string' ? outputJson.narrative : '';
+          const chapterId = writeRes.chapterId ?? '';
+          const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
+          const fromEmail = (Deno.env.get('KWILT_DRIP_EMAIL_FROM') ?? 'hello@mail.kwilt.app').trim();
+          if (resendKey && chapterId) {
+            const emailContent = buildChapterDigestEmail({
+              chapterTitle,
+              periodLabel: period.key,
+              narrative,
+              chapterId,
+            });
+            const resendRes = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${resendKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                from: fromEmail,
+                to: t.email_recipient,
+                subject: emailContent.subject,
+                html: emailContent.html,
+                text: emailContent.text,
+              }),
+            }).catch(() => null);
+            if (resendRes?.ok) {
+              emailed = true;
+              await admin
+                .from('kwilt_chapters')
+                .update({ emailed_at: new Date().toISOString() })
+                .eq('user_id', t.user_id)
+                .eq('template_id', t.id)
+                .eq('period_key', period.key);
+            }
+          }
+        }
+      } catch { /* best-effort email delivery */ }
+    }
+
     results.push({
       templateId: t.id,
       userId: t.user_id,
@@ -1701,6 +1752,7 @@ serve(async (req) => {
       ok: true,
       action: finalOk ? 'generated' : 'failed',
       ...(finalOk ? null : { error: finalError ?? 'AI generation failed' }),
+      ...(emailed ? { emailed: true } : null),
     });
   }
 

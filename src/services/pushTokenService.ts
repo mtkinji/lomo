@@ -10,9 +10,12 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { getSupabaseClient } from './backend/supabaseClient';
 import { getAccessToken } from './backend/auth';
+import { useAppStore } from '../store/useAppStore';
 
 let registrationInFlight = false;
 let lastRegisteredToken: string | null = null;
+let pushTokenSyncStarted = false;
+let stopAuthSub: (() => void) | null = null;
 
 /**
  * Get the Expo push token for this device.
@@ -123,6 +126,34 @@ export async function unregisterPushToken(): Promise<void> {
   } catch (e) {
     console.warn('[PushToken] Failed to unregister token:', e);
   }
+}
+
+/**
+ * Subscribe to auth identity changes and automatically register/unregister
+ * the push token. Call once at app startup (idempotent).
+ */
+export function startPushTokenSync(): void {
+  if (pushTokenSyncStarted) return;
+  pushTokenSyncStarted = true;
+
+  stopAuthSub = useAppStore.subscribe(
+    (s) => s.authIdentity,
+    (identity) => {
+      const userId = identity?.userId?.trim() ?? '';
+      if (userId) {
+        void registerPushToken().catch(() => undefined);
+      } else {
+        void unregisterPushToken().catch(() => undefined);
+      }
+    },
+    { fireImmediately: true } as any,
+  );
+}
+
+export function stopPushTokenSync(): void {
+  stopAuthSub?.();
+  stopAuthSub = null;
+  pushTokenSyncStarted = false;
 }
 
 

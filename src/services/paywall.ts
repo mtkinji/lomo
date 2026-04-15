@@ -12,7 +12,8 @@ export type PaywallReason =
   | 'pro_only_ai_scheduling'
   | 'pro_only_focus_mode'
   | 'pro_only_attachments'
-  | 'pro_only_views_filters';
+  | 'pro_only_views_filters'
+  | 'pro_only_streak_shields';
 
 export type PaywallSource =
   | 'goals_create_manual'
@@ -33,6 +34,8 @@ export type PaywallSource =
   | 'arcs_create'
   | 'onboarding_completion'
   | 'settings'
+  | 'streak_break'
+  | 'pro_preview_expired'
   | 'unknown';
 
 /**

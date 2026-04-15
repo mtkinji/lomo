@@ -29,9 +29,11 @@ export function WidgetNudgeCard({
             <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
           </HStack>
           <Text style={styles.widgetNudgeBody}>
-            {widgetCopyVariant === 'start_focus_faster'
-              ? 'Start Focus with fewer taps.'
-              : 'See Today at a glance and jump in faster.'}
+            {widgetCopyVariant === 'lock_screen_streak'
+              ? 'Keep your streak visible — add the Kwilt widget to your Lock Screen.'
+              : widgetCopyVariant === 'start_focus_faster'
+                ? 'Start Focus with fewer taps.'
+                : 'See Today at a glance and jump in faster.'}
           </Text>
         </VStack>
         <Pressable

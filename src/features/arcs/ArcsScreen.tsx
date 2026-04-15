@@ -15,6 +15,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
+import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useToastStore } from '../../store/useToastStore';
 import { Card } from '../../ui/Card';
 import { Button, IconButton } from '../../ui/Button';
@@ -73,6 +74,13 @@ export function ArcsScreen() {
 
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
+  const streakBreakState = useAppStore((state) => state.streakBreakState);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+  const repairWindowActive = useRepairWindowActive(streakBreakState);
 
   const visibleArcs = useMemo(() => arcs.filter((arc) => arc.status !== 'archived'), [arcs]);
   const archivedArcs = useMemo(() => arcs.filter((arc) => arc.status === 'archived'), [arcs]);
@@ -113,7 +121,11 @@ export function ArcsScreen() {
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
-        rightElement={
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
+        shieldCount={shieldCount}
+        repairWindowActive={repairWindowActive}
+        moreMenu={
           <DropdownMenu>
             <DropdownMenuTrigger accessibilityLabel="Arc list options">
               <View pointerEvents="none">
@@ -126,7 +138,7 @@ export function ArcsScreen() {
                 </IconButton>
               </View>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 220 }}>
+            <DropdownMenuContent side="bottom" sideOffset={6} align="start" style={{ minWidth: 220 }}>
               <Pressable
                 accessibilityRole="switch"
                 accessibilityLabel="Show archived arcs"

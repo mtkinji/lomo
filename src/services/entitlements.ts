@@ -51,6 +51,16 @@ export type ProSkuPricing = {
   sku: string;
   priceString?: string;
   currencyCode?: string;
+  introPrice?: {
+    priceString: string;
+    /** e.g. 'FREE_TRIAL', 'PAY_UP_FRONT', 'PAY_AS_YOU_GO' */
+    type?: string;
+    /** Number of periods (e.g. 1 for a 1-week trial) */
+    cycles?: number;
+    /** e.g. 'WEEK', 'MONTH' */
+    periodUnit?: string;
+    periodNumberOfUnits?: number;
+  };
 };
 
 type RevenueCatCustomerInfo = {
@@ -554,11 +564,37 @@ export async function getProSkuPricing(): Promise<Record<string, ProSkuPricing>>
       if (typeof sku !== 'string') continue;
       const priceString = pkg?.product?.priceString;
       const currencyCode = pkg?.product?.currencyCode;
-      pricing[sku] = {
+      const entry: ProSkuPricing = {
         sku,
         ...(typeof priceString === 'string' ? { priceString } : {}),
         ...(typeof currencyCode === 'string' ? { currencyCode } : {}),
       };
+
+      // Extract introductory offer (free trial / intro pricing)
+      const intro =
+        pkg?.product?.introPrice ??
+        pkg?.product?.introductoryPrice ??
+        pkg?.product?.introductoryDiscount;
+      if (intro && typeof intro === 'object') {
+        const introPriceString =
+          typeof intro.priceString === 'string' ? intro.priceString : undefined;
+        if (introPriceString) {
+          entry.introPrice = {
+            priceString: introPriceString,
+            type: typeof intro.type === 'string' ? intro.type : undefined,
+            cycles: typeof intro.cycles === 'number' ? intro.cycles : undefined,
+            periodUnit: typeof intro.periodUnit === 'string' ? intro.periodUnit : undefined,
+            periodNumberOfUnits:
+              typeof intro.periodNumberOfUnits === 'number'
+                ? intro.periodNumberOfUnits
+                : typeof intro.numberOfUnits === 'number'
+                  ? intro.numberOfUnits
+                  : undefined,
+          };
+        }
+      }
+
+      pricing[sku] = entry;
     }
     return pricing;
   } catch {

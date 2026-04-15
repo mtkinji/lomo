@@ -1,15 +1,22 @@
 import { create } from 'zustand';
 import type { CelebrationKind } from '../services/gifs';
 import { useAppStore } from './useAppStore';
+import { useEntitlementsStore } from './useEntitlementsStore';
 import { useFirstTimeUxStore } from './useFirstTimeUxStore';
 import { useToastStore } from './useToastStore';
 import {
   recordShowUpStreakMilestone,
-  recordFocusStreakMilestone,
   isShowUpStreakMilestone,
-  isFocusStreakMilestone,
 } from '../services/milestones';
+import { openPaywallInterstitial } from '../services/paywall';
 import { localDateKey } from './streakProtection';
+import { consumeOpenedFromWidget } from '../services/analytics/widgetAttribution';
+import { track } from '../services/analytics/analytics';
+import { posthogClient } from '../services/analytics/posthogClient';
+import { AnalyticsEvent } from '../services/analytics/events';
+
+const STREAK_MILESTONE_BONUS_CREDITS = 5;
+const STREAK_MILESTONE_REWARDS = new Set([7, 14, 30, 60, 100]);
 
 export type CelebrationMoment = {
   /** Unique key for this celebration instance to prevent duplicates */
@@ -233,6 +240,45 @@ if (typeof window !== 'undefined') {
         useCelebrationStore.getState().processDeferred();
       }, 500);
     }
+  });
+
+  // Watch Pro upgrade: auto-repair streak if the user converts during a repair window.
+  let prevIsProForRepair = useEntitlementsStore.getState().isPro;
+  useEntitlementsStore.subscribe((state) => {
+    const nextIsPro = state.isPro;
+    const wasProBefore = prevIsProForRepair;
+    prevIsProForRepair = nextIsPro;
+    if (!nextIsPro || wasProBefore) return;
+
+    const { streakBreakState, lastShowUpDate } = useAppStore.getState();
+    if (
+      !streakBreakState?.brokenAtDateKey ||
+      streakBreakState.repairedAtMs != null ||
+      typeof streakBreakState.eligibleRepairUntilMs !== 'number' ||
+      typeof streakBreakState.brokenStreakLength !== 'number' ||
+      streakBreakState.brokenStreakLength <= 0
+    ) {
+      return;
+    }
+    if (Date.now() >= streakBreakState.eligibleRepairUntilMs) return;
+
+    const repairedStreak = streakBreakState.brokenStreakLength + 1;
+    const nowMs = Date.now();
+    const todayKey = localDateKey(new Date());
+    useAppStore.setState({
+      currentShowUpStreak: repairedStreak,
+      lastShowUpDate: lastShowUpDate ?? todayKey,
+      streakBreakState: {
+        brokenAtDateKey: null,
+        brokenStreakLength: null,
+        eligibleRepairUntilMs: null,
+        repairedAtMs: nowMs,
+      },
+    });
+
+    setTimeout(() => {
+      celebrateStreakRepaired(repairedStreak);
+    }, 800);
   });
 
   // Watch daily hero actions and celebrate once all 3 are complete for the day.
@@ -603,6 +649,46 @@ export function celebrateStreakSaved(
 }
 
 /**
+ * Celebrate when a streak breaks but the repair window is active.
+ */
+export function celebrateStreakRepairOpportunity(brokenStreakLength: number, onDismiss?: () => void) {
+  const store = useCelebrationStore.getState();
+  const celebrationId = `streak-repair-opportunity-${new Date().toISOString().slice(0, 10)}`;
+  if (store.hasBeenShown(celebrationId)) return;
+
+  store.celebrate({
+    id: celebrationId,
+    kind: 'streakRepairOpportunity',
+    headline: 'Streak Broken — But Not Gone!',
+    subheadline: `Your ${brokenStreakLength}-day streak broke, but you have 48 hours to repair it. Show up today to get it back!`,
+    ctaLabel: 'Repair It',
+    autoDismissMs: 0,
+    priority: 'high',
+    onDismiss,
+  });
+}
+
+/**
+ * Celebrate when the user successfully repairs their streak within the window.
+ */
+export function celebrateStreakRepaired(repairedStreak: number, onDismiss?: () => void) {
+  const store = useCelebrationStore.getState();
+  const celebrationId = `streak-repaired-${new Date().toISOString().slice(0, 10)}`;
+  if (store.hasBeenShown(celebrationId)) return;
+
+  store.celebrate({
+    id: celebrationId,
+    kind: 'streakRepaired',
+    headline: `Streak Repaired! Back to ${repairedStreak} Days!`,
+    subheadline: 'You came back in time. Your streak lives on — keep the momentum going!',
+    ctaLabel: 'Keep Going',
+    autoDismissMs: 0,
+    priority: 'high',
+    onDismiss,
+  });
+}
+
+/**
  * Record a show-up and trigger daily streak celebration if hitting a milestone.
  * Use this wrapper instead of calling recordShowUp directly when you want
  * streak celebrations.
@@ -613,6 +699,12 @@ export function recordShowUpWithCelebration() {
   const appStore = useAppStore.getState();
   const prevStreak = appStore.currentShowUpStreak ?? 0;
   const prevDate = appStore.lastShowUpDate;
+  const prevBreakState = appStore.streakBreakState ?? {
+    brokenAtDateKey: null,
+    brokenStreakLength: null,
+    eligibleRepairUntilMs: null,
+    repairedAtMs: null,
+  };
   const prevGrace = appStore.streakGrace ?? {
     freeDaysRemaining: 1,
     lastFreeResetWeek: null,
@@ -620,20 +712,45 @@ export function recordShowUpWithCelebration() {
     graceDaysUsed: 0,
   };
 
-  // Record the show-up
   appStore.recordShowUp();
 
-  // Get updated state
   const nextState = useAppStore.getState();
   const nextStreak = nextState.currentShowUpStreak ?? 0;
   const nextDate = nextState.lastShowUpDate;
   const nextGrace = nextState.streakGrace ?? prevGrace;
+  const nextBreakState = nextState.streakBreakState ?? prevBreakState;
 
-  // Only celebrate if the date changed (i.e., this is a new day)
   if (prevDate !== nextDate) {
-    // Check if grace was used to save the streak
-    if (nextGrace.graceDaysUsed > 0 && nextStreak > 1) {
-      // Grace was used! Show the "streak saved" celebration first
+    // Repair success: streak was restored from a break state
+    if (
+      prevBreakState.brokenAtDateKey &&
+      nextBreakState.repairedAtMs != null &&
+      nextStreak > 1
+    ) {
+      setTimeout(() => {
+        celebrateStreakRepaired(nextStreak);
+      }, 500);
+    } else if (
+      nextBreakState.brokenAtDateKey &&
+      nextBreakState.brokenStreakLength != null &&
+      nextBreakState.brokenStreakLength > 3 &&
+      nextStreak === 1
+    ) {
+      // Streak just broke — repair opportunity (only for streaks > 3)
+      setTimeout(() => {
+        celebrateStreakRepairOpportunity(nextBreakState.brokenStreakLength!);
+      }, 500);
+
+      // Pro upsell: for free users, shields would have prevented this break
+      if (!useEntitlementsStore.getState().isPro && prevGrace.shieldsAvailable === 0) {
+        setTimeout(() => {
+          openPaywallInterstitial({
+            reason: 'pro_only_streak_shields',
+            source: 'streak_break',
+          });
+        }, 1500);
+      }
+    } else if (nextGrace.graceDaysUsed > 0 && nextStreak > 1) {
       setTimeout(() => {
         celebrateStreakSaved(
           nextStreak,
@@ -643,39 +760,64 @@ export function recordShowUpWithCelebration() {
         );
       }, 500);
     } else if (nextStreak > prevStreak) {
-      // Normal streak increment - celebrate the milestone
       setTimeout(() => {
         celebrateDailyStreak(nextStreak);
       }, 500);
     }
 
-    // Record milestone to server if this is a significant threshold
-    // This is async/fire-and-forget - failures don't block the celebration
     if (isShowUpStreakMilestone(nextStreak)) {
       void recordShowUpStreakMilestone(nextStreak);
+    }
+
+    // Streak milestone rewards: award bonus AI credits at key thresholds.
+    if (STREAK_MILESTONE_REWARDS.has(nextStreak)) {
+      useAppStore.getState().addBonusGenerativeCreditsThisMonth(STREAK_MILESTONE_BONUS_CREDITS);
+      track(posthogClient, AnalyticsEvent.MilestoneRecorded, {
+        milestone_type: `streak_${nextStreak}`,
+        bonus_credits: STREAK_MILESTONE_BONUS_CREDITS,
+        streak_length: nextStreak,
+      });
+      useToastStore.getState().showToast({
+        message: `Streak milestone! +${STREAK_MILESTONE_BONUS_CREDITS} bonus AI credits`,
+        variant: 'credits',
+      });
+    }
+
+    // Time-limited Pro previews at streak milestones (free users only).
+    const ent = useEntitlementsStore.getState();
+    if (!ent.isPro && !ent.isProToolsTrial) {
+      if (nextStreak === 7) {
+        useAppStore.getState().setProPreview({
+          feature: 'focus_mode',
+          expiresAtMs: Date.now() + 24 * 60 * 60 * 1000,
+        });
+        setTimeout(() => {
+          useToastStore.getState().showToast({
+            message: 'Streak reward! Focus Mode unlocked for 24 hours',
+            variant: 'credits',
+          });
+        }, 2000);
+      } else if (nextStreak === 14) {
+        useAppStore.getState().setProPreview({
+          feature: 'saved_views',
+          expiresAtMs: Date.now() + 72 * 60 * 60 * 1000,
+        });
+        setTimeout(() => {
+          useToastStore.getState().showToast({
+            message: 'Streak reward! Saved Views unlocked for 3 days',
+            variant: 'credits',
+          });
+        }, 2000);
+      }
+    }
+
+    // Widget-to-streak attribution: if this session was opened from a widget,
+    // the show-up closes the Widget → Show-up conversion loop.
+    if (consumeOpenedFromWidget()) {
+      track(posthogClient, AnalyticsEvent.WidgetAssistedShowUp, {
+        streak_length: nextStreak,
+      });
     }
   }
 }
 
-/**
- * Record a completed focus session and track milestones to the server.
- *
- * Call this instead of the raw store action when completing a focus session
- * to also record significant milestones to the server for future friend celebrations.
- */
-export function recordCompletedFocusSessionWithMilestone(params?: { completedAtMs?: number }) {
-  const appStore = useAppStore.getState();
-  const prevStreak = appStore.currentFocusStreak ?? 0;
-
-  // Record the focus session
-  appStore.recordCompletedFocusSession(params);
-
-  // Get updated state
-  const nextState = useAppStore.getState();
-  const nextStreak = nextState.currentFocusStreak ?? 0;
-
-  // Only record milestone if streak actually increased
-  if (nextStreak > prevStreak && isFocusStreakMilestone(nextStreak)) {
-    void recordFocusStreakMilestone(nextStreak);
-  }
-}

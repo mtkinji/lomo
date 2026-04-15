@@ -32,6 +32,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useCanUseProTools } from '../../store/proToolsAccess';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -121,7 +122,6 @@ import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { openPaywallInterstitial } from '../../services/paywall';
 import {
   recordShowUpWithCelebration,
-  recordCompletedFocusSessionWithMilestone,
 } from '../../store/useCelebrationStore';
 import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import {
@@ -188,7 +188,9 @@ export function ActivityDetailScreen() {
   // Focus duration limits:
   // MVP gating: free users are capped at 10 minutes. Pro removes the cap.
   const isPro = useEntitlementsStore((state) => state.isPro);
-  const focusMaxMinutes = isPro ? 180 : 10;
+  const canUseFocus = useCanUseProTools('focus_mode');
+  const canUseUnsplash = useCanUseProTools('unsplash_banners');
+  const focusMaxMinutes = canUseFocus ? 180 : 10;
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
   const { capture } = useAnalytics();
@@ -2171,7 +2173,7 @@ export function ActivityDetailScreen() {
     // Session completed
     void HapticsService.trigger('outcome.success');
     recordShowUpWithCelebration();
-    recordCompletedFocusSessionWithMilestone({ completedAtMs: Date.now() });
+    useAppStore.getState().recordCompletedFocusSession({ completedAtMs: Date.now() });
     endFocusSession().catch(() => undefined);
 
     // Check-in nudge for activities under shared goals
@@ -5373,7 +5375,7 @@ export function ActivityDetailScreen() {
         objectLabel="Activity"
         arcName={activity?.title ?? 'Activity'}
         arcNarrative={activity?.notes}
-        canUseUnsplash={isPro}
+        canUseUnsplash={canUseUnsplash}
         onRequestUpgrade={() => {
           setThumbnailSheetVisible(false);
           setTimeout(

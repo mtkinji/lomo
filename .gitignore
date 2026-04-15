@@ -50,6 +50,9 @@ JWT Key Generator
 # typescript
 *.tsbuildinfo
 
+# Cursor local config (contains API keys, plugin state)
+.cursor/
+
 # generated native folders
 /ios
 /android
