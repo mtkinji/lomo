@@ -8,9 +8,9 @@ import { Text } from '../../ui/primitives';
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
 
-// Default options for days (0-7) and hours (0-23)
 const DEFAULT_DAY_OPTIONS = Array.from({ length: 8 }, (_, i) => i); // 0..7
 const DEFAULT_HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i); // 0..23
+const DEFAULT_MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => i * 5); // 0, 5, 10, ... 55
 
 export function formatDurationMinutes(minutes: number) {
   const total = Math.max(0, Math.round(minutes));
@@ -106,33 +106,39 @@ function DaysHoursWheelPicker({
   showHelperText,
   iosUseEdgeFades,
 }: Omit<DurationPickerProps, 'optionsMinutes'>) {
-  // Convert total minutes to days and hours
   const totalMinutes = Math.max(0, Math.round(valueMinutes));
   const selectedDays = Math.floor(totalMinutes / MINUTES_PER_DAY);
   const selectedHours = Math.floor((totalMinutes % MINUTES_PER_DAY) / MINUTES_PER_HOUR);
+  const selectedMinutes = totalMinutes % MINUTES_PER_HOUR;
 
-  // Clamp to valid ranges
   const clampedDays = Math.min(Math.max(selectedDays, 0), 7);
   const clampedHours = Math.min(Math.max(selectedHours, 0), 23);
+  const clampedMinutes = Math.round(selectedMinutes / 5) * 5;
 
   const handleDaysChange = React.useCallback(
     (days: number) => {
-      const newTotal = days * MINUTES_PER_DAY + clampedHours * MINUTES_PER_HOUR;
-      onChangeMinutes(newTotal);
+      onChangeMinutes(days * MINUTES_PER_DAY + clampedHours * MINUTES_PER_HOUR + clampedMinutes);
     },
-    [clampedHours, onChangeMinutes],
+    [clampedHours, clampedMinutes, onChangeMinutes],
   );
 
   const handleHoursChange = React.useCallback(
     (hours: number) => {
-      const newTotal = clampedDays * MINUTES_PER_DAY + hours * MINUTES_PER_HOUR;
-      onChangeMinutes(newTotal);
+      onChangeMinutes(clampedDays * MINUTES_PER_DAY + hours * MINUTES_PER_HOUR + clampedMinutes);
     },
-    [clampedDays, onChangeMinutes],
+    [clampedDays, clampedMinutes, onChangeMinutes],
+  );
+
+  const handleMinutesChange = React.useCallback(
+    (mins: number) => {
+      onChangeMinutes(clampedDays * MINUTES_PER_DAY + clampedHours * MINUTES_PER_HOUR + mins);
+    },
+    [clampedDays, clampedHours, onChangeMinutes],
   );
 
   const formatDayLabel = (d: number) => (d === 1 ? '1 day' : `${d} days`);
   const formatHourLabel = (h: number) => (h === 1 ? '1 hr' : `${h} hrs`);
+  const formatMinuteLabel = (m: number) => `${m} min`;
 
   if (Platform.OS === 'ios') {
     const gradientHeight = Math.max(40, Math.min(56, Math.round(iosWheelHeight! * 0.27)));
@@ -161,6 +167,19 @@ function DaysHoursWheelPicker({
             >
               {DEFAULT_HOUR_OPTIONS.map((h) => (
                 <Picker.Item key={`hr-${h}`} label={formatHourLabel(h)} value={h} />
+              ))}
+            </Picker>
+          </View>
+
+          {/* Minutes wheel (5-min increments) */}
+          <View style={styles.wheelColumn}>
+            <Picker
+              selectedValue={clampedMinutes}
+              onValueChange={(value) => handleMinutesChange(Number(value))}
+              itemStyle={styles.iosWheelItem}
+            >
+              {DEFAULT_MINUTE_OPTIONS.map((m) => (
+                <Picker.Item key={`min-${m}`} label={formatMinuteLabel(m)} value={m} />
               ))}
             </Picker>
           </View>
@@ -216,6 +235,17 @@ function DaysHoursWheelPicker({
           >
             {DEFAULT_HOUR_OPTIONS.map((h) => (
               <Picker.Item key={`hr-${h}`} label={formatHourLabel(h)} value={h} />
+            ))}
+          </Picker>
+        </View>
+        <View style={[styles.androidPickerFrame, styles.androidPickerColumn]}>
+          <Picker
+            selectedValue={clampedMinutes}
+            onValueChange={(value) => handleMinutesChange(Number(value))}
+            mode="dialog"
+          >
+            {DEFAULT_MINUTE_OPTIONS.map((m) => (
+              <Picker.Item key={`min-${m}`} label={formatMinuteLabel(m)} value={m} />
             ))}
           </Picker>
         </View>

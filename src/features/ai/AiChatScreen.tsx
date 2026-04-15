@@ -3844,12 +3844,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                 <Button
                                   variant="primary"
                                   size="md"
-                                  onPress={() => {
-                                    setActivitySuggestions(null);
-                                    setEditingActivitySuggestionId(null);
-                                    setActivitySuggestionEdits({});
-                                    setShowActivitySummary(true);
-                                  }}
+                                  onPress={() => onDismiss?.()}
                                 >
                                   <ButtonLabel size="md" tone="inverse">
                                     Done

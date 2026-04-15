@@ -1762,48 +1762,18 @@ export function ActivityDetailScreen() {
     return handle;
   };
 
-  if (!activity) {
-    if (!domainHydrated) {
-      return (
-        <AppShell>
-          <PageHeader title="Activity" onPressBack={handleBackToActivities} />
-          <View style={styles.emptyState}>
-            <ActivityIndicator color={colors.textPrimary} />
-            <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading activity…</Text>
-          </View>
-        </AppShell>
-      );
-    }
-    return (
-      <AppShell>
-        <PageHeader title="Activity" onPressBack={handleBackToActivities} />
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>Activity not found</Text>
-          <Text style={styles.emptyBody}>
-            This activity may have been deleted or moved.
-          </Text>
-        </View>
-      </AppShell>
-    );
-  }
-
-  const isCompleted = activity.status === 'done';
-  // Editing/keyboard state: used to suppress certain UI (coachmarks, completion checkmark)
-  // that can be confusing when the keyboard is present.
+  // Coachmark guide state — must be computed before any early returns so hook
+  // call order stays stable across renders where `activity` is temporarily null
+  // (e.g. store rehydration after backgrounding).
   const editingUiActive = isKeyboardVisible || isEditingTitle || isAddingStepInline;
-  const showTagsAutofill =
-    (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0;
-
-  // Only show coachmarks for activities belonging to the onboarding goal
   const isOnboardingActivity = Boolean(
-    lastOnboardingGoalId && activity.goalId === lastOnboardingGoalId
+    activity && lastOnboardingGoalId && activity.goalId === lastOnboardingGoalId
   );
 
   const detailGuideStepCount = 4;
   const detailGuideStepReady = (() => {
     if (detailGuideStep === 0) return isTitleStepsBundleReady;
     if (detailGuideStep === 1) return isScheduleCardReady;
-    // Dock steps: require the dock to be mounted (it is hidden while keyboard/editing UI is active).
     return isActionDockReady;
   })();
 
@@ -1825,7 +1795,6 @@ export function ActivityDetailScreen() {
     if (detailGuideStep === 1) {
       return scheduleCardOffset != null ? Math.max(0, scheduleCardOffset - 120) : null;
     }
-    // Dock targets are fixed to the bottom of the viewport; no scroll needed.
     return null;
   }, [detailGuideStep, scheduleCardOffset]);
 
@@ -1835,6 +1804,10 @@ export function ActivityDetailScreen() {
     targetScrollY: detailGuideTargetScrollY,
     scrollTo: (args) => scrollRef.current?.scrollTo(args),
   });
+
+  const isCompleted = activity?.status === 'done';
+  const showTagsAutofill =
+    (activity?.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0;
 
   const dismissDetailGuide = () => {
     setHasDismissedActivityDetailGuide(true);
@@ -1894,6 +1867,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleDeleteActivity = () => {
+    if (!activity) return;
     Alert.alert(
       'Delete activity?',
       'This will remove the activity from your list.',
@@ -1912,6 +1886,7 @@ export function ActivityDetailScreen() {
   };
 
   const openFocusSheet = () => {
+    if (!activity) return;
     const fallback = Math.min(
       focusMaxMinutes,
       Math.max(
@@ -2006,6 +1981,7 @@ export function ActivityDetailScreen() {
   };
 
   const startFocusSession = async (overrideMinutes?: number) => {
+    if (!activity) return;
     const draftOrOverride =
       typeof overrideMinutes === 'number' && Number.isFinite(overrideMinutes)
         ? overrideMinutes
@@ -2233,6 +2209,7 @@ export function ActivityDetailScreen() {
   }, [remainingFocusMs, focusSession?.mode]);
 
   const openCalendarSheet = () => {
+    if (!activity) return;
     const existingStart = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
     const existingIsValid = Boolean(existingStart && !Number.isNaN(existingStart.getTime()));
     const existingIsReasonablyFuture =
@@ -2718,6 +2695,7 @@ export function ActivityDetailScreen() {
   };
 
   const shareActivityAsIcs = async () => {
+    if (!activity) return;
     const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
     if (!Number.isFinite(minutes) || minutes <= 0) {
       Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
@@ -2792,6 +2770,7 @@ export function ActivityDetailScreen() {
   // then open Calendar so the user can refine it there.
 
   const openOutlookEventComposer = async () => {
+    if (!activity) return;
     if (Platform.OS !== 'ios') {
       Alert.alert('Not available', 'This shortcut is only available on iOS.');
       return;
@@ -2837,6 +2816,7 @@ export function ActivityDetailScreen() {
   };
 
   const openGoogleCalendarComposer = async () => {
+    if (!activity) return;
     const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
     if (!Number.isFinite(minutes) || minutes <= 0) {
       Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
@@ -2887,6 +2867,7 @@ export function ActivityDetailScreen() {
   }, []);
 
   const commitTitle = () => {
+    if (!activity) return;
     const next = titleDraft.trim();
     if (!next || next === activity.title) {
       setIsEditingTitle(false);
@@ -2903,6 +2884,7 @@ export function ActivityDetailScreen() {
   };
 
   const addTags = (raw: string | string[]) => {
+    if (!activity) return;
     const incoming = Array.isArray(raw) ? raw : parseTags(raw);
     if (incoming.length === 0) return;
     const current = Array.isArray(activity.tags) ? activity.tags : [];
@@ -2923,6 +2905,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
+    if (!activity) return;
     const current = Array.isArray(activity.tags) ? activity.tags : [];
     const next = current.filter((tag) => tag.toLowerCase() !== tagToRemove.toLowerCase());
     const timestamp = new Date().toISOString();
@@ -2941,6 +2924,7 @@ export function ActivityDetailScreen() {
   };
 
   const applyStepUpdate = (updater: (current: ActivityStep[]) => ActivityStep[]) => {
+    if (!activity) return;
     // Important: Persisting the app store currently serializes a large object to AsyncStorage.
     // Doing that synchronously in the press handler can delay the visual checkmark update.
     // We apply the change locally first (instant UI feedback) and defer the persisted store
@@ -3091,6 +3075,7 @@ export function ActivityDetailScreen() {
 
   const handleConvertStepToActivity = useCallback(
     (stepId: string) => {
+      if (!activity) return;
       if (!stepId) return;
       const step = (stepsDraft ?? []).find((s) => s.id === stepId) ?? null;
       if (!step) return;
@@ -3166,6 +3151,7 @@ export function ActivityDetailScreen() {
 
   const handleUnlinkStepActivity = useCallback(
     (stepId: string) => {
+      if (!activity) return;
       const step = (stepsDraft ?? []).find((s) => s.id === stepId) ?? null;
       const linkedActivityId = step?.linkedActivityId ?? null;
       if (!linkedActivityId) return;
@@ -3200,7 +3186,7 @@ export function ActivityDetailScreen() {
         ]
       );
     },
-    [activity.id, stepsDraft, updateActivity]
+    [activity?.id, stepsDraft, updateActivity]
   );
 
   const handleAddStep = () => {
@@ -3264,6 +3250,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleToggleComplete = () => {
+    if (!activity) return;
     const timestamp = new Date().toISOString();
     const hasSteps = (stepsDraft?.length ?? 0) > 0;
 
@@ -3350,6 +3337,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleSelectReminder = (offsetDays: number, hours = 9, minutes = 0) => {
+    if (!activity) return;
     const date = new Date();
     date.setDate(date.getDate() + offsetDays);
     date.setHours(hours, minutes, 0, 0);
@@ -3365,6 +3353,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleReminderDateTimeChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (!activity) return;
     if (Platform.OS !== 'ios') {
       setIsReminderDateTimePickerVisible(false);
     }
@@ -3382,6 +3371,7 @@ export function ActivityDetailScreen() {
   };
 
   const getInitialReminderDateTimeForPicker = () => {
+    if (!activity) return new Date();
     if (activity.reminderAt) return new Date(activity.reminderAt);
     const base = new Date();
     base.setMinutes(0, 0, 0);
@@ -3390,6 +3380,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleSelectDueDate = (offsetDays: number) => {
+    if (!activity) return;
     const date = new Date();
     date.setDate(date.getDate() + offsetDays);
     date.setHours(23, 0, 0, 0);
@@ -3404,6 +3395,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleClearDueDate = () => {
+    if (!activity) return;
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
@@ -3415,6 +3407,7 @@ export function ActivityDetailScreen() {
   };
 
   const getInitialDueDateForPicker = () => {
+    if (!activity) return new Date();
     if (activity.scheduledDate) {
       const parsed = new Date(activity.scheduledDate);
       if (!Number.isNaN(parsed.getTime())) {
@@ -3425,6 +3418,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleDueDateChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (!activity) return;
     if (Platform.OS !== 'ios') {
       setIsDueDatePickerVisible(false);
     }
@@ -3449,7 +3443,8 @@ export function ActivityDetailScreen() {
     setActiveSheet(null);
   };
 
-  const handleSelectRepeat = (rule: NonNullable<typeof activity.repeatRule>) => {
+  const handleSelectRepeat = (rule: NonNullable<Activity['repeatRule']>) => {
+    if (!activity) return;
     const timestamp = new Date().toISOString();
     // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
@@ -3462,6 +3457,7 @@ export function ActivityDetailScreen() {
   };
 
   const openCustomRepeat = () => {
+    if (!activity) return;
     // Hydrate from existing custom config if present.
     if (activity.repeatRule === 'custom' && activity.repeatCustom) {
       const cfg = activity.repeatCustom;
@@ -3489,6 +3485,7 @@ export function ActivityDetailScreen() {
   };
 
   const commitCustomRepeat = () => {
+    if (!activity) return;
     const interval = Math.max(1, Math.round(customRepeatInterval));
     const weekdays =
       customRepeatWeekdays.length > 0
@@ -3512,6 +3509,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleClearReminder = () => {
+    if (!activity) return;
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
@@ -3523,7 +3521,7 @@ export function ActivityDetailScreen() {
   };
 
   const reminderLabel = useMemo(() => {
-    if (!activity.reminderAt) return 'None';
+    if (!activity?.reminderAt) return 'None';
     const date = new Date(activity.reminderAt);
     return date.toLocaleString(undefined, {
       month: 'short',
@@ -3531,24 +3529,24 @@ export function ActivityDetailScreen() {
       hour: 'numeric',
       minute: '2-digit',
     });
-  }, [activity.reminderAt]);
+  }, [activity?.reminderAt]);
 
   const dueDateLabel = useMemo(() => {
-    if (!activity.scheduledDate) return 'None';
+    if (!activity?.scheduledDate) return 'None';
     const date = new Date(activity.scheduledDate);
     return date.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
-  }, [activity.scheduledDate]);
+  }, [activity?.scheduledDate]);
 
   const repeatLabel = (() => {
-    const rule = activity.repeatRule ?? null;
+    const rule = activity?.repeatRule ?? null;
     if (!rule) return 'Off';
     if (rule === 'weekdays') return 'Weekdays';
     if (rule === 'custom') {
-      const cfg = activity.repeatCustom;
+      const cfg = activity?.repeatCustom;
       if (cfg && cfg.cadence === 'weeks') {
         const interval = Math.max(1, Math.round(cfg.interval ?? 1));
         const names = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -3582,6 +3580,7 @@ export function ActivityDetailScreen() {
   })();
 
   const handleClearRepeatRule = () => {
+    if (!activity) return;
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
@@ -3610,18 +3609,17 @@ export function ActivityDetailScreen() {
   const [rightItemCenterLabelPulseKey, setRightItemCenterLabelPulseKey] = useState(0);
   const prevCompletedCountRef = useRef<number>(completedStepsCount);
   const activityTypeLabel = useMemo(() => {
-    const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity.type);
+    const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity?.type);
     return (match?.label ?? 'Activity') as string;
-  }, [activity.type, activityTypeOptions]);
+  }, [activity?.type, activityTypeOptions]);
 
   useEffect(() => {
-    // Defensive: if this screen instance is reused for a different activity id,
-    // reset baseline refs so we don't "celebrate on mount" for the next activity.
+    if (!activity) return;
     hasInitializedProgressRef.current = false;
     prevProgressRef.current = 0;
     prevCompletedCountRef.current = completedStepsCount;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activity.id]);
+  }, [activity?.id]);
 
   useEffect(() => {
     const next = typeof actionDockRightProgress === 'number' && Number.isFinite(actionDockRightProgress) ? actionDockRightProgress : 0;
@@ -3674,8 +3672,8 @@ export function ActivityDetailScreen() {
     difficultyLabel,
     difficultyIsAi,
   } = useMemo(() => {
-    const manualMinutes = activity.estimateMinutes ?? null;
-    const aiMinutes = activity.aiPlanning?.estimateMinutes ?? null;
+    const manualMinutes = activity?.estimateMinutes ?? null;
+    const aiMinutes = activity?.aiPlanning?.estimateMinutes ?? null;
 
     const pickMinutes = () => {
       if (manualMinutes != null) {
@@ -3696,8 +3694,8 @@ export function ActivityDetailScreen() {
       };
     };
 
-    const manualDifficulty = activity.difficulty ?? null;
-    const aiDifficulty = activity.aiPlanning?.difficulty ?? null;
+    const manualDifficulty = activity?.difficulty ?? null;
+    const aiDifficulty = activity?.aiPlanning?.difficulty ?? null;
 
     const formatDifficulty = (value: string) => {
       switch (value) {
@@ -3744,13 +3742,14 @@ export function ActivityDetailScreen() {
       difficultyLabel: difficulty.label,
       difficultyIsAi: difficulty.isAi,
     };
-  }, [activity.estimateMinutes, activity.aiPlanning, activity.difficulty]);
+  }, [activity?.estimateMinutes, activity?.aiPlanning, activity?.difficulty]);
 
   const hasTimeEstimate =
-    activity.estimateMinutes != null || activity.aiPlanning?.estimateMinutes != null;
-  const hasDifficulty = activity.difficulty != null || activity.aiPlanning?.difficulty != null;
+    activity?.estimateMinutes != null || activity?.aiPlanning?.estimateMinutes != null;
+  const hasDifficulty = activity?.difficulty != null || activity?.aiPlanning?.difficulty != null;
 
   const handleClearTimeEstimate = () => {
+    if (!activity) return;
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => {
       // Prefer clearing the user-controlled canonical estimate first.
@@ -3770,6 +3769,7 @@ export function ActivityDetailScreen() {
   };
 
   const handleClearDifficulty = () => {
+    if (!activity) return;
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => {
       if (prev.difficulty != null) {
@@ -3785,12 +3785,14 @@ export function ActivityDetailScreen() {
   };
 
   const openEstimateSheet = () => {
+    if (!activity) return;
     const minutes = activity.estimateMinutes ?? activity.aiPlanning?.estimateMinutes ?? 0;
     setEstimateDraftMinutes(Math.max(15, Math.round(minutes > 0 ? minutes : 30)));
     setActiveSheet('estimate');
   };
 
   const commitEstimateDraft = () => {
+    if (!activity) return;
     const total = Math.max(0, Math.round(estimateDraftMinutes));
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
@@ -3802,6 +3804,7 @@ export function ActivityDetailScreen() {
   };
 
   useEffect(() => {
+    if (!activity) return;
     setTitleDraft(activity.title ?? '');
     setTagsInputDraft('');
     const nowIso = new Date().toISOString();
@@ -3820,11 +3823,10 @@ export function ActivityDetailScreen() {
         }));
       });
     }
-  }, [activity.title, activity.notes, activity.steps, activity.id, updateActivity]);
+  }, [activity?.title, activity?.notes, activity?.steps, activity?.id, updateActivity]);
 
   useEffect(() => {
-    // Keep linked-step completion mirrored with the target activity so both UI and
-    // parent-activity status derivation stay consistent across screens.
+    if (!activity) return;
     const currentSteps = activity.steps ?? [];
     if (currentSteps.length === 0) return;
     const hasLinked = currentSteps.some((s) => !!s.linkedActivityId);
@@ -3867,7 +3869,7 @@ export function ActivityDetailScreen() {
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activity.id, activity.steps, activitiesById, updateActivity]);
+  }, [activity?.id, activity?.steps, activitiesById, updateActivity]);
 
   const togglePlanExpanded = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -3878,6 +3880,31 @@ export function ActivityDetailScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     toggleDetailsExpandedInStore();
   }, [toggleDetailsExpandedInStore]);
+
+  if (!activity) {
+    if (!domainHydrated) {
+      return (
+        <AppShell>
+          <PageHeader title="Activity" onPressBack={handleBackToActivities} />
+          <View style={styles.emptyState}>
+            <ActivityIndicator color={colors.textPrimary} />
+            <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading activity…</Text>
+          </View>
+        </AppShell>
+      );
+    }
+    return (
+      <AppShell>
+        <PageHeader title="Activity" onPressBack={handleBackToActivities} />
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>Activity not found</Text>
+          <Text style={styles.emptyBody}>
+            This activity may have been deleted or moved.
+          </Text>
+        </View>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell fullBleedCanvas>

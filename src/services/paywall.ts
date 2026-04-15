@@ -31,6 +31,7 @@ export type PaywallSource =
   | 'activity_filter'
   | 'activity_sort'
   | 'arcs_create'
+  | 'onboarding_completion'
   | 'settings'
   | 'unknown';
 

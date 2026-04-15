@@ -803,9 +803,11 @@ function MainTabsNavigator() {
           return current?.name ?? null;
         };
 
-        // Prefer RN's helper (handles partial state via params), but keep a state-walk fallback.
+        // The deep walker returns the leaf-level screen name (e.g. 'ActivityDetailFromGoal'
+        // inside MoreTab → MoreArcs → ArcsStack). `getFocusedRouteNameFromRoute` only
+        // returns the immediate child ('MoreArcs'), which isn't enough for tab-bar hiding.
         const focusedRouteName =
-          getFocusedRouteNameFromRoute(route) ?? getDeepestFocusedNestedRouteNameFromState(route) ?? '';
+          getDeepestFocusedNestedRouteNameFromState(route) ?? getFocusedRouteNameFromRoute(route) ?? '';
 
         const hideTabBar =
           focusedRouteName === 'ActivityDetail' ||

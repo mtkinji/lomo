@@ -655,7 +655,7 @@ export function FirstTimeUxFlow() {
       onRequestClose={() => {}}
     >
       <View style={styles.overlay}>
-        {__DEV__ && (
+        {__DEV__ && false && (
           <>
             <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
               <Button

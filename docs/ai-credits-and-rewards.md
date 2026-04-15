@@ -77,8 +77,7 @@ UI:
 - Mounted in the app shell in [`src/navigation/RootNavigator.tsx`](../src/navigation/RootNavigator.tsx)
 
 Behavior:
-- **Education**: shown once during first-time onboarding (`IdentityAspirationFlow`) via `hasSeenCreditsEducationInterstitial`.
-- **Completion**: shown after onboarding completion trigger.
+- **Completion**: shown after onboarding completion trigger (first Activity on the onboarding Goal). This is the sole credits education moment during FTUX — it explains what credits are, that they refresh monthly, and shows the user their full available balance.
 
 ### Bonus credits (reward layer)
 

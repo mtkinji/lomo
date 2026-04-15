@@ -241,6 +241,11 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
                   }
                 }
 
+                if (route.name === 'MoreTab') {
+                  navigation.navigate(route.name, { screen: 'MoreHome' });
+                  return;
+                }
+
                 navigation.navigate(route.name);
               };
 

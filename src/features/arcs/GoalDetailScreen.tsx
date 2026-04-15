@@ -1235,53 +1235,13 @@ export function GoalDetailScreen() {
   const displayThumbnailUrl = goalHeroUri ?? arcHeroUri;
   const heroAttributionMeta = goalHeroUri ? goal?.heroImageMeta : arc?.heroImageMeta;
 
-  if (!goal) {
-    if (!domainHydrated) {
-      return (
-        <AppShell>
-          <VStack space="md">
-            <Button
-              size="icon"
-                  variant="secondary"
-                  iconButtonSize={36}
-                  style={styles.backButton}
-              onPress={handleBack}
-              accessibilityLabel="Back"
-            >
-                  <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
-            </Button>
-            <View style={{ paddingTop: spacing.md }}>
-              <ActivityIndicator color={colors.textPrimary} />
-              <Text style={{ marginTop: spacing.lg }}>Loading Goal…</Text>
-            </View>
-          </VStack>
-        </AppShell>
-      );
-    }
-    return (
-      <AppShell>
-        <VStack space="md">
-          <Button
-            size="icon"
-            variant="secondary"
-            iconButtonSize={36}
-            style={styles.backButton}
-            onPress={handleBack}
-            accessibilityLabel="Back"
-          >
-            <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
-          </Button>
-          <Text style={styles.emptyBody}>Goal not found.</Text>
-        </VStack>
-      </AppShell>
-    );
-  }
-
   useEffect(() => {
+    if (!goal) return;
     setEditForceIntent({ ...defaultForceLevels(0), ...goal.forceIntent });
   }, [goal]);
 
   useEffect(() => {
+    if (!goal) return;
     // Lightweight evangelism prompt: once the user creates their *first*
     // onboarding activities, invite them to share for social accountability.
     // Only trigger on the transition 0 → >0 activities.
@@ -1309,7 +1269,7 @@ export function GoalDetailScreen() {
     }
   }, [
     goalActivities.length,
-    goal.id,
+    goal?.id,
     lastOnboardingGoalId,
     hasSeenOnboardingSharePrompt,
   ]);
@@ -1355,6 +1315,11 @@ export function GoalDetailScreen() {
     // mounted underneath other stack screens (e.g. Activity detail), and showing a Modal while
     // unfocused can feel like the UI has become "untappable".
     if (!isFocused) return;
+    // Never open a Dialog Modal while another Modal-based overlay (coach drawer, composer)
+    // is already mounted. Stacking RN Modals on iOS can leave an invisible touch-blocking
+    // layer when the top modal closes.
+    if (activityCoachVisible) return;
+    if (activityComposerVisible) return;
     // Wait until the plan-ready handoff has been dismissed so we don't stack guidance.
     if (shouldShowOnboardingPlanReadyGuide) return;
     if (showFirstGoalCelebration) return;
@@ -1367,6 +1332,8 @@ export function GoalDetailScreen() {
     hasSeenOnboardingSharePrompt,
     setHasSeenOnboardingSharePrompt,
     isFocused,
+    activityCoachVisible,
+    activityComposerVisible,
     shouldShowOnboardingPlanReadyGuide,
     showFirstGoalCelebration,
   ]);
@@ -1402,7 +1369,7 @@ export function GoalDetailScreen() {
     }
   }, [goal, lastOnboardingGoalId, hasSeenFirstGoalCelebration, pendingGoalCelebrationId]);
 
-  const startDateLabel = goal.startDate
+  const startDateLabel = goal?.startDate
     ? new Date(goal.startDate).toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
@@ -1410,7 +1377,7 @@ export function GoalDetailScreen() {
       })
     : undefined;
 
-  const targetDateLabel = goal.targetDate
+  const targetDateLabel = goal?.targetDate
     ? new Date(goal.targetDate).toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
@@ -1418,13 +1385,13 @@ export function GoalDetailScreen() {
       })
     : undefined;
 
-  const forceIntent = { ...defaultForceLevels(0), ...goal.forceIntent };
+  const forceIntent = { ...defaultForceLevels(0), ...goal?.forceIntent };
   const liveForceIntent = editingForces ? editForceIntent : forceIntent;
 
-  const statusAppearance = getGoalStatusAppearance(goal.status);
+  const statusAppearance = getGoalStatusAppearance(goal?.status ?? 'planned');
   const statusLabel = statusAppearance.label;
 
-  const updatedAtLabel = goal.updatedAt
+  const updatedAtLabel = goal?.updatedAt
     ? new Date(goal.updatedAt).toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
@@ -1432,7 +1399,7 @@ export function GoalDetailScreen() {
       })
     : undefined;
 
-  const createdAtLabel = goal.createdAt
+  const createdAtLabel = goal?.createdAt
     ? new Date(goal.createdAt).toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
@@ -1456,6 +1423,7 @@ export function GoalDetailScreen() {
   };
 
   const historyEvents: GoalHistoryEvent[] = useMemo(() => {
+    if (!goal) return [];
     const events: GoalHistoryEvent[] = [];
 
     const formatDateLabel = (timestamp: string) =>
@@ -1543,6 +1511,7 @@ export function GoalDetailScreen() {
   }, [goal, goalActivities, completedGoalActivities]);
 
   const handleShuffleGoalThumbnail = useCallback(() => {
+    if (!goal) return;
     const timestamp = new Date().toISOString();
     updateGoal(goal.id, (prev) => ({
       ...prev,
@@ -1550,9 +1519,10 @@ export function GoalDetailScreen() {
       thumbnailVariant: (prev.thumbnailVariant ?? 0) + 1,
       updatedAt: timestamp,
     }));
-  }, [goal.id, updateGoal]);
+  }, [goal, updateGoal]);
 
   const handleUploadGoalThumbnail = useCallback(async () => {
+    if (!goal) return;
     try {
       setHeroImageLoading(true);
       setHeroImageError('');
@@ -1587,17 +1557,16 @@ export function GoalDetailScreen() {
         },
         updatedAt: nowIso,
       }));
-      // Mirror Arc behavior: close the sheet after a successful upload to
-      // return the user to the Goal canvas.
       setThumbnailSheetVisible(false);
     } catch {
       setHeroImageError('Unable to upload image right now.');
     } finally {
       setHeroImageLoading(false);
     }
-  }, [goal.id, updateGoal]);
+  }, [goal, updateGoal]);
 
   const handleClearGoalHeroImage = useCallback(() => {
+    if (!goal) return;
     const nowIso = new Date().toISOString();
     updateGoal(goal.id, (prev) => ({
       ...prev,
@@ -1605,10 +1574,11 @@ export function GoalDetailScreen() {
       heroImageMeta: undefined,
       updatedAt: nowIso,
     }));
-  }, [goal.id, updateGoal]);
+  }, [goal, updateGoal]);
 
   const handleSelectCuratedGoalHero = useCallback(
     (image: ArcHeroImage) => {
+      if (!goal) return;
       const nowIso = new Date().toISOString();
       updateGoal(goal.id, (prev) => ({
         ...prev,
@@ -1623,11 +1593,12 @@ export function GoalDetailScreen() {
         updatedAt: nowIso,
       }));
     },
-    [goal.id, updateGoal]
+    [goal, updateGoal]
   );
 
   const handleSelectUnsplashGoalHero = useCallback(
     (photo: UnsplashPhoto) => {
+      if (!goal) return;
       const nowIso = new Date().toISOString();
       updateGoal(goal.id, (prev) => ({
         ...prev,
@@ -1645,8 +1616,50 @@ export function GoalDetailScreen() {
       }));
       trackUnsplashDownload(photo.id).catch(() => undefined);
     },
-    [goal.id, updateGoal]
+    [goal, updateGoal]
   );
+
+  if (!goal) {
+    if (!domainHydrated) {
+      return (
+        <AppShell>
+          <VStack space="md">
+            <Button
+              size="icon"
+              variant="secondary"
+              iconButtonSize={36}
+              style={styles.backButton}
+              onPress={handleBack}
+              accessibilityLabel="Back"
+            >
+              <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
+            </Button>
+            <View style={{ paddingTop: spacing.md }}>
+              <ActivityIndicator color={colors.textPrimary} />
+              <Text style={{ marginTop: spacing.lg }}>Loading Goal…</Text>
+            </View>
+          </VStack>
+        </AppShell>
+      );
+    }
+    return (
+      <AppShell>
+        <VStack space="md">
+          <Button
+            size="icon"
+            variant="secondary"
+            iconButtonSize={36}
+            style={styles.backButton}
+            onPress={handleBack}
+            accessibilityLabel="Back"
+          >
+            <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
+          </Button>
+          <Text style={styles.emptyBody}>Goal not found.</Text>
+        </VStack>
+      </AppShell>
+    );
+  }
 
   const handleDismissFirstGoalCelebration = () => {
     setShowFirstGoalCelebration(false);

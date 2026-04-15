@@ -1,4 +1,4 @@
-import { Arc, GoalDraft, type AgeRange, type ActivityDifficulty } from '../domain/types';
+import { Arc, GoalDraft, type AgeRange, type ActivityDifficulty, type ActivityType } from '../domain/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Calendar from 'expo-calendar';
@@ -10,7 +10,6 @@ import { mockGenerateArcs } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
 import { useAppStore, type ActivityTagHistoryIndex, type LlmModel } from '../store/useAppStore';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
-import { useCreditsInterstitialStore } from '../store/useCreditsInterstitialStore';
 import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import { getInstallId } from './installId';
 import type { ChatMode } from '../features/ai/workflowRegistry';
@@ -975,7 +974,8 @@ type CoachToolName =
   | 'enter_focus_mode'
   | 'schedule_activity_on_calendar'
   | 'schedule_activity_chunks_on_calendar'
-  | 'activity_steps_edit';
+  | 'activity_steps_edit'
+  | 'update_activity_fields';
 
 type CoachToolCall = {
   id: string;
@@ -1175,6 +1175,59 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
               },
             },
             required: ['activityId', 'operation'],
+            additionalProperties: false,
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'update_activity_fields' as CoachToolName,
+          description:
+            'Update one or more top-level fields on an activity (e.g. title, notes, estimateMinutes, priority, difficulty, tags, scheduledDate, type). Use this when the user asks to change a property of the activity itself, NOT its steps.',
+          parameters: {
+            type: 'object',
+            properties: {
+              activityId: { type: 'string' },
+              fields: {
+                type: 'object',
+                description: 'Key-value pairs of fields to update.',
+                properties: {
+                  title: { type: 'string', description: 'New title for the activity.' },
+                  notes: { type: 'string', description: 'New notes (replaces existing).' },
+                  estimateMinutes: {
+                    type: ['number', 'null'],
+                    description: 'Estimated duration in minutes, or null to clear.',
+                  },
+                  priority: {
+                    type: ['integer', 'null'],
+                    enum: [1, 2, 3, null],
+                    description: 'Priority bucket (1 = highest, 3 = lowest, null to clear).',
+                  },
+                  difficulty: {
+                    type: ['string', 'null'],
+                    enum: ['very_easy', 'easy', 'medium', 'hard', 'very_hard', null],
+                    description: 'Difficulty level, or null to clear.',
+                  },
+                  tags: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Full replacement list of tags.',
+                  },
+                  scheduledDate: {
+                    type: ['string', 'null'],
+                    description: 'ISO date string (YYYY-MM-DD) or null to clear.',
+                  },
+                  type: {
+                    type: 'string',
+                    enum: ['task', 'checklist', 'shopping_list', 'instructions', 'plan'],
+                    description: 'Activity type.',
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+            required: ['activityId', 'fields'],
             additionalProperties: false,
           },
         },
@@ -1484,6 +1537,88 @@ const runCoachTool = async (tool: CoachToolCall) => {
     }));
 
     return { ok: true, activityId, operation, stepCount: updatedSteps.length };
+  }
+
+  if (name === 'update_activity_fields') {
+    const payload =
+      (args as {
+        activityId?: string;
+        fields?: Record<string, unknown>;
+      }) ?? {};
+
+    const activityId = typeof payload.activityId === 'string' ? payload.activityId : '';
+    if (!activityId) return { ok: false, error: 'Missing activityId' };
+    const activity = state.activities.find((a) => a.id === activityId) ?? null;
+    if (!activity) return { ok: false, error: 'Activity not found' };
+
+    const fields = payload.fields;
+    if (!fields || typeof fields !== 'object') return { ok: false, error: 'Missing fields' };
+
+    const patch: Record<string, unknown> = {};
+
+    if (typeof fields.title === 'string' && fields.title.trim().length > 0) {
+      patch.title = fields.title.trim();
+    }
+    if (typeof fields.notes === 'string') {
+      patch.notes = fields.notes;
+    }
+    if (fields.estimateMinutes === null) {
+      patch.estimateMinutes = null;
+    } else if (
+      typeof fields.estimateMinutes === 'number' &&
+      Number.isFinite(fields.estimateMinutes)
+    ) {
+      patch.estimateMinutes = Math.max(1, Math.round(fields.estimateMinutes));
+    }
+    if (fields.priority === null) {
+      patch.priority = undefined;
+    } else if (
+      typeof fields.priority === 'number' &&
+      [1, 2, 3].includes(fields.priority)
+    ) {
+      patch.priority = fields.priority as 1 | 2 | 3;
+    }
+    const validDifficulties: ActivityDifficulty[] = [
+      'very_easy', 'easy', 'medium', 'hard', 'very_hard',
+    ];
+    if (fields.difficulty === null) {
+      patch.difficulty = undefined;
+    } else if (
+      typeof fields.difficulty === 'string' &&
+      validDifficulties.includes(fields.difficulty as ActivityDifficulty)
+    ) {
+      patch.difficulty = fields.difficulty as ActivityDifficulty;
+    }
+    if (Array.isArray(fields.tags)) {
+      patch.tags = fields.tags
+        .filter((t): t is string => typeof t === 'string')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+    }
+    if (fields.scheduledDate === null) {
+      patch.scheduledDate = null;
+    } else if (typeof fields.scheduledDate === 'string' && fields.scheduledDate.trim().length > 0) {
+      patch.scheduledDate = fields.scheduledDate.trim();
+    }
+    const validTypes: ActivityType[] = ['task', 'checklist', 'shopping_list', 'instructions', 'plan'];
+    if (
+      typeof fields.type === 'string' &&
+      validTypes.includes(fields.type as ActivityType)
+    ) {
+      patch.type = fields.type as ActivityType;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return { ok: false, error: 'No valid fields to update' };
+    }
+
+    state.updateActivity(activityId, (prev) => ({
+      ...prev,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    }));
+
+    return { ok: true, activityId, updatedFields: Object.keys(patch) };
   }
 
   return { ok: false, error: `Unknown tool: ${name}` };
@@ -2498,24 +2633,6 @@ export async function sendCoachChat(
     }
   }
 
-  const maybeTriggerOnboardingCreditsTutorial = () => {
-    if (!isFirstTimeOnboarding) return;
-    const state = useAppStore.getState();
-    if (state.hasSeenCreditsEducationInterstitial) return;
-    try {
-      state.setHasSeenCreditsEducationInterstitial(true);
-      setTimeout(() => {
-        try {
-          useCreditsInterstitialStore.getState().open({ kind: 'education', spentCredits: 1 });
-        } catch {
-          // best-effort only
-        }
-      }, 250);
-    } catch {
-      // best-effort only
-    }
-  };
-
   const baseSystemPrompt =
     'You are kwilt Coach, a calm, practical life architecture coach. ' +
     'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
@@ -2811,7 +2928,6 @@ export async function sendCoachChat(
     });
 
     scheduleConversationSummaryMaintenance();
-    maybeTriggerOnboardingCreditsTutorial();
     return content as string;
   }
 
@@ -2933,7 +3049,6 @@ export async function sendCoachChat(
   });
 
   scheduleConversationSummaryMaintenance();
-  maybeTriggerOnboardingCreditsTutorial();
   return finalContent as string;
 }
 

@@ -20,6 +20,7 @@ Starter flows:
 - `e2e/maestro/bottomdrawer-touch-regression.yaml`
 - `e2e/maestro/keyboard-harness.yaml`
 - `e2e/maestro/agent-workspace-smoke.yaml`
+- `e2e/maestro/onboarding-plan-ready-touch-regression.yaml`
 - `e2e/maestro/activities-quickadd.yaml`
 - `e2e/maestro/activity-detail-key-actions.yaml`
 - `e2e/maestro/activity-detail-triggers.yaml`
@@ -115,6 +116,7 @@ To keep E2E stable, we use `testID`s instead of visible text.
   - `e2e.seed.showActivityDetailGuide`
   - `e2e.seed.showFirstArcCelebration`
   - `e2e.seed.showFirstGoalCelebration`
+  - `e2e.seed.showOnboardingPlanReadyHandoff`
 
 - AgentWorkspace (chat composer):
   - `agent.composer.input`

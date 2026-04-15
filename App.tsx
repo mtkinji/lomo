@@ -241,7 +241,10 @@ export default function App() {
 
   useEffect(() => {
     // Safety: super-admin entitlements overrides should never persist across non-super-admin sessions.
-    // We don't want to prompt sign-in here; `getAdminProCodesStatus` fails closed.
+    // Gate on auth hydration: authIdentity starts null before Supabase restores the session,
+    // and eagerly clearing the override during that window causes Pro status to be lost.
+    if (authStartupState === 'boot' || authStartupState === 'hydratingAuth') return;
+
     let cancelled = false;
     const run = async () => {
       try {
@@ -253,19 +256,21 @@ export default function App() {
         // if a session exists, and it will refresh silently if the token is expiring.
         const status = await getAdminProCodesStatus({ requireAuth: true });
         if (cancelled) return;
-        if (status.role !== 'super_admin') {
+        // Only clear on an authoritative 200 confirming the user is not super-admin.
+        // Transient failures (network, 401/500) should not downgrade — the override
+        // will be re-validated on the next successful check.
+        if (status.httpStatus === 200 && status.role !== 'super_admin') {
           await clearAdminEntitlementsOverrideTier().catch(() => undefined);
         }
       } catch {
-        // If we can't confirm super-admin status, fail closed and clear the override.
-        await clearAdminEntitlementsOverrideTier().catch(() => undefined);
+        // Network / server errors are transient — leave the override intact.
       }
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [authIdentity?.userId]);
+  }, [authIdentity?.userId, authStartupState]);
 
   useEffect(() => {
     // When the signed-in identity changes, force-refresh entitlements so:

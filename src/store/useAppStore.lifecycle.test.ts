@@ -171,6 +171,98 @@ describe('useAppStore object lifecycles', () => {
   });
 });
 
+describe('recordShowUp streak grace', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function setStreakState(overrides: {
+    lastShowUpDate?: string;
+    currentShowUpStreak?: number;
+    streakGrace?: {
+      freeDaysRemaining: number;
+      lastFreeResetWeek: string | null;
+      shieldsAvailable: number;
+      graceDaysUsed: number;
+    };
+  }) {
+    useAppStore.setState(overrides as any);
+  }
+
+  it('clears graceDaysUsed on a consecutive day so stale grace does not trigger false streak-saved', () => {
+    // Simulate: grace was previously used (graceDaysUsed=1 is stale),
+    // and the user's last show-up was yesterday (April 14).
+    setStreakState({
+      lastShowUpDate: '2026-04-14',
+      currentShowUpStreak: 5,
+      streakGrace: {
+        freeDaysRemaining: 0,
+        lastFreeResetWeek: '2026-W16',
+        shieldsAvailable: 0,
+        graceDaysUsed: 1, // stale from a previous grace event
+      },
+    });
+
+    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.lastShowUpDate).toBe('2026-04-15');
+    expect(state.currentShowUpStreak).toBe(6);
+    expect(state.streakGrace?.graceDaysUsed).toBe(0);
+  });
+
+  it('sets graceDaysUsed when grace is legitimately used to cover missed days', () => {
+    // User last showed up April 13, returns April 15 (missed April 14)
+    setStreakState({
+      lastShowUpDate: '2026-04-13',
+      currentShowUpStreak: 5,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W16',
+        shieldsAvailable: 0,
+        graceDaysUsed: 0,
+      },
+    });
+
+    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.lastShowUpDate).toBe('2026-04-15');
+    expect(state.currentShowUpStreak).toBe(6);
+    expect(state.streakGrace?.graceDaysUsed).toBe(1);
+    expect(state.streakGrace?.freeDaysRemaining).toBe(0);
+  });
+
+  it('resets streak when missed days exceed available grace', () => {
+    // User last showed up April 12, returns April 15 (missed 2 days, only 1 grace)
+    setStreakState({
+      lastShowUpDate: '2026-04-12',
+      currentShowUpStreak: 5,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W16',
+        shieldsAvailable: 0,
+        graceDaysUsed: 0,
+      },
+    });
+
+    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.lastShowUpDate).toBe('2026-04-15');
+    expect(state.currentShowUpStreak).toBe(1);
+    expect(state.streakGrace?.graceDaysUsed).toBe(0);
+  });
+});
+
 describe('resetUserSpecificState', () => {
   beforeEach(() => {
     useAppStore.getState().resetStore();
