@@ -1,4 +1,5 @@
 import { useAppStore, resetUserSpecificState } from './useAppStore';
+import { useEntitlementsStore } from './useEntitlementsStore';
 import { canCreateArc, canCreateGoalInArc, countActiveGoalsForArc } from '../domain/limits';
 import type { Activity, Arc, Goal } from '../domain/types';
 
@@ -320,6 +321,146 @@ describe('resetUserSpecificState', () => {
     expect(state.notificationPreferences.allowDailyFocus).toBe(true);
     // User-specific should be reset.
     expect(state.hasCompletedFirstTimeOnboarding).toBe(false);
+  });
+});
+
+describe('recordShowUp shield earning', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function setStreakState(overrides: {
+    lastShowUpDate?: string;
+    currentShowUpStreak?: number;
+    streakGrace?: {
+      freeDaysRemaining: number;
+      lastFreeResetWeek: string | null;
+      shieldsAvailable: number;
+      lastShieldEarnedWeekKey: string | null;
+      graceDaysUsed: number;
+    };
+  }) {
+    useAppStore.setState(overrides as any);
+  }
+
+  it('awards 1 shield when Pro user hits a 7-day streak milestone', () => {
+    // User at day 6, about to become day 7.
+    setStreakState({
+      lastShowUpDate: '2026-01-06',
+      currentShowUpStreak: 6,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W02',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 7, 10, 0, 0)); // Jan 7
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(7);
+    expect(state.streakGrace?.shieldsAvailable).toBe(1);
+    expect(state.streakGrace?.lastShieldEarnedWeekKey).not.toBeNull();
+  });
+
+  it('does not award a shield to free users', () => {
+    setStreakState({
+      lastShowUpDate: '2026-01-06',
+      currentShowUpStreak: 6,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W02',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: false });
+    jest.setSystemTime(new Date(2026, 0, 7, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(7);
+    expect(state.streakGrace?.shieldsAvailable).toBe(0);
+  });
+
+  it('does not exceed the cap of 3 shields', () => {
+    setStreakState({
+      lastShowUpDate: '2026-01-13',
+      currentShowUpStreak: 13,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W03',
+        shieldsAvailable: 3,
+        lastShieldEarnedWeekKey: '2026-W02',
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 14, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(14);
+    expect(state.streakGrace?.shieldsAvailable).toBe(3);
+  });
+
+  it('does not award more than 1 shield per week', () => {
+    // Simulate a scenario where streak hits 14 (second multiple of 7)
+    // but shield was already earned this week.
+    const weekKey = '2026-W03';
+    setStreakState({
+      lastShowUpDate: '2026-01-13',
+      currentShowUpStreak: 13,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: weekKey,
+        shieldsAvailable: 1,
+        lastShieldEarnedWeekKey: weekKey,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 14, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(14);
+    expect(state.streakGrace?.shieldsAvailable).toBe(1);
+  });
+
+  it('does not award on non-multiple-of-7 streaks', () => {
+    setStreakState({
+      lastShowUpDate: '2026-01-05',
+      currentShowUpStreak: 5,
+      streakGrace: {
+        freeDaysRemaining: 1,
+        lastFreeResetWeek: '2026-W01',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    useEntitlementsStore.setState({ isPro: true });
+    jest.setSystemTime(new Date(2026, 0, 6, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(6);
+    expect(state.streakGrace?.shieldsAvailable).toBe(0);
   });
 });
 

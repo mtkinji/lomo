@@ -1,0 +1,418 @@
+## Growth Loops Execution Plan
+
+Strategy source: `docs/growth-loops-strategy.md`
+
+This plan organizes the 21 strategy items into 4 sprints based on dependency order, effort, and loop closure value. Each sprint is designed so that what ships at the end forms a **complete, testable loop** — not a half-finished feature.
+
+---
+
+## Sprint 1 — Streak retention core ✅ Complete
+
+**Theme:** Ship the two highest-impact retention notifications and fix the broken Pro shields feature.
+**Estimated duration:** ~1 week
+**Loop closed:** Loop 1 (Streak → Notification → Show-up → Streak), partially
+**Status:** All tasks implemented, 74/74 tests passing, typecheck clean.
+
+### What shipped
+
+**1. Streak-at-risk notification** — `NotificationService.ts`
+
+- `scheduleStreakAtRiskInternal()` fires at 19:00 local when `currentShowUpStreak > 0` and `lastShowUpDate !== todayKey`.
+- Added to `SYSTEM_NUDGE_TYPES` → respects 2/day cap and 6h spacing.
+- Cancels immediately when user shows up (store subscription watches `lastShowUpDate`).
+- Backs off after 2 consecutive ignores.
+- Skips scheduling if 19:00 has already passed or guards push past today.
+- Copy: "Your [N]-day streak is at risk — Show up before midnight."
+
+**2. Reactivation notification** — `NotificationService.ts`
+
+- `scheduleReactivationInternal()` schedules a one-shot 3 days from now at the user's daily show-up time.
+- Reschedules (rolling window) on each `lastShowUpDate` change.
+- Copy references previous streak: "You had a [N]-day streak going" (or generic when streak ≤ 1).
+- Backs off after 2 consecutive ignores.
+
+**3. Settings toggle** — `NotificationsSettingsScreen.tsx`, `useAppStore.ts`
+
+- `allowStreakAndReactivation` default changed from `false` to `true`.
+- "Streak & comeback" toggle row added in Notifications settings between Goal Nudges and Prompts.
+- Toggling off cancels both streak-at-risk and reactivation notifications via `applySettings`.
+- Global disable also cancels both.
+
+**4. Pro shield earning** — `useAppStore.ts`
+
+- Earning logic added directly to `recordShowUp`: when `nextStreak % 7 === 0`, user is Pro, shields < 3, and not already earned this ISO week → award 1 shield.
+- Added `lastShieldEarnedWeekKey` to `streakGrace` type and all default initializations.
+- Reads `isPro` from `useEntitlementsStore` at point of call.
+
+**5. Streak-aware notification copy** — `NotificationService.ts`
+
+- Daily show-up title appends " — day N" when streak ≥ 2 (e.g., "Align your day with your arcs — day 6").
+- Activity reminder title appends " — day N" when streak ≥ 2.
+- No suffix for streak 0–1 (avoids "day 1" clutter on new users).
+
+**6. Tests** — 16 new tests (11 in `NotificationService.test.ts`, 5 in `useAppStore.lifecycle.test.ts`)
+
+- Streak-at-risk: schedules at 19:00, skips if showed up today, skips if streak=0, skips past 19:00, backs off after 2 ignores, respects `allowStreakAndReactivation` toggle.
+- Reactivation: schedules 3 days out at show-up time, generic copy when streak=0, backs off after 2 ignores.
+- Streak-aware copy: appends day count when streak ≥ 2, omits suffix when < 2.
+- Shield earning: awards at 7-day milestones for Pro, blocks free users, respects cap of 3, max 1/week, skips non-multiples.
+
+### Sprint 1 acceptance criteria
+
+- [x] Streak-at-risk notification fires at 19:00 local when user has a streak and hasn't showed up.
+- [x] Streak-at-risk cancels immediately on show-up.
+- [x] Reactivation notification fires 3 days after last show-up; reschedules on each new show-up.
+- [x] Reactivation backs off after 2 ignored sends.
+- [x] `allowStreakAndReactivation` toggle visible in Notifications settings; toggling off cancels both.
+- [x] Pro users earn 1 shield per 7 consecutive covered days (cap 3, max 1 per ISO week).
+- [x] Daily show-up and activity reminder copy includes current streak count when streak ≥ 2.
+- [x] All new scheduling paths respect the existing 2/day cap and 6h spacing.
+- [x] Unit tests pass for streak-at-risk, reactivation, and shield earning.
+
+---
+
+## Sprint 2 — Streak repair + upsell
+
+**Theme:** Close Loop 3 (break → repair → upsell → conversion) and wire the push token prerequisite.
+**Estimated duration:** ~1.5 weeks
+**Loop closed:** Loop 3 (Streak break → Repair → Pro upsell), Loop 4 partially (intro offers)
+
+### Why this second
+- The repair window is the key differentiator from a "punishing" streak system. Without it, streaks cause churn at the exact moment they should create re-engagement.
+- The Pro upsell on streak break is the highest-emotion conversion moment and depends on the repair window state.
+- Push token registration is a small prerequisite that unblocks all future server-push work.
+
+### Tasks
+
+**7. Integrate repair window into `recordShowUp`**
+
+Files: `src/store/useAppStore.ts`
+
+- Add `streakBreakState: StreakBreakState` to persisted state (from `streakProtection.ts` types).
+- In `recordShowUp`, when `diffDays > 1` and grace doesn't cover the gap:
+  - Instead of immediately resetting to 1, check `streakBreakState.eligibleRepairUntilMs`.
+  - If `Date.now() < eligibleRepairUntilMs` and we're returning from a break: restore `brokenStreakLength` as `nextStreak`, clear break state, set `repairedAtMs`.
+  - If no active repair window: set `streakBreakState = { brokenAtDateKey: todayKey, brokenStreakLength: prevStreak, eligibleRepairUntilMs: Date.now() + REPAIR_WINDOW_MS, repairedAtMs: null }`, and reset streak to 1.
+- Add `streakBreakState` to `partialize` for persistence.
+
+**8. Repair StreakCapsule visual state**
+
+Files: `src/ui/StreakCapsule.tsx`, `src/ui/layout/PageHeader.tsx`, all tab screens passing streak props
+
+- Add `repairWindowActive?: boolean` prop to `StreakCapsule`.
+- When `repairWindowActive` is true, render the flame in amber (#F59E0B) with a subtle pulse animation.
+- Tab screens: derive `repairWindowActive` from `streakBreakState.eligibleRepairUntilMs > Date.now()`.
+
+**9. Repair celebrations**
+
+Files: `src/store/useCelebrationStore.ts`
+
+- Add `celebrateStreakRepairOpportunity()`: "Your streak broke, but you have 24h to repair it!"
+- Add `celebrateStreakRepaired()`: "Streak repaired! Back to [N] days."
+- Fire `celebrateStreakRepairOpportunity` from `recordShowUp` when entering break state (streak had been > 3).
+- Fire `celebrateStreakRepaired` when repair succeeds.
+
+**10. Pro upsell on streak break**
+
+Files: `src/services/paywall.ts`, `src/features/paywall/PaywallDrawer.tsx`, `src/store/useCelebrationStore.ts`
+
+- Add `'pro_only_streak_shields'` to `PaywallReason`.
+- Add copy in `PaywallDrawer`: "Pro shields would have saved your [N]-day streak. Protect your progress with Kwilt Pro."
+- In `recordShowUp`, when a free user's streak resets (grace didn't cover, repair window expired or not applicable):
+  - If `shieldsAvailable` was 0 and a shield *would have* helped (missedDays <= 3): trigger `openPaywallInterstitial({ reason: 'pro_only_streak_shields', source: 'streak_break' })`.
+
+**11. Surface introductory offers**
+
+Files: `src/services/entitlements.ts`, `src/features/account/ManageSubscriptionScreen.tsx`
+
+- In `getProSkuPricing`, extract `introPrice` / `introductoryPrice` from RevenueCat package metadata.
+- If an intro offer exists and the user is eligible (hasn't subscribed before): show "Start 7-day free trial" as the primary CTA instead of the price-based CTA.
+- Add analytics: `FreeTrialStarted` event.
+
+**12. Wire push token registration**
+
+Files: `App.tsx` or `src/navigation/RootNavigator.tsx`, `src/services/pushTokenService.ts`
+
+- After auth state resolves to `signedIn`, call `registerPushToken()` (best-effort, non-blocking).
+- On sign-out (existing sign-out handler in Settings), call `unregisterPushToken()`.
+- On app resume when authenticated, call `registerPushToken()` (idempotent — skips if token unchanged).
+
+**13. Tests**
+
+- Test: repair window sets break state correctly on streak reset.
+- Test: returning within window restores previous streak.
+- Test: returning outside window resets normally.
+- Test: Pro upsell fires only for free users when shields would have helped.
+- Test: intro offer detection returns correct pricing when available.
+
+### Sprint 2 acceptance criteria
+
+- [ ] Streak break enters repair state with 48h window instead of immediately resetting.
+- [ ] StreakCapsule renders amber pulse during active repair window.
+- [ ] Repair opportunity celebration fires when streak > 3 breaks.
+- [ ] Repair success celebration fires when user returns within window.
+- [ ] Free users see "Pro shields would have saved your streak" paywall on applicable breaks.
+- [ ] `pro_only_streak_shields` PaywallReason has copy in PaywallDrawer.
+- [ ] RevenueCat intro offers surface as "Start free trial" CTA when eligible.
+- [ ] Push token registers on sign-in and app resume; unregisters on sign-out.
+- [ ] Unit tests pass for repair window, Pro upsell trigger, and intro offers.
+
+---
+
+## Sprint 3 — Widget expansion + milestone rewards
+
+**Theme:** Ship new widget surfaces and tangible streak progression to close Loop 1 fully.
+**Estimated duration:** ~2 weeks
+**Loop closed:** Loop 1 complete (Streak → Widget → Notification → Show-up → Streak), Loop 4 partially (milestone rewards)
+
+### Why this third
+- Lock Screen widget is the **ambient retention** surface — it makes streaks visible passively, reducing dependence on notifications.
+- Milestone rewards give streaks a progression arc, not just a counter.
+- Both depend on the streak mechanics being solid (Sprints 1–2).
+
+### Tasks
+
+**14. Lock Screen widget**
+
+Files: Native Swift in the widget extension target (`ios/KwiltWidgets/`)
+
+- Add `WidgetFamily.accessoryCircular` and `accessoryRectangular` to the widget configuration.
+- Circular: flame SF Symbol + streak count from glanceable state `showUpStreakDays`.
+- Rectangular: "Next: [title]" + time, or streak count + "Tap to show up" if nothing scheduled.
+- Update `glanceableState.ts` to include `showUpStreakDays` in the snapshot (already present in `buildMomentumSnapshot`; verify it's in the widget payload).
+
+**15. Small (2x2) Home Screen widget**
+
+Files: Native Swift in widget extension
+
+- Add `WidgetFamily.systemSmall` to the existing Activities widget or as a new widget kind.
+- Content: streak flame + count centered, with "Show up today" subtitle.
+- Tap deep-links to Activities.
+
+**16. Widget nudge at streak day 3**
+
+Files: `src/features/activities/hooks/useWidgetNudge.ts`
+
+- Add a condition: if `currentShowUpStreak === 3` and `widgetNudge.status !== 'completed'`, show the nudge regardless of `appOpenCount`.
+- At streak ≥ 7 without widget adoption, switch to the more assertive copy variant: "Keep your streak visible — add the Kwilt widget to your Lock Screen."
+
+**17. Widget-to-streak attribution**
+
+Files: `src/navigation/RootNavigator.tsx`, `src/services/analytics/events.ts`
+
+- When `source === 'widget'` is detected and user subsequently calls `recordShowUp` in that session, fire `WidgetAssistedShowUp` event.
+- Optionally: special celebration variant "Widget → Show-up! Day [N]."
+
+**18. Streak milestone rewards**
+
+Files: `src/store/useCelebrationStore.ts`, `src/store/useAppStore.ts`, `src/domain/generativeCredits.ts`
+
+- After `recordShowUp` updates the streak, check for milestone thresholds: 7, 14, 30, 60, 100.
+- At 7 days: call existing bonus credits infrastructure to award +5 AI credits (call server `kwilt_increment_ai_bonus_monthly` or local store increment).
+- At 30 days: +15 AI credits + unlock a profile badge (new `badges` array in store).
+- Fire existing `MilestoneRecorded` analytics event with `milestone_type: 'streak_7'` etc.
+
+**19. Time-limited Pro previews**
+
+Files: `src/store/useAppStore.ts`, feature-gating code in Activities/Focus
+
+- Add `proPreview: { feature: string; expiresAtMs: number } | null` to store.
+- At 7-day streak: set `{ feature: 'focus_mode', expiresAtMs: now + 24h }`.
+- At 14-day streak: set `{ feature: 'saved_views', expiresAtMs: now + 72h }`.
+- In feature gates (e.g., Focus mode paywall check, saved views paywall check): if `proPreview.feature === 'focus_mode' && Date.now() < proPreview.expiresAtMs`, allow access.
+- On expiry (checked at feature gate): clear preview and show "Liked Focus Mode? Keep it with Pro."
+
+**20. iOS notification action categories**
+
+Files: `src/services/NotificationService.ts`
+
+- In `init()`, call `Notifications.setNotificationCategoryAsync` for:
+  - `'activityReminder'`: actions "Start Focus" (opens activity detail with `autoStartFocus`), "Snooze 1h" (reschedules +1h).
+  - `'streakAtRisk'`: action "Show up now" (opens Activities).
+- Set `categoryIdentifier` when scheduling these notification types.
+
+**21. Complete Live Activities for Focus**
+
+Files: Native Swift in widget extension, `src/services/appleEcosystem/`
+
+- Implement the `ActivityConfiguration` in the widget extension with:
+  - Compact: flame icon + remaining time.
+  - Expanded: activity title + timer + pause/end buttons.
+  - Lock Screen: timer bar + activity title.
+- Wire the existing native bridge calls to actually start/update/end the visible Live Activity.
+
+### Sprint 3 acceptance criteria
+
+- [ ] Lock Screen widget (circular + rectangular) renders streak and next-up from glanceable state.
+- [ ] Small Home Screen widget renders streak count with tap-to-open.
+- [ ] Widget nudge appears at streak day 3 regardless of appOpenCount.
+- [ ] More assertive widget nudge copy at streak ≥ 7 if widget not adopted.
+- [ ] `WidgetAssistedShowUp` analytics event fires when widget opens lead to show-ups.
+- [ ] +5 bonus AI credits awarded at 7-day streak; +15 at 30-day streak.
+- [ ] Pro preview (Focus 24h at streak 7, Saved Views 72h at streak 14) unlocks feature temporarily.
+- [ ] Expiry prompt drives user to paywall.
+- [ ] iOS notification actions registered: "Start Focus", "Snooze 1h", "Show up now".
+- [ ] Live Activity visible on Lock Screen and Dynamic Island during Focus sessions.
+
+---
+
+## Sprint 4 — Email infrastructure + polish
+
+**Theme:** Build server-side communication and polish remaining engagement surfaces.
+**Estimated duration:** ~2–3 weeks
+**Loop closed:** Loop 2 (Onboarding → Email → First streak → Widget nudge → Retention)
+
+### Why this last
+- Email infrastructure is highest-effort and requires server work (edge functions, cron, templates).
+- It's also the only sprint that requires changes in `supabase/` beyond migrations.
+- The client-side loops from Sprints 1–3 deliver retention value while email is being built.
+
+### Tasks
+
+**22. Email cadence infrastructure**
+
+Files: `supabase/migrations/`, new edge function
+
+- Migration: create `kwilt_email_cadence` table: `(user_id, message_key, sent_at, unsubscribed_at)`.
+- Migration: create `kwilt_email_preferences` table: `(user_id, welcome_drip, chapter_digest, streak_winback, marketing)` with defaults `true`.
+- Create `supabase/functions/email-drip/index.ts`: evaluates all users against the cadence table, determines eligibility for each message, and sends via Resend.
+- Wire to `pg_cron` (daily at 09:00 UTC) or use Supabase's built-in cron scheduling.
+
+**23. Welcome drip (4 messages)**
+
+Files: `supabase/functions/email-drip/index.ts`, `supabase/functions/_shared/emailTemplates.ts`
+
+- Template: `welcome_day0` — account confirmation + deep link to app.
+- Template: `welcome_day1` — nudge toward first Activity completion.
+- Template: `welcome_day3` — streak value prop + link to Plan.
+- Template: `welcome_day7` — first-week recap (query `user_milestones` for streak data, count activities from RPC or client-reported stats).
+- All templates include unsubscribe link that writes to `kwilt_email_preferences`.
+
+**24. Chapter digest email**
+
+Files: `supabase/functions/chapters-generate/index.ts`, email templates
+
+- After chapter generation succeeds, if `email_enabled` and `email_recipient` are set on the template:
+  - Render a chapter summary email (title, key metrics, first paragraph of narrative).
+  - Include a deep link: `kwilt://chapters/[id]`.
+  - Update `emailed_at` on the chapter row.
+
+**25. "Streak Sunday" weekly recap card**
+
+Files: new component `src/features/plan/StreakWeeklyRecapCard.tsx`, `src/features/plan/PlanScreen.tsx`
+
+- Component shows: 7-dot week visualization, days showed up, activities completed, current streak.
+- Displayed on Sunday (or user's week-start) at the top of the Plan canvas.
+- Celebratory variant if all 7 days filled; compassionate variant if < 3 days.
+- Dismiss persists via `lastWeeklyRecapDismissedWeekKey` in store.
+
+**26. Social streak sharing**
+
+Files: `src/features/account/SettingsHomeScreen.tsx`, new utility `src/services/streakShareImage.ts`
+
+- Generate a branded share card using `react-native-view-shot` (or a pre-built SVG template):
+  - "I've showed up for my life [N] days in a row"
+  - Kwilt branding, flame icon, user's Arc name if available.
+- Trigger from a "Share" button on the Settings streak card.
+- Include referral deep link in share text: `kwilt://referral?code=[code]`.
+- Analytics: `StreakShared` event.
+
+**27. Improved credit exhaustion UX**
+
+Files: `src/features/paywall/PaywallDrawer.tsx` or new interstitial
+
+- When `tryConsumeGenerativeCredit` fails, instead of immediately showing `PaywallContent`:
+  - Show a "You've used all 50 credits" screen with:
+    - Progress ring showing 50/50 used.
+    - "What you accomplished" section: count of AI interactions this month.
+    - "Pro unlocks 1000 credits/month" comparison.
+  - CTA: "See Pro plans" → existing paywall flow.
+
+**28. Adaptive notification timing**
+
+Files: `src/store/useAppStore.ts`, `src/services/NotificationService.ts`
+
+- Add `activityCompletionHours: number[]` to store (rolling 14-day buffer of hour-of-day values).
+- On `recordShowUp`, push `new Date().getHours()` to the buffer (keep last 14).
+- Compute `typicalHour = mode(activityCompletionHours)`.
+- In `scheduleDailyShowUpInternal`: if `typicalHour` differs from `dailyShowUpTime` by > 2h, show a one-time suggestion toast: "You usually show up around [X]. Want to adjust your reminder?"
+- If user accepts, update `dailyShowUpTime` and reschedule.
+
+### Sprint 4 acceptance criteria
+
+- [ ] `kwilt_email_cadence` and `kwilt_email_preferences` tables exist with RLS.
+- [ ] `email-drip` edge function evaluates and sends via Resend on cron schedule.
+- [ ] Welcome drip: 4 emails sent at days 0, 1, 3, 7 post-signup with unsubscribe links.
+- [ ] Chapter digest email sends after generation when user has opted in.
+- [ ] Weekly recap card appears on Plan canvas on Sundays with 7-dot visualization.
+- [ ] Social streak sharing generates branded image and includes referral link.
+- [ ] Credit exhaustion shows usage recap + Pro comparison instead of raw paywall.
+- [ ] Adaptive timing tracks completion hours and suggests adjustment when divergent.
+
+---
+
+## Dependency graph
+
+```
+Sprint 1 (Streak retention core)
+  ├── N2: streak-at-risk notification
+  ├── N3: reactivation notification
+  ├── N2/N3: settings toggle
+  ├── S1: shield earning
+  ├── S6/N6: streak-aware copy
+  └── Tests
+        │
+        ▼
+Sprint 2 (Streak repair + upsell)
+  ├── S2: repair window ← depends on S1 (shields) being correct
+  ├── S2: repair capsule UI
+  ├── S2: repair celebrations
+  ├── U1: Pro upsell on streak break ← depends on S2 (repair window state)
+  ├── U3: intro offers (independent)
+  ├── N1: push token registration (independent)
+  └── Tests
+        │
+        ▼
+Sprint 3 (Widgets + milestones)
+  ├── W1: Lock Screen widget ← depends on streak state being reliable (S1, S2)
+  ├── W2: small Home widget
+  ├── W6: widget nudge at streak 3 ← depends on streaks working correctly
+  ├── W5: widget-streak attribution
+  ├── S3: milestone rewards ← depends on milestones being recorded (Sprint 1)
+  ├── U2: Pro previews ← depends on milestone triggers
+  ├── N4: notification actions (independent)
+  └── W3: Live Activities (independent, native-heavy)
+        │
+        ▼
+Sprint 4 (Email + polish)
+  ├── E1: email infrastructure + welcome drip (independent of client work)
+  ├── E2: chapter digest email
+  ├── S4: weekly recap card
+  ├── S5: social streak sharing
+  ├── U4: credit exhaustion UX (independent)
+  └── N5: adaptive timing ← depends on sufficient show-up data accumulating
+```
+
+---
+
+## Measurement checkpoints
+
+After each sprint, validate:
+
+| Sprint | Key metric to check |
+|--------|---------------------|
+| 1 | Streak-at-risk notification → same-day show-up rate; shield accumulation for Pro users |
+| 2 | Repair window usage rate; streak-break → Pro conversion rate; push tokens registered |
+| 3 | Lock Screen widget adoption %; widget-assisted show-ups; milestone reward redemption |
+| 4 | Email open/click rates; weekly recap engagement; streak share → referral conversion |
+
+---
+
+## Relationship to other docs
+
+- **`docs/growth-loops-strategy.md`** — the strategic analysis and recommendations this plan executes against.
+- **`docs/engagement-and-motivation-system.md`** — behavioral model and engagement loops.
+- **`docs/notifications-paradigm-prd.md`** — notification system PRD (Phases 1–2 complete; Phase 3 items are Sprint 1 here).
+- **`docs/apple-ecosystem-opportunities.md`** — widget and ecosystem strategy (Sprint 3 items).
+- **`docs/value-realization-roadmap.md`** — product roadmap (Phase 1.6 and Phase 2.2 align with Sprints 1–3 here).
+- **`docs/ai-credits-and-rewards.md`** — credit and referral system (Sprint 3 milestone rewards, Sprint 4 credit UX).

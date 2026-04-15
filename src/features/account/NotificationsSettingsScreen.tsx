@@ -137,6 +137,7 @@ export function NotificationsSettingsScreen() {
   const dailyShowUpEnabled = remindersEnabled && preferences.allowDailyShowUp;
   const dailyFocusEnabled = remindersEnabled && preferences.allowDailyFocus;
   const goalNudgesEnabled = remindersEnabled && preferences.allowGoalNudges;
+  const streakAndReactivationEnabled = remindersEnabled && preferences.allowStreakAndReactivation;
   const locationPromptsEnabled = Boolean(locationOfferPreferences.enabled);
   const planKickoffEnabled = preferences.allowPlanKickoff !== false;
 
@@ -276,6 +277,21 @@ export function NotificationsSettingsScreen() {
       notificationsEnabled: true,
       allowGoalNudges: !preferences.allowGoalNudges,
       goalNudgeTime: nextTime,
+    };
+    await NotificationService.applySettings(next);
+  };
+
+  const handleToggleStreakAndReactivation = async () => {
+    if (!preferences.notificationsEnabled || !preferences.allowStreakAndReactivation) {
+      const granted = await NotificationService.ensurePermissionWithRationale('daily');
+      if (!granted) {
+        return;
+      }
+    }
+    const next = {
+      ...preferences,
+      notificationsEnabled: true,
+      allowStreakAndReactivation: !preferences.allowStreakAndReactivation,
     };
     await NotificationService.applySettings(next);
   };
@@ -578,6 +594,28 @@ export function NotificationsSettingsScreen() {
                   value={goalNudgesEnabled}
                   onValueChange={() => {
                     void handleToggleGoalNudges();
+                  }}
+                  trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
+
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle streak and comeback reminders"
+                  onPress={handleToggleStreakAndReactivation}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Streak & comeback</Text>
+                    {!streakAndReactivationEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
+                  </VStack>
+                </Pressable>
+                <Switch
+                  value={streakAndReactivationEnabled}
+                  onValueChange={() => {
+                    void handleToggleStreakAndReactivation();
                   }}
                   trackColor={{ false: colors.shellAlt, true: colors.accent }}
                   thumbColor={colors.canvas}

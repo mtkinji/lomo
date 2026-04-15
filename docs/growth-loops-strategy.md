@@ -72,8 +72,8 @@ Leverage the existing `email_enabled` / `email_recipient` columns on chapter tem
 
 - **Local notifications are mature:** Activity reminders, daily show-up, daily focus, goal nudges, and setup-next-step all have production schedulers with caps (2/day), spacing (6h), and suppression logic.
 - **Server push is not wired.** `pushTokenService.ts` has `registerPushToken` / `unregisterPushToken` but **nothing calls them** — they are dead code. The `kwilt_push_tokens`, `kwilt_mcp_notification_queue`, and `kwilt_mcp_notification_log` tables exist in migrations but have no sender.
-- **Streak and reactivation types are defined** in the `NotificationData` union and tap-handler, but **only fire in dev** via `debugFireNotification`.
-- **`allowStreakAndReactivation`** defaults to `false` in the store with no UI toggle.
+- **Streak and reactivation types are defined** in the `NotificationData` union and tap-handler. ~~Only fire in dev via `debugFireNotification`.~~ Now fully wired with production schedulers (Sprint 1).
+- **`allowStreakAndReactivation`** defaults to `true` in the store with a UI toggle in `NotificationsSettingsScreen` (Sprint 1).
 - **No iOS notification categories** (`setNotificationCategoryAsync` is not called), so there are no inline actions (e.g., "Mark done" from the notification).
 - **No adaptive timing.** Notification times are user-configured but don't shift based on observed behavior patterns.
 - **Background reconcile** exists and is solid (ledger + estimation), but only for local notifications.
@@ -86,7 +86,7 @@ Leverage the existing `email_enabled` / `email_recipient` columns on chapter tem
 - Call `unregisterPushToken()` on sign-out.
 - This unblocks all server-initiated push (streak-at-risk, reactivation, digest, social).
 
-**N2. Implement streak-at-risk local notification (high priority)**
+**N2. Implement streak-at-risk local notification (high priority)** ✅ Done
 
 This is the single highest-impact retention notification and is already designed in `streak-retention-loops.plan.md`:
 - Schedule for ~7 PM local when `currentShowUpStreak > 0` and `lastShowUpDate !== todayKey`.
@@ -94,12 +94,16 @@ This is the single highest-impact retention notification and is already designed
 - Respect the 2/day cap and 6h spacing.
 - Surface `allowStreakAndReactivation` toggle in `NotificationsSettingsScreen`.
 
-**N3. Implement reactivation notification (high priority)**
+Implemented in `NotificationService.ts` (`scheduleStreakAtRiskInternal`). Settings toggle added to `NotificationsSettingsScreen.tsx`. Default changed to `allowStreakAndReactivation: true`. 11 tests covering all edge cases.
+
+**N3. Implement reactivation notification (high priority)** ✅ Done
 
 - Schedule 3 days after last show-up; reschedule on each new show-up.
 - Reference the user's broken streak length in copy.
 - Navigate to Plan with `openRecommendations: true` on tap.
 - Back off after 2 ignored reactivation notifications (track via delivery ledger).
+
+Implemented in `NotificationService.ts` (`scheduleReactivationInternal`). Fires at user's daily show-up time, references previous streak length in copy, backs off after 2 ignores.
 
 **N4. Add iOS notification action categories**
 
@@ -185,7 +189,7 @@ Currently widget nudges are gated by `appOpenCount` and FTUE completion. Refine:
 - **Show-up streak** is local-first, keyed on `lastShowUpDate` (local calendar day). Only Activity completion counts.
 - **Grace system** is partially implemented:
   - 1 free grace day per ISO week (resets weekly).
-  - Shields (Pro-only) are capped at 3 and have `addStreakShields` in the store, but **no call sites** actually award shields — so Pro users accumulate 0 shields in production.
+  - Shields (Pro-only) are capped at 3. ~~`addStreakShields` had no call sites.~~ Shield earning is now wired into `recordShowUp` (1 shield per 7-day milestone, max 1/week, cap 3) — Sprint 1.
   - Grace consumption on missed days works correctly.
 - **`streakProtection.ts`** has a more sophisticated model (weekly shield earning, 48h repair window, repair cost of 2 shields) but is **not wired** into `recordShowUp`.
 - **Celebrations** exist for daily streak milestones and streak-saved events.
@@ -194,12 +198,14 @@ Currently widget nudges are gated by `appOpenCount` and FTUE completion. Refine:
 
 ### Recommendations
 
-**S1. Wire shield earning for Pro users (critical — Pro feature is advertised but broken)**
+**S1. Wire shield earning for Pro users (critical — Pro feature is advertised but broken)** ✅ Done
 
 `addStreakShields` exists but is never called. Implement the earning logic from `streakProtection.ts`:
 - Award 1 shield per 7 consecutive "covered" days (days where the user showed up or used grace).
 - Cap at 3 shields, max 1 per ISO week.
 - This makes Pro shields a real, meaningful retention feature instead of vaporware.
+
+Implemented directly in `recordShowUp` in `useAppStore.ts`. Added `lastShieldEarnedWeekKey` to `streakGrace` type. 5 tests covering Pro/free, cap, weekly limit, and non-milestone streaks.
 
 **S2. Integrate the repair window**
 
@@ -236,12 +242,14 @@ Add a "Share your streak" action from the StreakCapsule tap (Settings streak car
 
 This turns streaks into a growth channel.
 
-**S6. Streak-aware notification copy**
+**S6. Streak-aware notification copy** ✅ Done
 
 All notification types should be streak-aware:
 - Daily show-up: "Day [N+1] starts now. Open Kwilt to keep your streak alive."
 - Activity reminder: "Time for [Activity]. Completing this continues your [N]-day streak."
 - Goal nudge: "Your [Goal] needs attention — and your [N]-day streak is counting on you."
+
+Implemented: daily show-up and activity reminder titles now append " — day N" when streak ≥ 2. 2 tests covering the suffix logic.
 
 ---
 
@@ -345,29 +353,30 @@ The recommendations above are strongest when they reinforce each other. Here are
 
 ## 7. Prioritized implementation order
 
-| Priority | Item | Loop | Est. effort |
-|----------|------|------|-------------|
-| P0 | N2: Streak-at-risk notification | 1, 3 | S |
-| P0 | N3: Reactivation notification | 1 | S |
-| P0 | S1: Wire shield earning for Pro | 3 | S |
-| P1 | S2: Integrate repair window | 3 | M |
-| P1 | N1: Wire push token registration | All | S |
-| P1 | W1: Lock Screen widget | 1, 2 | M |
-| P1 | U1: Pro upsell on streak break | 3 | S |
-| P1 | U3: Surface intro offers / free trial | 4 | S |
-| P2 | E1: Welcome + activation email drip | 2 | L |
-| P2 | W2: Small Home Screen widget | 1 | M |
-| P2 | W3: Complete Live Activities | 1 | M |
-| P2 | S3: Streak milestones with rewards | 1 | M |
-| P2 | U2: Time-limited Pro previews | 4 | M |
-| P2 | N4: iOS notification action categories | 1 | S |
-| P3 | E2: Weekly Chapter digest email | 2 | M |
-| P3 | E3: Streak-break / win-back emails | 3 | M |
-| P3 | S4: "Streak Sunday" weekly recap | 1 | S |
-| P3 | S5: Social streak sharing | Growth | S |
-| P3 | N5: Adaptive notification timing | 1 | M |
-| P3 | U4: Improved credit exhaustion UX | 4 | S |
-| P3 | W4: Android widget | 1 | L |
+| Priority | Item | Loop | Est. effort | Status |
+|----------|------|------|-------------|--------|
+| P0 | N2: Streak-at-risk notification | 1, 3 | S | **Done** |
+| P0 | N3: Reactivation notification | 1 | S | **Done** |
+| P0 | S1: Wire shield earning for Pro | 3 | S | **Done** |
+| P0 | S6: Streak-aware notification copy | 1 | S | **Done** |
+| P1 | S2: Integrate repair window | 3 | M | |
+| P1 | N1: Wire push token registration | All | S | |
+| P1 | W1: Lock Screen widget | 1, 2 | M | |
+| P1 | U1: Pro upsell on streak break | 3 | S | |
+| P1 | U3: Surface intro offers / free trial | 4 | S | |
+| P2 | E1: Welcome + activation email drip | 2 | L | |
+| P2 | W2: Small Home Screen widget | 1 | M | |
+| P2 | W3: Complete Live Activities | 1 | M | |
+| P2 | S3: Streak milestones with rewards | 1 | M | |
+| P2 | U2: Time-limited Pro previews | 4 | M | |
+| P2 | N4: iOS notification action categories | 1 | S | |
+| P3 | E2: Weekly Chapter digest email | 2 | M | |
+| P3 | E3: Streak-break / win-back emails | 3 | M | |
+| P3 | S4: "Streak Sunday" weekly recap | 1 | S | |
+| P3 | S5: Social streak sharing | Growth | S | |
+| P3 | N5: Adaptive notification timing | 1 | M | |
+| P3 | U4: Improved credit exhaustion UX | 4 | S | |
+| P3 | W4: Android widget | 1 | L | |
 
 **S** = small (< 1 week), **M** = medium (1–2 weeks), **L** = large (2+ weeks)
 

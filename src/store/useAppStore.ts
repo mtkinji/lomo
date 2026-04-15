@@ -34,6 +34,7 @@ import { useToastStore } from './useToastStore';
 import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
 import { useCheckinNudgeStore } from './useCheckinNudgeStore';
 import { useMilestoneSharePromptStore } from './useMilestoneSharePromptStore';
+import { useEntitlementsStore } from './useEntitlementsStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 
@@ -681,6 +682,8 @@ interface AppState {
     lastFreeResetWeek: string | null;
     /** Streak Shields: Pro users can earn these, stackable up to 3 */
     shieldsAvailable: number;
+    /** ISO week key (YYYY-Www) when a shield was last earned via the weekly earning rule */
+    lastShieldEarnedWeekKey: string | null;
     /** Days "covered" by grace since last show-up (for UI messaging) */
     graceDaysUsed: number;
   };
@@ -1317,7 +1320,7 @@ export const useAppStore = create<AppState>()(
         // System nudge: default ON once notifications are enabled (user can toggle off).
         allowGoalNudges: true,
         goalNudgeTime: null,
-        allowStreakAndReactivation: false,
+        allowStreakAndReactivation: true,
       },
       locationOfferPreferences: {
         enabled: false,
@@ -1343,6 +1346,7 @@ export const useAppStore = create<AppState>()(
         freeDaysRemaining: 1,
         lastFreeResetWeek: null,
         shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
         graceDaysUsed: 0,
       },
       appOpenCount: 0,
@@ -2249,6 +2253,7 @@ export const useAppStore = create<AppState>()(
             freeDaysRemaining: 1,
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
+            lastShieldEarnedWeekKey: null,
             graceDaysUsed: 0,
           };
 
@@ -2327,6 +2332,22 @@ export const useAppStore = create<AppState>()(
             }
           }
 
+          // Shield earning: Pro users earn 1 shield per 7-day streak milestone (cap 3, max 1/week).
+          const MAX_SHIELDS = 3;
+          if (
+            nextStreak > 1 &&
+            nextStreak % 7 === 0 &&
+            useEntitlementsStore.getState().isPro &&
+            nextGrace.shieldsAvailable < MAX_SHIELDS &&
+            nextGrace.lastShieldEarnedWeekKey !== currentWeekKey
+          ) {
+            nextGrace = {
+              ...nextGrace,
+              shieldsAvailable: Math.min(MAX_SHIELDS, nextGrace.shieldsAvailable + 1),
+              lastShieldEarnedWeekKey: currentWeekKey,
+            };
+          }
+
           return {
             ...state,
             lastShowUpDate: todayKey,
@@ -2388,6 +2409,7 @@ export const useAppStore = create<AppState>()(
             freeDaysRemaining: 1,
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
+            lastShieldEarnedWeekKey: null,
             graceDaysUsed: 0,
           };
           const MAX_SHIELDS = 3;
@@ -2482,6 +2504,7 @@ export const useAppStore = create<AppState>()(
             freeDaysRemaining: 1,
             lastFreeResetWeek: null,
             shieldsAvailable: 0,
+            lastShieldEarnedWeekKey: null,
             graceDaysUsed: 0,
           },
           lastCompletedFocusSessionDate: null,

@@ -58,9 +58,11 @@ function setStoreState(overrides: any = {}) {
       allowGoalNudges: true,
       goalNudgeTime: '16:00',
       allowActivityReminders: false,
+      allowStreakAndReactivation: true,
     },
     lastShowUpDate: null,
     lastCompletedFocusSessionDate: null,
+    currentShowUpStreak: 0,
     arcs: [],
     goals: [],
     activities: [],
@@ -240,6 +242,220 @@ describe('NotificationService system-nudge policy', () => {
     await NotificationService.scheduleGoalNudge();
 
     expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('NotificationService streak-at-risk', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('schedules a streak-at-risk notification at 19:00 when streak > 0 and not showed up today', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 5,
+      lastShowUpDate: '2025-12-31',
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleStreakAtRisk();
+
+    expect(scheduleSpy).toHaveBeenCalledTimes(1);
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    expect(arg.content.title).toBe('Your 5-day streak is at risk');
+    const fireAt = arg.trigger.date as Date;
+    expect(fireAt.getHours()).toBe(19);
+    expect(fireAt.getMinutes()).toBe(0);
+    expect(fireAt.getDate()).toBe(1); // today
+  });
+
+  it('does not schedule when the user already showed up today', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 5,
+      lastShowUpDate: '2026-01-01',
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleStreakAtRisk();
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule when streak is 0', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 0,
+      lastShowUpDate: null,
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleStreakAtRisk();
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule when 19:00 has already passed', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T20:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 3,
+      lastShowUpDate: '2025-12-31',
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleStreakAtRisk();
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+
+  it('backs off after 2 consecutive ignores', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 5,
+      lastShowUpDate: '2025-12-31',
+    });
+
+    (loadSystemNudgeLedger as jest.Mock).mockResolvedValueOnce({
+      days: {},
+      lastOpenedAtByType: {},
+      lastSentAtByType: {},
+      consecutiveNoOpenByType: { streak: 2 },
+      sentCountByDate: {},
+      openHourCountsByType: {},
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleStreakAtRisk();
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule when allowStreakAndReactivation is false', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 5,
+      lastShowUpDate: '2025-12-31',
+      notificationPreferences: {
+        notificationsEnabled: true,
+        osPermissionStatus: 'authorized',
+        allowDailyShowUp: true,
+        dailyShowUpTime: '09:00',
+        allowDailyFocus: true,
+        dailyFocusTime: '14:00',
+        allowGoalNudges: true,
+        goalNudgeTime: '16:00',
+        allowActivityReminders: false,
+        allowStreakAndReactivation: false,
+      },
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleStreakAtRisk();
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('NotificationService reactivation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('schedules a reactivation notification 3 days in the future at show-up time', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-05T10:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 4,
+      lastShowUpDate: '2026-01-04',
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleReactivation();
+
+    expect(scheduleSpy).toHaveBeenCalledTimes(1);
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    expect(arg.content.title).toBe('You had a 4-day streak going');
+    const fireAt = arg.trigger.date as Date;
+    expect(fireAt.getDate()).toBe(8); // 3 days from Jan 5
+    expect(fireAt.getHours()).toBe(9); // dailyShowUpTime default
+  });
+
+  it('uses generic copy when streak is 0', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-05T10:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 0,
+      lastShowUpDate: null,
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleReactivation();
+
+    expect(scheduleSpy).toHaveBeenCalledTimes(1);
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    expect(arg.content.title).toBe('Your goals are waiting');
+  });
+
+  it('backs off after 2 consecutive ignores', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-05T10:00:00.000'));
+    setStoreState({
+      currentShowUpStreak: 3,
+      lastShowUpDate: '2026-01-04',
+    });
+
+    (loadSystemNudgeLedger as jest.Mock).mockResolvedValueOnce({
+      days: {},
+      lastOpenedAtByType: {},
+      lastSentAtByType: {},
+      consecutiveNoOpenByType: { reactivation: 2 },
+      sentCountByDate: {},
+      openHourCountsByType: {},
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleReactivation();
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('NotificationService streak-aware copy', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('appends streak day count to daily show-up title when streak >= 2', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000'));
+    setStoreState({ currentShowUpStreak: 5 });
+
+    (getSuggestedNextStep as unknown as jest.Mock).mockReturnValueOnce({
+      kind: 'activity',
+      activityId: 'a1',
+      goalId: 'goal-1',
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleDailyShowUp('09:00');
+
+    expect(scheduleSpy).toHaveBeenCalled();
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    expect(arg.content.title).toBe('Align your day with your arcs — day 6');
+  });
+
+  it('does not append streak suffix when streak < 2', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000'));
+    setStoreState({ currentShowUpStreak: 1 });
+
+    (getSuggestedNextStep as unknown as jest.Mock).mockReturnValueOnce({
+      kind: 'activity',
+      activityId: 'a1',
+      goalId: 'goal-1',
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleDailyShowUp('09:00');
+
+    expect(scheduleSpy).toHaveBeenCalled();
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    expect(arg.content.title).toBe('Align your day with your arcs');
   });
 });
 
