@@ -115,6 +115,41 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Action identifiers for iOS notification categories.
+const ACTION_START_FOCUS = 'START_FOCUS';
+const ACTION_SNOOZE_1H = 'SNOOZE_1H';
+const ACTION_SHOW_UP_NOW = 'SHOW_UP_NOW';
+
+const CATEGORY_ACTIVITY_REMINDER = 'activityReminder';
+const CATEGORY_STREAK_AT_RISK = 'streakAtRisk';
+
+async function registerNotificationCategories(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await Notifications.setNotificationCategoryAsync(CATEGORY_ACTIVITY_REMINDER, [
+      {
+        identifier: ACTION_START_FOCUS,
+        buttonTitle: 'Start Focus',
+        options: { opensAppToForeground: true },
+      },
+      {
+        identifier: ACTION_SNOOZE_1H,
+        buttonTitle: 'Snooze 1h',
+        options: { opensAppToForeground: false },
+      },
+    ]);
+    await Notifications.setNotificationCategoryAsync(CATEGORY_STREAK_AT_RISK, [
+      {
+        identifier: ACTION_SHOW_UP_NOW,
+        buttonTitle: 'Show up now',
+        options: { opensAppToForeground: true },
+      },
+    ]);
+  } catch {
+    // Best-effort; categories failing shouldn't block init.
+  }
+}
+
 function getPreferences(): NotificationPreferences {
   return useAppStore.getState().notificationPreferences;
 }
@@ -666,6 +701,7 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
     const content: Notifications.NotificationContentInput = {
       title,
       body,
+      categoryIdentifier: CATEGORY_ACTIVITY_REMINDER,
       data: {
         type: 'activityReminder',
         activityId: activity.id,
@@ -1392,6 +1428,7 @@ async function scheduleStreakAtRiskInternal(prefs: NotificationPreferences) {
       content: {
         title: `Your ${streak}-day streak is at risk`,
         body: 'Show up before midnight — one tiny step keeps it alive.',
+        categoryIdentifier: CATEGORY_STREAK_AT_RISK,
         data: { type: 'streak' } satisfies NotificationData,
       },
       trigger: {
@@ -1697,13 +1734,42 @@ function attachNotificationResponseListener() {
       });
     }
 
+    const actionId = response.actionIdentifier;
+
+    // Handle "Snooze 1h" inline action (background — doesn't open app).
+    if (actionId === ACTION_SNOOZE_1H && data.type === 'activityReminder') {
+      const activityId = (data as { activityId?: string }).activityId;
+      if (activityId) {
+        const orig = response.notification.request.content;
+        const snoozeAt = new Date(Date.now() + 60 * 60 * 1000);
+        void Notifications.scheduleNotificationAsync({
+          content: {
+            title: orig.title ?? undefined,
+            body: orig.body ?? undefined,
+            data: orig.data ?? {},
+            categoryIdentifier: CATEGORY_ACTIVITY_REMINDER,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: snoozeAt,
+          },
+        }).catch(() => {});
+      }
+      return;
+    }
+
     switch (data.type) {
       case 'activityReminder': {
         const activityId = (data as { activityId?: string }).activityId;
         if (!activityId) return;
+        // "Start Focus" action → open activity with auto-start focus
+        const autoStartFocus = actionId === ACTION_START_FOCUS;
         navigateWhenReady('MainTabs', {
           screen: 'ActivitiesTab',
-          params: { screen: 'ActivityDetail', params: { activityId } },
+          params: {
+            screen: 'ActivityDetail',
+            params: { activityId, ...(autoStartFocus ? { autoStartFocus: true } : {}) },
+          },
         });
         break;
       }
@@ -1871,6 +1937,7 @@ export const NotificationService = {
   async init() {
     if (isInitialized) return;
     isInitialized = true;
+    await registerNotificationCategories();
     await syncOsPermissionStatus();
     await cleanupDuplicateSystemSchedules();
     await hydrateScheduledNotifications();

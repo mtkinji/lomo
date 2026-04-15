@@ -28,6 +28,7 @@ export function useWidgetNudge({
   const activities = useAppStore((state) => state.activities);
   const appOpenCount = useAppStore((state) => state.appOpenCount);
   const widgetNudge = useAppStore((state) => state.widgetNudge);
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const markWidgetPromptShown = useAppStore((state) => state.markWidgetPromptShown);
   const dismissWidgetPrompt = useAppStore((state) => state.dismissWidgetPrompt);
   const ftueActive = useFirstTimeUxStore((state) => state.isFlowActive);
@@ -35,6 +36,16 @@ export function useWidgetNudge({
   const widgetSurfaceVariant = useFeatureFlagVariant('widget_nudge_surface', 'inline_modal');
   const widgetTimingVariant = useFeatureFlagVariant('widget_nudge_timing', '3_5');
   const widgetCopyVariant = useFeatureFlagVariant('widget_nudge_copy', 'today_glance');
+
+  const streak = currentShowUpStreak ?? 0;
+
+  // At streak >= 7 without widget adoption, switch to assertive Lock Screen copy.
+  const effectiveCopyVariant = React.useMemo(() => {
+    if (streak >= 7 && (widgetNudge as any)?.status !== 'completed') {
+      return 'lock_screen_streak';
+    }
+    return widgetCopyVariant;
+  }, [streak, widgetNudge, widgetCopyVariant]);
 
   const [widgetModalVisible, setWidgetModalVisible] = React.useState(false);
   const hasTrackedWidgetInlineThisFocusRef = React.useRef(false);
@@ -47,12 +58,17 @@ export function useWidgetNudge({
     if (!activities || activities.length === 0) return false;
     if ((widgetNudge as any)?.status === 'completed') return false;
     if ((widgetNudge as any)?.cooldownUntilMs && Date.now() < (widgetNudge as any).cooldownUntilMs) return false;
+
+    // Streak-based fast-track: at streak day 3+ the user has something worth
+    // glancing at — show the nudge regardless of app open count.
+    if (streak >= 3) return true;
+
     // Timing: avoid first-run; show after a few returns.
     const inlineThreshold =
       widgetTimingVariant === '4_6' ? 4 : widgetTimingVariant === '5_7' ? 5 : 3;
     if ((appOpenCount ?? 0) < inlineThreshold) return false;
     return true;
-  }, [appOpenCount, activities, ftueActive, isFocused, widgetNudgesEnabled, widgetNudge, widgetTimingVariant]);
+  }, [appOpenCount, activities, ftueActive, isFocused, streak, widgetNudgesEnabled, widgetNudge, widgetTimingVariant]);
 
   const shouldAutoShowWidgetModal = React.useMemo(() => {
     if (!widgetNudgesEnabled) return false;
@@ -137,7 +153,7 @@ export function useWidgetNudge({
     setWidgetModalVisible,
     openWidgetSetup,
     handleDismissWidgetPrompt,
-    widgetCopyVariant,
+    widgetCopyVariant: effectiveCopyVariant,
   };
 }
 

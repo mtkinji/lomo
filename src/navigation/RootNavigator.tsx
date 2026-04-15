@@ -63,6 +63,7 @@ import { ToastHost } from '../ui/ToastHost';
 import { AuthPromptDrawerHost } from '../features/account/AuthPromptDrawerHost';
 import { PlanKickoffDrawerHost } from '../features/plan/PlanKickoffDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
+import { markOpenedFromWidget } from '../services/analytics/widgetAttribution';
 import { handleIncomingInviteUrl } from '../services/invites';
 import { handleIncomingArcDraftUrl } from '../services/arcDrafts';
 import { handleIncomingShareUrl } from '../services/appleEcosystem/shareExtension';
@@ -541,6 +542,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           // Avoid double-tracking if state updates multiple times for the same open.
           if (nowMs - lastWidgetOpenTrackedAtMsRef.current > 1500) {
             lastWidgetOpenTrackedAtMsRef.current = nowMs;
+            markOpenedFromWidget();
             capture(AnalyticsEvent.AppOpenedFromWidget, {
               route_name: routeName ?? 'unknown',
             });

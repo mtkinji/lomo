@@ -10,6 +10,13 @@ import {
 } from '../services/milestones';
 import { openPaywallInterstitial } from '../services/paywall';
 import { localDateKey } from './streakProtection';
+import { consumeOpenedFromWidget } from '../services/analytics/widgetAttribution';
+import { track } from '../services/analytics/analytics';
+import { posthogClient } from '../services/analytics/posthogClient';
+import { AnalyticsEvent } from '../services/analytics/events';
+
+const STREAK_MILESTONE_BONUS_CREDITS = 5;
+const STREAK_MILESTONE_REWARDS = new Set([7, 14, 30, 60, 100]);
 
 export type CelebrationMoment = {
   /** Unique key for this celebration instance to prevent duplicates */
@@ -760,6 +767,28 @@ export function recordShowUpWithCelebration() {
 
     if (isShowUpStreakMilestone(nextStreak)) {
       void recordShowUpStreakMilestone(nextStreak);
+    }
+
+    // Streak milestone rewards: award bonus AI credits at key thresholds.
+    if (STREAK_MILESTONE_REWARDS.has(nextStreak)) {
+      useAppStore.getState().addBonusGenerativeCreditsThisMonth(STREAK_MILESTONE_BONUS_CREDITS);
+      track(posthogClient, AnalyticsEvent.MilestoneRecorded, {
+        milestone_type: `streak_${nextStreak}`,
+        bonus_credits: STREAK_MILESTONE_BONUS_CREDITS,
+        streak_length: nextStreak,
+      });
+      useToastStore.getState().showToast({
+        message: `Streak milestone! +${STREAK_MILESTONE_BONUS_CREDITS} bonus AI credits`,
+        variant: 'credits',
+      });
+    }
+
+    // Widget-to-streak attribution: if this session was opened from a widget,
+    // the show-up closes the Widget → Show-up conversion loop.
+    if (consumeOpenedFromWidget()) {
+      track(posthogClient, AnalyticsEvent.WidgetAssistedShowUp, {
+        streak_length: nextStreak,
+      });
     }
   }
 }

@@ -30,6 +30,7 @@ export const AnalyticsEvent = {
   WidgetSetupViewed: 'widget_setup_viewed',
   WidgetSetupHelpOpened: 'widget_setup_help_opened',
   AppOpenedFromWidget: 'app_opened_from_widget',
+  WidgetAssistedShowUp: 'widget_assisted_show_up',
 
   // Monetization / paywall (MVP)
   PaywallViewed: 'paywall_viewed',

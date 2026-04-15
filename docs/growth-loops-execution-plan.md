@@ -205,35 +205,19 @@ Files: `App.tsx` or `src/navigation/RootNavigator.tsx`, `src/services/pushTokenS
 
 ---
 
-## Sprint 3 — Widget expansion + milestone rewards
+## Sprint 3a — Milestone rewards + engagement wiring
 
-**Theme:** Ship new widget surfaces and tangible streak progression to close Loop 1 fully.
-**Estimated duration:** ~2 weeks
-**Loop closed:** Loop 1 complete (Streak → Widget → Notification → Show-up → Streak), Loop 4 partially (milestone rewards)
+**Theme:** Ship streak progression rewards, widget adoption triggers, and notification actions — all TypeScript, no native widget work.
+**Estimated duration:** ~1 week
+**Loop closed:** Loop 1 partially (Streak → Notification → Show-up → Streak), Loop 4 partially (milestone rewards)
 
-### Why this third
-- Lock Screen widget is the **ambient retention** surface — it makes streaks visible passively, reducing dependence on notifications.
-- Milestone rewards give streaks a progression arc, not just a counter.
-- Both depend on the streak mechanics being solid (Sprints 1–2).
+### Why this before widget surfaces
+- Milestone rewards and widget nudge refinements deliver immediate engagement value using existing infrastructure.
+- Notification action categories reduce friction on every notification tap — high UX payoff for low effort.
+- Widget-to-streak attribution closes the measurement loop so widget ROI is trackable when new surfaces ship.
+- All four tasks are pure TypeScript with no native/prebuild cycle dependency.
 
 ### Tasks
-
-**14. Lock Screen widget**
-
-Files: Native Swift in the widget extension target (`ios/KwiltWidgets/`)
-
-- Add `WidgetFamily.accessoryCircular` and `accessoryRectangular` to the widget configuration.
-- Circular: flame SF Symbol + streak count from glanceable state `showUpStreakDays`.
-- Rectangular: "Next: [title]" + time, or streak count + "Tap to show up" if nothing scheduled.
-- Update `glanceableState.ts` to include `showUpStreakDays` in the snapshot (already present in `buildMomentumSnapshot`; verify it's in the widget payload).
-
-**15. Small (2x2) Home Screen widget**
-
-Files: Native Swift in widget extension
-
-- Add `WidgetFamily.systemSmall` to the existing Activities widget or as a new widget kind.
-- Content: streak flame + count centered, with "Show up today" subtitle.
-- Tap deep-links to Activities.
 
 **16. Widget nudge at streak day 3**
 
@@ -258,16 +242,6 @@ Files: `src/store/useCelebrationStore.ts`, `src/store/useAppStore.ts`, `src/doma
 - At 30 days: +15 AI credits + unlock a profile badge (new `badges` array in store).
 - Fire existing `MilestoneRecorded` analytics event with `milestone_type: 'streak_7'` etc.
 
-**19. Time-limited Pro previews**
-
-Files: `src/store/useAppStore.ts`, feature-gating code in Activities/Focus
-
-- Add `proPreview: { feature: string; expiresAtMs: number } | null` to store.
-- At 7-day streak: set `{ feature: 'focus_mode', expiresAtMs: now + 24h }`.
-- At 14-day streak: set `{ feature: 'saved_views', expiresAtMs: now + 72h }`.
-- In feature gates (e.g., Focus mode paywall check, saved views paywall check): if `proPreview.feature === 'focus_mode' && Date.now() < proPreview.expiresAtMs`, allow access.
-- On expiry (checked at feature gate): clear preview and show "Liked Focus Mode? Keep it with Pro."
-
 **20. iOS notification action categories**
 
 Files: `src/services/NotificationService.ts`
@@ -276,6 +250,79 @@ Files: `src/services/NotificationService.ts`
   - `'activityReminder'`: actions "Start Focus" (opens activity detail with `autoStartFocus`), "Snooze 1h" (reschedules +1h).
   - `'streakAtRisk'`: action "Show up now" (opens Activities).
 - Set `categoryIdentifier` when scheduling these notification types.
+
+### What shipped
+
+**16. Widget nudge at streak day 3** — `useWidgetNudge.ts`, `WidgetNudgeCard.tsx`
+
+- When `currentShowUpStreak >= 3`, the inline widget nudge shows regardless of `appOpenCount` (streak-based fast-track).
+- At streak >= 7 without widget adoption, copy variant switches to `'lock_screen_streak'`: "Keep your streak visible — add the Kwilt widget to your Lock Screen."
+- `effectiveCopyVariant` derived in hook; `WidgetNudgeCard` renders the new copy variant.
+
+**17. Widget-to-streak attribution** — `widgetAttribution.ts`, `RootNavigator.tsx`, `useCelebrationStore.ts`, `events.ts`
+
+- New `WidgetAssistedShowUp` analytics event added to `AnalyticsEvent`.
+- Session-scoped `markOpenedFromWidget()` / `consumeOpenedFromWidget()` flag in `widgetAttribution.ts`.
+- `markOpenedFromWidget()` called in RootNavigator when `source=widget` is detected.
+- `consumeOpenedFromWidget()` checked in `recordShowUpWithCelebration`; fires `WidgetAssistedShowUp` with `streak_length` when a widget-origin session leads to a show-up.
+
+**18. Streak milestone rewards** — `useCelebrationStore.ts`
+
+- Flat +5 bonus AI credits at each milestone (7, 14, 30, 60, 100 days).
+- After `recordShowUp` in `recordShowUpWithCelebration`, milestone thresholds are checked.
+- Awards bonus credits via `addBonusGenerativeCreditsThisMonth`.
+- Fires `MilestoneRecorded` event with `milestone_type`, `bonus_credits`, `streak_length`.
+- Shows toast: "Streak milestone! +N bonus AI credits".
+
+**20. iOS notification action categories** — `NotificationService.ts`
+
+- `registerNotificationCategories()` called at `init()` start (iOS only, best-effort).
+- `activityReminder` category: "Start Focus" (opens activity detail with `autoStartFocus: true`), "Snooze 1h" (reschedules notification +1h without opening app).
+- `streakAtRisk` category: "Show up now" (opens Activities).
+- `categoryIdentifier` set on activity reminder and streak-at-risk notification content.
+- Response handler updated: `ACTION_START_FOCUS` passes `autoStartFocus` param; `ACTION_SNOOZE_1H` schedules a new notification 1h later.
+
+### Sprint 3a acceptance criteria
+
+- [x] Widget nudge appears at streak day 3 regardless of appOpenCount.
+- [x] More assertive widget nudge copy at streak ≥ 7 if widget not adopted.
+- [x] `WidgetAssistedShowUp` analytics event fires when widget opens lead to show-ups.
+- [x] +5 bonus AI credits awarded at each streak milestone (7, 14, 30, 60, 100 days).
+- [x] iOS notification actions registered: "Start Focus", "Snooze 1h", "Show up now".
+
+---
+
+## Sprint 3b — Widget surfaces
+
+**Theme:** Ship new native widget surfaces (Lock Screen, small Home Screen, Live Activities) to close Loop 1 fully.
+**Estimated duration:** ~2 weeks
+**Loop closed:** Loop 1 complete (Streak → Widget → Notification → Show-up → Streak)
+**Prerequisite:** Sprint 3a (widget attribution + nudge wiring must be in place to measure widget ROI)
+
+### Why this is separate
+- All three tasks require native Swift changes in the widget extension, generated via the config plugin as string templates.
+- The dev loop (edit Swift-as-string → expo prebuild → rebuild) is slow and hard to iterate on visually.
+- Consider extracting Swift templates into standalone `.swift` source files copied at prebuild for a faster iteration cycle.
+- Lock Screen circular + small Home Screen are simpler than the existing medium/large Activities widget.
+
+### Tasks
+
+**14. Lock Screen widget**
+
+Files: Native Swift in the widget extension target (`ios/KwiltWidgets/`)
+
+- Add `WidgetFamily.accessoryCircular` and `accessoryRectangular` to the widget configuration.
+- Circular: flame SF Symbol + streak count from glanceable state `showUpStreakDays`.
+- Rectangular: "Next: [title]" + time, or streak count + "Tap to show up" if nothing scheduled.
+- Update `glanceableState.ts` to include `showUpStreakDays` in the snapshot (already present in `buildMomentumSnapshot`; verify it's in the widget payload).
+
+**15. Small (2x2) Home Screen widget**
+
+Files: Native Swift in widget extension
+
+- Add `WidgetFamily.systemSmall` to the existing Activities widget or as a new widget kind.
+- Content: streak flame + count centered, with "Show up today" subtitle.
+- Tap deep-links to Activities.
 
 **21. Complete Live Activities for Focus**
 
@@ -287,24 +334,17 @@ Files: Native Swift in widget extension, `src/services/appleEcosystem/`
   - Lock Screen: timer bar + activity title.
 - Wire the existing native bridge calls to actually start/update/end the visible Live Activity.
 
-### Sprint 3 acceptance criteria
+### Sprint 3b acceptance criteria
 
 - [ ] Lock Screen widget (circular + rectangular) renders streak and next-up from glanceable state.
 - [ ] Small Home Screen widget renders streak count with tap-to-open.
-- [ ] Widget nudge appears at streak day 3 regardless of appOpenCount.
-- [ ] More assertive widget nudge copy at streak ≥ 7 if widget not adopted.
-- [ ] `WidgetAssistedShowUp` analytics event fires when widget opens lead to show-ups.
-- [ ] +5 bonus AI credits awarded at 7-day streak; +15 at 30-day streak.
-- [ ] Pro preview (Focus 24h at streak 7, Saved Views 72h at streak 14) unlocks feature temporarily.
-- [ ] Expiry prompt drives user to paywall.
-- [ ] iOS notification actions registered: "Start Focus", "Snooze 1h", "Show up now".
 - [ ] Live Activity visible on Lock Screen and Dynamic Island during Focus sessions.
 
 ---
 
-## Sprint 4 — Email infrastructure + polish
+## Sprint 4 — Email infrastructure + polish + deferred
 
-**Theme:** Build server-side communication and polish remaining engagement surfaces.
+**Theme:** Build server-side communication, polish remaining engagement surfaces, and pick up deferred items.
 **Estimated duration:** ~2–3 weeks
 **Loop closed:** Loop 2 (Onboarding → Email → First streak → Widget nudge → Retention)
 
@@ -312,6 +352,7 @@ Files: Native Swift in widget extension, `src/services/appleEcosystem/`
 - Email infrastructure is highest-effort and requires server work (edge functions, cron, templates).
 - It's also the only sprint that requires changes in `supabase/` beyond migrations.
 - The client-side loops from Sprints 1–3 deliver retention value while email is being built.
+- Time-limited Pro previews (originally Sprint 3, Task 19) are deferred here — they add complexity to entitlement gates and should wait for milestone reward engagement data.
 
 ### Tasks
 
@@ -374,6 +415,16 @@ Files: `src/features/paywall/PaywallDrawer.tsx` or new interstitial
     - "Pro unlocks 1000 credits/month" comparison.
   - CTA: "See Pro plans" → existing paywall flow.
 
+**29. Time-limited Pro previews (deferred from Sprint 3)**
+
+Files: `src/store/useAppStore.ts`, feature-gating code in Activities/Focus
+
+- Add `proPreview: { feature: string; expiresAtMs: number } | null` to store.
+- At 7-day streak: set `{ feature: 'focus_mode', expiresAtMs: now + 24h }`.
+- At 14-day streak: set `{ feature: 'saved_views', expiresAtMs: now + 72h }`.
+- In feature gates (e.g., Focus mode paywall check, saved views paywall check): if `proPreview.feature === 'focus_mode' && Date.now() < proPreview.expiresAtMs`, allow access.
+- On expiry (checked at feature gate): clear preview and show "Liked Focus Mode? Keep it with Pro."
+
 **28. Adaptive notification timing**
 
 Files: `src/store/useAppStore.ts`, `src/services/NotificationService.ts`
@@ -419,22 +470,26 @@ Sprint 2 (Streak repair + upsell)
   └── Tests
         │
         ▼
-Sprint 3 (Widgets + milestones)
-  ├── W1: Lock Screen widget ← depends on streak state being reliable (S1, S2)
-  ├── W2: small Home widget
+Sprint 3a (Milestone rewards + engagement wiring — TypeScript only)
   ├── W6: widget nudge at streak 3 ← depends on streaks working correctly
   ├── W5: widget-streak attribution
   ├── S3: milestone rewards ← depends on milestones being recorded (Sprint 1)
-  ├── U2: Pro previews ← depends on milestone triggers
   ├── N4: notification actions (independent)
+  └── Tests
+        │
+        ▼
+Sprint 3b (Widget surfaces — native Swift)
+  ├── W1: Lock Screen widget ← depends on streak state being reliable (S1, S2)
+  ├── W2: small Home widget
   └── W3: Live Activities (independent, native-heavy)
         │
         ▼
-Sprint 4 (Email + polish)
+Sprint 4 (Email + polish + deferred)
   ├── E1: email infrastructure + welcome drip (independent of client work)
   ├── E2: chapter digest email
   ├── S4: weekly recap card
   ├── S5: social streak sharing
+  ├── U2: Pro previews ← deferred from Sprint 3; depends on milestone data
   ├── U4: credit exhaustion UX (independent)
   └── N5: adaptive timing ← depends on sufficient show-up data accumulating
 ```
@@ -449,7 +504,8 @@ After each sprint, validate:
 |--------|---------------------|
 | 1 | Streak-at-risk notification → same-day show-up rate; shield accumulation for Pro users |
 | 2 | Repair window usage rate; streak-break → Pro conversion rate; push tokens registered |
-| 3 | Lock Screen widget adoption %; widget-assisted show-ups; milestone reward redemption |
+| 3a | Widget nudge → setup conversion at streak 3; milestone reward redemption; notification action tap rate |
+| 3b | Lock Screen widget adoption %; widget-assisted show-ups; small widget adoption |
 | 4 | Email open/click rates; weekly recap engagement; streak share → referral conversion |
 
 ---
