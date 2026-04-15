@@ -26,6 +26,7 @@ import { createReferralCode } from '../../services/referrals';
 import { getAdminProCodesStatus } from '../../services/proCodes';
 import { signOut } from '../../services/backend/auth';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
+import { unregisterPushToken } from '../../services/pushTokenService';
 import { withHapticPress } from '../../ui/haptics/withHapticPress';
 import { shareUrlWithPreview } from '../../utils/share';
 import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
@@ -493,8 +494,8 @@ export function SettingsHomeScreen() {
                   style: 'destructive',
                   onPress: async () => {
                     try {
+                      await unregisterPushToken().catch(() => undefined);
                       await signOut();
-                      // Belt-and-suspenders: clear any local Super Admin simulation state on logout.
                       await clearAdminEntitlementsOverrideTier().catch(() => undefined);
                     } catch (err: any) {
                       Alert.alert(

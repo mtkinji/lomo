@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { MainTabsParamList } from '../../navigation/RootNavigator';
 import { PlanDateStrip } from './PlanDateStrip';
 import { useAppStore } from '../../store/useAppStore';
-import { useShowedUpToday } from '../../store/useShowedUpToday';
+import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 export function PlanScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
@@ -30,8 +30,10 @@ export function PlanScreen() {
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
   const streakGrace = useAppStore((state) => state.streakGrace);
+  const streakBreakState = useAppStore((state) => state.streakBreakState);
   const showedUpToday = useShowedUpToday(lastShowUpDate);
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+  const repairWindowActive = useRepairWindowActive(streakBreakState);
 
   const shiftDays = (deltaDays: number) => {
     const next = new Date(selectedDate);
@@ -59,6 +61,7 @@ export function PlanScreen() {
         streakCount={currentShowUpStreak ?? 0}
         streakShowedUpToday={showedUpToday}
         shieldCount={shieldCount}
+        repairWindowActive={repairWindowActive}
         moreMenu={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

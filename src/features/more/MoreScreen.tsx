@@ -9,7 +9,7 @@ import { HStack, VStack, Text } from '../../ui/primitives';
 import { Icon, type IconName } from '../../ui/Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
-import { useShowedUpToday } from '../../store/useShowedUpToday';
+import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { RootDrawerParamList, MoreStackParamList } from '../../navigation/RootNavigator';
 
@@ -59,8 +59,10 @@ export function MoreScreen() {
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
   const streakGrace = useAppStore((state) => state.streakGrace);
+  const streakBreakState = useAppStore((state) => state.streakBreakState);
   const showedUpToday = useShowedUpToday(lastShowUpDate);
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+  const repairWindowActive = useRepairWindowActive(streakBreakState);
 
   return (
     <AppShell>
@@ -72,6 +74,7 @@ export function MoreScreen() {
         streakCount={currentShowUpStreak ?? 0}
         streakShowedUpToday={showedUpToday}
         shieldCount={shieldCount}
+        repairWindowActive={repairWindowActive}
       />
       <ScrollView
         showsVerticalScrollIndicator={false}

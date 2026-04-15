@@ -688,6 +688,16 @@ interface AppState {
     graceDaysUsed: number;
   };
   /**
+   * Streak break + repair window state.
+   * When a streak breaks, the user gets a 48h window to return and restore it.
+   */
+  streakBreakState: {
+    brokenAtDateKey: string | null;
+    brokenStreakLength: number | null;
+    eligibleRepairUntilMs: number | null;
+    repairedAtMs: number | null;
+  };
+  /**
    * Lightweight lifecycle counters used for post-activation nudges (e.g. widgets).
    * Best-effort only; do not use for billing/security.
    */
@@ -1348,6 +1358,12 @@ export const useAppStore = create<AppState>()(
         shieldsAvailable: 0,
         lastShieldEarnedWeekKey: null,
         graceDaysUsed: 0,
+      },
+      streakBreakState: {
+        brokenAtDateKey: null,
+        brokenStreakLength: null,
+        eligibleRepairUntilMs: null,
+        repairedAtMs: null,
       },
       appOpenCount: 0,
       firstOpenedAtMs: null,
@@ -2227,17 +2243,21 @@ export const useAppStore = create<AppState>()(
         })),
       recordShowUp: () =>
         set((state) => {
+          const REPAIR_WINDOW_MS = 48 * 60 * 60 * 1000;
           const nowDate = new Date();
-          // Use local calendar days (not UTC) so streaks match user intuition.
           const todayKey = localDateKey(nowDate);
           const prevKey = state.lastShowUpDate;
           const prevStreak = state.currentShowUpStreak ?? 0;
+          const breakState = state.streakBreakState ?? {
+            brokenAtDateKey: null,
+            brokenStreakLength: null,
+            eligibleRepairUntilMs: null,
+            repairedAtMs: null,
+          };
 
-          // Get ISO week key (YYYY-Www) for grace reset tracking
           const getIsoWeekKey = (date: Date): string => {
             const d = new Date(date.getTime());
             d.setHours(0, 0, 0, 0);
-            // Thursday in current week decides the year
             d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
             const week1 = new Date(d.getFullYear(), 0, 4);
             const weekNum =
@@ -2257,18 +2277,16 @@ export const useAppStore = create<AppState>()(
             graceDaysUsed: 0,
           };
 
-          // Reset free grace days if new week started
           let nextGrace = { ...grace };
           if (grace.lastFreeResetWeek !== currentWeekKey) {
             nextGrace = {
               ...nextGrace,
-              freeDaysRemaining: 1, // Everyone gets 1 free grace day per week
+              freeDaysRemaining: 1,
               lastFreeResetWeek: currentWeekKey,
             };
           }
 
           if (prevKey === todayKey) {
-            // Already counted today.
             return {
               ...state,
               streakGrace: nextGrace,
@@ -2276,8 +2294,56 @@ export const useAppStore = create<AppState>()(
             };
           }
 
+          // Check if we're returning during an active repair window
+          if (
+            breakState.brokenAtDateKey &&
+            typeof breakState.eligibleRepairUntilMs === 'number' &&
+            nowDate.getTime() < breakState.eligibleRepairUntilMs &&
+            typeof breakState.brokenStreakLength === 'number' &&
+            breakState.brokenStreakLength > 0 &&
+            breakState.repairedAtMs === null
+          ) {
+            const repairedStreak = breakState.brokenStreakLength + 1;
+            const nextBreakState = {
+              brokenAtDateKey: null,
+              brokenStreakLength: null,
+              eligibleRepairUntilMs: null,
+              repairedAtMs: nowDate.getTime(),
+            };
+
+            const MAX_SHIELDS = 3;
+            if (
+              repairedStreak > 1 &&
+              repairedStreak % 7 === 0 &&
+              useEntitlementsStore.getState().isPro &&
+              nextGrace.shieldsAvailable < MAX_SHIELDS &&
+              nextGrace.lastShieldEarnedWeekKey !== currentWeekKey
+            ) {
+              nextGrace = {
+                ...nextGrace,
+                shieldsAvailable: Math.min(MAX_SHIELDS, nextGrace.shieldsAvailable + 1),
+                lastShieldEarnedWeekKey: currentWeekKey,
+              };
+            }
+
+            return {
+              ...state,
+              lastShowUpDate: todayKey,
+              currentShowUpStreak: repairedStreak,
+              streakGrace: { ...nextGrace, graceDaysUsed: 0 },
+              streakBreakState: nextBreakState,
+              lastActiveDate: nowDate.toISOString(),
+            };
+          }
+
           let nextStreak = 1;
           let graceDaysUsed = 0;
+          let nextBreakState = {
+            brokenAtDateKey: null as string | null,
+            brokenStreakLength: null as number | null,
+            eligibleRepairUntilMs: null as number | null,
+            repairedAtMs: null as number | null,
+          };
 
           if (prevKey) {
             const prevDate = parseLocalDateKey(prevKey);
@@ -2295,24 +2361,20 @@ export const useAppStore = create<AppState>()(
               const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
 
               if (diffDays === 1) {
-                // Consecutive day - streak continues normally
                 nextStreak = prevStreak + 1;
                 nextGrace = { ...nextGrace, graceDaysUsed: 0 };
               } else if (diffDays > 1) {
-                // Missed days - try to use grace
-                const missedDays = diffDays - 1; // Days between last show-up and today
-                let graceAvailable = nextGrace.freeDaysRemaining + nextGrace.shieldsAvailable;
+                const missedDays = diffDays - 1;
+                const graceAvailable = nextGrace.freeDaysRemaining + nextGrace.shieldsAvailable;
 
                 if (graceAvailable >= missedDays) {
-                  // Can cover all missed days with grace!
                   graceDaysUsed = missedDays;
-                  nextStreak = prevStreak + 1; // Streak continues
+                  nextStreak = prevStreak + 1;
 
-                  // Consume grace: free days first, then shields
                   let remaining = missedDays;
                   const freeUsed = Math.min(remaining, nextGrace.freeDaysRemaining);
                   remaining -= freeUsed;
-                  const shieldsUsed = remaining; // Whatever's left comes from shields
+                  const shieldsUsed = remaining;
 
                   nextGrace = {
                     ...nextGrace,
@@ -2321,18 +2383,22 @@ export const useAppStore = create<AppState>()(
                     graceDaysUsed: graceDaysUsed,
                   };
                 } else {
-                  // Not enough grace - streak resets
+                  // Not enough grace — enter repair window instead of immediately resetting
                   nextStreak = 1;
-                  nextGrace = {
-                    ...nextGrace,
-                    graceDaysUsed: 0, // Reset since streak reset
-                  };
+                  nextGrace = { ...nextGrace, graceDaysUsed: 0 };
+                  if (prevStreak > 0) {
+                    nextBreakState = {
+                      brokenAtDateKey: todayKey,
+                      brokenStreakLength: prevStreak,
+                      eligibleRepairUntilMs: nowDate.getTime() + REPAIR_WINDOW_MS,
+                      repairedAtMs: null,
+                    };
+                  }
                 }
               }
             }
           }
 
-          // Shield earning: Pro users earn 1 shield per 7-day streak milestone (cap 3, max 1/week).
           const MAX_SHIELDS = 3;
           if (
             nextStreak > 1 &&
@@ -2353,6 +2419,7 @@ export const useAppStore = create<AppState>()(
             lastShowUpDate: todayKey,
             currentShowUpStreak: nextStreak,
             streakGrace: nextGrace,
+            streakBreakState: nextBreakState,
             lastActiveDate: nowDate.toISOString(),
           };
         }),
@@ -2401,6 +2468,12 @@ export const useAppStore = create<AppState>()(
           streakGrace: {
             ...state.streakGrace,
             graceDaysUsed: 0,
+          },
+          streakBreakState: {
+            brokenAtDateKey: null,
+            brokenStreakLength: null,
+            eligibleRepairUntilMs: null,
+            repairedAtMs: null,
           },
         })),
       addStreakShields: (count) =>
@@ -2506,6 +2579,12 @@ export const useAppStore = create<AppState>()(
             shieldsAvailable: 0,
             lastShieldEarnedWeekKey: null,
             graceDaysUsed: 0,
+          },
+          streakBreakState: {
+            brokenAtDateKey: null,
+            brokenStreakLength: null,
+            eligibleRepairUntilMs: null,
+            repairedAtMs: null,
           },
           lastCompletedFocusSessionDate: null,
           lastCompletedFocusSessionAtIso: null,

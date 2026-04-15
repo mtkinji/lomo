@@ -107,6 +107,12 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
         subtitle:
           'Pro Tools helps you schedule activities into your life so progress doesn’t depend on willpower or perfect timing.',
       };
+    case 'pro_only_streak_shields':
+      return {
+        title: 'Pro shields would have saved your streak',
+        subtitle:
+          'Upgrade now and we\u2019ll restore your streak instantly. Plus, you\u2019ll get Streak Shields that protect your progress when life gets in the way.',
+      };
     default:
       return {
         title: 'Build a system you’ll actually stick with',

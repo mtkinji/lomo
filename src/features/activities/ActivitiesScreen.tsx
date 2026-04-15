@@ -50,7 +50,7 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
-import { useShowedUpToday } from '../../store/useShowedUpToday';
+import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
@@ -232,8 +232,10 @@ export function ActivitiesScreen() {
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
   const streakGrace = useAppStore((state) => state.streakGrace);
+  const streakBreakState = useAppStore((state) => state.streakBreakState);
   const showedUpToday = useShowedUpToday(lastShowUpDate);
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+  const repairWindowActive = useRepairWindowActive(streakBreakState);
 
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
@@ -2119,6 +2121,7 @@ export function ActivitiesScreen() {
         streakCount={currentShowUpStreak ?? 0}
         streakShowedUpToday={showedUpToday}
         shieldCount={shieldCount}
+        repairWindowActive={repairWindowActive}
         rightElement={
           isQuickAddFocused ? (
             <Button

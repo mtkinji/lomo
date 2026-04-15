@@ -103,7 +103,7 @@ export function ManageSubscriptionScreen() {
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const bonusGenerativeCredits = useAppStore((state) => state.bonusGenerativeCredits);
   const [pricingDrawerVisible, setPricingDrawerVisible] = React.useState(false);
-  const [skuPricing, setSkuPricing] = React.useState<Record<string, { priceString?: string }> | null>(null);
+  const [skuPricing, setSkuPricing] = React.useState<Record<string, { priceString?: string; introPrice?: { priceString: string; type?: string; periodNumberOfUnits?: number; periodUnit?: string } }> | null>(null);
 
   // Habit-formation optimized defaults: lower-commitment entry point.
   const [billingCadence, setBillingCadence] = React.useState<BillingCadence>('monthly');
@@ -417,20 +417,36 @@ export function ManageSubscriptionScreen() {
             <Button
               disabled={isRefreshing}
               onPress={() => {
+                const purchaseSku = getProSku(plan, billingCadence);
+                const introOffer = skuPricing?.[purchaseSku]?.introPrice;
+                const isTrial = introOffer?.type === 'FREE_TRIAL' || introOffer?.priceString === '$0.00';
                 capture(AnalyticsEvent.PurchaseStarted, {
                   plan,
                   cadence: billingCadence,
-                  sku: getProSku(plan, billingCadence),
+                  sku: purchaseSku,
+                  is_trial: isTrial,
                 });
                 purchase({ plan, cadence: billingCadence })
                   .then(() => {
                     capture(AnalyticsEvent.PurchaseSucceeded, {
                       plan,
                       cadence: billingCadence,
-                      sku: getProSku(plan, billingCadence),
+                      sku: purchaseSku,
                     });
+                    if (isTrial) {
+                      capture(AnalyticsEvent.FreeTrialStarted, {
+                        plan,
+                        cadence: billingCadence,
+                        sku: purchaseSku,
+                      });
+                    }
                     setPricingDrawerVisible(false);
-                    Alert.alert('Welcome to Pro', 'Your subscription is now active.');
+                    Alert.alert(
+                      isTrial ? 'Trial started' : 'Welcome to Pro',
+                      isTrial
+                        ? 'Your free trial is now active. Enjoy all Pro features!'
+                        : 'Your subscription is now active.',
+                    );
                   })
                   .catch((e: any) => {
                     const message = typeof e?.message === 'string' ? e.message : 'Purchase failed';
@@ -448,7 +464,18 @@ export function ManageSubscriptionScreen() {
               }}
             >
               <Text style={styles.buttonLabelOnCta}>
-                {isRefreshing ? 'Working…' : 'Upgrade to Kwilt Pro'}
+                {isRefreshing
+                  ? 'Working\u2026'
+                  : (() => {
+                      const sku = getProSku(plan, billingCadence);
+                      const intro = skuPricing?.[sku]?.introPrice;
+                      if (intro?.type === 'FREE_TRIAL' || intro?.priceString === '$0.00') {
+                        const n = intro.periodNumberOfUnits ?? 7;
+                        const unit = (intro.periodUnit ?? 'DAY').toLowerCase();
+                        return `Start ${n}-${unit} free trial`;
+                      }
+                      return 'Upgrade to Kwilt Pro';
+                    })()}
               </Text>
             </Button>
           </VStack>

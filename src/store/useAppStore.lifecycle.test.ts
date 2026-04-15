@@ -464,4 +464,124 @@ describe('recordShowUp shield earning', () => {
   });
 });
 
+describe('recordShowUp streak repair window', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function setStreakState(overrides: Record<string, unknown>) {
+    useAppStore.setState(overrides as any);
+  }
+
+  const REPAIR_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+  it('sets break state with 48h repair window when streak resets', () => {
+    setStreakState({
+      lastShowUpDate: '2026-04-12',
+      currentShowUpStreak: 10,
+      streakGrace: {
+        freeDaysRemaining: 0,
+        lastFreeResetWeek: '2026-W16',
+        shieldsAvailable: 0,
+        lastShieldEarnedWeekKey: null,
+        graceDaysUsed: 0,
+      },
+    });
+
+    const now = new Date(2026, 3, 15, 10, 0, 0);
+    jest.setSystemTime(now);
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(1);
+    expect(state.streakBreakState.brokenAtDateKey).toBe('2026-04-15');
+    expect(state.streakBreakState.brokenStreakLength).toBe(10);
+    expect(state.streakBreakState.eligibleRepairUntilMs).toBe(now.getTime() + REPAIR_WINDOW_MS);
+    expect(state.streakBreakState.repairedAtMs).toBeNull();
+  });
+
+  it('restores streak when user returns within the repair window', () => {
+    const breakTime = new Date(2026, 3, 15, 10, 0, 0);
+    setStreakState({
+      lastShowUpDate: '2026-04-15',
+      currentShowUpStreak: 1,
+      streakBreakState: {
+        brokenAtDateKey: '2026-04-15',
+        brokenStreakLength: 10,
+        eligibleRepairUntilMs: breakTime.getTime() + REPAIR_WINDOW_MS,
+        repairedAtMs: null,
+      },
+    });
+
+    // Return the next day (within 48h window)
+    const repairTime = new Date(2026, 3, 16, 8, 0, 0);
+    jest.setSystemTime(repairTime);
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(11); // 10 + 1 (restored)
+    expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+    expect(state.streakBreakState.repairedAtMs).toBe(repairTime.getTime());
+  });
+
+  it('does NOT restore streak when repair window has expired', () => {
+    const breakTime = new Date(2026, 3, 13, 10, 0, 0);
+    setStreakState({
+      lastShowUpDate: '2026-04-13',
+      currentShowUpStreak: 1,
+      streakBreakState: {
+        brokenAtDateKey: '2026-04-13',
+        brokenStreakLength: 10,
+        eligibleRepairUntilMs: breakTime.getTime() + REPAIR_WINDOW_MS, // expires April 15 10:00
+        repairedAtMs: null,
+      },
+    });
+
+    // Return after the window expired
+    const lateReturn = new Date(2026, 3, 16, 12, 0, 0);
+    jest.setSystemTime(lateReturn);
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(1); // stays at 1 (no repair)
+    expect(state.streakBreakState.repairedAtMs).toBeNull();
+  });
+
+  it('clears break state on resetShowUpStreak', () => {
+    setStreakState({
+      streakBreakState: {
+        brokenAtDateKey: '2026-04-15',
+        brokenStreakLength: 5,
+        eligibleRepairUntilMs: Date.now() + REPAIR_WINDOW_MS,
+        repairedAtMs: null,
+      },
+    });
+
+    useAppStore.getState().resetShowUpStreak();
+
+    const state = useAppStore.getState();
+    expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+    expect(state.streakBreakState.brokenStreakLength).toBeNull();
+  });
+
+  it('does not set break state when prevStreak is 0 (fresh start)', () => {
+    setStreakState({
+      lastShowUpDate: null,
+      currentShowUpStreak: 0,
+    });
+
+    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const state = useAppStore.getState();
+    expect(state.currentShowUpStreak).toBe(1);
+    expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+  });
+});
+
 

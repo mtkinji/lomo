@@ -89,6 +89,10 @@ type PageHeaderProps = {
    */
   shieldCount?: number;
   /**
+   * Whether the streak repair window is currently active (amber pulse).
+   */
+  repairWindowActive?: boolean;
+  /**
    * Optional overflow/more menu rendered inline next to the page title.
    * Pass a fully composed DropdownMenu (or any node) here.
    */
@@ -117,6 +121,7 @@ export function PageHeader({
   streakCount,
   streakShowedUpToday = false,
   shieldCount,
+  repairWindowActive = false,
   moreMenu,
   containerStyle,
 }: PageHeaderProps) {
@@ -220,6 +225,7 @@ export function PageHeader({
               streakCount={streakCount}
               showedUpToday={streakShowedUpToday}
               shieldCount={shieldCount}
+              repairWindowActive={repairWindowActive}
               onPress={onPressAvatar}
             />
           ) : null}

@@ -39,6 +39,7 @@ export const AnalyticsEvent = {
   RestoreStarted: 'restore_started',
   RestoreSucceeded: 'restore_succeeded',
   RestoreFailed: 'restore_failed',
+  FreeTrialStarted: 'free_trial_started',
 
   // Social sharing (goals)
   ShareGoalDrawerOpened: 'share_goal_drawer_opened',

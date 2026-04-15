@@ -71,11 +71,12 @@ This plan organizes the 21 strategy items into 4 sprints based on dependency ord
 
 ---
 
-## Sprint 2 — Streak repair + upsell
+## Sprint 2 — Streak repair + upsell ✅ Complete
 
 **Theme:** Close Loop 3 (break → repair → upsell → conversion) and wire the push token prerequisite.
 **Estimated duration:** ~1.5 weeks
 **Loop closed:** Loop 3 (Streak break → Repair → Pro upsell), Loop 4 partially (intro offers)
+**Status:** All tasks implemented, 79/79 tests passing, typecheck clean.
 
 ### Why this second
 - The repair window is the key differentiator from a "punishing" streak system. Without it, streaks cause churn at the exact moment they should create re-engagement.
@@ -145,17 +146,62 @@ Files: `App.tsx` or `src/navigation/RootNavigator.tsx`, `src/services/pushTokenS
 - Test: Pro upsell fires only for free users when shields would have helped.
 - Test: intro offer detection returns correct pricing when available.
 
+### What shipped
+
+**7. Repair window in `recordShowUp`** — `useAppStore.ts`
+
+- Added `streakBreakState` to persisted state (`brokenAtDateKey`, `brokenStreakLength`, `eligibleRepairUntilMs`, `repairedAtMs`).
+- When grace doesn't cover missed days and `prevStreak > 0`: sets break state with `eligibleRepairUntilMs = now + 48h` instead of silently resetting.
+- On next `recordShowUp`, if within the repair window: restores `brokenStreakLength + 1` as the streak, sets `repairedAtMs`.
+- `resetShowUpStreak` clears break state.
+
+**8. Repair StreakCapsule visual** — `StreakCapsule.tsx`, `PageHeader.tsx`, all tab screens
+
+- Added `repairWindowActive` prop to `StreakCapsule` and `PageHeader`.
+- When active: flame renders in amber (#F59E0B) with a pulse animation (0.5–1.0 opacity, 900ms cycle).
+- `useRepairWindowActive` hook added to `useShowedUpToday.ts`; consumed in all 6 tab screens.
+
+**9. Repair celebrations** — `useCelebrationStore.ts`, `gifs.ts`
+
+- `celebrateStreakRepairOpportunity()`: fires when a streak > 3 breaks (repair window active).
+- `celebrateStreakRepaired()`: fires when user returns within the window and streak is restored.
+- Added `streakRepairOpportunity` and `streakRepaired` to `CelebrationKind`.
+- `recordShowUpWithCelebration` updated to detect repair success vs repair opportunity vs normal streak.
+
+**10. Pro upsell on streak break** — `paywall.ts`, `PaywallDrawer.tsx`, `useCelebrationStore.ts`
+
+- Added `'pro_only_streak_shields'` to `PaywallReason` and `'streak_break'` to `PaywallSource`.
+- Copy: "Pro shields would have saved your streak — Life happens — Pro users get Streak Shields..."
+- Trigger: when a free user's streak breaks and they had 0 shields, opens paywall 1.5s after the repair opportunity celebration.
+
+**11. Introductory offers** — `entitlements.ts`, `ManageSubscriptionScreen.tsx`, `events.ts`
+
+- Extended `ProSkuPricing` with `introPrice` (type, cycles, periodUnit, priceString).
+- `getProSkuPricing` now extracts `introPrice` / `introductoryPrice` / `introductoryDiscount` from RevenueCat packages.
+- Purchase button shows "Start N-unit free trial" when intro offer type is `FREE_TRIAL` or price is `$0.00`.
+- Added `FreeTrialStarted` analytics event; fires on successful trial purchase.
+
+**12. Push token registration** — `pushTokenService.ts`, `App.tsx`, `SettingsHomeScreen.tsx`
+
+- `startPushTokenSync()`: subscribes to `authIdentity` changes, calls `registerPushToken()` on sign-in, `unregisterPushToken()` on sign-out.
+- Wired into `App.tsx` alongside other startup services (`startDomainSync`, etc.).
+- `SettingsHomeScreen.tsx` sign-out handler calls `unregisterPushToken()` before `signOut()`.
+
+**13. Tests** — 5 new tests in `useAppStore.lifecycle.test.ts`
+
+- Repair window: sets break state on streak reset; restores streak within window; does not restore after expiry; clears on reset; no break state for fresh starts.
+
 ### Sprint 2 acceptance criteria
 
-- [ ] Streak break enters repair state with 48h window instead of immediately resetting.
-- [ ] StreakCapsule renders amber pulse during active repair window.
-- [ ] Repair opportunity celebration fires when streak > 3 breaks.
-- [ ] Repair success celebration fires when user returns within window.
-- [ ] Free users see "Pro shields would have saved your streak" paywall on applicable breaks.
-- [ ] `pro_only_streak_shields` PaywallReason has copy in PaywallDrawer.
-- [ ] RevenueCat intro offers surface as "Start free trial" CTA when eligible.
-- [ ] Push token registers on sign-in and app resume; unregisters on sign-out.
-- [ ] Unit tests pass for repair window, Pro upsell trigger, and intro offers.
+- [x] Streak break enters repair state with 48h window instead of immediately resetting.
+- [x] StreakCapsule renders amber pulse during active repair window.
+- [x] Repair opportunity celebration fires when streak > 3 breaks.
+- [x] Repair success celebration fires when user returns within window.
+- [x] Free users see "Pro shields would have saved your streak" paywall on applicable breaks.
+- [x] `pro_only_streak_shields` PaywallReason has copy in PaywallDrawer.
+- [x] RevenueCat intro offers surface as "Start free trial" CTA when eligible.
+- [x] Push token registers on sign-in and app resume; unregisters on sign-out.
+- [x] Unit tests pass for repair window, Pro upsell trigger, and intro offers.
 
 ---
 

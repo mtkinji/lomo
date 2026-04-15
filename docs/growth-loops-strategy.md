@@ -80,11 +80,13 @@ Leverage the existing `email_enabled` / `email_recipient` columns on chapter tem
 
 ### Recommendations
 
-**N1. Wire push token registration into auth lifecycle (prerequisite for server push)**
+**N1. Wire push token registration into auth lifecycle (prerequisite for server push)** ✅ Done
 
 - Call `registerPushToken()` after successful sign-in and on app resume when authenticated.
 - Call `unregisterPushToken()` on sign-out.
 - This unblocks all server-initiated push (streak-at-risk, reactivation, digest, social).
+
+Implemented: `startPushTokenSync()` in `pushTokenService.ts` subscribes to `authIdentity` changes. Wired into `App.tsx` at startup. Sign-out handler in `SettingsHomeScreen.tsx` also calls `unregisterPushToken()`.
 
 **N2. Implement streak-at-risk local notification (high priority)** ✅ Done
 
@@ -207,7 +209,7 @@ Currently widget nudges are gated by `appOpenCount` and FTUE completion. Refine:
 
 Implemented directly in `recordShowUp` in `useAppStore.ts`. Added `lastShieldEarnedWeekKey` to `streakGrace` type. 5 tests covering Pro/free, cap, weekly limit, and non-milestone streaks.
 
-**S2. Integrate the repair window**
+**S2. Integrate the repair window** ✅ Done
 
 The 24–48h repair window in `streakProtection.ts` is well-designed and tested. Wire it into `recordShowUp`:
 - When a streak would reset, instead of immediately going to 1, enter a "broken but repairable" state.
@@ -268,12 +270,14 @@ Implemented: daily show-up and activity reminder titles now append " — day N" 
 
 ### Recommendations
 
-**U1. Behavioral upsell on streak break (already designed, needs implementation)**
+**U1. Behavioral upsell on streak break (already designed, needs implementation)** ✅ Done
 
 Implement the plan from `streak-retention-loops.plan.md`:
 - When a free user's streak breaks and shields would have saved it, show: "Pro shields would have saved your [N]-day streak."
 - CTA to paywall with `pro_only_streak_shields` reason.
 - This is the highest-emotion, highest-intent conversion moment in the app.
+
+Implemented: `pro_only_streak_shields` PaywallReason with contextual copy in `PaywallDrawer.tsx`. Trigger fires in `recordShowUpWithCelebration` for free users with 0 shields when streak breaks.
 
 **U2. Time-limited Pro previews at streak milestones**
 
@@ -284,12 +288,14 @@ Instead of hard gates, let free users **taste** Pro:
 
 This is more effective than limit-triggered frustration because the user has already experienced value.
 
-**U3. Surface introductory offers / free trial**
+**U3. Surface introductory offers / free trial** ✅ Done
 
 RevenueCat supports introductory offers (free trial, pay-up-front, pay-as-you-go) via App Store Connect. Currently the paywall shows `priceString` but doesn't detect or surface `introPrice`:
 - Add intro offer detection to `getProSkuPricing()`.
 - Show "Start 7-day free trial" as the primary CTA for new users who haven't subscribed.
 - This is table-stakes for subscription app conversion.
+
+Implemented: `ProSkuPricing.introPrice` extracted in `getProSkuPricing()`. `ManageSubscriptionScreen` shows "Start N-unit free trial" CTA when intro offer detected. `FreeTrialStarted` analytics event added.
 
 **U4. Upgrade prompt after AI credit exhaustion**
 
@@ -359,11 +365,11 @@ The recommendations above are strongest when they reinforce each other. Here are
 | P0 | N3: Reactivation notification | 1 | S | **Done** |
 | P0 | S1: Wire shield earning for Pro | 3 | S | **Done** |
 | P0 | S6: Streak-aware notification copy | 1 | S | **Done** |
-| P1 | S2: Integrate repair window | 3 | M | |
-| P1 | N1: Wire push token registration | All | S | |
+| P1 | S2: Integrate repair window | 3 | M | **Done** |
+| P1 | N1: Wire push token registration | All | S | **Done** |
 | P1 | W1: Lock Screen widget | 1, 2 | M | |
-| P1 | U1: Pro upsell on streak break | 3 | S | |
-| P1 | U3: Surface intro offers / free trial | 4 | S | |
+| P1 | U1: Pro upsell on streak break | 3 | S | **Done** |
+| P1 | U3: Surface intro offers / free trial | 4 | S | **Done** |
 | P2 | E1: Welcome + activation email drip | 2 | L | |
 | P2 | W2: Small Home Screen widget | 1 | M | |
 | P2 | W3: Complete Live Activities | 1 | M | |

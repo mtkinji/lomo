@@ -11,3 +11,23 @@ function todayLocalKey(): string {
 export function useShowedUpToday(lastShowUpDate: string | null | undefined): boolean {
   return useMemo(() => lastShowUpDate === todayLocalKey(), [lastShowUpDate]);
 }
+
+export function useRepairWindowActive(
+  streakBreakState: {
+    eligibleRepairUntilMs?: number | null;
+    repairedAtMs?: number | null;
+    brokenAtDateKey?: string | null;
+  } | null | undefined,
+): boolean {
+  return useMemo(() => {
+    if (!streakBreakState?.brokenAtDateKey) return false;
+    if (streakBreakState.repairedAtMs != null) return false;
+    const until = streakBreakState.eligibleRepairUntilMs;
+    if (typeof until !== 'number') return false;
+    return Date.now() < until;
+  }, [
+    streakBreakState?.brokenAtDateKey,
+    streakBreakState?.eligibleRepairUntilMs,
+    streakBreakState?.repairedAtMs,
+  ]);
+}

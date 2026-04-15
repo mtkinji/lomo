@@ -15,7 +15,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import { useAppStore } from '../../store/useAppStore';
-import { useShowedUpToday } from '../../store/useShowedUpToday';
+import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useToastStore } from '../../store/useToastStore';
 import { Card } from '../../ui/Card';
 import { Button, IconButton } from '../../ui/Button';
@@ -77,8 +77,10 @@ export function ArcsScreen() {
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
   const streakGrace = useAppStore((state) => state.streakGrace);
+  const streakBreakState = useAppStore((state) => state.streakBreakState);
   const showedUpToday = useShowedUpToday(lastShowUpDate);
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
+  const repairWindowActive = useRepairWindowActive(streakBreakState);
 
   const visibleArcs = useMemo(() => arcs.filter((arc) => arc.status !== 'archived'), [arcs]);
   const archivedArcs = useMemo(() => arcs.filter((arc) => arc.status === 'archived'), [arcs]);
@@ -122,6 +124,7 @@ export function ArcsScreen() {
         streakCount={currentShowUpStreak ?? 0}
         streakShowedUpToday={showedUpToday}
         shieldCount={shieldCount}
+        repairWindowActive={repairWindowActive}
         moreMenu={
           <DropdownMenu>
             <DropdownMenuTrigger accessibilityLabel="Arc list options">

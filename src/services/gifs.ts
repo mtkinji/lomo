@@ -22,7 +22,9 @@ export type CelebrationKind =
   | 'weeklyStreak'
   | 'dailyStreak'
   | 'allActivitiesDone'
-  | 'streakSaved'; // Grace was used to save the streak
+  | 'streakSaved'
+  | 'streakRepairOpportunity'
+  | 'streakRepaired';
 
 export type CelebrationStylePreference = 'cute' | 'minimal' | 'surprise';
 
