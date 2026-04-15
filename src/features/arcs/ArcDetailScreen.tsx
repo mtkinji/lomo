@@ -1,4 +1,4 @@
-import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions, RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import {
   Animated,
   StyleSheet,
@@ -338,16 +338,18 @@ export function ArcDetailScreen() {
   }, [openGoalCreation, hasOpenedGoalCreationFromParam, showOnboardingArcHandoff]);
 
   const handleBackToArcs = useCallback(() => {
-    // In some persisted navigation states ArcDetail can be the first (and only)
-    // screen in the Arcs stack. In that case, `goBack` would dispatch a
-    // GO_BACK action that no navigator can handle, triggering a noisy dev
-    // warning. Instead, treat the back affordance as "return to the Arcs
-    // canvas" and explicitly jump to the ArcsList root when there is no stack
-    // history to pop.
-    if (navigation.canGoBack()) {
+    // `canGoBack` checks the entire navigator tree, not just the local stack.
+    // When ArcDetail is the only screen in the ArcsStack, `goBack` bubbles up
+    // to a parent navigator (tabs), which silently switches to another tab
+    // instead of returning to the Arcs inventory. Use the local stack index to
+    // decide whether a real pop is safe.
+    const state = navigation.getState();
+    if (state.index > 0) {
       navigation.goBack();
     } else {
-      navigation.navigate('ArcsList');
+      navigation.dispatch(
+        CommonActions.reset({ index: 0, routes: [{ name: 'ArcsList' }] }),
+      );
     }
   }, [navigation]);
 

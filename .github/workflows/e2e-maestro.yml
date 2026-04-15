@@ -72,6 +72,7 @@ jobs:
             e2e/maestro/auth-gate-smoke.yaml \
             e2e/maestro/smoke-devtools.yaml \
             e2e/maestro/bottomdrawer-touch-regression.yaml \
+            e2e/maestro/onboarding-plan-ready-touch-regression.yaml \
             e2e/maestro/keyboard-harness.yaml \
             e2e/maestro/agent-workspace-smoke.yaml
 

@@ -1,0 +1,61 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Regression: after dismissing onboarding overlays on Goal detail, the Activity
+# detail screen (reached via the "Open Activity" guide CTA) must be fully
+# tappable. Reproduces the "ghost overlay intercepting touches" failure mode
+# that occurs when FullScreenInterstitial / BottomGuide / Coachmark layers
+# leave an invisible touch-blocking layer after the onboarding sequence.
+
+- launchApp
+
+# Exit first-time UX modal if it is showing (e.g. fresh install).
+- runFlow:
+    when:
+      visible:
+        id: "e2e.ftue.devMenu"
+    commands:
+      - tapOn:
+          id: "e2e.ftue.devMenu"
+      - tapOn:
+          id: "e2e.ftue.exit"
+
+# Navigate to DevTools.
+- tapOn:
+    id: "nav.drawer.toggle"
+
+- tapOn:
+    id: "nav.drawer.item.DevTools"
+
+# Seed the "plan ready" onboarding state: Arc + Goal + 2 activities, with
+# celebration already dismissed so the plan-ready guide appears immediately.
+- scrollUntilVisible:
+    element:
+      id: "e2e.seed.showOnboardingPlanReadyHandoff"
+    direction: DOWN
+
+- tapOn:
+    id: "e2e.seed.showOnboardingPlanReadyHandoff"
+
+# The "Your first plan is ready" guide should appear on Goal detail.
+- assertVisible:
+    text: "Your first plan is ready"
+
+- takeScreenshot: "plan-ready-guide-visible"
+
+# Tap "Open Activity" to navigate into Activity detail.
+- tapOn:
+    text: "Open Activity"
+
+# Verify we landed on Activity detail and the dock is interactive.
+# If an invisible overlay is intercepting touches, this tap will fail.
+- assertVisible:
+    id: "e2e.activityDetail.keyAction.focusMode"
+
+- tapOn:
+    id: "e2e.activityDetail.keyAction.focusMode"
+
+# The focus mode sheet opened — prove it by asserting the start button is visible.
+- assertVisible:
+    id: "e2e.activityDetail.focus.start"
+
+- takeScreenshot: "activity-detail-interactive"

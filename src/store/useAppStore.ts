@@ -308,6 +308,7 @@ export function resetUserSpecificState(): void {
     hasSeenPostGoalPlanCoachmark: false,
     hasDismissedGoalVectorsGuide: false,
     hasDismissedActivitiesListGuide: false,
+    activitiesScreenVisitCount: 0,
     hasDismissedActivityDetailGuide: false,
     hasDismissedArcExploreGuide: false,
     blockedCelebrationGifIds: [],
@@ -864,6 +865,8 @@ interface AppState {
    * later, outside the E2E FTUE.
    */
   hasDismissedActivitiesListGuide: boolean;
+  /** How many times the Activities tab has been focused. Used to defer the guide to the 2nd visit. */
+  activitiesScreenVisitCount: number;
   /**
    * Dismissal flag for the first-time Activity detail guide.
    */
@@ -1065,6 +1068,7 @@ interface AppState {
   dismissPostGoalPlanGuideForGoal: (goalId: string) => void;
   setHasDismissedGoalVectorsGuide: (dismissed: boolean) => void;
   setHasDismissedActivitiesListGuide: (dismissed: boolean) => void;
+  incrementActivitiesScreenVisitCount: () => void;
   setHasDismissedActivityDetailGuide: (dismissed: boolean) => void;
   setHasDismissedArcExploreGuide: (dismissed: boolean) => void;
   setActivityDetailPlanExpanded: (expanded: boolean) => void;
@@ -1517,6 +1521,7 @@ export const useAppStore = create<AppState>()(
       hasSeenPostGoalPlanCoachmark: false,
       hasDismissedGoalVectorsGuide: false,
       hasDismissedActivitiesListGuide: false,
+      activitiesScreenVisitCount: 0,
       hasDismissedActivityDetailGuide: false,
       activityDetailPlanExpanded: false,
       activityDetailDetailsExpanded: false,
@@ -1946,6 +1951,10 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           hasDismissedActivitiesListGuide: dismissed,
         })),
+      incrementActivitiesScreenVisitCount: () =>
+        set((state) => ({
+          activitiesScreenVisitCount: state.activitiesScreenVisitCount + 1,
+        })),
       setHasDismissedActivityDetailGuide: (dismissed) =>
         set(() => ({
           hasDismissedActivityDetailGuide: dismissed,
@@ -2290,6 +2299,7 @@ export const useAppStore = create<AppState>()(
               if (diffDays === 1) {
                 // Consecutive day - streak continues normally
                 nextStreak = prevStreak + 1;
+                nextGrace = { ...nextGrace, graceDaysUsed: 0 };
               } else if (diffDays > 1) {
                 // Missed days - try to use grace
                 const missedDays = diffDays - 1; // Days between last show-up and today
@@ -2471,6 +2481,7 @@ export const useAppStore = create<AppState>()(
             hasDismissedOnboardingPlanReadyGuide: false,
             hasDismissedGoalVectorsGuide: false,
             hasDismissedActivitiesListGuide: false,
+            activitiesScreenVisitCount: 0,
             hasDismissedActivityDetailGuide: false,
             hasDismissedArcExploreGuide: false,
             // When we explicitly reset onboarding answers (typically from dev
@@ -2514,6 +2525,7 @@ export const useAppStore = create<AppState>()(
           pendingGoalCelebrationId: null,
           hasDismissedGoalVectorsGuide: false,
           hasDismissedActivitiesListGuide: false,
+          activitiesScreenVisitCount: 0,
           hasDismissedActivityDetailGuide: false,
           activityDetailPlanExpanded: false,
           activityDetailDetailsExpanded: false,

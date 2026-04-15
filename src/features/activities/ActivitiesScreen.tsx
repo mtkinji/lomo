@@ -240,6 +240,12 @@ export function ActivitiesScreen() {
   const setHasDismissedActivitiesListGuide = useAppStore(
     (state) => state.setHasDismissedActivitiesListGuide,
   );
+  const activitiesScreenVisitCount = useAppStore(
+    (state) => state.activitiesScreenVisitCount,
+  );
+  const incrementActivitiesScreenVisitCount = useAppStore(
+    (state) => state.incrementActivitiesScreenVisitCount,
+  );
   const isPlanKickoffVisible = useAppStore((state) => state.isPlanKickoffVisible);
   const focusContextGoalId = useAppStore((state) => state.focusContextGoalId);
   const setFocusContextGoalId = useAppStore((state) => state.setFocusContextGoalId);
@@ -372,6 +378,10 @@ export function ActivitiesScreen() {
     }, 400);
     return () => clearTimeout(t);
   }, [appOpenCount, capture, markWidgetPromptShown, shouldAutoShowWidgetModal]);
+
+  React.useEffect(() => {
+    if (isFocused) incrementActivitiesScreenVisitCount();
+  }, [isFocused, incrementActivitiesScreenVisitCount]);
 
   React.useEffect(() => {
     // Enable LayoutAnimation on Android (no-op on newer RN versions where it's enabled).
@@ -1207,7 +1217,8 @@ export function ActivitiesScreen() {
     !hasDismissedActivitiesListGuide &&
     !activityCoachVisible &&
     !viewEditorVisible &&
-    !isPlanKickoffVisible;
+    !isPlanKickoffVisible &&
+    (guideVariant === 'empty' || activitiesScreenVisitCount >= 2);
 
   const dismissActivitiesListGuide = React.useCallback(() => {
     setHasDismissedActivitiesListGuide(true);
@@ -1241,25 +1252,25 @@ export function ActivitiesScreen() {
     }
     if (activitiesGuideStep === 0) {
       return {
-        title: isPro ? 'Views = saved setups' : 'Pro Tools: Views',
+        title: isPro ? 'Save a View' : 'Views (Pro)',
         body: isPro
-          ? 'Views save your Filter + Sort (and whether completed items show). Create a few like “This week” or “Starred only.”'
-          : 'Upgrade to Pro to save Views (Filter + Sort) so you can switch contexts without reconfiguring your list.',
+          ? 'A View remembers your Filter + Sort. Try “This week” or “Starred only.”'
+          : 'Save Filter + Sort combos so you can switch contexts fast.',
       };
     }
     if (activitiesGuideStep === 1) {
       return {
-        title: isPro ? 'Filter the list' : 'Pro Tools: Filters',
+        title: isPro ? 'Filter' : 'Filter (Pro)',
         body: isPro
-          ? 'Switch between All, Active, Completed, or Starred. Tap the ★ on an activity to star it.'
-          : 'Upgrade to Pro to filter your Activities list (All, Active, Completed, Starred).',
+          ? 'Show All, Active, Completed, or just ★ Starred items.'
+          : 'Narrow the list to Active, Completed, or Starred.',
       };
     }
     return {
-      title: isPro ? 'Sort changes the order' : 'Pro Tools: Sort',
+      title: isPro ? 'Sort' : 'Sort (Pro)',
       body: isPro
-        ? 'Try due date or “Starred first” when the list grows. Manual keeps your custom ordering.'
-        : 'Upgrade to Pro to sort by title, due date, or starred first when the list grows.',
+        ? 'Order by due date, starred first, or keep your manual order.'
+        : 'Order by title, due date, or starred first.',
     };
   }, [activitiesGuideStep, guideVariant, isKanbanLayout, isPro]);
 

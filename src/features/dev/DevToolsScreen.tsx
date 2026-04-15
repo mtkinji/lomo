@@ -429,6 +429,96 @@ export function DevToolsScreen() {
     });
   };
 
+  const handleShowOnboardingPlanReadyHandoff = () => {
+    const nowIso = new Date().toISOString();
+
+    let targetArcId =
+      lastOnboardingArcId && arcs.some((a) => a.id === lastOnboardingArcId)
+        ? lastOnboardingArcId
+        : arcs.length > 0
+          ? arcs[arcs.length - 1].id
+          : null;
+
+    if (!targetArcId) {
+      targetArcId = `dev-onboarding-arc-${Date.now()}`;
+      const arc = {
+        id: targetArcId,
+        name: '🚀 Dev: First Arc',
+        narrative:
+          'This Arc exists to help test the onboarding plan-ready handoff without running the full flow.',
+        status: 'active',
+        startDate: nowIso,
+        endDate: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      } as const;
+      addArc(arc);
+      void ensureArcBannerPrefill(arc);
+    }
+
+    const goalId = `dev-onboarding-goal-${Date.now()}`;
+    addGoal({
+      id: goalId,
+      arcId: targetArcId,
+      title: '🎯 Dev: Plan-ready Goal',
+      description: 'Goal with seeded activities for testing the plan-ready → activity-detail handoff.',
+      status: 'planned',
+      startDate: nowIso,
+      targetDate: undefined,
+      forceIntent: {},
+      metrics: [],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    });
+
+    const activityIds: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const actId = `dev-plan-ready-activity-${Date.now()}-${i}`;
+      const activity: Activity = {
+        id: actId,
+        goalId,
+        title: i === 0 ? '🧪 Dev: First plan activity' : '🧪 Dev: Second plan activity',
+        type: 'task',
+        tags: [],
+        notes: '',
+        steps: [],
+        reminderAt: null,
+        priority: undefined,
+        estimateMinutes: null,
+        creationSource: 'manual',
+        planGroupId: null,
+        scheduledDate: null,
+        repeatRule: undefined,
+        repeatCustom: undefined,
+        orderIndex: (activities.length || 0) + i + 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        forceActual: defaultForceLevels(0),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      addActivity(activity);
+      activityIds.push(actId);
+    }
+
+    setLastOnboardingGoalId(goalId);
+    setHasSeenFirstGoalCelebration(true);
+    setPendingGoalCelebrationId(null);
+    setPendingPostGoalPlanGuideGoalId(null);
+    setHasDismissedOnboardingPlanReadyGuide(false);
+
+    navigation.navigate('MainTabs', {
+      screen: 'MoreTab',
+      params: {
+        screen: 'MoreArcs',
+        params: { screen: 'GoalDetail', params: { goalId, entryPoint: 'arcsStack' } },
+      },
+    });
+  };
+
   const lastTriggeredLabel = lastTriggeredAt
     ? new Date(lastTriggeredAt).toLocaleString()
     : 'Never';
@@ -1643,6 +1733,9 @@ export function DevToolsScreen() {
               </Button>
               <Button testID="e2e.seed.showFirstGoalCelebration" variant="secondary" onPress={handleShowFirstGoalCelebration} style={styles.cardAction}>
                 <ButtonLabel size="md">Show first-goal celebration</ButtonLabel>
+              </Button>
+              <Button testID="e2e.seed.showOnboardingPlanReadyHandoff" variant="secondary" onPress={handleShowOnboardingPlanReadyHandoff} style={styles.cardAction}>
+                <ButtonLabel size="md">Show plan-ready → activity handoff</ButtonLabel>
               </Button>
               <Text style={styles.meta}>
                 Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}

@@ -216,6 +216,16 @@ export function FullScreenInterstitial({
         setIsMounted(false);
       }
     });
+
+    // Safety: if the exit animation callback never fires (e.g. interrupted without
+    // restart), forcibly unmount so the overlay cannot block touches indefinitely.
+    // Mirrors the fallback timer in BottomDrawer's inline-presentation close path.
+    const fallbackMs = exitDurationMs + 100;
+    const fallbackId = setTimeout(() => {
+      setIsMounted(false);
+    }, fallbackMs);
+
+    return () => clearTimeout(fallbackId);
   }, [
     enterDurationMs,
     exitAnim,

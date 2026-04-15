@@ -169,15 +169,14 @@ export function SettingsHomeScreen() {
     getAdminProCodesStatus({ requireAuth: true })
       .then((s) => {
         setShowSuperAdmin(Boolean(s.role === 'super_admin'));
-        // Safety: if this device is not signed in as super admin, clear any lingering
-        // local admin entitlements override so it can't accidentally leak across sessions.
-        if (s.role !== 'super_admin') {
+        // Only clear the override on an authoritative 200 confirming the user is not super-admin.
+        // Transient failures should not downgrade Pro status.
+        if (s.httpStatus === 200 && s.role !== 'super_admin') {
           clearAdminEntitlementsOverrideTier().catch(() => undefined);
         }
       })
       .catch(() => {
         setShowSuperAdmin(false);
-        clearAdminEntitlementsOverrideTier().catch(() => undefined);
       });
   }, [authIdentity?.userId]);
 
