@@ -5,12 +5,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { openRootDrawer } from '../../navigation/openDrawer';
-import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
 import { HStack, VStack, Text } from '../../ui/primitives';
 import { Icon, type IconName } from '../../ui/Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useShowedUpToday } from '../../store/useShowedUpToday';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { RootDrawerParamList, MoreStackParamList } from '../../navigation/RootNavigator';
 
@@ -53,11 +52,27 @@ export function MoreScreen() {
   const navigation = useNavigation<MoreNavigation>();
   const insets = useSafeAreaInsets();
   const isPro = useEntitlementsStore((state) => state.isPro);
-  const drawerMenuEnabled = useDrawerMenuEnabled();
+  const authIdentity = useAppStore((state) => state.authIdentity);
+  const userProfile = useAppStore((state) => state.userProfile);
+  const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
+  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
 
   return (
     <AppShell>
-      <PageHeader title="More" onPressMenu={drawerMenuEnabled ? () => openRootDrawer(navigation as any) : undefined} />
+      <PageHeader
+        title="More"
+        onPressAvatar={() => navigation.navigate('Settings' as any, { screen: 'SettingsHome' })}
+        avatarName={avatarName}
+        avatarUrl={avatarUrl}
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
+        shieldCount={shieldCount}
+      />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

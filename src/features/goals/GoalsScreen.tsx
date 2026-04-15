@@ -145,7 +145,9 @@ export function GoalsScreen() {
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
   const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
 
   const arcLookup = arcs.reduce<Record<string, string>>((acc, arc) => {
     acc[arc.id] = arc.name;
@@ -381,8 +383,8 @@ export function GoalsScreen() {
         avatarUrl={avatarUrl}
         streakCount={currentShowUpStreak ?? 0}
         streakShowedUpToday={showedUpToday}
-        // boxedTitle
-        rightElement={
+        shieldCount={shieldCount}
+        moreMenu={
           <DropdownMenu>
             <DropdownMenuTrigger accessibilityLabel="Goal list options">
               <View pointerEvents="none">
@@ -395,7 +397,7 @@ export function GoalsScreen() {
                 </IconButton>
               </View>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" sideOffset={6} align="end" style={{ minWidth: 220 }}>
+            <DropdownMenuContent side="bottom" sideOffset={6} align="start" style={{ minWidth: 220 }}>
               <Pressable
                 accessibilityRole="switch"
                 accessibilityLabel="Show archived goals"

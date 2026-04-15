@@ -231,7 +231,9 @@ export function ActivitiesScreen() {
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
   const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
 
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);
@@ -2116,6 +2118,7 @@ export function ActivitiesScreen() {
         avatarUrl={avatarUrl}
         streakCount={currentShowUpStreak ?? 0}
         streakShowedUpToday={showedUpToday}
+        shieldCount={shieldCount}
         rightElement={
           isQuickAddFocused ? (
             <Button

@@ -20,6 +20,7 @@ import type { MoreStackParamList } from '../../navigation/RootNavigator';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
+import { useShowedUpToday } from '../../store/useShowedUpToday';
 import { ChapterGenerateDrawer, type ChapterPeriodChoice, type ChapterCadenceChoice } from './ChapterGenerateDrawer';
 
 export function ChaptersScreen() {
@@ -30,6 +31,11 @@ export function ChaptersScreen() {
   const userProfile = useAppStore((state) => state.userProfile);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
+  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
+  const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
   const [refreshing, setRefreshing] = React.useState(false);
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
   const [drawerVisible, setDrawerVisible] = React.useState(false);
@@ -181,6 +187,9 @@ export function ChaptersScreen() {
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
+        streakCount={currentShowUpStreak ?? 0}
+        streakShowedUpToday={showedUpToday}
+        shieldCount={shieldCount}
       />
       <ChapterGenerateDrawer
         visible={drawerVisible}

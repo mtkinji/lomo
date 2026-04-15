@@ -29,7 +29,9 @@ export function PlanScreen() {
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
+  const streakGrace = useAppStore((state) => state.streakGrace);
   const showedUpToday = useShowedUpToday(lastShowUpDate);
+  const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
 
   const shiftDays = (deltaDays: number) => {
     const next = new Date(selectedDate);
@@ -56,7 +58,8 @@ export function PlanScreen() {
         avatarUrl={avatarUrl}
         streakCount={currentShowUpStreak ?? 0}
         streakShowedUpToday={showedUpToday}
-        rightElement={
+        shieldCount={shieldCount}
+        moreMenu={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <IconButton
@@ -69,7 +72,7 @@ export function PlanScreen() {
                 <Icon name="more" size={16} color={colors.textPrimary} />
               </IconButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="bottom">
+            <DropdownMenuContent align="start" side="bottom">
               <DropdownMenuItem
                 onPress={() => {
                   (navigation as any).navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
