@@ -81,6 +81,9 @@ export const AnalyticsEvent = {
   ProPreviewGranted: 'pro_preview_granted',
   ProPreviewExpired: 'pro_preview_expired',
 
+  // Notification copy variant tracking
+  NotificationCopyVariant: 'notification_copy_variant',
+
   // Friends
   FriendInviteCreated: 'friend_invite_created',
   FriendInviteShared: 'friend_invite_shared',

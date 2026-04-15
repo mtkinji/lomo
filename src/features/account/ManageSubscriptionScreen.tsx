@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { paywallTheme } from '../paywall/paywallTheme';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import { getProSku, getProSkuPricing, openManageSubscription } from '../../services/entitlements';
+import { getActiveBillingCadence, getProSku, getProSkuPricing, openManageSubscription } from '../../services/entitlements';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { useAppStore } from '../../store/useAppStore';
 import { FREE_MAX_ACTIVE_GOALS_PER_ARC, FREE_MAX_ARCS_TOTAL } from '../../domain/limits';
@@ -102,12 +102,14 @@ export function ManageSubscriptionScreen() {
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const bonusGenerativeCredits = useAppStore((state) => state.bonusGenerativeCredits);
+  const firstOpenedAtMs = useAppStore((state) => state.firstOpenedAtMs);
   const [pricingDrawerVisible, setPricingDrawerVisible] = React.useState(false);
   const [skuPricing, setSkuPricing] = React.useState<Record<string, { priceString?: string; introPrice?: { priceString: string; type?: string; periodNumberOfUnits?: number; periodUnit?: string } }> | null>(null);
 
   // Habit-formation optimized defaults: lower-commitment entry point.
   const [billingCadence, setBillingCadence] = React.useState<BillingCadence>('monthly');
   const [plan, setPlan] = React.useState<ProPlan>('individual');
+  const [actualBillingCadence, setActualBillingCadence] = React.useState<BillingCadence | null>(null);
   const pendingOpenDrawerRef = React.useRef(false);
 
   const handleBack = React.useCallback(() => {
@@ -124,8 +126,24 @@ export function ManageSubscriptionScreen() {
     });
   }, [navigation]);
 
+  // Determine whether the user is on a monthly plan (actual subscription or UI selector for non-Pro users).
+  const effectiveBillingCadence = isPro && actualBillingCadence ? actualBillingCadence : billingCadence;
+  const accountAgeDays = firstOpenedAtMs ? Math.floor((Date.now() - firstOpenedAtMs) / (24 * 60 * 60 * 1000)) : 0;
+
   const shouldNudgeAnnual =
-    (currentShowUpStreak ?? 0) >= ANNUAL_NUDGE_STREAK_THRESHOLD && billingCadence === 'monthly';
+    (currentShowUpStreak ?? 0) >= ANNUAL_NUDGE_STREAK_THRESHOLD && effectiveBillingCadence === 'monthly';
+
+  // Tenure-based nudge messaging: 30-day and 90-day milestones get more impactful copy.
+  const annualNudgeCopy = React.useMemo(() => {
+    const savingsLabel = formatPriceLabelWithRevenueCat({ plan, cadence: 'annual', skuPricing });
+    if (accountAgeDays >= 90) {
+      return `You\u2019ve been using Kwilt for ${accountAgeDays} days. Lock in annual and save 25% (${savingsLabel})`;
+    }
+    if (accountAgeDays >= 30) {
+      return `One month in and still going \u2014 save 25% with annual (${savingsLabel})`;
+    }
+    return `Best value: Annual saves 25% (${savingsLabel})`;
+  }, [accountAgeDays, plan, skuPricing]);
 
   const currentKey = getMonthKey(new Date());
   const baseMonthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
@@ -144,6 +162,9 @@ export function ManageSubscriptionScreen() {
     getProSkuPricing()
       .then((next) => setSkuPricing(next))
       .catch(() => setSkuPricing(null));
+    getActiveBillingCadence()
+      .then((cadence) => setActualBillingCadence(cadence))
+      .catch(() => setActualBillingCadence(null));
   }, []);
 
   React.useEffect(() => {
@@ -380,11 +401,7 @@ export function ManageSubscriptionScreen() {
                 style={styles.annualNudge}
               >
                 <Text style={styles.annualNudgeText}>
-                  {`Best value: Annual saves 25% (${formatPriceLabelWithRevenueCat({
-                    plan,
-                    cadence: 'annual',
-                    skuPricing,
-                  })})`}
+                  {annualNudgeCopy}
                 </Text>
               </Pressable>
             ) : null}

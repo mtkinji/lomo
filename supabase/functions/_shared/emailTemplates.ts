@@ -356,6 +356,121 @@ export function buildChapterDigestEmail(params: {
   return { subject, text, html };
 }
 
+// ---------------------------------------------------------------------------
+// Streak win-back emails (lapsed users)
+// ---------------------------------------------------------------------------
+
+export function buildStreakWinback1Email(params: { streakLength: number }): EmailContent {
+  const { primaryColor, ctaUrl } = getBrandConfig();
+  const streak = params.streakLength;
+  const subject = streak >= 3
+    ? `Your ${streak}-day streak is still yours to rebuild`
+    : 'Your goals are still waiting for you';
+  const streakLine = streak >= 3
+    ? `You had a <strong>${streak}-day streak</strong> going — that's real momentum.`
+    : 'You were building something meaningful.';
+  const text =
+    `${subject}\n\n` +
+    `It's been a few days since you last showed up. Life happens — what matters is what you do next.\n\n` +
+    `One tiny step is all it takes to start again.\n\n` +
+    `${ctaUrl}`;
+  const html = renderLayout({
+    title: subject,
+    preheader: 'One tiny step is all it takes to start again.',
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${streakLine}</p>
+      <p style="margin:0 0 12px;">It's been a few days since you last showed up. Life happens — what matters is what you do next.</p>
+      <p style="margin:0 0 16px;color:#6b7280;">One tiny step is all it takes to start again.</p>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Show up today
+        </a>
+      </div>
+    `,
+    footerText: 'You\u2019re receiving this because you use Kwilt. Unsubscribe in Settings \u2192 Notifications.',
+  });
+  return { subject, text, html };
+}
+
+export function buildStreakWinback2Email(params: { streakLength: number }): EmailContent {
+  const { primaryColor, ctaUrl } = getBrandConfig();
+  const streak = params.streakLength;
+  const subject = streak >= 3
+    ? `Your ${streak}-day streak is fading — but it\u2019s not gone`
+    : 'Ready for a fresh start?';
+  const streakLine = streak >= 3
+    ? `A week ago you were on a <strong>${streak}-day streak</strong>.`
+    : 'A week ago you were building something meaningful.';
+  const text =
+    `${subject}\n\n` +
+    `It's been a week. Your Arc is still here, your goals are still waiting.\n\n` +
+    `You don't need to pick up where you left off. Just pick one tiny step and do it today.\n\n` +
+    `${ctaUrl}`;
+  const html = renderLayout({
+    title: subject,
+    preheader: 'Your Arc is still here. Ready for one tiny step?',
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${streakLine}</p>
+      <p style="margin:0 0 12px;">It's been a week. Your Arc is still here, your goals are still waiting.</p>
+      <p style="margin:0 0 16px;color:#6b7280;">You don't need to pick up where you left off. Just pick one tiny step and do it today.</p>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Open Kwilt
+        </a>
+      </div>
+    `,
+    footerText: 'This is the last email we\u2019ll send about this. We\u2019ll be here when you\u2019re ready. Unsubscribe in Settings \u2192 Notifications.',
+  });
+  return { subject, text, html };
+}
+
+// ---------------------------------------------------------------------------
+// Trial expiry email
+// ---------------------------------------------------------------------------
+
+export function buildTrialExpiryEmail(params: { daysRemaining: number }): EmailContent {
+  const { primaryColor, ctaUrl } = getBrandConfig();
+  const days = params.daysRemaining;
+  const subject = days <= 0
+    ? 'Your Kwilt Pro trial has ended'
+    : `Your Kwilt Pro trial ends in ${days} day${days === 1 ? '' : 's'}`;
+  const urgencyLine = days <= 0
+    ? 'Your trial has ended. Subscribe to keep your Pro features.'
+    : days <= 1
+      ? 'Your trial ends <strong>tomorrow</strong>.'
+      : `You have <strong>${days} days</strong> left on your trial.`;
+  const text =
+    `${subject}\n\n` +
+    `During your trial you had access to Focus Mode, Saved Views, Unsplash banners, and 1,000 AI credits/month.\n\n` +
+    `Subscribe to keep all of them.\n\n` +
+    `${ctaUrl}`;
+  const html = renderLayout({
+    title: subject,
+    preheader: days <= 0
+      ? 'Subscribe to keep your Pro features.'
+      : `${days} day${days === 1 ? '' : 's'} left on your trial.`,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${urgencyLine}</p>
+      <p style="margin:0 0 12px;">During your trial you had access to:</p>
+      <div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
+        <div style="font-size:14px;line-height:22px;color:#374151;">
+          \u2022 Focus Mode for deep work sessions<br/>
+          \u2022 Saved Views to organize activities<br/>
+          \u2022 Unsplash banners for your Arcs<br/>
+          \u2022 1,000 AI credits/month (vs 50 free)
+        </div>
+      </div>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Subscribe to Pro
+        </a>
+      </div>
+    `,
+    footerText: 'You\u2019re receiving this because you started a Kwilt Pro trial. Unsubscribe in Settings \u2192 Notifications.',
+  });
+  return { subject, text, html };
+}
+
 export function buildSecretExpiryAlertEmail(params: {
   environment: string;
   items: Array<{

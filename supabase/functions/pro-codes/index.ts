@@ -10,7 +10,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { buildProCodeEmail, buildProGrantEmail } from '../_shared/emailTemplates.ts';
+import { buildProCodeEmail, buildProGrantEmail, buildTrialExpiryEmail } from '../_shared/emailTemplates.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -513,6 +513,60 @@ serve(async (req) => {
     if (error) {
       return json(503, { error: { message: 'Unable to persist webhook', code: 'provider_unavailable' } });
     }
+
+    // Best-effort: send trial expiry email when a trial subscription expires.
+    if (type === 'EXPIRATION') {
+      try {
+        const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
+        const fromEmail = (
+          (Deno.env.get('KWILT_DRIP_EMAIL_FROM') ?? '').trim() ||
+          (Deno.env.get('INVITE_EMAIL_FROM') ?? '').trim() ||
+          'hello@mail.kwilt.app'
+        ).trim();
+        if (resendKey && fromEmail) {
+          // Resolve user email from app_user_id (may be a Supabase user ID).
+          const { data: userData } = await admin.auth.admin.getUserById(appUserIdRaw);
+          const userEmail = userData?.user?.email;
+          if (userEmail) {
+            // Check cadence: only send once per expiration cycle
+            const cadenceKey = 'trial_expiry';
+            const { data: existing } = await admin
+              .from('kwilt_email_cadence')
+              .select('id')
+              .eq('user_id', appUserIdRaw)
+              .eq('message_key', cadenceKey)
+              .maybeSingle();
+            if (!existing) {
+              const daysRemaining = 0;
+              const emailContent = buildTrialExpiryEmail({ daysRemaining });
+              const fromName = (Deno.env.get('KWILT_PRO_CODE_FROM_NAME') ?? 'Kwilt').trim();
+              const from = fromEmail.includes('<') ? fromEmail : `${fromName} <${fromEmail}>`;
+              const res = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  from,
+                  to: userEmail,
+                  subject: emailContent.subject,
+                  text: emailContent.text,
+                  html: emailContent.html,
+                }),
+              });
+              if (res.ok) {
+                await admin.from('kwilt_email_cadence').insert({
+                  user_id: appUserIdRaw,
+                  message_key: cadenceKey,
+                  metadata: { event_type: type, product_id: productId },
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Trial expiry email is best-effort; don't fail the webhook.
+      }
+    }
+
     return json(200, { ok: true });
   }
 

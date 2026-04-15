@@ -13,7 +13,8 @@ export type PaywallReason =
   | 'pro_only_focus_mode'
   | 'pro_only_attachments'
   | 'pro_only_views_filters'
-  | 'pro_only_streak_shields';
+  | 'pro_only_streak_shields'
+  | 'focus_mode';
 
 export type PaywallSource =
   | 'goals_create_manual'
@@ -36,6 +37,8 @@ export type PaywallSource =
   | 'settings'
   | 'streak_break'
   | 'pro_preview_expired'
+  | 'activity_empty_state'
+  | 'plan_empty_state'
   | 'unknown';
 
 /**

@@ -21,6 +21,8 @@ import { getSupabaseAdmin, json } from '../_shared/calendarUtils.ts';
 import {
   buildWelcomeDay3Email,
   buildWelcomeDay7Email,
+  buildStreakWinback1Email,
+  buildStreakWinback2Email,
 } from '../_shared/emailTemplates.ts';
 
 type DripMessage = {
@@ -254,11 +256,154 @@ serve(async (req) => {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Win-back evaluation (streak-break / lapsed users)
+  // Runs on both cron (GET) and manual POST with { action: "winback" }.
+  // ---------------------------------------------------------------------------
+  const runWinback = !isManual || body?.action === 'winback';
+  const winbackResults: typeof results = [];
+
+  if (runWinback) {
+    // Find users who completed at least one activity but haven't been active recently.
+    // "Last active" = most recent updated_at on a completed activity.
+    const threeDaysAgoIso = new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgoIso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Get users with completed activities (only those who were active in the last 30 days
+    // but NOT in the last 3 days — these are the lapsed window).
+    const { data: recentlyActive } = await admin
+      .from('kwilt_activities' as any)
+      .select('user_id, updated_at')
+      .eq('status', 'completed')
+      .gte('updated_at', thirtyDaysAgoIso)
+      .order('updated_at', { ascending: false });
+
+    // Group by user: find last activity date per user
+    const lastActivityByUser = new Map<string, string>();
+    for (const row of (recentlyActive ?? []) as any[]) {
+      const uid = typeof row?.user_id === 'string' ? row.user_id : '';
+      const updatedAt = typeof row?.updated_at === 'string' ? row.updated_at : '';
+      if (!uid || !updatedAt) continue;
+      if (!lastActivityByUser.has(uid)) {
+        lastActivityByUser.set(uid, updatedAt);
+      }
+    }
+
+    // Filter to lapsed users (last activity >= 3 days ago)
+    const lapsedUserIds: string[] = [];
+    const daysSinceLastActivityByUser = new Map<string, number>();
+    for (const [uid, lastAt] of lastActivityByUser) {
+      if (lastAt < threeDaysAgoIso) {
+        lapsedUserIds.push(uid);
+        daysSinceLastActivityByUser.set(uid, Math.floor((now - Date.parse(lastAt)) / (24 * 60 * 60 * 1000)));
+      }
+    }
+
+    for (const userId of lapsedUserIds.slice(0, 200)) {
+      // Check preferences
+      const { data: prefs } = await admin
+        .from('kwilt_email_preferences')
+        .select('streak_winback')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (prefs && (prefs as any).streak_winback === false) continue;
+
+      // Get user email
+      const { data: userData } = await admin.auth.admin.getUserById(userId);
+      const email = userData?.user?.email;
+      if (!email) continue;
+
+      // Check existing win-back cadence
+      const { data: sentRows } = await admin
+        .from('kwilt_email_cadence')
+        .select('message_key, sent_at')
+        .eq('user_id', userId)
+        .like('message_key', 'streak_winback_%');
+      const sentMap = new Map((sentRows ?? []).map((r: any) => [r.message_key, r.sent_at]));
+
+      const lastActivity = lastActivityByUser.get(userId) ?? '';
+      const wb1SentAt = sentMap.get('streak_winback_1') ?? null;
+      const wb2SentAt = sentMap.get('streak_winback_2') ?? null;
+
+      // If the user was active after the last win-back send, clear stale records
+      // (allows a new win-back cycle on the next lapse).
+      if (wb1SentAt && lastActivity > wb1SentAt) {
+        await admin
+          .from('kwilt_email_cadence')
+          .delete()
+          .eq('user_id', userId)
+          .like('message_key', 'streak_winback_%');
+        continue; // User returned — skip this cycle
+      }
+
+      // Cap: if both already sent for this lapse, skip
+      if (wb1SentAt && wb2SentAt) continue;
+
+      // Get streak data for personalization
+      let streakLength = 0;
+      try {
+        const { data: milestones } = await admin
+          .from('kwilt_user_milestones')
+          .select('milestone_value')
+          .eq('user_id', userId)
+          .eq('milestone_type', 'streak_7')
+          .limit(1);
+        if (milestones && milestones.length > 0) {
+          streakLength = Math.max(7, Number((milestones[0] as any).milestone_value) || 0);
+        }
+      } catch { /* best effort */ }
+
+      const daysSinceLastActivity = daysSinceLastActivityByUser.get(userId) ?? 3;
+
+      // Determine which message to send
+      let messageKey: string | null = null;
+      let content: { subject: string; text: string; html: string } | null = null;
+
+      if (!wb1SentAt && daysSinceLastActivity >= 3) {
+        messageKey = 'streak_winback_1';
+        content = buildStreakWinback1Email({ streakLength });
+      } else if (wb1SentAt && !wb2SentAt && daysSinceLastActivity >= 7) {
+        messageKey = 'streak_winback_2';
+        content = buildStreakWinback2Email({ streakLength });
+      }
+
+      if (!messageKey || !content) continue;
+
+      const sent = await sendViaResend({
+        resendKey,
+        from: fromEmail,
+        to: email,
+        subject: content.subject,
+        html: content.html,
+        text: content.text,
+      });
+
+      if (sent) {
+        // Upsert (the unique constraint is on user_id + message_key)
+        await admin.from('kwilt_email_cadence').upsert(
+          {
+            user_id: userId,
+            message_key: messageKey,
+            metadata: { days_since_last_activity: daysSinceLastActivity, streak_length: streakLength },
+          },
+          { onConflict: 'user_id,message_key' },
+        );
+      }
+
+      winbackResults.push({ userId, messageKey, ok: sent });
+    }
+  }
+
   return json(200, {
     ok: true,
     mode: isManual ? 'manual' : 'scheduled',
     evaluated: users.length,
     sent: results.filter((r) => r.ok).length,
     results,
+    winback: runWinback ? {
+      evaluated: winbackResults.length,
+      sent: winbackResults.filter((r) => r.ok).length,
+      results: winbackResults,
+    } : undefined,
   });
 });

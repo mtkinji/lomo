@@ -2571,6 +2571,12 @@ export function ActivitiesScreen() {
                     onPress: () => setFilterDrawerVisible(true),
                     accessibilityLabel: 'Adjust filters',
                   }}
+                  secondaryAction={!isPro ? {
+                    label: 'Try Saved Views with Pro',
+                    variant: 'outline',
+                    onPress: () => openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_empty_state' }),
+                    accessibilityLabel: 'Learn about Pro saved views',
+                  } : undefined}
                   style={styles.emptyState}
                 />
               ) : (
@@ -2711,6 +2717,12 @@ export function ActivitiesScreen() {
                     onPress: () => setFilterDrawerVisible(true),
                     accessibilityLabel: 'Adjust filters',
                   }}
+                  secondaryAction={!isPro ? {
+                    label: 'Try Saved Views with Pro',
+                    variant: 'outline',
+                    onPress: () => openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_empty_state' }),
+                    accessibilityLabel: 'Learn about Pro saved views',
+                  } : undefined}
                   style={styles.emptyState}
                 />
               ) : (

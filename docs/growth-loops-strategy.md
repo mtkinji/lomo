@@ -52,13 +52,13 @@ Leverage the existing `email_enabled` / `email_recipient` columns on chapter tem
 
 Implemented in `chapters-generate/index.ts`. Template: `buildChapterDigestEmail`. Sends after successful chapter generation when user has opted in and not opted out of `chapter_digest` preference.
 
-**E3. Streak-break and win-back emails (day 3+ of inactivity)**
+**E3. Streak-break and win-back emails (day 3+ of inactivity)** ✅ Done
 
 - When server-side push fails to re-engage (or push tokens aren't registered), fall back to email.
 - Copy tone: self-compassionate, identity-anchored ("Your [Arc name] is still here. Ready for one tiny step?").
 - Cap at 2 win-back emails per lapse, then go silent until the user returns.
 
-**E4. Pro trial expiry / conversion email**
+**E4. Pro trial expiry / conversion email** ✅ Done
 
 - When `pro_tools_trial` entitlement is approaching expiry (RevenueCat webhook), send a "Your trial is ending" email with a recap of Pro features used and a CTA to subscribe.
 
@@ -124,7 +124,7 @@ Implemented in `NotificationService.ts`. `registerNotificationCategories()` call
 
 Implemented: `activityCompletionHours` (rolling 14-day buffer) tracked in `useAppStore`. `scheduleDailyShowUpInternal` computes typical hour and shows a suggestion toast when divergent (debounced daily).
 
-**N6. Richer notification copy rotation**
+**N6. Richer notification copy rotation** ✅ Done
 
 Current copy is static. Introduce 3–5 variants per notification type and rotate randomly, tracking which variants have the highest tap-through rate via PostHog:
 - Daily show-up: rotate between Arc-anchored ("Your [Arc] is waiting"), streak-anchored ("Day [N] — keep it going"), and activity-anchored ("Pick up where you left off on [Activity]").
@@ -147,7 +147,7 @@ Current copy is static. Introduce 3–5 variants per notification type and rotat
 
 ### Recommendations
 
-**W1. Lock Screen widget (highest-impact widget work)**
+**W1. Lock Screen widget (highest-impact widget work)** ✅ Done
 
 The Lock Screen is the most-viewed surface on any iPhone. Ship a compact Lock Screen widget:
 - **Circular/inline variant:** Show streak flame + count (acts as ambient streak reminder without a notification).
@@ -155,13 +155,13 @@ The Lock Screen is the most-viewed surface on any iPhone. Ship a compact Lock Sc
 
 This creates a passive retention loop — every time the user glances at their phone, they see their streak or next activity.
 
-**W2. Small Home Screen widget**
+**W2. Small Home Screen widget** ✅ Done
 
 The current widgets only support medium + large. A small (2x2) widget significantly increases adoption because it fits in more layouts:
 - Show: streak count + flame icon + "Tap to show up."
 - Or: next scheduled activity title + time.
 
-**W3. Live Activities for Focus sessions (complete the bridge)**
+**W3. Live Activities for Focus sessions (complete the bridge)** ✅ Done
 
 The native bridge exists but there's no visible Dynamic Island / Lock Screen Live Activity UI. Completing this:
 - Shows a countdown timer on the Lock Screen and Dynamic Island during Focus.
@@ -318,14 +318,14 @@ When `tryConsumeGenerativeCredit` fails (limit reached), the current UX shows `P
 
 Implemented in `PaywallDrawer.tsx`. Progress bar, monthly AI interaction count, and Pro 1,000 credits/month comparison shown for `generative_quota_exceeded` reason.
 
-**U5. Contextual upgrade CTAs in empty states**
+**U5. Contextual upgrade CTAs in empty states** ✅ Done
 
 Several empty states guide users toward creating content. Add Pro-aware variants:
 - Activities list empty state (Pro user): include "Try a saved view to organize your Activities."
 - Plan empty state: "Pro users can auto-schedule activities to their calendar."
 - These are soft, discovery-oriented — not gates.
 
-**U6. Annual plan conversion campaign for monthly subscribers**
+**U6. Annual plan conversion campaign for monthly subscribers** ✅ Done
 
 The streak-based annual nudge (streak ≥ 3) is a good start. Extend:
 - After 30 days on monthly billing, show a "You've been a member for a month — save 25% by switching to annual" card in settings.
@@ -381,17 +381,17 @@ The recommendations above are strongest when they reinforce each other. Here are
 | P0 | S6: Streak-aware notification copy | 1 | S | **Done** |
 | P1 | S2: Integrate repair window | 3 | M | **Done** |
 | P1 | N1: Wire push token registration | All | S | **Done** |
-| P1 | W1: Lock Screen widget | 1, 2 | M | |
+| P1 | W1: Lock Screen widget | 1, 2 | M | **Done** |
 | P1 | U1: Pro upsell on streak break | 3 | S | **Done** |
 | P1 | U3: Surface intro offers / free trial | 4 | S | **Done** |
 | P2 | E1: Welcome + activation email drip | 2 | L | **Done** |
-| P2 | W2: Small Home Screen widget | 1 | M | |
-| P2 | W3: Complete Live Activities | 1 | M | |
+| P2 | W2: Small Home Screen widget | 1 | M | **Done** |
+| P2 | W3: Complete Live Activities | 1 | M | **Done** |
 | P2 | S3: Streak milestones with rewards | 1 | M | **Done** |
 | P2 | U2: Time-limited Pro previews | 4 | M | **Done** |
 | P2 | N4: iOS notification action categories | 1 | S | **Done** |
 | P3 | E2: Weekly Chapter digest email | 2 | M | **Done** |
-| P3 | E3: Streak-break / win-back emails | 3 | M | |
+| P3 | E3: Streak-break / win-back emails | 3 | M | **Done** |
 | P3 | S4: "Streak Sunday" weekly recap | 1 | S | **Done** |
 | P3 | S5: Social streak sharing | Growth | S | Deferred |
 | P3 | N5: Adaptive notification timing | 1 | M | **Done** |
