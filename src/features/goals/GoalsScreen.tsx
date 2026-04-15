@@ -59,6 +59,7 @@ import type { ObjectPickerOption } from '../../ui/ObjectPicker';
 import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useCanUseProTools } from '../../store/proToolsAccess';
 import { blurs } from '../../theme/overlays';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
@@ -753,6 +754,7 @@ export function GoalCoachDrawer({
   const addGoal = useAppStore((state) => state.addGoal);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const canUseUnsplash = useCanUseProTools('unsplash_banners');
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
@@ -1512,7 +1514,7 @@ export function GoalCoachDrawer({
         arcName={draft.title || 'New goal'}
         arcNarrative={draft.description}
         arcGoalTitles={undefined}
-        canUseUnsplash={isPro}
+        canUseUnsplash={canUseUnsplash}
         onRequestUpgrade={() => {
           setThumbnailSheetVisible(false);
           openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'arc_banner_sheet' });

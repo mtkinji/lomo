@@ -192,6 +192,170 @@ export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: st
   return { subject, text, html };
 }
 
+// ---------------------------------------------------------------------------
+// Welcome drip emails (days 0, 1, 3, 7)
+// ---------------------------------------------------------------------------
+
+export function buildWelcomeDay0Email(): EmailContent {
+  const { primaryColor, ctaUrl } = getBrandConfig();
+  const subject = 'Welcome to Kwilt — your Arc is waiting';
+  const text =
+    `Welcome to Kwilt!\n\n` +
+    `You've taken the first step toward showing up for the life you want.\n` +
+    `Open Kwilt to set up your first Arc and start building momentum.\n\n` +
+    `${ctaUrl}`;
+  const html = renderLayout({
+    title: 'Welcome to Kwilt',
+    preheader: 'Your Arc is waiting — open Kwilt to get started.',
+    bodyHtml: `
+      <p style="margin:0 0 12px;">You've taken the first step toward showing up for the life you want.</p>
+      <p style="margin:0 0 16px;">Kwilt helps you turn intentions into daily action. Start by defining an <strong>Arc</strong> — a meaningful direction for your life right now.</p>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Open Kwilt
+        </a>
+      </div>
+    `,
+    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+  });
+  return { subject, text, html };
+}
+
+export function buildWelcomeDay1Email(): EmailContent {
+  const { primaryColor, ctaUrl } = getBrandConfig();
+  const subject = 'Your first tiny step';
+  const text =
+    `Ready to build some momentum?\n\n` +
+    `Complete your first Activity in Kwilt today — even something small counts.\n` +
+    `That's all it takes to start your show-up streak.\n\n` +
+    `${ctaUrl}`;
+  const html = renderLayout({
+    title: 'Your first tiny step',
+    preheader: 'Complete your first Activity — even something small counts.',
+    bodyHtml: `
+      <p style="margin:0 0 12px;">Ready to build some momentum?</p>
+      <p style="margin:0 0 12px;">Complete your first <strong>Activity</strong> in Kwilt today — even something small counts. That's all it takes to start your show-up streak.</p>
+      <p style="margin:0 0 16px;color:#6b7280;">Streaks aren't about perfection. They're about consistency — showing up for the things that matter to you.</p>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Open Kwilt
+        </a>
+      </div>
+    `,
+    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+  });
+  return { subject, text, html };
+}
+
+export function buildWelcomeDay3Email(params: { streakLength: number }): EmailContent {
+  const { primaryColor } = getBrandConfig();
+  const streak = params.streakLength;
+  const streakLine = streak >= 2 ? `You're on a ${streak}-day streak — nice work!` : 'Build a streak by showing up each day.';
+  const subject = 'How's your first Arc going?';
+  const planUrl = 'kwilt://plan';
+  const text =
+    `${subject}\n\n` +
+    `${streakLine}\n\n` +
+    `Check out the Plan tab to see your week at a glance and set intentions for the days ahead.\n\n` +
+    `${planUrl}`;
+  const html = renderLayout({
+    title: 'How's your first Arc going?',
+    preheader: streakLine,
+    bodyHtml: `
+      <p style="margin:0 0 12px;">${escapeHtml(streakLine)}</p>
+      <p style="margin:0 0 12px;">Check out the <strong>Plan</strong> tab to see your week at a glance and set intentions for the days ahead.</p>
+      <p style="margin:0 0 16px;color:#6b7280;">When you plan your week in advance, you're more likely to follow through — and your streak keeps growing.</p>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(planUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Open Plan
+        </a>
+      </div>
+    `,
+    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+  });
+  return { subject, text, html };
+}
+
+export function buildWelcomeDay7Email(params: { streakLength: number; activitiesCompleted: number }): EmailContent {
+  const { primaryColor, ctaUrl } = getBrandConfig();
+  const streak = params.streakLength;
+  const completed = params.activitiesCompleted;
+  const subject = 'Your first week in review';
+  const streakLine = streak >= 2 ? `${streak}-day show-up streak` : 'Getting started';
+  const activitiesLine = completed > 0 ? `${completed} activit${completed === 1 ? 'y' : 'ies'} completed` : 'Activities in progress';
+  const text =
+    `Your first week in Kwilt:\n\n` +
+    `• ${streakLine}\n` +
+    `• ${activitiesLine}\n\n` +
+    `Keep the momentum going!\n\n` +
+    `${ctaUrl}`;
+  const html = renderLayout({
+    title: 'Your first week in review',
+    preheader: `${streakLine} · ${activitiesLine}`,
+    bodyHtml: `
+      <p style="margin:0 0 14px;">Here's how your first week went:</p>
+      <div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
+        <div style="display:flex;gap:20px;">
+          <div>
+            <div style="font-size:13px;color:#6b7280;margin:0 0 4px;">Streak</div>
+            <div style="font-size:20px;font-weight:900;color:#111827;">${escapeHtml(streakLine)}</div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:#6b7280;margin:0 0 4px;">Activities</div>
+            <div style="font-size:20px;font-weight:900;color:#111827;">${escapeHtml(activitiesLine)}</div>
+          </div>
+        </div>
+      </div>
+      <p style="margin:0 0 16px;">Every day you show up is a vote for the person you're becoming. Keep going — the best is ahead.</p>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Keep going
+        </a>
+      </div>
+    `,
+    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+  });
+  return { subject, text, html };
+}
+
+// ---------------------------------------------------------------------------
+// Chapter digest email
+// ---------------------------------------------------------------------------
+
+export function buildChapterDigestEmail(params: {
+  chapterTitle: string;
+  periodLabel: string;
+  narrative: string;
+  chapterId: string;
+}): EmailContent {
+  const { primaryColor } = getBrandConfig();
+  const { chapterTitle, periodLabel, narrative, chapterId } = params;
+  const subject = `Your ${periodLabel} chapter is ready`;
+  const deepLink = `kwilt://chapters/${chapterId}`;
+  const snippet = narrative.length > 300 ? narrative.slice(0, 297) + '…' : narrative;
+  const text =
+    `${subject}: ${chapterTitle}\n\n` +
+    `${snippet}\n\n` +
+    `Read the full chapter in Kwilt: ${deepLink}`;
+  const html = renderLayout({
+    title: chapterTitle,
+    preheader: `Your ${periodLabel} chapter is ready — read it in Kwilt.`,
+    bodyHtml: `
+      <p style="margin:0 0 4px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(periodLabel)}</p>
+      <div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
+        <p style="margin:0;font-size:15px;line-height:22px;color:#374151;">${escapeHtml(snippet)}</p>
+      </div>
+      <div style="margin:0 0 14px;">
+        <a href="${escapeHtml(deepLink)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+          Read full chapter
+        </a>
+      </div>
+    `,
+    footerText: 'You're receiving this because you enabled chapter email delivery. Manage in Settings → Notifications.',
+  });
+  return { subject, text, html };
+}
+
 export function buildSecretExpiryAlertEmail(params: {
   environment: string;
   items: Array<{

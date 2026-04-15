@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
-import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
+import { useCanUseProTools } from '../../../store/proToolsAccess';
 import { HapticsService } from '../../../services/HapticsService';
 import { openPaywallInterstitial } from '../../../services/paywall';
 import type { ActivityView, ActivityViewLayout, KanbanGroupBy } from '../../../domain/types';
@@ -35,7 +35,7 @@ export type UseViewManagementReturn = {
 };
 
 export function useViewManagement(): UseViewManagementReturn {
-  const isPro = useEntitlementsStore((state) => state.isPro);
+  const isPro = useCanUseProTools('saved_views');
   const activityViews = useAppStore((state) => state.activityViews);
   const activeActivityViewId = useAppStore((state) => state.activeActivityViewId);
   const setActiveActivityViewId = useAppStore((state) => state.setActiveActivityViewId);

@@ -584,4 +584,91 @@ describe('recordShowUp streak repair window', () => {
   });
 });
 
+describe('proPreview store actions', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('setProPreview sets the preview and clearProPreview clears it', () => {
+    expect(useAppStore.getState().proPreview).toBeNull();
+
+    useAppStore.getState().setProPreview({ feature: 'focus_mode', expiresAtMs: Date.now() + 86400000 });
+    expect(useAppStore.getState().proPreview).toEqual({
+      feature: 'focus_mode',
+      expiresAtMs: expect.any(Number),
+    });
+
+    useAppStore.getState().clearProPreview();
+    expect(useAppStore.getState().proPreview).toBeNull();
+  });
+
+  it('setProPreview replaces any existing preview', () => {
+    useAppStore.getState().setProPreview({ feature: 'focus_mode', expiresAtMs: Date.now() + 86400000 });
+    useAppStore.getState().setProPreview({ feature: 'saved_views', expiresAtMs: Date.now() + 259200000 });
+
+    const preview = useAppStore.getState().proPreview;
+    expect(preview?.feature).toBe('saved_views');
+  });
+});
+
+describe('activityCompletionHours tracking', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('recordShowUp appends the current hour to activityCompletionHours', () => {
+    jest.setSystemTime(new Date(2026, 3, 15, 14, 30, 0)); // 2:30 PM
+    useAppStore.getState().recordShowUp();
+
+    const hours = useAppStore.getState().activityCompletionHours;
+    expect(hours).toContain(14);
+  });
+
+  it('caps activityCompletionHours at 14 entries', () => {
+    useAppStore.setState({
+      activityCompletionHours: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
+    } as any);
+
+    jest.setSystemTime(new Date(2026, 3, 15, 7, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const hours = useAppStore.getState().activityCompletionHours;
+    expect(hours.length).toBe(14);
+    expect(hours[hours.length - 1]).toBe(7);
+    expect(hours[0]).toBe(9); // first entry (8) was dropped
+  });
+
+  it('does not duplicate hours when showing up twice on the same day', () => {
+    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    const hoursAfterFirst = useAppStore.getState().activityCompletionHours.length;
+
+    jest.setSystemTime(new Date(2026, 3, 15, 14, 0, 0));
+    useAppStore.getState().recordShowUp();
+
+    // Second call on the same day should not add another entry
+    expect(useAppStore.getState().activityCompletionHours.length).toBe(hoursAfterFirst);
+  });
+});
+
+describe('weekly recap dismiss', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('dismissWeeklyRecap persists the week key', () => {
+    expect(useAppStore.getState().lastWeeklyRecapDismissedWeekKey).toBeNull();
+
+    useAppStore.getState().dismissWeeklyRecap('2026-W16');
+
+    expect(useAppStore.getState().lastWeeklyRecapDismissedWeekKey).toBe('2026-W16');
+  });
+});
+
 

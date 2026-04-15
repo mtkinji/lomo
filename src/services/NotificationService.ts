@@ -2,6 +2,7 @@ import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Activity } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
+import { useToastStore } from '../store/useToastStore';
 import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { posthogClient } from './analytics/posthogClient';
 import { track } from './analytics/analytics';
@@ -899,13 +900,48 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   const isSetup =
     suggested?.kind === 'setup' ? suggested : null;
 
+  // Adaptive timing: if the user's actual show-up pattern diverges significantly
+  // from their configured reminder time, suggest an adjustment (one-time per day).
+  const appState = useAppStore.getState();
+  const completionHours = appState.activityCompletionHours ?? [];
+  if (completionHours.length >= 5) {
+    const hourCounts = new Map<number, number>();
+    for (const h of completionHours) {
+      hourCounts.set(h, (hourCounts.get(h) ?? 0) + 1);
+    }
+    let typicalHour = hour;
+    let maxCount = 0;
+    for (const [h, count] of hourCounts) {
+      if (count > maxCount) {
+        maxCount = count;
+        typicalHour = h;
+      }
+    }
+    const lastSuggestionKey = appState.lastAdaptiveTimingSuggestionDateKey;
+    const todayKeyForSuggestion = localDateKey(now);
+    if (
+      Math.abs(typicalHour - hour) > 2 &&
+      lastSuggestionKey !== todayKeyForSuggestion
+    ) {
+      useAppStore.setState({ lastAdaptiveTimingSuggestionDateKey: todayKeyForSuggestion });
+      const formattedHour = typicalHour <= 12 ? `${typicalHour || 12} AM` : `${typicalHour - 12} PM`;
+      setTimeout(() => {
+        useToastStore.getState().showToast({
+          message: `You usually show up around ${formattedHour}. Want to adjust your reminder?`,
+          variant: 'default',
+          durationMs: 6000,
+        });
+      }, 1000);
+    }
+  }
+
   // Convert daily show-up to a one-shot schedule (we reschedule daily).
   // This enables suppression/caps/backoff (repeating schedules can't be stopped reliably).
   let fireAt = new Date(now);
   fireAt.setHours(Number.isNaN(hour) ? 8 : hour, Number.isNaN(minute) ? 0 : minute, 0, 0);
 
   // If the user already "showed up" today, schedule tomorrow.
-  const state = useAppStore.getState();
+  const state = appState;
   if (state.lastShowUpDate === todayKey || fireAt.getTime() <= now.getTime()) {
     fireAt.setDate(fireAt.getDate() + 1);
   }

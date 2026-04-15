@@ -783,6 +783,34 @@ export function recordShowUpWithCelebration() {
       });
     }
 
+    // Time-limited Pro previews at streak milestones (free users only).
+    const ent = useEntitlementsStore.getState();
+    if (!ent.isPro && !ent.isProToolsTrial) {
+      if (nextStreak === 7) {
+        useAppStore.getState().setProPreview({
+          feature: 'focus_mode',
+          expiresAtMs: Date.now() + 24 * 60 * 60 * 1000,
+        });
+        setTimeout(() => {
+          useToastStore.getState().showToast({
+            message: 'Streak reward! Focus Mode unlocked for 24 hours',
+            variant: 'credits',
+          });
+        }, 2000);
+      } else if (nextStreak === 14) {
+        useAppStore.getState().setProPreview({
+          feature: 'saved_views',
+          expiresAtMs: Date.now() + 72 * 60 * 60 * 1000,
+        });
+        setTimeout(() => {
+          useToastStore.getState().showToast({
+            message: 'Streak reward! Saved Views unlocked for 3 days',
+            variant: 'credits',
+          });
+        }, 2000);
+      }
+    }
+
     // Widget-to-streak attribution: if this session was opened from a widget,
     // the show-up closes the Widget → Show-up conversion loop.
     if (consumeOpenedFromWidget()) {

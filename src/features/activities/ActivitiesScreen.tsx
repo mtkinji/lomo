@@ -51,7 +51,7 @@ import {
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { useCanUseProTools } from '../../store/proToolsAccess';
 import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -225,7 +225,7 @@ export function ActivitiesScreen() {
   // Manual order remains supported via Activity.orderIndex and the existing sorting logic.
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
-  const isPro = useEntitlementsStore((state) => state.isPro);
+  const isPro = useCanUseProTools('saved_views');
   const activityViews = useAppStore((state) => state.activityViews);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;

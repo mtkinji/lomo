@@ -77,6 +77,10 @@ export const AnalyticsEvent = {
   MilestoneRecorded: 'milestone_recorded',
   MilestoneRecordFailed: 'milestone_record_failed',
 
+  // Pro preview (streak-based)
+  ProPreviewGranted: 'pro_preview_granted',
+  ProPreviewExpired: 'pro_preview_expired',
+
   // Friends
   FriendInviteCreated: 'friend_invite_created',
   FriendInviteShared: 'friend_invite_shared',

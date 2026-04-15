@@ -35,6 +35,7 @@ export type PaywallSource =
   | 'onboarding_completion'
   | 'settings'
   | 'streak_break'
+  | 'pro_preview_expired'
   | 'unknown';
 
 /**

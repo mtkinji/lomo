@@ -698,6 +698,26 @@ interface AppState {
     repairedAtMs: number | null;
   };
   /**
+   * Time-limited Pro feature preview earned via streak milestones.
+   * Grants temporary access to a single Pro Tools feature (e.g. focus_mode,
+   * saved_views) without full Pro. Checked by `canUseProTools()`.
+   */
+  proPreview: { feature: string; expiresAtMs: number } | null;
+  /**
+   * Rolling buffer of hour-of-day values when the user showed up (last 14).
+   * Used by adaptive notification timing to suggest better reminder times.
+   */
+  activityCompletionHours: number[];
+  /**
+   * Date key when we last suggested adjusting the daily show-up time.
+   * Prevents repeating the adaptive timing suggestion too often.
+   */
+  lastAdaptiveTimingSuggestionDateKey: string | null;
+  /**
+   * ISO week key of the last dismissed weekly recap card.
+   */
+  lastWeeklyRecapDismissedWeekKey: string | null;
+  /**
    * Lightweight lifecycle counters used for post-activation nudges (e.g. widgets).
    * Best-effort only; do not use for billing/security.
    */
@@ -1009,6 +1029,9 @@ interface AppState {
    * Explicitly reset the show-up streak (used by future engagement flows).
    */
   resetShowUpStreak: () => void;
+  setProPreview: (preview: { feature: string; expiresAtMs: number }) => void;
+  clearProPreview: () => void;
+  dismissWeeklyRecap: (weekKey: string) => void;
   /**
    * Award streak shields to the user (Pro feature, max 3 shields at a time).
    * Shields protect the streak when you miss a day (consumed after free grace).
@@ -1365,6 +1388,10 @@ export const useAppStore = create<AppState>()(
         eligibleRepairUntilMs: null,
         repairedAtMs: null,
       },
+      proPreview: null,
+      activityCompletionHours: [],
+      lastAdaptiveTimingSuggestionDateKey: null,
+      lastWeeklyRecapDismissedWeekKey: null,
       appOpenCount: 0,
       firstOpenedAtMs: null,
       lastOpenedAtMs: null,
@@ -2326,6 +2353,7 @@ export const useAppStore = create<AppState>()(
               };
             }
 
+            const prevHours = Array.isArray(state.activityCompletionHours) ? state.activityCompletionHours : [];
             return {
               ...state,
               lastShowUpDate: todayKey,
@@ -2333,6 +2361,7 @@ export const useAppStore = create<AppState>()(
               streakGrace: { ...nextGrace, graceDaysUsed: 0 },
               streakBreakState: nextBreakState,
               lastActiveDate: nowDate.toISOString(),
+              activityCompletionHours: [...prevHours, nowDate.getHours()].slice(-14),
             };
           }
 
@@ -2414,6 +2443,7 @@ export const useAppStore = create<AppState>()(
             };
           }
 
+          const prevHours = Array.isArray(state.activityCompletionHours) ? state.activityCompletionHours : [];
           return {
             ...state,
             lastShowUpDate: todayKey,
@@ -2421,6 +2451,7 @@ export const useAppStore = create<AppState>()(
             streakGrace: nextGrace,
             streakBreakState: nextBreakState,
             lastActiveDate: nowDate.toISOString(),
+            activityCompletionHours: [...prevHours, nowDate.getHours()].slice(-14),
           };
         }),
       recordCompletedFocusSession: (params) =>
@@ -2476,6 +2507,9 @@ export const useAppStore = create<AppState>()(
             repairedAtMs: null,
           },
         })),
+      setProPreview: (preview) => set({ proPreview: preview }),
+      clearProPreview: () => set({ proPreview: null }),
+      dismissWeeklyRecap: (weekKey) => set({ lastWeeklyRecapDismissedWeekKey: weekKey }),
       addStreakShields: (count) =>
         set((state) => {
           const grace = state.streakGrace ?? {

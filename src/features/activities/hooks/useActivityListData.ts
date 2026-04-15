@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
-import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
+import { useCanUseProTools } from '../../../store/proToolsAccess';
 import { QueryService } from '../../../services/QueryService';
 import { HapticsService } from '../../../services/HapticsService';
 import { openPaywallInterstitial } from '../../../services/paywall';
@@ -55,7 +55,7 @@ export function useActivityListData({
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const updateActivityView = useAppStore((state) => state.updateActivityView);
-  const isPro = useEntitlementsStore((state) => state.isPro);
+  const isPro = useCanUseProTools('saved_views');
 
   // Views + filtering/sorting are Pro Tools. Free users should see the baseline list,
   // even if they previously customized system views while Pro.

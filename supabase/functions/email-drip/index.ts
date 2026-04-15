@@ -1,0 +1,264 @@
+// Email drip cadence evaluator (Supabase Edge Function)
+//
+// Day 0 + Day 1 welcome emails are handled by a Resend Automation
+// (trigger: user.signup, with open-tracking re-engagement branch).
+// This function handles Day 3 + Day 7 which need live Supabase data
+// for personalization (streak length, completed activities).
+//
+// Routes:
+// - GET  /email-drip -> evaluate all users (cron / scheduled invocation)
+// - POST /email-drip -> evaluate a single user OR fire a signup event
+//   Body: { userId?: string } — evaluate one user
+//   Body: { action: "signup", email: string } — fire user.signup to Resend Automation
+//
+// Env:
+// - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (required)
+// - RESEND_API_KEY (required)
+// - KWILT_DRIP_EMAIL_FROM (optional, default: hello@mail.kwilt.app)
+
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
+import { getSupabaseAdmin, json } from '../_shared/calendarUtils.ts';
+import {
+  buildWelcomeDay3Email,
+  buildWelcomeDay7Email,
+} from '../_shared/emailTemplates.ts';
+
+type DripMessage = {
+  key: string;
+  dayThreshold: number;
+  build: (ctx: UserContext) => { subject: string; text: string; html: string };
+};
+
+type UserContext = {
+  userId: string;
+  email: string;
+  daysSinceSignup: number;
+  streakLength: number;
+  activitiesCompleted: number;
+};
+
+// Day 0 + Day 1 are managed by the Resend Automation "Kwilt Welcome Drip".
+// Only Day 3 and Day 7 remain here because they need real-time Supabase data.
+const DRIP_MESSAGES: DripMessage[] = [
+  {
+    key: 'welcome_day3',
+    dayThreshold: 3,
+    build: (ctx) => buildWelcomeDay3Email({ streakLength: ctx.streakLength }),
+  },
+  {
+    key: 'welcome_day7',
+    dayThreshold: 7,
+    build: (ctx) =>
+      buildWelcomeDay7Email({
+        streakLength: ctx.streakLength,
+        activitiesCompleted: ctx.activitiesCompleted,
+      }),
+  },
+];
+
+async function sendViaResend(params: {
+  resendKey: string;
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${params.resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: params.from,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return json(200, { ok: true });
+  }
+
+  const admin = getSupabaseAdmin();
+  if (!admin) {
+    return json(503, { error: { message: 'Service unavailable', code: 'provider_unavailable' } });
+  }
+
+  const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
+  const fromEmail = (Deno.env.get('KWILT_DRIP_EMAIL_FROM') ?? 'hello@mail.kwilt.app').trim();
+  if (!resendKey) {
+    return json(503, { error: { message: 'Email service unavailable', code: 'provider_unavailable' } });
+  }
+
+  const isManual = req.method === 'POST';
+  let targetUserId: string | null = null;
+  let body: Record<string, unknown> | null = null;
+
+  if (isManual) {
+    body = await req.json().catch(() => null);
+
+    // Fire signup event to Resend Automation (Day 0 + Day 1 drip)
+    if (body?.action === 'signup' && typeof body?.email === 'string') {
+      const email = (body.email as string).trim();
+      if (!email) return json(400, { error: { message: 'Missing email', code: 'bad_request' } });
+      try {
+        const res = await fetch('https://api.resend.com/events', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ event: 'user.signup', email }),
+        });
+        const resBody = await res.text();
+        return json(res.ok ? 200 : 502, { ok: res.ok, detail: resBody });
+      } catch (e) {
+        return json(502, { ok: false, error: { message: String(e), code: 'resend_error' } });
+      }
+    }
+
+    targetUserId = typeof body?.userId === 'string' ? body.userId.trim() : null;
+  }
+
+  // Fetch eligible users. For cron: all users created in the last 8 days.
+  // For manual: just the target user.
+  let usersQuery = admin
+    .from('auth.users' as any)
+    .select('id, email, created_at');
+
+  // auth.users isn't directly queryable via PostgREST. Use an RPC or raw query.
+  // Instead, query the admin auth API for user listing.
+  const now = Date.now();
+  const results: Array<{ userId: string; messageKey: string; ok: boolean; error?: string }> = [];
+
+  // Use admin auth API to list users (paginated, max 1000 per page).
+  // For cron runs, we only need users created in the last 8 days.
+  const eightDaysAgoIso = new Date(now - 8 * 24 * 60 * 60 * 1000).toISOString();
+
+  let users: Array<{ id: string; email: string; created_at: string }> = [];
+
+  if (targetUserId) {
+    const { data } = await admin.auth.admin.getUserById(targetUserId);
+    if (data?.user?.email) {
+      users.push({
+        id: data.user.id,
+        email: data.user.email,
+        created_at: data.user.created_at ?? new Date().toISOString(),
+      });
+    }
+  } else {
+    // Paginate through users; filter by created_at client-side.
+    let page = 1;
+    const perPage = 500;
+    let hasMore = true;
+    while (hasMore) {
+      const { data } = await admin.auth.admin.listUsers({ page, perPage });
+      const batch = data?.users ?? [];
+      for (const u of batch) {
+        if (u.email && u.created_at && u.created_at >= eightDaysAgoIso) {
+          users.push({ id: u.id, email: u.email, created_at: u.created_at });
+        }
+      }
+      hasMore = batch.length === perPage;
+      page += 1;
+      if (page > 20) break; // safety cap
+    }
+  }
+
+  for (const user of users) {
+    const daysSinceSignup = Math.floor((now - Date.parse(user.created_at)) / (24 * 60 * 60 * 1000));
+
+    // Check email preferences (opt-out)
+    const { data: prefs } = await admin
+      .from('kwilt_email_preferences')
+      .select('welcome_drip')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (prefs && (prefs as any).welcome_drip === false) continue;
+
+    // Check which messages have already been sent
+    const { data: sentRows } = await admin
+      .from('kwilt_email_cadence')
+      .select('message_key')
+      .eq('user_id', user.id);
+    const sentKeys = new Set((sentRows ?? []).map((r: any) => r.message_key));
+
+    // Gather user context for template personalization
+    let streakLength = 0;
+    let activitiesCompleted = 0;
+    try {
+      const { data: milestones } = await admin
+        .from('kwilt_user_milestones')
+        .select('milestone_value')
+        .eq('user_id', user.id)
+        .eq('milestone_type', 'streak_7')
+        .limit(1);
+      if (milestones && milestones.length > 0) {
+        streakLength = Math.max(7, Number((milestones[0] as any).milestone_value) || 0);
+      }
+    } catch { /* best effort */ }
+
+    try {
+      const { count } = await admin
+        .from('kwilt_activities' as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'completed');
+      activitiesCompleted = typeof count === 'number' ? count : 0;
+    } catch { /* best effort */ }
+
+    const ctx: UserContext = {
+      userId: user.id,
+      email: user.email,
+      daysSinceSignup,
+      streakLength,
+      activitiesCompleted,
+    };
+
+    // Evaluate which drip message to send (at most one per run per user)
+    for (const msg of DRIP_MESSAGES) {
+      if (daysSinceSignup < msg.dayThreshold) continue;
+      if (sentKeys.has(msg.key)) continue;
+
+      const content = msg.build(ctx);
+      const sent = await sendViaResend({
+        resendKey,
+        from: fromEmail,
+        to: user.email,
+        subject: content.subject,
+        html: content.html,
+        text: content.text,
+      });
+
+      if (sent) {
+        await admin.from('kwilt_email_cadence').insert({
+          user_id: user.id,
+          message_key: msg.key,
+          metadata: { days_since_signup: daysSinceSignup },
+        });
+      }
+
+      results.push({ userId: user.id, messageKey: msg.key, ok: sent });
+      break; // one message per user per run
+    }
+  }
+
+  return json(200, {
+    ok: true,
+    mode: isManual ? 'manual' : 'scheduled',
+    evaluated: users.length,
+    sent: results.filter((r) => r.ok).length,
+    results,
+  });
+});

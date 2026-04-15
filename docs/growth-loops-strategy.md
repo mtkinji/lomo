@@ -31,7 +31,7 @@ Kwilt has strong foundations — a thoughtful onboarding flow, a well-designed l
 
 ### Recommendations
 
-**E1. Welcome + activation drip (days 0–7)**
+**E1. Welcome + activation drip (days 0–7)** ✅ Done
 
 Design a 4-message email sequence triggered by account creation:
 
@@ -42,17 +42,15 @@ Design a 4-message email sequence triggered by account creation:
 | 3 | "How's your first Arc going?" | Surface the show-up streak value prop; link to Plan |
 | 7 | "Your first week in review" | Mini-recap (streak length, activities completed); seed the Chapters concept |
 
-Implementation path:
-- Integrate a transactional email provider (Resend is already a dependency; extend to user-facing sends).
-- Add a `kwilt_email_cadence` table tracking which messages have been sent per user.
-- Write a Supabase cron job (pg_cron) or scheduled edge function that evaluates eligibility and enqueues sends.
-- Include one-click unsubscribe and email preference center link.
+Implemented as a hybrid: Day 0 + Day 1 via Resend Automation ("Kwilt Welcome Drip") with open-tracking re-engagement branch (if Day 1 isn't opened in 2 days, sends a "One tiny step" variant). Day 3 + Day 7 via `email-drip` edge function (need live Supabase data for streak/activity personalization). Resend Topics created for unsubscribe management. `kwilt_email_cadence` and `kwilt_email_preferences` tables with RLS. Client fires `user.signup` event on new sign-in via `fireResendSignupEvent()`.
 
-**E2. Weekly Chapter digest email**
+**E2. Weekly Chapter digest email** ✅ Done
 
 Leverage the existing `email_enabled` / `email_recipient` columns on chapter templates:
 - After chapter generation, if the user has opted in, send a styled email with the chapter summary and a deep link to the full chapter in-app.
 - This creates a recurring "reason to return" that doesn't rely on push notifications.
+
+Implemented in `chapters-generate/index.ts`. Template: `buildChapterDigestEmail`. Sends after successful chapter generation when user has opted in and not opted out of `chapter_digest` preference.
 
 **E3. Streak-break and win-back emails (day 3+ of inactivity)**
 
@@ -107,7 +105,7 @@ Implemented in `NotificationService.ts` (`scheduleStreakAtRiskInternal`). Settin
 
 Implemented in `NotificationService.ts` (`scheduleReactivationInternal`). Fires at user's daily show-up time, references previous streak length in copy, backs off after 2 ignores.
 
-**N4. Add iOS notification action categories**
+**N4. Add iOS notification action categories** ✅ Done
 
 Register categories with inline actions to reduce friction:
 - `activityReminder` → "Start Focus" / "Snooze 1h"
@@ -116,11 +114,15 @@ Register categories with inline actions to reduce friction:
 
 This lets users take meaningful action without fully context-switching into the app.
 
-**N5. Adaptive notification timing**
+Implemented in `NotificationService.ts`. `registerNotificationCategories()` called at init. Categories registered for `activityReminder` ("Start Focus", "Snooze 1h") and `streakAtRisk` ("Show up now"). Response handler routes actions appropriately.
+
+**N5. Adaptive notification timing** ✅ Done
 
 - Track the hour-of-day when the user typically completes their first Activity (rolling 14-day window).
 - If the user consistently acts at 10 AM but their daily show-up is set to 8 AM, either: (a) suggest they adjust the time, or (b) auto-adjust within a ±2h window with a one-time "we moved your reminder" toast.
 - This improves open rates by aligning with actual behavior.
+
+Implemented: `activityCompletionHours` (rolling 14-day buffer) tracked in `useAppStore`. `scheduleDailyShowUpInternal` computes typical hour and shows a suggestion toast when divergent (debounced daily).
 
 **N6. Richer notification copy rotation**
 
@@ -170,17 +172,21 @@ The native bridge exists but there's no visible Dynamic Island / Lock Screen Liv
 
 If Android is a meaningful user segment, parity matters. Start with a single small widget (streak + next up) using React Native's Expo widget community packages or native Kotlin.
 
-**W5. Widget-to-streak reinforcement loop**
+**W5. Widget-to-streak reinforcement loop** ✅ Done
 
 When a user opens the app from a widget and it results in a show-up, celebrate it specifically:
 - "Widget → Show-up! Your [N]-day streak continues."
 - Track `AppOpenedFromWidget → recordShowUp` conversion in PostHog to measure widget ROI.
 
-**W6. Proactive widget nudge timing**
+Implemented: `WidgetAssistedShowUp` analytics event. Session-scoped `markOpenedFromWidget()` / `consumeOpenedFromWidget()` in `widgetAttribution.ts`. Fires when a widget-origin session leads to a show-up.
+
+**W6. Proactive widget nudge timing** ✅ Done
 
 Currently widget nudges are gated by `appOpenCount` and FTUE completion. Refine:
 - Show the widget nudge **immediately after the first streak milestone (day 3)** — the user now has something worth glancing at.
 - If the user has a streak ≥ 7 and hasn't added a widget, show a more assertive nudge: "Keep your streak visible — add the Kwilt widget to your Lock Screen."
+
+Implemented in `useWidgetNudge.ts`. Streak-based fast-track at streak >= 3. Assertive copy variant `lock_screen_streak` at streak >= 7.
 
 ---
 
@@ -217,7 +223,7 @@ The 24–48h repair window in `streakProtection.ts` is well-designed and tested.
 - If the user shows up within the window, celebrate the recovery.
 - This reduces the "I missed one day, my 30-day streak is gone, I quit" cliff — the #1 reason streaks cause churn instead of preventing it.
 
-**S3. Streak milestones with tangible rewards**
+**S3. Streak milestones with tangible rewards** ✅ Done
 
 Currently milestones are recorded server-side but have no user-facing reward beyond a celebration animation. Add:
 - **7-day streak:** unlock a bonus AI credit pack (+5 credits).
@@ -226,7 +232,9 @@ Currently milestones are recorded server-side but have no user-facing reward bey
 
 This creates a **progression system** where streaks feel like they're building toward something, not just a number.
 
-**S4. "Streak Sunday" weekly recap**
+Implemented: +5 bonus AI credits at each milestone (7, 14, 30, 60, 100 days) via `addBonusGenerativeCreditsThisMonth`. Toast and `MilestoneRecorded` analytics event. Pro previews at streak 7 (Focus Mode 24h) and streak 14 (Saved Views 72h) — see U2.
+
+**S4. "Streak Sunday" weekly recap** ✅ Done
 
 Every Sunday (or the user's configured week-start day), show an in-app card:
 - "This week: [X] days showed up, [Y] activities completed, streak at [N] days."
@@ -234,6 +242,8 @@ Every Sunday (or the user's configured week-start day), show an in-app card:
 - If streak grew, celebrate. If it shrank, frame compassionately with a CTA to plan the coming week.
 
 This is a retention surface that also seeds the habit of weekly planning.
+
+Implemented: `StreakWeeklyRecapCard` component with 7-dot visualization, displayed on Sundays at top of Plan canvas. Dismissible per-week via `lastWeeklyRecapDismissedWeekKey`.
 
 **S5. Social streak sharing**
 
@@ -279,7 +289,7 @@ Implement the plan from `streak-retention-loops.plan.md`:
 
 Implemented: `pro_only_streak_shields` PaywallReason with contextual copy in `PaywallDrawer.tsx`. Trigger fires in `recordShowUpWithCelebration` for free users with 0 shields when streak breaks.
 
-**U2. Time-limited Pro previews at streak milestones**
+**U2. Time-limited Pro previews at streak milestones** ✅ Done
 
 Instead of hard gates, let free users **taste** Pro:
 - At 7-day streak: "Unlock Focus Mode for 24 hours."
@@ -287,6 +297,8 @@ Instead of hard gates, let free users **taste** Pro:
 - After preview expires, show a gentle "Liked [feature]? Keep it with Pro" prompt.
 
 This is more effective than limit-triggered frustration because the user has already experienced value.
+
+Implemented: `proPreview` state in store. `canUseProTools` helper in `proToolsAccess.ts` checks `isPro || isProToolsTrial || proPreview`. On expiry, opens paywall with `pro_preview_expired` source + upsell toast. Also fixed `isProToolsTrial` bug — was only gating attachments, now gates all Pro Tools features (views, focus, banners). Analytics: `ProPreviewGranted`, `ProPreviewExpired`.
 
 **U3. Surface introductory offers / free trial** ✅ Done
 
@@ -297,12 +309,14 @@ RevenueCat supports introductory offers (free trial, pay-up-front, pay-as-you-go
 
 Implemented: `ProSkuPricing.introPrice` extracted in `getProSkuPricing()`. `ManageSubscriptionScreen` shows "Start N-unit free trial" CTA when intro offer detected. `FreeTrialStarted` analytics event added.
 
-**U4. Upgrade prompt after AI credit exhaustion**
+**U4. Upgrade prompt after AI credit exhaustion** ✅ Done
 
 When `tryConsumeGenerativeCredit` fails (limit reached), the current UX shows `PaywallContent` inline. Improve:
 - Show a "You've used all 50 credits this month" interstitial with a progress visualization of what those credits accomplished.
 - Include a "See what Pro unlocks" CTA that shows Pro credits (1000/month) alongside the user's usage pattern.
 - Frame it as "You're using Kwilt's AI enough to benefit from Pro" — a positive signal, not a punishment.
+
+Implemented in `PaywallDrawer.tsx`. Progress bar, monthly AI interaction count, and Pro 1,000 credits/month comparison shown for `generative_quota_exceeded` reason.
 
 **U5. Contextual upgrade CTAs in empty states**
 
@@ -370,18 +384,18 @@ The recommendations above are strongest when they reinforce each other. Here are
 | P1 | W1: Lock Screen widget | 1, 2 | M | |
 | P1 | U1: Pro upsell on streak break | 3 | S | **Done** |
 | P1 | U3: Surface intro offers / free trial | 4 | S | **Done** |
-| P2 | E1: Welcome + activation email drip | 2 | L | |
+| P2 | E1: Welcome + activation email drip | 2 | L | **Done** |
 | P2 | W2: Small Home Screen widget | 1 | M | |
 | P2 | W3: Complete Live Activities | 1 | M | |
-| P2 | S3: Streak milestones with rewards | 1 | M | |
-| P2 | U2: Time-limited Pro previews | 4 | M | |
-| P2 | N4: iOS notification action categories | 1 | S | |
-| P3 | E2: Weekly Chapter digest email | 2 | M | |
+| P2 | S3: Streak milestones with rewards | 1 | M | **Done** |
+| P2 | U2: Time-limited Pro previews | 4 | M | **Done** |
+| P2 | N4: iOS notification action categories | 1 | S | **Done** |
+| P3 | E2: Weekly Chapter digest email | 2 | M | **Done** |
 | P3 | E3: Streak-break / win-back emails | 3 | M | |
-| P3 | S4: "Streak Sunday" weekly recap | 1 | S | |
-| P3 | S5: Social streak sharing | Growth | S | |
-| P3 | N5: Adaptive notification timing | 1 | M | |
-| P3 | U4: Improved credit exhaustion UX | 4 | S | |
+| P3 | S4: "Streak Sunday" weekly recap | 1 | S | **Done** |
+| P3 | S5: Social streak sharing | Growth | S | Deferred |
+| P3 | N5: Adaptive notification timing | 1 | M | **Done** |
+| P3 | U4: Improved credit exhaustion UX | 4 | S | **Done** |
 | P3 | W4: Android widget | 1 | L | |
 
 **S** = small (< 1 week), **M** = medium (1–2 weeks), **L** = large (2+ weeks)
@@ -398,8 +412,10 @@ The recommendations above are strongest when they reinforce each other. Here are
 | % of active users with notifications enabled | Unknown | > 60% |
 | Widget adoption rate (iOS) | Tracked (`AppOpenedFromWidget`) | > 15% of iOS users |
 | Free → Pro conversion rate | Unknown | > 3% of active free users |
-| Streak-at-risk notification → show-up rate | N/A (not shipped) | > 25% tap-through |
-| Reactivation notification → return rate | N/A (not shipped) | > 10% return within 48h |
+| Streak-at-risk notification → show-up rate | Shipped (Sprint 1) | > 25% tap-through |
+| Reactivation notification → return rate | Shipped (Sprint 1) | > 10% return within 48h |
+| Welcome drip open rate | Shipped (Sprint 4, Resend Automation) | > 40% Day 0 open rate |
+| Pro preview → conversion rate | Shipped (Sprint 4) | Instrument + establish baseline |
 
 ---
 
