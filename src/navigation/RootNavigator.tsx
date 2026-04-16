@@ -84,6 +84,7 @@ import { MoreScreen } from '../features/more/MoreScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
 import { PLACE_TABS } from './placeTabs';
+import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -423,90 +424,13 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
     );
   }
 
-  // Deep links embedded in calendar events and share surfaces.
+  // Deep links embedded in calendar events, email CTAs, and share surfaces.
   // Example: `kwilt://activity/<id>?openFocus=1`
+  // The config is extracted to `./linkingConfig.ts` so it can be unit-tested
+  // and so adding new deep-link paths doesn't require touching this file.
   const linking: LinkingOptions<RootDrawerParamList> = {
-    prefixes: ['kwilt://', 'https://go.kwilt.app', 'https://kwilt.app'],
-    config: {
-      screens: {
-        MainTabs: {
-          screens: {
-            GoalsTab: {
-              screens: {
-                GoalsList: {
-                  path: 'goals',
-                },
-                GoalDetail: {
-                  path: 'goal/:goalId',
-                },
-                JoinSharedGoal: {
-                  path: 'join/:inviteCode',
-                },
-              },
-            },
-            ActivitiesTab: {
-              screens: {
-                ActivitiesList: {
-                  // Canonical "Today" entrypoint for ecosystem surfaces.
-                  // We route into the Activities canvas (shell/canvas preserved) and let the
-                  // screen decide what "Today" means based on current state.
-                  path: 'today',
-                  parse: {
-                    highlightSuggested: (v: string) => v === '1' || v === 'true',
-                    contextGoalId: (v: string) => String(v),
-                    source: (v: string) => String(v),
-                  },
-                },
-                ActivitiesListFromWidget: {
-                  // Widget entrypoint for Activities list views.
-                  path: 'activities',
-                  parse: {
-                    viewId: (v: string) => String(v),
-                    source: (v: string) => String(v),
-                  },
-                },
-                ActivityDetail: {
-                  path: 'activity/:activityId',
-                  parse: {
-                    openFocus: (v: string) => v === '1' || v === 'true',
-                    autoStartFocus: (v: string) => v === '1' || v === 'true',
-                    endFocus: (v: string) => v === '1' || v === 'true',
-                    minutes: (v: string) => {
-                      const parsed = Number(v);
-                      return Number.isFinite(parsed) ? parsed : undefined;
-                    },
-                    source: (v: string) => String(v),
-                  },
-                },
-              },
-            },
-            PlanTab: {
-              path: 'plan',
-            },
-            MoreTab: {
-              screens: {
-                MoreHome: {
-                  path: 'more',
-                },
-              },
-            },
-          },
-        },
-        Agent: {
-          path: 'agent',
-        },
-        ArcsStack: {
-          screens: {
-            ArcsList: {
-              path: 'arcs',
-            },
-            ArcDetail: {
-              path: 'arc/:arcId',
-            },
-          },
-        },
-      },
-    },
+    prefixes: [...LINKING_PREFIXES],
+    config: linkingConfig,
   };
 
   return (
