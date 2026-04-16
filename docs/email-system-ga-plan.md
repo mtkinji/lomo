@@ -674,67 +674,87 @@ Manual in PostHog — no code. Funnel: `EmailSent → email.opened → email.cli
 
 **Theme:** Ship the compliance and observability pieces that GA requires but are easy to forget.
 **Estimated duration:** ~0.5 day
-**Status:** Not started
+**Status:** Code pieces (7.1, 7.2, 7.3, 7.6, 7.7) implemented. Operational pieces (7.4 DNS / 7.5 warm-up) require DNS + ops work tracked below.
+
+Implementation landed across both repos. See also the new runbook at [`docs/email-system.md`](./email-system.md) for the operational side of all of these.
 
 ### Tasks
 
-**7.1 One-click unsubscribe**
+**7.1 One-click unsubscribe — Implemented**
 
-Files: `supabase/functions/email-drip/index.ts` (and wherever else emails are sent), `kwilt-site/app/(site)/unsubscribe/page.tsx` (new), `supabase/functions/unsubscribe/index.ts` (new)
+Files landed:
+- `supabase/functions/_shared/emailUnsubscribe.ts` (new) — HMAC-SHA256 token codec (`base64url(json).base64url(sig)` shape, same primitive as `calendarUtils.encodeState` but inlined so Jest can import without pulling in `npm:@supabase/supabase-js@2`), category taxonomy (`welcome_drip`, `chapter_digest`, `streak_winback`, `marketing` — 1:1 with the `kwilt_email_preferences` columns from Sprint 4), and URL builders for both the visible in-body link (`https://kwilt.app/unsubscribe?t=<token>`) and the one-click `List-Unsubscribe` POST target (`https://<project>.supabase.co/functions/v1/unsubscribe?t=<token>`).
+- `supabase/functions/_shared/emailSend.ts` (new) — shared Resend wrapper that applies the kill switch (7.2), per-category preference guard, per-user daily cap (7.3), and forwards custom headers (including `List-Unsubscribe` + `List-Unsubscribe-Post`) to the Resend emails API via its `headers` field. **Fails closed** on preference-gated sends when the signing secret is unset or the unsubscribe headers weren't supplied — better to miss a send than train Gmail to distrust the domain.
+- `supabase/functions/unsubscribe/index.ts` (new) — edge function that accepts BOTH the RFC 8058 one-click POST (content-type `application/x-www-form-urlencoded` or `text/plain`, body `List-Unsubscribe=One-Click`, token in `?t=`) AND the browser confirmation POST (JSON body `{ token, action: 'unsubscribe' | 'resubscribe' }`). GET requests get 302'd to the kwilt-site confirmation page so link-scanners can't drive-by-unsubscribe users.
+- `kwilt-site/app/(auth)/unsubscribe/page.tsx` (new) — client-side confirmation UI. Decodes the token payload client-side (display only — server is source of truth) to show a category-specific confirmation ("Unsubscribe from weekly chapter emails?"). Reuses the same minimal `(auth)` layout as `/open`.
+- `kwilt-site/app/api/unsubscribe/route.ts` (new) — same-origin proxy so the browser POSTs to `kwilt.app/api/unsubscribe` (no CORS) and Next.js forwards to the Supabase edge function server-side.
+- `kwilt-site/middleware.ts` + `kwilt-site/lib/siteLock.ts` — `/unsubscribe`, `/unsubscribe/*`, and `/api/unsubscribe` added to both the site-lock bypass list (apex) and the `isAllowedGoPath` allowlist (go subdomain). Otherwise the marketing site lock would break unsubscribe links whenever it's enabled.
+- `supabase/functions/_shared/emailTemplates.ts` — `renderLayout` gained an optional `unsubscribeUrl?: string` param; `renderFooter` renders an `"Unsubscribe"` link on its own line below the rationale text when provided. Every preference-gated template builder (`buildWelcomeDay0Email`, `…Day1`, `…Day3`, `…Day7`, `buildStreakWinback1Email`, `buildStreakWinback2Email`, `buildChapterDigestEmail`, `buildTrialExpiryEmail`) now accepts `unsubscribeUrl` and threads it into the layout. Transactional templates (Pro grant, Pro code, Goal invite, Secret expiry) intentionally do not — they're account/user-initiated and don't need it. The stale `"Manage in Settings → Notifications"` footer copy — which pointed at a screen that handled push notifications only, not email — has been removed across every template.
+- Send sites threaded through: `email-drip` (welcome Day 3/7 + win-back 1/2), `chapters-generate` (chapter digest), `pro-codes` trial expiry branch. `invite-email-send`, `secrets-expiry-monitor`, and the `pro-codes` pro-grant + pro-code branches now also use the shared send helper so they inherit the kill switch; they're transactional, so `categoryForCampaign` returns null and no unsubscribe machinery fires.
 
-- Add `List-Unsubscribe: <mailto:...>, <https://kwilt.app/unsubscribe?token=<hmac>>` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers to every send. **Required by Gmail and Yahoo since Feb 2024.**
-- The `/unsubscribe?token=<hmac>` route toggles the appropriate `kwilt_email_preferences` row without requiring login (HMAC signed so it's not forgeable).
-- Confirmation page: "You've been unsubscribed from <category>. Undo?"
+Env vars added (all defaulted to safe-off in code):
+- `KWILT_EMAIL_UNSUBSCRIBE_SECRET` (min 32 chars) — HMAC signing secret. Unset → helper returns null → preference-gated sends fail closed with `reason: 'missing_unsubscribe_secret'`.
+- `KWILT_EMAIL_UNSUBSCRIBE_BASE_URL` (default `https://kwilt.app/unsubscribe`) — visible footer link base.
+- `KWILT_EMAIL_UNSUBSCRIBE_POST_URL` (default derived from `SUPABASE_URL`) — the `<List-Unsubscribe>` header target.
+- kwilt-site: `KWILT_UNSUBSCRIBE_FUNCTION_URL` (default derives from `KWILT_SUPABASE_URL`) for the `/api/unsubscribe` proxy.
 
-**7.2 Global kill switch**
+**7.2 Global kill switch — Implemented**
 
-Files: `supabase/functions/email-drip/index.ts`, `supabase/functions/chapters-generate/index.ts`, `supabase/functions/pro-codes/index.ts`
+`_shared/emailSend.ts::isEmailSendingEnabled()` reads `KWILT_EMAIL_SENDING_ENABLED` and returns `false` when the value is `0`, `false`, or `off`. The shared `sendEmailViaResend` helper short-circuits to `{ ok: false, reason: 'kill_switch' }` before hitting Resend. `email-drip` additionally reports `{ ok: true, skipped: true, reason: 'kill_switch' }` at the top of its handler so cron operators can see in logs that a run was a no-op without digging into per-send outcomes. `chapters-generate`, `pro-codes` (all three email branches), and `invite-email-send` all respect the switch via the shared helper.
 
-- Read `KWILT_EMAIL_SENDING_ENABLED` env var; if `0`, skip all sends and log an info message. Enables halting email globally without a deploy.
+**7.3 Per-user send cap — Implemented**
 
-**7.3 Per-user send cap**
+`_shared/emailSend.ts` counts `kwilt_email_cadence` rows in the last 24h for the user and returns `{ ok: false, reason: 'daily_cap_reached' }` when the count ≥ 2. Default cap is `DEFAULT_PER_USER_DAILY_CAP = 2`. Transactional sends bypass the cap intentionally (a user who already received two welcome emails shouldn't have a pro code held up by the same counter). `chapters-generate` now also records its sends in `kwilt_email_cadence` with a period-scoped `message_key` (`chapter_digest_<period_key>`) — previously it only used `kwilt_chapters.emailed_at`, which meant the daily cap had no visibility into digest sends.
 
-Files: `supabase/functions/email-drip/index.ts`
+**7.4 Deliverability hardening — Operational (documented, not yet executed)**
 
-- Formalize the 2-per-user-per-day cap (currently implicit via cadence). Add an explicit check against `kwilt_email_cadence` before every send.
+Manual / DNS (see [`docs/email-system.md`](./email-system.md) §8 for the rollout plan):
+- Verify SPF, DKIM via Resend's domain verification panel — should already be aligned since Sprint 4 shipped sends.
+- Current DMARC is likely `p=none` or unset. Runbook documents a 4-week rollout to `p=quarantine;pct=100` and optionally `p=reject`.
+- Sending domain already uses `mail.kwilt.app`, not the apex — good for reputation isolation.
 
-**7.4 Deliverability hardening**
+**7.5 Warm-up plan — Operational (documented, not yet executed)**
 
-Manual / DNS:
-- Confirm SPF, DKIM, DMARC aligned for sending domain. Resend provides setup docs.
-- Move `DMARC` policy from `p=none` to `p=quarantine` after 2 weeks of clean sends.
-- Consider a subdomain (`mail.kwilt.app` or `send.kwilt.app`) for sending so reputation doesn't affect the root domain.
+Runbook §9 documents the 7-day warm-up (cap to < 500 sends/day for days 0–3; re-enable win-backs + late-day welcomes days 4–7 only if open rate > 25% and bounce < 2%). Implementation-side the kill switch (7.2) + daily cap (7.3) give us the primitives to enforce this operationally — the numbers themselves are a runbook decision, not a code deploy.
 
-**7.5 Warm-up plan**
+**7.6 Email system runbook — Implemented**
 
-- First 7 days post-deploy: cap total daily sends at 500 to engaged recipients only (Day 0 welcome + Day 1 welcome only; defer win-backs).
-- Expand gradually as open rates stabilize > 25%.
+[`docs/email-system.md`](./email-system.md) (new). Sections: template inventory (including which live in-repo vs Resend Automation and each one's preference category / transactional status), preference taxonomy, full env var reference, architecture diagram, local dev loop, end-to-end update process for both in-repo and hosted templates, troubleshooting tree (logo not showing, CTA not deep-linking, high bounce, Gmail spam, unsubscribe endpoint errors, cap trips), deliverability rollout plan, warm-up plan, kill-switch + rollback procedures, compliance quick-reference (CAN-SPAM, GDPR, CASL, Gmail/Yahoo 2024), known gaps.
 
-**7.6 Email system runbook**
+**7.7 Update Sprint 4 section of `growth-loops-execution-plan.md` — Implemented**
 
-Files: `docs/email-system.md` (new)
-
-Cover:
-- Template inventory: which live in-repo vs in Resend Automation.
-- Local dev loop (how to render a template, how to invoke `email-drip` with `--dry-run`).
-- How to update a template end-to-end (repo + Resend + staging test + deploy).
-- Troubleshooting tree (logo not showing, CTA not deep-linking, bounce rates, client-specific rendering issues).
-- Kill-switch and rollback procedure.
-
-**7.7 Update Sprint 4 section of `growth-loops-execution-plan.md`**
-
-Files: `docs/growth-loops-execution-plan.md`
-
-The current Sprint 4 section documents the `kwilt://` CTAs. Update it to reference the new universal-link architecture and link to this plan doc.
+Sprint 4 §24 now references the universal-link CTA (`https://go.kwilt.app/open/chapters/[id]`) instead of the legacy `kwilt://chapters/[id]` scheme. A new "Post-Sprint-4 follow-up: GA hardening" subsection summarizes Phases 1–3 (universal-link handoff), 4 (logo), 5 (UX refinement), and 7 (GA prerequisites) with pointers back to this plan and the runbook.
 
 ### Phase 7 acceptance criteria
 
-- [ ] `List-Unsubscribe` and `List-Unsubscribe-Post` headers set on all sends.
-- [ ] `/unsubscribe?token=<hmac>` route live on `kwilt.app` and updates preferences correctly.
-- [ ] `KWILT_EMAIL_SENDING_ENABLED=0` halts all email sends without a deploy.
-- [ ] SPF / DKIM / DMARC aligned; DMARC policy at least `p=quarantine`.
-- [ ] `docs/email-system.md` runbook exists.
-- [ ] `docs/growth-loops-execution-plan.md` Sprint 4 updated to reflect new architecture.
+- [x] `List-Unsubscribe` and `List-Unsubscribe-Post` headers set on all preference-gated sends — enforced by `_shared/emailSend.ts` which **fails closed** (`missing_unsubscribe_secret`) when the headers aren't present on a non-transactional campaign.
+- [x] `/unsubscribe?t=<hmac>` route live on `kwilt.app` and updates preferences correctly — kwilt-site page + Next.js API proxy + Supabase edge function, with HMAC verification on the server side.
+- [x] `KWILT_EMAIL_SENDING_ENABLED=0` halts all email sends without a deploy — gated in `isEmailSendingEnabled()` and called from every send site.
+- [x] Per-user 2/24h cap enforced across preference-gated sends (runs in `_shared/emailSend.ts`).
+- [x] `docs/email-system.md` runbook exists.
+- [x] `docs/growth-loops-execution-plan.md` Sprint 4 updated to reflect new architecture.
+- [ ] SPF / DKIM / DMARC aligned; DMARC policy at least `p=quarantine`. *(Operational — runbook §8.)*
+- [ ] Warm-up plan executed for the first 7 days post-GA. *(Operational — runbook §9.)*
+
+### Phase 7 test coverage
+
+- `supabase/functions/_shared/__tests__/emailUnsubscribe.test.ts` — 21 cases: HMAC roundtrip, forged-token rejection (wrong secret, tampered payload, unknown category, empty uid), missing-secret fail-closed, too-short-secret fail-closed, category mapping for every real + transactional campaign, URL builder shape (default + override, urlencoded token, trailing-slash strip, RFC 8058 bracketed header shape).
+- `supabase/functions/_shared/__tests__/emailTemplates.test.ts` — 4 new Phase 7.1 cases: no template emits the stale "Manage in Settings → Notifications" copy; "Unsubscribe" anchor renders when `unsubscribeUrl` is provided; no dangling anchor on transactional templates; every preference-gated template threads the URL through.
+
+Full Jest suite: 165/165 green (was 140 after Phase 5, +25 from Phase 7). Typecheck clean on both `Kwilt` and `kwilt-site`.
+
+### Phase 7 remaining GA prerequisites
+
+Before declaring email GA, the following operational items still need owners:
+
+1. **Set `KWILT_EMAIL_UNSUBSCRIBE_SECRET`** in Supabase Edge Function secrets (`openssl rand -hex 32`). **Until this is set, every preference-gated send will return `missing_unsubscribe_secret` and no email will go out — fail-closed is intentional.**
+2. **Set `KWILT_UNSUBSCRIBE_FUNCTION_URL`** (or `KWILT_SUPABASE_URL`) on kwilt-site so the `/api/unsubscribe` proxy can reach the edge function.
+3. **Deploy the new `unsubscribe` Supabase edge function** (`supabase functions deploy unsubscribe`).
+4. **Redeploy** the send-site functions so the shared helper picks up: `supabase functions deploy email-drip chapters-generate pro-codes invite-email-send`.
+5. **Deploy kwilt-site** so `/unsubscribe` + `/api/unsubscribe` are live.
+6. **DMARC rollout** per runbook §8 (4-week plan to `p=quarantine;pct=100`).
+7. **Migrate Welcome Day 0 + Day 1 Resend Automation templates** to carry `List-Unsubscribe` headers (or move them in-repo). These currently flow through Resend Automation directly and bypass our helper.
+8. **Add `KWILT_COMPANY_POSTAL_ADDRESS`** to the footer for CAN-SPAM compliance — noted as a gap in the runbook.
 
 ---
 

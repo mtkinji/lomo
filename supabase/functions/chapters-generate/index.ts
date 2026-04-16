@@ -19,6 +19,8 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { DateTime } from 'npm:luxon@3.5.0';
 import { getSupabaseAdmin, json, requireUserId } from '../_shared/calendarUtils.ts';
 import { buildChapterDigestEmail } from '../_shared/emailTemplates.ts';
+import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
+import { sendEmailViaResend } from '../_shared/emailSend.ts';
 
 type Cadence = 'weekly' | 'monthly' | 'yearly' | 'manual';
 type TemplateKind = 'reflection' | 'report';
@@ -1710,6 +1712,13 @@ serve(async (req) => {
           const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
           const fromEmail = (Deno.env.get('KWILT_DRIP_EMAIL_FROM') ?? 'hello@mail.kwilt.app').trim();
           if (resendKey && chapterId) {
+            // Phase 7.1: build unsubscribe headers up front; the visible URL
+            // is threaded into the template footer, the headers land on the
+            // Resend request. `chapter_digest` is the preference category.
+            const unsub = await buildUnsubscribeHeaders({
+              userId: t.user_id,
+              category: 'chapter_digest',
+            });
             // The template now extracts the narrative snippet from
             // `outputJson.sections.story.body` (the canonical generator field)
             // and humanizes the period label internally — see
@@ -1723,22 +1732,21 @@ serve(async (req) => {
               periodStartIso: period.start.toISO() ?? '',
               periodEndIso: period.end.toISO() ?? '',
               timezone: t.timezone,
+              unsubscribeUrl: unsub?.visibleUrl,
             });
-            const resendRes = await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${resendKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                from: fromEmail,
-                to: t.email_recipient,
-                subject: emailContent.subject,
-                html: emailContent.html,
-                text: emailContent.text,
-              }),
-            }).catch(() => null);
-            if (resendRes?.ok) {
+            const outcome = await sendEmailViaResend({
+              resendKey,
+              from: fromEmail,
+              to: t.email_recipient,
+              subject: emailContent.subject,
+              html: emailContent.html,
+              text: emailContent.text,
+              campaign: 'chapter_digest',
+              userId: t.user_id,
+              admin,
+              extraHeaders: unsub?.headers,
+            });
+            if (outcome.ok) {
               emailed = true;
               await admin
                 .from('kwilt_chapters')
@@ -1746,6 +1754,18 @@ serve(async (req) => {
                 .eq('user_id', t.user_id)
                 .eq('template_id', t.id)
                 .eq('period_key', period.key);
+              // Phase 7.3: record the send in the cadence ledger for the
+              // per-user daily cap. Chapter digest can recur weekly/monthly,
+              // so the message_key includes the period to keep dedup scoped
+              // to that period only.
+              await admin
+                .from('kwilt_email_cadence')
+                .insert({
+                  user_id: t.user_id,
+                  message_key: `chapter_digest_${period.key}`,
+                  metadata: { chapter_id: chapterId, cadence: t.cadence },
+                })
+                .then(() => null, () => null);
             }
           }
         }

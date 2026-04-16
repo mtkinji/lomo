@@ -509,6 +509,128 @@ describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
   });
 });
 
+describe('footer unsubscribe link (Phase 7.1 of email-system-ga-plan.md)', () => {
+  // Placeholder URL that callers will real-world fill with the signed token
+  // URL returned by `_shared/emailUnsubscribe.ts::buildUnsubscribeHeaders`.
+  const EXAMPLE_UNSUB_URL = 'https://example.test/unsubscribe?t=abc.def';
+
+  it('no preference-gated template emits the stale "Manage in Settings -> Notifications" copy', () => {
+    // Phase 5 left a "Manage in Settings -> Notifications" string in every
+    // footer — but the in-app Settings screen doesn't actually manage email
+    // prefs, so the copy was misleading. Phase 7.1 removes it in favor of a
+    // real unsubscribe link. This fence prevents regression.
+    const {
+      buildWelcomeDay0Email,
+      buildWelcomeDay1Email,
+      buildWelcomeDay3Email,
+      buildWelcomeDay7Email,
+      buildStreakWinback1Email,
+      buildStreakWinback2Email,
+      buildChapterDigestEmail,
+      buildTrialExpiryEmail,
+    } = loadTemplates();
+    const samples = [
+      buildWelcomeDay0Email(),
+      buildWelcomeDay1Email(),
+      buildWelcomeDay3Email({ streakLength: 3 }),
+      buildWelcomeDay7Email({ streakLength: 7, activitiesCompleted: 5 }),
+      buildStreakWinback1Email({ streakLength: 3 }),
+      buildStreakWinback2Email({ streakLength: 3 }),
+      buildChapterDigestEmail({
+        chapterTitle: 'Test',
+        outputJson: {
+          sections: [{ key: 'story', title: 'Story', body: 'A quiet week.' }],
+        },
+        chapterId: 'abc',
+        cadence: 'weekly',
+        periodStartIso: '2026-04-13T07:00:00.000Z',
+        periodEndIso: '2026-04-20T07:00:00.000Z',
+        timezone: 'America/Los_Angeles',
+      }),
+      buildTrialExpiryEmail({ daysRemaining: 3 }),
+    ];
+    for (const { html, text } of samples) {
+      expect(html).not.toMatch(/Manage in Settings/i);
+      expect(text).not.toMatch(/Manage in Settings/i);
+      // The old copy mentioned "Unsubscribe in Settings" — also stale.
+      expect(html).not.toMatch(/Unsubscribe in Settings/i);
+      expect(text).not.toMatch(/Unsubscribe in Settings/i);
+    }
+  });
+
+  it('renders an "Unsubscribe" link in the footer when unsubscribeUrl is provided', () => {
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const out = buildWelcomeDay0Email({ unsubscribeUrl: EXAMPLE_UNSUB_URL });
+    // Exact anchor shape: <a href="<url>" ...>Unsubscribe</a>
+    expect(out.html).toMatch(
+      /<a href="https:\/\/example\.test\/unsubscribe\?t=abc\.def"[^>]*>\s*Unsubscribe\s*<\/a>/i,
+    );
+  });
+
+  it('omits the unsubscribe anchor when unsubscribeUrl is not provided', () => {
+    // Transactional templates (and any caller that doesn't pass the URL)
+    // must not surface a dangling "Unsubscribe" link.
+    const {
+      buildProGrantEmail,
+      buildProCodeEmail,
+      buildGoalInviteEmail,
+    } = loadTemplates();
+    const samples = [
+      buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' }),
+      buildProCodeEmail({ code: 'ABC12345', note: '' }),
+      buildGoalInviteEmail({ goalTitle: 'Hike more', inviteLink: 'https://go.kwilt.app/i/xyz' }),
+    ];
+    for (const { html } of samples) {
+      expect(html).not.toMatch(/>Unsubscribe</i);
+    }
+  });
+
+  it('threads unsubscribeUrl into every preference-gated template', () => {
+    // If any of these templates silently drops the param, users on that
+    // campaign will get Resend headers that don't match the footer link —
+    // a consistency hazard. Validate each one explicitly.
+    const {
+      buildWelcomeDay0Email,
+      buildWelcomeDay1Email,
+      buildWelcomeDay3Email,
+      buildWelcomeDay7Email,
+      buildStreakWinback1Email,
+      buildStreakWinback2Email,
+      buildChapterDigestEmail,
+      buildTrialExpiryEmail,
+    } = loadTemplates();
+    const cases = [
+      buildWelcomeDay0Email({ unsubscribeUrl: EXAMPLE_UNSUB_URL }),
+      buildWelcomeDay1Email({ unsubscribeUrl: EXAMPLE_UNSUB_URL }),
+      buildWelcomeDay3Email({ streakLength: 3, unsubscribeUrl: EXAMPLE_UNSUB_URL }),
+      buildWelcomeDay7Email({
+        streakLength: 7,
+        activitiesCompleted: 5,
+        unsubscribeUrl: EXAMPLE_UNSUB_URL,
+      }),
+      buildStreakWinback1Email({ streakLength: 3, unsubscribeUrl: EXAMPLE_UNSUB_URL }),
+      buildStreakWinback2Email({ streakLength: 3, unsubscribeUrl: EXAMPLE_UNSUB_URL }),
+      buildChapterDigestEmail({
+        chapterTitle: 'Test',
+        outputJson: {
+          sections: [{ key: 'story', title: 'Story', body: 'A quiet week.' }],
+        },
+        chapterId: 'abc',
+        cadence: 'weekly',
+        periodStartIso: '2026-04-13T07:00:00.000Z',
+        periodEndIso: '2026-04-20T07:00:00.000Z',
+        timezone: 'America/Los_Angeles',
+        unsubscribeUrl: EXAMPLE_UNSUB_URL,
+      }),
+      buildTrialExpiryEmail({ daysRemaining: 3, unsubscribeUrl: EXAMPLE_UNSUB_URL }),
+    ];
+    for (const { html } of cases) {
+      expect(html).toContain('https://example.test/unsubscribe?t=abc.def');
+      expect(html).toMatch(/>\s*Unsubscribe\s*</);
+    }
+  });
+});
+
 describe('CI guard: emailTemplates.ts source hygiene (Phase 3.5)', () => {
   // Relative to repo root (jest cwd is the repo root via npm test).
   const SOURCE = path.resolve(__dirname, '..', 'emailTemplates.ts');

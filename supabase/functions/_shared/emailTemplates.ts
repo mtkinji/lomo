@@ -105,13 +105,32 @@ function renderFallbackLink(href: string): string {
       </p>`;
 }
 
-/** Small muted sign-off. No top border — whitespace is the separator. */
-function renderFooter(body: string): string {
+/**
+ * Small muted sign-off. No top border — whitespace is the separator.
+ *
+ * When an `unsubscribeUrl` is provided, appends a visible one-click
+ * unsubscribe link on its own line so the footer stays CAN-SPAM / Gmail
+ * 2024 compliant without relying on the inbox-native unsubscribe button
+ * alone. The link label is intentionally generic ("Unsubscribe") — the
+ * confirmation page on kwilt-site spells out the exact category.
+ */
+function renderFooter(body: string, unsubscribeUrl?: string): string {
   const trimmed = body.trim();
-  if (!trimmed) return '';
+  const href = (unsubscribeUrl ?? '').trim();
+  if (!trimmed && !href) return '';
+  const { primaryColor } = getBrandConfig();
+  const rationale = trimmed
+    ? `<div>${escapeHtml(trimmed)}</div>`
+    : '';
+  const unsub = href
+    ? `<div style="margin-top:8px;"><a href="${escapeHtml(href)}" style="color:${escapeHtml(
+        primaryColor,
+      )};text-decoration:underline;">Unsubscribe</a></div>`
+    : '';
   return `
       <div style="margin:28px 0 0;font-size:12px;line-height:18px;color:#6b7280;">
-        ${escapeHtml(trimmed)}
+        ${rationale}
+        ${unsub}
       </div>`;
 }
 
@@ -121,11 +140,20 @@ function renderLayout(params: {
   bodyHtml: string;
   /** Passed through renderFooter internally — no top border, just whitespace. */
   footerText?: string;
+  /**
+   * Phase 7.1: the kwilt-site visible unsubscribe URL (a signed token URL
+   * on the `kwilt.app/unsubscribe` route, built in
+   * `_shared/emailUnsubscribe.ts::buildVisibleUnsubscribeUrl`). When
+   * present, `renderFooter` adds an "Unsubscribe" link below the rationale
+   * text. Transactional templates should leave this unset.
+   */
+  unsubscribeUrl?: string;
 }): string {
   const { appName, logoUrl } = getBrandConfig();
   const title = params.title.trim();
   const preheader = (params.preheader ?? '').trim();
   const footerText = (params.footerText ?? '').trim();
+  const unsubscribeUrl = (params.unsubscribeUrl ?? '').trim();
 
   const logoBlock = (() => {
     // Square mark + wordmark text. Outlook desktop ignores CSS-only sizing on
@@ -159,7 +187,7 @@ function renderLayout(params: {
       <div style="margin:0;font-size:16px;line-height:24px;color:#1f2937;">
         ${params.bodyHtml}
       </div>
-      ${footerText ? renderFooter(footerText) : ''}
+      ${footerText || unsubscribeUrl ? renderFooter(footerText, unsubscribeUrl || undefined) : ''}
     </div>
   </body>
 </html>`;
@@ -252,7 +280,7 @@ export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: st
 // Welcome drip emails (days 0, 1, 3, 7)
 // ---------------------------------------------------------------------------
 
-export function buildWelcomeDay0Email(): EmailContent {
+export function buildWelcomeDay0Email(opts: { unsubscribeUrl?: string } = {}): EmailContent {
   const subject = 'Welcome to Kwilt \u2014 your Arc is waiting';
   const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_0');
 
@@ -272,13 +300,14 @@ export function buildWelcomeDay0Email(): EmailContent {
       ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: opts.unsubscribeUrl,
   });
 
   return { subject, text, html };
 }
 
-export function buildWelcomeDay1Email(): EmailContent {
+export function buildWelcomeDay1Email(opts: { unsubscribeUrl?: string } = {}): EmailContent {
   const subject = 'Your first tiny step';
   const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_1');
 
@@ -297,13 +326,16 @@ export function buildWelcomeDay1Email(): EmailContent {
       ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: opts.unsubscribeUrl,
   });
 
   return { subject, text, html };
 }
 
-export function buildWelcomeDay3Email(params: { streakLength: number }): EmailContent {
+export function buildWelcomeDay3Email(
+  params: { streakLength: number; unsubscribeUrl?: string },
+): EmailContent {
   const streak = params.streakLength;
   const streakLine =
     streak >= 2 ? `You\u2019re on a ${streak}-day streak \u2014 nice work!` : 'Build a streak by showing up each day.';
@@ -326,13 +358,16 @@ export function buildWelcomeDay3Email(params: { streakLength: number }): EmailCo
       ${renderCta(planUrl, 'Open Plan')}
       ${renderFallbackLink(planUrl)}
     `,
-    footerText: 'You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
 
   return { subject, text, html };
 }
 
-export function buildWelcomeDay7Email(params: { streakLength: number; activitiesCompleted: number }): EmailContent {
+export function buildWelcomeDay7Email(
+  params: { streakLength: number; activitiesCompleted: number; unsubscribeUrl?: string },
+): EmailContent {
   const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_7');
   const streak = params.streakLength;
   const completed = params.activitiesCompleted;
@@ -371,7 +406,8 @@ export function buildWelcomeDay7Email(params: { streakLength: number; activities
       ${renderCta(ctaUrl, 'Keep going')}
       ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
 
   return { subject, text, html };
@@ -451,6 +487,7 @@ export function buildChapterDigestEmail(params: {
   periodStartIso: string;
   periodEndIso: string;
   timezone?: string | null;
+  unsubscribeUrl?: string;
 }): EmailContent {
   const { primaryColor } = getBrandConfig();
   const { chapterTitle, outputJson, chapterId, cadence } = params;
@@ -498,7 +535,8 @@ export function buildChapterDigestEmail(params: {
       ${renderCta(ctaUrl, 'Read full chapter')}
       ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You\u2019re receiving this because you enabled chapter email delivery. Manage in Settings \u2192 Notifications.',
+    footerText: 'You\u2019re receiving this because you enabled chapter email delivery.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
 
   return { subject, text, html };
@@ -520,7 +558,9 @@ function cadenceSubjectPhrase(cadence: PeriodCadence, label: string): string {
 // Streak win-back emails (lapsed users)
 // ---------------------------------------------------------------------------
 
-export function buildStreakWinback1Email(params: { streakLength: number }): EmailContent {
+export function buildStreakWinback1Email(
+  params: { streakLength: number; unsubscribeUrl?: string },
+): EmailContent {
   const ctaUrl = makeOpenUrl('today', {}, 'winback_1');
   const streak = params.streakLength;
   const subject =
@@ -554,13 +594,16 @@ export function buildStreakWinback1Email(params: { streakLength: number }): Emai
       ${renderCta(ctaUrl, 'Show up today')}
       ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You\u2019re receiving this because you use Kwilt. Unsubscribe in Settings \u2192 Notifications.',
+    footerText: 'You\u2019re receiving this because you use Kwilt.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
 
   return { subject, text, html };
 }
 
-export function buildStreakWinback2Email(params: { streakLength: number }): EmailContent {
+export function buildStreakWinback2Email(
+  params: { streakLength: number; unsubscribeUrl?: string },
+): EmailContent {
   const ctaUrl = makeOpenUrl('today', {}, 'winback_2');
   const streak = params.streakLength;
   const subject =
@@ -594,7 +637,8 @@ export function buildStreakWinback2Email(params: { streakLength: number }): Emai
       ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'This is the last email we\u2019ll send about this. We\u2019ll be here when you\u2019re ready. Unsubscribe in Settings \u2192 Notifications.',
+    footerText: 'This is the last email we\u2019ll send about this. We\u2019ll be here when you\u2019re ready.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
 
   return { subject, text, html };
@@ -604,7 +648,9 @@ export function buildStreakWinback2Email(params: { streakLength: number }): Emai
 // Trial expiry email
 // ---------------------------------------------------------------------------
 
-export function buildTrialExpiryEmail(params: { daysRemaining: number }): EmailContent {
+export function buildTrialExpiryEmail(
+  params: { daysRemaining: number; unsubscribeUrl?: string },
+): EmailContent {
   const ctaUrl = makeOpenUrl('settings/subscription', {}, 'trial_expiry');
   const days = params.daysRemaining;
   const subject =
@@ -645,7 +691,8 @@ export function buildTrialExpiryEmail(params: { daysRemaining: number }): EmailC
       ${renderCta(ctaUrl, 'Subscribe to Pro')}
       ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You\u2019re receiving this because you started a Kwilt Pro trial. Unsubscribe in Settings \u2192 Notifications.',
+    footerText: 'You\u2019re receiving this because you started a Kwilt Pro trial.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
 
   return { subject, text, html };

@@ -11,6 +11,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { buildGoalInviteEmail } from '../_shared/emailTemplates.ts';
+import { sendEmailViaResend } from '../_shared/emailSend.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -219,32 +220,28 @@ serve(async (req) => {
 
   const emailContent = buildGoalInviteEmail({ goalTitle, inviteLink });
 
-  const resendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${resendKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: recipientEmail,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text,
-    }),
-  }).catch(() => null);
-
-  if (!resendRes) {
-    return json(503, { error: { message: 'Email provider unavailable', code: 'provider_unavailable' } });
-  }
-  if (!resendRes.ok) {
-    const bodyText = await resendRes.text().catch(() => '');
-    return json(502, {
+  // Phase 7.2: goal_invite is transactional (user-initiated) — no
+  // unsubscribe headers or preference guard, but the kill switch applies
+  // and a `campaign` tag lands on Resend for attribution.
+  const outcome = await sendEmailViaResend({
+    resendKey,
+    from: fromEmail,
+    to: recipientEmail,
+    subject: emailContent.subject,
+    html: emailContent.html,
+    text: emailContent.text,
+    campaign: 'goal_invite',
+  });
+  if (!outcome.ok) {
+    if (outcome.reason === 'kill_switch') {
+      return json(503, { error: { message: 'Email sending disabled', code: 'sending_disabled' } });
+    }
+    return json(outcome.status === 503 ? 503 : 502, {
       error: {
         message: 'Email send failed',
         code: 'provider_error',
-        status: resendRes.status,
-        body: bodyText.slice(0, 500),
+        status: outcome.status,
+        body: typeof outcome.body === 'string' ? outcome.body.slice(0, 500) : undefined,
       },
     });
   }

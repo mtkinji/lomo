@@ -24,11 +24,15 @@ import {
   buildStreakWinback1Email,
   buildStreakWinback2Email,
 } from '../_shared/emailTemplates.ts';
+import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
+import { sendEmailViaResend, isEmailSendingEnabled } from '../_shared/emailSend.ts';
 
 type DripMessage = {
   key: string;
+  /** UTM campaign name — mapped to preference category by `categoryForCampaign`. */
+  campaign: 'welcome_day_3' | 'welcome_day_7';
   dayThreshold: number;
-  build: (ctx: UserContext) => { subject: string; text: string; html: string };
+  build: (ctx: UserContext, unsubscribeUrl?: string) => { subject: string; text: string; html: string };
 };
 
 type UserContext = {
@@ -44,48 +48,23 @@ type UserContext = {
 const DRIP_MESSAGES: DripMessage[] = [
   {
     key: 'welcome_day3',
+    campaign: 'welcome_day_3',
     dayThreshold: 3,
-    build: (ctx) => buildWelcomeDay3Email({ streakLength: ctx.streakLength }),
+    build: (ctx, unsubscribeUrl) =>
+      buildWelcomeDay3Email({ streakLength: ctx.streakLength, unsubscribeUrl }),
   },
   {
     key: 'welcome_day7',
+    campaign: 'welcome_day_7',
     dayThreshold: 7,
-    build: (ctx) =>
+    build: (ctx, unsubscribeUrl) =>
       buildWelcomeDay7Email({
         streakLength: ctx.streakLength,
         activitiesCompleted: ctx.activitiesCompleted,
+        unsubscribeUrl,
       }),
   },
 ];
-
-async function sendViaResend(params: {
-  resendKey: string;
-  from: string;
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-}): Promise<boolean> {
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${params.resendKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: params.from,
-        to: params.to,
-        subject: params.subject,
-        html: params.html,
-        text: params.text,
-      }),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -101,6 +80,12 @@ serve(async (req) => {
   const fromEmail = (Deno.env.get('KWILT_DRIP_EMAIL_FROM') ?? 'hello@mail.kwilt.app').trim();
   if (!resendKey) {
     return json(503, { error: { message: 'Email service unavailable', code: 'provider_unavailable' } });
+  }
+
+  // Phase 7.2 kill switch — reported here so cron operators can see in logs
+  // that the run was a no-op without digging into per-send outcomes.
+  if (!isEmailSendingEnabled()) {
+    return json(200, { ok: true, skipped: true, reason: 'kill_switch' });
   }
 
   const isManual = req.method === 'POST';
@@ -142,7 +127,7 @@ serve(async (req) => {
   // auth.users isn't directly queryable via PostgREST. Use an RPC or raw query.
   // Instead, query the admin auth API for user listing.
   const now = Date.now();
-  const results: Array<{ userId: string; messageKey: string; ok: boolean; error?: string }> = [];
+  const results: Array<{ userId: string; messageKey: string; ok: boolean; error?: string | null }> = [];
 
   // Use admin auth API to list users (paginated, max 1000 per page).
   // For cron runs, we only need users created in the last 8 days.
@@ -233,15 +218,28 @@ serve(async (req) => {
       if (daysSinceSignup < msg.dayThreshold) continue;
       if (sentKeys.has(msg.key)) continue;
 
-      const content = msg.build(ctx);
-      const sent = await sendViaResend({
+      // Phase 7.1: build unsubscribe headers + visible URL up front so we
+      // can thread the URL into the template footer AND attach the headers
+      // to the Resend request. `welcome_drip` is the preference category.
+      const unsub = await buildUnsubscribeHeaders({
+        userId: user.id,
+        category: 'welcome_drip',
+      });
+      const content = msg.build(ctx, unsub?.visibleUrl);
+
+      const outcome = await sendEmailViaResend({
         resendKey,
         from: fromEmail,
         to: user.email,
         subject: content.subject,
         html: content.html,
         text: content.text,
+        campaign: msg.campaign,
+        userId: user.id,
+        admin,
+        extraHeaders: unsub?.headers,
       });
+      const sent = outcome.ok;
 
       if (sent) {
         await admin.from('kwilt_email_cadence').insert({
@@ -251,7 +249,12 @@ serve(async (req) => {
         });
       }
 
-      results.push({ userId: user.id, messageKey: msg.key, ok: sent });
+      results.push({
+        userId: user.id,
+        messageKey: msg.key,
+        ok: sent,
+        ...(sent ? null : { error: outcome.reason }),
+      });
       break; // one message per user per run
     }
   }
@@ -355,28 +358,48 @@ serve(async (req) => {
 
       const daysSinceLastActivity = daysSinceLastActivityByUser.get(userId) ?? 3;
 
+      // Phase 7.1: build unsubscribe headers up front (streak_winback category).
+      const unsub = await buildUnsubscribeHeaders({
+        userId,
+        category: 'streak_winback',
+      });
+
       // Determine which message to send
       let messageKey: string | null = null;
+      let campaign: 'winback_1' | 'winback_2' | null = null;
       let content: { subject: string; text: string; html: string } | null = null;
 
       if (!wb1SentAt && daysSinceLastActivity >= 3) {
         messageKey = 'streak_winback_1';
-        content = buildStreakWinback1Email({ streakLength });
+        campaign = 'winback_1';
+        content = buildStreakWinback1Email({
+          streakLength,
+          unsubscribeUrl: unsub?.visibleUrl,
+        });
       } else if (wb1SentAt && !wb2SentAt && daysSinceLastActivity >= 7) {
         messageKey = 'streak_winback_2';
-        content = buildStreakWinback2Email({ streakLength });
+        campaign = 'winback_2';
+        content = buildStreakWinback2Email({
+          streakLength,
+          unsubscribeUrl: unsub?.visibleUrl,
+        });
       }
 
-      if (!messageKey || !content) continue;
+      if (!messageKey || !content || !campaign) continue;
 
-      const sent = await sendViaResend({
+      const outcome = await sendEmailViaResend({
         resendKey,
         from: fromEmail,
         to: email,
         subject: content.subject,
         html: content.html,
         text: content.text,
+        campaign,
+        userId,
+        admin,
+        extraHeaders: unsub?.headers,
       });
+      const sent = outcome.ok;
 
       if (sent) {
         // Upsert (the unique constraint is on user_id + message_key)

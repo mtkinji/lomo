@@ -401,7 +401,7 @@ Files: `src/services/NotificationService.ts`
 
 - After chapter generation, if `email_enabled` and `email_recipient` are set and user hasn't opted out of `chapter_digest`:
   - Sends a styled digest email with chapter title, period label, and narrative snippet.
-  - Deep link: `kwilt://chapters/[id]`.
+  - Deep link: `https://go.kwilt.app/open/chapters/[id]` (universal-link handoff — Phase 1–3 of [`email-system-ga-plan.md`](./email-system-ga-plan.md) replaced the original `kwilt://chapters/[id]` CTA so desktop clients don't dead-end on an unregistered scheme).
 - Template: `buildChapterDigestEmail`.
 
 **25. "Streak Sunday" weekly recap card** — `StreakWeeklyRecapCard.tsx`, `PlanScreen.tsx`
@@ -453,6 +453,15 @@ Files: `src/services/NotificationService.ts`
 - [x] Adaptive timing tracks completion hours and suggests adjustment when divergent.
 - [x] `isProToolsTrial` bug fixed: all Pro Tools features now gated correctly.
 - [x] Pro previews grant time-limited access at streak milestones 7 and 14.
+
+### Post-Sprint-4 follow-up: GA hardening
+
+The raw email infrastructure shipped in Sprint 4, but several GA prerequisites — universal-link handoff, consistent template UX, one-click unsubscribe, kill switch, per-user send cap, deliverability — are tracked in the dedicated [`docs/email-system-ga-plan.md`](./email-system-ga-plan.md) (Phases 1–8). Highlights already landed:
+
+- **Phase 1–3 (universal-link handoff):** every email CTA now routes through `https://go.kwilt.app/open/...` with a Next.js handoff page that either deep-links the iOS app (via universal links + `applinks:` association) or falls back to an install CTA. Replaces the original direct-scheme `kwilt://` URLs which dead-ended on desktop clients.
+- **Phase 4 (brand logo):** `renderLayout` emits explicit `width`/`height` HTML attrs on the logo `<img>` so Outlook desktop doesn't explode the header.
+- **Phase 5 (UX refinement):** all templates now share a single-surface letter-style shell with `renderCta` / `renderFallbackLink` / `renderFooter` primitives; plain-text parity with the HTML rhythm; dark-mode `color-scheme` meta tags.
+- **Phase 7 (GA prerequisites):** `List-Unsubscribe` + `List-Unsubscribe-Post` headers on all preference-gated sends (RFC 8058 one-click), HMAC-signed `/unsubscribe` route across kwilt-site + a new `supabase/functions/unsubscribe` edge function, `KWILT_EMAIL_SENDING_ENABLED` kill switch, per-user 2/24h cap, and a full operational runbook at [`docs/email-system.md`](./email-system.md).
 
 ---
 
